@@ -6,15 +6,9 @@ uploads-indicator {
     width: 42px;
     margin: 0 auto;
 
-    svg-icon {
+    .icon-btn > svg-icon {
         margin: 0 auto;
-    }
-
-    bar {
-        margin: @gutter/2 0;
-        height: 1px;
-        width: 42px;
-        border-radius: 0;
+        fill: rgb(var(--color8));
     }
 
     .anim {
@@ -23,10 +17,10 @@ uploads-indicator {
         top: 3px;
         left: 8px;
         background: transparent;
-        border: 1px solid @color6;
+        border: 1px solid rgb(var(--color9));
         border-radius: 1px;
         padding: 4px 2px;
-        color: @color8;
+        color: rgb(var(--color6));
         animation-fill-mode: forwards;
 
         &::before {

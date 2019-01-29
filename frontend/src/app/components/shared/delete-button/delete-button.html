@@ -1,17 +1,27 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div ko.css.active="isActive" ko.tooltip="tooltip">
+<div ko.css.active="isActive"
+    ko.tooltip="tooltip"
+>
     <span class="message-wrapper">
         <span class="row content-middle message-text">
-            <span class="push-next" ko.text="question"></span>
+            <span class="push-next">{{question}}</span>
 
-            <a class="link" href ko.click="onConfirm">YES</a>
+            <a class="link"
+                tabindex="-1"
+                href
+                ko.click="onConfirm"
+            >YES</a>
             /
-            <a class="link" href ko.click="onCancel">NO</a>
+            <a class="link"
+                tabindex="-1"
+                href
+                ko.click="onCancel"
+            >NO</a>
         </span>
     </span>
 
-    <button class="icon-btn no-outline"
+    <button class="icon-btn"
         ko.disable="disabled"
         ko.click="onToggle"
     ">

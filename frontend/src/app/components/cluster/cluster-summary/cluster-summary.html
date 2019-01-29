@@ -1,60 +1,64 @@
 <!-- Copyright (C) 2016 NooBaa -->
+<div class="fill row" ko.visible="!dataReady()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
 
-<div class="row greedy">
-    <section class="c4 column borders pad">
-        <div class="row greedy content-middle">
+<div class="summary greedy row" ko.css.visible="dataReady">
+    <section class="c4 column card">
+        <div class="row hpad greedy content-middle">
             <svg-icon class="push-next success"
-                params="name: statusIcon().name"
-                data-bind="css: statusIcon().css"
+                params="name: status.icon"
+                ko.css="status.css"
             ></svg-icon>
-            <span class="highlight" data-bind="text: statusText"></span>
+            <span class="highlight">{{status.text}}</span>
         </div>
-
         <hr>
-
-        <div class="row greedy content-middle">
-            <svg-icon class="push-next success" params="name: HAIcon().name"
-                data-bind="css: HAIcon().css"></svg-icon>
+        <div class="row hpad greedy content-middle">
+            <svg-icon class="push-next success"
+                params="name: ha.icon"
+                ko.css="ha.css"
+            ></svg-icon>
             <span class="highlight greedy push-next">
-                <span data-bind="text: HAText"></span>
+                {{ha.text}}
             </span>
-            <more-info-icon params="tooltip: HATooltip"></more-info-icon>
+            <more-info-icon params="tooltip: ha.tooltip">
+            </more-info-icon>
         </div>
-
         <hr>
-
-        <div class="row greedy content-middle">
-            <svg-icon class="push-next success" params="
-                name: faultToleranceIcon().name
-            " data-bind="
-                css: faultToleranceIcon().css
+        <div class="row hpad greedy content-middle">
+            <svg-icon class="push-next success"
+                params="name: faultTolerance.icon"
+                ko.css="faultTolerance.css"
             "></svg-icon>
             <span class="greedy push-next">
                 <span class="highlight push-next status-label">
                     Fault Tolerance:
                 </span>
-                <span data-bind="text: faultToleranceText"></span>
+                {{faultTolerance.text}}
             </span>
-            <more-info-icon params="tooltip: faultToleranceTooltip"></more-info-icon>
+            <more-info-icon params="tooltip: faultTolerance.tooltip">
+            </more-info-icon>
         </div>
     </section>
 
     <section class="column c4 column push-both">
-        <chart-legend class="legend-row" params="
-            caption: chartCaption,
-            items: chartValues
+        <chart-legend class="legend-row push-next" params="
+            caption: legend.caption,
+            items: legend.values
         "></chart-legend>
 
-        <div class="row greedy content-middle">
-            <canvas class="cluster-graph" data-bind="
-                canvas: { draw: drawChart.bind($data), height: 50 },
-                globalEvent: { resize: triggerRedraw }
-            "></canvas>
-        </div>
+        <bar class="servers-bar bar-flip-markers push-prev" params="
+            values: bar.values,
+            markers: bar.markers,
+            minRatio: 0,
+            spacing: .01
+        "></bar>
     </section>
 
-    <section class="c4 column pad borders">
-        <h3 class="heading3" data-bind="text: 'No Cluster Activities'"></h3>
+    <section class="c4 column card">
+        <h3 class="heading3 hpad pad-half">
+            No Cluster Activities
+        </h3>
         <hr>
     </section>
 </div>

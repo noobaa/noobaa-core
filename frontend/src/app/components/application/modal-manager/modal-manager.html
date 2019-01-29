@@ -6,13 +6,13 @@
     ko.click="(_, evt) => (evt.target === $element && onBackdrop(), true)"
 >
     <!-- ko foreach: modals -->
-    <div class="modal column text-left pop-centered"
+    <div class="modal column text-left pop-centered card-shadow"
         tabindex="-1"
         ko.hasFocus="true"
         ko.css="css"
     >
         <!-- ko if: title.text -->
-        <h1 class="row heading2 modal-heading content-middle" ko.css="title.css">
+        <h1 class="row heading1 modal-heading content-middle content-box" ko.css="title.css">
             <svg-icon class="severity-icon"
                 params="name: title.icon"
                 ko.visible="title.icon"
@@ -21,7 +21,7 @@
 
             <span class="greedy push-next" ko.text="title.text"></span>
 
-            <button class="close-btn icon-btn no-outline highlight"
+            <button class="close-btn icon-btn highlight"
                 tabindex="-1"
                 ko.visible="xButton.visible"
                 ko.disable="xButton.disabled"

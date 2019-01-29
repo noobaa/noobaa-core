@@ -8,12 +8,12 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: @color2;
     font-family: @font-family1;
     font-weight: @font-light;
     font-size: @font-size3;
-    color: @color7;
     overflow: hidden;
+    color: rgb(var(--color10));
+    background-color: rgb(var(--color1));
 }
 
 a {
@@ -35,7 +35,7 @@ fieldset {
 }
 
 ul, ol {
-    line-height: 1.7;
+    line-height: 1.3;
 }
 
 label {
@@ -48,24 +48,16 @@ label {
 
 hr {
     border: none;
-    border-top: 1px solid @color15;
-    margin: @gutter/2 0;
+    border-top: 1px solid rgb(var(--color16));
+    margin: 0;
 }
 
 vr {
     width: 1px;
     min-width: 1px;
-    background-color: @color15;
-    margin: 0 @gutter;
+    background-color: rgb(var(--color16));
+    margin: 0;
     align-self: stretch;
-
-    &.vr-light {
-        background-color: @color7;
-    }
-
-    &.vr-dark {
-        background-color: @color3;
-    }
 }
 
 output {
@@ -83,12 +75,12 @@ pre {
 }
 
 :focus {
-    .focused();
+    outline: none;
 }
 
 ::-webkit-scrollbar  {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -96,8 +88,9 @@ pre {
 }
 
 ::-webkit-scrollbar-thumb  {
-    background-color: @color7;
-    border: 2px solid @color3;
+    background-color: rgb(var(--color13));
+    border: 3px solid rgb(var(--color5));
+    border-radius: 5px;
 }
 
 ::-webkit-scrollbar-corner {
@@ -105,11 +98,12 @@ pre {
 }
 
 .no-overflow {
-    overflow: hidden;
+    overflow-y: hidden;
 }
 
 .auto-overflow {
-    overflow: auto;
+    overflow-y: auto;
+    scroll-behavior: smooth;
 }
 
 .text-center {
@@ -146,11 +140,6 @@ pre {
     padding: 0;
 }
 
-.no-outline {
-    &, &:focus {
-        outline: none;
-    }
-}
 .no-wrap {
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -192,21 +181,21 @@ pre {
 .heading1 {
     line-height: 1.7;
     font-size: @font-size6;
-    color: @color6;
+    color: rgb(var(--color9));
     font-weight: @font-light;
 }
 
 .heading2 {
     line-height: 1.7;
-    font-size: @font-size6;
-    color: @color8;
+    font-size: @font-size5;
+    color: rgb(var(--color9));
     font-weight: @font-light;
 }
 
 .heading3 {
     line-height: 1.7;
     font-size: @font-size4;
-    color: @color6;
+    color: rgb(var(--color9));
     font-weight: @font-light;
 }
 
@@ -214,7 +203,7 @@ pre {
     font-size: @font-size1;
     font-weight: @font-light;
     line-height: 1.4;
-    color: @color7;
+    color: rgb(var(--color10));
 
     .link {
         font-size: @font-size1;
@@ -231,12 +220,11 @@ pre {
 }
 
 .highlight {
-    color: @color6;
-    font-weight: @font-thin;
+    color: rgb(var(--color9));
 
     &.disabled,
     .disabled & {
-        color: @color15;
+        color: rgb(var(--color18));
     }
 
     &.warning, .warning & {
@@ -257,23 +245,27 @@ pre {
 }
 
 .success {
-    color: @color12;
+    color: rgb(var(--color21));
+    font-weight: @font-regular;
 }
 
 .warning {
-    color: @color11;
+    color: rgb(var(--color20));
+    font-weight: @font-regular;
 }
 
 .error {
-    color: @color10;
+    color: rgb(var(--color19));
+    font-weight: @font-medium;
 }
 
 .info {
-    color: @color16;
+    color: rgb(var(--color22));
+    font-weight: @font-regular;
 }
 
 .disabled {
-    color: @color15;
+    color: rgb(var(--color18));
 }
 
 .bullet-list {
@@ -292,32 +284,63 @@ pre {
 }
 
 .sticky {
-    max-height: 0;
     overflow-y: hidden;
-    transition: max-height 500ms ease-out;
-    background: @color7;
+    background-color: rgba(var(--color26), .5);
+    outline: 1px solid rgb(var(--color26));
+    outline-offset: -1px;
+    position: relative;
+
+    &.sticky-error {
+        background-color: rgba(var(--color19), .5);
+        outline-color: rgb(var(--color19));
+    }
+
+    &.sticky-warning {
+        background-color: rgba(var(--color20), .5);
+        outline-color: rgb(var(--color20));
+    }
+
+    &.sticky-success {
+        background-color: rgba(var(--color21), .5);
+        outline-color: rgb(var(--color21));
+    }
 
     .sticky-content {
         padding: @gutter/2 @gutter;
-        color: @color1;
+        color: rgb(var(--color4));
         font-weight: @font-medium;
     }
 
     svg-icon {
-        margin-right: @gutter/2;
-        fill: @color1;
+        fill: rgb(var(--color4));
     }
 
     vr {
         align-self: stretch;
-        background-color: @color1;
+        background-color: rgb(var(--color4));
         margin: 0 @gutter;
     }
 
-    &.active {
-        max-height: 34px;
+    .sticky-content {
+        margin-top: -36px;
+        transition: margin-top 500ms ease-out;
     }
 
+    &.active .sticky-content {
+        margin-top: 0;
+    }
+
+    .sticky-action {
+        font-size: @font-size2;
+        font-weight: @font-regular;
+        border: none;
+        background: none;
+        display: inline;
+        padding: 0;
+        color: rgb(var(--color2));
+        text-decoration: underline;
+        cursor: @cursor-pointer;
+    }
 }
 
 .hide {
@@ -331,6 +354,10 @@ pre {
 
 .pad {
     padding: @gutter;
+}
+
+.pad-double {
+    padding: @gutter * 2;
 }
 
 .pad-half {
@@ -367,62 +394,24 @@ pre {
     padding-bottom: @gutter;
 }
 
-.double-pad {
-    padding: @gutter * 2;
-}
-
-.alt-bg {
-    background-color: @color5;
-
-    &::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb {
-        border-color: @color5;
-    }
-}
-
-.alt-bg-dark {
-    background-color: @color4;
-    // currently we don't have cases with .alt-bg-dark scroll
-    /*&::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb {
-        border-color: @color1;
-    }*/
-}
-
 .borders {
-    border: 1px solid @color15;
+    border: 1px solid rgb(var(--color16));
 }
 
 .border-bottom {
-    border-bottom: 1px solid @color15;
+    border-bottom: 1px solid rgb(var(--color16));
 }
 
 .border-top {
-    border-top: 1px solid @color15;
+    border-top: 1px solid rgb(var(--color16));
 }
 
 .border-left {
-    border-left: 1px solid @color15;
+    border-left: 1px solid rgb(var(--color16));
 }
 
 .border-right {
-    border-right: 1px solid @color15;
-}
-
-.borders,
-.border-bottom,
-.border-top,
-.border-left,
-.border-right {
-    &.border-light {
-        border-color: @color6;
-    }
-
-    &.border-dark {
-        border-color: @color1;
-    }
-
-    &.border-dash {
-        border-style: dashed;
-    }
+    border-right: 1px solid rgb(var(--color16));
 }
 
 .break-words {
@@ -455,13 +444,12 @@ pre {
 .beta-tag::after {
     content: 'BETA';
     display: inline-block;
-    background: @color16;
+    background: rgb(var(--color20));
     border-radius: 6px;
     font-size: 10px;
-    padding: 2px;
+    padding: 3px;
     opacity: 1;
     line-height: 1.1;
-    color: @color5;
     font-weight: 500;
 }
 
@@ -470,7 +458,7 @@ pre {
     .remark();
 
     &.disabled {
-        color: @color15;
+        color: rgb(var(--color18));
     }
 
     padding-left: 0;
@@ -498,7 +486,7 @@ pre {
     @size: 10px;
     position: relative;
 
-    &::before {
+    &::after {
         position: absolute;
         left: @left;
         top: @top;
@@ -508,31 +496,36 @@ pre {
         height: @size;
         line-height: 100%;
         padding: 2px;
-        background-color: @color6;
-        color: @color8;
+        background-color: rgb(var(--color8));
+        color: rgb(var(--color6));
         border-radius: @size;
         text-align: center;
         font-size: 11px;
         z-index: 1;
     }
 
-    &.warning::before {
-        background-color: @color11;
-        color: @color1;
+    &.warning::after {
+        border: 1px solid rgb(var(--color20));
+        background: transparent;
+        color: rgb(var(--color20));
+        font-weight: @font-medium;
+
     }
 
-    &.error::before {
-        background-color: @color10;
-        color: @color1;
+    &.error::after {
+        border: 1px solid rgb(var(--color19));
+        background: transparent;
+        color: rgb(var(--color19));
+        font-weight: @font-medium;
     }
 }
 
 dirty-mark {
     vertical-align: text-top;
     font-size: @font-size1;
-    color: @color10;
+    color: rgb(var(--color19));
 
-    &::before {
+    &::after {
         content: '*';
     }
 }
@@ -564,3 +557,84 @@ dirty-mark {
 .round-corners {
     border-radius: 3px;
 }
+
+.card-bg {
+    background-color: rgb(var(--color15));
+}
+
+.card-decor {
+    border-left: 4px solid rgb(var(--color14));
+}
+
+.card-shadow {
+    box-shadow: 0px 2px 4px rgba(var(--shadow2));
+    margin-bottom: 3px;
+}
+
+.card {
+    .card-bg;
+    .card-shadow;
+    .card-decor;
+}
+
+.content-box {
+    background-color: rgb(var(--color23));
+
+    &::-webkit-scrollbar-thumb,
+    ::-webkit-scrollbar-thumb {
+        border: 3px solid rgb(var(--color23));
+    }
+}
+
+.warning-box {
+    background-color: rgb(var(--color15));
+    border: 1px solid rgb(var(--color20));
+}
+
+.text-thin {
+    font-weight: @font-thin;
+}
+
+.text-light {
+    font-weight: @font-light;
+}
+
+.text-bold {
+    font-weight: @font-medium;
+}
+
+.tag {
+    border-radius: 2px;
+    font-size: @font-size1;
+    font-weight: @font-regular;
+    color: rgb(var(--color10));
+    padding: @gutter/4 @gutter/2;
+    background-color: rgb(var(--color16));
+    text-align: center;
+
+    a& {
+        color: rgb(var(--color11));
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+svg-icon.circled-icon {
+    box-sizing: content-box;
+    border: 2px solid rgb(var(--color9));
+    fill: rgb(var(--color9));
+    border-radius: 30px;
+    padding: @gutter * 2/3;
+}
+
+/* Handles theme transition effect */
+body,
+.card-bg,
+.content-box,
+.tabs-row,
+.warning-box {
+    transition: background-color 300ms ease-out;
+}
+

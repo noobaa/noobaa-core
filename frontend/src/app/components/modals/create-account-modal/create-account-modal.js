@@ -11,11 +11,13 @@ import { getFormValues, getFieldValue, isFieldTouched, isFieldValid, isFormValid
 import { isEmail } from 'validations';
 import {
     touchForm,
+    updateForm,
     closeModal,
     lockModal,
     createAccount
 } from 'action-creators';
 
+const s3AccessTooltip = 'Granting S3 access will allow this account to connect S3 client applications by generating security credentials (key set).';
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
 const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
 
@@ -63,6 +65,7 @@ function _getAccountNameFieldProps(form) {
 class CreateAccountModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
+    s3AccessTooltip = s3AccessTooltip;
     s3PlacementToolTip = s3PlacementToolTip;
     allowBucketCreationTooltip = allowBucketCreationTooltip;
     accountNames = null;
@@ -76,7 +79,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
         isRemarkVisible: ko.observable()
     };
     isS3AccessDisabled = ko.observable();
-    isBucketSelectionDisabled = ko.observable();
+    isAllowAccessToFutureBucketsDisabled = ko.observable();
     isStepValid = false;
     fields = ko.observable();
 
@@ -97,9 +100,11 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             });
 
         } else {
+            const bucketList = Object.keys(buckets);
             const {
                 hasS3Access = true,
-                hasAccessToAllBuckets = false
+                allowAccessToFutureBuckets = false,
+                allowedBuckets = bucketList
             } = form ? getFormValues(form) : {};
 
             const accountNames = Object.keys(accounts);
@@ -109,17 +114,18 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             ];
             const resourceOptions = resourceList.map(mapResourceToOptions);
             const systemHasResources = resourceList.length > 0;
-            const bucketOptions = Object.keys(buckets);
             const isS3AccessDisabled = (form && form.submitted) || !hasS3Access;
-            const isBucketSelectionDisabled = isS3AccessDisabled || hasAccessToAllBuckets;
+            const isAllowAccessToFutureBucketsDisabled =
+                isS3AccessDisabled ||
+                allowedBuckets.length < bucketList.length;
 
             ko.assignToProps(this, {
                 accountNames,
                 resourceOptions,
-                bucketOptions,
+                bucketOptions: bucketList,
                 accountNameProps: _getAccountNameFieldProps(form),
                 isS3AccessDisabled,
-                isBucketSelectionDisabled,
+                isAllowAccessToFutureBucketsDisabled,
                 systemHasResources,
                 isStepValid: form ? isFormValid(form) : false,
                 fields: !form ? {
@@ -128,15 +134,22 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
                     hasLoginAccess: true,
                     hasS3Access,
                     defaultResource: undefined,
-                    hasAccessToAllBuckets,
-                    allowedBuckets: Object.keys(buckets),
+                    allowedBuckets,
+                    allowAccessToFutureBuckets,
                     allowBucketCreation: true
                 } : undefined
             });
         }
-
-
     }
+
+    onSelectAllowedBuckets(allowedBuckets) {
+        const update = { allowedBuckets };
+        if (allowedBuckets.length < this.bucketOptions().length) {
+            update.allowAccessToFutureBuckets = false;
+        }
+        this.dispatch(updateForm(this.formName, update));
+    }
+
     onWarn(values) {
         const warnings = {};
         const { hasS3Access, step } = values;
@@ -183,7 +196,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
 
         } else if (step === 1) {
             if (!hasLoginAccess && !hasS3Access) {
-                errors.hasS3Access = 'A user must have either login access or s3 access';
+                errors.hasS3Access = 'A user must have either login access or S3 access';
             }
 
             if (hasS3Access && this.systemHasResources && !defaultResource) {
@@ -218,7 +231,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
                 this.password,
                 values.hasS3Access,
                 values.defaultResource,
-                values.hasAccessToAllBuckets,
+                values.allowAccessToFutureBuckets,
                 values.allowedBuckets,
                 values.allowBucketCreation
             )

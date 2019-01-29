@@ -1,13 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-bucket-quota-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, mapValues } from 'utils/core-utils';
 import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
-import style from 'style';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
-import { state$, action$ } from 'state';
 import { updateBucketQuotaPolicy, closeModal } from 'action-creators';
 import {
     formatSize,
@@ -75,93 +72,105 @@ function _getQuota(formValues, bucket) {
     }
 }
 
-class EditBucketQuotaModalViewModel extends Observer {
+class EditBucketQuotaModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     unitOptions = unitOptions;
     bucketName = '';
     fields = ko.observable();
-    markers = ko.observableArray();
-    barValues = [
-        {
-            label: 'Used Data',
-            color: style['color8'],
-            value: ko.observable()
-        },
-        {
-            label: 'Overused',
-            color: style['color10'],
-            value: ko.observable(),
-            visible: ko.observable()
-        },
-        {
-            label: 'Available',
-            color: style['color5'],
-            value: ko.observable()
-        },
-        {
-            label: 'Potential',
-            color: style['color1'],
-            value: ko.observable(),
-            visible: false
-        },
-        {
-            label: 'Overallocated',
-            color: style['color11'],
-            value: ko.observable(),
-            visible: ko.observable()
-        }
-    ];
+    bar = {
+        values: [
+            {
+                label: 'Used Data',
+                color: 'rgb(var(--color6))',
+                value: ko.observable()
+            },
+            {
+                label: 'Available',
+                color: 'rgb(var(--color16))',
+                value: ko.observable()
+            },
+            {
+                label: 'Overallocated',
+                color: 'rgb(var(--color19))',
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                label: 'Overused',
+                color: 'rgb(var(--color20))',
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                label: 'Potential',
+                color: 'rgb(var(--color21))',
+                value: ko.observable(),
+                visible: ko.observable()
+            }
+        ],
+        markers: [
+            {
+                visible: ko.observable(),
+                text: ko.observable(),
+                position: 3
+            }
+        ]
+    };
 
-    constructor({ bucketName }) {
-        super();
-
-        this.bucketName = ko.unwrap(bucketName);
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['buckets', this.bucketName],
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        const { buckets, forms } = state;
+        return [
+            buckets && buckets[params.bucketName],
+            forms[this.formName]
+        ];
     }
 
-    onState([ bucket, form ]) {
-        if (!bucket) return;
+    mapStateToProps(bucket, form) {
+        if (!bucket) {
+            return;
+        }
 
         const formValues = form && mapValues(form.fields, field => field.value);
         const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
         const quota = _getQuota(formValues, bucket);
         const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
-        const potential = breakdown.potentialForUpload;
-        this.barValues[0].value(toBytes(breakdown.used));
-        this.barValues[1].value(toBytes(breakdown.overused));
-        this.barValues[1].visible(!isSizeZero(breakdown.overused));
-        this.barValues[2].value(toBytes(breakdown.availableForUpload));
-        this.barValues[3].value(toBytes(potential));
-        this.barValues[4].value(toBytes(breakdown.overallocated));
-        this.barValues[4].visible(!isSizeZero(breakdown.overallocated));
 
-        const markers = [];
-        if (enabled) {
-            const value = getQuotaValue(quota);
-            const placement = toBytes(value);
-            const label = `Quota: ${formatSize(value)}`;
-
-            markers.push({ placement, label });
-        }
-
-        this.markers(markers);
-
-        if (!this.fields()) {
-            this.fields({
+        ko.assignToProps(this, {
+            bucketName: bucket.name,
+            bar: {
+                values: [
+                    {
+                        value: toBytes(breakdown.used)
+                    },
+                    {
+                        value: toBytes(breakdown.availableForUpload)
+                    },
+                    {
+                        value: toBytes(breakdown.overallocated),
+                        visible: !isSizeZero(breakdown.overallocated)
+                    },
+                    {
+                        value: toBytes(breakdown.overused),
+                        visible: !isSizeZero(breakdown.overused)
+                    },
+                    {
+                        value: toBytes(breakdown.potentialForUpload),
+                        visible: !isSizeZero(breakdown.potentialForUpload)
+                    }
+                ],
+                markers: [
+                    {
+                        visible: enabled,
+                        text: enabled ? `Quota: ${formatSize(getQuotaValue(quota))}` : ''
+                    }
+                ]
+            },
+            fields: !form ? {
                 enabled: enabled,
                 unit: quota.unit,
                 size: quota.size
-            });
-        }
+            } : undefined
+        });
     }
 
     onValidate(values) {
@@ -180,12 +189,14 @@ class EditBucketQuotaModalViewModel extends Observer {
             { unit: values.unit, size: Number(values.size) } :
             null;
 
-        action$.next(updateBucketQuotaPolicy(this.bucketName, quota));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            updateBucketQuotaPolicy(this.bucketName, quota)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

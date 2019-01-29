@@ -8,7 +8,7 @@
         <!-- ko if: resources.length -->
         <ul class="list-no-style" ko.foreach="resources">
             <li class="row content-middle">
-                <svg-icon class="icon-small highlight push-next-half"
+                <svg-icon class="icon-small push-next-half"
                     params="name: icon"
                 ></svg-icon>
                 <a class="link" ko.attr.href="href">{{name}}</a>
@@ -16,7 +16,7 @@
         </ul>
         <!-- /ko -->
         <!-- ko ifnot: resources.length -->
-        <p>No resources</p>
+        <p class="text-thin">No resources</p>
         <!-- /ko -->
     </li>
 </ol>

@@ -11,7 +11,7 @@
         onCancel: onDone,
         onComplete: onDone
     ">
-        <section class="column greedy push-prev">
+        <section class="column greedy pad">
             <h2 class="heading3">Choose drives for installation:</h2>
             <radio-btn params="
                 group: 'drives',
@@ -43,7 +43,7 @@
             </p>
         </section>
 
-        <section class="column greedy push-prev">
+        <section class="column greedy pad">
             <h2 class="heading3">Network Installation</h2>
             <p class="push-next">
                 Use your distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server.
@@ -62,8 +62,8 @@
                     >{{label}}</a>
                 </nav>
 
-                <div class="tabs-row alt-bg" ko.foreach="osTypes">
-                    <div class="tab pad row config-box"
+                <div class="tabs-row" ko.foreach="osTypes">
+                    <div class="tab pad row content-box config-box"
                         ko.css.selected="$form.selectedOs.eq(value)"
                         ko.let.command="($form.commands() || {})[value]"
                     >

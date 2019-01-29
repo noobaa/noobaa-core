@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="column push-next">
-    <h2 class="heading3 pad alt-bg">
+    <h2 class="heading3 pad card-shadow">
         Version Control
     </h1>
 
@@ -17,9 +17,9 @@
         </template>
     </property-sheet>
 </seciton>
-
+<hr>
 <section class="column">
-    <div class="alt-bg pad column">
+    <div class="card-shadow pad column">
         <h2 class="heading3 row content-middle">
             <span class="greedy push-next">
                 System Upgrade
@@ -45,9 +45,14 @@
             <drop-area class="push-prev" params="onDrop: onDropPackage, active: uploadArea().disabled">
                 <!-- ko if: pkgState.oneOf('NO_PACKAGE') -->
                 <p class="push-next-half">Drag an upgrade package or</p>
-                <label class="btn alt-colors">
+                <label class="btn alt-colors"
+                    tabindex="0"
+                    ko.keysToClicks="['space', 'enter']"
+                >
                     Browse
-                    <input type="file" class="hide"
+                    <input type="file"
+                        class="hide"
+                        tabindex="-1"
                         ko.attr.accept="pkgSuffix",
                         ko.event.change="onSelectPackage"
                     />
@@ -55,7 +60,7 @@
                 <!-- /ko -->
 
                 <!-- ko if: pkgState.eq('UPLOADING') -->
-                <svg-icon class="spin push-next-half" params="name: 'in-progress'"></svg-icon>
+                <svg-icon class="spin match-theme push-next-half" params="name: 'in-progress'"></svg-icon>
                 <p class="row content-middle">
                     Uploading Package... {{pkgStateProgressText}}
                     <button class="link alt-colors push-prev-half"
@@ -67,7 +72,7 @@
                 <!-- /ko -->
 
                 <!-- ko if: pkgState.eq('TESTING') -->
-                <svg-icon class="spin push-next-half" params="name: 'in-progress'"></svg-icon>
+                <svg-icon class="spin match-theme push-next-half" params="name: 'in-progress'"></svg-icon>
                 <p>Validating Package... {{pkgStateProgressText}}</p>
                 <!-- /ko -->
 
@@ -107,7 +112,7 @@
         </property-sheet>
 
 
-        <data-table class="pkg-issues-table alt-bg push-next"
+        <data-table class="pkg-issues-table content-box push-next"
             ko.visible="isPkgTestResultsVisible"
             params="
                 columns: pkgIssuesColumns,
@@ -117,7 +122,7 @@
             <template name="issueDetails">
                 <p>
                     {{$data().message}}
-                    <a class="link no-outline"
+                    <a class="link"
                         ko.visible="$data().reportHref"
                         ko.attr.href="$data().reportHref"
                     >

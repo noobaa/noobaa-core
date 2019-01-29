@@ -1,3 +1,19 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<canvas ko.canvas="{ draw: draw, height: canvasHeight, width: canvasWidth }"></canvas>
+<!-- ko if: limits.visible -->
+<div class="bar-limits">
+    <span class="bar-limit">{{limits.low}}</span>
+    <span class="bar-limit">{{limits.high}}</span>
+</div>
+<!-- /ko -->
+
+<div class="bar-line">
+    <div class="bar-markers" ko.foreach="markers">
+        <span class="bar-marker card-shadow card-bg" ko.style="style">{{text}}</span>
+    </div>
+
+    <svg class="bar-svg" ko.foreach="lines"">
+        <line class="bar-line" ko.attr="$data" />
+    </svg>
+</div>
+

@@ -3,84 +3,8 @@
 object-parts-list {
     display: block;
 
-    .box {
-        .remark();
-
-        background-color: @color15;
-        color: @color6;
-        margin-left: @gutter/4;
-        padding: @gutter/4 @gutter/2;
-    }
-
-    a.box {
-        color: @color9;
-    }
-
-
-    .part-list {
-        width: 420px;
-        margin: (@gutter/2 - 4px) 0;
-        overflow: auto;
-
-        .part-row {
-            @height: 44px;
-
-            box-sizing: content-box;
-            padding: 0 @gutter;
-            min-height: @height;
-            cursor: @cursor-pointer;
-
-            svg-icon {
-                min-width: 24px;
-            }
-
-            > div {
-                width: 100%;
-                white-space: nowrap;
-            }
-
-            .more-details-btn {
-                display: none;
-            }
-
-            &.selected {
-                color: @color6;
-                background-color: fadeout(@color6, 95%);
-            }
-
-            &:hover {
-                background-color: fadeout(@color6, 91%);
-
-                .more-details-btn {
-                    display: block;
-                }
-            }
-        }
-    }
-
-    .details-pane {
-        width: calc(~"100% - 420px");
-        margin-right: calc(~"420px - 100%");
-        transition: margin 750ms ease;
-
-        > div {
-            margin: @gutter/2;
-        }
-    }
-
     .block-tables {
         overflow-y: auto;
-        padding-right: @gutter/2;
-        padding-top: 4px;
-        padding-bottom: 4px;
-
-        &.fade {
-            animation: fade-in 750ms ease;
-        }
-
-        > section {
-            padding: @gutter 0;
-        }
 
         data-table {
             .state-col {
@@ -99,22 +23,6 @@ object-parts-list {
                 min-width: 250px;
                 max-width: 250px
             }
-        }
-    }
-
-    .expanded {
-        .part-row:hover .more-details-btn {
-            display: none;
-        }
-
-        .part-row > div {
-            width: 380px;
-            white-space: normal;
-        }
-
-        .details-pane {
-            .border-left();
-            margin-right: 0;
         }
     }
 }

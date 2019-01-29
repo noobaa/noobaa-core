@@ -1,22 +1,26 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="push-next">
-    You are about to delete {{email}} which is the account you are currently logged in with. After the deletion, you will be automatically signed out from the system.
-</p>
+<div class="column greedy pad">
+    <p class="push-next">
+        You are about to delete {{email}} which is the account you are currently logged in with. After the deletion, you will be automatically signed out from the system.
+    </p>
 
-<p class="greedy push-next">
-    Delete this account anyway?
-</p>
+    <p class="greedy push-next">
+        Delete this account anyway?
+    </p>
+</div>
 
-<div class="row content-middle align-end">
-    <button class="link alt-colors push-next"
-        ko.click="onCancel"
-        ko.hasFocus="true"
-    >
-        Cancel
-    </button>
+<div class="column content-box pad">
+    <div class="row content-middle align-end">
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+            ko.hasFocus="true"
+        >
+            Cancel
+        </button>
 
-    <button class="btn" ko.click="onDelete">
-        Yes, Delete and Signout
-    </button>
+        <button class="btn" ko.click="onDelete">
+            Yes, Delete and Signout
+        </button>
+    </div>
 </div>

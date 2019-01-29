@@ -1,33 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './exit-confirmation-message.html';
-import Observer from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { get } from 'utils/core-utils';
-import { getMany } from 'rx-extensions';
+import ko from 'knockout';
 
-class ExitConfirmationMessageViewModel extends Observer {
-    constructor() {
-        super();
-        this.showMessage = false;
+class ExitConfirmationMessageViewModel extends ConnectableViewModel {
+    showMessage = false;
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['objectUploads', 'stats', 'uploading'],
-                    ['topology', 'servers']
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { objectUploads, topology } = state;
+
+        return [
+            Boolean(objectUploads && objectUploads.stats.uploading),
+            topology && topology.servers
+        ];
     }
 
-    onState([uploadCount, servers = {}]) {
-        const uploadingObjects = Boolean(uploadCount);
+    mapStateToProps(uploadingObjects, servers = {}) {
         const uploadingUpgradePackage = Object.values(servers)
-            .some(server => get(server, ['upgrade', 'package', 'state'], 'NO_PACKAGE') === 'UPLOADING');
+            .some(server => {
+                const pkgState = get(server, ['upgrade', 'package', 'state'], 'NO_PACKAGE');
+                return pkgState === 'UPLOADING';
+            });
 
-        this.showMessage = uploadingObjects || uploadingUpgradePackage;
+        ko.assignToProps(this, {
+            showMessage: uploadingObjects || uploadingUpgradePackage
+        });
     }
 
     onBeforeUnload(_, evt) {

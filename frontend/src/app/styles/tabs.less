@@ -2,20 +2,17 @@
 
 .tabs {
     .column();
-    background-color: @color3;
 
     > nav {
         .row();
         overflow-x: hidden;
 
         width: 100%;
-        background-color: @color3;
-        color: @color6;
+        color: rgb(var(--color9));
         padding: 0 4px;
 
         > a {
             .no-wrap();
-            .no-outline();
             position: relative;
             padding: 0 @gutter;
             line-height: 44px;
@@ -27,35 +24,44 @@
             &:before, &:after {
                 content: '';
                 position: absolute;
-                height: 1px;
-                left: 2px;
-                right: 2px;
+                height: 2px;
+                left: 1px;
+                right: 1px;
                 bottom: 4px;
-                background-color: @color6;
+            }
+
+            &:before {
+                background-color: rgb(var(--color9));
             }
 
             &::after {
                 left: 51%;
                 right: 51%;
-                background-color: @color8;
+                background-color: rgb(var(--color6));
                 transition: 300ms;
             }
 
             &.selected {
-                color: @color8;
+                color: rgb(var(--color6));
 
                 &::after {
-                    left: 2px;
-                    right: 2px;
+                    left: 1px;
+                    right: 1px;
                 }
+            }
+
+            &:focus:not(:active):not(.selected) {
+                background: rgba(var(--color9), .1);
+                box-shadow: 0px 0px 4px rgba(var(--color9), .1);
             }
         }
     }
 
     > .tabs-row {
-        position: relative;
         .row();
         .greedy();
+        position: relative;
+        background-color: rgb(var(--color5));
         overflow-x: hidden;
         overflow-y: auto;
 
@@ -83,9 +89,4 @@
             }
         }
     }
-}
-
-form .tabs > nav > a:focus {
-    outline: @outline;
-    outline-offset: -1px;
 }

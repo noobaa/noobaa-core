@@ -13,7 +13,7 @@ const server = {
         'storage',
         'memory',
         'cpus',
-        'time',
+        'clockSkew',
         'dns',
         'phonehome',
         'clusterConnectivity',
@@ -95,7 +95,7 @@ const server = {
                 }
             }
         },
-        time: {
+        clockSkew: {
             type: 'integer'
         },
         ntp: {
@@ -261,7 +261,8 @@ export default {
         'servers',
         'serverMinRequirements',
         'supportHighAvailability',
-        'isHighlyAvailable'
+        'isHighlyAvailable',
+        'faultTolerance'
     ],
     properties: {
         servers: {
@@ -287,6 +288,10 @@ export default {
         },
         isHighlyAvailable: {
             type: 'boolean'
+        },
+        faultTolerance: {
+            type: 'integer',
+            minimum: 0
         }
     }
 };

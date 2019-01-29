@@ -5,19 +5,26 @@ data-table {
     position: relative;
     text-align: center;
     overflow-y: hidden;
+    background-color: rgb(var(--color5));
+    border-bottom: 1px solid rgb(var(--color16));
+    color: rgb(var(--color9));
     width: 100%;
-    background-color: @color3;
+    min-height: 126px;
+
+    &.content-box {
+        border-bottom: unset;
+    }
 
     table {
         display: block;
         border-collapse: collapse;
         overflow-y: auto;
         margin-top: 40px;
-    }
 
-    table.table-disabled  {
-        opacity: .1;
-        pointer-events: none;
+        &.table-disabled  {
+            opacity: .1;
+            pointer-events: none;
+        }
     }
 
     thead {
@@ -26,9 +33,15 @@ data-table {
         line-height: 40px;
         top: 0;
         text-transform: capitalize;
-        color: @color6;
         font-size: @font-size1;
-        background-color: @color4;
+    }
+
+    thead > tr {
+        border-bottom: 1px solid rgb(var(--color16));
+    }
+
+    tbody > tr + tr {
+        border-top: 1px solid rgb(var(--color16));
     }
 
     th, td {
@@ -45,7 +58,7 @@ data-table {
     }
 
     th {
-        font-weight: @font-light;
+        font-weight: @font-regular;
 
         .sortable {
             position: relative;
@@ -59,26 +72,26 @@ data-table {
                 vertical-align: middle;
                 right: 0;
                 border: solid transparent;
-                border-width: 4px 3px;
+                border-width: 4px 4px;
             }
 
             &:before {
                 top: -2px;
-                border-bottom-color: @color7;
+                border-bottom-color: rgb(var(--color17))
             }
 
 
             &::after {
                 bottom: -2px;
-                border-top-color: @color7;
+                border-top-color: rgb(var(--color17));
             }
 
             &.des::before {
-                border-bottom-color: @color6;
+                border-bottom-color: rgb(var(--color9));
             }
 
             &.asc::after {
-                border-top-color: @color6;
+                border-top-color: rgb(var(--color9));
             }
         }
     }
@@ -109,18 +122,12 @@ data-table {
         }
     }
 
-    .main-row, .sub-row {
-        + .main-row > td {
-            border-top: 1px solid @color15;
-        }
-    }
-
     .empty-message {
         margin: @gutter;
         position: relative;
         text-align: left;
         font-size: @font-size4;
-        color: @color7;
+        color: rgb(var(--color10));
     }
 
     .expand-col {

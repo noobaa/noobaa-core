@@ -1,19 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <div class="paginator-wrapper">
-    <button class="btn-flat no-outline"
+    <span class="item-counter">
+        <span class="text-bold" ko.text="itemRange"></span>
+        of
+        <span class="text-bold" ko.text="itemCount"></span>
+        items
+    </span>
+
+    <button class="btn-flat"
+        ko.click="onJumpToFirstPage"
+        ko.disable="isFirstPage"
+    ">
+        <svg-icon class="rotate deg90" params="name: 'dbl-chevron'"></svg-icon>
+    </button>
+
+    <button class="btn-flat"
         ko.click="onPageBackward"
         ko.disable="isFirstPage"
     ">
-        <svg-icon class="icon-small rotate deg90" params="name: 'chevron'"></svg-icon>
+        <svg-icon class="rotate deg90" params="name: 'chevron'"></svg-icon>
     </button>
 
-    <span class="paginator-text" ko.text="rangeText"></span>
+    <span class="page-counter" ko.text="pageText"></span>
 
-    <button class="btn-flat no-outline"
+    <button class="btn-flat"
         ko.click="onPageForward"
         ko.disable="isLastPage"
     ">
         <svg-icon class="rotate deg-90" params="name: 'chevron'"></svg-icon>
+    </button>
+
+    <button class="btn-flat"
+        ko.click="onJumpToLastPage"
+        ko.disable="isLastPage"
+    ">
+        <svg-icon class="rotate deg-90" params="name: 'dbl-chevron'"></svg-icon>
     </button>
 </div>

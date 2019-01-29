@@ -96,6 +96,10 @@ import collectSystemDiagnostics from './collect-system-diagnostics';
 import scheduleDebugModeRefresh from './schedule-debug-mode-refresh';
 import scheduleMaintenanceModeRefresh from './schedule-maintenance-mode-refresh';
 import scheduleAutoRefresh from './schedule-auto-refresh';
+import updateAccountPreferedTheme from './update-account-prefered-theme';
+import updateServerDnsSettings from './update-server-dns-settings';
+import updateServerDetails from './update-server-details';
+import updateServerTimeSettings from './update-server-time-settings';
 
 const epics = [
     // General epics
@@ -138,6 +142,9 @@ const epics = [
     // Topology related epics
     updateServerAddress,
     attachServerToCluster,
+    updateServerDnsSettings,
+    updateServerDetails,
+    updateServerTimeSettings,
 
     // Alerts related epics
     fetchAlerts,
@@ -157,6 +164,7 @@ const epics = [
     tryDeleteAccount,
     signOutDeletedUser,
     deleteExternalConnection,
+    updateAccountPreferedTheme,
 
     // Bucket related epics
     createBucket,

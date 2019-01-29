@@ -1,17 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './connect-app-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { getFieldValue } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import {
     openCreateAccountModal,
     closeModal
 } from 'action-creators';
 
-class ConnectAppModalViewModel extends Observer {
+class ConnectAppModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     fields = ko.observable();
     accountOptions = ko.observableArray();
@@ -44,22 +42,16 @@ class ConnectAppModalViewModel extends Observer {
         }
     ];
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    ['location', 'hostname'],
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { accounts, location, forms } = state;
+        return [
+            accounts,
+            location.hostname,
+            forms[this.formName]
+        ];
     }
 
-    onState([accounts, hostname, form]) {
+    mapStateToProps(accounts, hostname, form) {
         if (!accounts) {
             return;
         }
@@ -71,26 +63,27 @@ class ConnectAppModalViewModel extends Observer {
             accountList.find(account => account.name === getFieldValue(form, 'selectedAccount')) :
             accountList.find(account => account.isOwner);
 
-        this.accountOptions(accountOptions);
-        this.accessKey(accounts[selectedAccount].accessKeys.accessKey);
-        this.secretKey(accounts[selectedAccount].accessKeys.secretKey);
-        this.endpoint(hostname);
-
-        if (!this.fields()) {
-            this.fields({ selectedAccount });
-        }
+        ko.assignToProps(this, {
+            accountOptions: accountOptions,
+            accessKey: accounts[selectedAccount].accessKeys.accessKey,
+            secretKey: accounts[selectedAccount].accessKeys.secretKey,
+            endpoint: hostname,
+            fields: !form ?
+                { selectedAccount } :
+                undefined
+        });
     }
 
     onCreateNewAccount() {
-        action$.next(openCreateAccountModal());
+        this.dispatch(openCreateAccountModal());
     }
 
     onSubmit() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

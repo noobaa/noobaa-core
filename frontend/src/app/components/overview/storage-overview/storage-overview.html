@@ -1,0 +1,48 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: dataReady -->
+<section class="card">
+    <div class="hpad pad-half row">
+        <svg-icon class="icon-small push-next-half"
+            ko.css="storageIcon().css"
+            ko.tooltip="storageIcon().tooltip"
+            params="name: storageIcon().name"
+        ></svg-icon>
+        <span class="greedy highlight">Storage</span>
+    </div>
+    <hr>
+    <div class="pad column greedy">
+        <div class="row push-next-half">
+            <p class="column greedy">
+                <span class="highlight">{{storageTotal}}</span>
+                <span class="remark">Total Storage</span>
+            </p>
+            <p class="column">
+                <span class="highlight">{{storagePools}}</span>
+                <span class="remark">Pools</span>
+            </p>
+            <vr class="push-both-half"></vr>
+            <p class="column">
+                <span class="highlight">{{storageCloud}}</span>
+                <span class="remark">Cloud</span>
+            </p>
+            <!-- ko if: isIntenralStorageVisible -->
+            <vr class="push-both-half"></vr>
+            <p class="column">
+                <span class="highlight">{{storageInternal}}</span>
+                <span class="remark">Internal</span>
+            </p>
+            <!-- /ko -->
+        </div>
+        <bar class="usage-bar push-prev" params="
+            values: storageBarValues,
+            minRatio: .02,
+            format: 'size',
+        "></bar>
+        <chart-legend class="legend-row1 push-prev-half" params="
+            items: storageBarValues,
+            format: 'size'
+        "></chart-legend>
+    </div>
+</section>
+<!-- /ko -->

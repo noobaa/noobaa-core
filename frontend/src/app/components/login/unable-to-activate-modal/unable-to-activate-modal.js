@@ -5,12 +5,13 @@ import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { support } from 'config';
 import { serverInfo } from 'model';
+import { action$ } from 'state';
+import { closeModal } from 'action-creators';
 
 class UnableToActivateModalViewModel extends BaseViewModel {
-    constructor({ onClose, reason }) {
+    constructor({ reason }) {
         super();
 
-        this.onClose = onClose;
         this.reason = reason;
 
         const config = ko.pureComputed(
@@ -70,6 +71,10 @@ class UnableToActivateModalViewModel extends BaseViewModel {
         ];
 
         this.supportEmailUrl = `mailto:${support.email}`;
+    }
+
+    onClose() {
+        action$.next(closeModal());
     }
 }
 

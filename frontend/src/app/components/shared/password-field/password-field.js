@@ -3,8 +3,6 @@
 import template from './password-field.html';
 import ko from 'knockout';
 import { deepFreeze, isFunction } from 'utils/core-utils';
-import { tweenColors } from 'utils/color-utils';
-import style from 'style';
 
 const iconMapping = deepFreeze({
     password: {
@@ -16,8 +14,6 @@ const iconMapping = deepFreeze({
         tooltip: 'Hide password'
     }
 });
-
-const barTweenDuration = 250;
 
 class PasswordFieldViewModel {
     constructor(params) {
@@ -35,50 +31,26 @@ class PasswordFieldViewModel {
         this.placeholder = placeholder;
         this.hasFocus = hasFocus;
 
-        this.icon = ko.pureComputed(
-            () => iconMapping[this.type()].icon
+        this.icon = ko.pureComputed(() =>
+            iconMapping[this.type()].icon
         );
 
-        this.tooltip = ko.pureComputed(
-            () => iconMapping[this.type()].tooltip
+        this.tooltip = ko.pureComputed(() =>
+            iconMapping[this.type()].tooltip
         );
 
-        this.isStrengthVisible = isFunction(strengthCalc);
-        this.passwordStrength = ko.pureComputed (
-            () => {
-                let naked = ko.unwrap(value);
-                return (this.isStrengthVisible && naked) ? strengthCalc(naked) : 0;
+        this.strength = ko.pureComputed(() => {
+            if (!isFunction(strengthCalc)) {
+                return null;
             }
-        ).extend({
-            tween: {
-                duration: barTweenDuration,
-                easing: 'linear'
-            }
+
+            const value = strengthCalc(ko.unwrap(this.value) || '');
+            return {
+                length: `${value * 100}%`,
+                o1: Math.min(2 * value, 1),
+                o2: Math.min(2 * (1 - value), 1)
+            };
         });
-
-        let passwordStrengthColor = ko.pureComputed(
-            () => tweenColors(
-                this.passwordStrength(),
-                style['color10'],
-                style['color11'],
-                style['color12']
-            )
-        );
-
-        this.barValues = [
-            {
-                value: this.passwordStrength,
-                color: passwordStrengthColor
-            },
-            {
-                value: ko.pureComputed(
-                    () => 1 - this.passwordStrength()
-                ),
-                color: 'transparent'
-            }
-        ];
-
-        this.emptyColor = 'transparent';
     }
 
     toogleType() {

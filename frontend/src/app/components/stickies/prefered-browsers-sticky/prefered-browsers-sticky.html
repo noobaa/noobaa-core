@@ -1,16 +1,18 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="sticky" ko.css.active="isActive">
-    <div class="sticky-content row content-middle">
-        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+    <p class="sticky-content row content-middle">
+        <svg-icon params="name: 'notif-info'"
+            class="icon-small push-next-half"
+        ></svg-icon>
 
         <span class="greedy">
             For the best experience of NooBaa, we recommend using chrome.
         </span>
 
-        <button class="close-btn icon-btn no-outline" tabindex="-1" ko.click="onClose">
-            <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+        <button class="sticky-action" tabindex="-1" ko.click="onIgnore">
+            <svg-icon class="icon-xsmall" params="name: 'x'"></svg-icon>
         </button>
-    </div>
+    </p>
 </section>
 

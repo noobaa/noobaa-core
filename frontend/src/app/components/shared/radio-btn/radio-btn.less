@@ -2,6 +2,7 @@
 
 radio-btn {
     @size: 18px;
+    @radius: 8px;
     display: block;
     vertical-align: bottom;
     white-space: nowrap;
@@ -16,29 +17,62 @@ radio-btn {
         }
     }
 
+    .radio-knob {
+        width: @radius * 2;
+        height: @radius * 2;
+        vertical-align: middle;
+        cursor: @cursor-pointer;
+
+        > .outer-circle {
+            cx: @radius;
+            cy: @radius;
+            r: @radius - 1;
+            stroke: rgb(var(--color9));
+            fill: none;
+        }
+
+        > .inner-circle {
+            cx: @radius;
+            cy: @radius;
+            r: 0;
+            stroke: none;
+            fill: rgb(var(--color6));
+            transition: all 350ms ease-out;
+        }
+    }
+
+    .radio-label {
+        display: inline-block;
+        line-height: 1;
+        vertical-align: middle;
+        color: rgb(var(--color9));
+        cursor: @cursor-pointer;
+    }
+
     input {
         .hide();
 
-        &:focus ~ .radio-knob {
-            outline: @outline;
-            outline-offset: -1px;
+        &:focus, &:active {
+            ~ .radio-knob > .outer-circle {
+                stroke: rgb(var(--color6));
+            }
         }
 
-        &:checked  ~ .radio-knob {
-            background-position: -@size 0;
+        &:checked ~ .radio-knob > .inner-circle {
+            r: @radius - 4;
         }
 
         &:disabled {
-            ~ .radio-knob {
-                background-position: -2 * @size 0;
+            ~ .radio-knob > .outer-circle {
+                stroke: rgb(var(--color18));
             }
 
-            &:checked ~ .radio-knob {
-                background-position: -3 * @size 0;
+            &:checked ~ .radio-knob > .inner-circle {
+                fill: rgb(var(--color18));
             }
 
             ~ .radio-label {
-                color: @color7;
+                color: rgb(var(--color18));
                 opacity: .3;
             }
 
@@ -48,26 +82,4 @@ radio-btn {
         }
     }
 
-    .radio-knob {
-        position: relative;
-        display: inline-block;
-        width: @size;
-        height: @size;
-        cursor: @cursor-pointer;
-        text-align: center;
-        vertical-align: middle;
-        background: url('@{assets}/radiobtn.png') no-repeat;
-        overflow: hidden;
-    }
-
-    .radio-label {
-        display: inline-block;
-        line-height: 1;
-        vertical-align: middle;
-        color: @color6;
-        font-weight: @font-thin;
-        margin-left: 4px;
-        transition: color 500ms;
-        cursor: @cursor-pointer;
-    }
 }

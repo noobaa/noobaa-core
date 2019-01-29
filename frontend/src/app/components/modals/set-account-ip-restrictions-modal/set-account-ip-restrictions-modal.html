@@ -6,44 +6,47 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <editor params="label: 'IP Restriction'">
-        <toggle-switch params="
-            onLabel: 'Enabled',
-            offLabel: 'Disabled',
-            value: $form.usingIpRestrictions,
-            hasFocus: true
-        "></toggle-switch>
-    </editor>
+    <div class="column greedy pad">
+        <editor params="label: 'IP Restriction'">
+            <toggle-switch params="
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                value: $form.usingIpRestrictions,
+                hasFocus: true
+            "></toggle-switch>
+        </editor>
 
-    <div class="column greedy push-next">
-        <h2 class="heading3" ko.css.disabled="!$form.usingIpRestrictions()">
-            Allowed IPs
-        </h2>
-        <p class="push-next" ko.css.disabled="!$form.usingIpRestrictions()">
-            Accept S3 access requests from these addresses only.
-            Specify a single IP address or an IP address range.
-        </p>
-        <token-field class="column greedy" params="
-            disabled: !$form.usingIpRestrictions(),
-            placeholder: allowedIpsPlaceholder,
-            tokens: $form.allowedIps,
-            validator: tokenValidator
-        "></token-field>
-        <p class="remark"
-            ko.visible="!$form.allowedIps.isInvalidTouched()"
-            ko.css.disabled="!$form.usingIpRestrictions()"
-        >
-            Type IP address accurately, click enter after each address or range
-        </p>
-        <validation-message params="field: $form.allowedIps"></validation-message>
+        <div class="column greedy push-next">
+            <h2 class="heading3" ko.css.disabled="!$form.usingIpRestrictions()">
+                Allowed IPs
+            </h2>
+            <p class="push-next" ko.css.disabled="!$form.usingIpRestrictions()">
+                Accept S3 access requests from these addresses only.
+                Specify a single IP address or an IP address range.
+            </p>
+            <token-field class="column greedy" params="
+                disabled: !$form.usingIpRestrictions(),
+                placeholder: allowedIpsPlaceholder,
+                tokens: $form.allowedIps,
+                validator: tokenValidator
+            "></token-field>
+            <p class="remark"
+                ko.visible="!$form.allowedIps.isInvalidTouched()"
+                ko.css.disabled="!$form.usingIpRestrictions()"
+            >
+                Type IP address accurately, click enter after each address or range
+            </p>
+            <validation-message params="field: $form.allowedIps"></validation-message>
+        </div>
     </div>
-
-    <div class="row align-end content-middle">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Save
-        </button>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Save
+            </button>
+        </div>
     </div>
 </managed-form>

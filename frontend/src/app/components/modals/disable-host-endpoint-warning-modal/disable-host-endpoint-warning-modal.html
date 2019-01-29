@@ -1,28 +1,32 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<p class="push-next">
-    Disabling this node S3 endpoint service will cause a lost of all connections related to this endpoint.
-</p>
-<p class="greedy push-next">
-    Would you like to disable this node S3 endpoint service?
-</p>
+<div class="column greedy pad">
+    <p class="push-next">
+        Disabling this node S3 endpoint service will cause a lost of all connections related to this endpoint.
+    </p>
+    <p class="greedy push-next">
+        Would you like to disable this node S3 endpoint service?
+    </p>
 
-<p class="row remark push-both" ko.visible="isLastService">
-    <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
-    <span class="greedy">
-        Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node. This may cause some performance issues.
-    </span>
-</p>
+    <p class="row remark push-both" ko.visible="isLastService">
+        <svg-icon class="icon-small push-next-half" params="name: 'notif-info'"></svg-icon>
+        <span class="greedy">
+            Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node. This may cause some performance issues.
+        </span>
+    </p>
+</div>
 
-<div class="row content-middle align-end">
-    <button class="link push-next alt-colors"
-        ko.hasFocus="true"
-        ko.click="onCancel"
-    >
-        Cancel
-    </button>
-    <button class="btn"
-        ko.click="onApprove"
-    >
-        Yes, Disable This Node S3 Endpoint
-    </button>
+<div class="column content-box pad">
+    <div class="row content-middle align-end">
+        <button class="link push-next alt-colors"
+            ko.hasFocus="true"
+            ko.click="onCancel"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.click="onApprove"
+        >
+            Yes, Disable This Node S3 Endpoint
+        </button>
+    </div>
 </div>

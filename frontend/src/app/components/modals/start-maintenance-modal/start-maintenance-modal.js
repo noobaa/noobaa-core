@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './start-maintenance-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
-import { get } from 'rx-extensions';
 import { enterMaintenanceMode, closeModal } from 'action-creators';
-import { state$, action$ } from 'state';
 
 const durationUnitOptions = deepFreeze([
     {
@@ -20,7 +18,7 @@ const durationUnitOptions = deepFreeze([
     }
 ]);
 
-class StartMaintenanceModalViewModel extends Observer {
+class StartMaintenanceModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     durationUnitOptions = durationUnitOptions;
     durationInMin = ko.observable();
@@ -29,22 +27,22 @@ class StartMaintenanceModalViewModel extends Observer {
         durationUnit: 1
     };
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(get('forms', this.formName)),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.forms[this.formName]
+        ];
     }
 
-    onState(form) {
+    mapStateToProps(form) {
         if (!form) return;
 
         const { duration, durationUnit } = getFormValues(form);
         const durationInMin = duration * durationUnit;
 
-        this.durationInMin(durationInMin);
+        ko.assignToProps(this, {
+            durationInMin
+        });
+
     }
 
     onValidate(values) {
@@ -63,12 +61,14 @@ class StartMaintenanceModalViewModel extends Observer {
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     onSubmit() {
-        action$.next(enterMaintenanceMode(this.durationInMin()));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            enterMaintenanceMode(this.durationInMin())
+        );
     }
 }
 

@@ -2,7 +2,7 @@
 
 <div class="column">
     <section class="column push-next">
-        <div class="row pad alt-bg content-middle">
+        <div class="row pad card-shadow content-middle">
             <h3 class="heading3 greedy">Daemon Information</h3>
             <button class="btn push-next"
                 ko.click="onRetrust"
@@ -19,42 +19,42 @@
                 Delete Node
             </working-button>
         </div>
-        <property-sheet class="pad" params="
+        <property-sheet class="pad deamon-info" params="
             properties: daemonInfo,
             loading: !hostLoaded()
         ">
             <tempalte name="protocol">
-                <p ko.if="$data">
+                <div ko.if="$data">
                     {{text}}
                     <span class="warning" ko.visible="warning">
                         (Not optimized for performance)
                     </span>
-                </p>
+                </div>
             </tempalte>
 
             <template name="portRange">
                 <!-- ko if: $data -->
-                <p class="row content-middle" ko.css.warning="warning">
+                <div class="row content-middle" ko.css.warning="warning">
                     {{text}}
                     <svg-icon params="name: 'problem'"
                         class="icon-small push-prev-half"
                         ko.visible="warning"
                         ko.tooltip="tooltip"
                     ></svg-icon>
-                </p>
+                </div>
                 <!-- /ko -->
             </template>
         </property-sheet>
     </section>
-
+    <hr>
     <section class="column push-next">
-        <h3 class="heading3 pad alt-bg">System Information</h3>
+        <h3 class="heading3 pad card-shadow">System Information</h3>
         <property-sheet class="pad" params="
             properties: systemInfo,
             loading: !hostLoaded()
         ">
             <template name="cpus">
-                <p class="row content-middle" ko.if="$data">
+                <div class="row content-middle" ko.if="$data">
                     <span class="push-next-half" ko.text="count"></span>
                     <!-- ko if: utilization -->
                     |
@@ -67,11 +67,11 @@
                               params="name: 'problem'"
                     ></svg-icon>
                     <!-- /ko -->
-                </p>
+                </div>
             </template>
 
             <template name="memory">
-                <p class="row content-middle" ko.if="$data">
+                <div class="row content-middle" ko.if="$data">
                     <span class="push-next-half" ko.text="usage"></span>
                     <!-- ko if: utilization -->
                     |
@@ -85,7 +85,7 @@
                         params="name: 'problem'"
                     ></svg-icon>
                     <!-- /ko -->
-                </p>
+                </div>
             </template>
         </property-sheet>
     </section>

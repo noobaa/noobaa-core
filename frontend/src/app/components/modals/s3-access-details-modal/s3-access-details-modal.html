@@ -1,17 +1,20 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<h2 class="heading3">
-    Use the following details to connect your S3 application
-</h2>
+<div class="column greedy pad">
+    <h2 class="heading3">
+        Use the following details to connect your S3 application
+    </h2>
 
-<div class="alt-bg pad greedy push-next">
-    <property-sheet class="push-next greedy" params="properties: details">
-    </property-sheet>
+    <div class="content-box pad greedy">
+        <property-sheet class="push-next greedy" params="properties: details">
+        </property-sheet>
+    </div>
 </div>
-
-<button class="btn align-end"
-    ko.click="onClose"
-    ko.hasFocus="true"
->
-    close
-</button>
+<div class="column pad content-box">
+    <button class="btn align-end"
+        ko.click="onClose"
+        ko.hasFocus="true"
+    >
+        close
+    </button>
+</div>

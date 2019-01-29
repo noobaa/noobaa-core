@@ -16,7 +16,7 @@
 }
 
 .tooltip {
-    @bg-color: @color1;
+    @bg-color: rgb(var(--color4));
     @arrow-size: 14px;
     @arrow-offset: 10px;
 
@@ -25,6 +25,7 @@
     z-index: 999;
     animation: fade-in 400ms;
     max-width: 20em;
+    color: rgb(var(--color8));
 
     .break-words > .tooltip-box > .tooltip-content {
         word-wrap: break-word;
@@ -32,20 +33,30 @@
     }
 
      > .tooltip-box {
+        @shadow: 0px 0px 2px rgb(var(--shadow1));
+
         position: relative;
         padding: @gutter/2;
         margin: 0;
         font-size: @font-size1;
         background-color: @bg-color;
-        border: 1px solid @color7;
-        border-radius: @gutter/4;
         text-align: left;
-        box-shadow: 1px 1px 1px 1px @bg-color;
+        box-shadow: @shadow;
 
         &::before, &::after {
             content: '';
             position: absolute;
-            border: @arrow-size/2 solid transparent;
+            width:  @arrow-size;
+            height:  @arrow-size;
+            background: inherit;
+            transform-origin: center;
+            transform: rotate(45deg);
+        }
+
+        &::before {
+            z-index: -1;
+            box-shadow: @shadow;
+
         }
 
         > .tooltip-content {
@@ -54,16 +65,12 @@
     }
 
     &.above {
-        padding-bottom: @arrow-size * 2/3;
+        padding-bottom: @arrow-size;
 
-        > .tooltip-box::before {
-            bottom: -(@arrow-size + 1px);
-            border-top-color: @color7;
-        }
-
-        > .tooltip-box::after {
-            bottom: -@arrow-size;
-            border-top-color: @bg-color;
+        > .tooltip-box{
+            &::before, &::after {
+                bottom: -(@arrow-size/2);
+            }
         }
 
         &.left-pos {
@@ -96,16 +103,12 @@
     }
 
     &.below {
-        padding-top: @arrow-size * 2/3;
+        padding-top: @arrow-size;
 
-        > .tooltip-box::before {
-            top: -(@arrow-size + 1px);
-            border-bottom-color: @color7;
-        }
-
-        > .tooltip-box::after {
-            top: -@arrow-size;
-            border-bottom-color: @bg-color;
+        > .tooltip-box {
+            &::before, &::after {
+                top: -(@arrow-size/2);
+            }
         }
 
         &.left-pos {
@@ -138,17 +141,14 @@
     }
 
     &.before {
-        padding-right: @arrow-size * 2/3;
+        padding-right: @arrow-size;
 
-        > .tooltip-box::before {
-            right: -(@arrow-size + 1px);
-            border-left-color: @color7;
+        > .tooltip-box {
+            &::before, &::after {
+                right: -(@arrow-size/2);
+            }
         }
 
-        > .tooltip-box::after {
-            right: -@arrow-size;
-            border-left-color: @bg-color;
-        }
 
         &.start {
             transform: translate(-100%, 0);
@@ -164,16 +164,12 @@
     }
 
     &.after {
-        padding-left: @arrow-size * 2/3;
+        padding-left: @arrow-size;
 
-        > .tooltip-box::before {
-            left: -(@arrow-size + 1px);
-            border-right-color: @color7;
-        }
-
-        > .tooltip-box::after {
-            left: -@arrow-size;
-            border-right-color: @bg-color;
+        > .tooltip-box {
+            &::before, &::after {
+                left: -(@arrow-size/2);
+            }
         }
 
         &.start {
@@ -245,7 +241,7 @@
             }
         }
 
-        &.center > .tooltip-box {
+        &.center > .tooltip-box{
             &::before, &::after {
                 top: 50%;
                 margin-top: -@arrow-size/2;
@@ -263,9 +259,23 @@
         }
     }
 
-    /* specific tooltip templates styles */
+    /* Tooltip templates styles */
+    svg-icon {
+        fill: rgb(var(--color8));
+    }
+
+    .highlight {
+        color: rgb(var(--color8));
+    }
+
     .prop-sheet .prop-name {
-        color: @color6;
+        color: rgb(var(--color8));
         width: 110px;
     }
+
+    chart-legend {
+        color: rgb(var(--color8));
+    }
+
+
 }

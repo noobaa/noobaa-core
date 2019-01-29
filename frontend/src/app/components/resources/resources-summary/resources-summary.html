@@ -1,0 +1,50 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="fill row" ko.visible="!dataReady()">
+    <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
+</div>
+
+<section class="summary row greedy" ko.css.visible="dataReady">
+    <div class="c4 card pad-double row content-middle push-next">
+        <svg-icon class="circled-icon push-next"
+            params="name: 'nodes-pool'"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading2">
+                Host Pools
+            </h2>
+            <h3 class="heading3">
+                {{hostPoolSummary}}
+            </h3>
+        </div>
+    </div>
+    <div class="c4 card pad-double row content-middle  push-both">
+        <svg-icon class="circled-icon push-next"
+            params="name: 'cloud-hollow'"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading2">
+                Cloud Storage
+            </h2>
+            <h3 class="heading3">
+                {{cloudResourceSummary}}
+            </h3>
+        </div>
+    </div>
+    <div class="c4 card pad-double row content-middle  push-prev">
+        <svg-icon class="circled-icon push-next"
+            params="name: 'namespace'"
+        ></svg-icon>
+        <div class="column greedy">
+            <h2 class="heading2">
+                Namespace
+            </h2>
+            <h3 class="heading3">
+                {{nsResourceSummary}}
+            </h3>
+        </div>
+    </div>
+</section>
+
+
+

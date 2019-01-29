@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-account-s3-access-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
-import { getFieldValue } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
+import { getFormValues } from 'utils/form-utils';
 import ko from 'knockout';
 import {
     updateForm,
@@ -27,43 +25,45 @@ function mapResourceToOption({ type, name: value, storage }) {
     return { ...icons, value, remark };
 }
 
-class EditAccountS3AccessModalViewModel extends Observer {
+class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     s3PlacementToolTip = s3PlacementToolTip;
     allowBucketCreationTooltip = allowBucketCreationTooltip;
-    isBucketSelectionDisabled = ko.observable();
     isS3AccessToggleDisabled = ko.observable();
     s3AccessToggleTooltip = ko.observable();
+    isAllowAccessToFutureBucketsDisabled = ko.observable();
     resourceOptions = ko.observable();
     bucketOptions = ko.observable();
     fields = ko.observable();
 
-    constructor({ accountName }) {
-        super();
+    selectState(state, params) {
+        const {
+            accounts,
+            hostPools,
+            cloudResources,
+            buckets,
+            namespaceBuckets,
+            forms
+        } = state;
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['accounts', accountName],
-                    'hostPools',
-                    'cloudResources',
-                    'buckets',
-                    'namespaceBuckets',
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+        return [
+            accounts && accounts[params.accountName],
+            hostPools,
+            cloudResources,
+            buckets,
+            namespaceBuckets,
+            forms[this.formName]
+        ];
     }
 
-    onState([
+    mapStateToProps(
         account,
         hostPools,
         cloudResources,
         buckets,
         namespaceBuckets,
         form
-    ]) {
+    ) {
         if (!account || !hostPools || !cloudResources || !buckets || !namespaceBuckets) {
             return;
         }
@@ -85,26 +85,38 @@ class EditAccountS3AccessModalViewModel extends Observer {
                 return { value, tooltip };
             });
 
-        const isBucketSelectionDisabled = form ?
-            (!getFieldValue(form, 'hasS3Access') || getFieldValue(form, 'hasAccessToAllBuckets')) :
-            true;
+        const {
+            hasS3Access = account.hasS3Access,
+            allowedBuckets = account.allowedBuckets
+        } = form ? getFormValues(form) : {};
 
-        this.isS3AccessToggleDisabled(account.isOwner);
-        this.s3AccessToggleTooltip(account.isOwner ? systemOwnerS3AccessTooltip : '');
-        this.resourceOptions(resourceOptions);
-        this.bucketOptions(bucketOptions);
-        this.isBucketSelectionDisabled(isBucketSelectionDisabled);
+        const isAllowAccessToFutureBucketsDisabled =
+            !hasS3Access ||
+            allowedBuckets.length < bucketOptions.length;
 
-        if (!this.fields()) {
-            this.fields({
+        ko.assignToProps(this, {
+            isS3AccessToggleDisabled: account.isOwner,
+            s3AccessToggleTooltip: account.isOwner ? systemOwnerS3AccessTooltip : '',
+            resourceOptions: resourceOptions,
+            bucketOptions: bucketOptions,
+            isAllowAccessToFutureBucketsDisabled,
+            fields: !form ? {
                 accountName: account.name,
                 hasS3Access: account.hasS3Access,
-                hasAccessToAllBuckets: account.hasAccessToAllBuckets,
+                allowAccessToFutureBuckets: account.hasAccessToAllBuckets,
                 allowedBuckets: account.allowedBuckets || [],
                 defaultResource: account.defaultResource,
                 allowBucketCreation: account.canCreateBuckets
-            });
+            } : undefined
+        });
+    }
+
+    onSelectAllowedBuckets(allowedBuckets) {
+        const update = { allowedBuckets };
+        if (allowedBuckets.length < this.bucketOptions().length) {
+            update.allowAccessToFutureBuckets = false;
         }
+        this.dispatch(updateForm(this.formName, update));
     }
 
     onValidate({ hasS3Access, defaultResource }) {
@@ -122,36 +134,37 @@ class EditAccountS3AccessModalViewModel extends Observer {
         const allowedBuckets = this.bucketOptions()
             .map(opt => opt.value);
 
-        action$.next(updateForm(this.formName, { allowedBuckets }));
+        this.dispatch(updateForm(this.formName, { allowedBuckets }));
     }
 
     onClearSelectedBuckets() {
-        action$.next(updateForm(this.formName, { allowedBuckets: [] }));
+        this.dispatch(updateForm(this.formName, { allowedBuckets: [] }));
     }
 
     onSubmit({
         accountName,
         hasS3Access,
         defaultResource,
-        hasAccessToAllBuckets,
+        allowAccessToFutureBuckets,
         allowedBuckets,
         allowBucketCreation
     }) {
 
-        action$.next(updateAccountS3Access(
-            accountName,
-            hasS3Access,
-            defaultResource,
-            hasAccessToAllBuckets,
-            allowedBuckets,
-            allowBucketCreation
-        ));
-
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            updateAccountS3Access(
+                accountName,
+                hasS3Access,
+                defaultResource,
+                allowAccessToFutureBuckets,
+                allowedBuckets,
+                allowBucketCreation
+            )
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

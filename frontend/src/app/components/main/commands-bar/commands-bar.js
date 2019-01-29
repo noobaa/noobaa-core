@@ -1,12 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './commands-bar.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { sleep } from 'utils/promise-utils';
 import { sumBy } from 'utils/core-utils';
-import { get } from 'rx-extensions';
 import {
     openAuditDrawer,
     openAlertsDrawer,
@@ -14,40 +11,53 @@ import {
     refreshLocation
 } from 'action-creators';
 
-class CommandBarViewModel extends Observer {
-    constructor() {
-        super();
+class CommandBarViewModel extends ConnectableViewModel {
+    isRefreshSpinning = ko.observable();
+    unreadAlertsCount = ko.observable();
+    location = '';
 
-        this.isRefreshSpinning = ko.observable(false);
-        this.unreadAlertsCount = ko.observable();
-        this.location = '';
+    constructor(...args) {
+        super(...args);
 
-        this.observe(
-            state$.pipe(get('alerts', 'unreadCounts')),
-            this.onUnreadCounts
-        );
-
-        action$.next(fetchUnreadAlertsCount());
+        this.dispatch(fetchUnreadAlertsCount());
     }
 
-    onUnreadCounts(counts) {
-        const total = sumBy(Object.values(counts));
-        this.unreadAlertsCount(total);
+    selectState(state) {
+        return [
+            state.alerts.unreadCounts
+        ];
+    }
+
+    mapStateToProps(counters) {
+        const unreadAlertsCount = counters ?
+            sumBy(Object.values(counters)) :
+            0;
+
+        ko.assignToProps(this, {
+            unreadAlertsCount
+        });
     }
 
     onRefresh() {
-        action$.next(refreshLocation());
+        ko.assignToProps(this, {
+            isRefreshSpinning: true
+        });
 
-        this.isRefreshSpinning(true);
-        sleep(1000, false).then(this.isRefreshSpinning);
+        this.dispatch(refreshLocation());
+    }
+
+    onRefreshAnimationEnd() {
+        ko.assignToProps(this, {
+            isRefreshSpinning: false
+        });
     }
 
     onAudit() {
-        action$.next(openAuditDrawer());
+        this.dispatch(openAuditDrawer());
     }
 
     onAlerts() {
-        action$.next(openAlertsDrawer());
+        this.dispatch(openAlertsDrawer());
     }
 }
 

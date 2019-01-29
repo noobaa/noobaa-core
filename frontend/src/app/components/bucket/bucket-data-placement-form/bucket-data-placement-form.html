@@ -3,7 +3,7 @@
 <loading-indicator class="align-start pad" ko.visible="!dataReady()"></loading-indicator>
 
 <!-- ko if: dataReady -->
-<div class="column alt-bg">
+<div class="column card-shadow">
     <div class="pad row content-middle">
         <div class="column greedy push-next">
             <h3 class="heading3">
@@ -22,8 +22,8 @@
     </div>
 
     <!-- ko if: isInternalWarningVisible -->
-    <div class="hpad push-next">
-        <div class="row content-middle pad borders alt-bg-dark warning-box">
+    <div class="hpad push-next ">
+        <div class="row content-middle warning-box pad">
             <svg-icon class="warning push-next-half" params="name: 'problem'"></svg-icon>
             <div class="column">
                 <p>
@@ -42,9 +42,10 @@
     <!-- /ko -->
 
     <!-- ko if: hasMultipleTiers -->
-    <div class="row content-middle pad-half hpad alt-bg-dark">
-        <svg-icon class="highlight push-next-half" params="name: 'layers'"></svg-icon>
-        <span class="push-next-half highlight">
+    <hr>
+    <div class="row content-middle pad-half hpad">
+        <svg-icon class="push-next-half" params="name: 'layers'"></svg-icon>
+        <span class="push-next-half">
             Tiering Structure:
         </span>
         <div class="column greedy push-next">

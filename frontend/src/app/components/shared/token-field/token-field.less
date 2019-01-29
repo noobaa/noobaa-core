@@ -10,12 +10,20 @@ token-field {
         overflow-y: auto;
     }
 
+    &.invalid > .token-field-wrapper {
+        &,
+        &:focus,
+        &.focus {
+            border-color: rgb(var(--color19));
+        }
+    }
+
     .token {
         position: relative;
         border-radius: 1px;
         font-size: @font-size1;
         line-height: 13px;
-        margin: @gutter/8;
+        margin: @gutter/4;
         padding: @gutter/2;
         max-width: 100%;
 
@@ -31,7 +39,6 @@ token-field {
             z-index: 1;
 
             > svg-icon {
-                fill: @white;
                 width: 8px;
                 height: 8px;
             }
@@ -40,8 +47,7 @@ token-field {
         &:before {
             .fill();
             content: '';
-            background: @color15;
-            border: 1px solid @color2;
+            background: rgb(var(--color16));
             animation: fade-in 250ms ease-out;
         }
     }

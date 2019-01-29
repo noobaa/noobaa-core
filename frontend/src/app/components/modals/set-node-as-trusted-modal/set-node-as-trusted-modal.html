@@ -1,9 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column greedy">
+<div class="column greedy pad">
     <section class="column c8 push-next">
         <h3 class="heading3 push-next-half">Reliability test result</h3>
-        <data-table class="greedy untrusted-reason-table" params="
+        <data-table class="greedy content-box untrusted-reason-table" params="
             columns: columns,
             data: rows
         "></data-table>
@@ -20,17 +20,18 @@
         </p>
     </section>
 </div>
-<div class="row content-middle align-end">
-    <button class="link alt-colors push-next"
-        ko.click="onCancel"
-        ko.hasFocus="true"
-    >
-        Cancel
-    </button>
-    <button class="btn"
-        ko.click="onRetrust"
-    >
-        Yes, trust this node
-    </button>
+<div class="column pad content-box">
+    <div class="row content-middle align-end">
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+            ko.hasFocus="true"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.click="onRetrust"
+        >
+            Yes, trust this node
+        </button>
+    </div>
 </div>
-

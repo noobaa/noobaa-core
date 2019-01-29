@@ -31,6 +31,8 @@ function onCompleteFetchSystemInfo(_, { payload }) {
             external_connections
         } = account;
 
+
+
         const {
             access_key: accessKey,
             secret_key: secretKey

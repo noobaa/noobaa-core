@@ -9,40 +9,28 @@
     z-index: 1;
 
     .sticky-wrapper {
-        max-height: 34px;
+        max-height: 36px;
+        background-color: white;
     }
 
     .content-wrapper {
         position: relative;
+    }
 
-        /* Using a before element allow us to set the opacity of the image
-        without changing the opacity of the content */
-        &.background-image {
-            /*
-            https://unsplash.com/license
-            https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0
-            */
-            background-image: url('@{assets}/stars.jpg');
+    .logo {
+        padding: 15px;
+        border-bottom: 1px solid rgb(var(--color12));
+
+        > svg-icon {
+            width: 30px;
+            height: 30px;
         }
     }
 
     .main-header {
-        .row();
-        .content-middle;
         height: 61px;
-        background-color: @color1;
-        border-bottom: 1px solid @color8;
-        box-shadow: 0px 6px 8px @color1;
-
-        .logo {
-            padding: 15px;
-            background-color: @color5;
-
-            > svg-icon {
-                width: 30px;
-                height: 30px;
-            }
-        }
+        background-color: rgb(var(--color2));
+        border-bottom: 1px solid rgb(var(--color12));
     }
 
 
@@ -51,12 +39,10 @@
     }
 
     .main-nav {
-        background: @color4;
-        margin: -@gutter 0;
+        background: rgb(var(--color3));
     }
 
     main {
-        align-self: stretch;
         margin: 0 auto;
         padding: 0 @gutter;
     }

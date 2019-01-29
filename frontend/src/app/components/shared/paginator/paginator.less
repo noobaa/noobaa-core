@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 paginator {
-    .alt-bg();
     display: block;
     padding: @gutter/2 @gutter;
     text-align: right;
+    color: rgb(var(--color9));
 
     .paginator-wrapper {
         display: inline-block;
@@ -14,24 +14,31 @@ paginator {
         margin-right: -4px;
     }
 
-    .paginator-text {
-        vertical-align: middle;
+    .item-counter {
+        display: inline-block;
+        margin-right: @gutter/2;
+    }
+
+    .page-counter {
+        display: inline-block;
+        margin: 0 @gutter/4;
     }
 
     .btn-flat {
-        padding: 0 4px;
+        padding: 0;
         display: inline;
 
         svg-icon {
             width: @font-size1;
             height: @font-size1;
+            margin-top: -2px;
         }
 
         &:disabled {
             cursor: default;
 
             > svg-icon {
-                fill: @color15;
+                fill: rgb(var(--color18));
             }
         }
     }

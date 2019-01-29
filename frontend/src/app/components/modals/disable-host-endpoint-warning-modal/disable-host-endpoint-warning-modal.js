@@ -1,27 +1,35 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './disable-host-endpoint-warning-modal.html';
-import Observer from 'observer';
-import { action$ } from 'state';
-import { toggleHostServices } from 'action-creators';
+import ConnectableViewModel from 'components/connectable';
+import { closeModal, toggleHostServices } from 'action-creators';
 import ko from 'knockout';
 
-class DisableHostEndpointWarningModalViewModel extends Observer {
-    constructor({ onClose, host, isLastService }) {
-        super();
+class DisableHostEndpointWarningModalViewModel extends ConnectableViewModel {
+    host = '';
+    isLastService = ko.observable();
 
-        this.close = onClose;
-        this.hostName = ko.unwrap(host);
-        this.isLastService = ko.unwrap(isLastService);
+    selectState(_, params) {
+        return [
+            params.host,
+            params.isLastService
+        ];
+    }
+
+    mapStateToProps(host, isLastService) {
+        ko.assignToProps(this, {
+            host,
+            isLastService
+        });
     }
 
     onApprove() {
-        action$.next(toggleHostServices(this.hostName, { endpoint: false }));
-        this.close();
+        this.dispatch(closeModal());
+        this.dispatch(toggleHostServices(this.host, { endpoint: false }));
     }
 
     onCancel() {
-        this.close();
+        this.dispatch(closeModal());
     }
 }
 

@@ -85,8 +85,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends Observer {
                 const { name: icon } = getNamespaceResourceTypeIcon(resource);
                 return {
                     value: resource.name,
-                    icon: `${icon}-dark`,
-                    selectedIcon: `${icon}-colored`
+                    icon: `${icon}-dark`
                 };
             });
         const resourceServiceMapping = mapValues(

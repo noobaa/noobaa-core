@@ -35,7 +35,7 @@ export default class MessageRowViewModel {
 
         const css = {
             error: Boolean(state.lastError),
-            ['alt-bg']: id === selected
+            ['selected']: id === selected
         };
 
         this.id = id;

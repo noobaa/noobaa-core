@@ -2,12 +2,13 @@
 
 checkbox {
     @size: 18px;
-    line-height: 40px;
-    position: relative;
-    vertical-align: middle;
     display: inline-block;
+    height: @size;
+    line-height: 40px;
+    vertical-align: middle;
 
     label {
+        position: relative;
         display: block;
         white-space: nowrap;
         line-height: @size;
@@ -15,54 +16,69 @@ checkbox {
         cursor: default;
     }
 
+    .checkbox-label {
+        color: rgb(var(--color9));
+        font-weight: @font-light;
+        margin-left: 8px;
+        cursor: @cursor-pointer;
+    }
+
+    .checkbox-box {
+        display: inline-block;
+        cursor: @cursor-pointer;
+        min-height: @size;
+        max-height: @size;
+        min-width: @size;
+        max-width: @size;
+
+        > .outer-rect {
+            height: @size;
+            width: @size;
+            stroke: rgb(var(--color9));
+            fill: none;
+        }
+
+        > .inner-path {
+            stroke-linecap: round;
+            stroke-width: 2;
+            stroke: rgb(var(--color6));
+            fill: none;
+            d: path('M4 10 l3 3 l7 -8');
+            stroke-dasharray: 16;
+            stroke-dashoffset: 16;
+        }
+    }
+
     input {
         .hide();
 
-        &:checked  ~ .checkbox-box {
-            background-position: -@size 0;
+        &:checked  ~ .checkbox-box > .inner-path {
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 150ms linear;
         }
 
         &:disabled {
             opacity: 0;
 
             ~ .checkbox-box {
-                background-position: -2 * @size 0;
-            }
+                cursor: default;
 
-            &:checked ~ .checkbox-box {
-                background-position: -3 * @size 0;
+                > .outer-rect, > .inner-path {
+                    stroke: rgb(var(--color18));
+                }
             }
 
             ~ .checkbox-label {
                 opacity: .3;
-                color: @color7;
-            }
-
-            ~ .checkbox-box, ~ .checkbox-label {
+                color: rgb(var(--color9));
                 cursor: default;
-             }
+            }
         }
 
-        &:focus + .checkbox-box{
-            .focused(-2px);
+        &:focus, &:active:not(:disabled) {
+            + .checkbox-box > .outer-rect {
+                stroke: rgb(var(--color6));
+            }
         }
     }
-
-    .checkbox-label {
-        color: @color6;
-        font-weight: @font-light;
-        margin-left: 8px;
-    }
-
-    .checkbox-box {
-        display: block;
-        float: left;
-        min-width: @size;
-        height: @size;
-        background-image: url('@{assets}/checkbox.png');
-    }
-
-    .checkbox-box, .checkbox-label {
-        cursor: @cursor-pointer;
-     }
 }

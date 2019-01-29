@@ -4,7 +4,7 @@
     name: formName,
     fields: formFields
 ">
-    <div class="alt-bg hpad pad-top column">
+    <div class="card-shadow hpad pad-top column">
         <div class="row">
             <div class="column greedy push-next">
                 <h2 class="heading3">System Throughput</h2>
@@ -31,7 +31,7 @@
                 selected: $form.selectedDuration,
                 disabled: !dataReady(),
             "></dropdown>
-            <svg-icon class="spin"
+            <svg-icon class="spin match-theme"
                 params="name: 'in-progress'"
                 ko.visible="!dataReady()"
             ></svg-icon>
@@ -42,14 +42,14 @@
         <counter class="push-next" params="
             label: 'Total Data Reads',
             value: totalReads,
-            color: '@color14',
+            color: 'rgb(var(--color6))',
             format: 'size'
         "></counter>
 
         <counter class="push-prev" params="
             label: 'Total Data Writes',
             value: totalWrites,
-            color: '@color16',
+            color: 'rgb(var(--color28))',
             format: 'size'
         "></counter>
     </div>

@@ -3,6 +3,7 @@
 export default {
     type: 'object',
     required: [
+        'name',
         'version',
         'nodeVersion',
         'ipAddress',
@@ -15,6 +16,9 @@ export default {
         'internalStorage'
     ],
     properties: {
+        name: {
+            type: 'string'
+        },
         version: {
             type: 'string'
         },

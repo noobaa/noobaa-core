@@ -45,7 +45,8 @@ export default {
                     'AZURE',
                     'S3_COMPATIBLE',
                     'GOOGLE',
-                    'FLASHBLADE'
+                    'FLASHBLADE',
+                    'NET_STORAGE'
                 ]
             },
             region: {

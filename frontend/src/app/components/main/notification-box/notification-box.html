@@ -1,14 +1,16 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <ul class="list-no-style hpad"
+    ko.css="borders"
     ko.css.visible="visible"
     ko.foreach="notifications"
     ko.hover="hover"
     ko.event.transitionend="onTransitionEnd"
 >
     <li class="notif row content-middle" ko.css="css">
-        <svg-icon class="notif-icon push-next-half" ko.css="css" params="name: icon">
-        </svg-icon>
+        <svg-icon class="notif-icon push-next-half"
+            params="name: icon"
+        ></svg-icon>
         <span class="notif-text greedy" ko.text="text" ></span>
     </li>
 </ul>

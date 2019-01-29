@@ -2,43 +2,35 @@
 
 import template from './app.html';
 import ko from 'knockout';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openManagementConsoleErrorModal } from 'action-creators';
 import * as routes from 'routes';
 import { realizeUri } from 'utils/browser-utils';
-import { getMany } from 'rx-extensions';
+import { themes, defaultTheme } from 'config';
 
-class AppViewModel extends Observer {
-    constructor() {
-        super();
+class AppViewModel extends ConnectableViewModel {
+    layout = ko.observable('empty');
+    css = ko.observable();
 
-        this.layout = ko.observable('empty');
-        this.css = ko.observable();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'session',
-                    'location',
-                    'env',
-                    'lastError'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.session,
+            state.location,
+            state.env.previewContent,
+            state.lastError
+        ];
     }
 
-    onState([session, location = {}, env, lastError]) {
+    mapStateToProps(session, location = {}, previewContent, lastError) {
         if (lastError) {
-            action$.next(openManagementConsoleErrorModal());
+            this.dispatch(openManagementConsoleErrorModal());
             return;
         }
 
         if (session && !location.route) {
             // Redirect to the system routes
             const url = realizeUri(routes.system, { system: session.system });
-            action$.next(requestLocation(url, true));
+            this.dispatch(requestLocation(url, true));
             return;
         }
 
@@ -46,8 +38,14 @@ class AppViewModel extends Observer {
             'main-layout' :
             'login-layout';
 
+        const previewCss = previewContent ? 'preview' : '';
+        const themeCss = themes[(session ? session.uiTheme : defaultTheme)];
+        const css = [previewCss, themeCss]
+            .filter(Boolean)
+            .join(' ');
+
         this.layout(layout);
-        this.css(`${layout} ${env.previewContent ? 'preview' : ''}`);
+        this.css(css);
     }
 }
 

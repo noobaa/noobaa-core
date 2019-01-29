@@ -3,10 +3,6 @@
 wizard {
     display: block;
 
-    stepper {
-        background-color: @color1;
-    }
-
     .pages {
         overflow: visible;
 
@@ -15,7 +11,10 @@ wizard {
             .fade-in();
 
             min-width: 100%;
-            padding: 0 @gutter;
         }
+    }
+
+    stepper {
+        border-bottom: 1px solid rgb(var(--color16));;
     }
 }

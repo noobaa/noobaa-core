@@ -1,27 +1,29 @@
 <!-- Copyright (C) 2016 NooBaa -->
+<div class="column greedy pad">
+    <p class="push-next">
+        Updating the system name will change the current node installation commands. Please make sure to use the new installation commands for future node installations.
+    </p>
 
-<p class="push-next">
-    Updating the system name will change the current node installation commands. Please make sure to use the new installation commands for future node installations.
-</p>
+    <p class="greedy push-next">
+        Please note that after the update you might be automatically logged out from the system. Are you sure you want to update?
+    </p>
+</div>
+<div class="column pad content-box">
+    <div class="row content-middle align-end">
+        <button class="link alt-colors push-next"
+            ko.click="onCancel"
+            ko.disable="updating"
+            ko.hasFocus="true"
+        ">
+            Cancel
+        </button>
 
-<p class="greedy push-next">
-    Please note that after the update you might be automatically logged out from the system. Are you sure you want to update?
-</p>
-
-<div class="row content-middle align-end">
-    <button class="link alt-colors push-next"
-        ko.click="onCancel"
-        ko.disable="updating"
-        ko.hasFocus="true"
-    ">
-        Cancel
-    </button>
-
-    <working-button params="
-        working: updating,
-        workingLabel: 'Updating...',
-        click: onUpdate
-    ">
-        Update and Refresh
-    </working-button>
+        <working-button params="
+            working: updating,
+            workingLabel: 'Updating...',
+            click: onUpdate
+        ">
+            Update and Refresh
+        </working-button>
+    </div>
 </div>

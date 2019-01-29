@@ -6,26 +6,29 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <editor class="greedy push-prev" params="label: 'Pool Name'">
-        <input class="push-next"
-            type="text"
-            placeholder="Type here"
-            ko.textInput="ko.pc($form.poolName, onPoolName)"
-            ko.validationCss="$form.poolName"
-            ko.hasFocus="true"
-        />
-        <ul class="name-validation-list" ko.foreach="nameRestrictionList">
-            <li ko.text="label" ko.css="css"></li>
-        </ul>
-    </editor>
-
-    <div class="row align-end content-middle">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn">
-            Create
-        </button>
+    <div class="column pad greedy">
+        <editor params="label: 'Pool Name'">
+            <input class="push-next"
+                type="text"
+                placeholder="Type here"
+                ko.textInput="ko.pc($form.poolName, onPoolName)"
+                ko.validationCss="$form.poolName"
+                ko.hasFocus="true"
+            />
+            <ul class="restriction-list" ko.foreach="nameRestrictionList">
+                <li ko.text="label" ko.css="css"></li>
+            </ul>
+        </editor>
+    </div>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn">
+                Create
+            </button>
+        </div>
     </div>
 </managed-form>
 

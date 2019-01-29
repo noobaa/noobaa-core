@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './upgrade-system-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import moment from 'moment';
 import { timeShortFormat } from 'config';
-import { getMany } from 'rx-extensions';
 import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
 import {
     fetchVersionReleaseNotes,
@@ -24,79 +22,80 @@ function _normalizeReleaseNotes(notes = {}) {
     return { fetching, text };
 }
 
-class UpgradeSystemModalViewModel extends Observer {
-    constructor() {
-        super();
+class UpgradeSystemModalViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
+    systemName = '';
+    currVersion = ko.observable();
+    upgradeSummary = [
+        {
+            label: 'Current Version',
+            value: ko.observable()
+        },
+        {
+            label: 'New Version',
+            value: this.stagedVersion
+        },
+        {
+            label: 'Validated at',
+            value: this.testedAt
+        },
+        {
+            label: 'Validation Result',
+            value: 'Successful'
+        }
+    ];
+    releaseNotes = {
+        fetching: ko.observable(),
+        text: ko.observable()
+    };
 
-        this.systemName = '';
-        this.stateLoaded = ko.observable();
-        this.currVersion = ko.observable();
-        this.stagedVersion = ko.observable();
-        this.testedAt = ko.observable();
-        this.releaseNotes = ko.observable();
-        this.upgradeSummary = [
-            {
-                label: 'Current Version',
-                value: this.currVersion
-            },
-            {
-                label: 'New Version',
-                value: this.stagedVersion
-            },
-            {
-                label: 'Validated at',
-                value: this.testedAt
-            },
-            {
-                label: 'Validation Result',
-                value: 'Successful'
-            }
+    selectState(state) {
+        const { location, system, topology } = state;
+        return [
+            location.params.system,
+            system,
+            topology && topology.servers
         ];
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['location', 'params', 'system'],
-                    'system',
-                    ['topology', 'servers']
-                )
-            ),
-            this.onState
-        );
     }
 
-    onState([systemName, systemState, servers]) {
+    mapStateToProps([systemName, systemState, servers]) {
         if (!systemState || !servers) {
-            this.stateLoaded(false);
-            return;
-        }
+            ko.assignToProps(this, {
+                dataReady: false
+            });
 
-        const {
-            version: stagedVersion,
-            testedAt
-        } = aggregateUpgradePackageInfo(Object.values(servers));
+        } else {
+            const {
+                version: stagedVersion,
+                testedAt
+            } = aggregateUpgradePackageInfo(Object.values(servers));
 
-        const testedAtFormatted = moment(testedAt).format(timeShortFormat);
-        const { [stagedVersion]: notes } = systemState.releaseNotes || {};
+            const testedAtFormatted = moment(testedAt).format(timeShortFormat);
+            const { [stagedVersion]: notes } = systemState.releaseNotes || {};
 
-        this.systemName = systemName;
-        this.currVersion(systemState.version);
-        this.stagedVersion(stagedVersion);
-        this.testedAt(testedAtFormatted);
-        this.releaseNotes(_normalizeReleaseNotes(notes));
-        this.stateLoaded(true);
+            ko.assignToProps(this, {
+                dataReady: true,
+                systemName: systemName,
+                upgradeSummary: [
+                    { value: systemState.version },
+                    { value: stagedVersion },
+                    { value: testedAtFormatted }
+                ],
+                releaseNotes: _normalizeReleaseNotes(notes)
+            });
 
-        if (stagedVersion && !notes) {
-            action$.next(fetchVersionReleaseNotes(stagedVersion));
+            if (stagedVersion && !notes) {
+                this.dispatch(fetchVersionReleaseNotes(stagedVersion));
+            }
         }
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     onStartUpgrade() {
-        action$.next(invokeUpgradeSystem(this.systemName));
+        this.dispatch(invokeUpgradeSystem(this.systemName));
     }
 }
 

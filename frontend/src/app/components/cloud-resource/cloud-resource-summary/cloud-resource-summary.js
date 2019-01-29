@@ -6,7 +6,7 @@ import { getCloudResourceStateIcon } from 'utils/resource-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
-import style from 'style';
+import themes from 'themes';
 
 function _getServiceDisplayName(resource) {
     return resource.type === 'S3_COMPATIBLE' ?
@@ -21,31 +21,75 @@ class CloudResourceSummaryViewModel extends ConnectableViewModel {
     targetBucket = ko.observable();
     readCount = ko.observable();
     writeCount = ko.observable();
-    readSize = ko.observable();
-    writeSize = ko.observable();
+    readSize = {
+        color: ko.observable(),
+        value: ko.observable()
+    };
+    writeSize = {
+        color: ko.observable(),
+        value: ko.observable()
+    };
     chartLegend = [
         {
             label: 'Reads',
-            color: style['color16'],
-            value: this.readSize
+            color: this.readSize.color,
+            value: this.readSize.value
         },
         {
             label: 'Writes',
-            color: style['color8'],
-            value: this.writeSize
+            color: this.writeSize.color,
+            value: this.writeSize.value
         }
     ];
-    chartValues = this.chartLegend
-        .map(item => ({ parts: [item] }));
+    chart = {
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    categoryPercentage: .7,
+                    barPercentage: .8,
+                    display: false
+                }],
+                yAxes: [{
+                    gridLines: {
+                        color: 'transparent',
+                        drawTicks: false
+                    },
+                    ticks: {
+                        callback: () => ''
+                    }
+                }]
+            },
+            tooltips: {
+                enabled: false
+            }
+        },
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    backgroundColor: this.readSize.color,
+                    hoverBackgroundColor: this.readSize.color,
+                    data: [this.readSize.value]
+                },
+                {
+                    backgroundColor: this.writeSize.color,
+                    hoverBackgroundColor: this.writeSize.color,
+                    data: [this.writeSize.value]
+                }
+            ]
+        }
+    }
 
     selectState(state, params) {
-        const { cloudResources = {} } = state;
+        const { cloudResources = {}, session } = state;
         return [
-            cloudResources[params.resourceName]
+            cloudResources[params.resourceName],
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(resource) {
+    mapStateToProps(resource, theme) {
         if (!resource) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -54,6 +98,7 @@ class CloudResourceSummaryViewModel extends ConnectableViewModel {
         } else {
             const { io } = resource;
             const { tooltip, ...icon } = getCloudResourceStateIcon(resource);
+
             ko.assignToProps(this, {
                 dataReady: true,
                 state: {
@@ -64,8 +109,14 @@ class CloudResourceSummaryViewModel extends ConnectableViewModel {
                 targetBucket: resource.target,
                 readCount: numeral(io.readCount).format(','),
                 writeCount: numeral(io.writeCount).format(','),
-                readSize: io.readSize,
-                writeSize: io.writeSize
+                readSize: {
+                    color: theme.color6,
+                    value: io.readSize
+                },
+                writeSize: {
+                    color: theme.color28,
+                    value: io.writeSize
+                }
             });
         }
     }

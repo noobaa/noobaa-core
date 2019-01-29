@@ -58,6 +58,9 @@ export default function(action$) {
             types.COMPLETE_UPDATE_P2P_SETTINGS,
             types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS,
             types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
+            types.COMPLETE_UPDATE_SERVER_DNS_SETTINGS,
+            types.COMPLETE_UPDATE_SERVER_DETAILS,
+            types.COMPLETE_UPDATE_SERVER_TIME_SETTINGS
         ),
         map(() => refreshLocation())
     );

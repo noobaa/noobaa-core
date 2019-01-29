@@ -6,49 +6,50 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <p>
-        An installed node might contain a number of drives, you can control which of this node's drives will
-        be used as NooBaa's storage resources. The more drives you add, the more available storage will be added
-        to the node's pool
-    </p>
+    <div class="column greedy pad">
+        <p>
+            An installed node might contain a number of drives, you can control which of this node's drives will
+            be used as NooBaa's storage resources. The more drives you add, the more available storage will be added
+            to the node's pool
+        </p>
 
-    <editor params="label: 'Enable Storage Service'">
-        <toggle-switch params="
-            value: $form.serviceState,
-            onLabel: 'Enabled',
-            offLabel: 'Disabled',
-            hasFocus: true
-        "></toggle-switch>
-    </editor>
+        <editor params="label: 'Enable Storage Service'">
+            <toggle-switch params="
+                value: $form.serviceState,
+                onLabel: 'Enabled',
+                offLabel: 'Disabled',
+                hasFocus: true
+            "></toggle-switch>
+        </editor>
 
-     <div class="row content-middle">
-        <h2 class="heading3 greedy push-next" ko.css.disabled="!$form.serviceState()">
-            Choose the drives you wish to use as storage resources
-        </h2>
-        <div ko.css.disabled="!$form.serviceState()">
-            <button type="button" class="link alt-colors"
-                ko.enable="$form.serviceState"
-                ko.click="onSelectAll">
-                Select all
-            </button>
-            |
-            <button type="button" class="link alt-colors"
-                ko.enable="$form.serviceState"
-                ko.click="onClearAll"
-            >
-                Clear all
-            </button>
+         <div class="row content-middle">
+            <h2 class="heading3 greedy push-next" ko.css.disabled="!$form.serviceState()">
+                Choose the drives you wish to use as storage resources
+            </h2>
+            <div ko.css.disabled="!$form.serviceState()">
+                <button type="button" class="link alt-colors"
+                    ko.enable="$form.serviceState"
+                    ko.click="onSelectAll">
+                    Select all
+                </button>
+                |
+                <button type="button" class="link alt-colors"
+                    ko.enable="$form.serviceState"
+                    ko.click="onClearAll"
+                >
+                    Clear all
+                </button>
+            </div>
         </div>
+
+        <data-table class="drives-table greedy content-box push-next" params="
+            columns: columns,
+            data: rows,
+            disabled: !$form.serviceState()
+        "></data-table>
+        <validation-message params="field: $form.nodesState"></validation-message>
     </div>
-
-    <data-table class="drives-table greedy" params="
-        columns: columns,
-        data: rows,
-        disabled: !$form.serviceState()
-    "></data-table>
-    <validation-message params="field: $form.nodesState"></validation-message>
-
-    <div class="row content-middle push-prev">
+    <div class="row content-middle pad content-box">
         <p class="greedy push-next remark row" ko.css.disabled="!$form.serviceState()">
             <svg-icon class="push-next-half" params="name: 'notif-info'"></svg-icon>
             After removing an existing drive, a rebuilding process will occur to safely remove the data from the drive

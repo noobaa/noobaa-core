@@ -6,13 +6,13 @@ import { realizeUri } from 'utils/browser-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import { deepFreeze, mapValues, last, flatMap } from 'utils/core-utils';
 import { sumSize, interpolateSizes, toBytes, formatSize } from 'utils/size-utils';
-import { hexToRgb } from 'utils/color-utils';
+import { colorToRgb, rgbToColor } from 'utils/color-utils';
 import { state$, action$ } from 'state';
 import * as routes from 'routes';
 import ko from 'knockout';
 import moment from 'moment';
+import themes from 'themes';
 import { get, getMany } from 'rx-extensions';
-import style from 'style';
 import {
     requestLocation,
     fetchSystemStorageHistory,
@@ -52,19 +52,19 @@ const chartDatasets = deepFreeze([
         key: 'hosts',
         label: 'Used on Nodes',
         labelPadding: 10,
-        color: style['color8']
+        color: 'color9'
     },
     {
         key: 'cloud',
         label: 'Used on Cloud',
         labelPadding: 10,
-        color: style['color6']
+        color: 'color6'
     },
     {
         key: 'internal',
         label: 'Used on Internal',
         labelPadding: 10,
-        color: style['color16']
+        color: 'color28'
     }
 ]);
 
@@ -186,24 +186,27 @@ function _getChartOptions(selectedDatasets, samples, durationSettings, start, en
             ]
         },
         tooltips: {
-            backgroundColor: hexToRgb(style['color4'], .85),
             callbacks: {
                 title: items => moment.tz(items[0].xLabel, timezone).format('D MMM HH:mm'),
                 label: item => `  ${
                     selectedDatasets[item.datasetIndex].label
                 }  ${
                     formatSize(item.yLabel)
-                }`,
-                labelColor: item => ({
-                    backgroundColor: selectedDatasets[item.datasetIndex].color,
-                    borderColor: 'transparent'
-                })
+                }`
             }
         }
     };
 }
 
-function _getChartParams(selectedDatasets, used, storageHistory, selectedDuration, now, timezone) {
+function _getChartParams(
+    selectedDatasets,
+    used,
+    storageHistory,
+    selectedDuration,
+    now,
+    timezone,
+    theme
+) {
     const durationSettings = durations[selectedDuration];
     const { stepUnit, timespan, points } = durationSettings;
     const { start, end } = _getTimespanBounds(stepUnit, timespan, now);
@@ -226,13 +229,13 @@ function _getChartParams(selectedDatasets, used, storageHistory, selectedDuratio
         datasets = selectedDatasets.map(({ key, color }) => ({
             lineTension: 0,
             borderWidth: 2,
-            borderColor: color,
+            borderColor: theme[color],
             backgroundColor: 'transparent',
             pointRadius: points ? 2 : 0,
             pointBorderWidth: 4,
             pointHitRadius: 10,
-            pointBackgroundColor: style['color6'],
-            pointBorderColor: hexToRgb(style['color6'], 0.2),
+            pointBackgroundColor: theme[color],
+            pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
             pointHoverBorderColor: 'transparent',
             data: filteredSamples.map(sample => ({
                 x: sample.timestamp,
@@ -277,7 +280,7 @@ class BucketsOverviewViewModel extends Observer{
                 this.hideHosts,
                 val => this.onToggleDataset('hosts', !val)
             ),
-            color : style['color8'],
+            color : 'rgb(var(--color9)',
             tooltip: 'The total raw data that was written on all installed nodes in the system'
         },
         {
@@ -287,7 +290,7 @@ class BucketsOverviewViewModel extends Observer{
                 this.hideCloud,
                 val => this.onToggleDataset('cloud', !val)
             ),
-            color : style['color6'],
+            color : 'rgb(var(--color6)',
             tooltip: 'The total raw data that was written on all configured cloud resources in the system'
         },
         {
@@ -298,7 +301,7 @@ class BucketsOverviewViewModel extends Observer{
                 this.hideInternal,
                 val => this.onToggleDataset('internal', !val)
             ),
-            color : style['color16'],
+            color : 'rgb(var(--color28)',
             tooltip: 'The total raw data that was written to the system internal storage disks'
         }
     ];
@@ -319,7 +322,8 @@ class BucketsOverviewViewModel extends Observer{
                     'cloudResources',
                     ['system', 'internalStorage'],
                     ['topology', 'servers'],
-                    'storageHistory'
+                    'storageHistory',
+                    ['session', 'uiTheme']
                 )
             ),
             this.onState
@@ -346,7 +350,8 @@ class BucketsOverviewViewModel extends Observer{
             cloudResources,
             internalStorage,
             servers,
-            storageHistory
+            storageHistory,
+            theme
         ] = state;
 
         const { query, params } = this.location;
@@ -368,7 +373,15 @@ class BucketsOverviewViewModel extends Observer{
         const now = Date.now();
         const { timezone } = Object.values(servers).find(server => server.isMaster);
         const datasets = chartDatasets.filter(ds => !hiddenDatasets.has(ds.key));
-        const chartParams = _getChartParams(datasets, used, storageHistory, selectedDuration, now, timezone);
+        const chartParams = _getChartParams(
+            datasets,
+            used,
+            storageHistory,
+            selectedDuration,
+            now,
+            timezone,
+            themes[theme]
+        );
         const currentDataPoints = chartParams.data.datasets
             .map(ds => last(ds.data))
             .filter(Boolean);

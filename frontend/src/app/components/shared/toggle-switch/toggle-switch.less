@@ -1,40 +1,40 @@
 /* Copyright (C) 2016 NooBaa */
 
 toggle-switch {
-    @radius: 8px;
-    @margin: 3px;
+    @radius: 7px;
+    @margin: 4px;
     @size: (@radius + @margin) * 2;
 
-    position: relative;
     height: 42px;
     line-height: 42px;
     display: inline-block;
     vertical-align: middle;
 
+    > .toggle-wrapper {
+        cursor: default;
+    }
+
     .toggle-box {
-        position: relative;
-        display: inline-block;
         width: @size * 2;
         height: @size;
-        border-radius: @size;
-        line-height: 0;
-        background-color: @color15;
         vertical-align: middle;
-        margin-right: 4px;
+        cursor: @cursor-pointer;
 
-        &::before {
-            position: absolute;
-            display: inline-block;
-            content: '';
-            width: @radius * 2;
-            height: @radius * 2;
-            border-radius: @radius * 2;
-            top: @margin;
-            background-color: @color7;
-            left: @margin;
-            transition:
-                left 250ms ease-in-out,
-                background-color 250ms linear;
+        > .outer-capsule {
+            x: 1;
+            y: 1;
+            width: @size * 2 - 2;
+            height: @size - 2;
+            rx: @size/2;
+            fill: rgb(var(--color4));
+        }
+
+        > .inner-circle {
+            cx: @size/2 + 1;
+            cy: @size/2;
+            r: @radius;
+            fill: rgb(var(--color10));
+            transition: all 350ms ease;
         }
     }
 
@@ -42,30 +42,37 @@ toggle-switch {
         display: inline-block;
         vertical-align: middle;
         text-transform: capitalize;
+        cursor: @cursor-pointer;
+        margin-left: 4px;
+        line-height: 1em;
+        color: rgb(var(--color10));
     }
 
     :checked {
-        + .toggle-box::before {
-            background-color: @color14;
-            left: @size + @margin;
+        + .toggle-box > .inner-circle {
+            cx: @size * 1.5 - 1;
+            fill: rgb(var(--color6));
         }
 
         ~ .toggle-label {
-            color: @color6;
+            color: rgb(var(--color9));
         }
     }
 
     :focus ~ .toggle-label {
-        .focused(3px)
+        background: rgba(var(--color6), .15);
+        box-shadow: 0px 0px 4px 2px rgba(var(--color6), .15);
     }
 
     :disabled {
-        + .toggle-box::before {
-            opacity: .4;
+        + .toggle-box {
+            opacity: .5;
+            cursor: default;
         }
 
         ~ .toggle-label {
-            color: @color15;
+            color: rgb(var(--color18));
+            cursor: default;
         }
     }
 }

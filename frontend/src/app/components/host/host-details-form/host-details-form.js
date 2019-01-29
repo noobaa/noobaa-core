@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './host-details-form.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { mapValues, flatMap, decimalRound } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { getHostDisplayName } from 'utils/host-utils';
-import { get } from 'rx-extensions';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -118,156 +116,153 @@ function _getCpusInfo({ cpus, mode }) {
     }
 }
 
-class HostDetailsFormViewModel extends Observer {
-    constructor({ name }) {
-        super();
-
-        this.hostLoaded = ko.observable(false);
-        this.isDeleteButtonWorking = ko.observable();
-        this.isRetrustButtonVisible = ko.observable();
-
-        // Daemon information observables.
-        this.name = ko.observable();
-        this.version = ko.observable();
-        this.services = ko.observable();
-        this.lastCommunication = ko.observable();
-        this.ip = ko.observable();
-        this.protocol = ko.observable();
-        this.portRange = ko.observable();
-        this.endpoint = ko.observable();
-        this.rtt = ko.observable();
-        this.daemonInfo = [
-            {
-                label: 'Node Name',
-                value: this.name
-            },
-            {
-                label: 'Installed Version',
-                value: this.version
-            },
-            {
-                label: 'Services',
-                value: this.services
-            },
-            {
-                label: 'Last Communication',
-                value: this.lastCommunication
-            },
-            {
-                label: 'Communication IP',
-                value: this.ip
-            },
-            {
-                label: 'Peer to Peer Connectivity',
-                value: this.protocol,
-                template: 'protocol'
-            },
-            {
-                label: 'Port Range',
-                value: this.portRange,
-                template: 'portRange'
-            },
-            {
-                label: 'Server Endpoint',
-                value: this.endpoint
-            },
-            {
-                label: 'Round Trip Time',
-                value: this.rtt
-            }
-        ];
-
-        // System information observables.
-        this.hostname = ko.observable();
-        this.upTime = ko.observable();
-        this.os = ko.observable();
-        this.cpus = ko.observable();
-        this.memory = ko.observable();
-        this.systemInfo = [
-            {
-                label: 'Host Name',
-                value: this.hostname
-            },
-            {
-                label: 'Up Time',
-                value: this.upTime
-            },
-            {
-                label: 'OS Type',
-                value: this.os
-            },
-            {
-                label: 'CPUs',
-                value: this.cpus,
-                template: 'cpus'
-            },
-            {
-                label: 'Memory',
-                value: this.memory,
-                template: 'memory'
-            }
-        ];
-
-        this.observe(
-            state$.pipe(get('hosts', 'items', ko.unwrap(name))),
-            this.onHost
+function _getUntrustedReasons(host) {
+    if (host.trusted) {
+        return [];
+    } else {
+        return flatMap(
+            host.services.storage.nodes,
+            node => node.untrusted.map(events => ({ events, drive: node.mount}))
         );
     }
+}
 
-    onHost(host) {
+class HostDetailsFormViewModel extends ConnectableViewModel {
+    hostLoaded = ko.observable();
+    hostName = '';
+    isDeleteButtonWorking = ko.observable();
+    isRetrustButtonVisible = ko.observable();
+    untrustedReasons = [];
+    daemonInfo = [
+        {
+            label: 'Node Name',
+            value: ko.observable()
+        },
+        {
+            label: 'Installed Version',
+            value: ko.observable()
+        },
+        {
+            label: 'Services',
+            value: ko.observable()
+        },
+        {
+            label: 'Last Communication',
+            value: ko.observable()
+        },
+        {
+            label: 'Communication IP',
+            value: ko.observable()
+        },
+        {
+            label: 'Peer to Peer Connectivity',
+            value: ko.observable(),
+            template: 'protocol'
+        },
+        {
+            label: 'Port Range',
+            value: ko.observable(),
+            template: 'portRange'
+        },
+        {
+            label: 'Server Endpoint',
+            value: ko.observable()
+        },
+        {
+            label: 'Round Trip Time',
+            value: ko.observable()
+        }
+    ];
+    systemInfo = [
+        {
+            label: 'Host Name',
+            value: ko.observable()
+        },
+        {
+            label: 'Up Time',
+            value: ko.observable()
+        },
+        {
+            label: 'OS Type',
+            value: ko.observable()
+        },
+        {
+            label: 'CPUs',
+            value: ko.observable(),
+            template: 'cpus'
+        },
+        {
+            label: 'Memory',
+            value: ko.observable(),
+            template: 'memory'
+        }
+    ];
+
+    selectState(state, params) {
+        const { hosts } = state;
+        return [
+            hosts && hosts.items[params.name]
+        ];
+    }
+
+    mapStateToProps(host) {
         if (!host) {
-            this.isRetrustButtonVisible(false);
-            this.isDeleteButtonWorking(false);
-            return;
+            ko.assignToProps(this, {
+                hostLoaded: false,
+                isDeleteButtonWorking: false,
+                isRetrustButtonVisible: false
+            });
+
+        } else {
+            const {
+                name,
+                version,
+                lastCommunication,
+                ip,
+                endpoint,
+                rtt,
+                hostname,
+                upTime,
+                os
+            } = host;
+
+            ko.assignToProps(this, {
+                hostLoaded: true,
+                hostName: name,
+                isDeleteButtonWorking: host.mode === 'DELETING',
+                isRetrustButtonVisible: !host.trusted,
+                untrustedReasons: _getUntrustedReasons(host),
+                daemonInfo: [
+                    { value: getHostDisplayName(name) },
+                    { value: version },
+                    { value: _getServicesString(host) },
+                    { value:  moment(lastCommunication).fromNow() },
+                    { value: ip },
+                    { value: _getProtocol(host) },
+                    { value: _getPortRage(host) },
+                    { value: endpoint },
+                    { value: `${rtt.toFixed(2)}ms` }
+                ],
+                systemInfo: [
+                    { value: hostname },
+                    { value: moment(upTime).fromNow(true) },
+                    { value: os },
+                    { value: _getCpusInfo(host) },
+                    { value: _getMemoryInfo(host) }
+                ]
+            });
         }
-
-        const {
-            name,
-            version,
-            lastCommunication,
-            ip,
-            endpoint,
-            rtt,
-            hostname,
-            upTime, os,
-            services
-        } = host;
-
-        const hostIsBeingDeleted = host.mode === 'DELETING';
-
-        if (!host.trusted) {
-            this.untrustedReasons = flatMap(
-                services.storage.nodes,
-                node => node.untrusted.map(events => ({ events, drive: node.mount}))
-            );
-        }
-
-        this.host = name;
-        this.hostLoaded(true);
-        this.isDeleteButtonWorking(hostIsBeingDeleted);
-        this.isRetrustButtonVisible(!host.trusted);
-        this.name(getHostDisplayName(name));
-        this.version(version);
-        this.services(_getServicesString(host));
-        this.lastCommunication(moment(lastCommunication).fromNow());
-        this.ip(ip);
-        this.protocol(_getProtocol(host));
-        this.portRange(_getPortRage(host));
-        this.endpoint(endpoint);
-        this.rtt(`${rtt.toFixed(2)}ms`);
-        this.hostname(hostname);
-        this.upTime(moment(upTime).fromNow(true));
-        this.os(os);
-        this.cpus(_getCpusInfo(host));
-        this.memory(_getMemoryInfo(host));
     }
 
     onRetrust() {
-        action$.next(openSetNodeAsTrustedModal(this.host, this.untrustedReasons));
+        this.dispatch(openSetNodeAsTrustedModal(
+            this.hostName,
+            this.untrustedReasons
+        ));
     }
 
     onDeleteNode() {
-        action$.next(openConfirmDeleteHostModal(this.host));
+        this.dispatch(openConfirmDeleteHostModal(this.hostName));
     }
 }
 

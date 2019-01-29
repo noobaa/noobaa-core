@@ -1,69 +1,61 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="fill row" ko.visible="!objectLoaded()">
+<div class="fill row" ko.visible="!dataReady()">
     <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
 </div>
 
-<div class="row summary" ko.css.visible="objectLoaded">
-    <section class="c3 column borders pad">
-        <div class="greedy row content-middle">
-            <span class="c4 highlight push-next">Bucket name:</span>
-            <span class="c8 break-words" ko.text="bucketName"></span>
+<div class="row summary" ko.css.visible="dataReady">
+    <section class="c3 column card">
+        <div class="hpad greedy row content-middle">
+            <span class="c5 highlight push-next">Bucket name:</span>
+            <span class="c7 text-right break-words" ko.text="bucketName"></span>
         </div>
-
         <hr />
-
-        <div class="greedy row content-middle">
-            <span class="c4 highlight push-next">Content-Type:</span>
-            <span class="c8 break-words" ko.text="contentType"></span>
+        <div class="hpad greedy row content-middle">
+            <span class="c5 highlight push-next">Content-Type:</span>
+            <span class="c7 text-right break-words" ko.text="contentType"></span>
         </div>
     </section>
 
-    <section class="c6 column push-both">
-        <div class="row align-middle"
-            ko.css="{ 'push-prev': !chart.visible() }"
-        >
-            <!-- ko if: chart.visible -->
+    <section class="c6 column push-both content-middle">
+        <div class="row greedy">
             <chart-legend class="pad" params="
-                items: size,
+                items: legend,
                 caption: 'Object Size',
                 format: 'size'
             "></chart-legend>
-            <bar-chart class="greedy" params="values: chart.values"></bar-chart>
-            <!-- /ko -->
-            <!-- ko ifnot: chart.visible -->
-            <p class="size-not-avail">Object Size Not Available</p>
-            <!-- /ko -->
+
+            <chartjs class="size-chart align-stretch" params="
+                type: 'bar',
+                options: chart.options,
+                data: chart.data,
+                emptyMessage: 'Object Size Not Available'
+            "></chartjs>
         </div>
     </section>
 
-    <section class="c3 column  borders pad">
-        <div class="greedy row content-middle">
+    <section class="c3 column card">
+        <div class="hpad greedy row content-middle">
             <span class="c5 highlight push-next">Creation time:</span>
-            <span class="c7" ko.text="creationTime"></span>
+            <span class="c7 text-right" ko.text="creationTime"></span>
         </div>
-
         <hr />
-
-        <div class="greedy row content-middle" ko.visible="isVersioningOn">
+        <div class="hpad greedy row content-middle" ko.visible="isVersioningOn">
             <span class="c5 highlight push-next">Version ID:</span>
-            <span class="c7" ko.text="versionId"></span>
+            <span class="c7 text-right" ko.text="versionId"></span>
         </div>
-        <div class="greedy row content-middle" ko.visible="!isVersioningOn()">
+        <div class="hpad greedy row content-middle" ko.visible="!isVersioningOn()">
             <span class="c5 highlight push-next">Last read time:</span>
-            <span class="c7" ko.text="lastReadTime"></span>
+            <span class="c7 text-right" ko.text="lastReadTime"></span>
         </div>
-
         <hr />
-
-        <div class="greedy row content-middle" ko.visible="isVersioningOn">
+        <div class="hpad greedy row content-middle" ko.visible="isVersioningOn">
             <span class="c5 highlight push-next">Num of Versions:</span>
-            <span class="c7" ko.text="versionCount"></span>
+            <span class="c7 text-right" ko.text="versionCount"></span>
         </div>
-
-        <div class="greedy row content-middle" ko.visible="!isVersioningOn()">
+        <div class="hpad greedy row content-middle" ko.visible="!isVersioningOn()">
             <span class="c5 highlight push-next">Read count:</span>
-            <span class="c7" ko.text="readCount"></span>
+            <span class="c7 text-right" ko.text="readCount"></span>
         </div>
     </section>
 </div>

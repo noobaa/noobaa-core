@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="row greedy">
-    <div class="column alt-bg pad greedy push-next">
+<section class="row greedy pad">
+    <div class="column content-box pad greedy push-next">
         <h2 class="heading3 row content-middle push-next">
             <svg-icon class="highlight push-next-half"
                 params="name: 'nodes-pool'"
@@ -14,13 +14,11 @@
         <p class="push-next greedy">
             Nodes will be assigned to nodes groups called “nodes pool” according to the administrator choice.
         </p>
-        <div class="hpad column push-next-half">
-            <button class="btn" ko.click="onInstallNodes">
-                Install Nodes
-            </button>
-        </div>
+        <button class="btn" ko.click="onInstallNodes">
+            Install Nodes
+        </button>
     </div>
-    <div class="column alt-bg pad greedy">
+    <div class="column content-box pad greedy">
         <h2 class="heading3 row content-middle push-next">
             <svg-icon class="highlight push-next-half"
                 params="name: 'cloud-hollow'"
@@ -33,11 +31,9 @@
         <p class="push-next greedy">
             It can be used as a resource in the NooBaa buckets created by the administrator.
         </p>
-        <div class="hpad column push-next-half">
-            <button class="btn" ko.click="onAddCloudResource">
-                Add Cloud Resource
-            </button>
-        </div>
+        <button class="btn" ko.click="onAddCloudResource">
+            Add Cloud Resource
+        </button>
     </div>
 </section>
 

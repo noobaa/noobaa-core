@@ -1,29 +1,28 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<section class="column">
-    <div class="row content-middle pad alt-bg">
-        <div class="cloumn greedy">
-            <h3 class="heading3">Resources</h3>
-            <p>This namespace bucket will read it’s data from the following namespace resources and write to one selected resource</p>
-        </div>
-        <button class="btn"
-            ko.click="onEditPlacement"
-            ko.enable="stateLoaded"
-        >
-            Edit placement policy
-        </button>
-    </div>
 
-    <data-table class="placement-table" params="
-        columns: columns,
-        data: rows,
-        loading: !stateLoaded(),
-        emptyMessage: 'No resources participate in policy'
-    ">
-        <template name="nameAndRule">
-            <p class="row content-middle">
-                {{$data().name}}
-                <span class="token push-prev-half" ko.text="$data().rule"></span>
-            </p>
-        </template>
-    </data-table>
-</section>
+<div class="row content-middle pad card-shadow">
+    <div class="cloumn greedy">
+        <h3 class="heading3">Resources</h3>
+        <p>This namespace bucket will read it’s data from the following namespace resources and write to one selected resource</p>
+    </div>
+    <button class="btn"
+        ko.click="onEditPlacement"
+        ko.enable="stateLoaded"
+    >
+        Edit placement policy
+    </button>
+</div>
+
+<data-table class="greedy placement-table" params="
+    columns: columns,
+    data: rows,
+    loading: !stateLoaded(),
+    emptyMessage: 'No resources participate in policy'
+">
+    <template name="nameAndRule">
+        <p class="row content-middle">
+            {{$data().name}}
+            <span class="tag push-prev-half" ko.text="$data().rule"></span>
+        </p>
+    </template>
+</data-table>

@@ -2,187 +2,121 @@
 
 import template from './bar.html';
 import ko from 'knockout';
-import style from 'style';
-import { deepFreeze, isString, isFunction, echo, clamp, normalizeValues } from 'utils/core-utils';
-import { formatSize } from 'utils/size-utils';
+import { normalizeValues, sumBy, clamp } from 'utils/core-utils';
+import { getFormatter } from 'utils/chart-utils';
 
-const defaultEmptyColor = style['color15'];
-const teethColor = style['color7'];
-const limitsColor = style['color7'];
-const markersTextColor = style['white'];
-const markersBorderColor = style['white'];
-const markersBackgroundColor = style['color1'];
-const fontSize = style['font-size1'];
+function _asPercentage(val) {
+    return `${val * 100}%`;
+}
 
-const defaultMinRatio = .03;
-const markersMargin = 8;
-const markersHeight = Math.ceil(parseInt(fontSize) * 1.5 + markersMargin);
-const font = `${fontSize} ${style['font-family1']}`;
+function _getMarkerStyle(pos) {
+    return {
+        left: pos <= .5 ? _asPercentage(pos) : 'auto',
+        right: pos > .5 ? _asPercentage(1 - pos) : 'auto',
+        transform: `translateX(${Math.sign(pos - .5) * 50}%)`
+    };
+}
 
-const namedFormats = deepFreeze({
-    none: echo,
-    size: formatSize
-});
+class LineViewModel {
+    x1 = ko.observable();
+    x2 = ko.observable();
+    stroke = ko.observable();
+}
 
-function _selectFormatter(value) {
-    if (isString(value)) {
-        return namedFormats[value] || echo;
+class MarkerViewModel {
+    text = ko.observable();
+    style = {
+        left: ko.observable(),
+        right: ko.observable(),
+        transform: ko.observable()
     }
-
-    if (isFunction(value)) {
-        return value;
-    }
-
-    return echo;
 }
 
 class BarViewModel {
-    constructor({
-        values = [],
-        height = 2,
-        width,
-        teeth = 0,
-        limits = false,
-        markers,
-        emptyColor = defaultEmptyColor,
-        minRatio = defaultMinRatio
+    sub = null;
 
-    }) {
-        this.total = ko.pureComputed(
-            () => ko.deepUnwrap(values).reduce(
-                (sum, entry) => sum + entry.value,
-                0
-            )
-        );
+    limits = {
+        visible: ko.observable(),
+        low: ko.observable(),
+        high: ko.observable()
+    };
 
-        this.emptyColor = emptyColor;
-        this.values = values;
-        this.teeth  = teeth;
-        this.limits = limits;
-        this.markers = markers;
-        this.barHeight = height;
-        this.minRatio = minRatio;
-        this.formatter = _selectFormatter(limits);
-        this.canvasWidth = width;
-        this.canvasHeight = ko.pureComputed(
-            () => {
-                const markers = ko.unwrap(this.markers);
-                const markersLine = limits || (markers && markers.length > 0);
-                return ko.unwrap(height) +
-                    2 * ko.unwrap(teeth) +
-                    (markersLine ?  markersHeight : 0);
-            }
-        );
+    lines = ko.observableArray()
+        .ofType(LineViewModel);
 
-        this.barOffset = ko.pureComputed(
-            () => {
-                const limits = ko.unwrap(this.limits);
-                const markers = ko.unwrap(this.markers);
-                return limits || (markers && markers.length > 0) ? markersHeight : 0;
-            }
+    markers = ko.observableArray()
+        .ofType(MarkerViewModel);
+
+    constructor(params) {
+        this.sub = ko.computed(() =>
+            this.onParams(ko.deepUnwrap(params))
         );
     }
 
-    draw(ctx, { width }) {
-        const hasValues = (ko.unwrap(this.values) || []).length > 0;
+    onParams(params) {
+        const {
+            values: items = [],
+            markers: _markers = [],
+            limits: showLimits = false,
+            spacing = 0,
+            minRatio = .03,
+            format = 'none'
+        } = params;
 
-        this._drawBar(ctx, width);
-
-        if (hasValues && ko.unwrap(this.limits)) {
-            this._drawLimits(ctx, width, 0);
-        }
-
-        if (hasValues && ko.unwrap(this.markers)) {
-            this._drawMarkers(ctx, width);
-        }
-    }
-
-    _drawBar(ctx, width) {
-        const teeth = ko.unwrap(this.teeth);
-        const items = ko.deepUnwrap(this.values);
-        const values = normalizeValues(
-            items.map(item => item.value),
-            1,
-            ko.unwrap(this.minRatio)
-        );
-        const barOffset = this.barOffset();
-        const barHeight = ko.unwrap(this.barHeight);
-
-        ctx.fillStyle = ko.unwrap(this.emptyColor);
-        ctx.fillRect(0, barOffset + teeth, width, barHeight);
+        const values = items.map(item => item.value);
+        const nonZeroCount = sumBy(values, value => value ? 1 : 0);
+        const spacingFactor = 1 - (spacing * Math.max(nonZeroCount - 1, 0)); // need to exclude zero items;
+        const ratios = normalizeValues(values, 1, minRatio);
 
         let offset = 0;
-        values.forEach((value, i) => {
-            if (Number.isNaN(value) || value === 0) return;
+        const segments = items.map((item, i) => {
+            const len = ratios[i] * spacingFactor;
+            const start = offset;
+            const end = offset + len;
+            const color = item.color;
+            if (len > 0) offset += len + spacing;
 
-            ctx.fillStyle = items[i].color;
-            ctx.fillRect(
-                Math.round(offset),
-                barOffset + teeth,
-                Math.round(value * width),
-                barHeight
-            );
-
-            if (teeth && i > 0) {
-                ctx.fillStyle = teethColor;
-                ctx.fillRect(Math.round(offset), barOffset, 1, barHeight + 2 * teeth);
-            }
-
-            offset += value * width;
+            return { start, end, color  };
         });
 
-        // Draw external teeth.
-        if (teeth) {
-            ctx.fillStyle = teethColor;
-            ctx.fillRect(0, barOffset, 1, barHeight + 2 * teeth);
-            ctx.fillRect(width - 1 , barOffset, 1, barHeight + 2 * teeth);
-        }
+        const lines = segments.map(seg => ({
+            x1: _asPercentage(seg.start),
+            x2: _asPercentage(seg.end),
+            stroke: seg.color
+        }));
+
+        const formatter = getFormatter(format);
+        const limits = {
+            visible: Boolean(showLimits),
+            low: '0',
+            high: formatter(sumBy(values))
+        };
+
+        const markers = _markers
+            .filter(marker => marker.visible !== false)
+            .map(marker => {
+                const i = clamp(marker.position || 0, 0, segments.length);
+                const pos =
+                    (i === segments.length && 1) ||
+                    (i > 0 && (segments[i - 1].end + segments[i].start) / 2) ||
+                    0;
+
+                return {
+                    text: marker.text,
+                    style: _getMarkerStyle(pos)
+                };
+            });
+
+        ko.assignToProps(this, {
+            lines,
+            markers,
+            limits
+        });
+
     }
 
-    _drawLimits(ctx, width) {
-        const formatter = this.formatter;
-
-        ctx.textBaseline = 'top';
-        ctx.font = font;
-        ctx.fillStyle = limitsColor;
-        ctx.textAlign = 'left';
-        ctx.fillText(formatter(0), 0, 2);
-        ctx.textAlign = 'right';
-        ctx.fillText(formatter(this.total()), width, 2);
-    }
-
-    _drawMarkers(ctx, width) {
-        const total = this.total();
-        const markers = ko.unwrap(this.markers);
-
-        for (const { placement, label } of markers) {
-            const offset = Math.floor(clamp(ko.unwrap(placement) / total, 0, 1) * width);
-
-            const boxWidth = ctx.measureText(ko.unwrap(label)).width + 8;
-            const boxHeight = markersHeight - markersMargin;
-            const x = Math.floor(clamp(offset - boxWidth / 2, 0, width - boxWidth));
-
-            ctx.textBaseline = 'top';
-            ctx.font = font;
-            ctx.fillStyle = markersBackgroundColor;
-            ctx.strokeStyle = markersBorderColor;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(x, 1);
-            ctx.lineTo(x, boxHeight);
-            ctx.lineTo(Math.max(offset - 4, 0), boxHeight);
-            ctx.lineTo(offset, boxHeight + 4);
-            ctx.lineTo(Math.min(offset + 4, width), boxHeight);
-            ctx.lineTo(x + boxWidth, boxHeight);
-            ctx.lineTo(x + boxWidth, 1);
-            ctx.lineTo(x, 1);
-            ctx.fill();
-            ctx.stroke();
-            ctx.closePath();
-            ctx.textAlign = 'left';
-            ctx.fillStyle = markersTextColor;
-            ctx.fillText(ko.unwrap(label), x + 4, 2);
-        }
+    dispose() {
+        this.sub && this.sub.dispose();
     }
 }
 

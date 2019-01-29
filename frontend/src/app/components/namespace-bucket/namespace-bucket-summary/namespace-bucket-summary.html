@@ -1,54 +1,54 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="fill row" ko.visible="!bucketLoaded()">
+<div class="fill row" ko.visible="!dataReady()">
     <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
 </div>
 
-<div class="summary row greedy" ko.css.visible="bucketLoaded">
-    <section class="c4 column pad borders">
-        <div class="greedy row content-middle vpad">
-            <svg-icon class="push-next" params="name: state().name" ko.css="state().css">
+<div class="summary row greedy" ko.css.visible="dataReady">
+    <section class="c4 column card">
+        <div class="greedy hpad row content-middle vpad">
+            <svg-icon class="push-next" params="name: state.name" ko.css="state.css">
             </svg-icon>
-            <span class="heading3 greedy" ko.text="state().tooltip"></span>
+            <span class="heading3 greedy" ko.text="state.tooltip"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Write Policy:</span>
             <span class="c7 text-right no-wrap" ko.text="writePolicy"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Read Policy:</span>
             <span class="c7 text-right no-wrap" ko.text="readPolicy"></span>
         </div>
     </section>
 
-    <section class="c4 column pad borders push-both">
-        <h2 class="heading3 greedy row vpad content-middle">Bucket I/O Counters</h2>
+    <section class="c4 column card push-both">
+        <h2 class="heading3 pad greedy row content-middle">Bucket I/O Counters</h2>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Total Reads:</span>
             <span class="c7 text-right" ko.text="readCount"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Total Writes:</span>
             <span class="c7 text-right" ko.text="writeCount"></span>
         </div>
     </section>
 
-    <section class="c4 column pad borders">
-        <div class="greedy row content-middle vpad">
+    <section class="c4 column card">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Bucket Type:</span>
             <span class="c7 text-right">Namespace Bucket</span>
         </div>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Last Read:</span>
             <span class="c7 text-right" ko.text="lastRead"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle vpad">
+        <div class="greedy hpad row content-middle vpad">
             <span class="c5 highlight push-next">Last Write:</span>
             <span class="c7 text-right" ko.text="lastWrite"></span>
         </div>

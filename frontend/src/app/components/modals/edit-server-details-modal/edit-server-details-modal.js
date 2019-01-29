@@ -1,57 +1,64 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-server-details-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
+import { closeModal, updateServerDetails } from 'action-creators';
+import { isHostname } from 'validations';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { updateServerDetails } from 'actions';
 
-class EditServerDetailsModalViewModel extends BaseViewModel {
-    constructor({ serverSecret, onClose }) {
-        super();
+class EditServerDetailsModalViewModel extends ConnectableViewModel {
+    formName = this.constructor.name;
+    serverSecret = '';
+    serverHostname = '';
+    formFields = ko.observable();
 
-        const server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
-                ({ secret }) => secret === ko.unwrap(serverSecret)
-            )
-        );
-
-        this.secret = serverSecret;
-
-        this.hostname = ko.observableWithDefault(
-            () => server() && server().hostname
-        )
-            .extend({
-                required: { message: 'Please enter a valid hostname' },
-                isHostname: true
-            });
-
-        this.locationTag = ko.observableWithDefault(
-            () => server() && server().location
-        );
-
-
-        this.onClose = onClose;
-        this.errors = ko.validation.group(this);
+    selectState(state, params) {
+        const { servers } = state.topology || {};
+        return [
+            servers && servers[params.serverSecret],
+            state.forms[this.formName]
+        ];
     }
 
-    save() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
+    mapStateToProps(server, form) {
+        if (server) {
+            const { secret, hostname, locationTag } = server;
 
-        } else {
-            updateServerDetails(
-                ko.unwrap(this.secret),
-                this.hostname(),
-                this.locationTag()
-            );
-
-            this.onClose();
+            ko.assignToProps(this, {
+                serverSecret: secret,
+                serverHostname: hostname,
+                formFields: !form ?
+                    { hostname, locationTag } :
+                    undefined
+            });
         }
     }
 
-    cancel() {
-        this.onClose();
+    onValidate(values) {
+        const { hostname } = values;
+        const errors = {};
+
+        if (!hostname || !isHostname(hostname)) {
+            errors.hostname = 'Please enter a valid hostname';
+        }
+
+        return errors;
+    }
+
+    onSubmit(values) {
+        this.dispatch(
+            updateServerDetails(
+                this.serverSecret,
+                this.serverHostname,
+                values.hostname,
+                values.locationTag
+            ),
+            closeModal()
+        );
+    }
+
+    onCancel() {
+        this.dispatch(closeModal());
     }
 }
 

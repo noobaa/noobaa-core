@@ -6,15 +6,19 @@ svg-icon {
     height: 24px;
     vertical-align: middle;
     line-height: 1;
-    fill: @color7;
+    fill: rgb(var(--color13));
     stroke: none;
     position: relative;
-/*    transition: fill 250ms ease-in-out;*/
 
     > svg {
         vertical-align: top;
         width: 100%;
         height: 100%;
+    }
+
+    &.icon-xsmall {
+        width: 10px;
+        height: 10px;
     }
 
     &.icon-small {
@@ -44,38 +48,42 @@ svg-icon {
 
     &.beta-tag::after {
         position: absolute;
-        bottom: -7px;
+        bottom: -10px;
         left: -2px;
         z-index: 1;
     }
 
     .highlight &,
     &.highlight {
-        fill: @color6;
+        fill: rgb(var(--color9));
     }
 
     .success &,
     &.success {
-        fill: @color12;
+        fill: rgb(var(--color21))
     }
 
     .warning &,
     &.warning {
-        fill: @color11;
+        fill: rgb(var(--color20));
     }
 
     .error &,
     &.error {
-        fill: @color10;
+        fill: rgb(var(--color19));
     }
 
     .info &,
     &.info {
-        fill: @color16;
+        fill: rgb(var(--color22));
     }
 
     .disabled &,
     &.disabled {
-        fill: @color15;
+        fill: rgb(var(--color18));
+    }
+
+    &.match-theme {
+        fill: rgb(var(--color6));
     }
 }

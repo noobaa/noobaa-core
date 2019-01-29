@@ -1,10 +1,11 @@
-/* Copyright (C) 2016 NooBaa */
+    /* Copyright (C) 2016 NooBaa */
 
 stepper {
     display: block;
     text-align: center;
     line-height: 3 * @gutter;
     font-size: @font-size4;
+    color: rgb(var(--color9));
 
     > ol {
         .list-no-style();
@@ -17,58 +18,68 @@ stepper {
     }
 
     .stepper-step {
+        @size: 26px;
         counter-increment: step;
         display: inline-block;
         text-transform: capitalize;
-        color: @color7;
-        line-height: inherit;
+        line-height: @size;
 
-        .step-bullet, .step-label {
+        .step-label {
+            display: inline-block;
             vertical-align: middle;
+            margin-left: @gutter / 4;
         }
 
         .step-bullet {
             position: relative;
+            width: @size + 2;
+            height: @size + 2;
             display: inline-block;
-            width: 24px;
-            height: 24px;
-            line-height: 24px;
-            margin-right: 4px;
+            vertical-align: middle;
+            font-weight: @font-regular;
 
-            &::before, &::after {
+            > .step-number, > .step-done {
                 position: absolute;
-                top: 0;
-                left: 0;
-                width: 22px;
-                height: 22px;
-                border: 1px solid;
-                border-radius: 1em;
-                transition: transform 500ms linear, background-color 500ms;
+                display: block;
+                overflow: hidden;
                 backface-visibility: hidden;
+                width: @size;
+                height: @size;
+                border-radius: @size;
+                transition:
+                    transform 500ms linear,
+                    background-color 250ms,
+                    border-color 250ms;
             }
 
-            &::before {
-                content: counter(step);
+            .step-done {
+                fill: rgb(var(--color10));
+                margin-right: 1px;
+            }
+
+            .step-number {
                 transform: rotateY(180deg);
-            }
-
-            &::after {
-                border-color: @color7;
-                content: '';
-                background: url('@{assets}/step-done.png') center center no-repeat;
-                background-color: @color7;
+                border: 1px solid rgb(var(--color18));
             }
         }
 
         &.selected {
-            color: @color6;
+            ~ .stepper-step {
+                color: rgb(var(--color18));
+            }
+
+            .step-bullet > .step-number {
+                color: rgb(var(--color8));
+                border-color: rgb(var(--color6));
+                background-color: rgb(var(--color6));
+            }
 
             .step-bullet, ~ .stepper-step .step-bullet {
-                &::before {
+                > .step-number {
                     transform: rotateY(0deg);
                 }
 
-                &::after {
+                > .step-done {
                     transform: rotateY(180deg);
                 }
             }

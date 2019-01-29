@@ -6,126 +6,131 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <radio-group params="
-        options: inputFormatOptions,
-        selected: $form.inputFormat,
-        hasFocus: true
-    "></radio-group>
+    <div class="column greedy pad">
+        <radio-group params="
+            options: inputFormatOptions,
+            selected: $form.inputFormat,
+            hasFocus: true
+        "></radio-group>
 
-    <textarea class="greedy align-stretch alt-bg code-field"
-        placeholder="Type your code here"
-        ko.visible="$form.inputFormat.eq('TEXT')"
-        ko.value="$form.inlineCode"
-        ko.hasFocus="true"
-        ko.validationCss="$form.inlineCode"
-    ></textarea>
-    <validation-message params="field: $form.inlineCode"></validation-message>
+        <textarea class="greedy align-stretch code-field content-box"
+            placeholder="Type your code here"
+            ko.visible="$form.inputFormat.eq('TEXT')"
+            ko.value="$form.inlineCode"
+            ko.hasFocus="true"
+            ko.validationCss="$form.inlineCode"
+        ></textarea>
+        <validation-message params="field: $form.inlineCode"></validation-message>
 
-    <div class="column greedy push-next"
-        ko.visible="$form.inputFormat.eq('PACKAGE')"
-    >
-        <drop-area class="greedy"
-            ko.validationCss="$form.codePackage"
-            params="onDrop: onDropPackage"
+        <div class="column greedy push-next"
+            ko.visible="$form.inputFormat.eq('PACKAGE')"
         >
-            <!-- ko ifnot: $form.codePackage().filename -->
-            <p class="push-next-half">
-                To replace, drag a new zip file here or
-            </p>
-            <label class="btn alt-colors">
-                Browse
-                <input type="file"
-                    class="hide"
-                    ko.attr.accept="'.zip'",
-                    ko.event.change="onSelectPackage"
-                />
-            </label>
-            <!-- /ko -->
-            <!-- ko if: $form.codePackage().filename -->
-           <p class="row content-middle push-next-half">
-                <!-- ko if: $form.codePackage.isInvalid -->
-                <svg-icon class="icon-small error push-next-half" params="
-                    name: 'problem'
-                "></svg-icon>
-                {{$form.codePackage().filename}} upload failed
-                <!-- /ko -->
-
-                <!-- ko if: $form.codePackage.isValid -->
-                <svg-icon class="icon-small success push-next-half" params="
-                    name: 'healthy'
-                "></svg-icon>
-                {{$form.codePackage().filename}} uploaded
-                <!-- /ko -->
-            </p>
-            <label class="link alt-colors">
-                Change File
-                <input type="file"
-                    class="hide"
-                    ko.attr.accept="'.zip'",
-                    ko.event.change="onSelectPackage"
-                />
-            </label>
-            <!-- /ko -->
-        </drop-area>
-        <p class="remark" ko.visible="!$form.codePackage.isInvalidTouched()">
-            Maximum upload size: {{formattedPkgSizeLimit}}
-        </p>
-        <validation-message params="field: $form.codePackage"></validation-message>
-    </div>
-
-    <editor params="label: 'Execution File', tooltip: handlerFileTooltip"
-        ko.visible="$form.inputFormat.eq('PACKAGE')"
-    >
-        <div class="row content-middle">
-            <!-- ko if: handlerFileOptions -->
-            <dropdown class="push-next-half"
-                ko.validationCss="$form.handlerFile"
-                params="
-                    placeholder: 'Choose file...',
-                    filter: true,
-                    filterPlaceholder: fileSelectionFilterPlaceholder,
-                    options: handlerFileOptions,
-                    selected: $form.handlerFile,
-                    disabled: isFileSelectionDisabled
-                "
-            ></dropdown>
-            <!-- /ko -->
-            <!-- ko ifnot: handlerFileOptions -->
-            <input class="push-next-half"
-                type="text"
-                placeholder="Function name"
-                ko.value="$form.handlerFile"
-                ko.validationCss="$form.handlerFile"
-            />
-            <!-- /ko -->
-            <div ko.tooltip="showFileContentTooltip">
-                <button class="icon-btn"
-                    tabindex="-1"
-                    ko.disable="isShowFileContentBtnDisabled"
-                    ko.click="() => onShowFileContent(
-                        $form.codePackage().buffer,
-                        $form.handlerFile()
-                    )"
-                    ko.tooltip="'Open file content in new tab'"
+            <drop-area class="greedy"
+                ko.validationCss="$form.codePackage"
+                params="onDrop: onDropPackage"
+            >
+                <!-- ko ifnot: $form.codePackage().filename -->
+                <p class="push-next-half">
+                    To replace, drag a new zip file here or
+                </p>
+                <label class="btn alt-colors"
+                    tabindex="0"
+                    ko.keysToClicks="['space', 'enter']"
                 >
-                    <svg-icon class="icon-small" params="name: 'expand'"></svg-icon>
-                </button>
-            </div>
+                    Browse
+                    <input type="file"
+                        tabindex="-1"
+                        class="hide"
+                        ko.attr.accept="'.zip'",
+                        ko.event.change="onSelectPackage"
+                    />
+                </label>
+                <!-- /ko -->
+                <!-- ko if: $form.codePackage().filename -->
+               <p class="row content-middle push-next-half">
+                    <!-- ko if: $form.codePackage.isInvalid -->
+                    <svg-icon class="icon-small error push-next-half" params="
+                        name: 'problem'
+                    "></svg-icon>
+                    {{$form.codePackage().filename}} upload failed
+                    <!-- /ko -->
+
+                    <!-- ko if: $form.codePackage.isValid -->
+                    <svg-icon class="icon-small success push-next-half" params="
+                        name: 'healthy'
+                    "></svg-icon>
+                    {{$form.codePackage().filename}} uploaded
+                    <!-- /ko -->
+                </p>
+                <label class="link alt-colors">
+                    Change File
+                    <input type="file"
+                        class="hide"
+                        ko.attr.accept="'.zip'",
+                        ko.event.change="onSelectPackage"
+                    />
+                </label>
+                <!-- /ko -->
+            </drop-area>
+            <p class="remark" ko.visible="!$form.codePackage.isInvalidTouched()">
+                Maximum upload size: {{formattedPkgSizeLimit}}
+            </p>
+            <validation-message params="field: $form.codePackage"></validation-message>
         </div>
-        <validation-message params="field: $form.handlerFile"></validation-message>
-    </editor>
 
-    <editor params="label: 'Execution Function', tooltip: handlerFuncTooltip">
-        <input type="text"
-            placeholder="Function name"
-            ko.value="$form.handlerFunc"
-            ko.validationCss="$form.handlerFunc"
-            ko.disable="isFuncSelectionDisabled"
-        />
-        <validation-message params="field: $form.handlerFunc"></validation-message>
-    </editor>
+        <editor params="label: 'Execution File', tooltip: handlerFileTooltip"
+            ko.visible="$form.inputFormat.eq('PACKAGE')"
+        >
+            <div class="row content-middle">
+                <!-- ko if: handlerFileOptions -->
+                <dropdown class="push-next-half"
+                    ko.validationCss="$form.handlerFile"
+                    params="
+                        placeholder: 'Choose file...',
+                        filter: true,
+                        filterPlaceholder: fileSelectionFilterPlaceholder,
+                        options: handlerFileOptions,
+                        selected: $form.handlerFile,
+                        disabled: isFileSelectionDisabled
+                    "
+                ></dropdown>
+                <!-- /ko -->
+                <!-- ko ifnot: handlerFileOptions -->
+                <input class="push-next-half"
+                    type="text"
+                    placeholder="Function name"
+                    ko.value="$form.handlerFile"
+                    ko.validationCss="$form.handlerFile"
+                />
+                <!-- /ko -->
+                <div ko.tooltip="showFileContentTooltip">
+                    <button class="icon-btn"
+                        tabindex="-1"
+                        ko.disable="isShowFileContentBtnDisabled"
+                        ko.click="() => onShowFileContent(
+                            $form.codePackage().buffer,
+                            $form.handlerFile()
+                        )"
+                        ko.tooltip="'Open file content in new tab'"
+                    >
+                        <svg-icon class="icon-small" params="name: 'expand'"></svg-icon>
+                    </button>
+                </div>
+            </div>
+            <validation-message params="field: $form.handlerFile"></validation-message>
+        </editor>
 
-    <div class="row content-middle">
+        <editor params="label: 'Execution Function', tooltip: handlerFuncTooltip">
+            <input type="text"
+                placeholder="Function name"
+                ko.value="$form.handlerFunc"
+                ko.validationCss="$form.handlerFunc"
+                ko.disable="isFuncSelectionDisabled"
+            />
+            <validation-message params="field: $form.handlerFunc"></validation-message>
+        </editor>
+    </div>
+    <div class="row content-middle pad content-box">
         <p class="remark greedy push-next">
             <!-- ko if: $form.inputFormat.eq('PACKAGE') -->
             <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>

@@ -1,45 +1,40 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-panel.html';
-import { state$ } from 'state';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { realizeUri } from 'utils/browser-utils';
-import { getMany } from 'rx-extensions';
 
-class AccountPanelViewModel extends Observer {
-    constructor() {
-        super();
+class AccountPanelViewModel extends ConnectableViewModel {
+    baseRoute = ko.observable();
+    selectedTab = ko.observable();
+    account = ko.observable();
+    isCurrentUser = ko.observable();
 
-        this.baseRoute = '';
-        this.selectedTab = ko.observable();
-        this.account = ko.observable();
-        this.isCurrentUser = ko.observable();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'location',
-                    ['session', 'user']
-                )
-            ),
-            this.onLocation
-        );
+    selectState(state) {
+        const { location, session } = state;
+        return [
+            location,
+            session && session.user
+        ];
     }
 
-    onLocation([location, user]) {
-        const { route, params } = location;
-        const { system, account, tab = 's3-access' } = params;
+    mapStateToProps(location, user) {
+        const { system, account, tab = 's3-access' } = location.params;
         if (!account) return;
 
-        this.baseRoute = realizeUri(route, { system, account }, {}, true);
-        this.selectedTab(tab);
-        this.account(account);
-        this.isCurrentUser(account === user);
+        ko.assignToProps(this, {
+            baseRoute: realizeUri(location.route, { system, account }, {}, true),
+            selectedTab: tab,
+            account: account,
+            isCurrentUser: account === user
+        });
+
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        return route ? realizeUri(route, { tab }) : '';
     }
 }
 

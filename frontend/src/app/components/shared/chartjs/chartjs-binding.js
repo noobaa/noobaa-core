@@ -2,14 +2,27 @@
 
 import ko from 'knockout';
 import Chart from 'chartjs';
-import { deepAssign, deepClone } from 'utils/core-utils';
-import defaultSettings from './chartjs-defaults';
+import { map, distinctUntilChanged } from 'rxjs/operators';
+import { deepAssign, deepClone, get } from 'utils/core-utils';
+import getThemedSettings from './chartjs-defaults';
+import { state$ } from 'state';
+import { defaultTheme } from 'config';
 
 // Metrge NooBaa default chartjs global default settings.
-Chart.defaults = deepAssign(
-    Chart.defaults,
-    defaultSettings
-);
+const selectedTheme = ko.observable();
+state$.pipe(
+    map(state => get(state, ['session', 'uiTheme'], defaultTheme)),
+    distinctUntilChanged(Object.is)
+).subscribe(theme => {
+    // Merge custom settings with chartjs settings.
+    Chart.defaults = deepAssign(
+        Chart.defaults,
+        theme && getThemedSettings(theme)
+    );
+
+    // Initiate a redraw for all rendered charts.
+    selectedTheme(theme);
+});
 
 function createChart(canvas, type, options, data) {
     return new Chart(canvas, {
@@ -29,51 +42,55 @@ ko.bindingHandlers.chartjs = {
         let lastType = type.peek();
         let lastOptions = options.peek();
         let lastData = data.peek();
+        let lastTheme = selectedTheme.peek();
         let chart = createChart(canvas, lastType, lastOptions, lastData);
 
-        const sub = ko.pureComputed(() => [type(), options(), data()])
-            .extend({
-                rateLimit: {
-                    method: 'notifyWhenChangesStop',
-                    timeout: 1
-                }
-            }).subscribe(([type, options, data]) => {
-                if (type !== lastType) {
-                    if (chart) chart.destroy();
-                    chart = createChart(canvas, type, options, data);
+        const sub = ko.pureComputed(() => [
+            type(),
+            options(),
+            data(),
+            selectedTheme()
+        ]).extend({
+            rateLimit: {
+                method: 'notifyWhenChangesStop',
+                timeout: 1
+            }
+        }).subscribe(([type, options, data, theme]) => {
+            const shouldDestory =
+                (type !== lastType) ||
+                (options !== lastOptions) ||
+                (theme !== lastTheme);
 
-                } else if (chart) {
-                    if (options !== lastOptions) {
-                        //chart.options = deepClone(options);
-                        //OHAD: W/A shoudl work wiht options instead
-                        if (chart) chart.destroy();
-                        chart = createChart(canvas, type, options, data);
+            if (shouldDestory) {
+                if (chart) chart.destroy();
+                chart = createChart(canvas, type, options, data);
+
+            } else if (chart) {
+                if (data !== lastData) {
+                    const { datasets, labels } = chart.data;
+
+                    if (Array.isArray(labels) && Array.isArray(data.labels)) {
+                        labels.length = data.labels.length;
+                        chart.data.labels = Object.assign(labels, data.labels);
+
+                    } else {
+                        chart.data.labels = data.labels;
                     }
 
-                    if (data !== lastData) {
-                        const { datasets, labels } = chart.data;
-
-                        if (Array.isArray(labels) && Array.isArray(data.labels)) {
-                            labels.length = data.labels.length;
-                            chart.data.labels = Object.assign(labels, data.labels);
-
-                        } else {
-                            chart.data.labels = data.labels;
-                        }
-
-                        datasets.length = data.datasets.length;
-                        for (let i = 0; i < datasets.length; ++i) {
-                            datasets[i] = Object.assign(datasets[i] || {}, data.datasets[i]);
-                        }
+                    datasets.length = data.datasets.length;
+                    for (let i = 0; i < datasets.length; ++i) {
+                        datasets[i] = Object.assign(datasets[i] || {}, data.datasets[i]);
                     }
-
-                    chart.update();
                 }
 
-                lastType = type;
-                lastOptions = options;
-                lastData = data;
-            });
+                chart.update();
+            }
+
+            lastType = type;
+            lastOptions = options;
+            lastData = data;
+            lastTheme = theme;
+        });
 
 
         ko.utils.domNodeDisposal.addDisposeCallback(canvas, () => {

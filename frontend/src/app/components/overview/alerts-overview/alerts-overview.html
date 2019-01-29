@@ -1,0 +1,19 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: dataReady -->
+<section class="card greedy">
+    <div class="hpad pad-half row">
+        <svg-icon class="icon-small push-next-half"
+            ko.tooltip="alertsTooltip"
+            ko.css="alertsIcon().css"
+            params="name: alertsIcon().name"
+        ></svg-icon>
+        <span class="greedy highlight">Alerts</span>
+        <button class="link" ko.click="onViewAlerts">View Alerts</button>
+    </div>
+    <hr>
+    <div class="pad greedy">
+        <p>{{alertsSummary}}</p>
+    </div>
+</section>
+<!-- /ko -->

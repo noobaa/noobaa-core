@@ -11,10 +11,11 @@ delete-button {
         position: absolute;
         top: 0;
         right: 0;
-        background: black;
+        background-color: rgb(var(--color1));
         max-width: 0;
-        box-shadow: -2px 2px 4px black;
+        box-shadow: 0px 2px 4px rgba(var(--shadow2));
         transition: max-width 200ms ease-in-out;
+
     }
 
     .message-text {
@@ -25,12 +26,19 @@ delete-button {
         line-height: 44px;
     }
 
-    button {
+    .btn {
         position: relative;
         background: red;
     }
 
     .active {
+        .icon-btn:focus {
+            &, &:hover {
+                background: none;
+                box-shadow: none;
+            }
+        }
+
         .message-wrapper {
             max-width: 300px;
         }

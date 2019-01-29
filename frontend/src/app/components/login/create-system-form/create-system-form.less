@@ -3,15 +3,14 @@
 .create-system-form {
     z-index: 1;
 
+    .left-box, .right-box {
+        background-color: rgb(var(--color5));
+    }
+
     .logo {
         width: 64px;
         height: 64px;
         margin-top: -64px;
-    }
-
-    stepper {
-        background-color: @color2;
-        margin: -2 * @gutter;
     }
 
     .steps {
@@ -46,28 +45,20 @@
         padding-right: 1.5em;
 
         > input {
-            padding-right: 4em;
+            padding-right: 5em;
         }
     }
 
-    .activation-code-remark {
-        .remark();
-        margin-top: -1em;
-        line-height: 1;
-        height: 1em;
-        top: 1.2em;
-        position: relative;
-    }
-
     .resend-btn {
+        height: 36px;
         line-height: 36px;
         margin-left: -5em;
-        border-left: 1px solid #88898a;
+        color: rgb(var(--color10));
+        border-left: 1px solid rgb(var(--color10));
         padding-left: 11px;
 
         &:disabled {
-            color: @color6;
-            opacity: .25;
+            color: rgb(var(--color18));
         }
     }
 }

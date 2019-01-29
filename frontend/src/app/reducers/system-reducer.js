@@ -28,6 +28,7 @@ const diagnosticsInitialState = {
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
     return {
+        name: payload.name,
         version: payload.version,
         nodeVersion: payload.node_version,
         dnsName: payload.dns_name,

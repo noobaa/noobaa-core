@@ -63,42 +63,6 @@ export function getServerIssues(server, systemVersion, minRequirements) {
     return issues;
 }
 
-export function getClusterStatus(cluster, systemVersion) {
-    const { servers } = cluster.shards[0];
-    const connected = servers
-        .filter( server => server.status === 'CONNECTED' )
-        .length;
-
-    if (connected < Math.floor(servers.length / 2) + 1) {
-        return 'UNHEALTHY';
-    }
-
-    const issueCount = servers
-        .filter(
-            server => {
-                if (server.status !== 'CONNECTED') {
-                    return false;
-                }
-
-                const issues = getServerIssues(server, systemVersion, cluster.min_requirements);
-                return Boolean(issues.version) ||
-                    Boolean(issues.dnsServers) ||
-                    Boolean(issues.dnsName) ||
-                    Boolean(issues.ntpServer) ||
-                    Boolean(issues.clusterConnectivity);
-            }
-        )
-        .length;
-
-
-    if (issueCount > connected / 2) {
-        return 'WITH_ISSUES';
-    }
-
-    return 'HEALTHY';
-}
-
-
 // ---------------------------------
 // New arch utils
 // ---------------------------------
@@ -215,9 +179,11 @@ export function getServerDisplayName(server) {
 
 export function getClsuterHAState(topology) {
     const { supportHighAvailability, isHighlyAvailable }= topology;
-    return supportHighAvailability ?
-        (isHighlyAvailable ? 'Highly Available' : 'Not highly available') :
-        'Not configured for high availability';
+    return (
+        (!supportHighAvailability && 'Not configured for high availability') ||
+        (isHighlyAvailable && 'Highly Available') ||
+        'Not highly available'
+    );
 }
 
 export function getClusterStateIcon(topology, systemVersion) {

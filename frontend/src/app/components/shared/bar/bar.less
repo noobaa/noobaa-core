@@ -1,13 +1,117 @@
 /* Copyright (C) 2016 NooBaa */
 
 bar {
-    display: block;
-    overflow: hidden;
+    @marker-border: rgb(var(--color10));
 
-    canvas {
+    display: block;
+    position: relative;
+    font-size: @font-size1;
+    stroke-width: 100px;
+
+    .bar-line {
+        height: 2px;
+    }
+
+    .bar-svg {
         display: block;
-        border-radius: inherit;
         width: 100%;
         height: inherit;
+    }
+
+    .bar-markers {
+        position: absolute;
+        width: 100%;
+        height: inherit;
+    }
+
+    .bar-marker {
+        position: absolute;
+        font-size: @font-size1;
+        font-weight: @font-light;
+        color: rgb(var(--color9));
+        border: 1px solid @marker-border;
+        padding: 2px 4px;
+        max-width: 100px;
+        text-align: center;
+        margin: 8px 0;
+        bottom: 100%;
+        font-weight: @font-thin;
+
+        &::before, &::after {
+            content: '';
+            display: block;
+            position: absolute;
+            height: 5px;
+            width: 5px;
+            bottom: 0;
+            left: 50%;
+            transform-origin: center;
+            transform:
+                translate(-50%, 50%)
+                rotate(45deg);
+        }
+
+        &::before {
+            border: 1px solid;
+            border-color:
+                transparent
+                @marker-border
+                @marker-border
+                transparent;
+        }
+
+        &::after {
+            background-color: inherit;
+        }
+    }
+
+    .bar-limits {
+        display: flex;
+        flex-direction: row;
+        padding-bottom: 2px;
+    }
+
+    .bar-limit {
+        display: block;
+        text-align: left;
+        width: 50%;
+
+        + .bar-limit {
+            text-align: right;
+        }
+    }
+
+    &.bar-flip-markers {
+        .bar-marker {
+            bottom: auto;
+            top: 100%;
+
+             &::before, &::after {
+                content: '';
+                display: block;
+                position: absolute;
+                height: 5px;
+                width: 5px;
+                top: 0;
+                left: 50%;
+                transform-origin: center;
+                transform:
+                    translate(-50%, -50%)
+                    rotate(45deg);
+            }
+
+            &::before {
+                border: 1px solid;
+                border-color:
+                    @marker-border
+                    transparent
+                    transparent
+                    @marker-border;
+            }
+        }
+    }
+
+    &.disabled .bar-line {
+        opacity: .5;
     }
 }

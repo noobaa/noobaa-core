@@ -5,17 +5,16 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, sumBy, makeArray, memoize, decimalRound } from 'utils/core-utils';
 import { getUsageDistribution } from 'utils/resource-utils';
-import style from 'style';
 import numeral from 'numeral';
 
 const maxChartValues = 6;
 const colors = deepFreeze([
-    style['color16'],
-    style['color14'],
-    style['color13'],
-    style['color18'],
-    style['color7'],
-    style['color6']
+    'rgb(var(--color6))',
+    'rgb(var(--color28))',
+    'rgb(var(--color29))',
+    'rgb(var(--color20))',
+    'rgb(var(--color21))',
+    'rgb(var(--color9))'
 ]);
 
 function _formatRatio(ratio) {

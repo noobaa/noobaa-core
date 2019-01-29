@@ -223,7 +223,7 @@ gulp.task('copy', () => {
 });
 
 gulp.task('build-js-style', () => {
-    return gulp.src('src/app/styles/variables.less', { base: 'src/app/styles' })
+    return gulp.src('src/app/styles/constants.less', { base: 'src/app/styles' })
         .pipe(letsToLessClass())
         .pipe($.less())
         .pipe(cssClassToJson())

@@ -9,7 +9,7 @@ import { realizeUri } from 'utils/browser-utils';
 import { toBytes, sumSize, formatSize } from 'utils/size-utils';
 import { requestLocation, fetchCloudUsageStats, dropCloudUsageStats } from 'action-creators';
 import numeral from 'numeral';
-import style from 'style';
+import themes from 'themes';
 
 const durationOptions = deepFreeze([
     {
@@ -29,8 +29,7 @@ const durationOptions = deepFreeze([
 const s3CompatibleOption = {
     value: 'S3_COMPATIBLE',
     label: 'S3 Compatible service',
-    icon: 'cloud-dark',
-    selectedIcon: 'cloud-colored'
+    icon: 'cloud-dark'
 };
 
 const aspectRatio = 1.5;
@@ -62,14 +61,6 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                         }${
                             ' '.repeat(5)
                         }`
-                    }
-                }],
-                xAxes: [{
-                    gridLines: {
-                        display: false
-                    },
-                    ticks: {
-                        fontColor: style['color6']
                     }
                 }]
             },
@@ -105,14 +96,6 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                             ' '.repeat(5)
                         }`
                     }
-                }],
-                xAxes: [{
-                    gridLines: {
-                        display: false
-                    },
-                    ticks: {
-                        fontColor: style['color6']
-                    }
                 }]
             },
             tooltips: {
@@ -131,13 +114,15 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
     }
 
     selectState(state) {
+        const { cloudUsageStats, location, session } = state;
         return [
-            state.cloudUsageStats,
-            state.location
+            cloudUsageStats,
+            location,
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(cloudUsageStats, location) {
+    mapStateToProps(cloudUsageStats, location, theme) {
         const { pathname, query } = location;
         const duration = query.duration || 'DAY';
 
@@ -184,11 +169,11 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                     labels: bars.map(bar => bar.label),
                     datasets: [
                         {
-                            backgroundColor: style['color14'],
+                            backgroundColor: theme.color6,
                             data: bars.map(bar => bar.reads)
                         },
                         {
-                            backgroundColor: style['color16'],
+                            backgroundColor: theme.color28,
                             data: bars.map(bar => bar.writes)
                         }
                     ]
@@ -199,7 +184,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                 data: {
                     labels: bars.map(bar => bar.label),
                     datasets: [{
-                        backgroundColor: style['color14'],
+                        backgroundColor: theme.color6,
                         data: bars.map(bar => bar.egress)
                     }]
                 }

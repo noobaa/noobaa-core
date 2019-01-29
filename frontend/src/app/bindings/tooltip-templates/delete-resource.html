@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: reason === 'SYSTEM_ENTITY' -->
+<p class="highlight">Cannot delete system defined default {{subject}}</p>
+<!-- /ko -->
+
+<!-- ko if: reason === 'NOT_EMPTY' -->
+<p class="highlight">Cannot delete a {{subject}} which contains nodes</p>
+<!-- /ko -->
+
+<!-- ko if: reason === 'IN_USE' -->
+<p class="highlight">Cannot delete a {{subject}} that is assigned to a bucket policy</p>
+<!-- /ko -->
+
+<!-- ko if: reason === 'DEFAULT_RESOURCE' && accounts.length === 1 -->
+<p class="highlight">
+    Cannot delete. The {{subject}} is used as a default resource by
+    <a class="link" ko.attr.href="accounts[0].href" ko.text="accounts[0].name"></a>
+</p>
+<!-- /ko -->
+
+<!-- ko if: reason === 'DEFAULT_RESOURCE' && accounts.length > 1 -->
+<p class="highlight">
+    Cannot delete. The {{subject}} is used as a default resource by the following accounts:
+    <ul class="bullet-list highlight" ko.foreach="accounts">
+        <li>
+            <a class="link" ko.attr.href="href" ko.text="name"></a>
+        </li>
+    </ul>
+</p>
+<!-- /ko -->
+
+<!-- ko if: !reason -->
+<p class="highlight">Delete {{subject}}</p>
+<!-- /ko -->

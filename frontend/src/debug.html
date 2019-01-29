@@ -6,11 +6,12 @@
     <title>Noobaa Debug Console</title>
     <link rel="stylesheet" type="text/css" href="/fe/styles.css"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="nbversion" content="%%NOOBAA_VERSION%%" />
+    <meta name="nbversion" content="3.0.0" />
 
     <style>
         header {
             height: 60px;
+            border-bottom: 1px solid rgb(var(--color6));
         }
 
         .message-list {
@@ -22,8 +23,9 @@
             cursor: pointer;
         }
 
-        .tabs, .tabs > nav {
-            background-color: #15181c;
+        .message-row.selected {
+            cursor: default;
+            background-color: rgb(var(--color16));
         }
 
         code {
@@ -32,21 +34,21 @@
         }
 
         .diff .set {
-            background-color: #3cb37126;
+            background-color: rgba(var(--color21), .2);
             padding-left: 4px;
         }
 
         .diff .set .prefix {
-            color: #08955b;
+            color: rgb(var(--color21));;
         }
 
         .diff .unset {
-            background-color: #8b000052;
+            background-color: rgba(var(--color19), .2);
             padding-left: 4px;
         }
 
         .diff .unset .prefix {
-            color: #d01c27;
+            color: rgb(var(--color19));
         }
 
         .inspector {
@@ -98,13 +100,13 @@
             border: solid transparent;
             border-width: 3px 0 3px 6px;
             margin: 6px 5px 6px -11px;
-            border-left-color: #f20092;
+            border-left-color: rgb(var(--color6));
         }
 
         .inspector input:checked + .key::before {
             border-width: 6px 3px 0 3px;
             border-left-color: transparent;
-            border-top-color: #f20092;
+            border-top-color: rgb(var(--color6));
         }
 
         .inspector input ~ .obj {
@@ -129,8 +131,13 @@
     </style>
 
 </head>
-<body class="column fill" style="display: none" data-bind="visible: true">
-    <header class="row border-bottom content-middle hpad">
+<body class="column fill theme-up-dark" style="display: none" data-bind="visible: true">
+    <header class="row content-middle hpad">
+        <svg-icon class="icon-medium push-next">
+                <svg>
+                    <use xlink:href href="#logo-icon"></use>
+                </svg>
+            </svg-icon>
         <h1 class="heading2 greedy push-next" data-bind="text: title"></h1>
         <input type="search" class="push-next-half" placeholder="Filter Actions" data-bind="
             textInput: ko.pureComputed({ read: filter, write: onFilterMessages })
@@ -170,8 +177,8 @@
     </header>
 
     <main class="row greedy">
-        <section class="column border-right" data-bind="with: messageList">
-            <p class="alt-bg text-center remark" data-bind="
+        <section class="column content-box" data-bind="with: messageList">
+            <p class="text-center remark pad-half border-bottom" data-bind="
                 visible: $parent.hasHiddenMessages
             ">
                 <span data-bind="text: $parent.hiddenCount"></span>
@@ -196,8 +203,9 @@
                 </li>
             </ul>
         </section>
-        <!-- ko if: isMessageSelected -->
-        <section class="row greedy">
+
+        <section class="row greedy hpad card-bg">
+            <!-- ko if: isMessageSelected -->
             <div class="tabs c6">
                 <nav>
                     <a class="selected">Action Payload</a>
@@ -254,8 +262,8 @@
                     </div>
                 </div>
             </div>
-        </section>
         <!-- /ko -->
+        </section>
     </main>
 
     <script src="/fe/lib.js"></script>

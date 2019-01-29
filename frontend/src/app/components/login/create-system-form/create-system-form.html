@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="row create-system-form">
-    <div class="row double-pad alt-bg push-next">
+    <div class="row pad left-box push-next">
         <div class="column align-middle">
             <svg-icon class="logo icon-xbig align-middle"
                 params="name: 'logo'"
@@ -12,14 +12,14 @@
         </div>
     </div>
 
-    <div class="steps double-pad alt-bg column"
+    <div class="steps right-box column"
         ko.css="`step${step()}`"
     >
-        <stepper class="push-next"
+        <stepper class="pad content-box"
             params="steps: steps, current: step"
         ></stepper>
 
-        <div class="row pages">
+        <div class="row pad pages">
             <div class="page column"
                 ko.css.selected="step() === 0"
             >
@@ -32,9 +32,11 @@
                         <input type="text"
                             placeholder="Your email address"
                             ko.disable="isEmailDisabled"
-                            ko.value="email" />
+                            ko.value="email"
+                            ko.hasFocus="true"
+                        />
 
-                        <svg-icon class="spin push-prev-half"
+                        <svg-icon class="match-theme spin push-prev-half"
                             ko.visible="isEmailSpinnerVisible"
                             params="name: 'in-progress'"></svg-icon>
                     </div>
@@ -77,7 +79,7 @@
                         <input type="text"
                             ko.value="serverDNSName" />
 
-                        <svg-icon class="spin push-prev-half"
+                        <svg-icon class="spin match-theme push-prev-half"
                             ko.visible="serverDNSName.isValidating"
                             params="name: 'in-progress'"
                         ></svg-icon>
@@ -99,7 +101,13 @@
             </div>
         </div>
 
-        <div class="row content-middle align-end push-prev">
+        <div class="row content-middle content-box pad">
+            <p class="greedy highlight">
+                Need any help?
+                <a class="link" ko.attr.href="supportEmailHref">
+                    Contact our support team
+                </a>
+            </p>
             <button class="link alt-colors push-next"
                 ko.visible="isPrevVisible"
                 ko.click="prev"

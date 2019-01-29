@@ -16,7 +16,7 @@ host-summary {
     .service-state-indicator {
         .remark();
         vertical-align: middle;
-        color: @color15;
+        color: rgb(var(--color10));
         cursor: default;
 
         &::before {
@@ -27,23 +27,23 @@ host-summary {
             line-height: @gutter/2;
             border-radius: @gutter/2;
             margin-right: 2px;
-            background-color: @color15;
+            background-color: rgb(var(--color10));
         }
 
         &.success, &.warning, &.error {
-            color: @color7;
+            color: rgb(var(--color9));
         }
 
         &.success::before {
-            background-color: @color12;
+            background-color: rgb(var(--color21));
         }
 
         &.warning::before {
-            background-color: @color11;
+            background-color: rgb(var(--color20));
         }
 
         &.error::before {
-            background-color: @color10;
+            background-color: rgb(var(--color19));
         }
     }
 

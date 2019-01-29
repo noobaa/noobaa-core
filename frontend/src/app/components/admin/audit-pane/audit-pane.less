@@ -6,7 +6,8 @@
 
     .pane-header {
         line-height: 3 * @gutter;
-        border-bottom: 1px solid @color8;
+        background-color: rgb(var(--color23));
+        border-bottom: 1px solid rgb(var(--color6));
     }
 
     .category-filter {
@@ -21,13 +22,12 @@
             transition: all 300ms;
 
             &:hover {
-                background-color: fadeout(@color15, 50%);
+                background-color: rgb(var(--color16));
             }
 
             &.selected {
                 cursor: default;
-                background-color: @color5;
-                color: @color6;
+                background-color: rgb(var(--color16));
             }
         }
 

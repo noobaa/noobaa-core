@@ -2,7 +2,7 @@
 
 import template from './list-details.html';
 import ko from 'knockout';
-import { groupBy } from 'utils/core-utils';
+import { echo, groupBy } from 'utils/core-utils';
 
 const defaultRowTemplate = '{{$item}}';
 const defaultDetailsTemplate = `
@@ -22,22 +22,28 @@ class ListDetailsViewModel {
             loading = false,
             rows = [],
             buttonLabel = 'Show Details',
+            idSelector = echo,
             selected = ''
         } = params;
-
 
         this.loading = loading;
         this.rowTemplate = rowTemplate;
         this.detailsTemplate = detailsTemplate;
         this.rows = rows;
         this.buttonLabel = buttonLabel;
+        this.idSelector = idSelector;
         this.selected = !ko.isWritableObservable(selected) ?
             ko.observable(ko.unwrap(selected)) :
             selected;
     }
 
     onToggleItem(item) {
-        this.selected(item === this.selected() ? '' : item);
+        const id = String(this.idSelector(item));
+        this.selected(id === this.selected() ? '' : id);
+    }
+
+    isSelected(item) {
+        return String(this.idSelector(item)) === this.selected();
     }
 }
 

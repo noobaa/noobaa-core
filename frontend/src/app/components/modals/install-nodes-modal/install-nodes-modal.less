@@ -1,11 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 .install-nodes-modal {
-    wizard {
-        margin: -@gutter;
-        margin-bottom: 0;
-    }
-
     .config-box {
         word-wrap: break-word;
         word-break: break-all;
@@ -13,31 +8,6 @@
         .text-tech {
             font-size: 10px;
             overflow-y: hidden;
-        }
-    }
-
-    .name-validation-list {
-        .list-no-style();
-        .remark();
-
-        padding-left: 0;
-
-        > li {
-            &::before {
-                content: '\2022';
-                text-align: center;
-                display: inline-block;
-                width: 5px;
-                margin-right: 1em;
-            }
-
-            &.success::before {
-                content: '\2713';
-            }
-
-            &.error::before {
-                content: '\2715';
-            }
         }
     }
 }

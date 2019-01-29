@@ -3,12 +3,6 @@
 import template from './capacity-bar.html';
 import ko from 'knockout';
 import { sumSize, formatSize, toBytes } from 'utils/size-utils';
-import style from 'style';
-
-const minUsedRatio = .03;
-const bgColor = style['color7'];
-const emptyColor = style['color7'];
-const color = style['color8'];
 
 class CapacityBarViewModel {
     constructor({ total, used }) {
@@ -38,27 +32,22 @@ class CapacityBarViewModel {
             () => {
                 const totalInBytes = toBytes(ko.unwrap(total) || 0);
                 const sumInBytes = toBytes(sum());
-
-                return (sumInBytes > 0 && totalInBytes > 0) ?
-                    Math.max(minUsedRatio, sumInBytes / totalInBytes) :
-                    0;
+                return totalInBytes > 0 ? sumInBytes / totalInBytes : 0;
             }
         );
 
         this.values = [
             {
                 value: usedRatio,
-                color: color
+                color: 'rgb(var(--color6)'
             },
             {
                 value: ko.pureComputed(
                     () => 1 - usedRatio()
                 ),
-                color: bgColor
+                color: 'rgb(var(--color16)'
             }
         ];
-
-        this.emptyColor = emptyColor;
 
         this.tooltip = ko.pureComputed(
             () => {

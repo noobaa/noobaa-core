@@ -1,36 +1,34 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './namespace-bucket-panel.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$ } from 'state';
 import  { realizeUri } from 'utils/browser-utils';
-import { get } from 'rx-extensions';
 
-class NamespaceBucketPanelViewModel extends Observer {
-    constructor() {
-        super();
+class NamespaceBucketPanelViewModel extends ConnectableViewModel {
+    baseRoute = ko.observable();
+    selectedTab = ko.observable();
+    bucketName = ko.observable();
 
-        this.baseRoute = '';
-        this.selectedTab = ko.observable();
-        this.bucketName = ko.observable();
-
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onLocation(location) {
+    mapStateToProps(location) {
         const { system, bucket, tab = 'data-placement' } = location.params;
 
-        this.bucketName(bucket);
-        this.baseRoute = realizeUri(location.route, { system, bucket }, {}, true);
-        this.selectedTab(tab);
+        ko.assignToProps(this, {
+            bucketName: bucket,
+            baseRoute: realizeUri(location.route, { system, bucket }, {}, true),
+            selectedTab: tab
+        });
     }
 
     tabHref(tab) {
-        return realizeUri(this.baseRoute, { tab });
+        const route = this.baseRoute();
+        return route ? realizeUri(route, { tab }) : '';
     }
 }
 

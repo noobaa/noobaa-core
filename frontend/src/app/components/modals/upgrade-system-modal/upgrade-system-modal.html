@@ -1,34 +1,37 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<property-sheet class="push-next" params="
-    loading: !stateLoaded(),
-    properties: upgradeSummary
-"></property-sheet>
+<div class="column greedy pad">
+    <property-sheet class="push-next" params="
+        loading: !dataReady(),
+        properties: upgradeSummary
+    "></property-sheet>
 
-<section class="column greedy push-next" ko.with="releaseNotes">
-    <h2 class="heading3 push-next-half">Version Release Notes: </h2>
-    <div class="column greedy pad alt-bg release-notes">
-        <loading-indicator class="align-start"
-            ko.visible="fetching"
-        ></loading-indicator>
-        <pre class="align-stretch"
-            ko.visible="!fetching"
-            ko.text="text"
-        ></pre>
+    <section class="column greedy push-next" ko.with="releaseNotes">
+        <h2 class="heading3 push-next-half">Version Release Notes: </h2>
+        <div class="column greedy pad content-box release-notes">
+            <loading-indicator class="align-start"
+                ko.visible="fetching"
+            ></loading-indicator>
+            <pre class="align-stretch"
+                ko.visible="!fetching"
+                ko.text="text"
+            ></pre>
+        </div>
+    </section>
+</div>
+<div class="column pad content-box">
+    <div class="row content-middle align-end">
+        <button type="button"
+            class="link alt-colors push-next"
+            ko.click="onCancel"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.click="onStartUpgrade"
+            ko.hasFocus="true"
+        >
+            Start Upgrade
+        </button>
     </div>
-</section>
-
-<div class="row align-end">
-    <button type="button"
-        class="link alt-colors push-next"
-        ko.click="onCancel"
-    >
-        Cancel
-    </button>
-    <button class="btn"
-        ko.click="onStartUpgrade"
-        ko.hasFocus="true"
-    >
-        Start Upgrade
-    </button>
 </div>

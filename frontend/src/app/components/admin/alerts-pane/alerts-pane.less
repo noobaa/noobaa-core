@@ -1,79 +1,42 @@
 /* Copyright (C) 2016 NooBaa */
 
-@keyframes pop {
-    0% {
-        transform: scale(1, 1);
-    }
-
-    25% {
-        transform: scale(2, 2);
-    }
-
-    50% {
-        transform: scale(1, 1);
-    }
-
-    100% {
-        transform:  scale(1, 1);
-    }
-}
-
 .alerts-pane {
     .column();
     .greedy();
 
     .pane-header {
         line-height: 3 * @gutter;
-        border-bottom: 1px solid @color8;
-    }
-
-    .alert-list {
-        margin-top: @gutter/2;
-        overflow: auto;
-    }
-
-    .alerts-loader {
-        .circle {
-            display: block;
-            float: left;
-            margin: 4px;
-            width: 4px;
-            height: 4px;
-            background-color: @color6;
-            border: 1px solid @color6;
-            border-radius: 10px;
-            animation: pop 1200ms linear infinite;
-        }
-
-        .circle +.circle {
-            animation-delay:400ms
-        }
-
-        .circle + .circle + .circle {
-            animation-delay: 800ms
-        }
-
+        background-color: rgb(var(--color23));
+        border-bottom: 1px solid rgb(var(--color6));
     }
 
     .alert {
-        border-bottom: 1px solid @color15;
+        border-bottom: 1px solid rgba(var(--color10), .3);
         border-left: 4px solid transparent;
 
+        &.alert-crit {
+            border-left-color: rgb(var(--color19));
+
+            svg-icon {
+                fill: rgb(var(--color19));
+            }
+        }
+
+
+        &.alert-major {
+            border-left-color: rgb(var(--color20));
+
+            svg-icon {
+                fill: rgb(var(--color20));
+            }
+        }
+
         &.alert-info {
-            color: @color7;
-        }
+            border-left-color: rgb(var(--color22));
 
-        &.alert-crit svg-icon {
-            fill: @color10;
-        }
-
-
-        &.alert-major svg-icon {
-            fill: @color11;
-        }
-
-        &.alert-info svg-icon {
-            fill: @color16;
+            svg-icon {
+                fill: rgb(var(--color22));
+            }
         }
 
         .mark-as-read-btn {
@@ -91,18 +54,18 @@
         };
 
         &.unread {
-            background-color: fadeout(@color15, 50%);
+            background-color: rgb(var(--color27));
 
             &.crit {
-                border-left-color: @color10;
+                border-left-color: rgb(var(--color19));
             }
 
             &.major {
-                border-left-color: @color11;
+                border-left-color: rgb(var(--color20));
             }
 
             &.info   {
-                border-left-color: @color16;
+                border-left-color: rgb(var(--color22));
             }
         }
     }

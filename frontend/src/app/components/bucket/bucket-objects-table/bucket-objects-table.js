@@ -80,7 +80,7 @@ function _getStateFilterOptions(counters) {
     return [
         {
             value: 'ALL',
-            label: `All Object (${
+            label: `All Objects (${
                 numeral(_getItemsCountByState(counters, 'ALL')).format('0,0')
             })`
         },

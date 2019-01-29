@@ -6,6 +6,10 @@ import { symbols, letters, isDigit, isLetter,
 
 
 export function calcPasswordStrength(password) {
+    if (!password) {
+        return 0;
+    }
+
     let charsInfo = Array.from(password).map(
         char => {
             let digit = isDigit(char);

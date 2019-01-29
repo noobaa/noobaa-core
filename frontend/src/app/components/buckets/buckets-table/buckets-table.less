@@ -28,8 +28,21 @@ buckets-table {
         .resources-col {
             min-width: 130px;
 
-            .lighted {
-                fill: @color8;
+            .tag {
+                background-color: rgb(var(--color23));
+
+                > vr {
+                    width: 2px;
+                    background-color: rgb(var(--color27));
+                }
+
+                > svg-icon {
+                    fill: rgb(var(--color10));
+                }
+
+                > .lighted {
+                    fill: rgb(var(--color6));
+                }
             }
         }
 

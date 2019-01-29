@@ -2,7 +2,8 @@
 
 chart-legend {
     display: block;
-    min-width: 256px;
+    min-width: 255px;
+    color: rgb(var(--color9));
 
     .legend-caption {
         margin-bottom: @gutter/2;
@@ -30,7 +31,7 @@ chart-legend {
         .legend-label {
             display: inline-block;
             flex-basis: 150px;
-            color: @color6;
+            font-weight: @font-regular;
         }
 
         .legend-value {
@@ -44,7 +45,7 @@ chart-legend {
         }
 
         &.disabled{
-            color: @color7;
+            color: rgb(var(--color9));
             opacity: .3;
 
             &::before {
@@ -59,7 +60,7 @@ chart-legend {
         opacity: .3;
 
         .legend-label {
-            color: @color7;
+            color: rgb(var(--color18));
         }
     }
 

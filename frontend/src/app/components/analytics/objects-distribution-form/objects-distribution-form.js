@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, sumBy, makeArray } from 'utils/core-utils';
 import { formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
-import style from 'style';
+import themes from 'themes';
 import numeral from 'numeral';
 import {
     requestLocation,
@@ -24,14 +24,6 @@ const chartOptions = deepFreeze({
             },
             ticks: {
                 callback: count => numeral(count).format('0,0')
-            }
-        }],
-        xAxes: [{
-            gridLines: {
-                display: false
-            },
-            ticks: {
-                fontColor: style['color6']
             }
         }]
     },
@@ -82,11 +74,12 @@ class BucketObjectsDistributionFormViewModel extends ConnectableViewModel {
         return [
             state.buckets,
             state.location,
-            state.objectsDistribution
+            state.objectsDistribution,
+            themes[state.session.uiTheme]
         ];
     }
 
-    mapStateToProps(buckets, location, distributions) {
+    mapStateToProps(buckets, location, distributions, theme) {
         const { pathname, query } = location;
 
         if (!buckets || !distributions.buckets) {
@@ -111,7 +104,7 @@ class BucketObjectsDistributionFormViewModel extends ConnectableViewModel {
                     data: {
                         labels: bars.map(bar => bar.label),
                         datasets: [{
-                            backgroundColor: style['color16'],
+                            backgroundColor: theme.color28,
                             data: bars.map(bar => bar.value)
                         }]
                     }

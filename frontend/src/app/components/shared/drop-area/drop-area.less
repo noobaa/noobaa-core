@@ -4,30 +4,82 @@ drop-area {
     display: block;
 
     .drop-container {
-        border: 1px dashed @color7;
+        position: relative;
+        border: 1px dashed rgb(var(--color10));
         font-size: @font-size3;
         height: 100%;
 
+        &:focus-within {
+            border-color: rgb(var(--color6));
+        }
+
+        &::after, &::before {
+            content: '';
+            position: absolute;
+            border: 1px solid;
+            background: transparent;
+            top: -1px;
+            left: -1px;
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+
+        &::before {
+            border-color:
+                rgb(var(--color6))
+                rgb(var(--color6))
+                transparent
+                transparent;
+        };
+
+        &::after {
+            border-color:
+                transparent
+                transparent
+                rgb(var(--color6))
+                rgb(var(--color6));
+        }
+
         &.dragover {
-            border-color: @color14;
+            @dur: 300ms;
+
+            &::before {
+                width: 100%;
+                height: 100%;
+                opacity: 1;
+                transition:
+                    opacity 0ms,
+                    width @dur linear,
+                    height @dur linear @dur;
+            }
+
+            &:after {
+                width: 100%;
+                height: 100%;
+                opacity: 1;
+                transition:
+                    opacity 0ms,
+                    height @dur linear,
+                    width @dur linear @dur;
+            };
 
             &.active, &.disabled {
                 .shake();
-
                 cursor: no-drop;
             }
         }
 
         &.active {
-            border-color: @color14;
+            border-color: rgb(var(--color7));
         }
 
         &.disabled, &.disabled.dragover {
-            border-color: @color15;
+            border-color: rgb(var(--color18));
         }
     }
 
     &.invalid .drop-container {
-        border-color: @color10;
+        border-color: rgb(var(--color19));
     }
 }

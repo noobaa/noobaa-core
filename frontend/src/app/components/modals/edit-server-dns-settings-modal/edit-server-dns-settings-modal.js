@@ -1,79 +1,100 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-server-dns-settings-modal.html';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
+import { closeModal, updateServerDNSSettings } from 'action-creators';
+import { isDNSName, isIP } from 'utils/net-utils';
+import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { updateServerDNSSettings } from 'actions';
-import { isDNSName } from 'utils/net-utils';
 
 const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve host names';
 
-class EditServerDNSSettingsModalViewModel extends BaseViewModel {
-    constructor({ serverSecret, onClose }) {
-        super();
+class EditServerDNSSettingsModalViewModel extends ConnectableViewModel {
+    formName = this.constructor.name;
+    serverSecret = '';
+    serverHostname = '';
+    hasNoPrimaryDNS = ko.observable();
+    formFields = ko.observable();
+    tokenValidator = isDNSName;
+    searchDomainTooltip = searchDomainTooltip;
 
-        this.tokenValidator = isDNSName;
-        this.serverSecret = ko.unwrap(serverSecret);
-        this.close = onClose;
-
-        const server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
-                server => server.secret === this.serverSecret
-            )
-        );
-
-        const dnsServers = ko.pureComputed(
-            () => server() ? server().dns_servers : []
-        );
-
-        this.searchDomains = ko.observableWithDefault(
-            () => (server() && server().search_domains) || []
-        ).extend({
-            validation: {
-                validator: domains => domains.every(domain => isDNSName(domain)),
-                message: 'All values must be a valid domain names'
-            }
-        });
-
-        this.primaryDNS = ko.observableWithDefault(
-            () => dnsServers()[0]
-        )
-            .extend({ isIP: true });
-
-        this.secondaryDNS = ko.observableWithDefault(
-            () => dnsServers()[1]
-        )
-            .extend({
-                isIP: {
-                    onlyIf: this.primaryDNS
-                }
-            });
-
-        this.hasNoPrimaryDNS = ko.pureComputed(
-            () => !this.primaryDNS()
-        );
-
-        this.errors = ko.validation.group(this);
-        this.searchDomainTooltip = searchDomainTooltip;
+    selectState(state, params) {
+        const { servers } = state.topology || {};
+        return [
+            servers && servers[params.serverSecret],
+            state.forms[this.formName]
+        ];
     }
 
-    update() {
-        if (this.errors().length > 0) {
-            this.errors.showAllMessages();
-        } else {
-            if (!this.primaryDNS()) {
-                updateServerDNSSettings(this.serverSecret, '', '', []);
-            } else {
-                updateServerDNSSettings(this.serverSecret, this.primaryDNS(), this.secondaryDNS(), this.searchDomains());
-            }
+    mapStateToProps(server, form) {
+        if (server) {
+            const { secret, hostname, dns  } = server;
 
-            this.close();
+            if (form) {
+                ko.assignToProps(this, {
+                    serverSecret: secret,
+                    serverHostname: hostname,
+                    hasNoPrimaryDNS: !getFieldValue(form, 'primaryDNS')
+                });
+
+            } else {
+                const [
+                    primaryDNS = '',
+                    secondaryDNS = ''
+                ] = dns.servers.list;
+
+                ko.assignToProps(this, {
+                    serverSecret: secret,
+                    serverHostname: hostname,
+                    hasNoPrimaryDNS: !primaryDNS,
+                    formFields: {
+                        primaryDNS,
+                        secondaryDNS,
+                        searchDomains: dns.searchDomains
+                    }
+                });
+            }
         }
     }
 
-    cancel() {
-        this.close();
+    onValidate(values) {
+        const { primaryDNS, secondaryDNS, searchDomains } = values;
+        const errors = {};
+
+        if (primaryDNS && !isIP(primaryDNS)) {
+            errors.primaryDNS = 'Please enter a valid IP address';
+
+        }
+
+        if (secondaryDNS && !isIP(secondaryDNS)) {
+            errors.secondaryDNS = 'Please enter a valid IP address';
+        }
+
+        if (!searchDomains.every(isDNSName)) {
+            errors.searchDomains = 'All values must be a valid domain names';
+        }
+
+        return errors;
+    }
+
+    onSubmit(values) {
+        const { serverSecret, serverHostname } = this;
+        const { primaryDNS, secondaryDNS, searchDomains } = values;
+
+        this.dispatch(
+            updateServerDNSSettings(
+                serverSecret,
+                serverHostname,
+                primaryDNS,
+                secondaryDNS,
+                searchDomains
+            ),
+            closeModal()
+        );
+    }
+
+    onCancel() {
+        this.dispatch(closeModal());
     }
 }
 

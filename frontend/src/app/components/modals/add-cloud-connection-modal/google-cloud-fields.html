@@ -13,17 +13,22 @@
             <p class="push-next">
                 Drag Json file here or
             </p>
-            <label class="btn alt-colors">
+            <label class="btn alt-colors"
+                tabindex="0"
+                ko.keysToClicks="['space', 'enter']"
+            >
                 Browse
-                <input type="file" class="hide"
-                    ko.attr.accept="'.json'",
+                <input type="file"
+                    tabindex="-1"
+                    class="hide"
+                    ko.attr.accept="'.json'"
                     ko.event.change="gcOnSelectKeysFile"
                 />
             </label>
         </div>
         <div class="column content-middle" ko.visible="$form.gcKeysJson()">
             <p class="row content-middle push-next-half" ko.visible="$form.gcKeysJson.isValidating">
-                <svg-icon class="icon-small push-next-half spin" params="name: 'in-progress'"></svg-icon>
+                <svg-icon class="icon-small push-next-half spin match-theme" params="name: 'in-progress'"></svg-icon>
                 Validating "{{$form.gcKeysFileName}}"
             </p>
 
@@ -35,9 +40,15 @@
                 <svg-icon class="icon-small push-next-half error" params="name: 'problem'"></svg-icon>
                 "{{$form.gcKeysFileName}}" validation failed
             </p>
-            <label class="link alt-colors" ko.hidden="$form.isValidating">
+            <label
+                class="link alt-colors"
+                tabindex="0"
+                ko.keysToClicks="['space', 'enter']"
+                ko.hidden="$form.isValidating"
+            >
                 Choose another file
                 <input type="file" class="hide"
+                    tabindex="-1"
                     ko.attr.accept="'.json'",
                     ko.event.change="gcOnSelectKeysFile"
                     ko.disable="$form.isValidating"

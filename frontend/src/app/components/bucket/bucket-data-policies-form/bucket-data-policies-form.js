@@ -1,30 +1,24 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-data-policies-form.html';
-import Observer from 'observer';
-import { state$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { getMany } from 'rx-extensions';
 
-class BucketDataPoliciesFormViewModel extends Observer {
-    bucketLoaded = ko.observable();
+class BucketDataPoliciesFormViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'buckets',
-                    ['location', 'params', 'bucket']
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { buckets, location } = state;
+        const bucketName = location.params.bucket;
+        return [
+            Boolean(buckets && buckets[bucketName])
+        ];
     }
 
-    onState([buckets, bucketName]) {
-        this.bucketLoaded(Boolean(buckets && buckets[bucketName]));
+    mapStateToProps(bucketLoaded) {
+        ko.assignToProps(this, {
+            dataReady: bucketLoaded
+        });
     }
 }
 

@@ -1,15 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './remote-syslog-form.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, clamp } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { isIPOrDNSName } from 'utils/net-utils';
 import { isFormDirty, getFieldValue } from 'utils/form-utils';
 import * as routes from 'routes';
-import { action$, state$ } from 'state';
-import { getMany } from 'rx-extensions';
 import { requestLocation,  unsetRemoteSyslog, setRemoteSyslog } from 'action-creators';
 
 const sectionName = 'remote-syslog';
@@ -21,76 +19,83 @@ const defaultPorts = deepFreeze({
 const defaultProtocol = 'UDP';
 const portValMessage = 'Please enter a port number between 1 and 65535';
 
-class RemoteSyslogFormViewModel extends Observer {
+class RemoteSyslogFormViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     tcpPort = defaultPorts.TCP;
     protocolOptions = Object.keys(defaultPorts);
     isExpanded = ko.observable();
-    href = ko.observable();
     isDirtyMarkerVisible = ko.observable();
+    toggleUri = '';
+    syslogUri = {
+        text: ko.observable(),
+        css: ko.observable()
+    };
     fields = ko.observable();
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'system',
-                    'location',
-                    ['forms', this.formName]
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { system, location, forms } = state;
+        return [
+            system,
+            location,
+            forms[this.formName]
+        ];
     }
 
-    onState([systemState, location, form]) {
+
+    mapStateToProps(systemState, location, form) {
         if (!systemState) {
-            this.isDirtyMarkerVisible(false);
-            return;
-        }
+            ko.assignToProps(this, {
+                isDirtyMarkerVisible: false
+            });
 
-        const { remoteSyslog } = systemState;
-        const enabled = form ? getFieldValue(form, 'enabled') : Boolean(remoteSyslog);
-        const isDirtyMarkerVisible = form ? isFormDirty(form) : false;
+        } else {
+            const { remoteSyslog } = systemState;
+            const enabled = form ? getFieldValue(form, 'enabled') : Boolean(remoteSyslog);
+            const isDirtyMarkerVisible = form ? isFormDirty(form) : false;
 
-        const protocol =
-            (form && getFieldValue(form, 'protocol')) ||
-            (remoteSyslog && remoteSyslog.protocol) ||
-            defaultProtocol;
+            const protocol =
+                (form && getFieldValue(form, 'protocol')) ||
+                (remoteSyslog && remoteSyslog.protocol) ||
+                defaultProtocol;
 
-        const address =
-            (form && getFieldValue(form, 'address')) ||
-            (remoteSyslog && remoteSyslog.address) ||
-            '';
+            const address =
+                (form && getFieldValue(form, 'address')) ||
+                (remoteSyslog && remoteSyslog.address) ||
+                '';
 
-        const udpPort =
-            (form && getFieldValue(form, 'udpPort')) ||
-            (remoteSyslog && protocol === 'UDP' && remoteSyslog.port) ||
-            defaultPorts.UDP;
+            const udpPort =
+                (form && getFieldValue(form, 'udpPort')) ||
+                (remoteSyslog && protocol === 'UDP' && remoteSyslog.port) ||
+                defaultPorts.UDP;
 
-        const port = protocol === 'UDP' ? udpPort : defaultPorts.TCP;
-        const href = enabled ? `${protocol.toLowerCase()}://${address}:${port}` : '';
+            const port = protocol === 'UDP' ? udpPort : defaultPorts.TCP;
+            const syslogUri = enabled ?  {
+                text: `${protocol.toLowerCase()}://${address}:${port}`,
+                css: 'tech-text'
+            } : {
+                text: 'Not set',
+                css: ''
+            };
 
-        const { system, tab = 'settings', section } = location.params;
-        const toggleSection = section === sectionName ? undefined : sectionName;
-        const toggleUri = realizeUri(
-            routes.management,
-            { system, tab, section: toggleSection }
-        );
+            const { system, tab = 'settings', section } = location.params;
+            const isExpanded = section === sectionName;
+            const toggleSection = isExpanded ? undefined : sectionName;
+            const toggleUri = realizeUri(
+                routes.management,
+                { system, tab, section: toggleSection }
+            );
 
-        this.href(href);
-        this.isExpanded(section === sectionName);
-        this.toggleUri = toggleUri;
-        this.isDirtyMarkerVisible(isDirtyMarkerVisible);
-
-        if (!this.fields()) {
-            this.fields({
-                enabled,
-                protocol,
-                address,
-                udpPort
+            ko.assignToProps(this, {
+                isDirtyMarkerVisible,
+                syslogUri,
+                isExpanded,
+                toggleUri,
+                fields: !form ? {
+                    enabled,
+                    protocol,
+                    address,
+                    udpPort
+                } : undefined
             });
         }
     }
@@ -115,14 +120,15 @@ class RemoteSyslogFormViewModel extends Observer {
     onSubmit({ enabled, protocol, address, udpPort }) {
         if (enabled) {
             const port = protocol === 'UDP' ? udpPort : defaultPorts.TCP;
-            action$.next(setRemoteSyslog(protocol, address, port));
+            this.dispatch(setRemoteSyslog(protocol, address, port));
+
         } else {
-            action$.next(unsetRemoteSyslog());
+            this.dispatch(unsetRemoteSyslog());
         }
     }
 
     onToggleSection() {
-        action$.next(requestLocation(this.toggleUri));
+        this.dispatch(requestLocation(this.toggleUri));
     }
 }
 

@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row alt-bg pad content-middle">
+<div class="row card-shadow pad content-middle">
     <h2 class="heading3 greedy push-next">
         Account S3 Access
     </h2>
@@ -16,7 +16,7 @@
 
     <button class="btn"
         ko.click="onEditS3Access"
-        ko.disable="!isAccountLoaded()"
+        ko.disable="!dataReady()"
     >
         Edit S3 Access
     </button>
@@ -24,14 +24,16 @@
 
 <property-sheet class="s3-access-details pad push-next " params="
     properties: s3AccessInfo,
-    loading: !isAccountLoaded()
+    loading: !dataReady()
 ">
     <template name="list">
         <tag-list params="tags: tags, maxCount: boxCount"></tag-list>
     </template>
 </property-sheet>
 
-<div class="row alt-bg pad content-middle">
+<hr>
+
+<div class="row card-shadow pad content-middle">
     <h2 class="heading3 greedy push-next" ko.css.disabled="isS3AccessDisabled">
         Account Security Credentials
     </h2>
@@ -47,11 +49,11 @@
 </div>
 
 <loading-indicator class="align-start pad"
-    ko.visible="!isAccountLoaded()"
+    ko.visible="!dataReady()"
 ></loading-indicator>
-<div class="pad column" ko.if="isAccountLoaded">
+<div class="pad column" ko.if="dataReady">
     <span class="highlight push-next" ko.css.disabled="isS3AccessDisabled">
         Use the following S3 access keys to connect a S3 compatible application to NooBaa:
     </span>
-    <property-sheet class="pad alt-bg" params="properties: credentials"></property-sheet>
+    <property-sheet class="pad content-box" params="properties: credentials"></property-sheet>
 </div>

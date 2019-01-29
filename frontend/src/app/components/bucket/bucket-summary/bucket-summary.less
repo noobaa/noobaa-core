@@ -15,10 +15,36 @@ bucket-summary {
     }
 
     .avil-legend .legend-item .legend-label {
-        flex-basis: 250px;
+        flex-basis: 210px;
     }
 
-    .data-chart.disabled {
-        opacity: .1;
+    .storage-bar .bar-line {
+        height: 4px;
+    }
+
+    .data-usage-chart,
+    .raw-usage-chart {
+        width: 60px;
+        height: 60px;
+    }
+
+    .data-usage-chart {
+        > .usage-bars {
+            transform: scale(60, 60)
+        }
+
+        .usage-bar {
+            height: 0;
+            y: 1;
+            transition: all 350ms ease-out;
+        }
+
+        &.disabled {
+            opacity: .2;
+
+            .usage-bar {
+                transition: none;
+            }
+        }
     }
 }

@@ -6,87 +6,96 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-    <editor params="label: 'S3 Access'">
-        <div class="column">
-            <toggle-switch ko.tooltip="s3AccessToggleTooltip" params="
-                value: $form.hasS3Access,
-                onLabel: 'Enabled',
-                offLabel: 'Disabled',
-                disabled: isS3AccessToggleDisabled,
-                hasFocus: true
+    <div class="column greedy auto-overflow push-both-half">
+        <div class="hpad">
+            <editor params="label: 'S3 Access'">
+                <div class="column">
+                    <toggle-switch ko.tooltip="s3AccessToggleTooltip" params="
+                        value: $form.hasS3Access,
+                        onLabel: 'Enabled',
+                        offLabel: 'Disabled',
+                        disabled: isS3AccessToggleDisabled,
+                        hasFocus: true
+                    ">
+                    </toggle-switch>
+                    <p class="remark push-prev-half">
+                        Granting S3 access will allow this account to connect S3 client <br>
+                        applications by generating security credentials (key set).
+                    </p>
+                </div>
+            </editor>
+
+            <editor params="
+                label: 'S3 default placement',
+                tooltip: s3PlacementToolTip,
+                disabled: !$form.hasS3Access()
             ">
-            </toggle-switch>
-            <p class="remark push-prev-half">
-                Granting S3 access will allow this account to connect S3 client <br>
-                applications by generating security credentials (key set).
-            </p>
+                <dropdown params="
+                        filter: true,
+                        options: resourceOptions,
+                        selected: $form.defaultResource,
+                        disabled: !$form.hasS3Access(),
+                        placeholder: 'Choose Resource'
+                    "
+                    ko.validationCss="$form.defaultResource"
+                ></dropdown>
+                 <validation-message params="field: $form.defaultResource"></validation-message>
+            </editor>
         </div>
-    </editor>
+        <hr class="push-both">
+        <div class="hpad">
+            <h2 class="heading3"
+                ko.css.disabled="!$form.hasS3Access()"
+            >
+                Select which buckets this account could access
+            </h2>
 
-    <editor params="
-        label: 'S3 default placement',
-        tooltip: s3PlacementToolTip,
-        disabled: !$form.hasS3Access()
-    ">
-        <dropdown params="
-                filter: true,
-                options: resourceOptions,
-                selected: $form.defaultResource,
-                disabled: !$form.hasS3Access(),
-                placeholder: 'Choose Resource'
-            "
-            ko.validationCss="$form.defaultResource"
-        ></dropdown>
-         <validation-message params="field: $form.defaultResource"></validation-message>
-    </editor>
+            <editor params="
+                label: 'Buckets Permissions',
+                disabled: !$form.hasS3Access()
+            ">
+                <dropdown class="push-next" params="
+                    options: bucketOptions,
+                    selected: ko.pc(
+                        $form.allowedBuckets,
+                        buckets => onSelectAllowedBuckets(buckets)
+                    ),
+                    disabled: !$form.hasS3Access(),
+                    filter: true,
+                    subject: 'bucket',
+                    placeholder: 'Choose Buckets',
+                    multiselect: true,
+                    selectAllLabel: 'All Current Buckets'
+                "></dropdown>
+                <checkbox params="
+                    label: 'Include any future buckets',
+                    checked: $form.allowAccessToFutureBuckets,
+                    disabled: isAllowAccessToFutureBucketsDisabled
+                "></checkbox>
+            </editor>
 
-    <editor params="
-        label: 'Full access to current and future buckets',
-        disabled: !$form.hasS3Access()
-    ">
-        <toggle-switch params="
-            value: $form.hasAccessToAllBuckets,
-            onLabel: 'Enabled',
-            offLabel: 'Disabled',
-            disabled: !$form.hasS3Access()
-        "></toggle-switch>
-    </editor>
-
-    <editor params="
-        label: 'Buckets Permissions',
-        disabled: isBucketSelectionDisabled
-    ">
-        <dropdown params="
-            options: bucketOptions,
-            selected: $form.allowedBuckets,
-            disabled: isBucketSelectionDisabled,
-            filter: true,
-            subject: 'bucket',
-            placeholder: 'Choose Buckets',
-            multiselect: true,
-            selectAllLabel: 'All Current Buckets'
-        "></dropdown>
-    </editor>
-
-    <editor params="
-        label: 'Allow new bucket creation',
-        tooltip: allowBucketCreationTooltip,
-        disabled: !$form.hasS3Access()
-    ">
-        <toggle-switch params="
-            value: $form.allowBucketCreation,
-            onLabel: 'Enabled',
-            offLabel: 'Disabled',
-            disabled: !$form.hasS3Access()
-        "></toggle-switch>
-    </editor>
-
-    <div class="row align-end content-middle">
-        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Save
-        </button>
+            <editor params="
+                label: 'Allow new bucket creation',
+                tooltip: allowBucketCreationTooltip,
+                disabled: !$form.hasS3Access()
+            ">
+                <toggle-switch params="
+                    value: $form.allowBucketCreation,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                    disabled: !$form.hasS3Access()
+                "></toggle-switch>
+            </editor>
+        </div>
+    </div>
+    <div class="column content-box pad">
+        <div class="row align-end content-middle">
+            <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Save
+            </button>
+        </div>
     </div>
 </managed-form>

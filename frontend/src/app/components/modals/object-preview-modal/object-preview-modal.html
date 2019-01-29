@@ -1,10 +1,10 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="column greedy" ko.if="uri">
-    <iframe class="push-both"
-        ko.attr.src="uri"
-    ></iframe>
+<div class="column pad greedy" ko.if="uri">
+    <iframe ko.attr.src="uri"></iframe>
+</div>
 
+<div class="column pad content-box">
     <button class="align-end btn"
         ko.click="onClose"
         ko.hasFocus="true"

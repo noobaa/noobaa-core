@@ -6,64 +6,66 @@
     onValidate: values => onValidate(values, existingNames),
     onSubmit: onSubmit
 ">
-    <p class="push-next">
-        Use a bucket from a public cloud to serve as a NooBaa namespace resource
-    </p>
+    <div class="column greedy pad">
+        <p class="push-next">
+            Use a bucket from a public cloud to serve as a NooBaa namespace resource
+        </p>
 
-    <section class="coulmn greedy">
-        <editor params="label: 'Target Connection'">
-            <dropdown params="
-                    actions: connectionActions,
-                    options: connectionOptions,
-                    selected: $form.connection,
-                    placeholder: 'Choose Connection',
-                    emptyMessage: 'No connections',
-                    hasFocus: true
-                "
-                ko.validationCss="$form.connection"
-            ></dropdown>
-            <validation-message params="field: $form.connection"></validation-message>
-        </editor>
+        <section class="coulmn greedy">
+            <editor params="label: 'Target Connection'">
+                <dropdown params="
+                        actions: connectionActions,
+                        options: connectionOptions,
+                        selected: $form.connection,
+                        placeholder: 'Choose Connection',
+                        emptyMessage: 'No connections',
+                        hasFocus: true
+                    "
+                    ko.validationCss="$form.connection"
+                ></dropdown>
+                <validation-message params="field: $form.connection"></validation-message>
+            </editor>
 
-        <editor params="
-            label: targetBucketLabel,
-            disabled: !$form.connection()
-        ">
-            <dropdown params="
-                    filter: true,
-                    options: targetOptions,
-                    selected: $form.target,
-                    disabled: !$form.connection(),
-                    loading: fetchingTargets,
-                    placeholder: 'Choose Bucket',
-                    emptyMessage: targetBucketsEmptyMessage,
-                    errorMessage: targetBucketsErrorMessage,
-                    error: isTargetBucketsInError
-                "
-                ko.validationCss="$form.target"
-            ></dropdown>
-            <validation-message params="field: $form.target"></validation-message>
-        </editor>
+            <editor params="
+                label: targetBucketLabel,
+                disabled: !$form.connection()
+            ">
+                <dropdown params="
+                        subject: 'bucket',
+                        filter: true,
+                        options: targetOptions,
+                        selected: $form.target,
+                        disabled: !$form.connection(),
+                        loading: fetchingTargets,
+                        placeholder: 'Choose Bucket',
+                        emptyMessage: targetBucketsEmptyMessage,
+                        errorMessage: targetBucketsErrorMessage,
+                        error: isTargetBucketsInError
+                    "
+                    ko.validationCss="$form.target"
+                ></dropdown>
+                <validation-message params="field: $form.target"></validation-message>
+            </editor>
 
-        <editor params="label: 'Resource Name', disabled: !$form.connection()">
-            <input type="text"
-                class="push-next-half"
-                ko.textInput="ko.pc($form.resourceName, onResourceNameThrottled)"
-                ko.enable="$form.connection"
-                ko.attr.placeholder="'Type Name'"
-                ko.validationCss="$form.resourceName"
-            />
+            <editor params="label: 'Resource Name', disabled: !$form.connection()">
+                <input type="text"
+                    class="push-next-half"
+                    ko.textInput="ko.pc($form.resourceName, onResourceNameThrottled)"
+                    ko.enable="$form.connection"
+                    ko.attr.placeholder="'Type Name'"
+                    ko.validationCss="$form.resourceName"
+                />
 
-            <ul class="restriction-list"
-                ko.css.disabled="!$form.connection()"
-                ko.foreach="nameRestrictionList"
-            >
-                <li ko.text="label" ko.css="css"></li>
-            </ul>
-        </editor>
-    </section>
-
-    <div class="row content-middle">
+                <ul class="restriction-list"
+                    ko.css.disabled="!$form.connection()"
+                    ko.foreach="nameRestrictionList"
+                >
+                    <li ko.text="label" ko.css="css"></li>
+                </ul>
+            </editor>
+        </section>
+    </div>
+    <div class="row content-middle pad content-box">
         <p class="remark greedy push-next">
             <svg-icon class="icon-small valign-bottom"
                 params="name: 'notif-info'"

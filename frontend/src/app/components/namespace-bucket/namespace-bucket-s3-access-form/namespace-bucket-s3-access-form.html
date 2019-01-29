@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle alt-bg pad">
+<div class="row content-middle card-shadow pad">
     <h2 class="heading3 greedy">
         Accounts with S3 access for this bucket: {{accountCount}}
     </h2>
@@ -10,10 +10,10 @@
     </button>
 </div>
 
-<data-table class="accounts-table" params="
+<data-table class="greedy accounts-table" params="
     columns: columns,
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
-    loading: !accountsLoaded,
+    loading: !dataReady,
     emptyMessage: 'No accounts were granted access for this bucket'
 "></data-table>

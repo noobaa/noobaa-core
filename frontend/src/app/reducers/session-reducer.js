@@ -6,7 +6,8 @@ import {
     COMPLETE_RESTORE_SESSION,
     FAIL_RESTORE_SESSION,
     COMPLETE_SIGN_IN,
-    SIGN_OUT
+    SIGN_OUT,
+    UPDATE_ACCOUNT_UI_THEME
 } from 'action-types';
 
 // ------------------------------
@@ -37,6 +38,18 @@ function onSignOut() {
     return null;
 }
 
+function onUpdateAccountUITheme(state, { payload }) {
+    const { accountName, theme } = payload;
+    if (accountName !== state.user) {
+        return state;
+    }
+
+    return {
+        ...state,
+        uiTheme: theme.toLowerCase()
+    };
+}
+
 // ------------------------------
 // Exported reducer function
 // ------------------------------
@@ -45,5 +58,6 @@ export default createReducer(initialState, {
     [COMPLETE_RESTORE_SESSION]: onCompleteRestoreSession,
     [FAIL_RESTORE_SESSION]: onFailRestoreSession,
     [COMPLETE_SIGN_IN]: onCompleteSignIn,
-    [SIGN_OUT]: onSignOut
+    [SIGN_OUT]: onSignOut,
+    [UPDATE_ACCOUNT_UI_THEME]: onUpdateAccountUITheme
 });

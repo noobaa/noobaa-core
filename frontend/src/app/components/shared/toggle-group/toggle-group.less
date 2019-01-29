@@ -4,22 +4,25 @@ toggle-group {
     display: inline-block;
 
     .toggle-options {
-        border: 1px solid @color15;
+        background: rgb(var(--color5));
+        border: 1px solid rgb(var(--color25));
         overflow: hidden;
-        padding: 4px;
         line-height: 1;
+        font-weight: @font-regular;
     }
 
     .toggle-option {
+        padding: 1px;
+
         > input {
             position: absolute;
             visibility: hidden;
             z-index: -1;
 
             &:checked + .toggle-btn {
-                color: @color8;
-                fill: @color8;
-                background-color: fadeout(@color8, 90%);
+                color: rgb(var(--color6));
+                fill: rgb(var(--color6));
+                background-color: rgba(var(--color6), .2);
             }
         }
 
@@ -29,22 +32,44 @@ toggle-group {
     }
 
     .toggle-btn {
-        .ripple(@color17);
+        .ripple(rgb(var(--color6)));
 
         line-height: 24px;
         min-width: 52px;
         padding: 2px @gutter/2;
-        color: @color7;
-        fill: @color7;
-        font-size: @font-size3;
+        color: rgb(var(--color13));
+        fill: rgb(var(--color13));
+        font-size: @font-size1;
         text-align: center;
         text-transform: capitalize;
         cursor: @cursor-pointer;
-        background-color: fadeout(@color7, 90%);
-        transition: all 500ms ease-out;
+        background-color: rgba(var(--color23));
+        transition: all 500ms ease-in-out;
 
         > svg-icon {
             fill: inherit;
+        }
+    }
+
+    &.toggle-light {
+        .toggle-options {
+            border: none;
+            background: none;
+            font-weight: @font-light;
+
+            > vr {
+                display: none;
+            }
+
+            .toggle-btn  {
+                background: none;
+                padding: 0 @gutter/4;
+                min-width: 0;
+            }
+
+            .toggle-option > input:checked + .toggle-btn {
+                background: none;
+            }
         }
     }
 }

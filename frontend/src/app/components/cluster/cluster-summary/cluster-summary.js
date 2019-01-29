@@ -1,14 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './cluster-summary.html';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import style from 'style';
-import { deepFreeze, makeArray } from 'utils/core-utils';
+import { makeArray, countBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount } from 'utils/string-utils';
-import { drawLine, fillCircle } from 'utils/canvas-utils';
-import { getClusterStatus } from 'utils/cluster-utils';
+import numeral from 'numeral';
+import { getClusterStateIcon } from 'utils/cluster-utils';
 
 const faultToleranceTooltip = `
     The number of servers that can fail (disconnect from the cluster) before the system
@@ -20,218 +18,185 @@ const HATooltip = `
     or more server failures (dependent on the cluster fault tolerance).
 `;
 
-const minReadWritePointText = 'Minimum for\nR/W service';
+function _getStatus(topology, systemVersion) {
+    const statusIcon = getClusterStateIcon(topology, systemVersion);
+    return {
+        icon: statusIcon.name,
+        css: statusIcon.css,
+        text: statusIcon.tooltip
+    };
+}
 
-const iconMapping = deepFreeze({
-    true: {
-        name: 'healthy',
-        css: 'success'
-    },
+function _getHA(topology) {
+    if (topology.isHighlyAvailable) {
+        return {
+            icon: 'healthy',
+            css: 'success',
+            text: 'Highly Available'
+        };
 
-    false: {
-        name: 'problem',
-        css: 'error'
+    } else {
+        return {
+            icon: 'problem',
+            css: 'error',
+            text: 'Not Highly Available'
+        };
     }
-});
+}
 
-const statusMapping = deepFreeze({
-    HEALTHY: {
-        text: 'Healthy',
-        icon: iconMapping[true]
-    },
-    WITH_ISSUES: {
-        text: 'Cluster has a high number of issues',
-        icon: {
-            name: 'problem',
-            css: 'warning'
-        }
-    },
-    UNHEALTHY: {
-        text: 'Not enough connected servers',
-        icon:  iconMapping[false]
-    }
-});
+function _getFaultTolerance(topology) {
+    const { faultTolerance, isHighlyAvailable } = topology;
+    return {
+        icon: faultTolerance > 0 ? 'healthy' : 'problem',
+        css: faultTolerance > 0 ? 'success' : 'error',
+        text: isHighlyAvailable  ?
+            stringifyAmount('server', faultTolerance) :
+            'Not enough connected servers'
+    };
+}
 
-class ClusterSummaryViewModel extends BaseViewModel {
-    constructor() {
-        super();
+function _countServers(servers) {
+    const serverList = Object.values(servers);
+    const serverCount = serverList.length;
+    const byMode = countBy(serverList, server => server.mode);
 
-        const shard = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0]
-        );
+    return {
+        all: serverCount,
+        connected: byMode.CONNECTED || 0,
+        pending: byMode.IN_PROCESS || 0,
+        disconnected: byMode.DISCONNECTED || 0,
+        missing: serverCount === 1 ? 2 : (serverCount  + 1) % 2
+    };
+}
 
-        const servers = ko.pureComputed(
-            () => shard() ? shard().servers : []
-        );
+function _getLegend(supportHighAvailability, counters) {
+    const missingLabel = `Missing Installed Servers for ${
+        supportHighAvailability ? 'next Fault Tolerance': 'H/A'
+    }`;
 
-
-        const serverCount = ko.pureComputed(
-            () => servers().length
-        );
-
-        const connected = ko.pureComputed(
-            () => servers()
-                .filter( server => server.status === 'CONNECTED' )
-                .length
-        );
-
-        const pending = ko.pureComputed(
-            () => servers()
-                .filter( server => server.status === 'IN_PROGREES' )
-                .length
-        );
-
-        const disconnected = ko.pureComputed(
-            () => servers()
-                .filter( server => server.status === 'DISCONNECTED' )
-                .length
-        );
-
-        const faultTolerance = ko.pureComputed(
-            () => Math.ceil(serverCount() / 2 - 1) - disconnected()
-        );
-
-        const missing = ko.pureComputed(
-            () => serverCount() === 1 ? 2 : (serverCount()  + 1) % 2
-        );
-
-        const status = ko.pureComputed(
-            () => systemInfo() ?
-                getClusterStatus(systemInfo().cluster, systemInfo().version) :
-                'UNHEALTHY'
-        );
-
-        this.statusText = ko.pureComputed(
-            () => statusMapping[status()].text
-        );
-
-        this.statusIcon = ko.pureComputed(
-            () => statusMapping[status()].icon
-        );
-
-        this.minForReadWrite = ko.pureComputed(
-            () => Math.floor(serverCount() / 2) + 1
-        );
-
-        const isHighlyAvailable = ko.pureComputed(
-            () => faultTolerance() > 0
-        );
-
-        this.faultToleranceIcon = ko.pureComputed(
-            () => iconMapping[faultTolerance() > 0]
-        );
-
-        this.faultToleranceText = ko.pureComputed(
-            () => isHighlyAvailable() ?
-                stringifyAmount('server', faultTolerance()) :
-                'Not enough connected servers'
-        );
-
-        this.faultToleranceTooltip = faultToleranceTooltip;
-
-        this.HAIcon = ko.pureComputed(
-            () => iconMapping[isHighlyAvailable()]
-        );
-
-        this.HAText = ko.pureComputed(
-            () => isHighlyAvailable() ? 'Highly Available' : 'Not Highly Available'
-        );
-
-        this.HATooltip = HATooltip;
-
-        this.chartCaption = ko.pureComputed(
-            () => `Servers in cluster: ${serverCount()}`
-        );
-
-        this.chartValues = [
+    return {
+        caption: `Servers in cluster: ${numeral(counters.all).format(',')}`,
+        values: [
             {
-                label: 'Connected:',
-                color: style['color12'],
-                value: connected
+                value: counters.connected
             },
             {
-                label: 'Disconnected:',
-                color: style['color10'],
-                value: disconnected
+                value: counters.pending,
+                visible: Boolean(counters.pending)
             },
             {
-                label: 'Pending:',
-                color: style['color11'],
-                value: pending,
-
-                // Hide until attch server will be implemented as a
-                // non blocking process
-                visible: false
+                value: counters.disconnected
             },
             {
-                label: ko.pureComputed(
-                    () => `Missing Installed Servers for ${
-                        serverCount() > 3 ? 'next Fault Tolerance': 'H/A'
-                    }:`
-                ),
-                color: style['color15'],
-                value: missing,
-                visible: missing
+                label: missingLabel,
+                value: counters.missing,
+                visible: Boolean(counters.missing)
             }
+        ]
+    };
+}
+
+function _getBar(counters) {
+    const values = flatMap(
+        [
+            { color: 'color21', count: counters.connected },
+            { color: 'color20', count: counters.pending },
+            { color: 'color19', count: counters.disconnected },
+            { color: 'color18', count: counters.missing }
+        ],
+        item => makeArray(item.count).fill({
+            value: 1,
+            color: `rgb(var(--${item.color}))`
+        })
+    );
+
+    const markers = [
+        {
+            position: Math.floor(counters.all / 2) + 1,
+            text: 'Minimum for R/W service'
+        }
+    ];
+
+    return { values, markers };
+}
+
+class ClusterSummaryViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
+    status = {
+        icon: ko.observable(),
+        css: ko.observable(),
+        text: ko.observable()
+    };
+    ha = {
+        icon: ko.observable(),
+        css: ko.observable(),
+        text: ko.observable(),
+        tooltip: HATooltip
+    };
+    faultTolerance = {
+        icon: ko.observable(),
+        css: ko.observable(),
+        text: ko.observable(),
+        tooltip: faultToleranceTooltip
+    };
+    legend = {
+        caption: ko.observable(),
+        values: [
+            {
+                label: 'Connected',
+                color: 'rgb(var(--color21))',
+                value: ko.observable()
+            },
+            {
+                label: 'Pending',
+                color: 'rgb(var(--color20))',
+                value: ko.observable(),
+                visible: ko.observable()
+            },
+            {
+                label: 'Disconnected',
+                color: 'rgb(var(--color19))',
+                value: ko.observable()
+            },
+            {
+                label: ko.observable(),
+                color: 'rgb(var(--color18))',
+                value: ko.observable(),
+                visible: ko.observable()
+            }
+        ]
+    };
+    bar = {
+        values: ko.observableArray(),
+        markers: ko.observableArray()
+    };
+
+    selectState(state) {
+        const { topology, system } = state;
+        return [
+            topology,
+            system && system.version
         ];
-
-        this.segments = ko.pureComputed(
-            () => [].concat(
-                makeArray(connected(), () => style['color12']),
-                makeArray(disconnected(), () => style['color10']),
-                makeArray(pending(), () => style['color11']),
-                makeArray(missing(), () => style['color15'])
-            )
-        );
-
-        this.redraw = ko.observable();
     }
 
-    drawChart(ctx, { width }) {
-        // Create a dependency on redraw allowing us to redraw every time,
-        // the value of redraw changed.
-        this.redraw();
+    mapStateToProps(topology, systemVersion) {
+        if (!topology || !systemVersion) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
 
-        const baseLine = 6;
-        const segments = this.segments();
-        const segmentWidth = width / segments.length;
+        } else {
+            const counters = _countServers(topology.servers);
 
-        for (let i = 0; i < segments.length; ++i) {
-            ctx.strokeStyle = segments[i];
-            drawLine(ctx, i * segmentWidth, baseLine, (i + 1) * segmentWidth, baseLine);
-
+            ko.assignToProps(this, {
+                dataReady: true,
+                status: _getStatus(topology, systemVersion),
+                ha: _getHA(topology),
+                faultTolerance: _getFaultTolerance(topology),
+                legend: _getLegend(topology.supportHighAvailability, counters),
+                bar: _getBar(counters)
+            });
         }
-
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = style['color7'];
-        drawLine(ctx, 0, 0, 0, baseLine * 2);
-        drawLine(ctx, width, 0, width, baseLine * 2);
-
-        ctx.fillStyle = style['color7'];
-        for (let i = 1; i < segments.length; ++i) {
-            const x = i * segmentWidth;
-            fillCircle(ctx, x, baseLine, 4);
-
-            if (i === this.minForReadWrite()) {
-                drawLine(ctx, x, baseLine, x, baseLine + 12);
-
-                ctx.font = `12px ${style['font-family1']}`;
-                ctx.textAlign = 'center';
-
-                minReadWritePointText.split(/\n/g).forEach(
-                    (line, i) => {
-                        const y = baseLine * 2 + 8 + (i +1) * 14;
-                        ctx.fillText(line, x, y);
-                    }
-                );
-
-
-            }
-        }
-    }
-
-    triggerRedraw() {
-        this.redraw.toggle();
     }
 }
 

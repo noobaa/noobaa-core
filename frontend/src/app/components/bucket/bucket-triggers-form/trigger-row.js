@@ -47,7 +47,6 @@ export default class TriggerRowViewModel {
         text: 'Delete trigger',
         disabled: false,
         active: ko.observable(),
-        tooltip: '',
         id: this.triggerId
     };
 

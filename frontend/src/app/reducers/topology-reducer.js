@@ -19,7 +19,7 @@ const initialState = undefined;
 // ------------------------------
 // Action Handlers
 // ------------------------------
-function onCompleteFetchSystemInfo(state, { payload }) {
+function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
     const { cluster } = payload;
 
     const serverList = flatMap(
@@ -28,21 +28,28 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             .map(server => {
                 const { servers = {} } = state || {};
                 const { [server.secret]: serverState = {} } = servers;
-                return _mapServer(serverState, server, cluster.master_secret);
+                return _mapServer(serverState, server, cluster.master_secret, timestamp);
             })
     );
 
     const servers = keyByProperty(serverList, 'secret');
     const serverMinRequirements = _mapMinRequirements(cluster.min_requirements);
 
-    const supportHighAvailability = serverList.length >= 3;
+    const serverCount = serverList.length;
+    const disconnectedCount = serverList.filter(server => server.mode === 'DISCONNECTED').length;
+    const supportHighAvailability = serverCount >= 3;
     const isHighlyAvailable = supportHighAvailability && cluster.shards[0].high_availabilty;
+    const faultTolerance = Math.max(
+        Math.ceil(serverCount / 2 - 1) - disconnectedCount,
+        0
+    );
 
     return {
         servers,
         serverMinRequirements,
         supportHighAvailability,
-        isHighlyAvailable
+        isHighlyAvailable,
+        faultTolerance
     };
 }
 
@@ -126,7 +133,7 @@ function onAbortUpgradePackageUpload(state) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _mapServer(serverState, update, masterSecret) {
+function _mapServer(serverState, update, masterSecret, timestamp) {
     return {
         hostname: update.hostname,
         secret: update.secret,
@@ -138,7 +145,7 @@ function _mapServer(serverState, update, masterSecret) {
         storage: mapApiStorage(update.storage),
         memory: pick(update.memory, ['total', 'used']),
         cpus: pick(update.cpus, ['count', 'usage']),
-        time: update.time_epoch * 1000,
+        clockSkew: timestamp - (update.time_epoch * 1000),
         ntp: _mapNTP(update),
         dns: _mapDNS(update),
         proxy: _mapProxy(update),

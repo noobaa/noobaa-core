@@ -12,7 +12,8 @@ export default {
                 'user',
                 'system',
                 'persistent',
-                'passwordExpired'
+                'passwordExpired',
+                'uiTheme'
             ],
             properties: {
                 token: {
@@ -29,6 +30,13 @@ export default {
                 },
                 passwordExpired: {
                     type: 'boolean'
+                },
+                uiTheme: {
+                    type: 'string',
+                    enum: [
+                        'dark',
+                        'light'
+                    ]
                 }
             }
         }

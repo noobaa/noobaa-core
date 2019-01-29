@@ -118,6 +118,15 @@ module.exports = {
                                 $ref: 'common_api#/definitions/ip_range'
                             }
                         }]
+                    },
+                    preferences: {
+                        type: 'object',
+                        properties: {
+                            ui_theme: {
+                                type: 'string',
+                                enum: ['DARK', 'LIGHT']
+                            }
+                        }
                     }
                 }
             },
@@ -533,6 +542,16 @@ module.exports = {
                                     enum: ['admin', 'user', 'viewer']
                                 }
                             }
+                        }
+                    }
+                },
+                preferences: {
+                    type: 'object',
+                    required: ['ui_theme'],
+                    properties: {
+                        ui_theme: {
+                            type: 'string',
+                            enum: ['DARK', 'LIGHT']
                         }
                     }
                 }

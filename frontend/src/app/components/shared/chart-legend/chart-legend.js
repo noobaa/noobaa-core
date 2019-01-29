@@ -2,7 +2,7 @@
 
 import template from './chart-legend.html';
 import { echo, isObject } from 'utils/core-utils';
-import { getFormatter} from 'utils/chart-utils';
+import { getFormatter } from 'utils/chart-utils';
 import ko from 'knockout';
 
 function _noramlizeTooltip(tooltip) {

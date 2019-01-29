@@ -7,35 +7,36 @@
     onWarn: values => onWarn(values, resourceServiceMapping),
     onSubmit: onSubmit
 ">
-    <div class="column greedy push-next">
-        <h2 class="heading3">Read Policy</h2>
-        <p class="push-next-half">This namespace bucket will read its data from the selected namespace resources</p>
-        <data-table class="greedy resource-table" params="
-            columns: readPolicyTableColumns,
-            data: readPolicyRows
-        "></data-table>
-        <validation-message params="field: $form.readPolicy"></validation-message>
-    </div>
+    <div class="column greedy pad">
+        <div class="column greedy push-next">
+            <h2 class="heading3">Read Policy</h2>
+            <p class="push-next-half">This namespace bucket will read its data from the selected namespace resources</p>
+            <data-table class="greedy content-box resource-table" params="
+                columns: readPolicyTableColumns,
+                data: readPolicyRows
+            "></data-table>
+            <validation-message params="field: $form.readPolicy"></validation-message>
+        </div>
 
-    <div class="push-next">
-        <h2 class="heading3">Write Policy</h2>
-        <p>This namespace bucket will write its data to the selected namespace resource</p>
-        <editor params="
-            label: 'Namespace Resource',
-            disabled: isWritePolicyDisabled
-        ">
-            <dropdown params="
-                    options: writePolicyOptions,
-                    selected: $form.writePolicy,
-                    disabled: isWritePolicyDisabled,
-                "
-                ko.validationCss="$form.writePolicy"
-            ></dropdown>
-            <validation-message params="field: $form.writePolicy"></validation-message>
-        </editor>
+        <div>
+            <h2 class="heading3">Write Policy</h2>
+            <p>This namespace bucket will write its data to the selected namespace resource</p>
+            <editor params="
+                label: 'Namespace Resource',
+                disabled: isWritePolicyDisabled
+            ">
+                <dropdown params="
+                        options: writePolicyOptions,
+                        selected: $form.writePolicy,
+                        disabled: isWritePolicyDisabled,
+                    "
+                    ko.validationCss="$form.writePolicy"
+                ></dropdown>
+                <validation-message params="field: $form.writePolicy"></validation-message>
+            </editor>
+        </div>
     </div>
-
-    <div class="row content-middle">
+    <div class="row content-middle pad content-box">
         <p class="remark greedy push-next">
             <svg-icon class="icon-small valign-bottom"
                 params="name: 'notif-info'"

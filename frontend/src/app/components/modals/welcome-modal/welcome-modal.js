@@ -1,31 +1,29 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './welcome-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import { realizeUri } from 'utils/browser-utils';
-import { state$, action$ } from 'state';
 import { requestLocation, closeModal } from 'action-creators';
-import { get } from 'rx-extensions';
+import ko from 'knockout';
 
-class WelcomeModalViewModel extends Observer {
-    constructor() {
-        super();
+class WelcomeModalViewModel extends ConnectableViewModel {
+    systemUri = '';
 
-        this.systemUri = '';
-        this.observe(
-            state$.pipe(get('location')),
-            this.onLocation
-        );
+    selectState(state) {
+        return [
+            state.location
+        ];
     }
 
-    onLocation(location) {
-        const { route, params } = location;
-        this.systemUri = realizeUri(route, params);
+    mapStateToProps(location) {
+        ko.assignToProps(this, {
+            systemUri: realizeUri(location.route, location.params)
+        });
     }
 
     onStart() {
-        action$.next(closeModal());
-        action$.next(requestLocation(this.systemUri, true));
+        this.dispatch(closeModal());
+        this.dispatch(requestLocation(this.systemUri, true));
     }
 }
 

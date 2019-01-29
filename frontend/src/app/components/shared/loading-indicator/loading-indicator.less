@@ -1,5 +1,23 @@
 /* Copyright (C) 2016 NooBaa */
 
+@keyframes pop {
+    0% {
+        transform: scale(1, 1);
+    }
+
+    25% {
+        transform: scale(2, 2);
+    }
+
+    50% {
+        transform: scale(1, 1);
+    }
+
+    100% {
+        transform:  scale(1, 1);
+    }
+}
+
 loading-indicator {
     .column();
     .content-middle();
@@ -10,8 +28,8 @@ loading-indicator {
         margin: 4px;
         width: 4px;
         height: 4px;
-        background-color: @color6;
-        border: 1px solid @color6;
+        background-color: rgb(var(--color9));
+        border: 1px solid rgb(var(--color9));
         border-radius: 10px;
         animation: pop 1200ms linear infinite;
     }
@@ -22,10 +40,5 @@ loading-indicator {
 
     .circle + .circle + .circle {
         animation-delay: 800ms
-    }
-
-    &.alt-colors .circle {
-        background-color: @color1;
-        border-color: @color1;
     }
 }

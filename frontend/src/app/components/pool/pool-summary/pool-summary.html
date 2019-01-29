@@ -1,22 +1,22 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="fill row" ko.visible="!poolLoaded()">
+<div class="fill row" ko.visible="!dataReady()">
     <loading-indicator class="align-middle greedy" params="label: true"></loading-indicator>
 </div>
 
-<div class="row summary" ko.css.visible="poolLoaded">
-    <section class="c3 column borders pad">
-        <p class="greedy row heading3 content-middle">
+<div class="row summary" ko.css.visible="dataReady">
+    <section class="c3 column card">
+        <p class="greedy hpad row heading3 content-middle">
             <svg-icon class="push-next" ko.css="state().css" params="name: state().name"></svg-icon>
             {{state().tooltip}}
         </p>
         <hr />
-        <p class="greedy row content-middle">
+        <p class="greedy hpad row content-middle">
             <span class="greedy push-next">Nodes / Drives:</span>
             <span>{{hostCount}} / {{driveCount}}</span>
         </p>
         <hr />
-        <p class="greedy row content-middle">
+        <p class="greedy hpad row content-middle">
             <span class="greedy push-next">Region:</span>
             <span>{{region}}</span>
         </p>
@@ -38,20 +38,20 @@
         </div>
     </section>
 
-    <section class="column c3 borders pad">
-        <h3 class="heading3">{{activitiesTitle}}</h3>
+    <section class="column c3 card">
+        <h3 class="hpad pad-half heading3">{{activitiesTitle}}</h3>
         <hr>
-        <p class="remark push-next">{{activityText}}</p>
+        <p class="remark hpad pad-half push-next">{{activityText}}</p>
         <!-- ko if: hasActivities -->
-        <bar class="push-next-half" params="
-            values: activityBar.values,
-            markers: hasActivities() ? [activityBar.marker] : []
-        "></bar>
-        <p class="remark align-end">ETA: {{activityEta}}</p>
+        <progress-bar class="hpad push-both-quarter" params="
+            progress: activityProgress,
+            marker: true
+        "></progress-bar>
+        <p class="remark align-end pad-right">ETA: {{activityEta}}</p>
 
         <!-- ko if: hasAdditionalActivities -->
-            <hr>
-            <p class="align-start"
+            <hr class="push-prev-half">
+            <p class="hpad pad-half align-start"
                 ko.text="additionalActivitiesMessage"
                 ko.tooltip="additionalActivitiesTooltip"
             ></p>

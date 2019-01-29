@@ -8,7 +8,6 @@ export const cloudServices = deepFreeze([
         displayName: 'AWS S3',
         subject: 'Bucket',
         icon: 'aws-s3-dark',
-        selectedIcon: 'aws-s3-colored',
         defaultEndpoint: 'https://s3.amazonaws.com'
     },
     {
@@ -16,7 +15,6 @@ export const cloudServices = deepFreeze([
         displayName: 'Azure Blob',
         subject: 'Container',
         icon: 'azure-dark',
-        selectedIcon: 'azure-colored',
         defaultEndpoint: 'https://blob.core.windows.net'
     },
     {
@@ -24,22 +22,19 @@ export const cloudServices = deepFreeze([
         displayName: 'Google Cloud',
         subject: 'Bucket',
         icon: 'google-cloud-dark',
-        selectedIcon: 'google-cloud-colored',
         defaultEndpoint: 'www.googleapis.com'
     },
     {
         value: 'S3_V2_COMPATIBLE',
         displayName: 'S3 V2 Compatible service',
         subject: 'Bucket',
-        icon: 'cloud-v2-dark',
-        selectedIcon: 'cloud-v2-colored'
+        icon: 'cloud-v2-dark'
     },
     {
         value: 'S3_V4_COMPATIBLE',
         displayName: 'S3 V4 Compatible service',
         subject: 'Bucket',
-        icon: 'cloud-v4-dark',
-        selectedIcon: 'cloud-v4-colored'
+        icon: 'cloud-v4-dark'
     },
     {
         value: 'NET_STORAGE',

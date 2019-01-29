@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './pools-table.html';
-import deleteBtnTooltipTemplate  from './delete-button-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
@@ -173,6 +172,7 @@ function _mapPoolToRow(
             active: selectedForDelete === name,
             tooltip: {
                 text: {
+                    subject: 'pool',
                     reason: undeletable,
                     accounts: lockingAccounts
                 }
@@ -212,7 +212,7 @@ class RowViewModel {
         active: ko.observable(),
         disabled: ko.observable(),
         tooltip: {
-            template: deleteBtnTooltipTemplate,
+            template: 'deleteResource',
             text: ko.observable()
         },
         onToggle: this.onToggle.bind(this),

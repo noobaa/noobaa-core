@@ -1,38 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
 .create-pool-modal {
-    wizard {
-        margin: -@gutter;
-        margin-bottom: initial;
-    }
-
     editor > .editor-label {
         width: auto;
-    }
-
-    .name-validation-list {
-        .list-no-style();
-        .remark();
-
-        padding-left: 0;
-
-        > li {
-            &::before {
-                content: '\2022';
-                text-align: center;
-                display: inline-block;
-                width: 5px;
-                margin-right: 1em;
-            }
-
-            &.success::before {
-                content: '\2713';
-            }
-
-            &.error::before {
-                content: '\2715';
-            }
-        }
     }
 
     .host-table {

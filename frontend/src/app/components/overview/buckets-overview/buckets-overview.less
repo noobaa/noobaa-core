@@ -2,18 +2,14 @@
 
 buckets-overview {
     display: block;
-    position: relative;
 
-    .cloud-filter {
-        margin: @gutter/2 0;
+    svg-icon.circled-icon {
+        border-color: rgb(var(--color6));
+        fill: rgb(var(--color6));
     }
 
-    .duration-chooser .toggle-btn {
-        min-width: 52px;
-    }
-
-    .chart-wrapper {
-        position: relative;
+    .usage-chart {
+/*        width: calc(100% - 1px);*/
 
         .empty-message {
             font-size: @font-size3;

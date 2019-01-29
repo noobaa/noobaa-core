@@ -1,23 +1,25 @@
-
 <!-- Copyright (C) 2016 NooBaa -->
-<p class="push-next">
-    Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node. This may cause some performance issues.
-</p>
-<p class="greedy push-next">
-    Would you like to disable this node {{serviceName}} anyway?
-</p>
-
-<div class="row content-middle align-end">
-    <button class="link push-next alt-colors"
-        ko.click="onCancel"
-        ko.hasFocus="true"
-    >
-        Cancel
-    </button>
-    <button class="btn"
-        ko.click="onApprove"
-    >
-        Yes, Disable This Node {{serviceName}}
-    </button>
+<div class="column greedy pad">
+    <p class="push-next">
+        Disabling all services on this node (storage and S3 endpoint) will start a deactivation process for the node. This may cause some performance issues.
+    </p>
+    <p class="greedy push-next">
+        Would you like to disable this node {{serviceName}} anyway?
+    </p>
 </div>
 
+<div class="column content-box pad">
+    <div class="row content-middle align-end">
+        <button class="link push-next alt-colors"
+            ko.click="onCancel"
+            ko.hasFocus="true"
+        >
+            Cancel
+        </button>
+        <button class="btn"
+            ko.click="onApprove"
+        >
+            Yes, Disable This Node {{serviceName}}
+        </button>
+    </div>
+</div>

@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, equalItems, sumBy, createCompareFunc, makeArray } from 'utils/core-utils';
 import { getFieldValue, getFormValues } from 'utils/form-utils';
 import { toBytes, formatSize, sumSize } from 'utils/size-utils';
-import style from 'style';
+import themes from 'themes';
 import {
     updateForm,
     fetchAccountUsageHistory,
@@ -55,7 +55,7 @@ const compareBySize = createCompareFunc(
     -1
 );
 
-function _perpareChartParams(samples) {
+function _perpareChartParams(samples, theme) {
     const bars = [
         ...samples,
         ...makeArray(6 - samples.length, () => placeholderBar)
@@ -67,11 +67,12 @@ function _perpareChartParams(samples) {
             labels: bars.map(bar => bar.account),
             datasets: [
                 {
-                    backgroundColor: style['color14'],
+
+                    backgroundColor: theme.color6,
                     data: bars.map(bar => toBytes(bar.readSize))
                 },
                 {
-                    backgroundColor: style['color16'],
+                    backgroundColor: theme.color28,
                     data: bars.map(bar => toBytes(bar.writeSize))
                 }
             ]
@@ -96,10 +97,7 @@ function _perpareChartParams(samples) {
                 }],
                 xAxes: [{
                     stacked: true,
-                    categoryPercentage: .4,
-                    gridLines: {
-                        display: false
-                    }
+                    categoryPercentage: .4
                 }]
             },
             tooltips: {
@@ -136,6 +134,7 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
         selectedAccounts: [],
         selectedDuration: durationOptions[0].value
     };
+    colors = ko.observableArray();
     chart = {
         type: ko.observable(),
         options: ko.observable(),
@@ -182,15 +181,17 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
         return [
             state.forms[this.formName],
             state.accounts,
-            state.accountUsageHistory
+            state.accountUsageHistory,
+            themes[state.session.uiTheme]
         ];
     }
 
-    mapStateToProps(form, accounts, usageHistory) {
+    mapStateToProps(form, accounts, usageHistory, theme) {
         if (!accounts || !usageHistory.samples || !getFieldValue(form, 'initialized')) {
             ko.assignToProps(this, {
                 dataReady: false,
                 pathname: location.pathname,
+                colors: ['', ''],
                 chart: {
                     emptyMessage: 'Loading data...'
                 }
@@ -207,7 +208,7 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
                 accountOptions: Object.keys(accounts),
                 totalReads: totalReads,
                 totalWrites: totalWrites,
-                chart: _perpareChartParams(samples)
+                chart: _perpareChartParams(samples, theme)
             });
         }
     }

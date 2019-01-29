@@ -61,6 +61,8 @@ class AlertsPaneViewModel extends Observer {
         const { filter, loading, endOfList, list, loadError, unreadCounts } = alerts;
         const { severity = 'ALL', read } = filter;
 
+
+
         // Update the view model state.
         this.severityFilter(severity);
         this.unreadOnlyFilter(read === false);

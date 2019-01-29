@@ -1,22 +1,23 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<p class="greedy push-next">
-    Sorry for the hold up. We had some trouble completing the upgrade process.
-    Try to upload again. If the problem persists try to re-download the upgrade
-    package and then retry with the new package.
-</p>
+<div class="column greedy pad">
+    <p class="push-next">
+        Sorry for the hold up. We had some trouble completing the upgrade process.
+        Try to upload again. If the problem persists try to re-download the upgrade
+        package and then retry with the new package.
+    </p>
 
-<div class="row">
-    <p class="greedy push-next remark">
+    <p class="greedy push-next">
         If the problem doesn't resolve please contact
         <a class="link" ko.attr.href="supportEmail">NooBaa support</a> and
         we will assist you to get things done.
     </p>
-    <button class="btn"
+</div>
+<div class="column pad content-box">
+    <button class="btn align-end"
         ko.click="onGoBack"
         ko.hasFocus="true"
     >
         Go Back to Current Version
     </button>
 </div>
-

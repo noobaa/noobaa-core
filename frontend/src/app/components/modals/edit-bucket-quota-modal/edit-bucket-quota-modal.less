@@ -3,8 +3,14 @@
 .edit-bucket-quota-modal {
     display: block;
 
-    bar.disabled {
-        opacity: .2;
+    .storage-bar {
+        &disabled {
+            opacity: .2;
+        }
+
+        .bar-line {
+            height: 4px;
+        }
     }
 
     .size-unit {

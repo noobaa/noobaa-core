@@ -7,9 +7,9 @@ import moment from 'moment';
 import { deepFreeze, sumBy, equalItems, groupBy, makeArray } from 'utils/core-utils';
 import { formatSize, toBytes, sumSize } from 'utils/size-utils';
 import { getFormValues, getFieldValue } from 'utils/form-utils';
-import { hexToRgb } from 'utils/color-utils';
+import { colorToRgb, rgbToColor } from 'utils/color-utils';
 import { realizeUri } from 'utils/browser-utils';
-import style from 'style';
+import themes from 'themes';
 import {
     requestLocation,
     updateForm,
@@ -60,15 +60,6 @@ const chartTypes = deepFreeze([
     }
 ]);
 
-const pointsInfo = {
-    pointRadius: 3,
-    pointBorderWidth: 4,
-    pointHitRadius: 10,
-    pointBackgroundColor: style['color6'],
-    pointBorderColor: hexToRgb(style['color6'], 0.2),
-    pointHoverBorderColor: 'transparent'
-};
-
 function _calcTimeMeta(duration, now) {
     const durationMeta = durations[duration];
     const { timespan, stepUnit, stepSize } = durationMeta;
@@ -87,7 +78,7 @@ function _calcTimeMeta(duration, now) {
     return { start, end, step };
 }
 
-function _prepareBarChartParams(samples, timeMeta, tickFormat) {
+function _prepareBarChartParams(samples, timeMeta, tickFormat, _, theme) {
     const { end, start, step} = timeMeta;
 
     const groups = groupBy(samples, sample =>
@@ -118,11 +109,11 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat) {
             labels: bars.map(bar => bar.label),
             datasets: [
                 {
-                    backgroundColor: style['color14'],
+                    backgroundColor: theme.color6,
                     data: bars.map(bar => toBytes(bar.readSize))
                 },
                 {
-                    backgroundColor: style['color16'],
+                    backgroundColor: theme.color28,
                     data: bars.map(bar => toBytes(bar.writeSize))
                 }
             ]
@@ -146,8 +137,8 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat) {
                 }],
                 xAxes: [{
                     categoryPercentage: .4,
-                    gridLines: {
-                        display: false
+                    ticks: {
+                        fontColor: theme.color10
                     }
                 }]
             },
@@ -167,29 +158,36 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat) {
     };
 }
 
-function _prepareLineChartParams(samples, timeMeta, tickFormat, now) {
+function _prepareLineChartParams(samples, timeMeta, tickFormat, now, theme) {
     const data = samples.filter(sample => sample.endTime <= now);
+    const commonLineDatasetSettings = {
+        pointRadius: 3,
+        pointBorderWidth: 4,
+        pointHitRadius: 10,
+        pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
+        pointHoverBorderColor: 'transparent',
+        backgroundColor: 'transparent',
+        lineTension: 0,
+        fill: false
+    };
+
     return {
         type: 'line',
         data: {
             datasets: [
                 {
-                    ...pointsInfo,
-                    borderColor: style['color14'],
-                    backgroundColor: 'transparent',
-                    lineTension: 0,
-                    fill: false,
+                    ...commonLineDatasetSettings,
+                    pointBackgroundColor: theme.color6,
+                    borderColor: theme.color6,
                     data: data.map(sample => ({
                         x: sample.endTime + 1,
                         y: toBytes(sample.readSize)
                     }))
                 },
                 {
-                    ...pointsInfo,
-                    borderColor: style['color16'],
-                    backgroundColor: 'transparent',
-                    lineTension: 0,
-                    fill: false,
+                    ...commonLineDatasetSettings,
+                    pointBackgroundColor: theme.color28,
+                    borderColor: theme.color28,
                     data: data.map(sample => ({
                         x: sample.endTime + 1,
                         y: toBytes(sample.writeSize)
@@ -315,15 +313,17 @@ class BucketUsageFormViewModel extends ConnectableViewModel {
     }
 
     selectState(state) {
+        const { forms, buckets, bucketUsageHistory, location, session } = state;
         return [
-            state.forms[this.formName],
-            state.buckets,
-            state.bucketUsageHistory,
-            state.location
+            forms[this.formName],
+            buckets,
+            bucketUsageHistory,
+            location,
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(form, buckets, usageHistory, location) {
+    mapStateToProps(form, buckets, usageHistory, location, theme) {
         const { chart: chartType = 'bar' } = location.query;
 
         if (!buckets || !usageHistory.samples || !getFieldValue(form, 'initialized')) {
@@ -351,7 +351,14 @@ class BucketUsageFormViewModel extends ConnectableViewModel {
                 bucketOptions: Object.keys(buckets),
                 totalReads: totalReads,
                 totalWrites: totalWrites,
-                chart: _perpareChartParams(chartType, samples, timeMeta, tickFormat, now)
+                chart: _perpareChartParams(
+                    chartType,
+                    samples,
+                    timeMeta,
+                    tickFormat,
+                    now,
+                    theme
+                )
             });
         }
     }

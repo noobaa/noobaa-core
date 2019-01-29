@@ -34,7 +34,7 @@ const eventMapping = deepFreeze({
 });
 
 class SetNodeAsTrustedModalViewModel {
-    constructor({ host, untrustedReasons }) {
+    constructor({ host, untrustedReasons  }) {
         this.columns = columns;
         this.host = host;
 

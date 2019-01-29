@@ -1,5 +1,5 @@
 <!-- Copyright (C) 2016 NooBaa -->
-<div class="row alt-bg pad content-middle">
+<div class="card-shadow row pad content-middle">
     <div class="greedy push-next">
         <input type="search"
             placeholder="Filter by bucket name"
@@ -31,12 +31,12 @@
 ">
     <template name="resources-cell">
         <div class="column">
-            <div class="row align-middle alt-bg pad-quarter round-corners scale-on-hover"
+            <div class="row align-middle pad-quarter round-corners scale-on-hover tag"
                 ko.tooltip="tooltip"
             >
                 <!-- ko foreach: icons -->
                 <!-- ko if: $index-->
-                <vr class="vr-dark push-both-half"></vr>
+                <vr class="push-both-half"></vr>
                 <!-- /ko -->
                 <svg-icon class=""
                     params="name: icon"

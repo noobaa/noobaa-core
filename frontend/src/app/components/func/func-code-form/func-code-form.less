@@ -4,70 +4,8 @@ func-code-form {
     display: block;
     position: relative;
 
-    vr {
-        background-color: @color7;
-    }
-
     .handler-summary {
         max-width: 200px;
-    }
-
-    .file-list {
-        width: 420px;
-        margin: (@gutter/2 - 4px) 0;
-        overflow: auto;
-
-        .file-row {
-            @height: 44px;
-
-            box-sizing: content-box;
-            padding: 0 @gutter;
-            min-height: @height;
-            cursor: @cursor-pointer;
-
-            .display-content-btn {
-                display: none;
-            }
-
-            &.selected {
-                color: @color6;
-                background-color: fadeout(@color6, 95%);
-            }
-
-            &:hover {
-                background-color: fadeout(@color6, 91%);
-
-                .display-content-btn {
-                    display: block;
-                }
-            }
-        }
-    }
-
-    .content-pane {
-        width: calc(~"100% - 420px");
-        margin-right: calc(~"420px - 100%");
-        transition: margin 750ms ease;
-
-        > div {
-            margin: @gutter/2;
-        }
-    }
-
-    .expanded {
-        .file-row:hover .display-content-btn {
-            display: none;
-        }
-
-        .list-row > div {
-            width: 380px;
-            white-space: normal;
-        }
-
-        .content-pane {
-            .border-left();
-            margin-right: 0;
-        }
     }
 
     .stale-backdrop {
@@ -80,6 +18,6 @@ func-code-form {
         position: relative;
         text-align: left;
         font-size: @font-size4;
-        color: @color7;
+        color: rgb(var(--color10));
     }
 }

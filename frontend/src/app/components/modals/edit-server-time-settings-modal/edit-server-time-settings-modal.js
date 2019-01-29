@@ -1,166 +1,160 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './edit-server-time-settings-modal.html';
-import BaseViewModel from 'components/base-view-model';
+
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
+import { closeModal, updateServerTimeSettings } from 'action-creators';
+import { isIPOrDNSName } from 'utils/net-utils';
+import { isFieldTouched, getFieldValue } from 'utils/form-utils';
+import { api } from 'services';
+import { timeTickInterval } from 'config';
 import moment from 'moment-timezone';
-import { sumBy } from 'utils/core-utils';
-import { inputThrottle } from 'config';
-import { systemInfo, serverTime, ntpResolutionState } from 'model';
-import { loadServerTime, updateServerClock, updateServerNTPSettings, attemptResolveNTPServer } from 'actions';
 
-class EditServerTimeSettingsModalViewModel extends BaseViewModel {
-    constructor({ serverSecret, onClose }) {
-        super();
+const manualTimeTooltip =  'Mannual time cannot be used in a cluster environment';
 
-        this.onClose = onClose;
-        this.serverSecret = ko.unwrap(serverSecret);
+class EditServerTimeSettingsModalViewModel extends ConnectableViewModel {
+    formName = this.constructor.name;
+    serverSecret = '';
+    serverHostname = '';
+    time = ko.observable();
+    incTime = true;
+    formFields = ko.observable();
+    asyncTriggers = [
+        'configType',
+        'ntpServer'
+    ];
+    configTypes = [
+        {
+            label: 'Manual Time',
+            value: 'MANUAL',
+            disabled: ko.observable(),
+            tooltip: ko.observable()
+        },
+        {
+            label: 'Network Time (NTP)',
+            value: 'NTP'
+        }
+    ];
 
-        const server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
-                server => server.secret === this.serverSecret
-            )
+    constructor(params, inject) {
+        super(params, inject);
+
+        this.ticker = setInterval(
+            () => this.onTick(),
+            timeTickInterval
         );
+    }
 
-        this.isFormReady = ko.pureComputed(
-            () => Boolean(serverTime())
-        );
-
-        this.hostname = ko.pureComputed(
-            () => server() && server().hostname
-        );
-
-        const inClusterEnv = ko.pureComputed(
-            () => {
-                if (!systemInfo()) return;
-
-                const serverCount = sumBy(
-                    systemInfo().cluster.shards
-                        .map(shard => shard.servers.length)
-                );
-
-                return serverCount > 1;
-            }
-        );
-
-        const manualTimeTooltip = ko.pureComputed(
-            () => inClusterEnv() ?
-                'Mannual time cannot be used in a cluster environment' :
-                ''
-        );
-
-        this.configTypes = [
-            {
-                label: 'Manual Time',
-                value: 'MANUAL',
-                disabled: inClusterEnv,
-                tooltip: manualTimeTooltip
-            },
-            {
-                label: 'Network Time (NTP)',
-                value: 'NTP'
-            }
+    selectState(state, params) {
+        const { servers } = state.topology || {};
+        return [
+            servers && servers[params.serverSecret],
+            Object.keys(servers || {}).length > 1,
+            state.forms[this.formName]
         ];
+    }
 
-        this.selectedConfigType = ko.observableWithDefault(
-            () => server() && server().ntp_server ? 'NTP' : 'MANUAL'
-        );
+    mapStateToProps(server, clusteredEnv, form) {
+        if (server) {
+            const { secret, hostname, timezone, ntp, clockSkew } = server;
+            const timeWasTouched = form ? isFieldTouched(form, 'time') : false;
+            const time = timeWasTouched ? getFieldValue(form, 'time') : Date.now() + clockSkew;
 
-        this.usingManualTime = ko.pureComputed(
-            () => this.selectedConfigType() === 'MANUAL'
-        );
-
-        this.usingNTP = ko.pureComputed(
-            () => this.selectedConfigType() === 'NTP'
-        );
-
-        this.timezone = ko.observableWithDefault(
-            () => server() && server().timezone
-        );
-
-        this.time = ko.observableWithDefault(
-            () => serverTime() && serverTime().server ===  ko.unwrap(serverSecret) ?
-                serverTime().time * 1000 :
-                0
-        );
-
-        this.addToDisposeList(
-            setInterval(
-                () => this.time() && this.time(this.time() + 1000),
-                1000
-            ),
-            clearInterval
-        );
-
-        this.ntpServer = ko.observableWithDefault(
-            () => server() && server().ntp_server
-        )
-            .extend({
-                isIPOrDNSName: true,
-                required: { message: 'Please enter an NTP server address' }
-            })
-            .extend({
-                rateLimit: {
-                    timeout: inputThrottle,
-                    method: 'notifyWhenChangesStop'
-                }
-            })
-            .extend({
-                required: {
-                    onlyIf: () => this.usingNTP(),
-                    message: 'Please enter a NTP server Name / IP'
-                },
-                isDNSName: true,
-                validation: {
-                    async: true,
-                    onlyIf: () => this.usingNTP(),
-                    validator: (name, _, callback) => {
-                        attemptResolveNTPServer(name, this.serverSecret);
-
-                        ntpResolutionState.once(
-                            ({ valid, serverSecret }) => callback({
-                                isValid: valid && serverSecret === this.serverSecret,
-                                message: 'Could not resolve NTP server'
-                            })
-                        );
+            ko.assignToProps(this, {
+                incTime: !timeWasTouched,
+                serverSecret: secret,
+                serverHostname: hostname,
+                configTypes: {
+                    0: {
+                        disabled: clusteredEnv,
+                        tooltip: clusteredEnv ? manualTimeTooltip :''
                     }
-                }
+                },
+                time,
+                formFields: !form ? {
+                    configType: ntp ? 'NTP' : 'MANUAL',
+                    timezone: timezone,
+                    time,
+                    ntpServer: ntp ? ntp.server : ''
+                } : undefined
             });
-
-
-        this.ntpErrors = ko.validation.group([
-            this.ntpServer
-        ]);
-
-        this.isValid = ko.pureComputed(
-            () => this.usingManualTime() || (this.ntpErrors().length === 0 && !this.ntpServer.isValidating)
-        );
-
-        loadServerTime(this.serverSecret);
-    }
-
-    save() {
-        this.usingNTP() ? this.setNTPTime() : this.setManualTime();
-    }
-
-    setManualTime() {
-        let epoch = moment.tz(this.time(), this.timezone()).unix();
-        updateServerClock(this.serverSecret, this.hostname(), this.timezone(), epoch);
-        this.onClose();
-    }
-
-    setNTPTime() {
-        if (this.ntpErrors().length > 0 || this.ntpErrors.validatingCount() > 0) {
-            this.ntpErrors.showAllMessages();
-
-        } else {
-            updateServerNTPSettings(this.serverSecret, this.hostname(), this.timezone(), this.ntpServer());
-            this.onClose();
         }
     }
 
-    cancel() {
-        this.onClose();
+    onValidate(values) {
+        const errors = {};
+
+        const { configType, ntpServer } = values;
+        if (configType === 'NTP' && (!ntpServer || !isIPOrDNSName(ntpServer))) {
+            errors.ntpServer = 'Please enter an NTP server address';
+        }
+
+        return errors;
+    }
+
+    async onValidateAsync(values) {
+        const errors = {};
+
+        const { configType, ntpServer } = values;
+        if (configType == 'NTP') {
+            const { valid } = await api.system.attempt_server_resolve({
+                server_name: ntpServer
+            });
+
+            if (!valid) {
+                errors.ntpServer = 'Could not resolve NTP server';
+            }
+        }
+
+        return errors;
+    }
+
+    onTick() {
+        if (this.incTime) {
+            this.time(this.time() + timeTickInterval);
+        }
+    }
+
+    onCancel() {
+        this.dispatch(
+            closeModal()
+        );
+    }
+
+    onSubmit(values) {
+        const { configType, timezone, ntpServer } = values;
+
+        if (configType === 'NTP') {
+            this.dispatch(
+                updateServerTimeSettings(
+                    this.serverSecret,
+                    this.serverHostname,
+                    timezone,
+                    ntpServer,
+                    null
+                ),
+                closeModal()
+            );
+
+        } else  {
+            const epoch = moment.tz(this.time(), values.timezone).unix();
+            this.dispatch(
+                updateServerTimeSettings(
+                    this.serverSecret,
+                    this.serverHostname,
+                    timezone,
+                    null,
+                    epoch
+                ),
+                closeModal()
+            );
+        }
+    }
+
+    dispose() {
+        this.ticker && clearInterval(this.ticker);
+        super.dispose();
     }
 }
 

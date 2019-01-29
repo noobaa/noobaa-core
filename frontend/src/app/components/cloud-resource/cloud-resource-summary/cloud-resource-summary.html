@@ -5,8 +5,8 @@
 </div>
 
 <div class="summary greedy row" ko.css.visible="dataReady">
-    <section class="c3 column pad borders">
-        <div class="greedy row content-middle" ko.if="state">
+    <section class="c3 column card">
+        <div class="greedy hpad row content-middle" ko.if="state">
             <svg-icon class="push-next" params="name: state().icon.name"
                 ko.css="state().icon.css"
                 ko.tooltip="state().icon.tooltip"
@@ -14,12 +14,12 @@
             <span class="heading3 greedy" ko.text="state().text"></span>
         </div>
         <hr/>
-        <div class="greedy row content-middle">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">Service:</span>
             <span class="c6 text-right" ko.text="service"></span>
         </div>
         <hr>
-        <div class="greedy row content-middle">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">Cloud Target Bucket:</span>
             <span class="c6 text-right" ko.text="targetBucket"></span>
         </div>
@@ -32,21 +32,25 @@
                 caption: 'Resource R/W traffic',
                 format: 'size'
             "></chart-legend>
-            <bar-chart class="greedy" params="values: chartValues"></bar-chart>
+            <chartjs class="io-chart align-middle" params="
+                type: 'bar',
+                options: chart.options,
+                data: chart.data
+            "></chartjs>
         </div>
     </section>
 
-    <section class="c3 column pad borders">
-        <div class="row content-middle highlight">
+    <section class="c3 column card">
+        <div class="row hpad pad-half content-middle highlight">
             Number of R/W operations
         </div>
         <hr>
-        <div class="row content-middle greedy">
+        <div class="row hpad content-middle greedy">
             <span class="c6 highlight push-next">Reads:</span>
             <span class="c6 text-right" ko.text="writeCount"></span>
         </div>
         <hr/>
-        <div class="row content-middle greedy">
+        <div class="row hpad content-middle greedy">
             <span class="c6 highlight push-next">Writes:</span>
             <span class="c6 text-right" ko.text="readCount"></span>
         </div>

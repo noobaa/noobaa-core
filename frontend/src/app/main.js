@@ -19,6 +19,8 @@ import actionsModelBridge from 'actions-model-bridge';
 import rootEpic from 'epics';
 import installStateSideEffects from 'state-side-effects';
 import installSupportability from 'supportability.js';
+import config from 'config';
+import { deepAssign, noop } from 'utils/core-utils';
 import {
     recognizeBrowser,
     downloadFile,
@@ -91,21 +93,45 @@ function registerSideEffects(action$, state$) {
     installStateSideEffects(state$, injectedServices);
 }
 
-configureKnockout(ko);
+async function patchConfig() {
+    try {
+        const response = await fetch(config.patchFile);
+        try {
+            const patch = await response.json();
+            deepAssign(config, patch);
+            console.info(`PATH_CONFIG ${config.patchFile}`);
 
-// Configure the appliction router.
-configureRouter(page);
+        } catch (err) {
+            console.warn(`PATCH_CONFIG malformed file ${config.patchFile}: ${err.message}`);
+        }
 
-registerSideEffects(action$, state$);
+    } catch (_) {
+        noop();
+    }
+}
 
-// Bridge between the action stream and the old model
-actionsModelBridge(action$);
+async function main() {
+    // Patch the app configuration using a server served patch file.
+    await patchConfig();
 
-// Mount dev cli on the global scope.
-global.nb = devCLI;
+    configureKnockout(ko);
 
-// Bind the ui to the
-ko.applyBindings(null);
+    // Configure the appliction router.
+    configureRouter(page);
 
-action$.next(setupEnv(recognizeBrowser()));
-action$.next(restoreSession());
+    registerSideEffects(action$, state$);
+
+    // Bridge between the action stream and the old model
+    actionsModelBridge(action$);
+
+    // Mount dev cli on the global scope.
+    global.nb = devCLI;
+
+    // Bind the ui to the
+    ko.applyBindings(null, document.querySelector('app'));
+
+    action$.next(setupEnv(recognizeBrowser()));
+    action$.next(restoreSession());
+}
+
+main();

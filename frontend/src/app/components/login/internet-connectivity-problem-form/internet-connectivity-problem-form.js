@@ -60,13 +60,15 @@ class LoadingServerInformationFormViewModel extends BaseViewModel {
                     message: portValMessage
                 }
             });
-        this.faliureReason = ko.pureComputed(
-            () => serverInfo() &&
-                serverInfo().config &&
-                failureReasons[
-                    serverInfo().config.phone_home_connectivity_status
-                ]
-        );
+
+        this.faliureReason = failureReasons.CANNOT_RESOLVE_PHONEHOME_NAME;
+        // this.faliureReason = ko.pureComputed(
+        //     () => serverInfo() &&
+        //         serverInfo().config &&
+        //         failureReasons[
+        //             serverInfo().config.phone_home_connectivity_status
+        //         ]
+        // );
 
         this.errors = ko.validation.group(this);
     }

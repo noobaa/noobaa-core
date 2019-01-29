@@ -6,6 +6,10 @@ commands-bar {
 
     .icon-btn {
         margin: 0 @gutter/2;
+
+        > svg-icon {
+            fill: rgb(var(--color8));
+        }
     }
 
     .alerts {
@@ -15,5 +19,9 @@ commands-bar {
         &.counter{
             .count-indicator(0, -5px);
         }
+    }
+
+    .refresh-spin {
+        animation: spin 1000ms linear;
     }
 }

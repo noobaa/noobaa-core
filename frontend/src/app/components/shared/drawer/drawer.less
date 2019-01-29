@@ -20,7 +20,7 @@ drawer {
 
     .drawer-backdrop {
         .fill();
-        background-color: @shadow-color;
+        background-color: rgba(var(--shadow1));
         opacity: 0;
         transition: opacity 300ms linear;
     }
@@ -28,10 +28,10 @@ drawer {
     .drawer-content {
         .fill();
         .column();
-        background-color: @color2;
+        background-color: rgb(var(--color5));
         left: auto;
         width: 650px;
-        box-shadow: 0 0 20px @black;
+        box-shadow: 0 0 20px rgb(var(--color2));
         transform: translateX(100%);
         transition: transform 300ms ease-out;
     }

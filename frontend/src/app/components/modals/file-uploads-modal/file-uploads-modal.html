@@ -1,72 +1,75 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row push-next content-middle">
-    <div class="column greedy">
-        <h2 class="heading3">Upload progress</h2>
+<div class="column pad greedy">
+    <div class="row push-next content-middle">
+        <div class="column greedy">
+            <h2 class="heading2">Upload progress</h2>
 
-        <div class="row" ko.visible="uploading">
-            <span class ="remark" ko.text="progressText"></span>
-            <bar class="progress-bar push-prev align-middle" params="values: barValues"></bar>
+            <div class="row content-middle" ko.visible="uploading">
+                <span class="remark push-next-half" ko.text="progressText"></span>
+                <progress-bar params="progress: progress"></progress-bar>
+            </div>
+
+            <span ko.visible="!uploading()">
+                No uploads running
+            </span>
         </div>
 
-        <span ko.visible="!uploading()">
-            No uploads running
-        </span>
+        <button class="btn"
+            ko.click="onClearCompeleted"
+            ko.hasFocus="true"
+        >
+            Clear Completed
+        </button>
     </div>
 
-    <button class="btn"
-        ko.click="onClearCompeleted"
-        ko.hasFocus="true"
-    >
-        Clear Completed
+    <data-table class="content-box uploads-table greedy" params="
+        columns: columns,
+        data: rows,
+        emptyMessage: 'No upload transactions'
+    ">
+        <template name="fileName">
+            <!-- ko ifnot: $data().href  -->
+            <span class="remark"
+               ko.text="$data().text"
+               ko.tooltip="$data().tooltip"
+            ></span>
+            <!-- /ko -->
+            <!-- ko if: $data().href -->
+            <a class="link"
+               ko.attr.href="$data().href"
+               ko.text="$data().text"
+               ko.tooltip="$data().tooltip"
+            ></a>
+            <!-- /ko -->
+        </template>
+    </data-table>
+    <hr>
+    <section class="content-box summary row push-next content-middle">
+        <span class="row success push-next content-middle">
+            <svg-icon params="name: 'healthy'" class="success icon-small">
+            </svg-icon>
+            <span>Uploaded {{uploaded}}</span>
+        </span>
+
+        <span class="row content-middle error push-both"
+            ko.css.disabled="failed() === 0">
+            <svg-icon params="name: 'problem'" class="error icon-small">
+            </svg-icon>
+            <span>Failed {{failed}}</span>
+        </span>
+
+        <span class="row content-middle push-prev" ko.visible="uploading">
+            <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
+            <span>Uploading {{uploading}}</span>
+        </span>
+
+        <span class="file-counter content-middle" ko.text="countText">
+        </span>
+    </section>
+</div>
+<div class="column pad content-box">
+    <button class="btn align-end" ko.click="onClose">
+        Close
     </button>
 </div>
-
-<data-table class="uploads-table greedy" params="
-    columns: columns,
-    data: rows,
-    emptyMessage: 'No upload transactions'
-">
-    <template name="fileName">
-        <!-- ko ifnot: $data().href  -->
-        <span class="remark"
-           ko.text="$data().text"
-           ko.tooltip="$data().tooltip"
-        ></span>
-        <!-- /ko -->
-        <!-- ko if: $data().href -->
-        <a class="link"
-           ko.attr.href="$data().href"
-           ko.text="$data().text"
-           ko.tooltip="$data().tooltip"
-        ></a>
-        <!-- /ko -->
-    </template>
-</data-table>
-
-<section class="alt-bg summary row push-next content-middle">
-    <span class="row success push-next content-middle">
-        <svg-icon params="name: 'healthy'" class="success icon-small">
-        </svg-icon>
-        <span>Uploaded {{uploaded}}</span>
-    </span>
-
-    <span class="row content-middle error push-both"
-        ko.css.disabled="failed() === 0">
-        <svg-icon params="name: 'problem'" class="error icon-small">
-        </svg-icon>
-        <span>Failed {{failed}}</span>
-    </span>
-
-    <span class="row content-middle push-prev" ko.visible="uploading">
-        <svg-icon class="spin icon-small" params="name: 'in-progress'"></svg-icon>
-        <span>Uploading {{uploading}}</span>
-    </span>
-
-    <span class="file-counter content-middle" ko.text="countText">
-    </span>
-</section>
-
-<button class="btn align-end" ko.click="onClose">
-    Close
-</button>

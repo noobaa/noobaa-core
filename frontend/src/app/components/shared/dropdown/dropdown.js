@@ -162,6 +162,7 @@ class DropdownViewModel {
     active = ko.observable(false);
     loading = ko.observable();
     isListVisible = ko.observable();
+    optionsScrollPos = ko.observable();
     optionRows = ko.observableArray();
     actionRows = ko.observableArray();
     hiddenOptionCount = ko.observable();
@@ -238,6 +239,7 @@ class DropdownViewModel {
         }
 
         const options = _normalizeOptions(rawOptions);
+        const isListVisible = !disabled && active;
         const isFilterVisible = filter && !loading && !error && options.length > 0;
         const isSelectAllVisible = multiselect && !filterText;
         const selectedValues = _toArray(selected);
@@ -294,7 +296,10 @@ class DropdownViewModel {
             optionRows
         );
 
-        this.isListVisible(!disabled && active);
+        this.isListVisible(isListVisible);
+        if (!isListVisible) this.optionsScrollPos(0);
+
+
         this.selectableValues = selectableValues;
         this.isFilterVisible(isFilterVisible);
         this.filterPlaceholder(filterPlaceholder);
@@ -322,6 +327,11 @@ class DropdownViewModel {
 
     onSummaryClick() {
         this._toggleList();
+    }
+
+    onListTransitionEnd(_, { target: list }) {
+        // Currently works only on latest chrome.
+        list.scrollIntoViewIfNeeded();
     }
 
     onSummaryKeyDown(_, evt) {

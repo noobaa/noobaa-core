@@ -2,7 +2,12 @@
 
 <ol ko.foreach="steps">
     <li class="stepper-step" ko.css.selected="selected">
-        <span class="step-bullet"></span>
+        <div class="step-bullet">
+            <span class="step-number" ko.text="$index() + 1"></span>
+            <svg class="step-done">
+                <use xlink:href="#inverted-v-icon"></use>
+            </svg>
+        </div>
         <span class="step-label" ko.text="name"></span>
     </li>
 </ol>

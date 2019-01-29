@@ -1,7 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-box">
-    <resource-overview class="column greedy"></resource-overview>
-    <system-health class="column greedy"></system-health>
-    <buckets-overview class="column greedy"></buckets-overview>
+<div class="row content-stretch content-wrapper">
+    <resource-overview class="column c4 push-next-half"></resource-overview>
+    <div class="column c4 push-both-half">
+        <storage-overview class="c4 push-next"></storage-overview>
+        <cluster-overview class="c4 push-next"></cluster-overview>
+        <alerts-overview class="c4"></alerts-overview>
+    </div>
+    <buckets-overview class="column c4 push-prev-half"></buckets-overview>
 </div>

@@ -76,7 +76,7 @@ export function createSystem(
     };
 }
 
-export function completeCreateSystem(systemName, ownerEmail, token) {
+export function completeCreateSystem(systemName, ownerEmail, token, uiTheme) {
     return {
         type: COMPLETE_CREATE_SYSTEM,
         payload: {
@@ -84,7 +84,8 @@ export function completeCreateSystem(systemName, ownerEmail, token) {
             user: ownerEmail,
             system: systemName,
             passwordExpired: false,
-            persistent: false
+            persistent: false,
+            uiTheme
         }
     };
 }

@@ -3,12 +3,12 @@
 <div class="row content-middle">
     <ul class="no-wrap list-no-style row content-middle" ko.forEach="tags">
         <!-- ko if: $index() && $component.separator() -->
-        <svg-icon class="icon-small highlight push-prev-half"
+        <svg-icon class="icon-small push-prev-half"
             params="name: $component.separator"
         ></svg-icon>
         <!-- /ko -->
 
-        <li class="no-wrap pad highlight tag"
+        <li class="no-wrap pad tag"
             ko.css="css"
             ko.tooltip="tooltip"
         >

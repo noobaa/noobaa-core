@@ -1,9 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<h1 class="row content-middle heading2 hpad pane-header push-next">
+<h1 class="row content-middle heading1 hpad pane-header push-next">
     <span class="greedy push-next">Alerts &amp; Notifications</span>
 
-    <button class="icon-btn no-outline" ko.click="onX">
+    <button class="icon-btn" ko.click="onX">
         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
     </button>
 </h1>
@@ -28,7 +28,7 @@
         </button>
     </div>
 
-    <div class="column alt-bg greedy alert-list" ko.scroll="scroll">
+    <div class="column content-box greedy auto-overflow push-prev-half " ko.scroll="scroll">
         <ul class="list-no-style" ko.foreach="rows">
             <li class="vpad alert row content-middle" ko.css="css">
 
@@ -61,7 +61,7 @@
         </div>
 
         <div class="link align-middle pad" ko.visible="loadFailed">
-            <button class="link no-outline error" ko.click="retryLoad">
+            <button class="link error" ko.click="retryLoad">
                 Loading failed, click to retry
             </button>
         </div>

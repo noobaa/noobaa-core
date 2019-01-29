@@ -3,19 +3,19 @@
 <div class="column greedy"
     ko.css.blur="isZipStale"
 >
-    <div class="row content-middle alt-bg pad">
+    <div class="row content-middle card-shadow pad">
         <div class="column greedy push-next">
             <h3 class="heading3">
                 Function Code: {{formattedFileCount}}
             </h3>
             <p class="row">
-                <span class="no-wrap handler-summary" 
+                <span class="no-wrap handler-summary"
                     ko.tooltip="execFile"
                 >
                     File: {{execFile.text}}
                 </span>
                 <vr class="push-both-half"></vr>
-                <span class="no-wrap handler-summary" 
+                <span class="no-wrap handler-summary"
                     ko.tooltip="execFunc"
                 >
                     Function: {{execFunc.text}}
@@ -59,10 +59,10 @@
         "
     >
         <template name ="details">
-            <div class="column greedy no-wrap" ko.visible="$item">
+            <div class="column greedy no-wrap" ko.visible="$itemId">
                 <div class="row content-middle hpad">
-                    <h2 class="heading3 greedy push-next">{{$item}}</h2>
-                    <button class="icon-btn no-outline"
+                    <h2 class="heading3 greedy push-next">{{$itemId}}</h2>
+                    <button class="icon-btn"
                         ko.click="onX"
                     >
                         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
@@ -80,7 +80,7 @@
             </div>
         </template>
     </list-details>
-
+    <hr>
     <paginator params="
         page: ko.pc(page, onPage, $component),
         itemCount: fileCount,

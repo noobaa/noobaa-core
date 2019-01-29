@@ -11,6 +11,8 @@ import { deepFreeze } from 'utils/core-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
 import { action$ } from 'state';
 import { sleep } from 'utils/promise-utils';
+import { formatEmailUri } from 'utils/browser-utils';
+import { support } from 'config';
 
 const activationCodeTooltip = 'An activation code is essential in order to activate your product and can be found in your inbox.  This code would have the following structure: XXXXXX-YYYYYY';
 const activationFaliureReasonMapping = deepFreeze({
@@ -45,6 +47,11 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         this.isUnableToActivateModalVisible = ko.pureComputed(
             () => serverConfig().phone_home_connectivity_status !== 'CONNECTED'
+        );
+
+        this.supportEmailHref = formatEmailUri(
+            support.email,
+            support.createSystemSupport
         );
 
         // First step fields:

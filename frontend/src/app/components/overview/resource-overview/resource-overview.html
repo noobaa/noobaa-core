@@ -1,39 +1,37 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column greedy pad borders alt-bg">
-     <h2 class="row heading3 content-end">
-        <span class="greedy">Storage Resources</span>
-        <a class="link"
-            ko.text="resourcesLinkText"
-            ko.attr.href="resourcesLinkHref"
-        ></a>
-
-    </h2>
-    <hr>
-
+<section class="card-bg card-shadow column content-middle greedy pad">
     <!-- ko ifnot: dataReady -->
     <loading-indicator class="align-middle push-prev"></loading-indicator>
     <!-- /ko -->
 
     <!-- ko if: dataReady -->
-    <div class="row push-next content-middle">
-        <span class="greedy push-next">Types</span>
-        <toggle-group params="
-            options: resourceTypes,
-            selected: ko.pc(selectedResourceType, onSelectResourceType, $component)
-        "></toggle-group>
+    <svg-icon class="circled-icon push-next-half"
+        params="name: 'resources'"
+    ></svg-icon>
+    <h2 class="heading2">Storage Resources</h2>
+    <a class="heading3 link push-next" ko.attr.href="resourcesLink.href">
+        {{resourcesLink.text}}
+    </a>
+
+    <div class="align-start highlight push-next-half">
+        Resource Health Status
     </div>
 
-    <!-- ko if: selectedResourceType.eq('HOST_POOLS') -->
-    <section class="column greedy" ko.template.html="templates.HOST_POOLS"></section>
-    <!-- /ko -->
+    <chart-legend class="align-stretch push-next" params="
+        items: resourceCounters,
+        format: 'number'
+    "></chart-legend>
 
-    <!-- ko if: selectedResourceType.eq('CLOUD_RESOURCES') -->
-    <section class="column greedy" ko.template.html="templates.CLOUD_RESOURCES"></section>
-    <!-- /ko -->
+    <chartjs class="greedy resources-chart push-next" params="
+        type: 'bar',
+        options: chart.options,
+        data: chart.data
+    "></chartjs>
 
     <button class="btn overview-btn" ko.click="onAddResources">
         Add Storage Resources
     </button>
-    <!-- /ko -->
+     <!-- /ko -->
 </section>
+

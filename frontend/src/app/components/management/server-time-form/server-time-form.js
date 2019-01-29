@@ -113,16 +113,18 @@ class ServerTimeFormViewModel extends ConnectableViewModel {
             const serversList = Object.values(servers);
             const master = serversList.find(server => server.isMaster);
             const formattedMasterTime = moment.tz(this.time, this.timezone).format(timeLongFormat);
+            const now = Date.now();
 
             ko.assignToProps(this, {
                 dataReady: true,
                 timezone: master.timezone,
-                time: master.time,
+                time: now + master.clockSkew,
                 isExpanded: section === sectionName,
                 formattedMasterTime,
                 toggleUri,
                 rows: serversList.map(server => {
-                    const { time, timezone, isMaster, ntp, addresses } = server;
+                    const { clockSkew, timezone, isMaster, ntp, addresses } = server;
+                    const time = now + clockSkew;
                     const address = addresses[0].ip;
                     const state = getServerStateIcon(server);
                     const serverName = `${getServerDisplayName(server)} ${isMaster ? '(Master)' : ''}`;

@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './attach-server-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { isFormValid } from 'utils/form-utils';
 import { isIP } from 'utils/net-utils';
-import { getMany } from 'rx-extensions';
-import { state$, action$ } from 'state';
 import { api } from 'services';
 import {
     touchForm,
@@ -26,7 +24,7 @@ const fieldsByStep = {
     1: ['hostname', 'location']
 };
 
-class AttachServerModalViewModel extends Observer {
+class AttachServerModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
     form = null;
@@ -40,23 +38,19 @@ class AttachServerModalViewModel extends Observer {
         location: 'DC1'
     }
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(getMany(
-                ['system', 'version'],
-                ['forms', this.formName]
-            )),
-            this.onState
-        );
+    selectState(state) {
+        const { system, forms } = state;
+        return [
+            system && system.version,
+            forms[this.formName]
+        ];
     }
 
-    onState([version, form]) {
-        const tooltip = version ? `System version: ${version}` : '';
-
-        this.version(tooltip);
-        this.isStepValid = form ? isFormValid(form) : false;
+    mapStateToProps(version, form) {
+        ko.assignToProps(this, {
+            version: version ? `System version: ${version}` : '',
+            isStepValid: form ? isFormValid(form) : false
+        });
     }
 
     onValidate(values) {
@@ -132,7 +126,7 @@ class AttachServerModalViewModel extends Observer {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, fieldsByStep[step]));
+            this.dispatch(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -144,12 +138,14 @@ class AttachServerModalViewModel extends Observer {
         const location = values.location ? values.location : undefined;
         const hostname = values.hostname ? values.hostname : undefined;
 
-        action$.next(attachServerToCluster(secret, address, hostname, location));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            attachServerToCluster(secret, address, hostname, location)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

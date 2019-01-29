@@ -1,38 +1,40 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column greedy pad borders alt-bg">
-    <h2 class="heading3 row content-middle">
-        <span class="greedy">Data Buckets</span>
-        <a class="link" ko.attr.href="bucketsLinkHref">{{bucketsLinkText}}</a>
-    </h2>
-    <hr>
-
+<section class="card-bg card-shadow column content-middle greedy pad" pad>
     <!-- ko ifnot: dataLoaded -->
     <loading-indicator class="align-middle push-prev"></loading-indicator>
     <!-- /ko -->
 
     <!-- ko if: dataLoaded -->
-    <div class="row push-next-half content-middle">
-        <span class="greedy push-next-half">Raw Usage</span>
-        <toggle-group params="
-            options: durationOptions,
-            selected: ko.pc(selectedDuration, onSelectDuration, $component)
-        "></toggle-group>
+    <svg-icon class="circled-icon push-next-half"
+        params="name: 'buckets'"
+    ></svg-icon>
+    <h2 class="heading2">Data Buckets</h2>
+    <a class="heading3 link push-next" ko.attr.href="bucketsLinkHref">
+        {{bucketsLinkText}}
+    </a>
+
+    <div class="align-start highlight push-next-half">
+        Buckets Raw Usage
     </div>
 
-    <chart-legend class="push-next" params="
+    <chart-legend class="align-stretch push-next-half" params="
         items: usedValues,
         format: 'size'
     "></chart-legend>
 
-    <div class="greedy push-both chart-wrapper">
-        <chartjs class="fill" params="
-            type: 'line',
-            options: chartParams().options,
-            data: chartParams().data,
-            emptyMessage: emptyChartMessage
-        "></chartjs>
-    </div>
+    <toggle-group class="toggle-light align-end" params="
+        options: durationOptions,
+        selected: ko.pc(selectedDuration, onSelectDuration, $component)
+    "></toggle-group>
+
+<chartjs class="greedy usage-chart push-next" params="
+        type: 'line',
+        options: chartParams().options,
+        data: chartParams().data,
+        emptyMessage: emptyChartMessage
+    "></chartjs>
+
 
     <button class="btn overview-btn" ko.click="onConnectApplication">
         Connect Application

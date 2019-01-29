@@ -44,7 +44,7 @@ export function deepAssign(target, other) {
         return target;
 
     } else {
-        return other;
+        return deepClone(other);
     }
 }
 
@@ -324,7 +324,11 @@ export function reverse(iterable) {
 
 export function get(val, path, defaultValue) {
     for (const part of path) {
-        if (val == null) break;
+        if (val == null) {
+            val = undefined;
+            break;
+        }
+
         val = val[part];
     }
 

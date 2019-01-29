@@ -6,8 +6,8 @@
 
 <div class="summary greedy row" ko.css.visible="dataReady">
 
-    <section class="c6 column pad borders push-next-half">
-        <div class="greedy row content-middle">
+    <section class="c6 column card push-next-half">
+        <div class="greedy hpad row content-middle">
             <svg-icon class="push-next"
                 ko.css="state.css"
                 params="name: state.icon"
@@ -15,7 +15,7 @@
             <span class="heading3">{{state.text}}</span>
         </div>
         <hr />
-        <div class="greedy row content-middle">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">{{name}}</span>
             <span class="c6 text-right">
                 <span ko.tooltip="descTooltip">
@@ -24,24 +24,24 @@
             </span>
         </div>
         <hr />
-        <div class="greedy row content-middle" >
+        <div class="greedy hpad row content-middle" >
             <span class="c6 highlight push-next">Last Modified:</span>
             <span class="c6 text-right">{{lastModified}}</span>
         </div>
     </section>
 
-    <section class="c6 column pad borders push-prev-half">
-        <div class="greedy row content-middle">
+    <section class="c6 column card push-prev-half">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">Runtime:</span>
             <span class="c6 text-right">{{runtime}}</span>
         </div>
         <hr />
-        <div class="greedy row content-middle">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">Code Size (Zip):</span>
             <span class="c6 text-right">{{codeSize}}</span>
         </div>
         <hr />
-        <div class="greedy row content-middle">
+        <div class="greedy hpad row content-middle">
             <span class="c6 highlight push-next">Memory Size:</span>
             <span class="c6 text-right">{{memorySize}}</span>
         </div>

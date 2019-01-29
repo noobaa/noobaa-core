@@ -1,0 +1,23 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<!-- ko if: dataReady -->
+<section class="card column greedy">
+    <div class="hpad pad-half row">
+        <svg-icon class="icon-small push-next-half"
+            ko.tooltip="clusterState"
+            ko.css="clusterIcon().css"
+            params="name: clusterIcon().name"
+        ></svg-icon>
+        <span class="greedy highlight">Cluster</span>
+        <a class="link" ko.attr.href="clusterHref">
+            View Cluster
+        </a>
+    </div>
+    <hr>
+    <div class="pad greedy column">
+        <p class="c4 push-next">{{clusterState}}</p>
+        <p class="c4 push-next">{{clusterHA}}</p>
+        <p class="c4">{{clusterServerCount}}</p>
+    </div>
+</section>
+<!-- /ko -->

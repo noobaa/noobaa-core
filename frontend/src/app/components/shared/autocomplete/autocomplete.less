@@ -9,7 +9,7 @@ autocomplete {
         width: 100%;
         top: auto;
         bottom: auto;
-        background-color: @color6;
+        background-color: rgb(var(--color8));
         margin-top: 2px;
         padding: 2px 0;
         z-index: 1;
@@ -18,12 +18,14 @@ autocomplete {
         overflow-y: auto;
 
         &::-webkit-scrollbar-thumb  {
-            border-color: @color6;
+            border-color: rgb(var(--color8));
         }
     }
 
     .suggestion {
-        color: @color1;
+        @focus-color: rgba(var(--color6), .3);
+
+        color: rgb(var(--color3));
         font-size: @font-size3;
         cursor: pointer;
         padding: @gutter/2;
@@ -32,14 +34,20 @@ autocomplete {
         margin: 0 2px;
 
         &.ring {
-            outline: 1px dashed @color8;
+            display: relative;
+            z-index: 1;
+            border-color: @focus-color;
+            box-shadow:
+                0 0 2px @focus-color,
+                inset 0 0 2px @focus-color;
         }
 
         &:hover {
-            background: @color7;
+            background-color: rgb(var(--color24));
+            border-color: rgb(var(--color24));
 
-            .remark {
-                color: @color1;
+            &.ring {
+                border-color: @focus-color;
             }
         }
 

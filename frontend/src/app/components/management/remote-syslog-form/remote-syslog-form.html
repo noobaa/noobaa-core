@@ -11,8 +11,9 @@
             </h2>
             <p ko.visible="!isExpanded()">
                 Server address:
-                <span class="text-tech" ko.text="href" ko.visible="href"></span>
-                <span ko.visible="!href()">Not set</span>
+                <span ko.css="syslogUri.css"
+                    ko.text="syslogUri.text"
+                ></span>
             </p>
             <p ko.visible="isExpanded">
                 Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server

@@ -1,24 +1,31 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './confirm-delete-host-modal.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { action$ } from 'state';
 import { equalIgnoreCase } from 'utils/string-utils';
 import { closeModal, deleteHost } from 'action-creators';
 
 const confirmPhrase = 'delete node';
 
-class ConfirmDeleteHostModalViewModel extends Observer {
+class ConfirmDeleteHostModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
-    fields = { confirmText: '' };
     host = '';
     fieldLabel = `Type "${confirmPhrase}" to confirm`;
+    fields = {
+        confirmText: ''
+    };
 
-    constructor({ host }) {
-        super();
+    selectState(_, params) {
+        return [
+            params.host
+        ];
+    }
 
-        this.host = ko.unwrap(host);
+    mapStateToProps(host) {
+        ko.assignToProps(this, {
+            host
+        });
     }
 
     onValidate(values) {
@@ -33,12 +40,14 @@ class ConfirmDeleteHostModalViewModel extends Observer {
     }
 
     onSubmit() {
-        action$.next(deleteHost(this.host));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            deleteHost(this.host)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

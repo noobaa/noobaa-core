@@ -5,8 +5,8 @@
 </div>
 
 <div class="summary greedy row" ko.css.visible="dataReady">
-    <section class="c3 column pad borders">
-        <div class="row content-middle greedy" ko.if="state">
+    <section class="card c4 column">
+        <div class="row content-middle hpad greedy" ko.if="state">
             <svg-icon class="push-next" params="name: state().icon.name"
                 ko.css="state().icon.css"
                 ko.tooltip="state().icon.tooltip"
@@ -14,86 +14,74 @@
             <span class="heading3 greedy" ko.text="state().text"></span>
         </div>
         <hr/>
-        <div class="row content-middle greedy">
-            <span class="c5 highlight push-next">Resources:</span>
+        <div class="row content-middle hpad greedy">
+            <span class="c5 push-next">Resources:</span>
             <span class="c7 text-right" ko.text="dataPlacement"></span>
         </div>
     </section>
 
-    <section class="column c6 push-both">
-        <div class="column align-middle greedy">
-            <div class="row content-middle push-next-half">
-                <h2 class="heading3 greedy push-next">Storage Availability</h2>
-                <p class="remark content-middle">
-                    <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
-                    Updated: {{availablityTime}}
-                </p>
-            </div>
-            <chart-legend class="avil-legend" params="
-                items: availablity,
-                format: 'size'
-            "></chart-legend>
-
-            <div class="greedy row">
-                <bar class="align-middle" params="
-                    values: availablity,
-                    limits: availablityLimitsFormatter,
-                    teeth: 5,
-                    minRatio: 0,
-                    markers: availablityMarkers,
-                    width: 444
-                "></bar>
-            </div>
+    <section class="column c4 hpad push-both">
+        <div class="row content-middle push-next-half">
+            <h2 class="heading3 greedy push-next">Storage Availability</h2>
+            <p class="remark content-middle">
+                <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+                Updated: {{availablityTime}}
+            </p>
         </div>
+        <chart-legend class="avil-legend greedy" params="
+            items: availablityBar.values,
+            format: 'size'
+        "></chart-legend>
+
+        <bar class="storage-bar bar-flip-markers push-next" params="
+            values: availablityBar.values,
+            markers: availablityBar.markers,
+            limits: true,
+            format: 'size'
+        "></bar>
     </section>
 
-    <section class="c3 column">
-        <div class="greedy borders pad column">
-            <div class="row content-middle greedy">
-                <!-- ko with: dataUsageChart -->
-                <canvas class="data-chart scale-on-hover push-next"
-                    ko.tooltip="tooltip"
-                    ko.css.disabled="disabled"
-                    ko.canvas="$data"
-                ></canvas>
-                <!-- /ko -->
-                <div class="column">
-                    <p class="heading3" ko.text="dataOptimization"></p>
-                    <p>
-                        Data Optimization
-                        <more-info-icon
-                            class="push-prev-half"
-                            params="tooltip: dataUsageTooltip"
-                        ></more-info-icon>
-                    </p>
-                </div>
+    <section class="c4 card column">
+        <div class="row content-middle hpad greedy">
+            <!-- ko with: dataUsageChart -->
+            <svg class="data-usage-chart scale-on-hover push-next"
+                ko.css.disabled="disabled"
+                ko.tooltip="tooltip"
+            >
+                <g class="usage-bars" ko.foreach="bars">
+                    <rect class="usage-bar" ko.style="$data"></rect>
+                </g>
+            </svg>
+            <!-- /ko -->
+            <div class="column">
+                <p class="heading3" ko.text="dataOptimization"></p>
+                <p>
+                    Data Optimization
+                    <more-info-icon
+                        class="push-prev-half"
+                        params="tooltip: dataUsageTooltip"
+                    ></more-info-icon>
+                </p>
             </div>
-            <hr />
-            <div class="row content-middle greedy">
-                <!-- ko with: rawUsageChart -->
-                <pie-chart class="scale-on-hover push-next"
-                    ko.tooltip="tooltip"
-                    ko.css.disabled="disabled"
-                    params="
-                        values: values,
-                        showSum: false,
-                        showValues: false,
-                        enableHover: false,
-                        radius: 30,
-                        lineWidth: 8
-                    "
-                ></pie-chart>
-                <!-- /ko -->
-                <div class="column">
-                    <p class="heading3" ko.text="rawUsageLabel"></p>
-                    <p>
-                        Raw Usage
-                       <more-info-icon
-                            class="push-prev-half"
-                            params="tooltip: rawUsageTooltip"
-                        ></more-info-icon>
-                    </p>
-                </div>
+        </div>
+        <hr />
+        <div class="row content-middle hpad greedy">
+            <!-- ko with: rawUsageChart -->
+            <pie-chart class="raw-usage-chart pc-hide-values pc-non-interactive scale-on-hover push-next"
+                ko.tooltip="tooltip"
+                ko.css.disabled="disabled"
+                params="values: values"
+            ></pie-chart>
+            <!-- /ko -->
+            <div class="column">
+                <p class="heading3" ko.text="rawUsageLabel"></p>
+                <p>
+                    Raw Usage
+                   <more-info-icon
+                        class="push-prev-half"
+                        params="tooltip: rawUsageTooltip"
+                    ></more-info-icon>
+                </p>
             </div>
         </div>
     </section>

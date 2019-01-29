@@ -3,9 +3,9 @@
 import template from './server-summary.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze, makeArray } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
 import { summarizeServerIssues } from 'utils/cluster-utils';
-import style from 'style';
+import themes from 'themes';
 import numeral from 'numeral';
 import {
     healthyIcon,
@@ -31,22 +31,22 @@ const statusMapping = deepFreeze({
     }
 });
 
-const notConnectedBars = deepFreeze({
-    options: { background: style['color15'] },
-    values: [
-        {
-            label: 'CPU: -',
-            parts:[{ value: 0 }]
-        },
-        {
-            label: 'Disk: -',
-            parts:[{ value: 0 }]
-        },
-        {
-            label: 'Memory: -',
-            parts:[{ value: 0 }]
-        }
-    ]
+const notConnectedUtilization = deepFreeze({
+    cpuUsage: {
+        label: 'CPU: -',
+        value: 0,
+        complement: 1
+    },
+    diskUsage: {
+        label: 'Disk: -',
+        value: 0,
+        complement: 1
+    },
+    memoryUsage: {
+        label: 'Memory: -',
+        value: 0,
+        complement: 1
+    }
 });
 
 function _getIssues(server, minRequirements, version) {
@@ -95,28 +95,42 @@ function _getIssues(server, minRequirements, version) {
     }
 }
 
-function _getBars(server) {
+function _getChartData(server, theme) {
     if (server.mode !== 'CONNECTED') {
-        return notConnectedBars;
+        return notConnectedUtilization;
     }
 
     const { cpus, storage, memory } = server;
     const diskUsage = 1 - (storage.free / storage.total);
     const memoryUsage = memory.used / memory.total;
+    // const cpuUsage = cpus.usage / cpus.count;
+    const cpuUsage = Math.random();
+
     return {
-        options: { background: true  },
-        values: [
+        labels: [
+            `CPU: ${numeral(cpus.usage).format('%')}`,
+            `Disk: ${numeral(diskUsage).format('%')}`,
+            `Memory: ${numeral(memoryUsage).format('%')}`
+        ],
+        datasets: [
             {
-                label: `CPU: ${numeral(cpus.usage).format('%')}`,
-                parts:[{ value: cpus.usage / cpus.count }]
+                backgroundColor: theme.color6,
+                hoverBackgroundColor: theme.color6,
+                data: [
+                    cpuUsage,
+                    diskUsage,
+                    memoryUsage
+                ]
             },
             {
-                label: `Disk: ${numeral(diskUsage).format('%')}`,
-                parts:[{ value: diskUsage }]
-            },
-            {
-                label: `Disk: ${numeral(memoryUsage).format('%')}`,
-                parts:[{ value: memoryUsage }]
+                // Simulate a background using a stacked complement bar.
+                backgroundColor: theme.color18,
+                hoverBackgroundColor: theme.color18,
+                data: [
+                    1 - cpuUsage,
+                    1 - diskUsage,
+                    1 - memoryUsage
+                ]
             }
         ]
     };
@@ -125,6 +139,7 @@ function _getBars(server) {
 class ServerSummaryViewModel2 extends ConnectableViewModel {
     dataReady = ko.observable();
     isConnected = ko.observable();
+    firstRender = true;
     status = {
         text: ko.observable(),
         icon: {
@@ -140,36 +155,63 @@ class ServerSummaryViewModel2 extends ConnectableViewModel {
             tooltip: ko.observable()
         }
     };
-    bars = {
+    chart = {
         options: {
-            values: false,
-            labels: true,
-            underline: true,
-            format: 'percentage',
-            spacing: 50,
-            scale: 1,
-            background: ko.observable()
+            // Disable animation because we cannot lock the background dataset
+            // from also animating.
+            animation: false,
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{
+                    stacked: true,
+                    categoryPercentage: .8,
+                    barPercentage: .5
+                }],
+                yAxes: [{
+                    stacked: true,
+                    gridLines: {
+                        color: 'transparent',
+                        drawTicks: false
+                    },
+                    ticks: {
+                        callback: () => ''
+                    }
+                }]
+            },
+            tooltips: {
+                enabled: false
+            }
         },
-        values: makeArray(3, () => ({
-            label: ko.observable(),
-            parts: [{
-                color: style['color13'],
-                value: ko.observable()
-            }]
-        }))
-    };
+        data: {
+            labels: ko.observableArray(),
+            datasets: [
+                {
+                    backgroundColor: ko.observable(),
+                    hoverBackgroundColor: ko.observable(),
+                    data: ko.observableArray()
+                },
+                {
+                    // Simulate a background using a stacked complement bar.
+                    backgroundColor: ko.observable(),
+                    hoverBackgroundColor: ko.observable(),
+                    data: ko.observableArray()
+                }
+            ]
+        }
+    }
 
     selectState(state, params) {
-        const { topology = {}, system } = state;
+        const { topology = {}, system, session } = state;
         const { serverMinRequirements, servers } = topology;
         return [
             servers && servers[params.serverSecret],
             serverMinRequirements,
-            system && system.version
+            system && system.version,
+            themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(server, minRequirements, systemVersion) {
+    mapStateToProps(server, minRequirements, systemVersion, theme) {
         if (!server) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -178,10 +220,13 @@ class ServerSummaryViewModel2 extends ConnectableViewModel {
         } else {
             ko.assignToProps(this, {
                 dataReady: true,
+                firstRender: false,
                 isConnected: server.mode === 'CONNECTED',
                 status: statusMapping[server.mode],
                 issues: _getIssues(server, minRequirements, systemVersion),
-                bars: _getBars(server)
+                chart: {
+                    data: _getChartData(server, theme)
+                }
             });
         }
     }

@@ -43,15 +43,16 @@ pool-hosts-table {
                 height: @gutter;
                 width: @gutter;
                 font-size: @font-size1;
+                font-weight: @font-regular;
                 text-align: center;
-                color: @color15;
-                background-color: @color4;
+                color: rgb(var(--color10));
+                background-color: rgb(var(--color16));
+                opacity: .25;
                 margin: 0 2px;
                 cursor: default;
 
                 &.lighted {
-                    color: @color6;
-                    background-color: @color15;
+                    opacity: 1;
                 }
             }
         }

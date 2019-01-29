@@ -1,9 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<h1 class="row content-middle heading2 pane-header hpad push-next">
+<h1 class="row content-middle heading1 pane-header hpad push-next">
     <span class="greedy push-next">Audit Log</span>
 
-    <button class="icon-btn no-outline" data-bind="click: onX">
+    <button class="icon-btn" data-bind="click: onX">
         <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
     </button>
 </h1>
@@ -41,7 +41,7 @@
         </button>
     </div>
 
-    <data-table class="audit-table alt-bg greedy" params="
+    <data-table class="audit-table content-box greedy" params="
         columns: columns,
         data: entries,
         rowFactory: entry => createAuditRow(entry),
@@ -54,7 +54,7 @@
 
 <div class="column hpad push-next">
     <h3 class="heading3">Event Description</h3>
-    <section class="alt-bg pad">
+    <section class="content-box pad">
         <div class="desc-box" data-bind="foreach: description">
             <div data-bind="text: $data"></div>
         </div>

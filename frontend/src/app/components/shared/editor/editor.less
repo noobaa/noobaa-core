@@ -18,15 +18,19 @@ editor {
 
         font-size: @font-size3;
         font-weight: @font-light;
-        color: @color7;
+        color: rgb(var(--color10));
         width: @width;
         min-width: @width;
         line-height: 1.3;
         margin-top: 11px;
 
         &.disabled {
-            color: @color7;
+            color: inherit;
             opacity: .3;
+
+            more-info-icon {
+                pointer-events: none;
+            }
         }
     }
 

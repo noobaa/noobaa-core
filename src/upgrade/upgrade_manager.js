@@ -10,12 +10,9 @@ const dbg = require('../util/debug_module')(__filename);
 const supervisor = require('../server/utils/supervisor_ctrl');
 const platform_upgrade = require('./platform_upgrade');
 const dotenv = require('../util/dotenv');
-dotenv.load();
 
 const REQUIRED_MONGODB_VERSION = '3.6.5';
 
-mongo_client.instance().connect();
-system_store.load();
 dbg.set_process_name('UpgradeManager');
 
 class UpgradeManager {
@@ -289,6 +286,10 @@ class UpgradeManager {
 
 
 async function main() {
+    await platform_upgrade.build_dotenv();
+    dotenv.load();
+    mongo_client.instance().connect();
+    system_store.load();
     dbg.log0('UPGRADE: Started upgrade manager with arguments:', argv);
     const upgrade_manager = new UpgradeManager({
         cluster: argv.cluster_str === 'cluster',

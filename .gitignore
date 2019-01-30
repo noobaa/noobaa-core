@@ -36,4 +36,5 @@ npm-debug.log*
 *.STASH
 .DS_Store
 
-noobaa-NVA.tar.gz
+noobaa.rpm
+

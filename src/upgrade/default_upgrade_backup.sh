@@ -44,7 +44,7 @@ else
     /bin/cp /etc/yum.conf ${ETC_BACKUP_DIR}
     /bin/cp /etc/dhclient.conf ${ETC_BACKUP_DIR}
     /bin/cp /etc/resolv.conf ${ETC_BACKUP_DIR}
-    /bin/cp -r /etc/mongo_ssl ${ETC_BACKUP_DIR}
+    /bin/cp -r /data/mongo/ssl ${ETC_BACKUP_DIR}
 
     echo "UPGRADE: backup finished successfully"
 fi

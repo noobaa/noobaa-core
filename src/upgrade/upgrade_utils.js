@@ -75,7 +75,7 @@ function pre_upgrade(params) {
             dbg.log0('new_pre_upgrade spawn');
             // TODO: Should probably do some sort of timeout on the spawn or something
             // Since we already had problems of it just getting stuck and not returning
-            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT} > /var/log/upgrade_log.log`, {
+            return promise_utils.exec(`chmod 777 ${SPAWN_SCRIPT}; ${SPAWN_SCRIPT} > /var/upgrade_log.log`, {
                     ignore_rc: false,
                     return_stdout: true,
                     trim_stdout: true
@@ -131,7 +131,7 @@ async function do_upgrade(upgrade_file, is_clusterized, err_handler) {
             .toISOString()
             .replace(/T/, '-')
             .substr(5, 11);
-        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
+        var fname = '/var/noobaa_deploy_out_' + fsuffix + '.log';
         var stdout = fs.openSync(fname, 'a');
         var stderr = fs.openSync(fname, 'a');
         let cluster_str = is_clusterized ? 'cluster' : ' ';

@@ -129,18 +129,18 @@ else
     sudo rm /etc/first_install.mrk
 fi
 
-sudo rm /etc/noobaa_sec
+sudo rm /data/noobaa_sec
 echo Passw0rd | passwd noobaaroot --stdin
 #Clean log file
-rm -f /var/log/*.log
-rm -f /var/log/*-* || true
-rm -f /var/log/noobaa*
-rm -f /var/log/nbfedump/*
-rm -f /var/log/supervisor/*
-rm -f /var/log/supervisord.log
-rm -rf /etc/mongo_ssl/
-rm -f /usr/bin/mongors
-rm -f /etc/noobaa_network
+rm -f /log/*.log
+rm -f /log/*-* || true
+rm -f /log/noobaa*
+rm -f /log/nbfedump/*
+rm -f /log/supervisor/*
+rm -f /log/supervisord.log
+rm -rf /data/mongo/ssl/
+rm -f /data/bin/mongors
+rm -f /data/noobaa_network
 
 #Clean platform changes
 unlink /etc/localtime
@@ -186,12 +186,12 @@ rm -rf /backup
 mongo nbcore --eval 'db.dropDatabase()'
 
 #Clean supervisors
-sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
-sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /root/node_modules/noobaa-core/.env
-echo "PLATFORM=${platform}" >> /root/node_modules/noobaa-core/.env
+sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /data/noobaa_supervisor.conf
+sudo cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /data/.env
+echo "PLATFORM=${platform}" >> /data/.env
 supervisorctl reread
 supervisorctl reload
-echo "PLATFORM=${platform}" >> /root/node_modules/noobaa-core/.env
+echo "PLATFORM=${platform}" >> /data/.env
 
 if [ -d /root/node_modules/noobaa-core/agent_storage/ ]; then
     rm -rf /root/node_modules/noobaa-core/agent_storage/

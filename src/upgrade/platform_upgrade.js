@@ -39,7 +39,8 @@ const DOTENV_VARS_FROM_OLD_VER = Object.freeze([
     'DEV_MODE',
     'MONGO_RS_URL',
     'MONGO_SSL_USER',
-    'ENDPOINT_BLOB_ENABLED'
+    'ENDPOINT_BLOB_ENABLED',
+    'PLATFORM'
 ]);
 
 const EXEC_DEFAULTS = Object.freeze({
@@ -160,11 +161,11 @@ async function platform_upgrade_2_10_0() {
 
 async function fix_mongod_user() {
     // change ownership of mongo related files to mongod user\group
-    await exec('chown -R mongod:mongod /var/lib/mongo/');
-    await exec('chown -R mongod:mongod /etc/mongo_ssl/');
+    await exec('chown -R mongod:mongod /data/mongo/');
+    await exec('chown -R mongod:mongod /data/mongo/ssl/');
     //change permissions for mongo_ssl files - allow r\x for dir and r only for files
-    await exec('chmod 400 -R /etc/mongo_ssl/*');
-    await exec('chmod 500 /etc/mongo_ssl');
+    await exec('chmod 400 -R /data/mongo/ssl/*');
+    await exec('chmod 500 /data/mongo/ssl');
 }
 
 async function fix_azure_swap() {
@@ -454,15 +455,10 @@ async function copy_new_code() {
     await fs_utils.full_dir_copy(NEW_VERSION_DIR, CORE_DIR);
 }
 
-// make sure that all the file which are required by the new version (.env, etc.) are in the new dir
-async function prepare_new_dir() {
-    await _build_dotenv();
-}
-
 // build .env file in new version by taking all required env vars from old version
-async function _build_dotenv() {
+async function build_dotenv() {
     dbg.log0('UPGRADE: generating dotenv file in the new version directory');
-    const old_env = dotenv.parse(await fs.readFileAsync(`${CORE_DIR}/.env`));
+    const old_env = dotenv.parse(await fs.readFileAsync(`/data/.env`));
     const new_env = Object.assign(
         dotenv.parse(await fs.readFileAsync(`${NEW_VERSION_DIR}/src/deploy/NVA_build/env.orig`)),
         _.pick(old_env, DOTENV_VARS_FROM_OLD_VER),
@@ -470,7 +466,7 @@ async function _build_dotenv() {
 
     dbg.log0('UPGRADE: generating .env file for new version:', new_env);
 
-    await fs.writeFileAsync(`${NEW_VERSION_DIR}/.env`, dotenv.stringify(new_env));
+    await fs.writeFileAsync(`/data/.env`, dotenv.stringify(new_env));
 }
 
 // TODO: make sure that update_services is synchronized between all cluster members 
@@ -657,13 +653,13 @@ async function get_mongo_shell_command(is_cluster) {
     let mongo_shell = '/usr/bin/mongo nbcore';
     if (is_cluster) {
         dbg.log0('UPGRADE: set_mongo_cluster_mode: Called');
-        const rs_servers = await promise_utils.exec(`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`, {
+        const rs_servers = await promise_utils.exec(`grep MONGO_RS_URL /data.env | cut -d'@' -f 2 | cut -d'/' -f 1`, {
             ignore_rc: false,
             return_stdout: true,
             trim_stdout: true
         });
         dbg.log0(`UPGRADE: set_mongo_cluster_mode: MONGO_SHELL`, rs_servers);
-        mongo_shell = `/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1`;
+        mongo_shell = `/data/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1`;
     }
     dbg.log0(`UPGRADE: using this mongo shell command: ${mongo_shell}`);
     return mongo_shell;
@@ -823,7 +819,7 @@ exports.platform_upgrade_init = platform_upgrade_init;
 exports.backup_old_version = backup_old_version;
 exports.restore_old_version = restore_old_version;
 exports.copy_new_code = copy_new_code;
-exports.prepare_new_dir = prepare_new_dir;
+exports.build_dotenv = build_dotenv;
 exports.update_services = update_services;
 exports.upgrade_mongodb_version = upgrade_mongodb_version;
 exports.upgrade_mongodb_schemas = upgrade_mongodb_schemas;

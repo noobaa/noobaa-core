@@ -306,22 +306,22 @@ config.central_stats = {
   Clustering Defaults
 */
 config.MONGO_DEFAULTS = {
-    CFG_DB_PATH: '/var/lib/mongo/cluster/cfg0',
+    CFG_DB_PATH: '/data/mongo/cluster/cfg0',
     CFG_PORT: '26050',
     CFG_RSET_NAME: 'config0',
     SHARD_SRV_PORT: '27000',
-    COMMON_PATH: '/var/lib/mongo/cluster',
+    COMMON_PATH: '/data/mongo/cluster',
     CONNECT_RETRY_INTERVAL: 3 * 1000,
     CONNECT_MAX_WAIT: 5 * 60 * 1000,
-    ROOT_CA_PATH: '/etc/mongo_ssl/root-ca.pem',
-    SERVER_CERT_PATH: '/etc/mongo_ssl/server.pem',
-    CLIENT_CERT_PATH: '/etc/mongo_ssl/client.pem',
+    ROOT_CA_PATH: '/data/mongo/ssl/root-ca.pem',
+    SERVER_CERT_PATH: '/data/mongo/ssl/server.pem',
+    CLIENT_CERT_PATH: '/data/mongo/ssl/client.pem',
 };
 
 config.CLUSTERING_PATHS = {
-    SECRET_FILE: '/etc/noobaa_sec',
+    SECRET_FILE: '/data/noobaa_sec',
     DARWIN_SECRET_FILE: '/Users/Shared/noobaa_sec',
-    SUPER_FILE: '/etc/noobaa_supervisor.conf',
+    SUPER_FILE: '/data/noobaa_supervisor.conf',
 };
 
 config.NAMED_DEFAULTS = {

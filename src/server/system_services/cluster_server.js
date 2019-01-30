@@ -191,7 +191,7 @@ function add_member_to_cluster_invoke(req, my_address) {
             }
         })
         .then(() => {
-            dbg.log0(`read mongo certs from /etc/mongo_ssl/`);
+            dbg.log0(`read mongo certs from /data/mongo/ssl/`);
             return P.join(
                 fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, 'utf8'),
                 fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, 'utf8'),
@@ -424,7 +424,7 @@ function join_to_cluster(req) {
         })
         .then(() => _stop_services())
         .then(() => {
-            dbg.log0(`overwrite mongo certs to /etc/mongo_ssl/`);
+            dbg.log0(`overwrite mongo certs to /data/mongo/ssl/`);
             return P.join(
                 fs.writeFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, req.rpc_params.ssl_certs.root_ca),
                 fs.writeFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, req.rpc_params.ssl_certs.server_cert),

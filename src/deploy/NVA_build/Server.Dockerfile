@@ -22,7 +22,7 @@ VOLUME ["/sys/fs/cgroup"]
 ################
 
 ARG noobaa_rpm=./noobaa.rpm
-ARG install_script=./install_noobaa.sh
+ARG install_script=./src/deploy/rpm/install_noobaa.sh
 ENV container docker
 COPY ${noobaa_rpm} /tmp/noobaa.rpm
 COPY ${install_script} /tmp/install_noobaa.sh

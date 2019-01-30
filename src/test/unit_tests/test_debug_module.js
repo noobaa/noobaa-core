@@ -18,7 +18,7 @@ function file_content_verify(flag, expected) {
         if (os.type() === 'Darwin') {
             content = fs.readFileSync("./logs/noobaa.log", "utf8");
         } else {
-            content = fs.readFileSync("/var/log/noobaa.log", "utf8");
+            content = fs.readFileSync("/log/noobaa.log", "utf8");
         }
         if (flag === "text") { // Verify Log requests content
             assert(content.indexOf(expected) !== -1);

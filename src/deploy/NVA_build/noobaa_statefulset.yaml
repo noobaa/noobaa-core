@@ -34,6 +34,9 @@ spec:
     spec:
       containers:
       - name: noobaa
+        securityContext: 
+          capabilities: {}
+          privileged: true
         resources:
           requests:
             memory: "1Gi"
@@ -44,6 +47,7 @@ spec:
         # change image location before running
         # image: [image registry]/[image]
         image: dannyzaken/nbimage
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
         - containerPort: 443
@@ -64,8 +68,10 @@ spec:
           name: run-volume
         - mountPath: /run/lock
           name: run-lock-volume
-        - mountPath: /var/lib/mongo
+        - mountPath: /data
           name: datadir
+        - mountPath: /log
+          name: logdir
       volumes:
       - name: cgroup-volume
         hostPath:
@@ -83,9 +89,16 @@ spec:
   # minkube restarts. if we want it to be persistent between restarts we need to statically provision a 
   # volume according to this https://kubernetes.io/docs/setup/minikube/#persistent-volumes
   - metadata:
-      name: datadir
+      name: logdir
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 10Gi
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi

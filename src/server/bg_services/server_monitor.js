@@ -331,7 +331,7 @@ function _check_network_configuration() {
             dbg.log2('current network interfaces are', interfaces);
             return P.map(interfaces, inter => {
                 data += inter + '\n';
-                return fs_utils.find_line_in_file('/etc/noobaa_network', inter)
+                return fs_utils.find_line_in_file('/data/noobaa_network', inter)
                     .then(line => {
                         if (!line) { // if didn't found the interface in the file
                             Dispatcher.instance().alert('MAJOR',
@@ -343,7 +343,7 @@ function _check_network_configuration() {
                     });
             });
         })
-        .then(() => fs_utils.replace_file('/etc/noobaa_network', data))
+        .then(() => fs_utils.replace_file('/data/noobaa_network', data))
         .catch(err => dbg.error(`_check_network_configuration caught ${err}`));
 }
 

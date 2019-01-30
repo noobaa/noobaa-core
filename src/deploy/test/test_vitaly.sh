@@ -61,7 +61,7 @@ nvm install
 echo "prepare workspace"
 
 mkdir agent_storage
-cp /root/node_modules/noobaa-core/.env .env
+cp /data/.env .env
 echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
 echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
 

@@ -3,11 +3,13 @@
 export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 
 CORE_DIR="/root/node_modules/noobaa-core"
-ENV_FILE="${CORE_DIR}/.env"
-LOG_FILE="/var/log/noobaa_deploy.log"
+LOG_FILE="/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
 NOOBAA_ROOTPWD="/etc/nbpwd"
+
+mkdir -p /log
+mkdir -p /data/
 
 function deploy_log {
     local now=$(date)
@@ -211,10 +213,10 @@ function install_noobaa_repos {
     cd ~
 
 	# Setup Repos
-	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
-    if [ "${container}" = "docker" ]; then
-        sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/.env
+    if [ "${container}" == "docker" ]; then
+        sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
     fi
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env
 
     deploy_log "install_noobaa_repos done"
 }
@@ -223,7 +225,7 @@ function install_mongo {
     deploy_log "install_mongo start"
 
     # mongodb will probably run as root after yum (if not docker) - we need to fix it if we want to use deploy_base
-    chown -R mongod:mongod /var/lib/mongo/
+    chown -R mongod:mongod /data/mongo/
 
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
@@ -263,6 +265,7 @@ function general_settings {
 
     echo "export LC_ALL=C" >> ~/.bashrc
     echo "export TERM=xterm" >> ~/.bashrc
+    echo "export PATH=$PATH:/usr/local/bin:/data/bin" >> ~/.bashrc
     echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
     echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
     echo "alias ll='ls -lha'" >> ~/.bashrc
@@ -350,12 +353,12 @@ function fix_security_issues {
 
 function setup_supervisors {
 	deploy_log "setup_supervisors start"
-    mkdir -p /var/log/supervisor
+    mkdir -p /log/supervisor
     mv /usr/bin/supervisord /usr/bin/supervisord_orig
     # Generate default supervisord config
     echo_supervisord_conf > /etc/supervisord.conf
-    sed -i 's:logfile=.*:logfile=/var/log/supervisor/supervisord.log:' /etc/supervisord.conf
-    sed -i 's:;childlogdir=.*:childlogdir=/var/log/supervisor/:' /etc/supervisord.conf
+    sed -i 's:logfile=.*:logfile=/log/supervisor/supervisord.log:' /etc/supervisord.conf
+    sed -i 's:;childlogdir=.*:childlogdir=/log/supervisor/:' /etc/supervisord.conf
     sed -i 's:logfile_backups=.*:logfile_backups=5:' /etc/supervisord.conf
     sed -i 's:file=/tmp/supervisor.sock.*:file=/var/log/supervisor.sock:' /etc/supervisord.conf
     sed -i 's:pidfile=/tmp/supervisord.pid.*:pidfile=/var/log/supervisord.pid:' /etc/supervisord.conf
@@ -372,8 +375,8 @@ function setup_supervisors {
     # Add NooBaa services configuration to supervisor
     deploy_log "setup_supervisors adding noobaa config to supervisord"
     echo "[include]" >> /etc/supervisord.conf
-    echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc
+    echo "files = /data/noobaa_supervisor.conf" >> /etc/supervisord.conf
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /data
     if [ "${container}" != "docker" ]; then
         ${SUPERD} start
         ${SUPERCTL} reread
@@ -424,7 +427,7 @@ function setup_mongodb {
 }
 
 function add_mongo_ssl_user {
-    su - mongod -s /bin/bash -c "mongod --dbpath /var/lib/mongo/cluster/shard1 &"
+    su - mongod -s /bin/bash -c "mongod --dbpath /data/mongo/cluster/shard1 &"
     # Replace with clever way to wait (for example like wait_for_mongo method that checks status)
     sleep 20
 

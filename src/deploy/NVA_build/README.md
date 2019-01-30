@@ -13,7 +13,7 @@ noobaa-core/deploy/NVA_build
 - deploy_base.sh - The master script for the NVA image creation.
 - noobaa_supervisor.conf - Supervisord configuration for the NVA services (mongodb, webserver etc.)
 - supervisord.orig - /etc/rc.d script for supervisord.
-- noobaa_syslog.conf - rsyslog configuration file. directs all local0 messages to /var/log/noobaa.log
+- noobaa_syslog.conf - rsyslog configuration file. directs all local0 messages to /log/noobaa.log
 - upgrade - upgrade flow which runs from the crontab
 - version_check.js - simple http request to the SaaS werbserver for version verification
 - mongo.repo - mongodb repo definitions
@@ -53,7 +53,7 @@ noobaa-core/deploy/NVA_build
   (for example, the agent code is not there). It does contain all the files needed to run these services, the agent
   distribution pack and the package.json for dependency installation.
 
-  The services are being run and monitored by the supervisord mechanism (look at /etc/noobaa_supervisor.conf for the definitions).
+  The services are being run and monitored by the supervisord mechanism (look at /data/noobaa_supervisor.conf for the definitions).
   A crontab job which runs one a day between 00:00 to 03:00 checks against the NooBaa SaaS web server if the current version
   installed is the latest one. If not, it receives a reply with a URL to an S3 bucket in which the upgrade package can be found.
   It then downloads it, unpacks it and restart the services. Currently this is done automatically, in the future we would need to

@@ -4,7 +4,7 @@ export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 trap "" 2 20
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
-NOOBAANET="/etc/noobaa_network"
+NOOBAANET="/data/noobaa_network"
 MONGO_SHELL="/usr/bin/mongo nbcore"
 LOG_FILE="/tmp/noobaa_wizard_$(date +%s).log"
 
@@ -166,7 +166,7 @@ function configure_dns_dialog {
     local error=0
     ok_dns1=1
     cancel=0 
-    local secret=$(cat /etc/noobaa_sec)
+    local secret=$(cat /data/noobaa_sec)
     
     while [ $ok_dns1 -eq 1 ] && [ $cancel -eq 0 ]; do
       if [ ${error} -eq 1 ]; then
@@ -262,7 +262,7 @@ function configure_ntp_dialog {
   local err_ntp_msg=""
   local err_tz=1
   local err_ntp=1
-  local secret=$(cat /etc/noobaa_sec)
+  local secret=$(cat /data/noobaa_sec)
 
   while [ ${err_tz} -eq 1 ] || [ ${err_ntp} -eq 1 ]; do
     dialog --colors --backtitle "NooBaa First Install" --title "NTP Configuration" --form "\nPlease supply an NTP server address and Time Zone (TZ format https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)\nYou can configure NTP later in the management console\n${err_ntp_msg}\n${err_tz_msg}\n(Use \Z4\ZbUp/Down\Zn to navigate)" 15 80 2 "NTP Server:" 1 1 "${ntp_server}" 1 25 25 30  "Time Zone:" 2 1 "${tz}" 2 25 25 30 2> answer_ntp
@@ -395,9 +395,9 @@ function update_noobaa_net {
 }
 
 function check_clustered_mongo {
-  rs_servers=$(sudo grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1)
+  rs_servers=$(sudo grep MONGO_RS_URL /data/.env | cut -d'@' -f 2 | cut -d'/' -f 1)
   if [ ! "${rs_servers}" = "" ]; then
-      MONGO_SHELL="/usr/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1"
+      MONGO_SHELL="/data/bin/mongors --host mongodb://${rs_servers}/nbcore?replicaSet=shard1"
   fi
 }
 

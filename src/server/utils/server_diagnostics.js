@@ -30,7 +30,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected supervisor logs successfully'))
                 .catch(err => diag_log('collect_supervisor_logs failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp /var/log/noobaa_deploy* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /log/noobaa_deploy* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -38,7 +38,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected noobaa_deploy logs successfully'))
                 .catch(err => diag_log('collecting noobaa_deploy.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp /var/log/noobaa.log* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /log/noobaa.log* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -46,7 +46,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected noobaa.log files successfully'))
                 .catch(err => diag_log('collecting noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp /var/log/client_noobaa.log* ' + TMP_WORK_DIR, {
+                () => promise_utils.exec('cp -fp /log/client_noobaa.log* ' + TMP_WORK_DIR, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -54,7 +54,7 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected client_noobaa.log files successfully'))
                 .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', {
+                () => promise_utils.exec('cp -fp /data/.env ' + TMP_WORK_DIR + '/env', {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
@@ -78,13 +78,13 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected /etc/noobaa files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
-                () => promise_utils.exec(`cp -fpR /var/log/nbfedump ${TMP_WORK_DIR}`, {
+                () => promise_utils.exec(`cp -fpR /log/nbfedump ${TMP_WORK_DIR}`, {
                     ignore_rc: false,
                     return_stdout: false,
                     timeout: LONG_EXEC_TIMEOUT
                 })
-                .then(() => diag_log('collected /var/log/nbfedump directory successfully'))
-                .catch(err => diag_log('collecting /var/log/nbfedump directory failed with error: ' + err)),
+                .then(() => diag_log('collected /log/nbfedump directory successfully'))
+                .catch(err => diag_log('collecting /log/nbfedump directory failed with error: ' + err)),
 
                 () => promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', {
                     ignore_rc: false,
@@ -265,7 +265,7 @@ function collect_supervisor_logs() {
             if (process.platform === 'linux') {
                 // compress supervisor logs to the destination directory with compression level 1 (fastest).
                 // it appears to be faster than copying and then compressing
-                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /var/log/supervisor/* ', {
+                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /log/supervisor/* ', {
                         ignore_rc: false,
                         return_stdout: false,
                         timeout: LONG_EXEC_TIMEOUT

@@ -11,7 +11,7 @@ const { human_size } = require('../../util/size_utils');
 const { get_folder_size, create_path } = require('../../util/fs_utils');
 
 const FE_DUMP_DIR = path.join(
-    os.type() === 'Darwin' ? path.join(process.cwd(), 'logs') : '/var/log',
+    os.type() === 'Darwin' ? path.join(process.cwd(), 'logs') : '/log',
     'nbfedump'
 );
 

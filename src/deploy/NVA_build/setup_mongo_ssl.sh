@@ -1,4 +1,4 @@
-MONGO_SSL_PATH="/etc/mongo_ssl/"
+MONGO_SSL_PATH="/data/mongo/ssl/"
 
 # taken from https://www.mongodb.com/blog/post/secure-mongodb-with-x-509-authentication
 

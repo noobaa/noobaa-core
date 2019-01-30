@@ -753,7 +753,9 @@ module.exports = {
                 "attach_server",
                 "peer_to_peer_ports",
                 "server_details",
-                "cluster_connectivity_ip"
+                "cluster_connectivity_ip",
+                "remote_syslog"
+
             ],
         },
 

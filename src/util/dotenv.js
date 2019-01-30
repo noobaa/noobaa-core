@@ -28,7 +28,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 'use strict';
 
-var fs = require('fs');
+const fs = require('fs');
+const _ = require('lodash');
+
 var DROPPED_LINES = {
     LINES: [],
     INDICES: [],
@@ -42,39 +44,24 @@ module.exports = {
      * @returns {Boolean}
      */
     config: function(options) {
-        var path = '.env';
-        var encoding = 'utf8';
-        var silent = true;
+        const paths = ['.env', '/data/.env'];
+        let encoding = 'utf8';
 
-        if (options) {
-            if (options.silent) {
-                silent = options.silent;
-            }
-            if (options.path) {
-                path = options.path;
-            }
-            if (options.encoding) {
-                encoding = options.encoding;
-            }
-        }
+        paths.forEach(env_file => {
+            try {
+                let parsedObj = this.parse(fs.readFileSync(env_file, {
+                    encoding: encoding
+                }));
 
-        try {
-            // specifying an encoding returns a string instead of a buffer
-            var parsedObj = this.parse(fs.readFileSync(path, {
-                encoding: encoding
-            }));
-
-            Object.keys(parsedObj).forEach(function(key) {
-                process.env[key] = parsedObj[key];
-            });
-
-            return parsedObj;
-        } catch (e) {
-            if (!silent) {
-                console.error(e);
+                Object.keys(parsedObj).forEach(function(key) {
+                    process.env[key] = parsedObj[key];
+                });
+            } catch (e) {
+                _.noop();
             }
-            return false;
-        }
+        });
+
+
     },
 
     /*
@@ -83,9 +70,19 @@ module.exports = {
      * @returns {Object}
      */
     parse: function(src_param) {
-        let src = src_param || fs.readFileSync('.env', {
-            encoding: 'utf8'
-        });
+
+        let src = src_param;
+        if (!src) {
+            try {
+                src = fs.readFileSync('/data/.env', {
+                    encoding: 'utf8'
+                });
+            } catch (e) {
+                src = fs.readFileSync('.env', {
+                    encoding: 'utf8'
+                });
+            }
+        }
         var obj = {};
         var idx = 0;
 
@@ -131,7 +128,7 @@ module.exports = {
      * @param {Object} newVal - param name and new value of param
      */
     set: function(newVal) {
-        var path = '.env';
+        var path = '/data/.env';
         var encoding = 'utf8';
         var silent = false;
 

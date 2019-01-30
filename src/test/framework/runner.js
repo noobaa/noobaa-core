@@ -98,7 +98,7 @@ class TestRunner {
     clean_server_for_run() {
         if (os.type() === 'Darwin') return;
         const logs_regexp = /noobaa\.log\...\.gz/;
-        const logs_path = '/var/log/';
+        const logs_path = '/log/';
         return P.resolve(fs.readdirAsync(logs_path))
             .then(files => {
                 const num_files = files.length;
@@ -410,11 +410,11 @@ class TestRunner {
         console.log('Restarting services with TESTRUN arg to', testrun);
         var command;
         if (testrun) {
-            command = "sed -i 's/\\(.*web_server.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
-            command += " ; sed -i 's/\\(.*bg_workers.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
+            command = "sed -i 's/\\(.*web_server.js\\)/\\1 --TESTRUN/' /data/noobaa_supervisor.conf ";
+            command += " ; sed -i 's/\\(.*bg_workers.js\\)/\\1 --TESTRUN/' /data/noobaa_supervisor.conf ";
         } else {
-            command = "sed -i 's/\\(.*web_server.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
-            command += " ; sed -i 's/\\(.*bg_workers.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
+            command = "sed -i 's/\\(.*web_server.js\\).*--TESTRUN/\\1/' /data/noobaa_supervisor.conf ";
+            command += " ; sed -i 's/\\(.*bg_workers.js\\).*--TESTRUN/\\1/' /data/noobaa_supervisor.conf ";
         }
         await promise_utils.exec(command);
         let retries = 0;

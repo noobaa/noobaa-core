@@ -3,9 +3,9 @@
 MONGO_PROGRAM="mongo_wrapper"
 MONGO_SHELL="/usr/bin/mongo nbcore"
 LOCAL_MONGO_SHELL="/usr/bin/mongo nbcore" # shell for local (if in RS) instance of mongo
-LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
+LOG_FILE="/log/noobaa_deploy_wrapper.log"
 LOG_TOPIC="UPGRADE"
-NOOBAANET="/etc/noobaa_network"
+NOOBAANET="/data/noobaa_network"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
@@ -23,9 +23,9 @@ function set_deploy_log_topic {
 
 function set_mongo_cluster_mode {
     local PORT=$1
-	RS_SERVERS=`grep MONGO_RS_URL /root/node_modules/noobaa-core/.env | cut -d'@' -f 2 | cut -d'/' -f 1`
-    MONGO_SHELL="/usr/bin/mongors --host mongodb://${RS_SERVERS}/nbcore?replicaSet=shard1"
-    LOCAL_MONGO_SHELL="/usr/bin/mongors --port ${PORT} nbcore"
+	RS_SERVERS=`grep MONGO_RS_URL /data/.env | cut -d'@' -f 2 | cut -d'/' -f 1`
+    MONGO_SHELL="/data/bin/mongors --host mongodb://${RS_SERVERS}/nbcore?replicaSet=shard1"
+    LOCAL_MONGO_SHELL="/data/bin/mongors --port ${PORT} nbcore"
 }
 
 function update_noobaa_net {

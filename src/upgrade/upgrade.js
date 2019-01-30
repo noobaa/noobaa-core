@@ -31,9 +31,6 @@ async function do_upgrade() {
         dbg.log0('UPGRADE: backup up old version before starting..');
         // TODO: move the backup stage into upgrade_manager
         await platform_upgrade.backup_old_version();
-        // prepare_new_dir must run before running upgrade manager since it fixes .env parameters that
-        // upgrade manager might need (e.g. mongo connection string, etc.)
-        await platform_upgrade.prepare_new_dir();
         await start_upgrade_manager();
     } catch (err) {
         // TODO: better error handling here. we should store the error in DB before aborting (should use mongo shell)
@@ -122,7 +119,7 @@ function run_upgrade() {
                     dbg.log0(`upgrade.js called for package extraction`);
                     return P.resolve()
                         .then(() => {
-                            var fname = '/var/log/noobaa_deploy_out_' + argv.fsuffix + '.log';
+                            var fname = '/log/noobaa_deploy_out_' + argv.fsuffix + '.log';
                             stdout = fs.openSync(fname, 'a');
                             stderr = fs.openSync(fname, 'a');
                         })

@@ -5,8 +5,8 @@ echo "This server ($(hostname)) will be removed from the cluster in ${GRACE_TIME
 sleep $GRACE_TIME
 echo "removing $(hostname) from the cluster..."
 
-cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
-sed -i "s:MONGO_RS_URL.*::" /root/node_modules/noobaa-core/.env
+cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /data/noobaa_supervisor.conf
+sed -i "s:MONGO_RS_URL.*::" /data/.env
 supervisorctl shutdown
 supervisord start
 sleep 5

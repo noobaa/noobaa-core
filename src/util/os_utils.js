@@ -109,9 +109,15 @@ function _exec_and_extract_num(command, regex_line) {
 function read_drives() {
     if (os.type() === 'Windows_NT') {
         return read_windows_drives();
+    } else if (process.env.container === 'docker') {
+        return read_kubernetes_agent_drives();
     } else {
         return read_mac_linux_drives();
     }
+}
+
+function get_agent_platform_path() {
+    return process.env.container === 'docker' ? '/noobaa_storage/' : './';
 }
 
 function get_raw_storage() {
@@ -208,6 +214,7 @@ function get_disk_mount_points() {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
             return _.filter(drives, drive => {
                 const { mount, drive_id } = drive;
+                if (process.env.container === 'docker' && mount !== '/') return false;
                 const is_win_drive =
                     (/^[a-zA-Z]:$/).test(drive_id);
                 const is_linux_drive =
@@ -307,6 +314,18 @@ function read_mac_linux_drives(include_all) {
             .then(res => _.compact(res)));
 }
 
+function read_kubernetes_agent_drives() {
+    return P.fromCallback(callback => node_df({
+            // this is a hack to make node_df append the -l flag to the df command
+            // in order to get only local file systems.
+            file: '-la'
+        }, callback))
+        .then(volumes => P.all(_.map(volumes, async function(vol) {
+                return P.resolve()
+                    .then(() => linux_volume_to_drive(vol));
+            }))
+            .then(res => _.compact(res)));
+}
 
 function read_windows_drives() {
     var windows_drives = {};
@@ -1303,3 +1322,4 @@ exports.get_services_ps_info = get_services_ps_info;
 exports.install_vmtools = install_vmtools;
 exports.is_vmtools_installed = is_vmtools_installed;
 exports.get_process_parent_pid = get_process_parent_pid;
+exports.get_agent_platform_path = get_agent_platform_path;

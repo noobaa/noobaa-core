@@ -267,6 +267,9 @@ module.exports = {
                     },
                     WINDOWS: {
                         type: 'string'
+                    },
+                    KUBERNETES: {
+                        type: 'string'
                     }
                 }
             },

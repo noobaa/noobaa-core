@@ -52,7 +52,7 @@ class AgentCLI {
         this.agents = {};
         this.params.hostname = this.params.test_hostname || os.hostname();
         const agent_conf_name = this.params.test_hostname ? 'agent_conf_' + this.params.test_hostname + '.json' : 'agent_conf.json';
-        this.agent_conf = new json_utils.JsonFileWrapper(agent_conf_name);
+        this.agent_conf = new json_utils.JsonFileWrapper(os_utils.get_agent_platform_path().concat(agent_conf_name));
     }
 
     monitor_stats() {
@@ -262,7 +262,7 @@ class AgentCLI {
                     .then(() => fs.readdirAsync(storage_path))
                     .then(nodes_names => {
                         // filter out cloud and mongo agents:
-                        let regular_node_names = _.reject(nodes_names, name => name.startsWith(internal_agent_prefix));
+                        let regular_node_names = _.reject(nodes_names, name => (name.startsWith(internal_agent_prefix) || name === 'agent_conf.json'));
                         dbg.log0('nodes_names:', regular_node_names);
                         return P.map(regular_node_names, node_name => {
                             dbg.log0('node_name', node_name, 'storage_path', storage_path);

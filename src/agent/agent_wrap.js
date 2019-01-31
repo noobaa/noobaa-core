@@ -191,12 +191,12 @@ async function upgrade_agent() {
 
 async function main() {
 
-    dbg.log0('starting agent_wrapper. OS info:', await os_utils.get_distro);
+    dbg.log0('starting agent_wrapper. OS info:', await os_utils.get_distro());
 
     await clean_old_files();
 
     // get server address from agent_conf
-    address = url.parse(JSON.parse(await fs.readFileAsync('./agent_conf.json')).address).host;
+    address = url.parse(JSON.parse(await fs.readFileAsync(os_utils.get_agent_platform_path().concat('agent_conf.json'))).address).host;
 
     try {
         dbg.log0('Starting agent_cli');

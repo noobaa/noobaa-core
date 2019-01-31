@@ -1,6 +1,5 @@
 FROM centos:7
-
-MAINTAINER Jenia The Sloth <jeniawhite92@gmail.com>
+LABEL maintainer="Evgeniy Belyi (jeniawhite92@gmail.com)"
 
 #################
 # SYSTEMD SETUP #

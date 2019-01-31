@@ -89,6 +89,18 @@ class PrometheusReporting {
         }
     }
 
+    set_cloud_bandwidth(type, write_size, read_size) {
+        if (!this.enabled()) return;
+        this._metrics.cloud_bandwidth.set({ type: type + '_write_size' }, write_size);
+        this._metrics.cloud_bandwidth.set({ type: type + '_read_size' }, read_size);
+    }
+
+    set_cloud_ops(type, write_num, read_num) {
+        if (!this.enabled()) return;
+        this._metrics.cloud_ops.set({ type: type + '_write_ops' }, write_num);
+        this._metrics.cloud_ops.set({ type: type + '_read_ops' }, read_num);
+    }
+
     update_cloud_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
         this._metrics.cloud_bandwidth.inc({ type: type + '_write_size' }, write_size, new Date());

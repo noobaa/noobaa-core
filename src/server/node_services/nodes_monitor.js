@@ -245,20 +245,27 @@ class NodesMonitor extends EventEmitter {
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
     }
 
-    start() {
+    async start() {
         if (this._started) {
             dbg.log0('NodesMonitor already started returning.');
-            return P.resolve();
+            return;
         }
         dbg.log0('starting nodes_monitor');
         this._started = true;
         this.n2n_rpc.set_disconnected_state(false);
-        return P.resolve()
-            .then(() => ssl_utils.read_ssl_certificate())
-            .then(ssl_certs => {
-                this.ssl_certs = ssl_certs;
-            })
-            .then(() => this._load_from_store());
+        this.ssl_certs = await ssl_utils.read_ssl_certificate();
+        await this._load_from_store();
+
+        // initialize nodes stats in prometheus
+        if (config.PROMETHEUS_ENABLED && system_store.data.systems[0]) {
+            let nodes_stats = await this._get_nodes_stats_by_cloud_service(system_store.data.systems[0]._id, 0, Date.now());
+            nodes_stats.forEach(stats => {
+                dbg.log0(`resetting stats in prometheus:`, stats);
+                prom_report.instance().set_cloud_ops(stats.service, stats.write_count, stats.read_count);
+                prom_report.instance().set_cloud_bandwidth(stats.service, stats.write_bytes, stats.read_bytes);
+            });
+        }
+
     }
 
     stop(force_close_n2n) {
@@ -1196,9 +1203,8 @@ class NodesMonitor extends EventEmitter {
             });
 
             //update prometheus metrics
-            if (this._is_cloud_node(item)) {
+            if (config.PROMETHEUS_ENABLED && this._is_cloud_node(item)) {
                 const endpoint_type = _.get(system_store.data.get_by_id(item.node.pool), 'cloud_pool_info.endpoint_type') || 'OTHER';
-                console.log('NBNB:: updating prom on cloud node', endpoint_type);
                 prom_report.instance().update_cloud_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
                 prom_report.instance().update_cloud_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
             }
@@ -2989,10 +2995,8 @@ class NodesMonitor extends EventEmitter {
         return _.keyBy(nodes_stats, stat => String(stat._id));
     }
 
-    async get_nodes_stats_by_cloud_service(req) {
-        const system = req.system._id;
-        const { start_date, end_date } = req.rpc_params;
-        const all_nodes_stats = await this.get_nodes_stats(system, start_date, end_date);
+    async _get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {
+        const all_nodes_stats = await this.get_nodes_stats(system_id, start_date, end_date);
         const grouped_stats = _.omit(_.groupBy(all_nodes_stats, stat => {
             const item = this._map_node_id.get(String(stat._id));
             const pool = system_store.data.get_by_id(item.node.pool);
@@ -3017,9 +3021,13 @@ class NodesMonitor extends EventEmitter {
             return reduced_stats;
         });
         return ret;
-
-
     }
+
+    async get_nodes_stats_by_cloud_service(req) {
+        return this._get_nodes_stats_by_cloud_service(req.system._id, req.rpc_params.start_date, req.rpc_params.end_date);
+    }
+
+
 
     _aggregate_nodes_list(list, nodes_stats) {
         let count = 0;

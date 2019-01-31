@@ -1,0 +1,41 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: nbagent
+spec:
+  serviceName: nbagent
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: nbagent
+    spec:
+      containers:
+      - name: nbagent
+        env:
+        # Insert the relevant config for the current agent
+        - name: AGENT_CONFIG
+          value: "AGENT_CONFIG_VALUE"
+        # Insert the relevant image for the agent
+        image: noobaaimages.azurecr.io/noobaa/nbagent:sloth
+        imagePullPolicy: Always
+        ports:
+        # This should change according to the allocation from the NooBaa server
+        - containerPort: 60101
+        # These volume mounts are persistent. Each pod in the PetSet
+        # gets a volume mounted based on this field.
+        volumeMounts:
+        - name: noobaastorage
+          mountPath: /noobaa_storage
+  # These are converted to volume claims by the controller
+  # and mounted at the paths mentioned above.
+  volumeClaimTemplates:
+  - metadata:
+      name: noobaastorage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 30Gi
+      # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+      #storageClassName:

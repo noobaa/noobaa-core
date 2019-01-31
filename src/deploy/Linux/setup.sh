@@ -14,10 +14,14 @@ if [ ! -d "/usr/local/noobaa" ]; then
     else
         if [ `uname -m` == 'x86_64' ]; then
             CONFIG=$1
+            AGENT_CONF_PATH=/usr/local/noobaa/agent_conf.json
+            if [ "${container}" == "docker" ]; then
+                AGENT_CONF_PATH=/noobaa_storage/agent_conf.json
+            fi
             mkdir /usr/local/noobaa
             echo "config is:" ${CONFIG}
-            openssl enc -base64 -d -A <<<${CONFIG} >/usr/local/noobaa/agent_conf.json
-            cat /usr/local/noobaa/agent_conf.json
+            openssl enc -base64 -d -A <<<${CONFIG} >${AGENT_CONF_PATH}
+            cat ${AGENT_CONF_PATH}
         else 
             echo "Agent can be installed only on 64bit distribution"
             exit 1

@@ -1,7 +1,9 @@
 #!/bin/bash
-AGENT_CONFIG=$@
 AGENT_CONF_FILE="/usr/local/noobaa/agent_conf.json"
+echo ${AGENT_CONFIG}
 if [ ! -f $AGENT_CONF_FILE ]; then
-    openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
+    ./noobaa-setup ${AGENT_CONFIG}
 fi
-node ./src/agent/agent_cli
+echo $(cat ${AGENT_CONF_FILE})
+cd /usr/local/noobaa
+./node ./src/agent/agent_cli

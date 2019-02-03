@@ -9,6 +9,7 @@ import { timeShortFormat } from 'config';
 
 function _getDescText(description) {
     const descText = description
+        .trim()
         .split('\n')[0]
         .slice(0, 30);
 

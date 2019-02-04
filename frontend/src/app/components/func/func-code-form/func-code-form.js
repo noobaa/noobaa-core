@@ -39,8 +39,14 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
     isZipStale = ko.observable();
     fileCount = ko.observable();
     formattedFileCount = ko.observable();
-    execFile = ko.observable();
-    execFunc = ko.observable();
+    execFile = {
+        text: ko.observable(),
+        align: 'start'
+    };
+    execFunc = {
+        text: ko.observable(),
+        align: 'start'
+    };
     page = ko.observable();
     selectedFile = ko.observable();
     rows = ko.observableArray();
@@ -73,8 +79,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                 isZipLoaded: false,
                 isZipStale: false,
                 formattedFileCount: '',
-                execFile: '',
-                execFunc: ''
+                execFile: { text: '' },
+                execFunc: { text: '' }
             });
 
         } else if (func.codeSize > funcSizeLimit) {
@@ -85,8 +91,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                 areActionsEnabled: true,
                 isFuncOversized: true,
                 formattedFileCount: '',
-                execFile,
-                execFunc
+                execFile: { text: execFile },
+                execFunc: { text: execFunc },
             });
 
         } else {
@@ -108,8 +114,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                     zip: zip,
                     fileList: [],
                     formattedFileCount: '',
-                    execFile,
-                    execFunc
+                    execFile: { text: execFile },
+                    execFunc: { text: execFunc }
                 });
 
             } else {
@@ -141,8 +147,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                     isZipLoaded: true,
                     isZipStale: false,
                     pathname,
-                    execFile,
-                    execFunc,
+                    execFile: { text: execFile },
+                    execFunc: { text: execFunc },
                     zip,
                     fileCount,
                     formattedFileCount,

@@ -9,12 +9,16 @@
                 Function Code: {{formattedFileCount}}
             </h3>
             <p class="row">
-                <span class="no-wrap handler-summary">
-                    File: {{execFile}}
+                <span class="no-wrap handler-summary" 
+                    ko.tooltip="execFile"
+                >
+                    File: {{execFile.text}}
                 </span>
                 <vr class="push-both-half"></vr>
-                <span class="no-wrap handler-summary">
-                    Function: {{execFunc}}
+                <span class="no-wrap handler-summary" 
+                    ko.tooltip="execFunc"
+                >
+                    Function: {{execFunc.text}}
                 </span>
             </p>
         </div>

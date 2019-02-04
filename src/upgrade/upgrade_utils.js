@@ -216,17 +216,10 @@ function test_major_version_change() {
             staged_package = ver.replace(/[",]/g, '');
             const [staged_major, staged_minor, staged_patch] = staged_package.split('-')[0].split('.').map(str => Number(str));
             const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
-            if (staged_major < 2) {
-                dbg.error('Unsupported upgrade, 2.X to 1.X');
+            if (staged_major < 3) {
+                dbg.error('Unsupported upgrade, 3.X to 1.X/2.X');
                 throw new VersionMismatchError('MAJOR_VERSION_CHANGE');
             }
-
-            // only allow upgrades from 2.3.1 and up
-            if (current_minor < 3 || (current_minor === 3 && current_patch < 1)) {
-                dbg.error('Unsupported upgrade. must go through 2.3.1');
-                throw new VersionMismatchError('MIN_REQUIRED_VERSION');
-            }
-
 
             // calc value of versions to compare
             const staged_ver_val = (staged_major * 10000) + (staged_minor * 100) + staged_patch;

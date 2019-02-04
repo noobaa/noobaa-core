@@ -4,6 +4,10 @@ metadata:
   name: noobaa-services
   labels:
     app: noobaa
+  annotations: 
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: http
+    prometheus.io/port: "8080"
 spec:
 # LoadBalancer service will alocate an external ip automatically on public cloud providers (aws\azure\gcp, etc.)
 # for on premise kuberenets clusters there are 3rd party solutions that provide the same functionality. e.g: metalLB (https://metallb.universe.tf)

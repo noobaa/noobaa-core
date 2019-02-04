@@ -354,7 +354,7 @@ config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 //////////////////////////////
 
 config.SEND_EVENTS_REMOTESYS = true;
-config.PROMETHEUS_ENABLED = false;
+config.PROMETHEUS_ENABLED = true;
 
 
 // load a local config file that overwrites some of the config

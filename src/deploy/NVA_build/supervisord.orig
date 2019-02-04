@@ -1,7 +1,9 @@
 #!/bin/sh
 
-# chkconfig: 345 15 15
+SUPERVISORD="/usr/bin/supervisord_orig"
+PIDFILE="/var/log/supervisord.pid"
 
+# chkconfig: 345 15 15
 
 start() {
     #run noobaa_init script before start

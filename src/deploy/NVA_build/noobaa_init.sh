@@ -1,9 +1,6 @@
 
 #!/bin/bash
 
-SUPERVISORD="/usr/bin/supervisord_orig"
-PIDFILE="/var/log/supervisord.pid"
-
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"

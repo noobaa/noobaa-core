@@ -376,6 +376,13 @@ function setup_supervisors {
 function setup_syslog {
 	deploy_log "setup_syslog start"
 
+    if [ "${container}" != "docker" ]; then
+        semanage fcontext -a -t syslogd_var_lib_t /log
+        restorecon -R -v /log
+
+        deploy_log "$(ls -Zd /log)"
+    fi
+
     # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
     cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa

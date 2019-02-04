@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# chkconfig: 345 15 15
+
 
 start() {
     #run noobaa_init script before start

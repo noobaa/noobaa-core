@@ -392,6 +392,7 @@ function setup_named {
         echo "prepend domain-name-servers 127.0.0.1 ;" > /etc/dhclient.conf
         echo "#NooBaa Configured Search" >> /etc/dhclient.conf
         echo "nameserver 127.0.0.1" > /etc/resolv.conf
+        sudo systemctl enable named
     fi
 
     #restore /etc/noobaa_configured_dns.conf

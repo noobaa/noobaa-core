@@ -74,7 +74,7 @@ init_noobaa_server() {
   handle_unmanaged_upgrade
 }
 
-
+init_noobaa_server
 
 
 

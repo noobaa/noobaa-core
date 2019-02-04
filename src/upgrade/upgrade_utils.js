@@ -263,10 +263,10 @@ function test_local_harddrive_memory() {
 
 async function test_supervisor_sock() {
     try {
-        await fs_utils.file_must_exist('/tmp/supervisor.sock');
+        await fs_utils.file_must_exist('/var/log/supervisor.sock');
     } catch (err) {
         if (err.code) {
-            dbg.error('could not find /tmp/supervisor.sock');
+            dbg.error('could not find /var/log/supervisor.sock');
             throw new Error('MISSING_SUPERVISOR_SOCK');
         }
         dbg.error('encountered unknown error in test_supervisor_sock. continuing with upgrade', err);

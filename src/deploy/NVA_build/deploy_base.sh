@@ -336,19 +336,6 @@ function fix_security_issues {
 		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
 		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
 	fi
-
-    # copy fix_server_plat to rc.local
-    if ! grep -q 'fix_server_plat' /etc/rc.local; then
-        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh" >> /etc/rc.local
-    fi
-    # copy fix_mongo_ssl to rc.local
-    if ! grep -q 'fix_mongo_ssl' /etc/rc.local; then
-        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh" >> /etc/rc.local
-    fi
-    # copy get_docker_variables to rc.local
-    if ! grep -q 'get_docker_variables' /etc/rc.local; then
-        echo "bash /root/node_modules/noobaa-core/src/deploy/NVA_build/get_docker_variables.sh" >> /etc/rc.local
-    fi
 }
 
 function setup_supervisors {

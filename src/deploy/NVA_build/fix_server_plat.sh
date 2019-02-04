@@ -26,10 +26,6 @@ if [ ! -f ${NOOBAASEC} ]; then
     echo "JWT_SECRET=${jwt}" >> /data/.env
   fi
 
-  #write\fix the region in .env
-  #Reload services so they would read the newly created JWT
-  supervisorctl restart bg_workers hosted_agents s3rver webserver || true
-
   if grep -q PLATFORM=aws /data/.env; then
     instance_id=$(curl http://169.254.169.254/latest/meta-data/instance-id)
     public_ip=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)

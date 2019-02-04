@@ -13,6 +13,31 @@
 <div class="charts greedy push-both-half auto-overflow">
     <section class="column pad">
         <h3 class="heading3">
+            Request and Error Count Over Time
+        </h3>
+        <div class="row push-both">
+            <counter class="push-next" params="
+                label: 'Total Successes',
+                color: style['color12'],
+                value: totalFulfilled,
+                format: 'number'
+            "></counter>
+            <counter class="push-prev" params="
+                label: 'Total Errors',
+                color: style['color10'],
+                value: totalRejected,
+                format: 'number'
+            "></counter>
+        </div>
+        <chartjs class="push-prev" params="
+            type: 'bar',
+            options: invocationsChart.options,
+            data: invocationsChart.data
+        "></chartjs>
+    </section>
+    <hr class="push-both" />
+    <section class="column pad">
+        <h3 class="heading3">
             Response Time
         </h3>
         <div class="row push-both">
@@ -53,31 +78,6 @@
             type: 'line',
             options: responseTimeChart.options,
             data: responseTimeChart.data
-        "></chartjs>
-    </section>
-    <hr class="push-both" />
-    <section class="column pad">
-        <h3 class="heading3">
-            Request and Error Count Over Time
-        </h3>
-        <div class="row push-both">
-            <counter class="push-next" params="
-                label: 'Total Successes',
-                color: style['color12'],
-                value: totalFulfilled,
-                format: 'number'
-            "></counter>
-            <counter class="push-prev" params="
-                label: 'Total Errors',
-                color: style['color10'],
-                value: totalRejected,
-                format: 'number'
-            "></counter>
-        </div>
-        <chartjs class="push-prev" params="
-            type: 'bar',
-            options: invocationsChart.options,
-            data: invocationsChart.data
         "></chartjs>
     </section>
 </div>

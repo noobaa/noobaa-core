@@ -234,6 +234,17 @@ async function do_rpc(server, func) {
     // return res;
 }
 
+async function set_time_manually(server) {
+    console.log("Setting Time server manually");
+    await do_rpc(server, async client => {
+        await client.cluster_server.update_time_config({
+            target_secret: server.secret,
+            timezone: "GMT",
+            epoch: 1549375240
+        });
+    });
+}
+
 async function set_ntp_config(server) {
     console.log('Secret is ', server.secret, 'for server ip ', server.ip);
 
@@ -353,6 +364,8 @@ async function verify_s3_server(server, topic) {
 async function test_cluster_preconditions_failure() {
     console.log(`${RED}<======= test that add_member is failing when preconditions are not met =======>${NC}`);
     try {
+        await set_time_manually(cluster_servers[0]);
+        await set_time_manually(cluster_servers[1]);
         await add_member(cluster_servers[0], cluster_servers[1]);
     } catch (err) {
         // TODO: find a better way to verify the returned error - the error message is not promised to stay the same
@@ -361,7 +374,7 @@ async function test_cluster_preconditions_failure() {
             console.log(err.message, ' - as expected');
         } else {
             report.fail('Add member no NTP master');
-            await fail_test_on_error('add_member should fail when NTP is not set on master');
+            await fail_test_on_error('add_member should fail when NTP is not set on master', err);
         }
     }
 
@@ -375,7 +388,7 @@ async function test_cluster_preconditions_failure() {
             console.log(err.message, ' - as expected');
         } else {
             report.fail('Add member no NTP 2nd');
-            await fail_test_on_error('add_member should fail when NTP is not set the added member');
+            await fail_test_on_error('add_member should fail when NTP is not set the added member', err);
         }
     }
 }

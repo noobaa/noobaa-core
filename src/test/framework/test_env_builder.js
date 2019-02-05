@@ -195,7 +195,7 @@ async function prepare_container_env() {
         password: server.secret,
         keepaliveInterval: 5000,
     });
-    await server_functions.enable_nooba_login(server.ip, server.secret);
+    await server_functions.enable_noobaa_login(server.ip, server.secret);
     // copy package to remote server
     console.log(`uploading package ${upgrade} to server ${server.ip}`);
     await promise_utils.exec(`scp -o "StrictHostKeyChecking no" ${upgrade} noobaaroot@${server.ip}:/tmp/noobaa-NVA.tar.gz`);

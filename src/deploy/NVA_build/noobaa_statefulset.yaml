@@ -21,6 +21,8 @@ spec:
     name: s3-https
   - port: 8080
     name: mng
+  - port: 8443
+    name: mng-https
   selector:
     app: noobaa
 ---

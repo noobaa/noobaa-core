@@ -92,7 +92,7 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                 isFuncOversized: true,
                 formattedFileCount: '',
                 execFile: { text: execFile },
-                execFunc: { text: execFunc },
+                execFunc: { text: execFunc }
             });
 
         } else {

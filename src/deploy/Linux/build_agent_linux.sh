@@ -77,10 +77,14 @@ then
     verbose cp -R ../../../src/native src/
 
     # remove irrelevant packages
+    verbose sed -i '/babel/d' package.json
     verbose sed -i '/gulp/d' package.json
     verbose sed -i '/mocha/d' package.json
+    verbose sed -i '/nyc/d' package.json
     verbose sed -i '/istanbul/d' package.json
     verbose sed -i '/eslint/d' package.json
+    verbose sed -i '/phantomjs/d' package.json
+    verbose sed -i '/selenium/d' package.json
     verbose sed -i '/vsphere/d' package.json
 
     verbose npm install --production

@@ -7,6 +7,26 @@ function verbose()
     $*
 }
 
+function fix_package_json(){
+    local count=1
+    local file="package.json"
+    while true
+    do
+        while read line
+        do
+            if [[ "${line}" =~ "," ]]
+            then
+                sed -i "s/${line}/${line//,/}/g" ${file}
+                break 2
+            elif [[ "${line}" =~ "\"" ]]
+            then
+                break 2
+            fi
+        done < <(tail -${count} ${file})
+        ((count++))
+    done
+}
+
 [ ! -f "$NVM_DIR/nvm.sh" ] && export NVM_DIR="$HOME/.nvm"
 [ ! -f "$NVM_DIR/nvm.sh" ] && export NVM_DIR="/nvm"
 [ -f "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
@@ -87,6 +107,8 @@ then
     verbose sed -i '/selenium/d' package.json
     verbose sed -i '/vsphere/d' package.json
 
+    verbose fix_package_json
+    
     verbose npm install --production
     verbose npm install node-linux@0.1.8
 

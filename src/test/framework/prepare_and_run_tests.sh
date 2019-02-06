@@ -1,12 +1,12 @@
 #!/bin/bash
 source /root/.bashrc
 cd /root/node_modules/noobaa-core
-echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
-echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
-echo 'ENDPOINT_BLOB_ENABLED=true' >> .env
-echo 'DEV_MODE=true' >> .env
-echo "AZURE_STORAGE_CONNECTION_STRING=$AZURE_STORAGE_CONNECTION_STRING" >> .env
-echo "TEST_RUN_NAME=$TEST_RUN_NAME" >> .env
+echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> /data/.env
+echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> /data/.env
+echo 'ENDPOINT_BLOB_ENABLED=true' >> /data/.env
+echo 'DEV_MODE=true' >> /data/.env
+echo "AZURE_STORAGE_CONNECTION_STRING=$AZURE_STORAGE_CONNECTION_STRING" >> /data/.env
+echo "TEST_RUN_NAME=$TEST_RUN_NAME" >> /data/.env
 
 npm install \
     gulp \

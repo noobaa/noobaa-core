@@ -60,8 +60,11 @@ function parse_http_header_date(str) {
  */
 function parse_amz_date(str) {
     if (!str) return NaN;
-    const iso = `${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 11)}:${str.slice(11, 13)}:${str.slice(13)}`;
-    return Date.parse(iso);
+    const match_ISO_8601 = (/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/).exec(str);
+    if (match_ISO_8601) {
+        return Date.parse(`${match_ISO_8601[1]}-${match_ISO_8601[2]}-${match_ISO_8601[3]}T${match_ISO_8601[4]}:${match_ISO_8601[5]}:${match_ISO_8601[6]}Z`);
+    }
+    return Date.parse(str);
 }
 
 function format_time_duration(millis, show_millis) {

@@ -1,23 +1,23 @@
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: nbagent
+  name: noobaa-agent
 spec:
-  serviceName: nbagent
+  serviceName: noobaa-agent
   replicas: 3
   template:
     metadata:
       labels:
-        app: nbagent
+        app: noobaa-agent
     spec:
       containers:
-      - name: nbagent
+      - name: noobaa-agent
         env:
         # Insert the relevant config for the current agent
         - name: AGENT_CONFIG
           value: "AGENT_CONFIG_VALUE"
         # Insert the relevant image for the agent
-        image: noobaaimages.azurecr.io/noobaa/nbagent:sloth
+        image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
         imagePullPolicy: Always
         ports:
         # This should change according to the allocation from the NooBaa server
@@ -27,6 +27,11 @@ spec:
         volumeMounts:
         - name: noobaastorage
           mountPath: /noobaa_storage
+        - name: tmp-logs-vol
+          mountPath: /usr/local/noobaa/logs
+      volumes:
+      - name: tmp-logs-vol
+        emptyDir: { }
   # These are converted to volume claims by the controller
   # and mounted at the paths mentioned above.
   volumeClaimTemplates:

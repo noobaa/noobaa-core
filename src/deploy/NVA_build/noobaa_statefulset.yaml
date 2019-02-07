@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: noobaa-services
   labels:
-    app: noobaa
+    app: noobaa-server
   annotations: 
     prometheus.io/scrape: "true"
     prometheus.io/scheme: http
@@ -24,22 +24,22 @@ spec:
   - port: 8443
     name: mng-https
   selector:
-    app: noobaa
+    app: noobaa-server
 ---
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
-  name: noobaa
+  name: noobaa-server
 spec:
   serviceName: noobaa-services
   replicas: 1
   template:
     metadata:
       labels:
-        app: noobaa
+        app: noobaa-server
     spec:
       containers:
-      - name: noobaa
+      - name: noobaa-server
         securityContext: 
           capabilities: {}
           privileged: true
@@ -52,6 +52,7 @@ spec:
             cpu: "4"
         # change image location before running
         # image: [image registry]/[image]
+        # TODO: Need to update the tag in the build process
         image: noobaaimages.azurecr.io/noobaa/nbserver:sloth
         imagePullPolicy: Always
         ports:

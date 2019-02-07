@@ -21,6 +21,9 @@ COPY ${noobaa_agent_package} .
 COPY ${agent_entrypoint} .
 RUN chmod +x run_agent_container.sh
 RUN chmod +x noobaa-setup
+# This is a dummy token in order to perform the installation
+RUN ./noobaa-setup JZ-
+RUN rm -f /noobaa_storage/agent_conf.json
 
 ###############
 # PORTS SETUP #

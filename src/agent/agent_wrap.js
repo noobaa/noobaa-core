@@ -152,7 +152,7 @@ async function upgrade_agent() {
         fs_utils.get_md5_of_file(CONFIGURATION.SETUP_FILE)
     ]);
     const server_md5 = buffer_utils.join(md5_out.buffers).toString();
-    if (agent_md5 !== server_md5) {
+    if (agent_md5.trim() !== server_md5.trim()) {
         throw new Error(`MD5 is incompatible between server (MD5:${server_md5}) and agent(MD5:${agent_md5})`);
     }
     dbg.log0('Checking md5 of downloaded version passed:', agent_md5);

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SWAP_SIZE_MB=8192
+SWAP_SIZE_MB=6144
 
 if grep -q PLATFORM=azure /data/.env; then
   if grep -q EnableSwap=n /etc/waagent.conf; then

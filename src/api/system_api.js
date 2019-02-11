@@ -752,13 +752,13 @@ module.exports = {
                 "vmtools",
                 "dns_name",
                 "dns_server",
+                "search_domains",
                 "time_config",
                 "attach_server",
                 "peer_to_peer_ports",
                 "server_details",
                 "cluster_connectivity_ip",
                 "remote_syslog"
-
             ],
         },
 

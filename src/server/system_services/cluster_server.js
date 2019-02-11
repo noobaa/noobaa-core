@@ -898,6 +898,10 @@ function apply_install_vmtools(req) {
 
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
+    if (dns_servers_config.search_domains && process.env.PLATFORM === 'azure') {
+        console.log(`search domains are not supported in azure. throwing`);
+        throw new RpcError('BAD_REQUEST', 'search domains are not supported in azure');
+    }
     var target_servers = [];
     const local_info = system_store.get_local_cluster_info(true);
     return P.fcall(function() {

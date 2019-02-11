@@ -8,6 +8,8 @@ echo 'DEV_MODE=true' >> /data/.env
 echo "AZURE_STORAGE_CONNECTION_STRING=$AZURE_STORAGE_CONNECTION_STRING" >> /data/.env
 echo "TEST_RUN_NAME=$TEST_RUN_NAME" >> /data/.env
 
+# install dependencies 
+yum install -y git
 npm install \
     gulp \
     mocha \

@@ -106,12 +106,12 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => rpc_client.system.read_system())
             .then(res => rpc_client.auth.create_access_key_auth({
-                access_key: res.owner.access_keys[0].access_key,
+                access_key: res.owner.access_keys[0].access_key.unwrap(),
                 string_to_sign: '',
-                signature: new S3Auth().sign(res.owner.access_keys[0].secret_key, '')
+                signature: new S3Auth().sign(res.owner.access_keys[0].secret_key.unwrap(), '')
             }).then(() => res))
             .then(res => rpc_client.auth.create_access_key_auth({
-                access_key: res.owner.access_keys[0].access_key,
+                access_key: res.owner.access_keys[0].access_key.unwrap(),
                 string_to_sign: 'blabla',
                 signature: 'blibli'
             }))

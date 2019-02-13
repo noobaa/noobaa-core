@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const js_utils = require('./js_utils');
+const crypto = require('crypto');
 
 const KEYWORDS = js_utils.deep_freeze({
 
@@ -87,7 +88,92 @@ const KEYWORDS = js_utils.deep_freeze({
         }
     },
 
+    wrapper: {
+        errors: false,
+        statements: true,
+        modifying: true,
+        inline: (it, keyword, schema, parent) => {
+            if (it.dataLevel <= 0) return;
+            const valid = `valid${it.level}`;
+            const val = `data${it.dataLevel || ''}`;
+            const obj = `data${(it.dataLevel - 1) || ''}`;
+            const key = it.dataPathArr[it.dataLevel];
+            const field = `${obj}[${key}]`;
+            const wrapper = `validate.schema${it.schemaPath}.${keyword}`;
+            return `
+            if (${val} instanceof ${wrapper}) {
+                ${valid} = true;
+            } else if (${wrapper}.can_wrap(${val})) {
+                ${valid} = true;
+                ${field} = new ${wrapper}(${val});
+            } else {
+                ${valid} = false;
+            }
+        `;
+        }
+    },
+
+    wrapper_check_only: {
+        errors: false,
+        statements: true,
+        inline: (it, keyword, schema, parent) => {
+            if (it.dataLevel <= 0) return;
+            const valid = `valid${it.level}`;
+            const val = `data${it.dataLevel || ''}`;
+            const wrapper = `validate.schema${it.schemaPath}.${keyword}`;
+            return `
+            if (${wrapper}.can_wrap(${val})) {
+                ${valid} = true;
+            } else {
+                ${valid} = false;
+            }
+        `;
+        }
+    }
+
 });
+
+class SensitiveString {
+    constructor(val) {
+        const md5 = crypto.createHash('md5');
+        if (val instanceof SensitiveString) {
+            this.val = val.unwrap();
+        } else {
+            this.val = val;
+        }
+        md5.update(this.val);
+        this.md5 = md5.digest('hex');
+    }
+
+    [util.inspect.custom]() {
+        return 'SENSITIVE' + this.md5;
+    }
+
+    toString() {
+        return 'SENSITIVE' + this.md5;
+    }
+
+    toJSON() {
+        return this.val;
+    }
+
+    toBSON() {
+        return this.val;
+    }
+
+    valueOf() {
+        return this.val;
+    }
+
+    unwrap() {
+        return this.val;
+    }
+
+    static can_wrap(val) {
+        return typeof val === 'string';
+    }
+
+}
 
 const COMMON_SCHEMA_KEYWORDS = ['doc', 'id'];
 
@@ -101,7 +187,7 @@ function strictify(schema, options, base) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
         check_schema_extra_keywords(schema, base, [
-            'type', 'properties', 'additionalProperties', 'patternProperties', 'required'
+            'type', 'properties', 'additionalProperties', 'patternProperties', 'required', 'wrapper'
         ]);
         if (options &&
             'additionalProperties' in options &&
@@ -118,7 +204,7 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, ['type', 'items']);
         strictify(schema.items, options, base);
     } else if (schema.type === 'string') {
-        check_schema_extra_keywords(schema, base, ['type', 'format', 'enum']);
+        check_schema_extra_keywords(schema, base, ['type', 'format', 'enum', 'wrapper']);
     } else if (schema.type === 'boolean') {
         check_schema_extra_keywords(schema, base, 'type');
     } else if (schema.type === 'integer') {
@@ -133,6 +219,8 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, 'objectid');
     } else if (schema.binary) {
         check_schema_extra_keywords(schema, base, 'binary');
+    } else if (schema.wrapper) {
+        check_schema_extra_keywords(schema, base, 'wrapper');
     } else if (schema.oneOf) {
         check_schema_extra_keywords(schema, base, 'oneOf');
         _.each(schema.oneOf, val => {
@@ -188,5 +276,6 @@ function empty_schema_validator(json) {
 }
 
 exports.KEYWORDS = KEYWORDS;
+exports.SensitiveString = SensitiveString;
 exports.strictify = strictify;
 exports.empty_schema_validator = empty_schema_validator;

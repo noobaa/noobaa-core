@@ -398,8 +398,8 @@ function _make_aws_config(req) {
         endpoint: `http://${ep_host}:${ep_port}`,
         sslEnabled: false,
         s3ForcePathStyle: true,
-        accessKeyId: account_keys.access_key,
-        secretAccessKey: account_keys.secret_key,
+        accessKeyId: account_keys.access_key.unwrap(),
+        secretAccessKey: account_keys.secret_key.unwrap(),
     };
 }
 

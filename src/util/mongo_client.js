@@ -68,11 +68,12 @@ class MongoClient extends EventEmitter {
             //authSource: 'admin',
         };
 
-        this._ajv = new Ajv({ verbose: true, schemaId: 'auto' });
+        this._ajv = new Ajv({ verbose: true, schemaId: 'auto', allErrors: true });
         this._ajv.addKeyword('date', schema_utils.KEYWORDS.date);
         this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
         this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
         this._ajv.addKeyword('binary', schema_utils.KEYWORDS.binary);
+        this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper);
         this._ajv.addSchema(common_api);
 
         if (process.env.MONGO_RS_URL) {

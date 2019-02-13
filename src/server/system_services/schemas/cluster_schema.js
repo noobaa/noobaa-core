@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../../util/schema_utils');
+
 module.exports = {
     id: 'cluster_schema',
     type: 'object',
@@ -154,7 +156,7 @@ module.exports = {
                     type: 'string'
                 },
                 initiator_email: {
-                    type: 'string'
+                    wrapper: SensitiveString,
                 },
                 tested_date: {
                     idate: true

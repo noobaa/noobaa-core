@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../../util/schema_utils');
+
 module.exports = {
     id: 'system_schema',
     type: 'object',
@@ -156,7 +158,7 @@ module.exports = {
                     idate: true
                 },
                 initiator: {
-                    type: 'string'
+                    wrapper: SensitiveString
                 }
             }
         }

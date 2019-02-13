@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../../util/schema_utils');
+
 module.exports = {
     id: 'account_schema',
     type: 'object',
@@ -15,13 +17,13 @@ module.exports = {
         // identity
         _id: { objectid: true },
         deleted: { date: true },
-        name: { type: 'string' },
-        email: { type: 'string' },
+        name: { wrapper: SensitiveString },
+        email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
 
         // password login
         has_login: { type: 'boolean' },
-        password: { type: 'string' }, // bcrypted password
+        password: { wrapper: SensitiveString }, // bcrypted password
         next_password_change: { date: true },
 
         // default policy for new buckets
@@ -36,8 +38,8 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
-                    access_key: { type: 'string' },
-                    secret_key: { type: 'string' },
+                    access_key: { wrapper: SensitiveString },
+                    secret_key: { wrapper: SensitiveString },
                 }
             }
         },

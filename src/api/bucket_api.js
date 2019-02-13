@@ -20,9 +20,9 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: { type: 'string' },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                     // if tiering is provided then chunk_coder_config & chunk_split_config are ignored!
-                    tiering: { type: 'string' },
+                    tiering: { $ref: 'common_api#/definitions/tiering_name' },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     tag: { type: 'string' },
@@ -57,9 +57,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             reply: {
@@ -79,9 +77,7 @@ module.exports = {
                     'name',
                 ],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                     tagging: {
                         $ref: 'common_api#/definitions/tagging'
                     }
@@ -100,9 +96,7 @@ module.exports = {
                     'name'
                 ],
                 properties: {
-                    name: {
-                        type: 'string',
-                    }
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             auth: {
@@ -118,9 +112,7 @@ module.exports = {
                     'name'
                 ],
                 properties: {
-                    name: {
-                        type: 'string',
-                    }
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             reply: {
@@ -142,9 +134,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             reply: {
@@ -188,9 +178,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             auth: {
@@ -204,9 +192,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             auth: {
@@ -226,9 +212,7 @@ module.exports = {
                             type: 'object',
                             required: ['name'],
                             properties: {
-                                name: {
-                                    type: 'string'
-                                },
+                                name: { $ref: 'common_api#/definitions/bucket_name' },
                             }
                         }
                     }
@@ -245,14 +229,10 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'allowed_accounts'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                     allowed_accounts: {
                         type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                        items: { $ref: 'common_api#/definitions/account_name' },
                     }
                 }
             },
@@ -267,9 +247,7 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'since', 'till'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                     since: {
                         idate: true
                     },
@@ -294,9 +272,7 @@ module.exports = {
                 properties: {
                     buckets: {
                         type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                        items: { $ref: 'common_api#/definitions/bucket_name' },
                     },
                     since: { idate: true },
                     till: { idate: true },
@@ -344,9 +320,7 @@ module.exports = {
                 items: {
                     type: 'object',
                     properties: {
-                        name: {
-                            type: 'string'
-                        },
+                        name: { $ref: 'common_api#/definitions/bucket_name' },
                         stats: {
                             type: 'array',
                             items: {
@@ -427,16 +401,12 @@ module.exports = {
                     type: 'object',
                     required: ['name'],
                     properties: {
-                        name: {
-                            type: 'string'
-                        },
+                        name: { $ref: 'common_api#/definitions/bucket_name' },
                         used_by: {
                             type: 'object',
                             required: ['name', 'usage_type'],
                             properties: {
-                                name: {
-                                    type: 'string'
-                                },
+                                name: { $ref: 'common_api#/definitions/bucket_name' },
                                 usage_type: {
                                     type: 'string',
                                     enum: ['CLOUD_RESOURCE', 'NAMESPACE_RESOURCE']
@@ -455,9 +425,7 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    name: {
-                        type: 'string'
-                    },
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                     rules: {
                         type: 'array',
                         items: {
@@ -540,9 +508,7 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    name: {
-                        type: 'string'
-                    }
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             reply: {
@@ -641,9 +607,7 @@ module.exports = {
                     id: {
                         objectid: true
                     },
-                    bucket_name: {
-                        type: 'string'
-                    }
+                    bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
             auth: {
@@ -667,9 +631,7 @@ module.exports = {
             type: 'object',
             required: ['name', 'bucket_type', 'tiering', 'versioning', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
             properties: {
-                name: {
-                    type: 'string',
-                },
+                name: { $ref: 'common_api#/definitions/bucket_name' },
                 bucket_type: {
                     enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
@@ -904,15 +866,9 @@ module.exports = {
             type: 'object',
             required: ['name'],
             properties: {
-                name: {
-                    type: 'string',
-                },
-                new_name: {
-                    type: 'string',
-                },
-                tiering: {
-                    type: 'string',
-                },
+                name: { $ref: 'common_api#/definitions/bucket_name' },
+                new_name: { $ref: 'common_api#/definitions/bucket_name' },
+                tiering: { $ref: 'common_api#/definitions/tiering_name' },
                 new_tag: {
                     type: 'string',
                 },
@@ -1045,9 +1001,7 @@ module.exports = {
             type: 'object',
             required: ['bucket_name', 'event_name', 'func_name'],
             properties: {
-                bucket_name: {
-                    type: 'string'
-                },
+                bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
                     $ref: '#/definitions/event_name'
                 },
@@ -1076,9 +1030,7 @@ module.exports = {
                 id: {
                     objectid: true
                 },
-                bucket_name: {
-                    type: 'string'
-                },
+                bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
                     $ref: '#/definitions/event_name'
                 },

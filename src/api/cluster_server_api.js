@@ -229,9 +229,7 @@ module.exports = {
                         type: 'object',
                         required: ['email', 'activation_code'],
                         properties: {
-                            email: {
-                                type: 'string'
-                            },
+                            email: { $ref: 'common_api#/definitions/email' },
                             activation_code: {
                                 type: 'string'
                             }

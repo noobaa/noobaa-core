@@ -14,6 +14,7 @@ const path = require('path');
 const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
+const util = require('util');
 
 const P = require('../../util/promise');
 const api = require('../../api/api');
@@ -222,7 +223,7 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
-    dbg.log0('create_system: got create_system with params:', req.rpc_params);
+    dbg.log0('create_system: got create_system with params:', util.inspect(req.rpc_params, { depth: null }));
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
     }
@@ -301,7 +302,7 @@ function create_system(req) {
                 level: 'info',
                 system: system_id,
                 actor: account._id,
-                desc: `${account.name} was created by ${account.email}`,
+                desc: `${account.name} was created by ${account.email.unwrap()}`,
             });
             return system_store.make_changes(changes);
         })
@@ -1275,7 +1276,7 @@ function attempt_server_resolve(req) {
 
 async function resend_activation_code(req) {
     const { email } = req.rpc_params;
-    if (is_email_address(email)) {
+    if (is_email_address(email.unwrap())) {
         try {
             const options = {
                 url: 'https://hooks.zapier.com/hooks/catch/440450/cvnsw5/',

@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../util/schema_utils');
+
 module.exports = {
     id: 'alerts_log_schema',
     type: 'object',
@@ -27,7 +29,7 @@ module.exports = {
             enum: ['CRIT', 'MAJOR', 'INFO'],
         },
         alert: {
-            type: 'string',
+            wrapper: SensitiveString,
         },
         read: {
             type: 'boolean',

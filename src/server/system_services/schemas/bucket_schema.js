@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../../util/schema_utils');
 
 const bigint = {
     oneOf: [{
@@ -41,7 +42,7 @@ module.exports = {
             objectid: true
         },
         name: {
-            type: 'string'
+            wrapper: SensitiveString,
         },
         namespace: {
             type: 'object',
@@ -255,5 +256,12 @@ module.exports = {
                 }
             }
         },
+        stats: {
+            type: 'object',
+            properties: {
+                reads: { type: 'integer' },
+                writes: { type: 'integer' },
+            }
+        }
     }
 };

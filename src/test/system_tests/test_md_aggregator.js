@@ -244,8 +244,8 @@ function run_test() {
             let storage_by_bucket = {};
 
             sys_res.buckets.forEach(bucket => {
-                if (String(bucket.name) !== 'first.bucket') {
-                    storage_by_bucket[bucket.name] = {
+                if (String(bucket.name.unwrap()) !== 'first.bucket') {
+                    storage_by_bucket[bucket.name.unwrap()] = {
                         //Should include objects count, maybe histogram also
                         chunks_capacity: bucket.data.size_reduced,
                         objects_size: bucket.data.size,

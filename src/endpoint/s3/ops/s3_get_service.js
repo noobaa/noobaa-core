@@ -16,7 +16,7 @@ function list_buckets(req) {
                     Owner: s3_utils.DEFAULT_S3_USER,
                     Buckets: _.map(reply.buckets, bucket => ({
                         Bucket: {
-                            Name: bucket.name,
+                            Name: bucket.name.unwrap(),
                             CreationDate: date
                         }
                     }))

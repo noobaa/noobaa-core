@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../../util/schema_utils');
+
 module.exports = {
     id: 'tiering_policy_schema',
     type: 'object',
@@ -15,7 +17,7 @@ module.exports = {
 
         // identifiers
         _id: { objectid: true },
-        name: { type: 'string' },
+        name: { wrapper: SensitiveString },
         system: { objectid: true },
         deleted: { date: true },
 

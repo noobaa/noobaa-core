@@ -24,9 +24,14 @@ const VALID_HTTP_METHODS = {
 class RpcSchema {
 
     constructor() {
-        this._ajv = new Ajv({ verbose: true, schemaId: 'auto' });
+        this._ajv = new Ajv({ verbose: true, schemaId: 'auto', allErrors: true });
         this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
         this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
+        if (global.window === global) {
+            this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper_check_only);
+        } else {
+            this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper);
+        }
     }
 
     /**

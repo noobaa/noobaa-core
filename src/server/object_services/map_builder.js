@@ -295,7 +295,7 @@ class MapBuilder {
         const desc = { chunk: chunk._id, frag };
         const params = {
             client: chunk.rpc_client,
-            bucket: chunk.bucket.name,
+            bucket: chunk.bucket.name.unwrap(),
             key: '', // faking it as we don't want to read and obj just for that
         };
         return P.resolve()
@@ -311,7 +311,7 @@ class MapBuilder {
         const chunk_info = part.chunk;
         const params = {
             client: chunk.rpc_client,
-            bucket: chunk.bucket.name,
+            bucket: chunk.bucket.name.unwrap(),
             key: '', // faking it as we don't want to read and obj just for that
         };
         dbg.log0('MapBuilder.read_entire_chunk: chunk before reading', chunk_info);

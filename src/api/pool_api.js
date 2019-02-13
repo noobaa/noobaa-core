@@ -458,15 +458,11 @@ module.exports = {
                 target_bucket: {
                     type: 'string'
                 },
-                access_key: {
-                    type: 'string'
-                },
+                access_key: { $ref: 'common_api#/definitions/access_key' },
                 cp_code: {
                     type: 'string'
                 },
-                secret_key: {
-                    type: 'string'
-                }
+                secret_key: { $ref: 'common_api#/definitions/secret_key' },
             }
         },
 
@@ -562,7 +558,7 @@ module.exports = {
                             $ref: 'common_api#/definitions/cloud_auth_method'
                         },
                         created_by: {
-                            type: 'string'
+                            $ref: 'common_api#/definitions/email'
                         },
                         node_name: {
                             type: 'string'
@@ -588,9 +584,7 @@ module.exports = {
                 },
                 associated_accounts: {
                     type: 'array',
-                    items: {
-                        type: 'string',
-                    }
+                    items: { $ref: 'common_api#/definitions/email' },
                 },
                 region: {
                     type: 'string'

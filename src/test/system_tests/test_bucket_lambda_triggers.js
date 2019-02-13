@@ -149,8 +149,8 @@ function setup() {
 }
 
 function get_new_server(user) {
-    let access_key = user.access_keys.access_key;
-    let secret_key = user.access_keys.secret_key;
+    let access_key = user.access_keys.access_key.unwrap();
+    let secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.S3({
         endpoint: 'https://127.0.0.1',
         s3ForcePathStyle: true,
@@ -166,8 +166,8 @@ function get_new_server(user) {
 }
 
 function get_new_lambda(user) {
-    let access_key = user.access_keys.access_key;
-    let secret_key = user.access_keys.secret_key;
+    let access_key = user.access_keys.access_key.unwrap();
+    let secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.Lambda({
         region: 'us-east-1',
         endpoint: 'http://127.0.0.1:' + String(process.env.ENDPOINT_PORT || 80),
@@ -417,11 +417,11 @@ function test_trigger_run_when_should_multi(user, files_prefix, suffix, num_of_f
 }
 
 function account_by_name(accounts, email) {
-    return accounts.find(account => account.email === email);
+    return accounts.find(account => account.email.unwrap() === email.unwrap());
 }
 
 function bucket_by_name(buckets, name) {
-    return buckets.find(bucket => bucket.name === name);
+    return buckets.find(bucket => bucket.name.unwrap() === name);
 }
 
 if (require.main === module) {

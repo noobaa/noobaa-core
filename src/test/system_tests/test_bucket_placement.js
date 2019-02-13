@@ -29,56 +29,50 @@ module.exports = {
 };
 
 // Does the Auth and returns the nodes in the system
-function get_hosts_auth() {
+async function get_hosts_auth() {
     var auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
     };
-    return P.fcall(function() {
-            return client.create_auth_token(auth_params);
-        })
-        .then(() => client.system.read_system())
-        .then(function(system) {
-            internal_pool = _.find(system.pools, pool => pool.name.includes(config.INTERNAL_STORAGE_POOL_NAME)).name;
-            return client.host.list_hosts({
-                query: {
-                    mode: ['OPTIMAL'],
-                    pools: ['first.pool']
-                }
-            });
-        });
+    await client.create_auth_token(auth_params);
+    const system = await client.system.read_system();
+    internal_pool = _.find(system.pools, pool => pool.name.includes(config.INTERNAL_STORAGE_POOL_NAME)).name;
+    return client.host.list_hosts({
+        query: {
+            mode: ['OPTIMAL'],
+            pools: ['first.pool']
+        }
+    });
 }
 
-function run_test() {
+async function run_test() {
     // Used in order to get the nodes of the system
     var sys_hosts;
     // Used in order to get the key of the file
     var fkey = null;
 
     // Starting the test chain
-    return get_hosts_auth()
-        .then(function(res) {
-            sys_hosts = res;
-            if (sys_hosts.total_count < 6) {
-                return P.reject("Not Enough Nodes For 2 Pools");
-            }
+    try {
+        sys_hosts = await get_hosts_auth();
+        if (sys_hosts.total_count < 6) {
+            return P.reject("Not Enough Nodes For 2 Pools");
+        }
 
-            return client.pool.create_hosts_pool({
-                name: "pool1",
-                hosts: sys_hosts.hosts.map(host => host.name).slice(0, 3)
-            });
-        })
-        .then(() => client.pool.create_hosts_pool({
+        await client.pool.create_hosts_pool({
+            name: "pool1",
+            hosts: sys_hosts.hosts.map(host => host.name).slice(0, 3)
+        });
+        await client.pool.create_hosts_pool({
             name: "pool2",
             hosts: sys_hosts.hosts.map(host => host.name).slice(3, 6)
-        }))
-        .then(() => client.tier.create_tier({
+        });
+        await client.tier.create_tier({
             name: 'tier1',
             attached_pools: ['pool1', 'pool2'],
             data_placement: 'SPREAD'
-        }))
-        .then(() => client.tiering_policy.create_policy({
+        });
+        await client.tiering_policy.create_policy({
             name: 'tiering1',
             tiers: [{
                 order: 0,
@@ -86,87 +80,73 @@ function run_test() {
                 spillover: false,
                 disabled: false
             }]
-        }))
-        .then(() => client.bucket.create_bucket({
+        });
+        await client.bucket.create_bucket({
             name: TEST_BUCKET_NAME,
             tiering: 'tiering1',
-        }))
-        .then(() => basic_server_ops.generate_random_file(20))
-        .then(fl => {
-            fkey = fl;
-            return basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
-        })
-        .delay(3000)
-        .catch(function(err) {
-            console.log('Failed uploading file (SPREAD)', err);
-            throw new Error('Failed uploading file (SPREAD) ' + err);
-        })
-        .then(() => client.object.read_object_mappings({
+        });
+        fkey = await upload_random_file();
+        let mapping = await client.object.read_object_mappings({
             bucket: TEST_BUCKET_NAME,
             key: fkey,
             adminfo: true
-        }))
-        .then(res => {
-            _.each(res.parts, part => {
-                _.each(part.chunk.frags, frag => {
-                    if (frag.blocks.length !== 3) {
-                        throw new Error("SPREAD NOT CORRECT!");
+        });
+        _.each(mapping.parts, part => {
+            _.each(part.chunk.frags, frag => {
+                if (frag.blocks.length !== 3) {
+                    throw new Error("SPREAD NOT CORRECT!");
+                }
+            });
+        });
+        await client.tier.update_tier({
+            name: 'tier1',
+            data_placement: 'MIRROR'
+        });
+        fkey = await upload_random_file();
+        mapping = client.object.read_object_mappings({
+            bucket: TEST_BUCKET_NAME,
+            key: fkey,
+            adminfo: true
+        });
+        _.each(mapping.parts, part => {
+            var pool1_count = 0;
+            var pool2_count = 0;
+            _.each(part.chunk.frags, frag => {
+                _.each(frag.blocks, block => {
+                    if (block.adminfo.pool_name === 'pool1') {
+                        pool1_count += 1;
+                    } else {
+                        pool2_count += 1;
                     }
                 });
             });
-            return P.resolve();
-        })
-        .then(() => client.tier.update_tier({
-            name: 'tier1',
-            data_placement: 'MIRROR'
-        }))
-        .then(() => basic_server_ops.generate_random_file(20))
-        .then(fl => {
-            fkey = fl;
-            return basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
-        })
-        .delay(3000)
-        .catch(function(err) {
-            console.log('Failed uploading file (MIRROR)', err);
-            throw new Error('Failed uploading file (MIRROR) ' + err);
-        })
-        .then(() => client.object.read_object_mappings({
-            bucket: TEST_BUCKET_NAME,
-            key: fkey,
-            adminfo: true
-        }))
-        .then(res => {
-            _.each(res.parts, part => {
-                var pool1_count = 0;
-                var pool2_count = 0;
-                _.each(part.chunk.frags, frag => {
-                    _.each(frag.blocks, block => {
-                        if (block.adminfo.pool_name === 'pool1') {
-                            pool1_count += 1;
-                        } else {
-                            pool2_count += 1;
-                        }
-                    });
-                });
-                if (pool1_count !== 3 && pool2_count !== 3) {
-                    throw new Error("MIRROR NOT CORRECT!");
-                }
-            });
-        })
-        .then(() => perform_spillover_tests(fkey))
-        .then(() => perform_quota_tests())
-        .then(() => {
-            rpc.disconnect_all();
-            return P.resolve("Test Passed! Everything Seems To Be Fine...");
-        })
-        .catch(err => {
-            console.error('test_bucket_placement FAILED: ', err.stack || err);
-            rpc.disconnect_all();
-            throw new Error('test_bucket_placement FAILED: ', err);
-        })
-        .then(console.log, console.error);
+            if (pool1_count !== 3 && pool2_count !== 3) {
+                throw new Error("MIRROR NOT CORRECT!");
+            }
+        });
+        await perform_spillover_tests(fkey);
+        await perform_quota_tests();
+        rpc.disconnect_all();
+        console.log("Test Passed! Everything Seems To Be Fine...");
+    } catch (err) {
+        rpc.disconnect_all();
+        console.error('test_bucket_placement FAILED: ', err.stack || err);
+        throw new Error('test_bucket_placement FAILED: ', err);
+    }
 }
 
+async function upload_random_file() {
+    const fkey = await basic_server_ops.generate_random_file(20);
+    try {
+        console.log('Uploading file ', fkey, 'to', TEST_BUCKET_NAME);
+        await basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
+        await P.delay(3000);
+        return fkey;
+    } catch (err) {
+        console.log('Failed uploading file', err);
+        throw new Error('Failed uploading file' + err);
+    }
+}
 
 function perform_quota_tests() {
     console.log('Testing Quota');

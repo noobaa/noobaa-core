@@ -174,9 +174,7 @@ module.exports = {
                             roles: {
                                 type: 'integer'
                             },
-                            owner: {
-                                type: 'string'
-                            },
+                            owner: { $ref: 'common_api#/definitions/email' },
                             allocated_space: {
                                 $ref: 'common_api#/definitions/bigint'
                             },

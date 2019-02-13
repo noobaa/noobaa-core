@@ -1180,7 +1180,7 @@ function diagnose_system(req) {
         level: 'info',
         system: req.system._id,
         actor: req.account && req.account._id,
-        desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+        desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email.unwrap()}`,
     });
 
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)

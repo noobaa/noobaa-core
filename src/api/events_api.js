@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../util/schema_utils');
+
 /**
  *
  * EVENT API
@@ -84,9 +86,7 @@ module.exports = {
                                     type: 'object',
                                     required: ['name'],
                                     properties: {
-                                        name: {
-                                            type: 'string'
-                                        },
+                                        name: { $ref: 'common_api#/definitions/bucket_name' },
                                         linkable: {
                                             type: 'boolean'
                                         },
@@ -117,9 +117,7 @@ module.exports = {
                                     type: 'object',
                                     required: ['email'],
                                     properties: {
-                                        email: {
-                                            type: 'string'
-                                        }
+                                        email: { $ref: 'common_api#/definitions/email' },
                                     }
                                 },
                                 server: {
@@ -137,16 +135,12 @@ module.exports = {
                                     type: 'object',
                                     required: ['email'],
                                     properties: {
-                                        email: {
-                                            type: 'string'
-                                        }
+                                        email: { $ref: 'common_api#/definitions/email' },
                                     }
                                 },
                                 desc: {
                                     type: 'array',
-                                    items: {
-                                        type: 'string',
-                                    }
+                                    items: { wrapper: SensitiveString }
                                 },
                             }
                         }

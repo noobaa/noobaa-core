@@ -26,13 +26,13 @@ module.exports = {
                     email: {
                         doc: 'If email is provided the new authorization will refer to it. ' +
                             'If no email, the currently authorized account will be used.',
-                        type: 'string',
+                        $ref: 'common_api#/definitions/email',
                     },
                     password: {
                         doc: 'If password is supplied then the email will be verified using it. ' +
                             'If no password then the currently authorized account ' +
                             'should be permitted to delegate such authorization (e.g. admin).',
-                        type: 'string',
+                        $ref: 'common_api#/definitions/password',
                     },
                     system: {
                         type: 'string',
@@ -78,9 +78,7 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'string_to_sign', 'signature'],
                 properties: {
-                    access_key: {
-                        type: 'string',
-                    },
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
                     string_to_sign: {
                         doc: 'string used to sign with access key and secret key in order to verify the token',
                         type: 'string',
@@ -137,12 +135,8 @@ module.exports = {
                     type: 'object',
                     required: ['name', 'email'],
                     properties: {
-                        name: {
-                            type: 'string',
-                        },
-                        email: {
-                            type: 'string',
-                        },
+                        name: { $ref: 'common_api#/definitions/account_name' },
+                        email: { $ref: 'common_api#/definitions/email' },
                         is_support: {
                             type: 'boolean',
                         },

@@ -26,8 +26,8 @@ function get_signed_url(params) {
     let s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
-            accessKeyId: params.access_key,
-            secretAccessKey: params.secret_key
+            accessKeyId: params.access_key.unwrap(),
+            secretAccessKey: params.secret_key.unwrap()
         },
         s3ForcePathStyle: true,
         sslEnabled: false,
@@ -40,7 +40,7 @@ function get_signed_url(params) {
     });
     return s3.getSignedUrl(
         'getObject', {
-            Bucket: params.bucket,
+            Bucket: params.bucket.unwrap(),
             Key: params.key,
             VersionId: params.version_id,
             Expires: 604800

@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { SensitiveString } = require('../../util/schema_utils');
+
 module.exports = {
     id: 'activity_log_schema',
     type: 'object',
@@ -29,7 +31,7 @@ module.exports = {
             type: 'string',
         },
         desc: {
-            type: 'string',
+            wrapper: SensitiveString,
         },
         tier: {
             objectid: true

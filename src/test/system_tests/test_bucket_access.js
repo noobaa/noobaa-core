@@ -117,8 +117,8 @@ function get_new_server(user) {
     return new AWS.S3({
         endpoint: 'https://127.0.0.1',
         s3ForcePathStyle: true,
-        accessKeyId: access_key,
-        secretAccessKey: secret_key,
+        accessKeyId: access_key.unwrap(),
+        secretAccessKey: secret_key.unwrap(),
         maxRedirects: 10,
         httpOptions: {
             agent: new https.Agent({
@@ -184,6 +184,7 @@ function test_list_buckets_returns_allowed_buckets() {
 
             const buckets = data.Buckets.map(bucket => bucket.Name);
             assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
+            console.log('test_list_buckets_returns_allowed_buckets PASSED');
         });
 }
 
@@ -219,7 +220,8 @@ function test_bucket_write_allowed() {
                     };
                     return P.ninvoke(server, 'upload', params);
                 });
-        });
+        })
+        .then(() => console.log('test_bucket_write_allowed PASSED'));
 }
 
 
@@ -241,7 +243,8 @@ function test_bucket_read_allowed() {
                     };
                     return P.ninvoke(server2, 'getObject', params2);
                 });
-        });
+        })
+        .then(() => console.log('test_bucket_read_allowed PASSED'));
 }
 
 
@@ -352,7 +355,7 @@ function test_create_bucket_add_creator_permissions() {
         .then(() => client.system.read_system())
         .then(system_info => {
             const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets.permission_list;
-            const has_access = allowed_buckets.includes(unique_bucket_name);
+            const has_access = Boolean(allowed_buckets.find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
             assert(has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
         });
 }
@@ -364,20 +367,20 @@ function test_delete_bucket_deletes_permissions() {
     return P.ninvoke(server, 'createBucket', { Bucket: unique_bucket_name })
         .then(() => client.system.read_system())
         .then(system_info => {
-            const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
+            const user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
                 .allowed_buckets
                 .permission_list
-                .includes(unique_bucket_name);
+                .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
 
             assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
         })
         .then(() => P.ninvoke(server, 'deleteBucket', { Bucket: unique_bucket_name }))
         .then(() => client.system.read_system())
         .then(system_info => {
-            const user_has_access = account_by_name(system_info.accounts, full_access_user.email)
+            const user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
                 .allowed_buckets
                 .permission_list
-                .includes(unique_bucket_name);
+                .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
 
             assert(!user_has_access, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);
         });
@@ -431,7 +434,7 @@ function test_ip_restrictions() {
 }
 
 function account_by_name(accounts, email) {
-    return accounts.find(account => account.email === email);
+    return accounts.find(account => account.email.unwrap() === email.unwrap());
 }
 
 if (require.main === module) {

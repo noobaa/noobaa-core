@@ -26,16 +26,7 @@ module.exports = {
                         type: 'boolean'
                     },
                     access_keys: {
-                        type: 'object',
-                        required: ['access_key', 'secret_key'],
-                        properties: {
-                            access_key: {
-                                type: 'string'
-                            },
-                            secret_key: {
-                                type: 'string'
-                            }
-                        }
+                        $ref: 'common_api#/definitions/access_keys'
                     },
                     scale: {
                         type: 'integer'
@@ -50,19 +41,13 @@ module.exports = {
                             endpoint: {
                                 type: 'string',
                             },
-                            target_bucket: {
-                                type: 'string',
-                            },
+                            target_bucket: { $ref: 'common_api#/definitions/bucket_name' },
                             access_keys: {
                                 type: 'object',
                                 required: ['access_key', 'secret_key', 'account_id'],
                                 properties: {
-                                    access_key: {
-                                        type: 'string'
-                                    },
-                                    secret_key: {
-                                        type: 'string'
-                                    },
+                                    access_key: { $ref: 'common_api#/definitions/access_key' },
+                                    secret_key: { $ref: 'common_api#/definitions/secret_key' },
                                     account_id: {
                                         type: 'string'
                                     }

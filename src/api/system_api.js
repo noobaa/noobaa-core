@@ -25,12 +25,8 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
-                    email: {
-                        type: 'string',
-                    },
-                    password: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    password: { $ref: 'common_api#/definitions/password' },
                     activation_code: {
                         type: 'string',
                     },
@@ -185,9 +181,7 @@ module.exports = {
                 type: 'object',
                 required: ['role', 'email'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
                     role: {
                         $ref: '#/definitions/role_enum'
                     },
@@ -205,9 +199,7 @@ module.exports = {
                 type: 'object',
                 required: ['role', 'email'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
                     role: {
                         $ref: '#/definitions/role_enum'
                     },
@@ -441,9 +433,7 @@ module.exports = {
                 type: 'object',
                 required: ['email'],
                 properties: {
-                    email: {
-                        type: 'string'
-                    }
+                    email: { $ref: 'common_api#/definitions/email' },
                 }
             },
             auth: {
@@ -461,9 +451,7 @@ module.exports = {
                     code: {
                         type: 'string'
                     },
-                    email: {
-                        type: 'string'
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
                     proxy_address: {
                         type: 'string'
                     }
@@ -709,9 +697,7 @@ module.exports = {
                                 timestamp: {
                                     idate: true
                                 },
-                                last_initiator_email: {
-                                    type: 'string'
-                                }
+                                last_initiator_email: { $ref: 'common_api#/definitions/email' },
                             }
                         },
                         can_upload_upgrade_package: {
@@ -776,12 +762,8 @@ module.exports = {
                     type: 'object',
                     required: ['name', 'email'],
                     properties: {
-                        name: {
-                            type: 'string',
-                        },
-                        email: {
-                            type: 'string',
-                        },
+                        name: { $ref: 'common_api#/definitions/account_name' },
+                        email: { $ref: 'common_api#/definitions/email' },
                     }
                 }
             }
@@ -985,9 +967,7 @@ module.exports = {
                                 }
                             }
                         },
-                        initiator_email: {
-                            type: 'string'
-                        },
+                        initiator_email: { $ref: 'common_api#/definitions/email' },
                         tested_date: {
                             idate: true
                         },

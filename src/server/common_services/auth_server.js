@@ -59,7 +59,7 @@ function create_auth(req) {
             if (!password) return;
 
             return P.resolve()
-                .then(() => bcrypt.compare(password, target_account.password))
+                .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
                 .then(match => {
                     dbg.log0('password mismatch', email, system_name);
                     if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
@@ -173,7 +173,7 @@ function create_auth(req) {
  *
  */
 function create_access_key_auth(req) {
-    var access_key = req.rpc_params.access_key;
+    var access_key = req.rpc_params.access_key.unwrap();
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
 
@@ -183,7 +183,7 @@ function create_access_key_auth(req) {
 
     var account = _.find(system_store.data.accounts, function(acc) {
         if (acc.access_keys) {
-            return acc.access_keys[0].access_key.toString() === access_key.toString();
+            return acc.access_keys[0].access_key.unwrap().toString() === access_key.toString();
         } else {
             return false;
         }
@@ -193,7 +193,7 @@ function create_access_key_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
 
-    let secret = account.access_keys[0].secret_key.toString();
+    let secret = account.access_keys[0].secret_key.unwrap().toString();
     let signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
     if (signature_test !== signature) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
@@ -299,8 +299,8 @@ function _authorize_signature_token(req) {
 
     const account = _.find(system_store.data.accounts, function(acc) {
         return acc.access_keys &&
-            acc.access_keys[0].access_key.toString() ===
-            auth_token_obj.access_key.toString();
+            acc.access_keys[0].access_key.unwrap() ===
+            auth_token_obj.access_key;
     });
     if (!account || account.deleted) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
@@ -326,7 +326,7 @@ function _authorize_signature_token(req) {
         client_ip: auth_token_obj.client_ip,
     };
 
-    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, secret_key);
+    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, secret_key.unwrap());
 
     if (auth_token_obj.signature !== signature) {
         dbg.error('Signature for access key:', auth_token_obj.access_key,

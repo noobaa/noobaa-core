@@ -289,9 +289,7 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                exec_account: {
-                    type: 'string'
-                },
+                exec_account: { $ref: 'common_api#/definitions/email' },
                 description: {
                     type: 'string'
                 },
@@ -334,9 +332,7 @@ module.exports = {
                 last_modified: {
                     idate: true
                 },
-                last_modifier: {
-                    type: 'string'
-                },
+                last_modifier: { $ref: 'common_api#/definitions/email' },
                 resource_name: {
                     type: 'string'
                 },

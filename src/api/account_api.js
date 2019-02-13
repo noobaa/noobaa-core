@@ -21,15 +21,9 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'email', 'has_login', 's3_access'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    email: {
-                        type: 'string',
-                    },
-                    password: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/account_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    password: { $ref: 'common_api#/definitions/password' },
                     must_change_password: {
                         type: 'boolean',
                     },
@@ -91,9 +85,7 @@ module.exports = {
                 type: 'object',
                 required: ['email'],
                 properties: {
-                    email: {
-                        type: 'string'
-                    }
+                    email: { $ref: 'common_api#/definitions/email' },
                 }
             },
             reply: {
@@ -111,18 +103,12 @@ module.exports = {
                 type: 'object',
                 required: ['email'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    email: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/account_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
                     must_change_password: {
                         type: 'boolean',
                     },
-                    new_email: {
-                        type: 'string',
-                    },
+                    new_email: { $ref: 'common_api#/definitions/email' },
                     ips: {
                         anyOf: [{
                             type: 'null'
@@ -147,15 +133,9 @@ module.exports = {
                 type: 'object',
                 required: ['email', 'verification_password', 'password'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
-                    verification_password: {
-                        type: 'string',
-                    },
-                    password: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    verification_password: { $ref: 'common_api#/definitions/password' },
+                    password: { $ref: 'common_api#/definitions/password' },
                     must_change_password: {
                         type: 'boolean'
                     }
@@ -173,12 +153,8 @@ module.exports = {
                 type: 'object',
                 required: ['email', 'verification_password'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
-                    verification_password: {
-                        type: 'string'
-                    }
+                    email: { $ref: 'common_api#/definitions/email' },
+                    verification_password: { $ref: 'common_api#/definitions/password' },
                 },
             },
             auth: {
@@ -193,9 +169,7 @@ module.exports = {
                 type: 'object',
                 required: ['verification_password'],
                 properties: {
-                    verification_password: {
-                        type: 'string'
-                    }
+                    verification_password: { $ref: 'common_api#/definitions/password' },
                 },
             },
             reply: {
@@ -213,9 +187,7 @@ module.exports = {
                 type: 'object',
                 required: ['email', 's3_access'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
                     s3_access: {
                         type: 'boolean'
                     },
@@ -242,9 +214,7 @@ module.exports = {
                 type: 'object',
                 required: ['email'],
                 properties: {
-                    email: {
-                        type: 'string',
-                    },
+                    email: { $ref: 'common_api#/definitions/email' },
                 }
             },
             auth: {
@@ -302,12 +272,8 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-                    identity: {
-                        type: 'string'
-                    },
-                    secret: {
-                        type: 'string'
-                    },
+                    identity: { $ref: 'common_api#/definitions/access_key' },
+                    secret: { $ref: 'common_api#/definitions/secret_key' },
                     auth_method: {
                         $ref: 'common_api#/definitions/cloud_auth_method'
                     },
@@ -337,13 +303,8 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-                    identity: {
-                        type: 'string'
-                    },
-
-                    secret: {
-                        type: 'string'
-                    },
+                    identity: { $ref: 'common_api#/definitions/access_key' },
+                    secret: { $ref: 'common_api#/definitions/secret_key' },
                     auth_method: {
                         $ref: 'common_api#/definitions/cloud_auth_method'
                     },
@@ -460,12 +421,8 @@ module.exports = {
             type: 'object',
             required: ['name', 'email', 'has_login', 'has_s3_access'],
             properties: {
-                name: {
-                    type: 'string',
-                },
-                email: {
-                    type: 'string',
-                },
+                name: { $ref: 'common_api#/definitions/account_name' },
+                email: { $ref: 'common_api#/definitions/email' },
                 is_support: {
                     type: 'boolean',
                 },
@@ -493,9 +450,7 @@ module.exports = {
                         },
                         permission_list: {
                             type: 'array',
-                            items: {
-                                type: 'string'
-                            }
+                            items: { $ref: 'common_api#/definitions/bucket_name' },
                         }
                     }
                 },
@@ -528,9 +483,7 @@ module.exports = {
                                     endpoint: {
                                         type: 'string'
                                     },
-                                    identity: {
-                                        type: 'string'
-                                    },
+                                    identity: { $ref: 'common_api#/definitions/access_key' },
                                     cp_code: {
                                         type: 'string'
                                     },
@@ -595,9 +548,7 @@ module.exports = {
                 },
                 permission_list: {
                     type: 'array',
-                    items: {
-                        type: 'string'
-                    }
+                    items: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             }
         },
@@ -611,9 +562,7 @@ module.exports = {
                     type: 'object',
                     required: ['bucket_name', 'is_allowed'],
                     properties: {
-                        bucket_name: {
-                            type: 'string'
-                        },
+                        bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                         is_allowed: {
                             type: 'boolean'
                         }

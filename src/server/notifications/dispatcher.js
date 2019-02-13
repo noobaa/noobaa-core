@@ -14,6 +14,7 @@ const ActivityLogStore = require('../analytic_services/activity_log_store').Acti
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
 const nodes_client = require('../node_services/nodes_client');
+const { SensitiveString } = require('../../util/schema_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL0 = 'LOG_LOCAL0';
@@ -45,6 +46,7 @@ class Dispatcher {
     //Activity Log
     activity(item) {
         var self = this;
+        item.desc = new SensitiveString(item.desc);
         dbg.log0('Adding ActivityLog entry', item);
         item.time = item.time || new Date();
         return ActivityLogStore.instance().create(item)
@@ -105,21 +107,22 @@ class Dispatcher {
                 return true;
             })
             .then(should_alert => {
+                const sensitive_alert = new SensitiveString(alert);
                 if (should_alert) {
-                    dbg.log0('Sending alert', alert);
+                    dbg.log0('Sending alert', sensitive_alert);
                     return AlertsLogStore.instance().create({
                             system: sysid,
                             severity: sev,
-                            alert: alert
+                            alert: sensitive_alert
                         })
                         .then(res => {
                             this.send_syslog({
-                                description: alert
+                                description: sensitive_alert
                             });
                             return this.publish_fe_notifications({ ids: [res._id] }, 'alert');
                         });
                 }
-                dbg.log3('Suppressed', alert);
+                dbg.log3('Suppressed', sensitive_alert);
             });
     }
 

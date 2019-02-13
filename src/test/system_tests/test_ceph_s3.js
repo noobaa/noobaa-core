@@ -7,6 +7,8 @@ const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
 const os = require('os');
 
+require('../../util/dotenv').load();
+
 
 const api = require('../../api');
 let rpc = api.new_rpc();
@@ -14,11 +16,15 @@ let rpc = api.new_rpc();
 let client = rpc.new_client({
     address: 'ws://127.0.0.1:' + process.env.PORT
 });
+
 let auth_params = {
     email: 'demo@noobaa.com',
     password: 'DeMo1',
     system: 'demo'
 };
+
+const ceph_user_email = 'ceph.alt@noobaa.com';
+const ceph_user = 'cephalt';
 
 let CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
@@ -26,8 +32,8 @@ let CEPH_TEST = {
     ceph_config: 'ceph_s3_config.conf',
     ceph_deploy: 'ceph_s3_tests_deploy.sh',
     new_account: {
-        name: 'cephalt',
-        email: 'ceph.alt@noobaa.com',
+        name: ceph_user,
+        email: ceph_user_email,
         password: 'ceph',
         has_login: true,
         allowed_buckets: {
@@ -409,7 +415,7 @@ async function run_test() {
 
     let system_info = await client.system.read_system();
     let ceph_account = system_info.accounts.find(
-        account => account.email === CEPH_TEST.new_account.email
+        account => account.email.unwrap() === ceph_user_email
     );
     if (ceph_account) {
         CEPH_TEST.new_account.access_keys = ceph_account.access_keys;
@@ -417,13 +423,13 @@ async function run_test() {
         await client.account.create_account(CEPH_TEST.new_account);
         system_info = await client.system.read_system();
         CEPH_TEST.new_account.access_keys = system_info.accounts.find(
-            account => account.email === CEPH_TEST.new_account.email
+            account => account.email.unwrap() === ceph_user_email
         ).access_keys;
     }
 
     console.info('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
-    await promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account.access_keys[0].access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account.access_keys[0].secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account.access_keys[0].access_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account.access_keys[0].secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     try {
         await run_all_tests();
     } catch (err) {

@@ -31,8 +31,8 @@ mocha.describe('s3_ops', function() {
             .then(account_info => {
                 s3 = new AWS.S3({
                     endpoint: coretest.get_http_address(),
-                    accessKeyId: account_info.access_keys[0].access_key,
-                    secretAccessKey: account_info.access_keys[0].secret_key,
+                    accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                    secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
                     s3ForcePathStyle: true,
                     signatureVersion: 'v4',
                     computeChecksums: true,

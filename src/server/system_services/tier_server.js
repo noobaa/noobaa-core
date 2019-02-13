@@ -194,7 +194,7 @@ function update_tier(req) {
                         `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
                     let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
                     let added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
-                    desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
+                    desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email.unwrap()}`);
                     desc_string.push(`Policy type: ${policy_type_change}`);
                     if (removed_pools.length) {
                         desc_string.push(`Removed resources: ${removed_pools.join(', ')}`);
@@ -352,7 +352,7 @@ function find_bucket_by_tier(req) {
 
 function find_tier_by_name(req) {
     const name = req.rpc_params.name;
-    const tier = req.system.tiers_by_name[name];
+    const tier = req.system.tiers_by_name[name.unwrap()];
     if (!tier) {
         throw new RpcError('NO_SUCH_TIER', 'No such tier: ' + name);
     }
@@ -361,7 +361,7 @@ function find_tier_by_name(req) {
 
 function find_policy_by_name(req) {
     const name = req.rpc_params.name;
-    const policy = req.system.tiering_policies_by_name[name];
+    const policy = req.system.tiering_policies_by_name[name.unwrap()];
     if (!policy) {
         throw new RpcError('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
     }
@@ -375,7 +375,7 @@ function policy_defaults_from_req(req) {
         req.rpc_params.chunk_split_config,
         _.map(req.rpc_params.tiers, t => ({
             order: t.order,
-            tier: req.system.tiers_by_name[t.tier]._id,
+            tier: req.system.tiers_by_name[t.tier.unwrap()]._id,
             spillover: t.spillover || false,
             disabled: t.disabled || false
         }))

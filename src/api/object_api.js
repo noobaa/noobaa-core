@@ -24,9 +24,7 @@ module.exports = {
                     'bucket'
                 ],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -55,9 +53,7 @@ module.exports = {
                     'bucket'
                 ],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -86,9 +82,7 @@ module.exports = {
                     'bucket'
                 ],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -120,12 +114,8 @@ module.exports = {
                     'key',
                 ],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
                     content_type: {
                         type: 'string',
                     },
@@ -173,12 +163,8 @@ module.exports = {
                     obj_id: {
                         objectid: true,
                     },
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
                     size: {
                         type: 'integer',
                     },
@@ -240,9 +226,7 @@ module.exports = {
                     obj_id: {
                         objectid: true,
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -267,9 +251,7 @@ module.exports = {
                     obj_id: {
                         objectid: true,
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -319,9 +301,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -378,9 +358,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -452,9 +430,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -500,9 +476,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -533,9 +507,7 @@ module.exports = {
                         objectid: true
                     },
                     version_id: { type: 'string' },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -624,9 +596,7 @@ module.exports = {
                                 version_id: {
                                     type: 'string'
                                 },
-                                bucket: {
-                                    type: 'string'
-                                },
+                                bucket: { $ref: 'common_api#/definitions/bucket_name' },
                                 parts: {
                                     type: 'array',
                                     items: {
@@ -689,9 +659,7 @@ module.exports = {
                                 version_id: {
                                     type: 'string'
                                 },
-                                bucket: {
-                                    type: 'string'
-                                },
+                                bucket: { $ref: 'common_api#/definitions/bucket_name' },
                                 parts: {
                                     type: 'array',
                                     items: {
@@ -725,9 +693,7 @@ module.exports = {
                         objectid: true
                     },
                     version_id: { type: 'string' },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -764,9 +730,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string',
                     },
@@ -792,7 +756,7 @@ module.exports = {
                     'key',
                 ],
                 properties: {
-                    bucket: { type: 'string' },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     obj_id: { objectid: true },
                     version_id: { type: 'string' },
@@ -822,7 +786,7 @@ module.exports = {
                     'objects',
                 ],
                 properties: {
-                    bucket: { type: 'string' },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     objects: {
                         type: 'array',
                         items: {
@@ -864,9 +828,7 @@ module.exports = {
                 type: 'object',
                 required: ['bucket'],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     delimiter: {
                         type: 'string',
                     },
@@ -916,9 +878,7 @@ module.exports = {
                 type: 'object',
                 required: ['bucket'],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     delimiter: {
                         type: 'string',
                     },
@@ -974,9 +934,7 @@ module.exports = {
                 type: 'object',
                 required: ['bucket'],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     delimiter: {
                         type: 'string',
                     },
@@ -1032,9 +990,7 @@ module.exports = {
                 type: 'object',
                 required: ['bucket'],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     prefix: {
                         type: 'string',
                     },
@@ -1139,9 +1095,7 @@ module.exports = {
                     obj_id: {
                         objectid: true
                     },
-                    bucket: {
-                        type: 'string'
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: {
                         type: 'string'
                     },
@@ -1237,9 +1191,7 @@ module.exports = {
                         items: {
                             type: 'object',
                             properties: {
-                                bucket_name: {
-                                    type: 'string'
-                                },
+                                bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                                 content_type: {
                                     type: 'string'
                                 },
@@ -1288,9 +1240,7 @@ module.exports = {
                 type: 'object',
                 required: ['bucket', 'prefix'],
                 properties: {
-                    bucket: {
-                        type: 'string',
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     prefix: {
                         type: 'string',
                     },
@@ -1319,7 +1269,7 @@ module.exports = {
             ],
             properties: {
                 obj_id: { objectid: true },
-                bucket: { type: 'string' },
+                bucket: { $ref: 'common_api#/definitions/bucket_name' },
                 key: { type: 'string' },
                 size: { type: 'integer' },
                 version_id: { type: 'string' },
@@ -1522,12 +1472,8 @@ module.exports = {
             items: {
                 type: 'object',
                 properties: {
-                    bucket: {
-                        type: 'string'
-                    },
-                    access_key: {
-                        type: 'string'
-                    },
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
                     read_bytes: {
                         type: 'integer',
                     },

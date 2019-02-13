@@ -48,9 +48,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/tiering_name' },
                 }
             },
             reply: {
@@ -68,9 +66,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/tiering_name' },
                 }
             },
             reply: {
@@ -88,9 +84,7 @@ module.exports = {
                 type: 'object',
                 required: ['name'],
                 properties: {
-                    name: {
-                        type: 'string',
-                    },
+                    name: { $ref: 'common_api#/definitions/tiering_name' },
                 }
             },
             auth: {
@@ -105,7 +99,7 @@ module.exports = {
             type: 'object',
             required: ['name', 'tiers'],
             properties: {
-                name: { type: 'string' },
+                name: { $ref: 'common_api#/definitions/tiering_name' },
                 data: { $ref: 'common_api#/definitions/storage_info' },
                 storage: { $ref: 'common_api#/definitions/storage_info' },
                 chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
@@ -118,9 +112,7 @@ module.exports = {
                             order: {
                                 type: 'integer',
                             },
-                            tier: {
-                                type: 'string',
-                            },
+                            tier: { $ref: 'common_api#/definitions/tier_name' },
                             spillover: {
                                 type: 'boolean'
                             },

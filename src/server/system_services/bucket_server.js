@@ -92,13 +92,13 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
  *
  */
 function create_bucket(req) {
-    if (req.rpc_params.name.length < 3 ||
-        req.rpc_params.name.length > 63 ||
-        net.isIP(req.rpc_params.name) ||
-        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
+    if (req.rpc_params.name.unwrap().length < 3 ||
+        req.rpc_params.name.unwrap().length > 63 ||
+        net.isIP(req.rpc_params.name.unwrap()) ||
+        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
-    if (req.system.buckets_by_name[req.rpc_params.name]) {
+    if (req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
     if (req.account.allow_bucket_creation === false) {
@@ -125,7 +125,7 @@ function create_bucket(req) {
             chunk_config._id = system_store.generate_id();
             changes.insert.chunk_configs = [chunk_config];
         }
-        const bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        const bucket_with_suffix = req.rpc_params.name.unwrap() + '#' + Date.now().toString(36);
         const mirrors = [{
             _id: system_store.generate_id(),
             spread_pools: [default_pool._id]
@@ -214,7 +214,7 @@ function create_bucket(req) {
         system: req.system._id,
         actor: req.account && req.account._id,
         bucket: bucket._id,
-        desc: `${bucket.name} was created by ${req.account && req.account.email}`,
+        desc: `${bucket.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
     });
 
     // Grant the account a full access for the newly created bucket.
@@ -451,7 +451,7 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
 
     if (quota === null) {
         single_bucket_update.$unset = { quota: 1 };
-        quota_event.desc = `Bucket quota was removed from ${bucket.name} by ${req.account && req.account.email}`;
+        quota_event.desc = `Bucket quota was removed from ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
     } else {
         if (quota.size <= 0) throw new RpcError('BAD_REQUEST', 'quota size must be positive');
         single_bucket_update.quota = quota;
@@ -461,7 +461,7 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
             changes.alerts.push({
                 sev: 'MAJOR',
                 sysid: system_store.data.systems[0]._id,
-                alert: `Bucket ${bucket.name} exceeded its configured quota of ${
+                alert: `Bucket ${bucket.name.unwrap()} exceeded its configured quota of ${
                     size_utils.human_size(quota.value)
                 }, uploads to this bucket will be denied`,
                 rule: Dispatcher.rules.once_daily
@@ -471,11 +471,11 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
             changes.alerts.push({
                 sev: 'INFO',
                 sysid: system_store.data.systems[0]._id,
-                alert: `Bucket ${bucket.name} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
+                alert: `Bucket ${bucket.name.unwrap()} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
                 rule: Dispatcher.rules.once_daily
             });
         }
-        quota_event.desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name} by ${req.account && req.account.email}`;
+        quota_event.desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
     }
     changes.events.push(quota_event);
 }
@@ -519,9 +519,9 @@ function get_bucket_changes_spillover(req, bucket, update_request, tiering_polic
 
     let desc;
     if (update_request.spillover) {
-        desc = `Bucket ${bucket.name} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email}`;
+        desc = `Bucket ${bucket.name.unwrap()} spillover on resource ${update_request.spillover} was set by ${req.account && req.account.email.unwrap()}`;
     } else {
-        desc = `Bucket ${bucket.name} spillover was turned off by ${req.account && req.account.email}`;
+        desc = `Bucket ${bucket.name.unwrap()} spillover was turned off by ${req.account && req.account.email.unwrap()}`;
     }
     changes.events.push({
         event: 'bucket.spillover',
@@ -629,11 +629,11 @@ function update_bucket_s3_access(req) {
             const desc_string = [];
             if (added_accounts.length > 0) {
                 desc_string.push('Added accounts:');
-                _.each(added_accounts, acc => desc_string.push(acc.email));
+                _.each(added_accounts, acc => desc_string.push(acc.email.unwrap()));
             }
             if (removed_accounts.length > 0) {
                 desc_string.push('Removed accounts:');
-                _.each(removed_accounts, acc => desc_string.push(acc.email));
+                _.each(removed_accounts, acc => desc_string.push(acc.email.unwrap()));
             }
 
             Dispatcher.instance().activity({
@@ -658,7 +658,7 @@ function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
             const account = _.find(removed_accounts, acc => acc._id.toString() === func.exec_account.toString());
             if (account) {
                 Dispatcher.instance().alert('MAJOR', req.system._id,
-                    `Account’s ${account.email} ${bucket.name} bucket access was removed.
+                    `Account’s ${account.email.unwrap()} ${bucket.name.unwrap()} bucket access was removed.
                     The configured lambda trigger for function ${func.name} will no longer be invoked`);
             }
         })
@@ -685,7 +685,7 @@ function delete_bucket(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 bucket: bucket._id,
-                desc: `${bucket.name} was deleted by ${req.account && req.account.email}`,
+                desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
             });
             return system_store.make_changes({
                 remove: {
@@ -742,7 +742,7 @@ function delete_bucket_lifecycle(req) {
         })
         .then(() => {
             let desc_string = [];
-            desc_string.push(`lifecycle configuration rules were removed for bucket ${bucket.name} by ${req.account && req.account.email}`);
+            desc_string.push(`lifecycle configuration rules were removed for bucket ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`);
 
             Dispatcher.instance().activity({
                 event: 'bucket.delete_lifecycle_configuration_rules',
@@ -821,7 +821,7 @@ function export_bucket_bandwidth_usage(req) {
 async function get_bucket_throughput_usage(req) {
     const { buckets, since, till, resolution } = req.rpc_params;
     const report = await usage_aggregator.get_throughput_entries({
-        buckets: buckets && buckets.map(bucket_name => req.system.buckets_by_name[bucket_name]._id),
+        buckets: buckets && buckets.map(bucket_name => req.system.buckets_by_name[bucket_name.unwrap()]._id),
         resolution,
         since,
         till
@@ -878,7 +878,7 @@ function set_bucket_lifecycle_configuration_rules(req) {
         })
         .then(() => {
             let desc_string = [];
-            desc_string.push(`${bucket.name} was updated with lifecycle configuration rules by ${req.account && req.account.email}`);
+            desc_string.push(`${bucket.name.unwrap()} was updated with lifecycle configuration rules by ${req.account && req.account.email.unwrap()}`);
 
             Dispatcher.instance().activity({
                 event: 'bucket.set_lifecycle_configuration_rules',
@@ -1134,7 +1134,7 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
 
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
-    var bucket = req.system.buckets_by_name[bucket_name];
+    var bucket = req.system.buckets_by_name[bucket_name.unwrap()];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
@@ -1546,7 +1546,7 @@ function calc_spillover_status(metrics) {
 }
 
 function resolve_tiering_policy(req, policy_name) {
-    var tiering_policy = req.system.tiering_policies_by_name[policy_name];
+    var tiering_policy = req.system.tiering_policies_by_name[policy_name.unwrap()];
     if (!tiering_policy) {
         dbg.error('TIER POLICY NOT FOUND', policy_name);
         throw new RpcError('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');

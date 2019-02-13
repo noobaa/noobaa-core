@@ -583,7 +583,7 @@ function test_tear_down() {
     console.log(`Cleaning up for next test.`);
     return client.bucket.list_buckets()
         .then(bucket_list => P.map(bucket_list.buckets, bucket => { // lol bucket list
-            if (bucket.name === TEST_CTX.default_bucket) return delete_bucket_content(bucket.name);
+            if (bucket.name.unwrap() === TEST_CTX.default_bucket) return delete_bucket_content(bucket.name);
             return delete_bucket_content(bucket.name)
                 .then(() => client.bucket.delete_bucket({
                     name: bucket.name

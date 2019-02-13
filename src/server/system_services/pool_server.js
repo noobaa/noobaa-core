@@ -94,7 +94,7 @@ function create_nodes_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
-                desc: `${name} was created by ${req.account && req.account.email}`,
+                desc: `${name} was created by ${req.account && req.account.email.unwrap()}`,
             });
             return res;
         });
@@ -157,7 +157,7 @@ function create_namespace_resource(req) {
         //         system: req.system._id,
         //         actor: req.account && req.account._id,
         //         pool: pool._id,
-        //         desc: `${pool.name} was created by ${req.account && req.account.email}`,
+        //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
         //     });
         // })
         .return();
@@ -219,7 +219,7 @@ function create_cloud_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
-                desc: `${pool.name} was created by ${req.account && req.account.email}`,
+                desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
             });
         })
         .return();
@@ -255,7 +255,7 @@ function create_mongo_pool(req) {
         //         system: req.system._id,
         //         actor: req.account && req.account._id,
         //         pool: pool._id,
-        //         desc: `${pool.name} was created by ${req.account && req.account.email}`,
+        //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
         //     });
         // })
         .return();
@@ -338,7 +338,7 @@ function _delete_nodes_pool(system, pool, account) {
                 system: system._id,
                 actor: account && account._id,
                 pool: pool._id,
-                desc: `${pool.name} was deleted by ${account && account.email}`,
+                desc: `${pool.name} was deleted by ${account && account.email.unwrap()}`,
             });
             return res;
         })
@@ -397,7 +397,7 @@ function _delete_resource_pool(req, pool, account) {
                     system: req.system._id,
                     actor: account && account._id,
                     pool: pool._id,
-                    desc: `${pool_name} was deleted by ${account && account.email}`,
+                    desc: `${pool_name} was deleted by ${account && account.email.unwrap()}`,
                 });
             }
         })
@@ -575,7 +575,7 @@ async function assign_pool_to_region(req) {
                 }]
             }
         });
-        desc = `${pool.name} was unassigned from region ${pool.region} by ${req.account && req.account.email}`;
+        desc = `${pool.name} was unassigned from region ${pool.region} by ${req.account && req.account.email.unwrap()}`;
     } else {
         await system_store.make_changes({
             update: {
@@ -587,7 +587,7 @@ async function assign_pool_to_region(req) {
                 }]
             }
         });
-        desc = `${pool.name} was assigned to region ${req.rpc_params.region} by ${req.account && req.account.email}`;
+        desc = `${pool.name} was assigned to region ${req.rpc_params.region} by ${req.account && req.account.email.unwrap()}`;
     }
     Dispatcher.instance().activity({
         event: pool.resource_type === 'CLOUD' ? 'resource.cloud_assign_region' : 'resource.pool_assign_region',

@@ -20,6 +20,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
+const { SensitiveString } = require('../../util/schema_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
@@ -32,8 +33,8 @@ const usage_aggregator = require('../bg_services/usage_aggregator');
 
 
 const demo_access_keys = Object.freeze({
-    access_key: '123',
-    secret_key: 'abc'
+    access_key: new SensitiveString('123'),
+    secret_key: new SensitiveString('abc')
 });
 
 const check_connection_timeout = 15 * 1000;
@@ -47,7 +48,7 @@ function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'has_login');
     validate_create_account_params(req);
 
-    if (account.name === 'demo' && account.email === 'demo@noobaa.com') {
+    if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
         account.access_keys = [demo_access_keys];
     } else {
         account.access_keys = [generate_access_keys()];
@@ -71,7 +72,7 @@ function create_account(req) {
         .then(() => {
             if (req.rpc_params.has_login) {
                 account.password = req.rpc_params.password;
-                return bcrypt_password(account.password)
+                return bcrypt_password(account.password.unwrap())
                     .then(password_hash => {
                         account.password = password_hash;
                     });
@@ -90,7 +91,7 @@ function create_account(req) {
                             throw new RpcError('Cannot configure without permission_list when explicit permissions');
                         }
                         allowed_buckets.permission_list = _.map(permission_list, bucket =>
-                            req.system.buckets_by_name[bucket]._id);
+                            req.system.buckets_by_name[bucket.unwrap()]._id);
                     }
                     account.allowed_buckets = allowed_buckets;
                 }
@@ -124,7 +125,7 @@ function create_account(req) {
                 system: (req.system && req.system._id) || sys_id,
                 actor: req.account && req.account._id,
                 account: account._id,
-                desc: `${account.email} was created ` + (req.account ? `by ${req.account.email}` : ``),
+                desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
             });
 
             return system_store.make_changes({
@@ -220,7 +221,7 @@ function generate_account_keys(req) {
                 system: req.system && req.system._id,
                 actor: req.account && req.account._id,
                 account: account._id,
-                desc: `Credentials for ${account.email} were regenerated ${req.account && 'by ' + req.account.email}`,
+                desc: `Credentials for ${account.email.unwrap()} were regenerated ${req.account && 'by ' + req.account.email.unwrap()}`,
             });
         })
         .return();
@@ -271,7 +272,7 @@ function update_account_s3_access(req) {
                 throw new RpcError('Cannot configure without permission_list when explicit permissions');
             }
             allowed_buckets.permission_list = _.map(permission_list, bucket =>
-                system.buckets_by_name[bucket]._id);
+                system.buckets_by_name[bucket.unwrap()]._id);
         }
         update.allowed_buckets = allowed_buckets;
         update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
@@ -300,7 +301,7 @@ function update_account_s3_access(req) {
             let desc_string = [];
             let added_buckets = [];
             let removed_buckets = [];
-            desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
+            desc_string.push(`${account.email.unwrap()} S3 access was updated by ${req.account && req.account.email.unwrap()}`);
             if (req.rpc_params.s3_access) {
                 if (original_pool !== req.rpc_params.default_pool) {
                     desc_string.push(`default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
@@ -345,7 +346,7 @@ function update_account_s3_access(req) {
             });
             if (removed_buckets.length) {
                 _.forEach(removed_buckets, bucket_name => {
-                    const bucket = req.system.buckets_by_name[bucket_name];
+                    const bucket = req.system.buckets_by_name[bucket_name.unwrap()];
                     bucket_server.check_for_lambda_permission_issue(req, bucket, [account]);
                 });
             }
@@ -418,7 +419,7 @@ function update_account(req) {
             system: req.system && req.system._id,
             actor: req.account && req.account._id,
             account: account._id,
-            desc: `${account.email} was updated by ${req.account && req.account.email}` +
+            desc: `${account.email.unwrap()} was updated by ${req.account && req.account.email.unwrap()}` +
                 (event_desc ? '. ' + event_desc : ''),
         }))
         .return();
@@ -430,7 +431,7 @@ function update_account(req) {
  *
  */
 function reset_password(req) {
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.data.accounts_by_email[req.rpc_params.email.unwrap()];
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -449,10 +450,10 @@ function reset_password(req) {
         .then(res => {
             if (!res) throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
         })
-        .then(() => bcrypt_password(params.password))
+        .then(() => bcrypt_password(params.password.unwrap()))
         .then(password => {
             const changes = {
-                password: password,
+                password: new SensitiveString(password),
                 next_password_change: params.must_change_password === true ? new Date() : undefined
             };
             const removals = {
@@ -475,7 +476,7 @@ function reset_password(req) {
             system: req.system && req.system._id,
             actor: req.account && req.account._id,
             account: account._id,
-            desc: `${account.email} was updated by ${req.account.email}: reset password`,
+            desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
         }))
         .return();
 
@@ -485,7 +486,7 @@ function reset_password(req) {
 async function get_account_usage(req) {
     const { since, till, accounts } = req.rpc_params;
     return usage_aggregator.get_accounts_report({
-        accounts: accounts.map(acc => _.get(system_store.data.accounts_by_email[acc], '_id')),
+        accounts: accounts.map(acc => _.get(system_store.data.accounts_by_email[acc.unwrap()], '_id')),
         since,
         till
     });
@@ -533,7 +534,7 @@ function delete_account(req) {
                     system: req.system && req.system._id,
                     actor: req.account && req.account._id,
                     account: account_to_delete._id,
-                    desc: `${account_to_delete.email} was deleted by ${req.account && req.account.email}`,
+                    desc: `${account_to_delete.email.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
                 });
                 return val;
             },
@@ -544,7 +545,7 @@ function delete_account(req) {
                     system: req.system && req.system._id,
                     actor: req.account && req.account._id,
                     account: account_to_delete._id,
-                    desc: `Error: ${account_to_delete.email} failed to delete by ${req.account && req.account.email}`,
+                    desc: `Error: ${account_to_delete.email.unwrap()} failed to delete by ${req.account && req.account.email.unwrap()}`,
                 });
                 throw err;
             }
@@ -624,8 +625,8 @@ async function add_external_connection(req) {
 
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
-    info.access_key = req.rpc_params.identity;
-    info.secret_key = req.rpc_params.secret;
+    info.access_key = req.rpc_params.identity.unwrap();
+    info.secret_key = req.rpc_params.secret.unwrap();
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -663,7 +664,7 @@ async function add_external_connection(req) {
         system: req.system && req.system._id,
         actor: req.account && req.account._id,
         account: req.account._id,
-        desc: `Connection "${info.name}" was created by ${req.account && req.account.email}.
+        desc: `Connection "${info.name}" was created by ${req.account && req.account.email.unwrap()}.
             \nEndpoint: ${req.rpc_params.endpoint}
             \nAccess key: ${req.rpc_params.identity}`,
     });
@@ -719,8 +720,8 @@ function check_external_connection(req) {
 function check_azure_connection(params) {
     const conn_str = cloud_utils.get_azure_connection_string({
         endpoint: params.endpoint,
-        access_key: params.identity,
-        secret_key: params.secret
+        access_key: params.identity.unwrap(),
+        secret_key: params.secret.unwrap()
     });
 
     function err_to_status(err, status) {
@@ -826,8 +827,8 @@ function check_aws_connection(params) {
     }
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
-        accessKeyId: params.identity,
-        secretAccessKey: params.secret,
+        accessKeyId: params.identity.unwrap(),
+        secretAccessKey: params.secret.unwrap(),
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
@@ -860,8 +861,8 @@ function check_aws_connection(params) {
 function check_net_storage_connection(params) {
     const ns = new NetStorage({
         hostname: params.endpoint,
-        keyName: params.identity,
-        key: params.secret,
+        keyName: params.identity.unwrap(),
+        key: params.secret.unwrap(),
         cpCode: params.cp_code,
         // Just used that in order to not handle certificate mess
         // TODO: Should I use SSL with HTTPS instead of HTTP?
@@ -923,7 +924,7 @@ function delete_external_connection(req) {
                     system: req.system && req.system._id,
                     actor: req.account && req.account._id,
                     account: account._id,
-                    desc: `Connection "${connection_to_delete.name}" was deleted by ${req.account && req.account.email}`,
+                    desc: `Connection "${connection_to_delete.name}" was deleted by ${req.account && req.account.email.unwrap()}`,
                 });
                 return val;
             }
@@ -1025,9 +1026,9 @@ function ensure_support_account() {
                 .then(password => {
                     let support_account = {
                         _id: system_store.generate_id(),
-                        name: 'Support',
-                        email: 'support@noobaa.com',
-                        password: password,
+                        name: new SensitiveString('Support'),
+                        email: new SensitiveString('support@noobaa.com'),
+                        password: new SensitiveString(password),
                         has_login: true,
                         is_support: true,
                     };
@@ -1061,7 +1062,7 @@ function is_support_or_admin_or_me(system, account, target_account) {
 }
 
 function validate_create_account_params(req) {
-    if (req.rpc_params.name !== req.rpc_params.name.trim()) {
+    if (req.rpc_params.name.unwrap() !== req.rpc_params.name.unwrap().trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
     }
 
@@ -1093,14 +1094,14 @@ function validate_create_account_params(req) {
 
 function generate_access_keys() {
     return {
-        access_key: string_utils.crypto_random_string(20, string_utils.ALPHA_NUMERIC_CHARSET),
-        secret_key: string_utils.crypto_random_string(40, string_utils.ALPHA_NUMERIC_CHARSET + '+/'),
+        access_key: new SensitiveString(string_utils.crypto_random_string(20, string_utils.ALPHA_NUMERIC_CHARSET)),
+        secret_key: new SensitiveString(string_utils.crypto_random_string(40, string_utils.ALPHA_NUMERIC_CHARSET + '+/')),
     };
 }
 
 function verify_authorized_account(req) {
     return P.resolve()
-        .then(() => bcrypt.compare(req.rpc_params.verification_password, req.account.password))
+        .then(() => bcrypt.compare(req.rpc_params.verification_password.unwrap(), req.account.password.unwrap()))
         .then(match => {
             if (!match) return false;
             return true;

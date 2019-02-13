@@ -302,7 +302,7 @@ class SystemStoreData {
         _.each(COLLECTIONS, col => {
             _.each(col.mem_indexes, index => {
                 _.each(this[col.name], item => {
-                    let key = _.get(item, index.key || '_id');
+                    let key = _.get(item, index.key || '_id').valueOf();
                     let val = index.val ? _.get(item, index.val) : item;
                     let context = index.context ? _.get(item, index.context) : this;
                     let map = context[index.name] || {};
@@ -337,7 +337,7 @@ class SystemStoreData {
 
     rebuild_accounts_by_email_lowercase() {
         _.each(this.accounts, account => {
-            accounts_by_email_lowercase[account.email.toLowerCase()] = account.email;
+            accounts_by_email_lowercase[account.email.unwrap().toLowerCase()] = account.email.unwrap();
         });
     }
 
@@ -524,6 +524,9 @@ class SystemStore extends EventEmitter {
                 .find()
                 .toArray()
                 .then(docs => {
+                    for (const doc of docs) {
+                        this._check_schema(col, doc, 'warn');
+                    }
                     dump[col.name] = docs;
                 })
             ))
@@ -721,9 +724,9 @@ class SystemStore extends EventEmitter {
         return this._server_secret;
     }
 
-    get_account_by_email(email) {
+    get_account_by_email(email_wrapped) {
         if (this.data && !_.isEmpty(this.data.accounts)) {
-            return this.data.accounts_by_email[accounts_by_email_lowercase[email.toLowerCase()]];
+            return this.data.accounts_by_email[email_wrapped.unwrap()];
         }
     }
 

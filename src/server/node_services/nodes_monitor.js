@@ -461,7 +461,7 @@ class NodesMonitor extends EventEmitter {
 
         return this._migrate_items_to_pool(items, to_pool)
             .then(() => {
-                description.push(`${hosts_info.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
+                description.push(`${hosts_info.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email.unwrap()}`);
                 _.each(hosts_info, host => {
                     const { name, from_pool } = host;
                     dbg.log0('migrate_hosts_to_pool:', name,
@@ -506,7 +506,7 @@ class NodesMonitor extends EventEmitter {
 
         return this._migrate_items_to_pool(items, to_pool)
             .then(() => {
-                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email}`);
+                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email.unwrap()}`);
                 _.each(items, item => {
                     const from_pool = system_store.data.get_by_id(item.node.pool);
                     dbg.log0('migrate_nodes_to_pool:', item.node.name,
@@ -3519,7 +3519,7 @@ class NodesMonitor extends EventEmitter {
             rpc_address: rpc_params.source
         });
         this._dispatch_node_event(item, 'test_node',
-            `Node ${this._item_hostname(item)} was tested by ${req.account && req.account.email}`, req.account && req.account._id);
+            `Node ${this._item_hostname(item)} was tested by ${req.account && req.account.email.unwrap()}`, req.account && req.account._id);
         return _.map(list_res.nodes,
             node => _.pick(node, 'name', 'rpc_address'));
     }
@@ -3583,7 +3583,7 @@ class NodesMonitor extends EventEmitter {
                     event: 'dbg.set_debug_node',
                     actor: req.account && req.account._id,
                     node: host_nodes[0].node._id,
-                    desc: `${name} debug level was raised by ${req.account && req.account.email}`,
+                    desc: `${name} debug level was raised by ${req.account && req.account.email.unwrap()}`,
                 });
                 dbg.log1('set_debug_node was successful for host', name, 'level', level);
             });
@@ -3602,7 +3602,7 @@ class NodesMonitor extends EventEmitter {
                     event: 'dbg.set_debug_node',
                     actor: req.account && req.account._id,
                     node: item.node._id,
-                    desc: `${item.node.name} debug level was raised by ${req.account && req.account.email}`,
+                    desc: `${item.node.name} debug level was raised by ${req.account && req.account.email.unwrap()}`,
                 });
                 dbg.log1('set_debug_node was successful for agent', item.node.name,
                     'level', level);

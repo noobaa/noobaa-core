@@ -198,6 +198,10 @@ const errors_defs = [{
     message: 'This happens when the user sends malformed xml (xml that doesn\'t conform to the published xsd) for the configuration. The error message is, "The XML you provided was not well-formed or did not validate against our published schema."',
     http_code: 400,
 }, {
+    code: 'InvalidTag',
+    message: 'The tag provided was not a valid tag.',
+    http_code: 400,
+}, {
     code: 'MaxMessageLengthExceeded',
     message: 'Your request was too big.',
     http_code: 400,

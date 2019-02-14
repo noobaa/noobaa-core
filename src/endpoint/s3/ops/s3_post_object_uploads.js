@@ -8,11 +8,13 @@ const s3_utils = require('../s3_utils');
  * AKA Create Multipart Upload
  */
 function post_object_uploads(req) {
+    const tagging = s3_utils.parse_tagging_header(req);
     return req.object_sdk.create_object_upload({
             bucket: req.params.bucket,
             key: req.params.key,
             content_type: req.headers['content-type'],
             xattr: s3_utils.get_request_xattr(req),
+            tagging
         })
         .then(reply => ({
             InitiateMultipartUploadResult: {

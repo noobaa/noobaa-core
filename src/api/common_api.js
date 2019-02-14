@@ -66,6 +66,25 @@ module.exports = {
             }
         },
 
+        tagging: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'key',
+                    'value'
+                ],
+                properties: {
+                    key: {
+                        type: 'string'
+                    },
+                    value: {
+                        type: 'string'
+                    },
+                }
+            }
+        },
+
         drive_info: {
             type: 'object',
             // required: [],

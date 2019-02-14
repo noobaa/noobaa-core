@@ -70,6 +70,72 @@ module.exports = {
             }
         },
 
+        put_bucket_tagging: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'tagging',
+                    'name',
+                ],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_tagging: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_tagging: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: {
+                        type: 'string',
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         get_bucket_namespaces: {
             method: 'GET',
             params: {
@@ -770,6 +836,9 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/lambda_trigger_info'
                     }
+                },
+                tagging: {
+                    $ref: 'common_api#/definitions/tagging'
                 }
             }
         },

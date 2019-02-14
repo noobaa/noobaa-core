@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const S3Error = require('../s3_errors').S3Error;
+const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTtagging.html
  */
-function put_bucket_tagging(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 put_bucket_tagging not implemented
-            throw new S3Error(S3Error.NotImplemented);
-        });
+async function put_bucket_tagging(req) {
+    const tag_set = s3_utils.parse_body_tagging_xml(req);
+    return req.object_sdk.put_bucket_tagging({
+        name: req.params.bucket,
+        tagging: tag_set
+    });
 }
 
 module.exports = {

@@ -14,6 +14,103 @@ module.exports = {
 
     methods: {
 
+        put_object_tagging: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'tagging',
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    version_id: { type: 'string' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_object_tagging: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    version_id: { type: 'string' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_object_tagging: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    },
+                    version_id: { type: 'string' }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         create_object_upload: {
             method: 'POST',
             params: {
@@ -44,6 +141,9 @@ module.exports = {
                     sha256_b64: {
                         type: 'string'
                     },
+                    tagging: {
+                        $ref: 'common_api#/definitions/tagging'
+                    }
                 }
             },
             reply: {
@@ -1241,6 +1341,8 @@ module.exports = {
                         last_read: { idate: true }
                     }
                 },
+                tagging: { $ref: 'common_api#/definitions/tagging' },
+                tag_count: { type: 'integer' },
                 // This is the physical size (aggregation of all blocks)
                 // It does not pay attention to dedup
                 capacity_size: { type: 'integer' },
@@ -1440,6 +1542,6 @@ module.exports = {
                     },
                 }
             }
-        },
+        }
     },
 };

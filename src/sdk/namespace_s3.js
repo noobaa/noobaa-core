@@ -178,6 +178,7 @@ class NamespaceS3 {
     async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
         let res;
+        const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
             const { copy_source } = s3_utils.format_copy_source(params.copy_source);
             if (copy_source.ranges) {
@@ -190,6 +191,8 @@ class NamespaceS3 {
                 ContentType: params.content_type,
                 Metadata: params.xattr,
                 MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
+                Tagging,
+                TaggingDirective: params.tagging_copy ? 'COPY' : 'REPLACE'
             }).promise();
         } else {
             let count = 1;
@@ -209,6 +212,7 @@ class NamespaceS3 {
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,
                 Metadata: params.xattr,
+                Tagging
             }).promise();
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
@@ -238,10 +242,12 @@ class NamespaceS3 {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
+        const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         const res = await this.s3.createMultipartUpload({
             Key: params.key,
             ContentType: params.content_type,
             Metadata: params.xattr,
+            Tagging
         }).promise();
 
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
@@ -333,6 +339,66 @@ class NamespaceS3 {
 
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }
+
+    ////////////////////
+    // OBJECT TAGGING //
+    ////////////////////
+
+    async put_object_tagging(params, object_sdk) {
+        dbg.log0('NamespaceS3.put_object_tagging:', this.bucket, inspect(params));
+
+        const TagSet = params.tagging.map(tag => ({
+            Key: tag.key,
+            Value: tag.value
+        }));
+
+        const res = await this.s3.putObjectTagging({
+            Key: params.key,
+            VersionId: params.version_id,
+            Tagging: { TagSet }
+        }).promise();
+
+        dbg.log0('NamespaceS3.put_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+
+        return {
+            version_id: res.VersionId
+        };
+    }
+
+    async delete_object_tagging(params, object_sdk) {
+        dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params));
+        const res = await this.s3.deleteObjectTagging({
+            Key: params.key,
+            VersionId: params.version_id
+        }).promise();
+
+        dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+
+        return {
+            version_id: res.VersionId
+        };
+    }
+
+    async get_object_tagging(params, object_sdk) {
+        dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params));
+        const res = await this.s3.getObjectTagging({
+            Key: params.key,
+            VersionId: params.version_id
+        }).promise();
+
+        dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+
+        const TagSet = res.TagSet.map(tag => ({
+            key: tag.Key,
+            value: tag.Value
+        }));
+
+        return {
+            version_id: res.VersionId,
+            tagging: TagSet
+        };
+    }
+
 
     ///////////////////
     // OBJECT DELETE //
@@ -427,6 +493,7 @@ class NamespaceS3 {
             delete_marker: res.DeleteMarker,
             content_type: res.ContentType,
             xattr,
+            tag_count: res.TagCount
         };
     }
 

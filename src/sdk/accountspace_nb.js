@@ -58,6 +58,29 @@ class AccountSpaceNB {
         });
     }
 
+    ////////////////////
+    // BUCKET TAGGING //
+    ////////////////////
+
+    put_bucket_tagging(params) {
+        return this.rpc_client.bucket.put_bucket_tagging({
+            name: params.name,
+            tagging: params.tagging
+        });
+    }
+
+    delete_bucket_tagging(params) {
+        return this.rpc_client.bucket.delete_bucket_tagging({
+            name: params.name
+        });
+    }
+
+    get_bucket_tagging(params) {
+        return this.rpc_client.bucket.get_bucket_tagging({
+            name: params.name
+        });
+    }
+
 }
 
 module.exports = AccountSpaceNB;

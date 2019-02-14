@@ -140,6 +140,25 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.delete_multiple_objects(params);
     }
 
+    ////////////////////
+    // OBJECT TAGGING //
+    ////////////////////
+
+    put_object_tagging(params, object_sdk) {
+        if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        return object_sdk.rpc_client.object.put_object_tagging(params);
+    }
+
+    delete_object_tagging(params, object_sdk) {
+        if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        return object_sdk.rpc_client.object.delete_object_tagging(params);
+    }
+
+    get_object_tagging(params, object_sdk) {
+        if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        return object_sdk.rpc_client.object.get_object_tagging(params);
+    }
+
 }
 
 module.exports = NamespaceNB;

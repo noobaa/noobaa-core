@@ -310,6 +310,7 @@ class ObjectSDK {
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
+        if (params.tagging_copy) await this._populate_source_object_tagging({ source_params, source_ns, source_md });
         // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
         const actual_source_ns = source_md.ns || source_ns;
         const actual_target_ns = target_ns.get_write_resource();
@@ -331,6 +332,9 @@ class ObjectSDK {
             if (params.xattr_copy) {
                 params.xattr = source_md.xattr;
             }
+            if (params.tagging_copy) {
+                params.tagging = source_md.tagging;
+            }
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
@@ -342,6 +346,7 @@ class ObjectSDK {
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             params.size = source_md.size;
             if (params.xattr_copy) params.xattr = source_md.xattr;
+            if (params.tagging_copy) params.tagging = source_md.tagging;
             params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
             if (params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
@@ -350,6 +355,16 @@ class ObjectSDK {
             // reset the copy_source param
             params.copy_source = null;
         }
+    }
+
+    // TODO: Does not work when source namespace is s3 (s3 sdk head-object doesn't return TagCount). Issue #5341.
+    async _populate_source_object_tagging({ source_ns, source_md, source_params }) {
+        // This is a quick way of knowing if we should load any tags
+        if (!source_md.tag_count) return;
+        // In NooBaa namespace we already populate the tags
+        if (source_md.tagging) return;
+        // In case of other namespace we need to read the tags
+        source_md.tagging = await source_ns.get_object_tagging(source_params, this);
     }
 
     async upload_object(params) {
@@ -434,6 +449,44 @@ class ObjectSDK {
     async delete_multiple_objects(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
         return ns.delete_multiple_objects(params, this);
+    }
+
+    ////////////////////
+    // OBJECT TAGGING //
+    ////////////////////
+
+    async put_object_tagging(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.put_object_tagging(params, this);
+    }
+
+    async delete_object_tagging(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.delete_object_tagging(params, this);
+    }
+
+    async get_object_tagging(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.get_object_tagging(params, this);
+    }
+
+    ////////////////////
+    // BUCKET TAGGING //
+    ////////////////////
+
+    async put_bucket_tagging(params) {
+        const ns = this._get_account_namespace();
+        return ns.put_bucket_tagging(params);
+    }
+
+    async delete_bucket_tagging(params) {
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket_tagging(params);
+    }
+
+    async get_bucket_tagging(params) {
+        const ns = this._get_account_namespace();
+        return ns.get_bucket_tagging(params);
     }
 
 }

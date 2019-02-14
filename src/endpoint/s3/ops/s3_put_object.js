@@ -13,6 +13,7 @@ async function put_object(req, res) {
     // TODO: Use the sse_c_params in the future for encryption
     const sse_c_params = s3_utils.parse_sse_c(req);
     const copy_source = s3_utils.parse_copy_source(req);
+    const tagging = s3_utils.parse_tagging_header(req);
 
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '', sse_c_params);
@@ -30,6 +31,8 @@ async function put_object(req, res) {
         source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
         xattr: s3_utils.get_request_xattr(req),
         xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
+        tagging,
+        tagging_copy: s3_utils.is_copy_tagging_directive(req)
     });
     if (reply.version_id && reply.version_id !== 'null') {
         res.setHeader('x-amz-version-id', reply.version_id);

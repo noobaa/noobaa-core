@@ -19,7 +19,7 @@ const signature_utils = require('../../util/signature_utils');
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
 const S3_XML_ROOT_ATTRS = Object.freeze({
-    xmlns: 'http://s3.amazonaws.com/doc/2006-03-01'
+    xmlns: 'http://s3.amazonaws.com/doc/2006-03-01/'
 });
 
 const BUCKET_SUB_RESOURCES = Object.freeze({

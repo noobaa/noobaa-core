@@ -68,6 +68,7 @@ async function create_object_upload(req) {
             'application/octet-stream',
         upload_started: obj_id,
         upload_size: 0,
+        tagging: req.rpc_params.tagging
     };
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
@@ -90,6 +91,67 @@ async function create_object_upload(req) {
     };
 }
 
+/**
+ *
+ * put_object_tagging
+ *
+ */
+async function put_object_tagging(req) {
+    dbg.log0('put_object_tagging:', req.rpc_params);
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+
+    await MDStore.instance().update_object_by_id(
+        obj._id, { tagging: req.rpc_params.tagging }, undefined, undefined
+    );
+
+    return {
+        version_id: info.version_id
+    };
+}
+
+/**
+ *
+ * get_object_tagging
+ *
+ */
+async function get_object_tagging(req) {
+    dbg.log0('get_object_tagging:', req.rpc_params);
+    load_bucket(req);
+
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+
+    return {
+        tagging: info.tagging,
+        version_id: info.version_id
+    };
+}
+
+
+/**
+ *
+ * delete_object_tagging
+ *
+ */
+async function delete_object_tagging(req) {
+    dbg.log0('delete_object_tagging:', req.rpc_params);
+    throw_if_maintenance(req);
+    load_bucket(req);
+
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+
+    await MDStore.instance().update_object_by_id(
+        obj._id, undefined, { 'tagging': 1 }, undefined
+    );
+
+    return {
+        version_id: info.version_id,
+    };
+}
 
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
 
@@ -987,6 +1049,8 @@ function get_object_info(md) {
             reads: 0,
             last_read: 0,
         },
+        tagging: md.tagging,
+        tag_count: (md.tagging && md.tagging.length) || 0
     };
 }
 
@@ -1447,3 +1511,6 @@ exports.add_endpoint_usage_report = add_endpoint_usage_report;
 exports.remove_endpoint_usage_reports = remove_endpoint_usage_reports;
 exports.check_quota = check_quota;
 exports.update_endpoint_stats = update_endpoint_stats;
+exports.put_object_tagging = put_object_tagging;
+exports.get_object_tagging = get_object_tagging;
+exports.delete_object_tagging = delete_object_tagging;

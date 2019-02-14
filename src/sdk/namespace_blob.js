@@ -532,7 +532,7 @@ class NamespaceBlob {
         return res;
     }
 
-
+    // TODO: Implement tagging on objects
     _get_blob_object_info(obj, bucket) {
         const blob_etag = blob_utils.parse_etag(obj.etag);
         const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || '';

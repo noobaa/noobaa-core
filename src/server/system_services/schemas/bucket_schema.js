@@ -218,6 +218,9 @@ module.exports = {
                 }
             }
         },
+        tagging: {
+            $ref: 'common_api#/definitions/tagging',
+        },
         lambda_triggers: {
             type: 'array',
             items: {

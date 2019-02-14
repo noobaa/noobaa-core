@@ -118,7 +118,8 @@ class ObjectIO {
             'size',
             'md5_b64',
             'sha256_b64',
-            'xattr'
+            'xattr',
+            'tagging',
         );
         const complete_params = _.pick(params,
             'bucket',

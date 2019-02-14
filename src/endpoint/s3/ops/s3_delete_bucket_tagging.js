@@ -4,11 +4,10 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEtagging.html
  */
-function delete_bucket_tagging(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 delete_bucket_tagging not implemented
-        });
+async function delete_bucket_tagging(req) {
+    return req.object_sdk.delete_bucket_tagging({
+        name: req.params.bucket
+    });
 }
 
 module.exports = {

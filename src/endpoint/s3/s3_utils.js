@@ -152,9 +152,83 @@ function set_response_object_md(res, object_md) {
     res.setHeader('Accept-Ranges', 'bytes');
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);
     set_response_xattr(res, object_md.xattr);
+    if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
     return object_md;
 }
 
+// Source: https://docs.aws.amazon.com/AmazonS3/latest/dev/object-tagging.html
+function parse_body_tagging_xml(req) {
+    const tagging = req.body.Tagging;
+    if (!tagging) throw new S3Error(S3Error.MalformedXML);
+    const tag_set = tagging.TagSet[0];
+    const tag_key_names = ['Key', 'Value'];
+    const tag_set_map = _.map(tag_set.Tag, tag => {
+        const tag_keys = Object.keys(tag);
+        if (!_.isEmpty(_.difference(tag_keys, tag_key_names)) ||
+            tag_keys.length !== tag_key_names.length) throw new S3Error(S3Error.InvalidTag);
+        return {
+            key: tag.Key && tag.Key[0],
+            value: tag.Value && tag.Value[0]
+        };
+    });
+    if (!tag_set_map || tag_set_map.length > 10) throw new S3Error(S3Error.InvalidTag);
+    const tag_map = new Map();
+    tag_set_map.forEach(tag => {
+        if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);
+        if (tag_map.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
+        tag_map.set(tag.key);
+    });
+    return tag_set_map;
+}
+
+function _is_valid_tag_values(tag) {
+    if (tag.key.length > 128 || tag.value.length > 256) return false;
+    return true;
+}
+
+function parse_tagging_header(req) {
+    const tagging_header = req.headers['x-amz-tagging'];
+    if (!tagging_header) return;
+    let tagging_params;
+    try {
+        tagging_params = new URLSearchParams(tagging_header);
+    } catch (err) {
+        dbg.error('parse_tagging_header failed', err);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+    const tag_set = [];
+    const tag_map = new Map();
+    tagging_params.forEach((value, key) => {
+        const tag = { key, value };
+        if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);
+        if (tag_map.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
+        tag_map.set(tag.key);
+        tag_set.push(tag);
+    });
+    if (tag_set.length > 10) throw new S3Error(S3Error.InvalidTag);
+    return tag_set;
+}
+
+/*
+Specifies whether the object tags are copied from the source object or replaced with tags provided in the request.
+If the tags are copied, the tagset remains unchanged.
+If the tags are replaced, all of the original tagset is replaced by the tags you specify.
+If you don't specify a tagging directive, Amazon S3 copies tags by default.
+If the tagging directive is REPLACE, you specify any tags in url format in the x-amz-tagging header, similar to using a PUT object with tags.
+If the tagging directive is REPLACE, but you don't specify the x-amz-tagging in the request, the destination object won't have tags.
+Type: String
+Default: COPY
+Valid values: COPY | REPLACE
+Constraints: Values other than COPY or REPLACE result in an immediate 400-based error response.
+*/
+function is_copy_tagging_directive(req) {
+    const allowed_values = ['COPY', 'REPLACE'];
+    const tagging_directive = req.headers['x-amz-tagging-directive'];
+    if (!tagging_directive) return true;
+    if (!allowed_values.includes(tagging_directive)) throw new S3Error(S3Error.InvalidArgument);
+    if (tagging_directive === 'COPY') return true;
+    return false;
+}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
@@ -169,3 +243,6 @@ exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;
 exports.parse_sse_c = parse_sse_c;
 // exports.parse_sse = parse_sse;
+exports.parse_body_tagging_xml = parse_body_tagging_xml;
+exports.parse_tagging_header = parse_tagging_header;
+exports.is_copy_tagging_directive = is_copy_tagging_directive;

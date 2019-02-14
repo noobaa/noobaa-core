@@ -2,12 +2,15 @@
 'use strict';
 
 /**
- * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETtagging.html
+ * https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETtagging.html
  */
-async function get_bucket_tagging(req) {
-    const reply = await req.object_sdk.get_bucket_tagging({
-        name: req.params.bucket
+async function get_object_tagging(req, res) {
+    const reply = await req.object_sdk.get_object_tagging({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        version_id: req.query.versionId,
     });
+    if (reply.version_id) res.setHeader('x-amz-version-id', reply.version_id);
     return format_tagging_response(reply.tagging);
 }
 
@@ -26,7 +29,7 @@ function format_tagging_response(tag_set) {
 }
 
 module.exports = {
-    handler: get_bucket_tagging,
+    handler: get_object_tagging,
     body: {
         type: 'empty',
     },

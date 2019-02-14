@@ -132,6 +132,22 @@ class NamespaceMerge {
             });
     }
 
+    ////////////////////
+    // OBJECT TAGGING //
+    ////////////////////
+
+    get_object_tagging(params, object_sdk) {
+        return this._ns_get(ns => ns.get_object_tagging(params, object_sdk));
+    }
+
+    delete_object_tagging(params, object_sdk) {
+        return this._ns_put(ns => ns.delete_object_tagging(params, object_sdk));
+    }
+
+    put_object_tagging(params, object_sdk) {
+        return this._ns_put(ns => ns.put_object_tagging(params, object_sdk));
+    }
+
     //////////////
     // INTERNAL //
     //////////////

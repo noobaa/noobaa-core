@@ -237,6 +237,58 @@ function create_bucket(req) {
 
 /**
  *
+ * GET_BUCKET_TAGGING
+ *
+ */
+async function get_bucket_tagging(req) {
+    dbg.log0('get_bucket_tagging:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    return {
+        tagging: bucket.tagging,
+    };
+}
+
+
+/**
+ *
+ * PUT_BUCKET_TAGGING
+ *
+ */
+async function put_bucket_tagging(req) {
+    dbg.log0('put_bucket_tagging:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                tagging: req.rpc_params.tagging
+            }]
+        }
+    });
+}
+
+
+/**
+ *
+ * DELETE_BUCKET_TAGGING
+ *
+ */
+async function delete_bucket_tagging(req) {
+    dbg.log0('delete_bucket_tagging:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { tagging: 1 }
+            }]
+        }
+    });
+}
+
+
+/**
+ *
  * READ_BUCKET
  *
  */
@@ -1122,7 +1174,8 @@ function get_bucket_info({
         host_tolerance: undefined,
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
-        versioning: bucket.versioning
+        versioning: bucket.versioning,
+        tagging: bucket.tagging
     };
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, info });
 
@@ -1548,3 +1601,6 @@ exports.update_bucket_lambda_trigger = update_bucket_lambda_trigger;
 exports.delete_bucket_lambda_trigger = delete_bucket_lambda_trigger;
 
 exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;
+exports.delete_bucket_tagging = delete_bucket_tagging;
+exports.put_bucket_tagging = put_bucket_tagging;
+exports.get_bucket_tagging = get_bucket_tagging;

@@ -34,7 +34,7 @@ update_services_autostart() {
 
 handle_unmanaged_upgrade() {
     #Container specific logic
-    if grep -q PLATFORM=docker /root/node_modules/noobaa-core/.env; then
+    if grep -q PLATFORM=docker /data/.env; then
         code_version=$(grep version ${NOOBAA_PACKAGE_PATH} | awk -F'["|"]' '{print $4}')
         if [ ! -f ${NOOBAA_DATA_VERSION} ]; then 
             #New system, update data version file

@@ -9,7 +9,7 @@ if grep -q PLATFORM=azure /data/.env; then
     sed -i "s:ResourceDisk.SwapSizeMB=0:ResourceDisk.SwapSizeMB=${SWAP_SIZE_MB}:" /etc/waagent.conf
     service waagent restart
   fi
-elif [ "${container}" != "docker" ]; then
+elif ! grep -q PLATFORM=docker /data/.env ; then
   if ! grep -q swapfile /etc/fstab; then
     swapon -s
     dd if=/dev/zero bs=1M count=${SWAP_SIZE_MB} of=/swapfile

@@ -1,5 +1,3 @@
-![Tests](https://gdurl.com/jz2I)
-
 ### Explain the changes
 #### 1. New Features / Capabilities (Sync with Liran):
 - 

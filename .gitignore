@@ -38,3 +38,10 @@ npm-debug.log*
 
 noobaa.rpm
 
+## go ignored files
+/gocode/pkg
+/gocode/bin
+/gocode/src/github.com
+/gocode/src/golang.org
+/gocode/src/noobaa-operator/vendor
+/gocode/src/noobaa-operator/build/_output

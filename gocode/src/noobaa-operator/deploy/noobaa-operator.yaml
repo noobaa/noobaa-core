@@ -1,0 +1,131 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: noobaas.noobaa.com
+spec:
+  group: noobaa.com
+  names:
+    kind: Noobaa
+    listKind: NoobaaList
+    plural: noobaas
+    singular: noobaa
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          type: object
+        status:
+          type: object
+  version: v1alpha1
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: noobaa-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: noobaa-operator
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - endpoints
+      - persistentvolumeclaims
+      - events
+      - configmaps
+      - secrets
+    verbs:
+      - "*"
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+    verbs:
+      - "*"
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - servicemonitors
+    verbs:
+      - get
+      - create
+  - apiGroups:
+      - noobaa.com
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-operator
+subjects:
+  - kind: ServiceAccount
+    name: noobaa-operator
+roleRef:
+  kind: Role
+  name: noobaa-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noobaa-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: noobaa-operator
+  template:
+    metadata:
+      labels:
+        name: noobaa-operator
+    spec:
+      serviceAccountName: noobaa-operator
+      containers:
+        - name: noobaa-operator
+          # Replace this with the built image name
+          image: noobaa-operator:1
+          command:
+            - noobaa-operator
+          # imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "noobaa-operator"

@@ -1425,7 +1425,7 @@ function _communicate_license_server(params, proxy_address) {
         code: params.code.trim(),
     };
     if (params.email) {
-        body['Business Email'] = params.email.trim();
+        body['Business Email'] = params.email.unwrap().trim();
     }
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};

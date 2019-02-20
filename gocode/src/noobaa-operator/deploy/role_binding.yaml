@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-operator
+subjects:
+- kind: ServiceAccount
+  name: noobaa-operator
+roleRef:
+  kind: Role
+  name: noobaa-operator
+  apiGroup: rbac.authorization.k8s.io

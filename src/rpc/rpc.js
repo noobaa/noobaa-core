@@ -690,6 +690,8 @@ RPC.prototype._on_message = function(conn, msg_buffer) {
             ' conn ' + conn.connid));
         return;
     }
+    if (!msg.header.op) msg.header.op = 'req';
+    if (!msg.header.reqid) msg.header.reqid = conn._alloc_reqid();
 
     switch (msg.header.op) {
         case 'req':

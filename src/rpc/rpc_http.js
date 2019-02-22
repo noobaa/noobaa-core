@@ -9,6 +9,7 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const buffer_utils = require('../util/buffer_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
+const { RPC_VERSION_NUMBER, RPC_VERSION_HEX } = require('./rpc_request');
 
 // dbg.set_level(5);
 
@@ -105,13 +106,11 @@ class RpcHttpConnection extends RpcBaseConnection {
         }
         res.statusCode = 200;
         if (_.isArray(msg)) {
-            _.each(msg, m => {
-                res.write(m);
-                return true; // keep iterating
-            });
+            buffer_utils.extract(msg, 8);
+            for (const m of msg) res.write(m);
             res.end();
         } else {
-            res.end(msg);
+            res.end(msg.slice(8));
         }
         this.res = null;
     }
@@ -133,7 +132,8 @@ class RpcHttpConnection extends RpcBaseConnection {
         let http_method = 'POST';
         let content_length = _.sumBy(msg, 'length');
         headers['content-length'] = content_length;
-        headers['content-type'] = 'application/octet-stream';
+        headers['content-type'] = 'application/json';
+        headers['x-noobaa-rpc-version'] = RPC_VERSION_HEX;
 
         let http_options = {
             protocol: this.url.protocol,
@@ -180,48 +180,49 @@ class RpcHttpConnection extends RpcBaseConnection {
     /**
      * Called by RpcHttpServer
      */
-    handle_http_request() {
-        buffer_utils.read_stream(this.req)
-            .then(read_res => this.emit('message', read_res.buffers))
-            .catch(err => {
-                dbg.error('handle_http_request: ERROR', err.stack || err);
-                this.res.statusCode = 500;
-                this.res.end(err.message);
-            });
+    async handle_http_request() {
+        try {
+            const meta_buffer = Buffer.allocUnsafe(8);
+            const version_header = this.req.headers['x-noobaa-rpc-version'] || '*';
+            const rpc_version = version_header === '*' ? RPC_VERSION_NUMBER : Number(version_header);
+            const { buffers, total_length } = await buffer_utils.read_stream(this.req);
+            meta_buffer.writeUInt32BE(rpc_version, 0);
+            meta_buffer.writeUInt32BE(total_length, 4);
+            this.emit('message', [meta_buffer, ...buffers]);
+        } catch (err) {
+            dbg.error('handle_http_request: ERROR', err.stack || err);
+            this.res.statusCode = 500;
+            this.res.end(err.message);
+        }
     }
 
-    handle_http_response(req, res, send_defer, reqid) {
+    async handle_http_response(req, res, send_defer, reqid) {
         // statusCode = 0 means ECONNREFUSED and the response
         // will not emit events in such case
         if (!res.statusCode) {
-            send_defer.reject('ECONNREFUSED');
+            send_defer.reject(new Error('HTTP ECONNREFUSED'));
             return;
         }
 
         // sending is done, so resolve the send promise
         send_defer.resolve();
 
-        // read the response data from the socket
-        buffer_utils.read_stream(res)
-            .then(read_res => {
-
-                // the connection's req is done so no need to abort it on close no more
-                this.req = null;
-
-                if (res.statusCode !== 200) {
-                    throw new Error('HTTP ERROR ' + res.statusCode + ' to ' + this.url.href);
-                }
-                dbg.log3('HTTP RESPONSE', res.statusCode, 'length', read_res.total_length);
-                this.emit('message', read_res.buffers);
-            })
-            .catch(err => {
-
-                // the connection's req is done so no need to abort it on close no more
-                this.req = null;
-
-                dbg.error('HTTP RESPONSE ERROR', err.stack || err);
-                this.emit('error', err);
-            });
+        try {
+            // read the response data from the socket
+            const read_res = await buffer_utils.read_stream(res);
+            // the connection's req is done so no need to abort it on close no more
+            this.req = null;
+            if (res.statusCode !== 200) {
+                throw new Error('HTTP ERROR ' + res.statusCode + ' to ' + this.url.href);
+            }
+            dbg.log3('HTTP RESPONSE', res.statusCode, 'length', read_res.total_length);
+            this.emit('message', read_res.buffers);
+        } catch (err) {
+            // the connection's req is done so no need to abort it on close no more
+            this.req = null;
+            dbg.error('HTTP RESPONSE ERROR', err.stack || err);
+            this.emit('error', err);
+        }
     }
 
 }

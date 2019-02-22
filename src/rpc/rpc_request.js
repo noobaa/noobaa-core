@@ -16,6 +16,7 @@ const RPC_VERSION_NUMBER = Buffer.from([
     RPC_VERSION_MINOR,
     RPC_VERSION_FLAGS,
 ]).readUInt32BE(0);
+const RPC_VERSION_HEX = `0x${RPC_VERSION_NUMBER.toString(16)}`;
 
 const RPC_BUFFERS = Symbol('RPC_BUFFERS');
 
@@ -182,5 +183,7 @@ class RpcRequest {
 }
 
 RpcRequest.RPC_BUFFERS = RPC_BUFFERS;
+RpcRequest.RPC_VERSION_NUMBER = RPC_VERSION_NUMBER;
+RpcRequest.RPC_VERSION_HEX = RPC_VERSION_HEX;
 
 module.exports = RpcRequest;

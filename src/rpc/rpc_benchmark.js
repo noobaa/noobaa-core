@@ -232,10 +232,10 @@ function call_next_io(req) {
 
 function io_service(req) {
     dbg.log1('IO SERVICE');
-    const data_in = req.params[RPC_BUFFERS].data;
+    const data_in = req.params[RPC_BUFFERS] && req.params[RPC_BUFFERS].data;
     const data = Buffer.alloc(req.params.rsize, 0x99);
     io_count += 1;
-    io_rbytes += data_in.length;
+    io_rbytes += data_in ? data_in.length : 0;
     io_wbytes += data.length;
     return {
         [RPC_BUFFERS]: { data },

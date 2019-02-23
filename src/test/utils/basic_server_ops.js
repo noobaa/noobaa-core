@@ -12,6 +12,8 @@ const ec2_wrap = require('../../deploy/ec2_wrapper');
 const promise_utils = require('../../util/promise_utils');
 const api = require('../../api');
 
+const request_promise = util.promisify(request);
+
 var test_file = '/tmp/test_upgrade';
 let rpc_validation_disabled = false;
 
@@ -142,39 +144,31 @@ function upload_and_upgrade(ip, upgrade_pack, dont_verify_version) {
         });
 }
 
-function wait_for_server(ip, wait_for_version) {
-    var isNotListening = true;
-    var version;
-    return promise_utils.pwhile(
-        function() {
-            return isNotListening;
-        },
-        function() {
+async function wait_for_server(ip, wait_for_version) {
+    const url = `http://${ip}:8080/version`;
+    for (;;) {
+        try {
             console.log('waiting for Web Server to start');
-            return P.fromCallback(callback => request({
-                    method: 'get',
-                    url: 'http://' + ip + ':8080/version',
-                    strictSSL: false,
-                }, callback), {
-                    multiArgs: true
-                })
-                .spread(function(response, body) {
-                    if (response.statusCode !== 200) {
-                        throw new Error('got error code ' + response.statusCode);
-                    }
-                    if (wait_for_version && body !== wait_for_version) {
-                        throw new Error('version is ' + body +
-                            ' wait for version ' + wait_for_version);
-                    }
-                    console.log('Web Server started. version is: ' + body);
-                    version = body;
-                    isNotListening = false;
-                })
-                .catch(function(err) {
-                    console.log('not up yet...', err.message);
-                    return P.delay(5000);
-                });
-        }).return(version);
+            const { statusCode, body } = await request_promise({
+                method: 'get',
+                url,
+                strictSSL: false,
+            });
+            if (statusCode !== 200) {
+                throw new Error(`wait_for_server: GET ${url} FAILED:` +
+                    ` statusCode ${statusCode} body ${body}`);
+            }
+            if (wait_for_version && body !== wait_for_version) {
+                throw new Error(`wait_for_server: version is ${body}` +
+                    ` wait for version ${wait_for_version}`);
+            }
+            console.log('Web Server started. version is: ' + body);
+            return body;
+        } catch (err) {
+            console.log('not up yet...', err.message);
+            await P.delay(5000);
+        }
+    }
 }
 
 function get_agent_setup(ip) {

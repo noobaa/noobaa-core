@@ -986,7 +986,7 @@ class AzureFunctions {
             .tap(() => console.log(`${serverName}_pip`))
             .then(() => this.getIpAddress(`${serverName}_pip`))
             .tap(ip => console.log(`server name: ${serverName}, ip: ${ip}`))
-            .tap(ip => ops.wait_for_server(ip).timeout(10 * 60 * 1000 * 1000))
+            .tap(ip => P.resolve(ops.wait_for_server(ip)).timeout(10 * 60 * 1000 * 1000))
             .then(ip => {
                 if (createSystem) {
                     rpc = api.new_rpc('wss://' + ip + ':8443');

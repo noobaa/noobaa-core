@@ -275,15 +275,15 @@ RPC.prototype._on_request = function(conn, msg) {
     // const millistamp = time_utils.millistamp();
     const req = new RpcRequest();
     req.connection = conn;
-    req.reqid = msg.header.reqid;
+    req.reqid = msg.body.reqid;
 
     // find the requested service
-    const srv = msg.header.api +
-        '.' + msg.header.method;
+    const srv = msg.body.api +
+        '.' + msg.body.method;
     const service = this._services[srv];
     if (!service) {
         dbg.warn('RPC._on_request: NOT FOUND', srv,
-            'reqid', msg.header.reqid,
+            'reqid', msg.body.reqid,
             'connid', conn.connid);
         req.error = new RpcError('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv);
         return conn.send(req._encode_response(), 'res', req);
@@ -375,13 +375,13 @@ RPC.prototype._on_request = function(conn, msg) {
  */
 RPC.prototype._on_response = function(conn, msg) {
     dbg.log1('RPC._on_response:',
-        'reqid', msg.header.reqid,
+        'reqid', msg.body.reqid,
         'connid', conn.connid);
 
-    const req = conn._sent_requests.get(msg.header.reqid);
+    const req = conn._sent_requests.get(msg.body.reqid);
     if (!req) {
         dbg.warn('RPC._on_response: GOT RESPONSE BUT NO REQUEST',
-            'reqid', msg.header.reqid,
+            'reqid', msg.body.reqid,
             'connid', conn.connid);
         return;
     }
@@ -389,7 +389,7 @@ RPC.prototype._on_response = function(conn, msg) {
     const is_pending = req._set_response(msg);
     if (!is_pending) {
         dbg.warn('RPC._on_response: GOT RESPONSE BUT REQUEST NOT PENDING',
-            'reqid', msg.header.reqid,
+            'reqid', msg.body.reqid,
             'connid', conn.connid);
     }
 };
@@ -683,17 +683,17 @@ RPC.prototype._connection_closed = function(conn) {
  */
 RPC.prototype._on_message = function(conn, msg_buffer) {
     const msg = RpcRequest.decode_message(msg_buffer);
-    if (!msg || !msg.header) {
+    if (!msg || !msg.body) {
         conn.emit('error', new Error('RPC._on_message: BAD MESSAGE' +
             ' typeof(msg) ' + typeof(msg) +
-            ' typeof(msg.header) ' + typeof(msg && msg.header) +
+            ' typeof(msg.body) ' + typeof(msg && msg.body) +
             ' conn ' + conn.connid));
         return;
     }
-    if (!msg.header.op) msg.header.op = 'req';
-    if (!msg.header.reqid) msg.header.reqid = conn._alloc_reqid();
+    if (!msg.body.op) msg.body.op = 'req';
+    if (!msg.body.reqid) msg.body.reqid = conn._alloc_reqid();
 
-    switch (msg.header.op) {
+    switch (msg.body.op) {
         case 'req':
             P.resolve()
                 .then(() => this._on_request(conn, msg))
@@ -709,25 +709,25 @@ RPC.prototype._on_message = function(conn, msg_buffer) {
             P.resolve()
                 .then(() => conn.send(RpcRequest.encode_message({
                     op: 'pong',
-                    reqid: msg.header.reqid
+                    reqid: msg.body.reqid
                 })))
                 .catch(_.noop); // already means the conn is closed
             break;
         case 'pong':
-            if (conn._ping_reqid_set && conn._ping_reqid_set.has(msg.header.reqid)) {
+            if (conn._ping_reqid_set && conn._ping_reqid_set.has(msg.body.reqid)) {
                 dbg.log4('RPC PINGPONG', conn.connid);
-                conn._ping_reqid_set.delete(msg.header.reqid);
+                conn._ping_reqid_set.delete(msg.body.reqid);
             } else {
                 dbg.warn(`RPC PINGPONG MISMATCH pings ${
                         Array.from(conn._ping_reqid_set).join(',')
-                    } pong ${msg.header.reqid
+                    } pong ${msg.body.reqid
                     } connid ${conn.connid}`);
             }
             break;
         default:
             conn.emit('error', new Error('RPC._on_message:' +
-                ' BAD MESSAGE OP ' + msg.header.op +
-                ' reqid ' + msg.header.reqid +
+                ' BAD MESSAGE OP ' + msg.body.op +
+                ' reqid ' + msg.body.reqid +
                 ' connid ' + conn.connid));
             break;
     }

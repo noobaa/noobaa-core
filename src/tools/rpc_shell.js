@@ -17,6 +17,7 @@ var rpcshell = new RPCShell();
 argv.email = argv.email || 'demo@noobaa.com';
 argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'demo';
+argv.options = argv.options || undefined;
 
 function RPCShell() {
     this.rpc = api.new_rpc();
@@ -159,7 +160,7 @@ RPCShell.prototype.call = function(str_args) {
 
     console.log('Invoking RPC', apiname + '.' + func + '(' + util.inspect(rpc_args) + ')');
     return P.fcall(function() {
-            return self.client[apiname][func](rpc_args);
+            return self.client[apiname][func](rpc_args, argv.options);
         })
         .catch(function(err) {
             console.warn('Recieved error', err.stack || err);

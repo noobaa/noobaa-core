@@ -16,7 +16,6 @@ const RPC_VERSION_NUMBER = Buffer.from([
     RPC_VERSION_MINOR,
     RPC_VERSION_FLAGS,
 ]).readUInt32BE(0);
-const RPC_VERSION_HEX = `0x${RPC_VERSION_NUMBER.toString(16)}`;
 
 const RPC_BUFFERS = Symbol('RPC_BUFFERS');
 
@@ -49,18 +48,18 @@ class RpcRequest {
         this.srv = api.id + '.' + method_api.name;
     }
 
-    static encode_message(header, buffers) {
+    static encode_message(body, buffers) {
         const meta_buffer = Buffer.allocUnsafe(8);
-        const header_buffer = Buffer.from(JSON.stringify(header));
+        const body_buffer = Buffer.from(JSON.stringify(body));
         meta_buffer.writeUInt32BE(RPC_VERSION_NUMBER, 0);
-        meta_buffer.writeUInt32BE(header_buffer.length, 4);
+        meta_buffer.writeUInt32BE(body_buffer.length, 4);
         const msg_buffers = buffers ? [
             meta_buffer,
-            header_buffer,
+            body_buffer,
             ...buffers
         ] : [
             meta_buffer,
-            header_buffer
+            body_buffer
         ];
         return msg_buffers;
     }
@@ -79,16 +78,16 @@ class RpcRequest {
             if (flags !== RPC_VERSION_FLAGS) throw new Error('RPC VERSION FLAGS MISMATCH');
             throw new Error('RPC VERSION MISMATCH');
         }
-        const header_length = meta_buffer.readUInt32BE(4);
-        const header = JSON.parse(buffer_utils.extract_join(msg_buffers, header_length));
+        const body_length = meta_buffer.readUInt32BE(4);
+        const body = JSON.parse(buffer_utils.extract_join(msg_buffers, body_length));
         return {
-            header,
+            body,
             buffers: msg_buffers
         };
     }
 
     _encode_request() {
-        const header = {
+        const body = {
             op: 'req',
             reqid: this.reqid,
             api: this.api.id,
@@ -98,27 +97,27 @@ class RpcRequest {
             buffers: (this.params && this.params[RPC_BUFFERS]) || undefined,
         };
         let buffers;
-        if (header.buffers) {
+        if (body.buffers) {
             buffers = [];
-            header.buffers = _.map(header.buffers, (buf, name) => {
+            body.buffers = _.map(body.buffers, (buf, name) => {
                 buffers.push(buf);
                 return { name, len: buf.length };
             });
         }
-        return RpcRequest.encode_message(header, buffers);
+        return RpcRequest.encode_message(body, buffers);
     }
 
     _set_request(msg, api, method_api) {
-        this.reqid = msg.header.reqid;
+        this.reqid = msg.body.reqid;
         this.api = api;
         this.method_api = method_api;
-        this.params = msg.header.params;
-        this.auth_token = msg.header.auth_token;
+        this.params = msg.body.params;
+        this.auth_token = msg.body.auth_token;
         this.srv = (api ? api.id : '?') +
             '.' + (method_api ? method_api.name : '?');
-        if (msg.header.buffers) {
+        if (msg.body.buffers) {
             const buffers = {};
-            _.forEach(msg.header.buffers, a => {
+            _.forEach(msg.body.buffers, a => {
                 buffers[a.name] = buffer_utils.extract_join(msg.buffers, a.len);
             });
             this.params[RPC_BUFFERS] = buffers;
@@ -126,7 +125,7 @@ class RpcRequest {
     }
 
     _encode_response() {
-        const header = {
+        const body = {
             op: 'res',
             reqid: this.reqid,
             took: time_utils.millistamp() - this.ts,
@@ -135,19 +134,19 @@ class RpcRequest {
         if (this.error) {
             // copy the error to a plain object because otherwise
             // the message is not encoded by
-            header.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
+            body.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
         } else {
-            header.reply = this.reply;
-            header.buffers = this.reply && this.reply[RPC_BUFFERS];
-            if (header.buffers) {
+            body.reply = this.reply;
+            body.buffers = this.reply && this.reply[RPC_BUFFERS];
+            if (body.buffers) {
                 buffers = [];
-                header.buffers = _.map(header.buffers, (buf, name) => {
+                body.buffers = _.map(body.buffers, (buf, name) => {
                     buffers.push(buf);
                     return { name, len: buf.length };
                 });
             }
         }
-        return RpcRequest.encode_message(header, buffers);
+        return RpcRequest.encode_message(body, buffers);
     }
 
     _set_response(msg) {
@@ -155,16 +154,16 @@ class RpcRequest {
         if (!is_pending) {
             return is_pending;
         }
-        this._set_times(msg.header.took);
-        const err = msg.header.error;
+        this._set_times(msg.body.took);
+        const err = msg.body.error;
         if (err) {
             this.error = new RpcError(err.rpc_code, err.message, err.rpc_data);
             this._response_defer.reject(this.error);
         } else {
-            this.reply = msg.header.reply;
-            if (msg.header.buffers) {
+            this.reply = msg.body.reply;
+            if (msg.body.buffers) {
                 const buffers = {};
-                _.forEach(msg.header.buffers, a => {
+                _.forEach(msg.body.buffers, a => {
                     buffers[a.name] = buffer_utils.extract_join(msg.buffers, a.len);
                 });
                 this.reply[RPC_BUFFERS] = buffers;
@@ -184,6 +183,5 @@ class RpcRequest {
 
 RpcRequest.RPC_BUFFERS = RPC_BUFFERS;
 RpcRequest.RPC_VERSION_NUMBER = RPC_VERSION_NUMBER;
-RpcRequest.RPC_VERSION_HEX = RPC_VERSION_HEX;
 
 module.exports = RpcRequest;

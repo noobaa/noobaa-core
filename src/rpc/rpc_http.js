@@ -9,7 +9,7 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const buffer_utils = require('../util/buffer_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
-const { RPC_VERSION_NUMBER, RPC_VERSION_HEX } = require('./rpc_request');
+const { RPC_VERSION_NUMBER } = require('./rpc_request');
 
 // dbg.set_level(5);
 
@@ -105,13 +105,12 @@ class RpcHttpConnection extends RpcBaseConnection {
             throw new Error('HTTP RESPONSE ALREADY SENT ' + req.reqid);
         }
         res.statusCode = 200;
-        if (_.isArray(msg)) {
-            buffer_utils.extract(msg, 8);
-            for (const m of msg) res.write(m);
-            res.end();
-        } else {
-            res.end(msg.slice(8));
-        }
+        if (!_.isArray(msg)) msg = [msg];
+        const headers = {};
+        extract_meta_buffer(msg, headers);
+        res.writeHead(200, headers);
+        for (const m of msg) res.write(m);
+        res.end();
         this.res = null;
     }
 
@@ -127,19 +126,16 @@ class RpcHttpConnection extends RpcBaseConnection {
         // set the url path only for logging to show it
         let path = BASE_PATH + rpc_req.srv;
 
-        // use POST for all requests (used to be req.method_api.method but unneeded),
-        // and send the body as binary buffer
-        let http_method = 'POST';
-        let content_length = _.sumBy(msg, 'length');
-        headers['content-length'] = content_length;
+        extract_meta_buffer(msg, headers);
+        headers['content-length'] = _.sumBy(msg, 'length');
         headers['content-type'] = 'application/json';
-        headers['x-noobaa-rpc-version'] = RPC_VERSION_HEX;
 
         let http_options = {
             protocol: this.url.protocol,
             hostname: this.url.hostname,
             port: this.url.port,
-            method: http_method,
+            // use PUT for all requests (used to be req.method_api.method but unneeded)
+            method: 'PUT',
             path: path,
             headers: headers,
             // accept self signed ssl certificates
@@ -182,13 +178,9 @@ class RpcHttpConnection extends RpcBaseConnection {
      */
     async handle_http_request() {
         try {
-            const meta_buffer = Buffer.allocUnsafe(8);
-            const version_header = this.req.headers['x-noobaa-rpc-version'] || '*';
-            const rpc_version = version_header === '*' ? RPC_VERSION_NUMBER : Number(version_header);
             const { buffers, total_length } = await buffer_utils.read_stream(this.req);
-            meta_buffer.writeUInt32BE(rpc_version, 0);
-            meta_buffer.writeUInt32BE(total_length, 4);
-            this.emit('message', [meta_buffer, ...buffers]);
+            const msg_buffers = add_meta_buffer(buffers, total_length, this.req.headers);
+            this.emit('message', msg_buffers);
         } catch (err) {
             dbg.error('handle_http_request: ERROR', err.stack || err);
             this.res.statusCode = 500;
@@ -209,14 +201,15 @@ class RpcHttpConnection extends RpcBaseConnection {
 
         try {
             // read the response data from the socket
-            const read_res = await buffer_utils.read_stream(res);
+            const { buffers, total_length } = await buffer_utils.read_stream(res);
             // the connection's req is done so no need to abort it on close no more
             this.req = null;
             if (res.statusCode !== 200) {
                 throw new Error('HTTP ERROR ' + res.statusCode + ' to ' + this.url.href);
             }
-            dbg.log3('HTTP RESPONSE', res.statusCode, 'length', read_res.total_length);
-            this.emit('message', read_res.buffers);
+            dbg.log3('HTTP RESPONSE', res.statusCode, 'length', total_length);
+            const msg_buffers = add_meta_buffer(buffers, total_length, res.headers);
+            this.emit('message', msg_buffers);
         } catch (err) {
             // the connection's req is done so no need to abort it on close no more
             this.req = null;
@@ -227,5 +220,23 @@ class RpcHttpConnection extends RpcBaseConnection {
 
 }
 
+function add_meta_buffer(buffers, total_length, headers) {
+    const version_header = headers['x-noobaa-rpc-version'];
+    const body_len_header = headers['x-noobaa-rpc-body-len'];
+    const rpc_version = version_header === undefined ?
+        RPC_VERSION_NUMBER : Number(version_header);
+    const rpc_body_len = body_len_header === undefined ?
+        total_length : Number(body_len_header);
+    const meta_buffer = Buffer.allocUnsafe(8);
+    meta_buffer.writeUInt32BE(rpc_version, 0);
+    meta_buffer.writeUInt32BE(rpc_body_len, 4);
+    return [meta_buffer, ...buffers];
+}
+
+function extract_meta_buffer(buffers, headers) {
+    const meta_buffer = buffer_utils.extract_join(buffers, 8);
+    headers['x-noobaa-rpc-version'] = meta_buffer.readUInt32BE(0);
+    headers['x-noobaa-rpc-body-len'] = meta_buffer.readUInt32BE(4);
+}
 
 module.exports = RpcHttpConnection;

@@ -407,7 +407,7 @@ function getVersion(route) {
                             };
                         }
                         return server_rpc.client.system.read_system({}, {
-                                address: 'http://127.0.0.1:' + http_port,
+                                address: 'ws://127.0.0.1:' + http_port,
                                 auth_token: auth_server.make_auth_token({
                                     system_id: system._id,
                                     role: 'admin',

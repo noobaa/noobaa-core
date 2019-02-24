@@ -139,7 +139,7 @@ class RpcN2NAgent extends EventEmitter {
 
     set_ssl_context(secure_context_params) {
         this.n2n_config.ssl_options.secureContext =
-            tls.createSecureContext({ honorCipherOrder: true, ...secure_context_params });
+            tls.createSecureContext({ ...secure_context_params, honorCipherOrder: true });
     }
 
     update_n2n_config(n2n_config) {

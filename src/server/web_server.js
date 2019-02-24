@@ -36,7 +36,6 @@ const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
 const auth_server = require('./common_services/auth_server');
 
-
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
@@ -71,7 +70,6 @@ if (!env_obj.MONGO_SSL_USER) {
     }
 }
 
-
 system_store.once('load', account_server.ensure_support_account);
 
 mongo_client.instance().connect();
@@ -80,11 +78,7 @@ mongo_client.instance().connect();
 http.globalAgent.keepAlive = true;
 https.globalAgent.keepAlive = true;
 
-/////////
-// RPC //
-/////////
-
-var server_rpc = require('./server_rpc');
+const server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
 server_rpc.register_node_services();
 server_rpc.register_object_services();
@@ -93,38 +87,35 @@ server_rpc.register_common_services();
 server_rpc.rpc.register_http_app(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
 
-var http_port = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT || 5443;
+const http_port = process.env.PORT || 5001;
+const https_port = process.env.SSL_PORT || 5443;
 process.env.PORT = http_port;
 process.env.SSL_PORT = https_port;
-var http_server = http.createServer(app);
-var https_server;
 
 let webserver_started = 0;
 
-P.resolve()
-    .then(() => {
+async function start_web_server() {
+    try {
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
         // with the http services like /fe and /version
+        var http_server = http.createServer(app);
         server_rpc.rpc.register_ws_transport(http_server);
-        return P.ninvoke(http_server, 'listen', http_port);
-    })
-    .then(() => ssl_utils.read_ssl_certificate())
-    .then(cert => {
-        https_server = https.createServer(cert, app);
+        await P.ninvoke(http_server, 'listen', http_port);
+
+        const ssl_cert = await ssl_utils.read_ssl_certificate();
+        const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
         server_rpc.rpc.register_ws_transport(https_server);
-        return P.ninvoke(https_server, 'listen', https_port);
-    })
-    .then(() => {
+        await P.ninvoke(https_server, 'listen', https_port);
+
         dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
         webserver_started = Date.now();
-    })
-    .catch(err => {
+
+    } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
-    });
-
+    }
+}
 
 ////////////////
 // MIDDLEWARE //
@@ -621,3 +612,6 @@ function is_latest_version(query_version) {
 
     return true;
 }
+
+
+if (require.main === module) start_web_server();

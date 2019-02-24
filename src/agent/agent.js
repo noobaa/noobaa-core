@@ -333,7 +333,7 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-                this.ssl_context = ssl_utils.generate_ssl_certificate();
+                this.ssl_context = { ...ssl_utils.generate_ssl_certificate(), honorCipherOrder: true };
                 // update the n2n ssl to use my certificate
                 this.n2n_agent.set_ssl_context(this.ssl_context);
             })

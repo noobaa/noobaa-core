@@ -121,77 +121,47 @@ function start_all() {
     }
 }
 
-function run_server(options) {
+async function run_server(options) {
+    try {
+        // Workers can share any TCP connection
+        // In this case its a HTTP server
+        const config_params = await read_config_file();
+        // Just in case part of the information is missing, add default params.
+        const { address, port, ssl_port } = _.defaults(argv, config_params, {
+            port: process.env.ENDPOINT_PORT || 80,
+            ssl_port: process.env.ENDPOINT_SSL_PORT || 443,
+        });
 
-    // Workers can share any TCP connection
-    // In this case its a HTTP server
-    let params = argv;
-    let endpoint_request_handler;
+        let rpc;
+        const addr_url = url.parse(address || '');
+        const is_local_address = !address ||
+            addr_url.hostname === '127.0.0.1' ||
+            addr_url.hostname === 'localhost';
+        if (is_local_address) {
+            dbg.log0('Initialize S3 RPC with MDServer');
+            const md_server = require('../server/md_server'); // eslint-disable-line global-require
+            rpc = await md_server.register_rpc();
+        } else {
+            dbg.log0('Initialize S3 RPC to address', address);
+            update_virtual_host_suffix(address);
+            rpc = api.new_rpc(address);
+        }
 
-    read_config_file()
-        .then(config_params => {
-            // Just in case part of the information is missing, add default params.
-            _.defaults(params, config_params, {
-                port: process.env.ENDPOINT_PORT || 80,
-                ssl_port: process.env.ENDPOINT_SSL_PORT || 443,
-            });
-            return options.certs || ssl_utils.read_ssl_certificate();
-        })
-        .then(certificate => {
-            params.certificate = certificate;
-            const addr_url = url.parse(params.address || '');
-            const is_local_address = !params.address ||
-                addr_url.hostname === '127.0.0.1' ||
-                addr_url.hostname === 'localhost';
-            if (is_local_address) {
-                dbg.log0('Initialize S3 RPC with MDServer');
-                const md_server = require('../server/md_server'); // eslint-disable-line global-require
-                return md_server.register_rpc();
-            } else {
-                dbg.log0('Initialize S3 RPC to address', params.address);
-                update_virtual_host_suffix(params.address);
-                return api.new_rpc(params.address);
-            }
-        })
-        .then(rpc => {
-            endpoint_request_handler = create_endpoint_handler(rpc, options);
-            if (ENDPOINT_FTP_ENABLED) {
-                const port = process.env.FTP_PORT || 21;
-                // ftp-srv calls log.debug in some cases. set it to dbg.trace
-                dbg.debug = dbg.trace;
-                dbg.child = () => dbg;
-                const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${port}`, {
-                    pasv_range: process.env.FTP_PASV_RANGE || "8000-9000",
-                    anonymous: true,
-                    log: dbg
-                });
-                const obj_io = new ObjectIO(location_info);
-                //
-                ftp_srv.on('login', (creds, resolve, reject) => {
-                    dbg.log0(`got a login request from user ${creds.username}`);
-                    // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
-                    resolve({
-                        fs: new FtpFileSystemNB({
-                            object_sdk: new ObjectSDK(rpc.new_client(), obj_io)
-                        })
-                    });
-                });
+        const endpoint_request_handler = create_endpoint_handler(rpc, options);
+        if (ENDPOINT_FTP_ENABLED) start_ftp_endpoint(rpc);
 
-                P.resolve(ftp_srv.listen())
-                    .catch(err => console.log(`got error from ftp_srv.listen`, err));
-            }
-        })
-        .then(() => dbg.log0('Starting HTTP', params.port))
-        .then(() => listen_http(params.port, http.createServer(endpoint_request_handler)))
-        .then(() => dbg.log0('Starting HTTPS', params.ssl_port))
-        .then(() => listen_http(params.ssl_port, https.createServer(params.certificate, endpoint_request_handler)))
-        .then(() => {
-            dbg.log0('S3 server started successfully');
-            if (process.send) {
-                process.send({ code: 'STARTED_SUCCESSFULLY' });
-            }
-        })
-        .catch(handle_server_error);
+        const ssl_cert = options.certs || await ssl_utils.read_ssl_certificate();
+        const http_server = http.createServer(endpoint_request_handler);
+        const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, endpoint_request_handler);
+        dbg.log0('Starting HTTP', port);
+        await listen_http(port, http_server);
+        dbg.log0('Starting HTTPS', ssl_port);
+        await listen_http(ssl_port, https_server);
+        dbg.log0('S3 server started successfully');
+        if (process.send) process.send({ code: 'STARTED_SUCCESSFULLY' });
+    } catch (err) {
+        handle_server_error(err);
+    }
 }
 
 
@@ -246,6 +216,34 @@ function create_endpoint_handler(rpc, options) {
         if (virtual_host_suffix) req.virtual_host_suffix = virtual_host_suffix;
         req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
         return s3_rest_handler(req, res);
+    }
+}
+
+async function start_ftp_endpoint(rpc) {
+    try {
+        const port = process.env.FTP_PORT || 21;
+        // ftp-srv calls log.debug in some cases. set it to dbg.trace
+        dbg.debug = dbg.trace;
+        dbg.child = () => dbg;
+        const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${port}`, {
+            pasv_range: process.env.FTP_PASV_RANGE || "8000-9000",
+            anonymous: true,
+            log: dbg
+        });
+        const obj_io = new ObjectIO(location_info);
+        ftp_srv.on('login', (creds, resolve, reject) => {
+            dbg.log0(`got a login request from user ${creds.username}`);
+            // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
+            resolve({
+                fs: new FtpFileSystemNB({
+                    object_sdk: new ObjectSDK(rpc.new_client(), obj_io)
+                })
+            });
+        });
+
+        await ftp_srv.listen();
+    } catch (err) {
+        console.log(`got error from ftp_srv.listen`, err);
     }
 }
 

@@ -49,7 +49,7 @@ class RpcHttpServer extends events.EventEmitter {
         dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
 
         const server = secure ?
-            https.createServer(ssl_utils.generate_ssl_certificate()) :
+            https.createServer({ ...ssl_utils.generate_ssl_certificate(), honorCipherOrder: true }) :
             http.createServer();
         this.install_on_server(server, options.default_handler);
         return P.fromCallback(callback => server.listen(port, callback))

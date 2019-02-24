@@ -26,6 +26,64 @@ spec:
   selector:
     app: noobaa-server
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: noobaa-server
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: noobaa-server
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - endpoints
+      - persistentvolumeclaims
+      - events
+      - configmaps
+      - secrets
+    verbs:
+      - "*"
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+    verbs:
+      - "*"
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - servicemonitors
+    verbs:
+      - get
+      - create
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-server
+subjects:
+  - kind: ServiceAccount
+    name: noobaa-server
+roleRef:
+  kind: Role
+  name: noobaa-server
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
@@ -80,6 +138,7 @@ spec:
           emptyDir: { medium: "Memory" }
         - name: run-lock-volume
           emptyDir: { medium: "Memory" }
+      serviceAccountName: noobaa-server
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between

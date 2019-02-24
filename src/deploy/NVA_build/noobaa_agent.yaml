@@ -5,42 +5,44 @@ metadata:
 spec:
   serviceName: noobaa-agent
   replicas: 3
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
         app: noobaa-agent
     spec:
       containers:
-      - name: noobaa-agent
-        env:
-        # Insert the relevant config for the current agent
-        - name: AGENT_CONFIG
-          value: "AGENT_CONFIG_VALUE"
-        # Insert the relevant image for the agent
-        image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
-        imagePullPolicy: Always
-        ports:
-        # This should change according to the allocation from the NooBaa server
-        - containerPort: 60101
-        # These volume mounts are persistent. Each pod in the PetSet
-        # gets a volume mounted based on this field.
-        volumeMounts:
-        - name: noobaastorage
-          mountPath: /noobaa_storage
-        - name: tmp-logs-vol
-          mountPath: /usr/local/noobaa/logs
+        - name: noobaa-agent
+          env:
+            # Insert the relevant config for the current agent
+            - name: AGENT_CONFIG
+              value: "AGENT_CONFIG_VALUE"
+          # Insert the relevant image for the agent
+          image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
+          imagePullPolicy: Always
+          ports:
+            # This should change according to the allocation from the NooBaa server
+            - containerPort: 60101
+          # These volume mounts are persistent. Each pod in the PetSet
+          # gets a volume mounted based on this field.
+          volumeMounts:
+            - name: noobaastorage
+              mountPath: /noobaa_storage
+            - name: tmp-logs-vol
+              mountPath: /usr/local/noobaa/logs
       volumes:
-      - name: tmp-logs-vol
-        emptyDir: { }
+        - name: tmp-logs-vol
+          emptyDir: {}
   # These are converted to volume claims by the controller
   # and mounted at the paths mentioned above.
   volumeClaimTemplates:
-  - metadata:
-      name: noobaastorage
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 30Gi
-      # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
-      #storageClassName:
+    - metadata:
+        name: noobaastorage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 30Gi
+        # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+        #storageClassName:

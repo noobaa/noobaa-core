@@ -472,8 +472,11 @@ async function copy_new_code() {
 async function build_dotenv() {
     dbg.log0('UPGRADE: generating dotenv file in the new version directory');
     const old_env = dotenv.parse(await fs.readFileAsync(`/data/.env`));
+    const new_env_defaults = process.env.container === 'docker' ?
+        await fs.readFileAsync(`${CORE_DIR}/src/deploy/NVA_build/env.orig`) :
+        await fs.readFileAsync(`${NEW_VERSION_DIR}/src/deploy/NVA_build/env.orig`);
     const new_env = Object.assign(
-        dotenv.parse(await fs.readFileAsync(`${NEW_VERSION_DIR}/src/deploy/NVA_build/env.orig`)),
+        dotenv.parse(new_env_defaults),
         _.pick(old_env, DOTENV_VARS_FROM_OLD_VER),
     );
 
@@ -770,6 +773,15 @@ async function update_data_version() {
     await fs.writeFileAsync(DATA_VERSION_PATH, pkg.version);
 }
 
+async function upgrade_agents() {
+    if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') return;
+    dbg.log0(`UPGRADE: updating agents yaml to the new version`);
+    // await exec 
+    await exec(`kubectl set image statefulset noobaa-agent noobaa-agent=noobaaimages.azurecr.io/noobaa/nbagent:${pkg.version.split('-')[1] || 'latest'}`, {
+        ignore_err: true
+    });
+}
+
 async function after_upgrade_cleanup() {
     dbg.log0(`UPGRADE: deleting ${EXTRACTION_PATH}`);
     await fs_utils.folder_delete(`${EXTRACTION_PATH}`);
@@ -836,6 +848,7 @@ exports.build_dotenv = build_dotenv;
 exports.update_services = update_services;
 exports.upgrade_mongodb_version = upgrade_mongodb_version;
 exports.upgrade_mongodb_schemas = upgrade_mongodb_schemas;
+exports.upgrade_agents = upgrade_agents;
 exports.update_data_version = update_data_version;
 exports.after_upgrade_cleanup = after_upgrade_cleanup;
 exports.stopped_services_during_upgrade = stopped_services_during_upgrade;

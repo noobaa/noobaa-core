@@ -67,6 +67,11 @@ class UpgradeManager {
                 func: () => this.update_data_version(),
                 should_run_unmanaged: true
             }, {
+                name: 'UPGRADE_AGENTS',
+                func: () => this.upgrade_agents(),
+                ignore_errors: true,
+                should_run_unmanaged: true
+            }, {
                 name: 'CLEANUP',
                 func: () => this.cleanup_stage(),
                 ignore_errors: true,
@@ -230,6 +235,10 @@ class UpgradeManager {
 
     async update_data_version() {
         await platform_upgrade.update_data_version();
+    }
+
+    async upgrade_agents() {
+        await platform_upgrade.upgrade_agents();
     }
 
     async cleanup_stage() {

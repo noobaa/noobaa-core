@@ -203,6 +203,17 @@ function install_nodejs {
 
 }
 
+function install_kubectl {
+    if [ "${container}" == "docker" ]; then
+        deploy_log "install_kubectl start"
+        stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
+        deploy_log "install_kubectl done"
+    fi
+}
+
 function install_noobaa_repos {
     deploy_log "install_noobaa_repos start"
 
@@ -459,6 +470,7 @@ function runinstall {
     install_noobaa_repos
     install_nodejs
     install_mongo
+    install_kubectl
     general_settings
     setup_supervisors
     setup_syslog

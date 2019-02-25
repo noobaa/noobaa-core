@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 /*
-  DebugLogger is a wrapper for winston.
+  DebugLogger is a wrapper for rotating file stream.
   It provides multi nested modules definitions for easier module->level management.
   DebugLogger exposes logX and logX_withbt functions.
   InternalDebugLogger is a "singleton" used by all DebugLogger objects,
-  performing the actuall logic and calls to winston.
+  performing the actuall logic and calls to rotating file stream.
 */
 /* eslint-disable global-require */
 "use strict";
@@ -20,6 +20,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
+const os = require('os');
 
 const nb_native = require('./nb_native');
 const LRU = require('./lru');
@@ -36,16 +37,22 @@ try {
     // ignore
 }
 
+function _should_log_to_file() {
+    if (process.env.container === 'docker') return false;
+    if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') return false;
+    if (global.document) return false;
+    return true;
+}
+
 //Detect our context, node/atom/browser
-//Different context requires different handling, for example winston usage or console wrapping
+//Different context requires different handling, for example rotating file steam usage or console wrapping
 var processType; // eslint-disable-line no-unused-vars
-var winston;
+const rfs = _should_log_to_file() && require("rotating-file-stream");
 var syslog;
 var console_wrapper;
 if (typeof process !== 'undefined' &&
     process.versions &&
     process.versions['atom-shell']) { //atom shell
-    winston = require('winston');
     processType = "atom";
     console_wrapper = require('./console_wrapper');
 } else if (global.document) {
@@ -68,7 +75,6 @@ if (typeof process !== 'undefined' &&
     if (should_log_to_syslog) {
         syslog = nb_native().syslog;
     }
-    winston = require('winston');
 
 
     processType = "node";
@@ -133,11 +139,6 @@ function extract_module(mod, ignore_extension) {
     return name;
 }
 
-const just_print = winston && winston.format((info, opts) => {
-    info[Symbol.for('message')] = info.message;
-    return info;
-});
-
 var LOG_FUNC_PER_LEVEL = {
     LOG: 'log',
     INFO: 'info',
@@ -161,7 +162,6 @@ class InternalDebugLogger {
             expiry_ms: THROTTLING_PERIOD_SEC * 1000, // 30 seconds before repeating any message
         });
 
-        this._file_path = undefined;
         this._logs_by_file = [];
         this._modules = {
             __level: 0
@@ -197,7 +197,7 @@ class InternalDebugLogger {
         };
         this._proc_name = '';
         this._pid = process.pid;
-        if (!winston) {
+        if (!rfs) {
             return;
         }
 
@@ -210,31 +210,17 @@ class InternalDebugLogger {
             }
         }
 
-        this._log_console = winston.createLogger({
-            levels: this._levels,
-            format: just_print({}),
-            transports: [new winston.transports.Console({
-                name: 'console_transp',
-                level: 'LAST',
-            })],
-        });
+        this._log_console = console;
 
         // if not logging to syslog add a file transport
         if (!syslog) {
             const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
-            this._log_file = winston.createLogger({
-                levels: this._levels,
-                format: just_print({}),
-                transports: [new winston.transports.File({
-                    name: 'file_transp',
-                    level: 'LAST',
-                    filename: `noobaa${suffix}.log`,
-                    dirname: './logs/',
-                    maxsize: (10 * 1024 * 1024),
-                    maxFiles: 100,
-                    tailable: true,
-                    zippedArchive: true,
-                })],
+            const filename_generator = (time, index) => (`noobaa${suffix}${index ? `.${index}.log.gz` : '.log'}`);
+            this._log_file = rfs(filename_generator, {
+                path: "./logs/",
+                maxFiles: 100,
+                size: "100MB", // rotate every 100 MegaBytes written
+                compress: "gzip" // compress rotated files
             });
         }
 
@@ -246,7 +232,6 @@ class InternalDebugLogger {
         }
         return InternalDebugLogger._instance;
     }
-
 
     build_module_context(mod, mod_object) {
         var mod_name;
@@ -419,42 +404,23 @@ class InternalDebugLogger {
     }
 
     log_internal(msg_info) {
-        if (this._file_path) {
-            var winston_log = this._logs_by_file[this._file_path.name];
-            if (!winston_log) {
-                let winston = require('winston'); // eslint-disable-line no-shadow
-                //Define Transports
-                winston_log = winston.createLogger({
-                    levels: this._levels,
-                    format: just_print({}),
-                    transports: [
-                        new winston.transports.File({
-                            name: 'file_transport',
-                            level: 'LAST',
-                            filename: this._file_path.base,
-                            dirname: this._file_path.dir,
-                        })
-                    ],
-                });
-                this._logs_by_file[this._file_path.name] = winston_log;
-            }
-            winston_log[msg_info.level](msg_info.message_file);
-        } else if (this._log_console) {
+        if (this._log_console) {
             if (syslog) {
                 // syslog path
                 syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, 'LOG_LOCAL0');
             } else {
-                // winston path (non browser)
-                this._log_file[msg_info.level](msg_info.message_file);
+                // rotating file steam path (non browser)
+                this._log_file.write(msg_info.message_file + os.EOL);
             }
-            this._log_console[msg_info.level](msg_info.message_console);
-        } else {
-            // browser workaround, don't use winston. Add timestamp and level
-            const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-            console[logfunc](...msg_info.message_browser);
         }
+        // This is also used in order to log to the console
+        // browser workaround, don't use rotating file steam. Add timestamp and level
+        const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
         if (console_wrapper) {
+            console[logfunc](msg_info.message_console);
             console_wrapper.wrapper_console();
+        } else {
+            console[logfunc](...msg_info.message_browser);
         }
     }
 }

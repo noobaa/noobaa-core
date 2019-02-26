@@ -26,15 +26,13 @@ spec:
   selector:
     app: noobaa-server
 ---
-apiVersion: apps/v1
+apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
   name: noobaa-server
 spec:
   serviceName: noobaa-services
   replicas: 1
-  selector:
-    app: noobaa
   template:
     metadata:
       labels:
@@ -42,9 +40,6 @@ spec:
     spec:
       containers:
         - name: noobaa-server
-          securityContext:
-            capabilities: {}
-            privileged: true
           resources:
             requests:
               memory: "1Gi"
@@ -55,8 +50,7 @@ spec:
           # change image location before running
           # image: [image registry]/[image]
           # TODO: Need to update the tag in the build process
-          image: noobaaimages.azurecr.io/noobaa/nbserver:latest
-          imagePullPolicy: Always
+          image: noobaaimages.azurecr.io/noobaa/nbserver:1
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -70,9 +64,6 @@ spec:
             - containerPort: 60104
             - containerPort: 60105
           volumeMounts:
-            - mountPath: /sys/fs/cgroup
-              name: cgroup-volume
-              readOnly: true
             - mountPath: /run
               name: run-volume
             - mountPath: /run/lock
@@ -81,13 +72,8 @@ spec:
               name: datadir
             - mountPath: /log
               name: logdir
+
       volumes:
-        - name: cgroup-volume
-          hostPath:
-            # directory location on host
-            path: /sys/fs/cgroup
-            # this field is optional
-            type: Directory
         - name: run-volume
           emptyDir: { medium: "Memory" }
         - name: run-lock-volume

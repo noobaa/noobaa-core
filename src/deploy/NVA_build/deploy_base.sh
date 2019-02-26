@@ -376,6 +376,9 @@ function setup_supervisors {
 function setup_syslog {
 	deploy_log "setup_syslog start"
 
+    # remove rsyslog from systemd
+    systemctl disable rsyslog
+
     if [ "${container}" != "docker" ]; then
         semanage fcontext -a -t syslogd_var_lib_t /log
         restorecon -R -v /log
@@ -384,11 +387,11 @@ function setup_syslog {
     fi
 
     # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
+    # remove rsyslog listen.conf
+    rm -f /etc/rsyslog.d/listen.conf
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/rsyslog.conf /etc/rsyslog.conf
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
     cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
-
-    # setup crontab to run logrotate every 15 minutes.
-    echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 
 	deploy_log "setup_syslog done"
 }

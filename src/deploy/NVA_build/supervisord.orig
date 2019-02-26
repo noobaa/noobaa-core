@@ -16,7 +16,11 @@ start() {
     fi
     echo "Starting ..."
     logger -p local0.info -t Superd "Starting ..."
-    ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE
+    if [ $1 == "container" ]; then
+        ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE -n
+    else
+        ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE
+    fi
 
     return $?
 }
@@ -63,6 +67,9 @@ stop() {
 case $1 in
     start)
         start
+    ;;
+    start_container)
+        start container
     ;;
     stop)
         stop

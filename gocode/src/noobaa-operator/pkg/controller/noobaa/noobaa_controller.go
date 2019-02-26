@@ -241,6 +241,7 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 	statefulSet.ObjectMeta.Namespace = nb.Namespace
 	statefulSet.ObjectMeta.Name = nb.Name
 	statefulSet.Spec.Selector.MatchLabels = ls
+	statefulSet.Spec.ServiceName = nb.Name + "-services"
 	statefulSet.Spec.Template.ObjectMeta.Labels = ls
 	if nb.Spec.Image != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Image = nb.Spec.Image
@@ -253,6 +254,7 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 			corev1.EnvVar{Name: "CREATE_SYS_NAME", Value: nb.Name},
 			corev1.EnvVar{Name: "CREATE_SYS_EMAIL", Value: nb.Spec.Email},
 			corev1.EnvVar{Name: "CREATE_SYS_CODE", Value: nb.Spec.ActivationCode},
+			corev1.EnvVar{Name: "CONTAINER_PLATFORM", Value: "KUBERNETES"},
 		}
 	}
 

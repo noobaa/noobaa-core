@@ -65,7 +65,10 @@ EOF
     fi
 }
 
-init_noobaa_server() {
+init_noobaa_server() { 
+  # make sure /log has limited permissions. this is required by logrotate
+  chmod 755 /log
+
   # run init scripts
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh

@@ -197,6 +197,7 @@ class InternalDebugLogger {
         };
         this._proc_name = '';
         this._pid = process.pid;
+        this._log_console = console;
         if (!rfs) {
             return;
         }
@@ -210,7 +211,6 @@ class InternalDebugLogger {
             }
         }
 
-        this._log_console = console;
 
         // if not logging to syslog add a file transport
         if (!syslog) {
@@ -351,7 +351,7 @@ class InternalDebugLogger {
             level: level,
             message_console: prefix + msg,
             message_file: prefix + msg_oneline,
-            message_syslog: msg_oneline,
+            message_syslog: proc + msg_oneline,
             message_browser: browser_args
         };
     }
@@ -404,14 +404,12 @@ class InternalDebugLogger {
     }
 
     log_internal(msg_info) {
-        if (this._log_console) {
-            if (syslog) {
-                // syslog path
-                syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, 'LOG_LOCAL0');
-            } else {
-                // rotating file steam path (non browser)
-                this._log_file.write(msg_info.message_file + os.EOL);
-            }
+        if (syslog) {
+            // syslog path
+            syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, 'LOG_LOCAL0');
+        } else if (this._log_file) {
+            // rotating file steam path (non browser)
+            this._log_file.write(msg_info.message_file + os.EOL);
         }
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
@@ -569,10 +567,6 @@ DebugLogger.prototype.set_logger_name = function(name) {
 
 DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
-    if (syslog) {
-        nb_native().closelog();
-        nb_native().openlog(name);
-    }
 };
 
 DebugLogger.prototype.set_log_to_file = function(log_file) {

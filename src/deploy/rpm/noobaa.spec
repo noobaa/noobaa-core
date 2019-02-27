@@ -40,6 +40,7 @@ Requires:   ntp = 4.2.6p5
 Requires:   nc
 Requires:   vim
 Requires:   less
+Requires:   bash-completion
 Requires:   mongodb-org = 3.6.5
 Requires:   mongodb-org-server = 3.6.5
 Requires:   mongodb-org-shell = 3.6.5

@@ -241,6 +241,18 @@ function install_mongo {
     deploy_log "install_mongo done"
 }
 
+
+function setup_bash_completions {
+    deploy_log "setting up bash_completions"
+
+    echo "# Use bash-completion, if available
+[[ \$PS1 && -f /usr/share/bash-completion/bash_completion ]] &&
+    . /usr/share/bash-completion/bash_completion" >> ~/.bashrc
+
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisorctl.bash_completion /etc/bash_completion.d/supervisorctl
+}
+
+
 function general_settings {
 	deploy_log "general_settings start"
 
@@ -275,6 +287,8 @@ function general_settings {
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
     echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
     echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
+
+    setup_bash_completions
 
     #Fix file descriptor limits, tcp timeout
     echo "root hard nofile 102400" >> /etc/security/limits.conf

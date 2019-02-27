@@ -430,8 +430,8 @@ function getVersion(route) {
                                 return { status: 503 };
                             });
                     } else {
-                        dbg.log0(`${route} returning 404, started(${started}), service_registered(${registered}),
-                        status.in_progress(${status.in_progress}), system_store.is_finished_initial_load(${system_store.is_finished_initial_load})`);
+                        dbg.log0(`${route} returning 404, started(${started}), service_registered(${registered})`,
+                        `, status.in_process(${status.in_process}), system_store.is_finished_initial_load(${system_store.is_finished_initial_load})`);
                         return { status: 404 };
                     }
                 })

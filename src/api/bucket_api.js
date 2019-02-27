@@ -832,7 +832,7 @@ module.exports = {
             ],
             properties: {
                 name: {
-                    type: 'string'
+                    $ref: 'common_api#/definitions/bucket_name'
                 },
                 namespace: {
                     type: 'object',

@@ -50,13 +50,13 @@ function install_platform {
         systemctl disable firewalld
         systemctl disable NetworkManager
         systemctl enable iptables
+        # make network service run on boot
+        systemctl enable network
+        # enable random number generator daemon
+        # see https://www.certdepot.net/rhel7-get-started-random-number-generator/
+        systemctl enable rngd
     fi 
 
-    # make network service run on boot
-    systemctl enable network
-    # enable random number generator daemon
-    # see https://www.certdepot.net/rhel7-get-started-random-number-generator/
-    systemctl enable rngd
 
 	# make crontab start on boot
 	chkconfig crond on
@@ -230,9 +230,9 @@ function install_mongo {
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
     rm -f /etc/init.d/mongod
-    systemctl disable mongod
 
     if [ "${container}" != "docker" ]; then
+        systemctl disable mongod
         systemctl stop mongod
         deploy_log "adding mongo ssl user"
         add_mongo_ssl_user
@@ -391,9 +391,9 @@ function setup_syslog {
 	deploy_log "setup_syslog start"
 
     # remove rsyslog from systemd
-    systemctl disable rsyslog
 
     if [ "${container}" != "docker" ]; then
+        systemctl disable rsyslog
         semanage fcontext -a -t syslogd_var_lib_t /log
         restorecon -R -v /log
 

@@ -362,7 +362,18 @@ function create_system(req) {
             }
 
             //DNS name, if supplied
-            if (req.rpc_params.dns_name) {
+            if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+                const dns_name = await os_utils.get_kubernetes_dns_name();
+                const base_address = `wss://${dns_name}:${process.env.SSL_PORT}`;
+                dbg.log0('updating base address according to kuberenets dns name:', base_address);
+                if (base_address) {
+                    await server_rpc.client.system.update_base_address({
+                        base_address: base_address
+                    }, {
+                        auth_token: reply_token
+                    });
+                }
+            } else if (req.rpc_params.dns_name) {
                 dbg.log0(`create_system: updating host name to ${req.rpc_params.dns_name}`);
                 try {
                     await server_rpc.client.system.update_hostname({

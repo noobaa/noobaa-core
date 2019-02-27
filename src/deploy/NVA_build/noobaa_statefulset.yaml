@@ -72,7 +72,9 @@ spec:
               name: datadir
             - mountPath: /log
               name: logdir
-
+          env:
+            - name: CONTAINER_PLATFORM
+              value: KUBERNETES
       volumes:
         - name: run-volume
           emptyDir: { medium: "Memory" }

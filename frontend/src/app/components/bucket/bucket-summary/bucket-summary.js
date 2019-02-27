@@ -301,7 +301,7 @@ class BucketSummrayViewModel extends Observer {
         const dataLastUpdateTime = moment(storage.lastUpdate).fromNow();
         const storageLastUpdateTime = moment(data.lastUpdate).fromNow();
         const hasSize = data.size > 0;
-        const reducedRatio = hasSize ? data.sizeReduced / data.size : 0;
+        const reducedRatio = hasSize ? Math.min(data.sizeReduced / data.size, 1) : 0;
         const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
 
         this.state(_getBucketStateInfo(bucket, dataBreakdown, hostPools));

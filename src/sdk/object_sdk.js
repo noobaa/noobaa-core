@@ -158,8 +158,8 @@ class ObjectSDK {
                 s3_params: {
                     params: { Bucket: ns_info.target_bucket },
                     endpoint: ns_info.endpoint,
-                    accessKeyId: ns_info.access_key,
-                    secretAccessKey: ns_info.secret_key,
+                    accessKeyId: ns_info.access_key.unwrap(),
+                    secretAccessKey: ns_info.secret_key.unwrap(),
                     // region: 'us-east-1', // TODO needed?
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
                     s3ForcePathStyle: true,

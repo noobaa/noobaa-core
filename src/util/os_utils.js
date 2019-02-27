@@ -470,16 +470,17 @@ function ss_single(dst) {
     return promise_utils.exec('ss -nap' + file_redirect);
 }
 
-function set_manual_time(time_epoch, timez) {
+async function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
-        return _set_time_zone(timez)
-            .then(() => promise_utils.exec('systemctl disable ntpd.service'))
-            .then(() => promise_utils.exec('systemctl stop ntpd.service'))
-            .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
-            .then(() => restart_rsyslogd());
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve();
-    } else {
+        if (process.env.container === 'docker') {
+            return;
+        }
+        await _set_time_zone(timez);
+        await promise_utils.exec('systemctl disable ntpd.service');
+        await promise_utils.exec('systemctl stop ntpd.service');
+        await promise_utils.exec('date +%s -s @' + time_epoch);
+        await restart_rsyslogd();
+    } else if (os.type() !== 'Darwin') { //Bypass for dev environment
         throw new Error('setting time/date not supported on non-Linux platforms');
     }
 }
@@ -516,18 +517,19 @@ function get_ntp() {
     throw new Error('NTP not supported on non-Linux platforms');
 }
 
-function set_ntp(server, timez) {
+async function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
+        if (process.env.container === 'docker') {
+            return;
+        }
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
             " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
-        return _set_time_zone(timez)
-            .then(() => promise_utils.exec(command))
-            .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
-            .then(() => promise_utils.exec('systemctl restart ntpd.service'))
-            .then(() => restart_rsyslogd());
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
-        return P.resolve();
-    } else {
+        await _set_time_zone(timez);
+        await promise_utils.exec(command);
+        await promise_utils.exec('/sbin/chkconfig ntpd on 2345');
+        await promise_utils.exec('systemctl restart ntpd.service');
+        await restart_rsyslogd();
+    } else if (os.type() !== 'Darwin') { //Bypass for dev environment
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
 }
@@ -660,6 +662,7 @@ function set_dns_and_search_domains(dns_servers, search_domains) {
 
 function _set_dns_server(servers) {
     if (!servers) return;
+    if (process.env.container === 'docker') return;
     const forwarders_str = (servers.length ? `forwarders { ${servers.join('; ')}; };` : `forwarders { };`) + '\nforward only;\n';
     dbg.log0('setting dns servers in named forwarders configuration');
     dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
@@ -712,7 +715,7 @@ function _set_search_domains(search_domains) {
 
 
 function restart_rsyslogd() {
-    return promise_utils.exec('systemctl restart rsyslog');
+    return promise_utils.exec('supervisorctl restart rsyslog');
 }
 
 function get_time_config() {
@@ -1277,6 +1280,18 @@ async function is_vmtools_installed() {
 }
 
 
+async function get_kubernetes_dns_name() {
+    if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
+        throw new Error('get_kubernetes_dns_name is only supported in kubernetes envs');
+    }
+    const [hostname, domain] = await P.all([
+        promise_utils.exec('hostname', { return_stdout: true }),
+        promise_utils.exec('hostname -d', { return_stdout: true }),
+    ]);
+    return `${hostname.trim()}.${domain.trim()}`;
+}
+
+
 
 // EXPORTS
 exports.os_info = os_info;
@@ -1323,3 +1338,4 @@ exports.install_vmtools = install_vmtools;
 exports.is_vmtools_installed = is_vmtools_installed;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
+exports.get_kubernetes_dns_name = get_kubernetes_dns_name;

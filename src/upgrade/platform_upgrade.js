@@ -85,6 +85,16 @@ const SERVICES_INFO = Object.freeze([{
         proc: 'mongo_wrapper',
         stop: false,
     },
+    {
+        srv: 'rsyslog',
+        proc: 'rsyslogd',
+        stop: false,
+    },
+    {
+        srv: 'logrotate',
+        proc: 'logrotate.sh',
+        stop: false,
+    },
 ]);
 
 
@@ -92,10 +102,13 @@ async function stopped_services_during_upgrade() {
     const supervised_list = await supervisor.list();
     dbg.log0('UPGRADE: current services list is', supervised_list);
 
-    // stop all services but upgrade_manager and mongo
+    // stop all services but upgrade_manager mongo and syslog\logrotate
     return supervised_list.filter(srv => (
         srv !== 'mongo_wrapper' &&
-        srv !== 'upgrade_manager'));
+        srv !== 'upgrade_manager' &&
+        srv !== 'rsyslog' &&
+        srv !== 'logrotate'
+    ));
 }
 
 

@@ -70,7 +70,6 @@ if (!env_obj.MONGO_SSL_USER) {
     }
 }
 
-system_store.once('load', account_server.ensure_support_account);
 
 mongo_client.instance().connect();
 
@@ -93,6 +92,20 @@ process.env.PORT = http_port;
 process.env.SSL_PORT = https_port;
 
 let webserver_started = 0;
+
+system_store.once('load', async () => {
+    await account_server.ensure_support_account();
+    if (process.env.CREATE_SYS_NAME && process.env.CREATE_SYS_EMAIL && process.env.CREATE_SYS_CODE &&
+        system_store.data.systems.length === 0) {
+        dbg.log0(`creating system for kubernetes: ${process.env.CREATE_SYS_NAME}. email: ${process.env.CREATE_SYS_EMAIL}`);
+        await server_rpc.client.system.create_system({
+            name: process.env.CREATE_SYS_NAME,
+            email: process.env.CREATE_SYS_EMAIL,
+            password: 'DeMo1',
+            activation_code: process.env.CREATE_SYS_CODE
+        });
+    }
+});
 
 async function start_web_server() {
     try {

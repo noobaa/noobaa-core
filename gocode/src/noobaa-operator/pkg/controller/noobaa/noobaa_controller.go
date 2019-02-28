@@ -6,7 +6,7 @@ import (
 
 	noobaav1alpha1 "noobaa-operator/pkg/apis/noobaa/v1alpha1"
 
-	appsv1 "k8s.io/api/apps/v1"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,11 +23,11 @@ import (
 )
 
 // when running locally (in dev outside the cluster) change the paths accordingly
-const noobaaServiceYaml = "/noobaa_yaml/noobaa_service.yaml"
-const noobaaStatefulsetYaml = "/noobaa_yaml/noobaa_statefulset_standalone.yaml"
+// const noobaaServiceYaml = "/noobaa_yaml/noobaa_service_for_operator.yaml"
+// const noobaaStatefulsetYaml = "/noobaa_yaml/noobaa_statefulset_for_operator.yaml"
 
-// const noobaaServiceYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_service.yaml"
-// const noobaaStatefulsetYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_statefulset_standalone.yaml"
+const noobaaServiceYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_service_for_operator.yaml"
+const noobaaStatefulsetYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_statefulset_for_operator.yaml"
 
 var log = logf.Log.WithName("controller_noobaa")
 
@@ -137,7 +137,7 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 
 func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
 	// Check if the noobaa's stateful-set is already exist. if not create it
-	noobaaStateful := &appsv1.StatefulSet{}
+	noobaaStateful := &appsv1beta1.StatefulSet{}
 	log.Info("Getting noobaa StatefulSet", "Namespace", nb.Namespace, "StatefulSet Name", nb.Name)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nb.Name, Namespace: nb.Namespace}, noobaaStateful)
 	if err != nil && errors.IsNotFound(err) {
@@ -182,7 +182,7 @@ func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeu
 	return false, nil
 }
 
-func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1.StatefulSet) error {
+func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1beta1.StatefulSet) error {
 	err := r.client.Update(context.TODO(), noobaaStateful)
 	if err != nil {
 		log.Error(err, "failed to update noobaa statefulset")
@@ -230,9 +230,9 @@ func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue b
 }
 
 // deploymentForMemcached returns a memcached Deployment object
-func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1.StatefulSet, error) {
+func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1beta1.StatefulSet, error) {
 	ls := labelsForNoobaa(nb.Name)
-	statefulSet := &appsv1.StatefulSet{}
+	statefulSet := &appsv1beta1.StatefulSet{}
 	err := readResourceFromYaml(noobaaStatefulsetYaml, statefulSet)
 	if err != nil {
 		log.Error(err, "failed reading stateful set yaml")
@@ -240,7 +240,6 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 	}
 	statefulSet.ObjectMeta.Namespace = nb.Namespace
 	statefulSet.ObjectMeta.Name = nb.Name
-	statefulSet.Spec.Selector.MatchLabels = ls
 	statefulSet.Spec.ServiceName = nb.Name + "-services"
 	statefulSet.Spec.Template.ObjectMeta.Labels = ls
 	if nb.Spec.Image != "" {

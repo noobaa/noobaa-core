@@ -52,8 +52,12 @@ function create_rpm(){
    
     cp  ${files_location}/noobaa-NVA-${version}-${revision}.tar.gz ~/rpmbuild/SOURCES/
     cp ${files_location}/deploy_base.sh ~/rpmbuild/SOURCES/
+    current_directory=$(pwd)
     cd ~/rpmbuild/SPECS/
     local srpm=$(rpmbuild -bs noobaa.spec)
+    cd ${current_directory}
+    cp ${srpm//Wrote: /} build/public/
+    cd ~/rpmbuild/SPECS/
     echo "+++ ${srpm//Wrote: /} +++"
     rpmbuild --rebuild ${srpm//Wrote: /}
 }

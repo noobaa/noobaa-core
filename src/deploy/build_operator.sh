@@ -19,6 +19,13 @@ fi
 echo -e "${GREEN}getting dependencies. might take some time..${NC}"
 cd $GOPATH/src/noobaa-operator
 dep ensure -v
+echo -e "${GREEN}generating yaml files for operator..${NC}"
+cd $GOPATH/src/noobaa-operator/build
+csplit ../../../../src/deploy/NVA_build/noobaa_statefulset.yaml /---/ > /dev/null
+grep -v "\-\-\-" xx00 > noobaa_service_for_operator.yaml
+grep -v "\-\-\-" xx01 > noobaa_statefulset_for_operator.yaml
+rm -f xx00 xx01
+cd $GOPATH/src/noobaa-operator
 echo -e "${GREEN}building noobaa-operator..${NC}"
 operator-sdk build noobaa-operator
 echo -e "${GREEN}completed!${NC}"

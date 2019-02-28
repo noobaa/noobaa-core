@@ -98,4 +98,17 @@ mocha.describe('SensitiveString', function() {
         assert.strictEqual(first_wrap.toString(), second_wrap.toString());
         assert.strictEqual(first_wrap.unwrap(), second_wrap.unwrap());
     });
+
+    mocha.it('Should throw on non string/undefined value', function() {
+        assert.throws(function() {
+            const a = new SensitiveString({a: 1});
+            a.unwrap();
+        }, Error);
+    });
+
+    mocha.it('Should return unwraped undefined', function() {
+        const wrap = new SensitiveString(undefined);
+        assert.strictEqual(wrap.unwrap(), undefined);
+        assert.strictEqual(wrap.toString(), 'SENSITIVE-undefined');
+    });
 });

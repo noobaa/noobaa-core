@@ -135,22 +135,27 @@ const KEYWORDS = js_utils.deep_freeze({
 
 class SensitiveString {
     constructor(val) {
-        const md5 = crypto.createHash('md5');
+        const type = typeof val;
         if (val instanceof SensitiveString) {
+            this.md5 = val.md5;
             this.val = val.unwrap();
-        } else {
+        } else if (type === 'string') {
             this.val = val;
+            this.md5 = crypto.createHash('md5').update(this.val).digest('hex');
+        } else if (type === 'undefined') {
+            this.val = undefined;
+            this.md5 = 'undefined';
+        } else {
+            throw new TypeError(`SensitiveString should be a string, got ${type}`);
         }
-        md5.update(this.val);
-        this.md5 = md5.digest('hex');
     }
 
     [util.inspect.custom]() {
-        return 'SENSITIVE' + this.md5;
+        return 'SENSITIVE-' + this.md5;
     }
 
     toString() {
-        return 'SENSITIVE' + this.md5;
+        return 'SENSITIVE-' + this.md5;
     }
 
     toJSON() {

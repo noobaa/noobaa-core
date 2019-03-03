@@ -41,11 +41,17 @@ Requires:   nc
 Requires:   vim
 Requires:   less
 Requires:   bash-completion
+%if 0%{?centos} || 0%{?fedora}
 Requires:   mongodb-org = 3.6.5
 Requires:   mongodb-org-server = 3.6.5
 Requires:   mongodb-org-shell = 3.6.5
 Requires:   mongodb-org-mongos = 3.6.5
 Requires:   mongodb-org-tools = 3.6.5
+%else #rhel
+Requires: rh-mongodb36
+Requires: rhoar-nodejs10
+%endif
+
 
 %description
 This is noobaa rpm

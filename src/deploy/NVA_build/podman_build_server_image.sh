@@ -15,13 +15,14 @@ do
     esac
 done
 
-cp build/public/* ./
+cp build/public/*noarch.rpm ./
 if [ $(ls *.rpm | wc -l) -ne 1 ]
 then
     echo "There should be only one rpm file, exiting"
     exit 1
 else
-    mv ./*rpm ./noobaa.rpm
+    rpm_file=$(ls *.rpm)
+    mv ./${rpm_file} ./noobaa.rpm
 fi
 
 script="install_noobaa.sh"

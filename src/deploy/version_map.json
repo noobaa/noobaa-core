@@ -1,7 +1,7 @@
 {
     "versions": [{
         "ver": "3.0.0",
-        "vhd": "3.0.0-cb28b51.vhd",
+        "vhd": "3.0.0-5e20f29.vhd",
         "released": true
     }]
 }

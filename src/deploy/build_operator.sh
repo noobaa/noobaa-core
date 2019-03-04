@@ -27,5 +27,5 @@ grep -v "\-\-\-" xx01 > noobaa_statefulset_for_operator.yaml
 rm -f xx00 xx01
 cd $GOPATH/src/noobaa-operator
 echo -e "${GREEN}building noobaa-operator..${NC}"
-operator-sdk build noobaa-operator
+$GOPATH/bin/operator-sdk build noobaa-operator
 echo -e "${GREEN}completed!${NC}"

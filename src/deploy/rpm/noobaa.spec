@@ -34,7 +34,6 @@ Requires:   dialog = 1.2
 Requires:   expect = 5.45
 Requires:   iperf3 = 3.1.7
 Requires:   iptables-services = 1.4.21
-Requires:   python-setuptools = 0.9.8
 Requires:   curl = 7.29.0
 Requires:   ntp = 4.2.6p5
 Requires:   nc
@@ -42,14 +41,17 @@ Requires:   vim
 Requires:   less
 Requires:   bash-completion
 %if 0%{?centos} || 0%{?fedora}
-Requires:   mongodb-org = 3.6.5
-Requires:   mongodb-org-server = 3.6.5
-Requires:   mongodb-org-shell = 3.6.5
-Requires:   mongodb-org-mongos = 3.6.5
-Requires:   mongodb-org-tools = 3.6.5
+Requires:   python-setuptools = 0.9.8
+Requires:   mongodb-org = 3.6.3
+Requires:   mongodb-org-server = 3.6.3
+Requires:   mongodb-org-shell = 3.6.3
+Requires:   mongodb-org-mongos = 3.6.3
+Requires:   mongodb-org-tools = 3.6.3
 %else #rhel
-Requires: rh-mongodb36
+Requires: rh-mongodb36-mongodb = 3.6.3
+Requires: rh-mongodb36-mongo-tools = 3.6.3
 Requires: rhoar-nodejs10
+Requires: supervisor
 %endif
 
 
@@ -84,5 +86,7 @@ echo -e "\e[31m\nWait for prompt and then we need to reboot...\n\e[0m"
 %{tmp}/%{installscript}
 
 %changelog
-* Mon Dec 24 2018 Test User <test@noobaa.com>
-- 
+* Wed Mar  6 2019 Liran Mauda <lmauda@redhat.com>
+- spit some of the required packages to centos/fedora and rhel
+- downgraded mongodb from 3.6.5 to 3.6.3
+- added pacaged to the rhel version (nodejs10 and supervisor)

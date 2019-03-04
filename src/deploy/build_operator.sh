@@ -20,5 +20,5 @@ echo -e "${GREEN}getting dependencies. might take some time..${NC}"
 cd $GOPATH/src/noobaa-operator
 dep ensure -v
 echo -e "${GREEN}building noobaa-operator..${NC}"
-operator-sdk build noobaa-operator
+$GOPATH/bin/operator-sdk build noobaa-operator
 echo -e "${GREEN}completed!${NC}"

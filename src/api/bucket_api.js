@@ -359,9 +359,7 @@ module.exports = {
                 items: {
                     type: 'object',
                     properties: {
-                        name: {
-                            type: 'string'
-                        },
+                        name: { $ref: 'common_api#/definitions/bucket_name' },
                         bins: {
                             type: 'array',
                             items: {

@@ -45,9 +45,8 @@ function create_rpm(){
     #yum install -y tree dnf
     #dnf install rpm-build rpm-devel rpmlint rpmdevtools
 
-    #deleting the whole tree of rpmbuild to start clean
-    rm -rf ~/rpmbuild
     rpmdev-setuptree
+    echo "time for ${0} in sec: ${SECONDS}"
     cp ${files_location}/${spec_name} ~/rpmbuild/SPECS/
    
     cp  ${files_location}/noobaa-NVA-${version}-${revision}.tar.gz ~/rpmbuild/SOURCES/

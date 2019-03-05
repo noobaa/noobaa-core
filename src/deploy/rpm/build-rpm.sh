@@ -26,6 +26,25 @@ cp build/public/noobaa-NVA-${NB_VERSION}.tar.gz ${build_rpm_location}
 cp ./src/deploy/NVA_build/deploy_base.sh ${build_rpm_location}
 cp ./src/deploy/rpm/{create_rpm.sh,noobaa.spec} ${build_rpm_location}
 chmod 777 ${build_rpm_location}/create_rpm.sh
+if [ -d ~/rpmbuild ] 
+then
+    will_wait=true
+else 
+    will_wait=false
+fi
+if ${will_wait}
+then
+    while [ -d ~/rpmbuild ]
+    do
+        sleep 10
+    done
+    #sleeping randomally to verify that no other build has started.
+    sleep $((10+RANDOM%60))
+    if [ ! -d ~/rpmbuild ]
+    then
+        will_wait=false
+    fi
+fi
 build/rpm/create_rpm.sh -l ${build_rpm_location}
 if [ $? -eq 0 ]
 then
@@ -35,3 +54,6 @@ else
     rm -rf ${build_rpm_location}
     exit 1
 fi
+
+#deleting the whole tree of rpmbuild to start clean
+rm -rf ~/rpmbuild

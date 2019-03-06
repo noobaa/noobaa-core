@@ -8,6 +8,7 @@ import (
 
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,13 +22,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-// when running locally (in dev outside the cluster) change the paths accordingly
-// const noobaaServiceYaml = "/noobaa_yaml/noobaa_service_for_operator.yaml"
-// const noobaaStatefulsetYaml = "/noobaa_yaml/noobaa_statefulset_for_operator.yaml"
-
-const noobaaServiceYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_service_for_operator.yaml"
-const noobaaStatefulsetYaml = "/Users/dannyzaken/noobaa-core/gocode/src/noobaa-operator/build/noobaa_statefulset_for_operator.yaml"
 
 var log = logf.Log.WithName("controller_noobaa")
 
@@ -111,6 +105,21 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
+	requeueAccount, accountErr := r.reconcileNoobaaAccount(nb)
+	if accountErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa account")
+	}
+
+	requeueRole, roleErr := r.reconcileNoobaaRole(nb)
+	if roleErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa role")
+	}
+
+	requeueRoleBind, roleBindErr := r.reconcileNoobaaRoleBinding(nb)
+	if roleBindErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa role binding")
+	}
+
 	requeStateful, statefulsetErr := r.reconcileStatfulset(nb)
 	if statefulsetErr != nil {
 		reqLogger.Error(err, "failed reconciling noobaa statefulset")
@@ -128,11 +137,73 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, statefulsetErr
 	}
 
-	reque := requeService || requeStateful
+	reque := requeService || requeStateful || requeueAccount || requeueRole || requeueRoleBind
 
 	// noobaa statefulset and service already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: resources already exists", "StatefulSet.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{Requeue: reque}, nil
+}
+
+func (r *ReconcileNoobaa) reconcileNoobaaAccount(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
+	noobaaAccount := &corev1.ServiceAccount{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "noobaa-account", Namespace: nb.Namespace}, noobaaAccount)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new deployment
+		nbAccount := &corev1.ServiceAccount{}
+		nbAccount.ObjectMeta.Name = "noobaa-account"
+		nbAccount.ObjectMeta.Namespace = nb.Namespace
+		log.Info("Creating noobaa-account", "account.Namespace", nb.Namespace, "Name", "noobaa-account")
+		err = r.client.Create(context.TODO(), nbAccount)
+		if err != nil {
+			log.Error(err, "Failed to create new account", "account.Namespace", nb.Namespace, "Name", "noobaa-account")
+			return true, err
+		}
+		return true, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get account")
+		return true, err
+	}
+	return false, nil
+}
+
+func (r *ReconcileNoobaa) reconcileNoobaaRole(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
+	noobaaRole := &rbacv1.Role{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "noobaa-role", Namespace: nb.Namespace}, noobaaRole)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new deployment
+		nbRole, err := r.roleForNoobaa(nb)
+		log.Info("Creating noobaa-role", "account.Namespace", nb.Namespace, "Name", nbRole.ObjectMeta.Name)
+		err = r.client.Create(context.TODO(), nbRole)
+		if err != nil {
+			log.Error(err, "Failed to create new role", "role.Namespace", nb.Namespace, "Name", nbRole.ObjectMeta.Name)
+			return true, err
+		}
+		return true, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get role")
+		return true, err
+	}
+	return false, nil
+}
+
+func (r *ReconcileNoobaa) reconcileNoobaaRoleBinding(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
+	noobaaRoleBind := &rbacv1.RoleBinding{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "noobaa-role-binding", Namespace: nb.Namespace}, noobaaRoleBind)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new deployment
+		nbRoleBind, err := r.roleBindForNoobaa(nb)
+		log.Info("Creating noobaa-role-binding", "account.Namespace", nb.Namespace, "Name", nbRoleBind.ObjectMeta.Name)
+		err = r.client.Create(context.TODO(), nbRoleBind)
+		if err != nil {
+			log.Error(err, "Failed to create new role binding", "role.Namespace", nb.Namespace, "Name", nbRoleBind.ObjectMeta.Name)
+			return true, err
+		}
+		return true, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get role")
+		return true, err
+	}
+	return false, nil
 }
 
 func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
@@ -233,14 +304,14 @@ func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue b
 func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1beta1.StatefulSet, error) {
 	ls := labelsForNoobaa(nb.Name)
 	statefulSet := &appsv1beta1.StatefulSet{}
-	err := readResourceFromYaml(noobaaStatefulsetYaml, statefulSet)
+	err := readResourceFromYaml("server", statefulSet)
 	if err != nil {
 		log.Error(err, "failed reading stateful set yaml")
 		return nil, err
 	}
 	statefulSet.ObjectMeta.Namespace = nb.Namespace
 	statefulSet.ObjectMeta.Name = nb.Name
-	statefulSet.Spec.ServiceName = nb.Name + "-services"
+	statefulSet.Spec.ServiceName = nb.Name + "-service"
 	statefulSet.Spec.Template.ObjectMeta.Labels = ls
 	if nb.Spec.Image != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Image = nb.Spec.Image
@@ -265,7 +336,7 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa) (*corev1.Service, error) {
 	ls := labelsForNoobaa(nb.Name)
 	service := &corev1.Service{}
-	err := readResourceFromYaml(noobaaServiceYaml, service)
+	err := readResourceFromYaml("service", service)
 	if err != nil {
 		log.Error(err, "failed reading service yaml")
 		return nil, err
@@ -280,7 +351,40 @@ func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa) (*corev1.S
 	return service, nil
 }
 
-func readResourceFromYaml(yamlPath string, into interface{}) error {
+// deploymentForMemcached returns a memcached Deployment object
+func (r *ReconcileNoobaa) roleForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.Role, error) {
+	role := &rbacv1.Role{}
+	err := readResourceFromYaml("role", role)
+	if err != nil {
+		log.Error(err, "failed reading role yaml")
+		return nil, err
+	}
+
+	role.ObjectMeta.Namespace = nb.Namespace
+	return role, nil
+}
+
+// deploymentForMemcached returns a memcached Deployment object
+func (r *ReconcileNoobaa) roleBindForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.RoleBinding, error) {
+	roleBind := &rbacv1.RoleBinding{}
+	err := readResourceFromYaml("role-binding", roleBind)
+	if err != nil {
+		log.Error(err, "failed reading role binding yaml")
+		return nil, err
+	}
+
+	roleBind.ObjectMeta.Namespace = nb.Namespace
+	return roleBind, nil
+}
+
+func readResourceFromYaml(resorceType string, into interface{}) error {
+	var yamlPath string
+	if os.Getenv("OPERATOR") == "" {
+		yamlPath = "./build/"
+	} else {
+		yamlPath = "/noobaa_yaml/"
+	}
+	yamlPath = yamlPath + "noobaa-" + resorceType + ".yaml"
 	yamlFile, err := os.Open(yamlPath)
 	if err != nil {
 		log.Error(err, "failed openning yaml file", "path", yamlPath)

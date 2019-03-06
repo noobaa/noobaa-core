@@ -29,13 +29,13 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: noobaa-server
+  name: noobaa-account
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   creationTimestamp: null
-  name: noobaa-server
+  name: noobaa-role
 rules:
   - apiGroups:
       - ""
@@ -75,13 +75,13 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: noobaa-server
+  name: noobaa-role-binding
 subjects:
   - kind: ServiceAccount
-    name: noobaa-server
+    name: noobaa-account
 roleRef:
   kind: Role
-  name: noobaa-server
+  name: noobaa-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1beta1
@@ -138,7 +138,7 @@ spec:
           emptyDir: { medium: "Memory" }
         - name: run-lock-volume
           emptyDir: { medium: "Memory" }
-      serviceAccountName: noobaa-server
+      serviceAccountName: noobaa-account
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between

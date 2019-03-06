@@ -10,7 +10,7 @@ COPY build/_output/bin/noobaa-operator ${OPERATOR}
 COPY build/bin /usr/local/bin
 
 RUN mkdir -p /noobaa_yaml
-COPY --chown=1001 build/*.yaml /noobaa_yaml/
+COPY build/*.yaml /noobaa_yaml/
 
 RUN /usr/local/bin/user_setup
 

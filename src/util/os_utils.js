@@ -1284,11 +1284,7 @@ async function get_kubernetes_dns_name() {
     if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
         throw new Error('get_kubernetes_dns_name is only supported in kubernetes envs');
     }
-    const [hostname, domain] = await P.all([
-        promise_utils.exec('hostname', { return_stdout: true }),
-        promise_utils.exec('hostname -d', { return_stdout: true }),
-    ]);
-    return `${hostname.trim()}.${domain.trim()}`;
+    return promise_utils.exec('hostname -d', { return_stdout: true, trim_stdout: true });
 }
 
 

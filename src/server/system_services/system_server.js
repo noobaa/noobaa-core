@@ -957,39 +957,36 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-function update_base_address(req) {
+async function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
     var prior_base_address = req.system && req.system.base_address;
-    return P.resolve()
-        .then(() => {
-            const db_update = {
-                _id: req.system._id,
-            };
-            if (req.rpc_params.base_address) {
-                db_update.base_address = req.rpc_params.base_address.toLowerCase();
-            } else {
-                db_update.$unset = {
-                    base_address: 1
-                };
-            }
-            return system_store.make_changes({
-                update: {
-                    systems: [db_update]
-                }
-            });
-        })
-        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
-            auth_token: req.auth_token
-        }))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_address',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
-            });
-        });
+    const db_update = {
+        _id: req.system._id,
+    };
+    if (req.rpc_params.base_address) {
+        db_update.base_address = req.rpc_params.base_address.toLowerCase();
+    } else {
+        db_update.$unset = {
+            base_address: 1
+        };
+    }
+    await system_store.make_changes({
+        update: {
+            systems: [db_update]
+        }
+    });
+
+    await server_rpc.client.node.sync_monitor_to_store(undefined, {
+        auth_token: req.auth_token
+    });
+
+    Dispatcher.instance().activity({
+        event: 'conf.dns_address',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
+    });
 }
 
 async function verify_phonehome_connectivity(req) {
@@ -1171,7 +1168,7 @@ function _get_create_node_token(system_id, account_id, agent_config_id) {
     return token;
 }
 
-function update_hostname(req) {
+async function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
 
@@ -1181,32 +1178,22 @@ function update_hostname(req) {
         req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
     }
 
-    return P.resolve()
-        .then(() => {
-            // This will test if we've received IP or DNS name
-            // This check is essential because there is no point of resolving an IP using DNS Servers
-            if (!req.rpc_params.hostname || net.isIP(req.rpc_params.hostname)) {
-                return;
-            }
-            // Use defaults to add dns_name property without altering the original request
-            return attempt_server_resolve(_.defaults({
-                    rpc_params: {
-                        server_name: req.rpc_params.hostname,
-                        version_check: true
-                    }
-                }, req))
-                .then(result => {
-                    if (!result.valid) {
-                        throw new Error('Could not resolve ' + req.rpc_params.hostname +
-                            ' Reason ' + result.reason);
-                    }
-                });
-        })
-        .then(() => {
-            dbg.log0('attempt_server_resolve returned updating base address');
-            delete req.rpc_params.hostname;
-            return update_base_address(req);
-        });
+    const result = await attempt_server_resolve(_.defaults({
+        rpc_params: {
+            server_name: req.rpc_params.hostname,
+            version_check: true
+        }
+    }, req));
+
+    if (!result.valid) {
+        throw new Error('Could not resolve ' + req.rpc_params.hostname +
+            ' Reason ' + result.reason);
+    }
+
+    dbg.log0('attempt_server_resolve returned updating base address');
+    delete req.rpc_params.hostname;
+    return update_base_address(req);
+
 }
 
 

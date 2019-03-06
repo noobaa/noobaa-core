@@ -20,7 +20,6 @@
     ],
     "docker": [
         "vmtools",
-        "dns_name",
         "dns_server",
         "search_domains",
         "time_config",

@@ -40,14 +40,14 @@ async function get_bucket(req) {
                 'MaxKeys': max_keys_received,
                 'IsTruncated': reply.is_truncated,
                 'Encoding-Type': req.query['encoding-type'],
-            }, !list_type && { // v1
-                'Marker': req.query.marker || '',
-                'NextMarker': reply.next_marker,
-            }, list_type === '2' && {
+            }, list_type === '2' ? {
                 'ContinuationToken': cont_tok,
                 'StartAfter': start_after,
                 'KeyCount': reply.objects.length,
                 'NextContinuationToken': key_marker_to_cont_tok(reply.next_marker),
+            } : { // list_type v1
+                'Marker': req.query.marker || '',
+                'NextMarker': reply.next_marker,
             },
             _.map(reply.objects, obj => ({
                 Contents: {

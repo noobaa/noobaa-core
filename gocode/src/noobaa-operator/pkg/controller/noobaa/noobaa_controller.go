@@ -276,8 +276,8 @@ func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1beta1.St
 
 func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
 	noobaaService := &corev1.Service{}
-	log.Info("Getting noobaa Services", "Namespace", nb.Namespace, "Service Name", nb.Name+"-services")
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nb.Name + "-services", Namespace: nb.Namespace}, noobaaService)
+	log.Info("Getting noobaa Services", "Namespace", nb.Namespace, "Service Name", "s3")
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "s3", Namespace: nb.Namespace}, noobaaService)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new deployment
 		service, err := r.serviceForNoobaa(nb)
@@ -304,14 +304,14 @@ func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue b
 func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1beta1.StatefulSet, error) {
 	ls := labelsForNoobaa(nb.Name)
 	statefulSet := &appsv1beta1.StatefulSet{}
-	err := readResourceFromYaml("server", statefulSet)
+	err := readResourceFromYaml("noobaa-server", statefulSet)
 	if err != nil {
 		log.Error(err, "failed reading stateful set yaml")
 		return nil, err
 	}
 	statefulSet.ObjectMeta.Namespace = nb.Namespace
 	statefulSet.ObjectMeta.Name = nb.Name
-	statefulSet.Spec.ServiceName = nb.Name + "-service"
+	// statefulSet.Spec.ServiceName = "s3"
 	statefulSet.Spec.Template.ObjectMeta.Labels = ls
 	if nb.Spec.Image != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Image = nb.Spec.Image
@@ -336,14 +336,13 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa) (*corev1.Service, error) {
 	ls := labelsForNoobaa(nb.Name)
 	service := &corev1.Service{}
-	err := readResourceFromYaml("service", service)
+	err := readResourceFromYaml("s3", service)
 	if err != nil {
 		log.Error(err, "failed reading service yaml")
 		return nil, err
 	}
 
 	service.ObjectMeta.Namespace = nb.Namespace
-	service.ObjectMeta.Name = nb.Name + "-services"
 	service.ObjectMeta.Labels = ls
 	service.Spec.Selector = ls
 
@@ -354,7 +353,7 @@ func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa) (*corev1.S
 // deploymentForMemcached returns a memcached Deployment object
 func (r *ReconcileNoobaa) roleForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.Role, error) {
 	role := &rbacv1.Role{}
-	err := readResourceFromYaml("role", role)
+	err := readResourceFromYaml("noobaa-role", role)
 	if err != nil {
 		log.Error(err, "failed reading role yaml")
 		return nil, err
@@ -367,7 +366,7 @@ func (r *ReconcileNoobaa) roleForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.Role
 // deploymentForMemcached returns a memcached Deployment object
 func (r *ReconcileNoobaa) roleBindForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.RoleBinding, error) {
 	roleBind := &rbacv1.RoleBinding{}
-	err := readResourceFromYaml("role-binding", roleBind)
+	err := readResourceFromYaml("noobaa-role-binding", roleBind)
 	if err != nil {
 		log.Error(err, "failed reading role binding yaml")
 		return nil, err
@@ -377,14 +376,14 @@ func (r *ReconcileNoobaa) roleBindForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.
 	return roleBind, nil
 }
 
-func readResourceFromYaml(resorceType string, into interface{}) error {
+func readResourceFromYaml(resourceName string, into interface{}) error {
 	var yamlPath string
 	if os.Getenv("OPERATOR") == "" {
 		yamlPath = "./build/"
 	} else {
 		yamlPath = "/noobaa_yaml/"
 	}
-	yamlPath = yamlPath + "noobaa-" + resorceType + ".yaml"
+	yamlPath = yamlPath + resourceName + ".yaml"
 	yamlFile, err := os.Open(yamlPath)
 	if err != nil {
 		log.Error(err, "failed openning yaml file", "path", yamlPath)

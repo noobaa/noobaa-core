@@ -2,11 +2,16 @@
 
 export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 
-CORE_DIR="/root/node_modules/noobaa-core"
-LOG_FILE="/log/noobaa_deploy.log"
-SUPERD="/usr/bin/supervisord"
-SUPERCTL="/usr/bin/supervisorctl"
+set -x
+DBG_LOG_FILE="/var/log/noobaa_deploy.dbg"
+exec 2>> ${DBG_LOG_FILE}
+
 NOOBAA_ROOTPWD="/etc/nbpwd"
+SUPERD="/usr/bin/supervisord"
+LOG_FILE="/log/noobaa_deploy.log"
+SUPERCTL="/usr/bin/supervisorctl"
+CORE_DIR="/root/node_modules/noobaa-core"
+eval $(cat /etc/os-release | grep -w ID)
 
 mkdir -p /log
 mkdir -p /data/
@@ -57,10 +62,8 @@ function install_platform {
         systemctl enable rngd
     fi 
 
-
 	# make crontab start on boot
 	chkconfig crond on
-
 
     if [ "${container}" != "docker" ]; then
         #start services
@@ -88,8 +91,11 @@ function install_platform {
         grub2-mkconfig –o /boot/grub2/grub.cfg
     fi
 
-	# easy_install is for Supervisord and comes from python-setuptools
-	easy_install supervisor
+    if [ ${ID} == "centos" ] || [ ${ID} == "fedora" ]
+    then
+        # easy_install is for Supervisord and comes from python-setuptools
+        easy_install supervisor
+    fi
 
     # By Default, NTP is disabled, set local TZ to US Pacific
     echo "#NooBaa Configured NTP Server"     >> /etc/ntp.conf
@@ -167,44 +173,29 @@ function setup_linux_users {
 }
 
 function install_nodejs {
-    deploy_log "install_nodejs start"
-: '    
-    . /opt/rh/rh-nodejs10/enable
-    echo ". /opt/rh/rh-nodejs10/enable" >> ~/.bashrc
-
-    verify_node_ver=$(node -v)
-    expected_node_ver=$(cat ${CORE_DIR}/.nvmrc)
-    if [ ${verify_node_ver//[A-Za-z]/} != ${expected_node_ver} ]
+    if [ ${ID} == "centos" ] || [ ${ID} == "fedora" ]
     then
-        echo -e "\e[31mnode ver is ${verify_node_ver}, expected ${expected_node_ver}, Exiting.\e[0m"
-        exit 1
+        deploy_log "install_nodejs start"
+        export PATH=$PATH:/usr/local/bin
+
+        #Install Node.js / NPM
+        cd /usr/src
+        curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
+        export NVM_DIR="$HOME/.nvm"
+        source /root/.nvm/nvm.sh
+    
+        NODE_VER=$(cat ${CORE_DIR}/.nvmrc)
+        nvm install ${NODE_VER}
+        nvm alias default $(nvm current)
+
+        cd ~
     fi
-    deploy_log "install_nodejs done"
-'
-
-: '
-    yum -y groupinstall "Development Tools"
-'
-    export PATH=$PATH:/usr/local/bin
-
-    #Install Node.js / NPM
-    cd /usr/src
-	curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash
-    export NVM_DIR="$HOME/.nvm"
-    source /root/.nvm/nvm.sh
-  
-    NODE_VER=$(cat ${CORE_DIR}/.nvmrc)
-    nvm install ${NODE_VER}
-    nvm alias default $(nvm current)
-
-    cd ~
-
+    
     ln -sf $(which node) /usr/local/bin/node
-
 }
 
 function install_kubectl {
-    if [ "${container}" == "docker" ]; then
+    if [ "${container}" == "docker" ] && [ "${ID}" != "rhel" ]; then
         deploy_log "install_kubectl start"
         stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
         curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl
@@ -237,11 +228,27 @@ function install_noobaa_repos {
     deploy_log "install_noobaa_repos done"
 }
 
+function fix_mongo_user() {
+    local mongo_desire_name="mongod"
+    local mongo_user=$(cat /etc/passwd | grep mongo |awk -F ":" '{print $1}')
+    local mongo_group=$(cat /etc/group | grep mongo |awk -F ":" '{print $1}')
+    if [ ${mongo_user} != ${mongo_desire_name} ]
+    then
+        usermod -l ${mongo_desire_name} ${mongo_user}
+    fi
+    if [ ${mongo_group} != ${mongo_desire_name} ]
+    then
+        groupmod -n ${mongo_desire_name} ${mongo_group}
+    fi
+    # mongodb will probably run as root after yum (if not docker) - we need to fix it if we want to use deploy_base
+    chown -R mongod:mongod /data/mongo/
+}
+
 function install_mongo {
     deploy_log "install_mongo start"
 
-    # mongodb will probably run as root after yum (if not docker) - we need to fix it if we want to use deploy_base
-    chown -R mongod:mongod /data/mongo/
+    mkdir -p /data/mongo/cluster/shard1
+    fix_mongo_user
 
     # pin mongo version in yum, so it won't auto update
     echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
@@ -274,8 +281,7 @@ function general_settings {
 
     if [ "${container}" != "docker" ]; then
         #Open n2n ports
-        iptables -I INPUT 1 -p tcp --match multiport --dports 60100:60600 -j ACCEPT 
-        
+        iptables -I INPUT 1 -p tcp --match multiport --dports 60100:60600 -j ACCEPT      
         iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
         iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
         iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT

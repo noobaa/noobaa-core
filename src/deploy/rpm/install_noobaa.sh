@@ -6,8 +6,6 @@ export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 rpm_location="/tmp/"
 
 function config_mongo_repo {
-    mkdir -p /data/mongo/cluster/shard1
-
     # create a Mongo 3.6 Repo file
     cat > /etc/yum.repos.d/mongodb-org-3.6.repo << EOF
 [mongodb-org-3.6]

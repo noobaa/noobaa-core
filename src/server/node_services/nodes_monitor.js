@@ -2999,13 +2999,37 @@ class NodesMonitor extends EventEmitter {
         const all_nodes_stats = await this.get_nodes_stats(system_id, start_date, end_date);
         const grouped_stats = _.omit(_.groupBy(all_nodes_stats, stat => {
             const item = this._map_node_id.get(String(stat._id));
+            if (!item) {
+                // handle deleted nodes later
+                return 'DELETED';
+            }
             const pool = system_store.data.get_by_id(item.node.pool);
+            if (!pool) {
+                // handle deleted pools later
+                return 'DELETED';
+            }
             const endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type');
             return endpoint_type || 'OTHER';
         }), 'OTHER');
 
+        const deleted_stats = grouped_stats.DELETED || [];
+        // handle deleted nodes and pools
+        for (const stat of deleted_stats) {
+            const node = (await NodesStore.instance().find_nodes({ _id: stat._id }))[0];
+            if (!node) continue;
+            let pool = system_store.data.get_by_id(node.pool);
+            if (!pool) {
+                const deleted_pool = await system_store.data.get_by_id_include_deleted(node.pool, 'pools');
+                pool = deleted_pool && deleted_pool.record;
+            }
+            if (!pool) continue;
+            const endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type') || 'OTHER';
+            grouped_stats[endpoint_type] = grouped_stats[endpoint_type] || [];
+            grouped_stats[endpoint_type].push(stat);
+        }
 
-        const ret = _.map(grouped_stats, (stats, service) => {
+
+        const ret = _.map(_.omit(grouped_stats, 'DELETED'), (stats, service) => {
             const reduced_stats = stats.reduce((prev, current) => ({
                 read_count: prev.read_count + (current.read_count || 0),
                 write_count: prev.write_count + (current.write_count || 0),

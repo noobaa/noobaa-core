@@ -38,8 +38,8 @@ class BlockStoreS3 extends BlockStoreBase {
             } : undefined;
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
-                accessKeyId: this.cloud_info.access_keys.access_key,
-                secretAccessKey: this.cloud_info.access_keys.secret_key,
+                accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
+                secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 s3ForcePathStyle: true,
                 httpOptions,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
@@ -53,8 +53,8 @@ class BlockStoreS3 extends BlockStoreBase {
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
                 s3ForcePathStyle: true,
-                accessKeyId: this.cloud_info.access_keys.access_key,
-                secretAccessKey: this.cloud_info.access_keys.secret_key,
+                accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
+                secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 httpOptions: {
@@ -139,7 +139,7 @@ class BlockStoreS3 extends BlockStoreBase {
                     endpoint: endpoint,
                     s3ForcePathStyle: true,
                     accessKeyId: this.cloud_info.access_keys.access_key,
-                    secretAccessKey: this.cloud_info.access_keys.secret_key,
+                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 },
@@ -186,7 +186,7 @@ class BlockStoreS3 extends BlockStoreBase {
                     endpoint: endpoint,
                     s3ForcePathStyle: true,
                     accessKeyId: this.cloud_info.access_keys.access_key,
-                    secretAccessKey: this.cloud_info.access_keys.secret_key,
+                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 },

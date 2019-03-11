@@ -121,8 +121,8 @@ class Agent {
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
                     let connection_string = cloud_utils.get_azure_connection_string({
                         endpoint: params.cloud_info.endpoint,
-                        access_key: params.cloud_info.access_keys.access_key,
-                        secret_key: params.cloud_info.access_keys.secret_key
+                        access_key: params.cloud_info.access_keys.access_key.unwrap(),
+                        secret_key: params.cloud_info.access_keys.secret_key.unwrap()
                     });
                     block_store_options.cloud_info.azure = {
                         connection_string: connection_string,
@@ -132,7 +132,7 @@ class Agent {
                     this.block_store = new BlockStoreAzure(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'GOOGLE') {
                     this.node_type = 'BLOCK_STORE_GOOGLE';
-                    const { project_id, private_key, client_email } = JSON.parse(params.cloud_info.access_keys.secret_key);
+                    const { project_id, private_key, client_email } = JSON.parse(params.cloud_info.access_keys.secret_key.unwrap());
                     block_store_options.cloud_info.google = { project_id, private_key, client_email };
                     this.block_store = new BlockStoreGoogle(block_store_options);
                 }

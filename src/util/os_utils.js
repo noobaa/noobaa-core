@@ -522,8 +522,9 @@ async function set_ntp(server, timez) {
         if (process.env.container === 'docker') {
             return;
         }
-        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server +
-            " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+        // if server is undefined than clear the ntp server configuration in ntp.conf
+        const new_ntp_server_conf = server ? `server ${server} iburst ` : '';
+        let command = `sed -i 's/.*NooBaa Configured NTP Server.*/${new_ntp_server_conf}#NooBaa Configured NTP Server/' /etc/ntp.conf`;
         await _set_time_zone(timez);
         await promise_utils.exec(command);
         await promise_utils.exec('/sbin/chkconfig ntpd on 2345');

@@ -808,16 +808,14 @@ function update_time_config(req) {
 }
 
 
-function apply_updated_time_config(req) {
+async function apply_updated_time_config(req) {
     var time_config = req.rpc_params;
-    return P.fcall(function() {
-            if (time_config.ntp_server) { //set NTP
-                return os_utils.set_ntp(time_config.ntp_server, time_config.timezone);
-            } else { //manual set
-                return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
-            }
-        })
-        .return();
+    // in any case update the ntp configuration (either set new ntp or clear if manual time)
+    await os_utils.set_ntp(time_config.ntp_server, time_config.timezone);
+    if (!time_config.ntp_server) {
+        // if ntp server is not defined then set manual time
+        await os_utils.set_manual_time(time_config.epoch, time_config.timezone);
+    }
 }
 
 function install_vmtools(req) {

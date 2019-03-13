@@ -218,6 +218,10 @@ export const bucketEvents = deepFreeze([
     {
         value: 'ObjectRemoved',
         label: 'Object Removed'
+    },
+    {
+        value: 'ObjectRead',
+        label: 'Object Read'
     }
 ]);
 

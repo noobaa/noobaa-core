@@ -79,6 +79,7 @@ async function get_blob(req, res) {
         throw err;
     }
 
+    // TODO: Read triggers can be recursive if used with blob_rest since we do not mark the user-agent
     const read_stream = await req.object_sdk.read_object_stream(params);
 
     // on http disconnection close the read stream to stop from buffering more data

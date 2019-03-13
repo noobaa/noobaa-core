@@ -343,7 +343,8 @@ export default {
                             type:' string',
                             enum: [
                                 'ObjectCreated',
-                                'ObjectRemoved'
+                                'ObjectRemoved',
+                                'ObjectRead'
                             ]
                         },
                         func: {

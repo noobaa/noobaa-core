@@ -232,8 +232,14 @@ module.exports = {
                         objectid: true
                     },
                     event_name: {
-                        type: 'string',
-                        enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ]
+                        anyOf: [{
+                            enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
+                            type: 'string',
+                        }, {
+                            // Events that do not exist in AWS S3 API
+                            enum: ['ObjectRead'],
+                            type: 'string',
+                        }]
                     },
                     func_name: {
                         type: 'string'

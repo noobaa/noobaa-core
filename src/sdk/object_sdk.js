@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const util = require('util');
+const mongo_utils = require('../util/mongo_utils');
 require('../util/dotenv').load();
 
 // const P = require('../util/promise');
@@ -107,6 +108,7 @@ class ObjectSDK {
         } catch (err) {
             dbg.error('Failed to setup bucket namespace (fallback to no namespace)', err);
         }
+        this.namespace_nb.set_triggers_for_bucket(bucket.name, bucket.triggers);
         return {
             ns: this.namespace_nb,
             bucket,
@@ -129,11 +131,14 @@ class ObjectSDK {
         }
 
         return new NamespaceMerge({
-            write_resource: wr,
-            read_resources: _.map(rr, ns_info => (
-                ns_info.endpoint_type === 'MULTIPART' ? ns_info.ns :
-                this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, ns_info))
-            ))
+            namespaces: {
+                write_resource: wr,
+                read_resources: _.map(rr, ns_info => (
+                    ns_info.endpoint_type === 'MULTIPART' ? ns_info.ns :
+                    this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, ns_info))
+                ))
+            },
+            active_triggers: bucket.active_triggers
         });
     }
 
@@ -487,6 +492,31 @@ class ObjectSDK {
     async get_bucket_tagging(params) {
         const ns = this._get_account_namespace();
         return ns.get_bucket_tagging(params);
+    }
+
+    async load_additional_info_for_triggers({ active_triggers, operation, obj }) {
+        return _.some(active_triggers, trigger => {
+            const { event_name, object_suffix, object_prefix } = trigger;
+            if (event_name !== operation) return false;
+            // When we do not provide the object we just check if we shall load the objects
+            // This is a case in order to avoid read_object_mds flow to happen always
+            if (obj && object_prefix && !obj.key.startsWith(object_prefix)) return false;
+            if (obj && object_suffix && !obj.key.endsWith(object_suffix)) return false;
+            return true;
+        });
+    }
+
+    async dispatch_triggers({ active_triggers, obj, operation, bucket }) {
+        const dispatch = this.load_additional_info_for_triggers({ active_triggers, obj, operation });
+        if (dispatch) {
+            const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
+            const dispatch_obj = _.defaults({ obj_id: mongo_utils.make_object_id('jensthesloth') }, _.pick(obj, required_obj_properties));
+            await this.rpc_client.object.dispatch_triggers({
+                bucket,
+                event_name: operation,
+                obj: dispatch_obj
+            });
+        }
     }
 
 }

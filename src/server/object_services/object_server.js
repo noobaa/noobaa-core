@@ -233,8 +233,6 @@ async function complete_object_upload(req) {
 
     await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
 
-    _dispatch_triggers(req.bucket, obj, 'ObjectCreated:Put', req.account._id, req.auth_token);
-
     const took_ms = set_updates.create_time.getTime() - obj._id.getTimestamp().getTime();
     const upload_duration = time_utils.format_time_duration(took_ms);
     const upload_size = size_utils.human_size(set_updates.size);
@@ -587,8 +585,6 @@ async function delete_object(req) {
             desc: `${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`,
         });
 
-        const event_name = 'ObjectRemoved:Delete';
-        _dispatch_triggers(req.bucket, obj, event_name, req.account._id, req.auth_token);
     }
 
     return reply;
@@ -1217,10 +1213,12 @@ function check_quota(bucket) {
     }
 }
 
-function _dispatch_triggers(bucket, obj, event_name, actor, token) {
-    const triggers_to_run = events_dispatcher.get_triggers_for_event(bucket, obj, event_name);
+async function dispatch_triggers(req) {
+    load_bucket(req);
+    const triggers_to_run = events_dispatcher.get_triggers_for_event(req.bucket, req.rpc_params.obj, req.rpc_params.event_name);
     if (!triggers_to_run) return;
-    setTimeout(() => events_dispatcher.run_bucket_triggers(triggers_to_run, bucket, obj, actor, token), 1000);
+    setTimeout(() => events_dispatcher.run_bucket_triggers(
+        triggers_to_run, req.bucket, req.rpc_params.obj, req.account._id, req.auth_token), 1000);
 }
 
 
@@ -1514,3 +1512,4 @@ exports.update_endpoint_stats = update_endpoint_stats;
 exports.put_object_tagging = put_object_tagging;
 exports.get_object_tagging = get_object_tagging;
 exports.delete_object_tagging = delete_object_tagging;
+exports.dispatch_triggers = dispatch_triggers;

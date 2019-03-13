@@ -11,6 +11,9 @@ const http_utils = require('../../../util/http_utils');
  */
 async function get_object(req, res) {
 
+    const agent_header = req.headers['user-agent'];
+    const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
+
     const object_md = await req.object_sdk.read_object_md({
         bucket: req.params.bucket,
         key: req.params.key,
@@ -26,7 +29,8 @@ async function get_object(req, res) {
         obj_id: object_md.obj_id,
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: object_md.content_type
+        content_type: object_md.content_type,
+        noobaa_trigger_agent
     };
 
     try {

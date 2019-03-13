@@ -852,6 +852,23 @@ module.exports = {
                 },
                 proxy: {
                     type: 'string'
+                },
+                active_triggers: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            event_name: {
+                                $ref: 'common_api#/definitions/event_name'
+                            },
+                            object_prefix: {
+                                type: 'string'
+                            },
+                            object_suffix: {
+                                type: 'string'
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -990,10 +1007,6 @@ module.exports = {
             type: 'string',
         },
 
-        event_name: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
-            enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
-            type: 'string',
-        },
 
         new_lambda_trigger: {
             type: 'object',
@@ -1001,7 +1014,7 @@ module.exports = {
             properties: {
                 bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
-                    $ref: '#/definitions/event_name'
+                    $ref: 'common_api#/definitions/event_name'
                 },
                 func_name: {
                     type: 'string'
@@ -1030,7 +1043,7 @@ module.exports = {
                 },
                 bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
-                    $ref: '#/definitions/event_name'
+                    $ref: 'common_api#/definitions/event_name'
                 },
                 func_name: {
                     type: 'string'
@@ -1063,7 +1076,7 @@ module.exports = {
                     objectid: true
                 },
                 event_name: {
-                    $ref: '#/definitions/event_name'
+                    $ref: 'common_api#/definitions/event_name'
                 },
                 func_name: {
                     type: 'string'

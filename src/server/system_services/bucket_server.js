@@ -324,6 +324,7 @@ function get_bucket_namespaces(req) {
     return P.resolve()
         .then(() => {
             if (bucket.namespace) {
+                const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
                 return {
                     name: bucket.name,
                     namespace: {
@@ -332,7 +333,9 @@ function get_bucket_namespaces(req) {
                         ),
                         read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
                     },
-                    proxy: system.phone_home_proxy_address
+                    proxy: system.phone_home_proxy_address,
+                    active_triggers: _.compact(_.map(bucket.lambda_triggers, trigger =>
+                        (trigger.enabled && _.pick(trigger, trigger_properties))))
                 };
             } else {
                 return read_bucket(req, 'dont_count_objects');

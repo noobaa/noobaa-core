@@ -1,13 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-triggers-form.html';
-import Observer from 'observer';
-import TriggerRowViewModel from './trigger-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
+import moment from 'moment';
 import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { getMany } from 'rx-extensions';
-import { state$, action$ } from 'state';
+import { bucketEvents } from 'utils/bucket-utils';
 import { paginationPageSize } from 'config';
 import {
     openAddBucketTriggerModal,
@@ -15,6 +14,7 @@ import {
     removeBucketTrigger,
     requestLocation
 } from 'action-creators';
+import * as routes from 'routes';
 
 const columns = deepFreeze([
     {
@@ -64,82 +64,147 @@ const columns = deepFreeze([
     }
 ]);
 
-class BucketTriggersFormViewModel extends Observer {
+const modeToStatus = deepFreeze({
+    DISABLED: {
+        name: 'healthy',
+        css: 'disabled',
+        tooltip: 'Disabled'
+    },
+    MISSING_PERMISSIONS: {
+        name: 'problem',
+        css: 'warning',
+        tooltip: 'Access issue'
+    },
+    OPTIMAL: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
+    }
+});
+
+function _mapTriggerToRow(trigger, system, selectedForDelete) {
+    const event = bucketEvents
+        .find(event => event.value === trigger.event)
+        .label;
+
+    const func = trigger.func.name;
+    const funcName = {
+        text: func,
+        href: realizeUri(routes.func, { system, func })
+    };
+
+    const lastRun = trigger.lastRun ?
+        moment(trigger.lastRun).fromNow() :
+        '(never run)';
+
+    return {
+        state: modeToStatus[trigger.mode],
+        funcName,
+        event,
+        prefix: trigger.prefix || '(not set)',
+        suffix: trigger.suffix || '(not set)',
+        lastRun,
+        triggerId: trigger.id,
+        delete: {
+            active: selectedForDelete === trigger.id
+        }
+    };
+}
+
+class TriggerRowViewModel {
+    table = null;
+    state = ko.observable();
+    funcName = ko.observable();
+    event = ko.observable();
+    prefix = ko.observable();
+    suffix = ko.observable();
+    lastRun = ko.observable();
+    triggerId = ko.observable();
+    edit = {
+        id: this.triggerId,
+        icon: 'edit',
+        tooltip: 'Edit Trigger',
+        onClick: id => this.table.onEditTrigger(id)
+    };
+    delete = {
+        text: 'Delete trigger',
+        disabled: false,
+        active: ko.observable(),
+        id: this.triggerId,
+        onToggle: id => this.table.onSelectForDelete(id),
+        onDelete: id => this.table.onDeleteTrigger(id)
+    };
+
+    constructor({ table }) {
+        this.table = table;
+    }
+}
+
+class BucketTriggersFormViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
     bucketName = '';
     columns = columns;
     pathname = '';
-    bucketLoaded = ko.observable();
     sorting = ko.observable({});
     pageSize = paginationPageSize;
     page = ko.observable();
     selectedForDelete = '';
     triggerCount = ko.observable();
-    rows = ko.observableArray();
-    rowParams = {
-        onEdit: this.onEditTrigger.bind(this),
-        onSelectForDelete: this.onSelectForDelete.bind(this),
-        onDelete: this.onDeleteTrigger.bind(this)
-    };
+    rows = ko.observableArray()
+        .ofType(TriggerRowViewModel, { table: this });
 
-    constructor({ bucketName }) {
-        super();
-
-        this.bucketName = ko.unwrap(bucketName);
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['buckets', this.bucketName, 'triggers'],
-                    ['location']
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        const { buckets, location } = state;
+        const { bucketName } = params;
+        return [
+            bucketName,
+            buckets && buckets[bucketName].triggers,
+            location
+        ];
     }
 
-    onState([triggers, location]) {
-        if (location.params.tab !== 'triggers') {
-            return;
-        }
-
-        if (!triggers) {
-            this.bucketLoaded(false);
-            return;
-        }
-
-        const { system } = location.params;
-        const { sortBy = 'funcName', order = 1, page = 0, selectedForDelete } = location.query;
-        const { compareKey } = columns.find(column => column.name === sortBy);
-        const pageStart = Number(page) * this.pageSize;
-        const triggerList = Object.values(triggers);
-        const rows = triggerList
-            .sort(createCompareFunc(compareKey, Number(order)))
-            .slice(pageStart, pageStart + this.pageSize)
-            .map((trigger, i) => {
-                const row = this.rows.get(i) || new TriggerRowViewModel(this.rowParams);
-                row.onState(trigger, system, selectedForDelete);
-                return row;
+    mapStateToProps(bucketName, triggers, location) {
+        if (!triggers || location.params.tab !== 'triggers') {
+            ko.assignToProps(this, {
+                dataReady: false
             });
 
-        this.triggerCount(triggerList.length);
-        this.pathname = location.pathname;
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.selectedForDelete = selectedForDelete;
-        this.rows(rows);
-        this.bucketLoaded(true);
+        } else {
+            const { params, query, pathname } = location;
+            const { sortBy = 'funcName', selectedForDelete } = query;
+            const page = Number(query.page) || 0;
+            const order = Number(query.page) || 1;
+            const { compareKey } = columns.find(column => column.name === sortBy);
+            const pageStart = page * this.pageSize;
+            const triggerList = Object.values(triggers);
+            const rows = triggerList
+                .sort(createCompareFunc(compareKey, order))
+                .slice(pageStart, pageStart + this.pageSize)
+                .map(trigger => _mapTriggerToRow(trigger, params.system, selectedForDelete));
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                bucketName,
+                triggerCount: triggerList.length,
+                pathname,
+                sorting: { sortBy, order },
+                page,
+                selectedForDelete,
+                rows: rows
+            });
+        }
     }
 
     onAddTrigger() {
-        action$.next(openAddBucketTriggerModal(this.bucketName));
+        this.dispatch(openAddBucketTriggerModal(this.bucketName));
     }
 
     onEditTrigger(triggerId) {
-        action$.next(openEditBucketTriggerModal(this.bucketName, triggerId));
+        this.dispatch(openEditBucketTriggerModal(this.bucketName, triggerId));
     }
 
     onDeleteTrigger(triggerId) {
-        action$.next(removeBucketTrigger(this.bucketName, triggerId));
+        this.dispatch(removeBucketTrigger(this.bucketName, triggerId));
     }
 
     onSort(sorting) {
@@ -176,9 +241,7 @@ class BucketTriggersFormViewModel extends Observer {
             selectedForDelete: selectedForDelete || undefined
         };
 
-        action$.next(
-            requestLocation(realizeUri(this.pathname, {}, query))
-        );
+        this.dispatch(requestLocation(realizeUri(this.pathname, {}, query)));
     }
 }
 

@@ -8,7 +8,7 @@ side-nav {
     padding: @gutter/4 0;
 
     .nav-link {
-        color: rgb(var(--color8));
+        color: rgb(var(--color02));
         cursor: @cursor-pointer;
         position: relative;
         padding-left: @gutter - @border-width;
@@ -21,14 +21,14 @@ side-nav {
         > svg-icon {
             z-index: 1;
             transition: opacity @transition-duration ease-in-out;
-            fill: rgb(var(--color8));
+            fill: rgb(var(--color02));
         }
 
         > span {
             position: absolute;
             left: 100%;
             top: 0;
-            background-color: rgb(var(--color4));
+            background-color: rgb(var(--color15));
             line-height: 24px;
             width: 150px;
             box-shadow: 2px 2px 2px rgba(var(--shadow1));
@@ -37,21 +37,21 @@ side-nav {
         }
 
         &.selected {
-            border-left-color: rgb(var(--color6));
-            background-color: rgb(var(--color4));
+            border-left-color: rgb(var(--color20));
+            background-color: rgb(var(--color15));
 
             > svg-icon {
-                fill: rgb(var(--color6));
+                fill: rgb(var(--color20));
             }
         }
 
         &:hover {
-            background: rgb(var(--color4));
+            background: rgb(var(--color15));
             overflow: visible;
             box-shadow: 0 2px 2px rgb(var(--shadow1));
 
             > svg-icon {
-                fill: rgb(var(--color6));
+                fill: rgb(var(--color20));
                 transform: scale(1.3, 1.3);
             }
 
@@ -61,7 +61,7 @@ side-nav {
         }
 
         + .nav-link {
-            border-top-color: rgb(var(--color2));
+            border-top-color: rgb(var(--color18));
         }
     }
 }

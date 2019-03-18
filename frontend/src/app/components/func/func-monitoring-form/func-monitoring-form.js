@@ -203,7 +203,7 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                 pointRadius: 3,
                 pointBorderWidth: 4,
                 pointHitRadius: 10,
-                pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
+                pointBorderColor: colorToRgb(...rgbToColor(theme.color11), .2),
                 pointHoverBorderColor: 'transparent',
                 borderJoinStyle: 'round',
                 lineTension: 0,
@@ -228,8 +228,8 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                         datasets:[
                             {
                                 ...commonLineDatasetSettings,
-                                pointBackgroundColor: theme.color6,
-                                borderColor: theme.color6,
+                                pointBackgroundColor: theme.color20,
+                                borderColor: theme.color20,
                                 data: datasets.pre99
                             },
                             {
@@ -240,8 +240,8 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                             },
                             {
                                 ...commonLineDatasetSettings,
-                                pointBackgroundColor: theme.color9,
-                                borderColor: theme.color9,
+                                pointBackgroundColor: theme.color17,
+                                borderColor: theme.color17,
                                 data: datasets.pre50
                             }
                         ]
@@ -258,11 +258,11 @@ class FuncMonitoringFormViewModel extends ConnectableViewModel {
                         }`),
                         datasets: [
                             {
-                                backgroundColor: theme.color21,
+                                backgroundColor: theme.color27,
                                 data: datasets.fulfilled
                             },
                             {
-                                backgroundColor: theme.color19,
+                                backgroundColor: theme.color31,
                                 data: datasets.rejected
                             }
                         ]

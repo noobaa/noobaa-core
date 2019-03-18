@@ -5,12 +5,12 @@ drop-area {
 
     .drop-container {
         position: relative;
-        border: 1px dashed rgb(var(--color10));
+        border: 1px dashed rgb(var(--color11));
         font-size: @font-size3;
         height: 100%;
 
         &:focus-within {
-            border-color: rgb(var(--color6));
+            border-color: rgb(var(--color20));
         }
 
         &::after, &::before {
@@ -27,8 +27,8 @@ drop-area {
 
         &::before {
             border-color:
-                rgb(var(--color6))
-                rgb(var(--color6))
+                rgb(var(--color20))
+                rgb(var(--color20))
                 transparent
                 transparent;
         };
@@ -37,8 +37,8 @@ drop-area {
             border-color:
                 transparent
                 transparent
-                rgb(var(--color6))
-                rgb(var(--color6));
+                rgb(var(--color20))
+                rgb(var(--color20));
         }
 
         &.dragover {
@@ -71,15 +71,15 @@ drop-area {
         }
 
         &.active {
-            border-color: rgb(var(--color7));
+            border-color: rgb(var(--color29));
         }
 
         &.disabled, &.disabled.dragover {
-            border-color: rgb(var(--color18));
+            border-color: rgb(var(--color09));
         }
     }
 
     &.invalid .drop-container {
-        border-color: rgb(var(--color19));
+        border-color: rgb(var(--color31));
     }
 }

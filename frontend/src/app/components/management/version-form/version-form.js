@@ -1,16 +1,16 @@
 // Copyright (C) 2016 NooBaa
 
 import template from './version-form.html';
-import Observer from 'observer';
-import IssueRowViewModel from './issue-row';
+import ConnectableViewModel from 'components/connectable';
 import { upgradePackageSuffix, timeShortFormat } from 'config';
-import { state$, action$ } from 'state';
 import { deepFreeze, sumBy } from 'utils/core-utils';
 import { aggregateUpgradePackageInfo } from 'utils/cluster-utils';
-import { getMany } from 'rx-extensions';
+import { getServerDisplayName } from 'utils/cluster-utils';
+import { formatEmailUri } from 'utils/browser-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
+import { support } from 'config';
 import { Tweenable } from 'shifty';
 import {
     uploadUpgradePackage,
@@ -35,7 +35,7 @@ const pkgIssuesColumns = deepFreeze([
     }
 ]);
 
-const pkgTextResultToInfo = deepFreeze({
+const pkgTestResultToMapping = deepFreeze({
     NO_RESULT: null,
     SUCCESS: {
         dropAreaMessage: 'Package uploaded and validated successfully',
@@ -133,25 +133,45 @@ function _startFakeProgress(stepCallback) {
     return t;
 }
 
+function _updateTweenHandle(state, tweenHandle, progressTickHandler) {
+    if (state === 'TESTING' && !tweenHandle){
+        return _startFakeProgress(progressTickHandler);
 
-class VersionFormViewModel extends Observer {
-    // Version control observables.
-    version = ko.observable();
-    lastUpgrade = ko.observable();
-    clusterVersionStatus = ko.observable();
+    } else if (state !== 'TESTING' && tweenHandle) {
+        tweenHandle.stop().dispose();
+        return null;
+    }
+}
+
+class IssueRowViewModel {
+    icon = {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Failure'
+    };
+    server = ko.observable();
+    details = {
+        message: ko.observable(),
+        reportHref: ko.observable()
+    };
+}
+
+class VersionFormViewModel extends ConnectableViewModel {
+    dataReady = ko.observable();
+    pkgIssuesColumns = pkgIssuesColumns;
     versionInfo = [
         {
             label: 'Current Version',
-            value: this.version
+            value: ko.observable()
         },
         {
             label: 'Last Upgrade',
-            value: this.lastUpgrade
+            value: ko.observable()
 
         },
         {
             label: 'Cluster Servers Version',
-            value: this.clusterVersionStatus
+            value: ko.observable()
         },
         {
             label: 'License Information',
@@ -159,167 +179,182 @@ class VersionFormViewModel extends Observer {
             template: 'licenseInfo'
         }
     ];
-
-    // System upgrade observables.
-    stateLoaded = ko.observable();
-    uploadBtn = ko.observable();
-    uploadArea =  ko.observable();
-    upgradeBtn = ko.observable();
+    uploadBtn = {
+        disabled: ko.observable(),
+        tooltip: ko.observable()
+    };
+    uploadArea =  {
+        expanded: ko.observable(),
+        active: ko.observable(),
+        disable: ko.observable()
+    };
+    upgradeBtn = {
+        disabled: ko.observable(),
+        tooltip: ko.observable()
+    };
     pkgSuffix = upgradePackageSuffix;
     pkgState = ko.observable();
-    pkgVersion = ko.observable();
-    pkgVersionLabel = ko.observable();
-    isPkgVersionDisabled = ko.observable();
-    pkgTestTime = ko.observable();
     pkgTestResult = ko.observable();
-    pkgStateProgress = 0;
-    pkgStateProgressText = ko.observable();
-    pkgIssuesColumns = pkgIssuesColumns;
-    isPkgTestResultsVisible = ko.observable();
-    pkgIssuesRows = ko.observableArray();
-    progressTween = null;
     pkgInfo = [
         {
-            label: this.pkgVersionLabel,
-            value: this.pkgVersion,
-            disabled: this.isPkgVersionDisabled
+            label: ko.observable(),
+            value: ko.observable(),
+            disabled: ko.observable()
         },
         {
             label: 'Validated At',
-            value: this.pkgTestTime,
-            visible: this.pkgTestTime
+            value: ko.observable(),
+            visible: ko.observable()
         },
         {
             label: 'Validation Result',
             template: 'testResult',
-            value: this.pkgTestResult,
-            visible: this.pkgTestResult
+            value: ko.observable(),
+            visible: ko.observable()
         }
     ];
+    pkgStateProgress = 0;
+    pkgStateProgressText = ko.observable();
+    isPkgTestResultsVisible = ko.observable();
+    pkgIssuesRows = ko.observableArray()
+        .ofType(IssueRowViewModel);
 
-    constructor() {
-        super();
+    progressTween = null;
 
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'system',
-                    ['topology', 'servers']
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { system, topology } = state;
+        return [
+            system,
+            topology && topology.servers
+        ];
     }
 
-    onState([system, servers]) {
+    mapStateToProps(system, servers) {
         if (!system || !servers) {
-            this.stateLoaded(false);
-            this.uploadBtn({ disabled:  true });
-            this.upgradeBtn({ disabled:  true });
-            this.uploadArea({});
-            this.isPkgTestResultsVisible(false);
-            return;
-        }
-
-        const { version, upgrade } = system;
-        const serverList = Object.values(servers);
-
-        const {
-            state,
-            version: pkgVersion,
-            testedAt,
-            progress = 0,
-            errors: issues = []
-        } = aggregateUpgradePackageInfo(serverList);
-
-        const pkgTestResult = _getPackageTestResult(state, issues.length);
-        const pkgVersionLabel = `${pkgTestResult === 'SUCCESS' ? 'Staged' : 'Uploaded'} Version`;
-        const isPkgUploadingOrTesting = state === 'UPLOADING' || state === 'TESTING';
-        const uploadBtn = {
-            disabled: Boolean(upgrade.preconditionFailure) || isPkgUploadingOrTesting,
-            tooltip: uploadBtnTooltips[upgrade.preconditionFailure]
-        };
-        const upgradeBtn = {
-            disabled: Boolean(upgrade.preconditionFailure) || pkgTestResult !== 'SUCCESS',
-            tooltip: upgradeBtnTooltips[
-                pkgTestResult !== 'SUCCESS' ? 'PACKAGE_NOT_READY' : upgrade.preconditionFailure
-            ]
-        };
-        const uploadArea = {
-            expanded: isPkgUploadingOrTesting,
-            active: isPkgUploadingOrTesting
-        };
-        const pkgTestTime = testedAt ? moment(testedAt).format(timeShortFormat) : '';
-        const pkgStateProgressText = numeral(progress).format('%');
-        const isPkgTestResultsVisible = pkgTestResult === 'FAILURE';
-        const pkgIssuesRows = issues
-            .map((issue, i) => {
-                const row = this.pkgIssuesRows.get(i) || new IssueRowViewModel();
-                row.onState(issue, servers[issue.server]);
-                return row;
+            ko.assignToProps(this, {
+                dataReady: false,
+                uploadBtn: { disabled:  true },
+                upgradeBtn: { disabled:  true },
+                isPkgTestResultsVisible: false
             });
 
-        this.version(version);
-        this.lastUpgrade(_getLastUpgradeText(upgrade.lastUpgrade));
-        this.clusterVersionStatus(_getVersionStatus(servers, version));
-        this.uploadBtn(uploadBtn);
-        this.upgradeBtn(upgradeBtn);
-        this.uploadArea(uploadArea);
-        this.pkgState(state);
-        this.isPkgVersionDisabled(isPkgUploadingOrTesting);
-        this.pkgVersionLabel(pkgVersionLabel);
-        this.pkgVersion(_getPackageVersionText(pkgVersion));
-        this.pkgTestTime(pkgTestTime);
-        this.pkgTestResult(pkgTextResultToInfo[pkgTestResult]);
-        this.pkgStateProgress = progress;
-        this.pkgStateProgressText(pkgStateProgressText);
-        this.pkgIssuesRows(pkgIssuesRows);
-        this.isPkgTestResultsVisible(isPkgTestResultsVisible);
-        this.stateLoaded(true);
+        } else {
+            const { version, upgrade } = system;
+            const serverList = Object.values(servers);
 
-        if (state === 'TESTING' && !this.progressTween){
-            this.progressTween = _startFakeProgress(this.onFakeProgress.bind(this));
+            const {
+                state,
+                version: pkgVersion,
+                testedAt,
+                progress = 0,
+                errors: issues = []
+            } = aggregateUpgradePackageInfo(serverList);
 
-        } else if (state !== 'TESTING' && this.progressTween) {
-            this.progressTween.stop().dispose();
-            this.progressTween = null;
+            const pkgTestResult = _getPackageTestResult(state, issues.length);
+            const isPkgUploadingOrTesting = state === 'UPLOADING' || state === 'TESTING';
+            const pkgTestTime = testedAt ? moment(testedAt).format(timeShortFormat) : '';
+            const pkgTestResultInfo = pkgTestResultToMapping[pkgTestResult];
+            const pkgIssuesRows = issues.map(issue => {
+                const { message, reportInfo }= issue;
+                const reportHref = reportInfo && formatEmailUri(support.email, reportInfo);
+                return {
+                    server: getServerDisplayName(servers[issue.server]),
+                    details: { message, reportHref }
+                };
+            });
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                versionInfo: [
+                    { value: version },
+                    { value: _getLastUpgradeText(upgrade.lastUpgrade) },
+                    { value: _getVersionStatus(servers, version) }
+                ],
+                uploadBtn: {
+                    disabled: Boolean(upgrade.preconditionFailure) || isPkgUploadingOrTesting,
+                    tooltip: uploadBtnTooltips[upgrade.preconditionFailure]
+                },
+                upgradeBtn: {
+                    disabled: Boolean(upgrade.preconditionFailure) || pkgTestResult !== 'SUCCESS',
+                    tooltip: upgradeBtnTooltips[
+                        pkgTestResult !== 'SUCCESS' ? 'PACKAGE_NOT_READY' : upgrade.preconditionFailure
+                    ]
+                },
+                uploadArea: {
+                    expanded: isPkgUploadingOrTesting,
+                    active: isPkgUploadingOrTesting
+                },
+                pkgState: state,
+                pkgTestResult: pkgTestResultInfo,
+                pkgInfo: [
+                    {
+                        label: `${pkgTestResult === 'SUCCESS' ? 'Staged' : 'Uploaded'} Version`,
+                        value: _getPackageVersionText(pkgVersion),
+                        disabled: isPkgUploadingOrTesting
+                    },
+                    {
+                        label: 'Validated At',
+                        value: pkgTestTime,
+                        visible: pkgTestTime
+                    },
+                    {
+                        label: 'Validation Result',
+                        template: 'testResult',
+                        value: pkgTestResultInfo,
+                        visible: Boolean(pkgTestResultInfo)
+                    }
+                ],
+                progressTween: _updateTweenHandle(
+                    state,
+                    this.progressTween,
+                    this.onFakeProgress.bind(this)
+                ),
+                pkgStateProgress: progress,
+                pkgStateProgressText: numeral(progress).format('%'),
+                isPkgTestResultsVisible: pkgTestResult === 'FAILURE',
+                pkgIssuesRows
+            });
         }
     }
 
     onFakeProgress(fakeProgress) {
         const progress = Math.max(this.pkgStateProgress, fakeProgress);
-        this.pkgStateProgress = progress;
-        this.pkgStateProgressText(numeral(progress).format('%'));
+        ko.assignToProps(this, {
+            pkgStateProgress: progress,
+            pkgStateProgressText: numeral(progress).format('%')
+        });
     }
 
     onUploadPackage() {
-        const { expanded, active } = this.uploadArea();
-        this.uploadArea({
-            active: active,
-            expanded: !expanded
+        const { expanded, active } = this.uploadArea;
+        ko.assignToProps(this, {
+            uploadArea: {
+                active: active(),
+                expanded: !expanded()
+            }
         });
     }
 
     onUpgradeNow() {
-        action$.next(openUpgradeSystemModal());
+        this.dispatch(openUpgradeSystemModal());
     }
 
     onDropPackage(_, evt) {
         const [packageFile] = evt.dataTransfer.files;
-        action$.next(uploadUpgradePackage(packageFile));
+        this.dispatch(uploadUpgradePackage(packageFile));
     }
 
     onSelectPackage(_, evt) {
         const [packageFile] = evt.target.files;
-        action$.next(uploadUpgradePackage(packageFile));
+        this.dispatch(uploadUpgradePackage(packageFile));
     }
 
     onCancelUpload() {
-        action$.next(abortUpgradePackageUpload());
+        this.dispatch(abortUpgradePackageUpload());
     }
 
     onRerunTest() {
-        action$.next(runUpgradePackageTests());
+        this.dispatch(runUpgradePackageTests());
     }
 
     dispose() {

@@ -58,12 +58,12 @@ function _getBubblesForDataTypes(buckets) {
 
 function _prepareDatasets(view, buckets, theme) {
     const colors = [
-        theme.color6,
-        theme.color28,
-        theme.color29,
         theme.color20,
-        theme.color21,
-        theme.color9
+        theme.color28,
+        theme.color30,
+        theme.color26,
+        theme.color27,
+        theme.color17
     ];
 
     const maxCount = colors.length;

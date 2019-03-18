@@ -1,11 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-bucket-trigger-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { bucketEvents } from 'utils/bucket-utils';
 import { getFunctionOption } from 'utils/func-utils';
-import { getMany } from 'rx-extensions';
 import ko from 'knockout';
 import { addBucketTrigger as learnMoreHref } from 'knowledge-base-articles';
 import {
@@ -14,7 +12,7 @@ import {
     closeModal
 } from 'action-creators';
 
-class AddBucketTriggerModalViewModel extends Observer {
+class AddBucketTriggerModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     bucketName = '';
@@ -22,7 +20,7 @@ class AddBucketTriggerModalViewModel extends Observer {
     eventOptions = bucketEvents;
     funcActions = [{
         label: 'Create new function',
-        onClick: this.onCreateNewFunction
+        onClick: () => this.onCreateNewFunction()
     }];
     funcOptions = ko.observableArray();
     fields = {
@@ -33,37 +31,34 @@ class AddBucketTriggerModalViewModel extends Observer {
         active: true
     };
 
-    constructor({ bucketName }) {
-        super();
+    selectState(state, params) {
+        const { buckets, functions, accounts } = state;
+        const { bucketName } = params;
 
-        this.bucketName = ko.unwrap(bucketName);
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    ['buckets', this.bucketName, 'triggers'],
-                    'functions',
-                    'accounts'
-                )
-            ),
-            this.onState
-        );
+        return [
+            bucketName,
+            buckets && buckets[bucketName].triggers,
+            functions,
+            accounts
+        ];
     }
 
-    onState([triggers, funcs, accounts]) {
+    mapStateToProps(bucketName, triggers, funcs, accounts) {
         if (!triggers || !funcs || !accounts) {
             return;
         }
 
-        const funcOptions = Object.values(funcs)
-            .map(func => getFunctionOption(func, accounts, this.bucketName));
-
-        this.existingTriggers = Object.values(triggers);
-        this.funcOptions(funcOptions);
+        ko.assignToProps(this, {
+            bucketName,
+            existingTriggers: Object.values(triggers),
+            funcOptions: Object.values(funcs).map(func =>
+                getFunctionOption(func, accounts, bucketName)
+            )
+        });
     }
 
     onCreateNewFunction() {
-        action$.next(openCreateFuncModal());
+        this.dispatch(openCreateFuncModal());
     }
 
     onValidate(values) {
@@ -84,12 +79,13 @@ class AddBucketTriggerModalViewModel extends Observer {
     async onValidateSubmit(values, existingTriggers) {
         const errors = {};
         const { event, func, prefix, suffix } = values;
+        const [funcName, funcVersion] = func.split(':');
 
         const unique = existingTriggers
             .every(trigger =>
                 trigger.event !== event ||
-                    trigger.func.name !== func.name ||
-                    trigger.func.version !== func.version ||
+                    trigger.func.name !== funcName ||
+                    trigger.func.version !== funcVersion ||
                     trigger.prefix !== prefix ||
                     trigger.suffix !== suffix
             );
@@ -103,21 +99,24 @@ class AddBucketTriggerModalViewModel extends Observer {
     }
 
     onSubmit(values) {
+        const [funcName, funcVersion] = values.func.split(':');
         const config = {
-            funcName: values.func.name,
-            funcVersion: values.func.version,
+            funcName: funcName,
+            funcVersion: funcVersion,
             event: values.event,
             prefix: values.prefix,
             suffix: values.suffix,
             enabled: values.active
         };
 
-        action$.next(addBucketTrigger(this.bucketName, config));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            addBucketTrigger(this.bucketName, config)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

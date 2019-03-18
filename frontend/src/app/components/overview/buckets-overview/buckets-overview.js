@@ -52,13 +52,13 @@ const chartDatasets = deepFreeze([
         key: 'hosts',
         label: 'Used on Nodes',
         labelPadding: 10,
-        color: 'color9'
+        color: 'color17'
     },
     {
         key: 'cloud',
         label: 'Used on Cloud',
         labelPadding: 10,
-        color: 'color6'
+        color: 'color20'
     },
     {
         key: 'internal',
@@ -235,7 +235,7 @@ function _getChartParams(
             pointBorderWidth: 4,
             pointHitRadius: 10,
             pointBackgroundColor: theme[color],
-            pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
+            pointBorderColor: colorToRgb(...rgbToColor(theme.color11), .2),
             pointHoverBorderColor: 'transparent',
             data: filteredSamples.map(sample => ({
                 x: sample.timestamp,
@@ -280,7 +280,7 @@ class BucketsOverviewViewModel extends Observer{
                 this.hideHosts,
                 val => this.onToggleDataset('hosts', !val)
             ),
-            color : 'rgb(var(--color9)',
+            color : 'rgb(var(--color17)',
             tooltip: 'The total raw data that was written on all installed nodes in the system'
         },
         {
@@ -290,7 +290,7 @@ class BucketsOverviewViewModel extends Observer{
                 this.hideCloud,
                 val => this.onToggleDataset('cloud', !val)
             ),
-            color : 'rgb(var(--color6)',
+            color : 'rgb(var(--color20)',
             tooltip: 'The total raw data that was written on all configured cloud resources in the system'
         },
         {

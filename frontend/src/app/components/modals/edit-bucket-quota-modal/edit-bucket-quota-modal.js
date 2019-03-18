@@ -81,29 +81,29 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
         values: [
             {
                 label: 'Used Data',
-                color: 'rgb(var(--color6))',
+                color: 'rgb(var(--color20))',
                 value: ko.observable()
             },
             {
                 label: 'Available',
-                color: 'rgb(var(--color16))',
+                color: 'rgb(var(--color07))',
                 value: ko.observable()
             },
             {
                 label: 'Overallocated',
-                color: 'rgb(var(--color19))',
+                color: 'rgb(var(--color31))',
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
                 label: 'Overused',
-                color: 'rgb(var(--color20))',
+                color: 'rgb(var(--color26))',
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
                 label: 'Potential',
-                color: 'rgb(var(--color16))',
+                color: 'rgb(var(--color07))',
                 value: ko.observable(),
                 visible: ko.observable()
             }

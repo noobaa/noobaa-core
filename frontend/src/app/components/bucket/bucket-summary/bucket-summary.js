@@ -164,33 +164,33 @@ class BucketSummrayViewModel extends ConnectableViewModel {
         values: [
             {
                 label: 'Used Data',
-                color: 'rgb(var(--color6))',
+                color: 'rgb(var(--color20))',
                 value: ko.observable(0),
                 tooltip: 'The total amount of data uploaded to this bucket. does not include data optimization or data resiliency'
             },
             {
                 label: 'Available According to Policies',
-                color: 'rgb(var(--color16))',
+                color: 'rgb(var(--color07))',
                 value: ko.observable(0),
                 tooltip: 'The actual free space on this bucket for data writes taking into account the current configured bucket policies'
             },
             {
                 label: 'Available on Internal Storage',
-                color: 'rgb(var(--color8))',
+                color: 'rgb(var(--color02))',
                 value: ko.observable(0),
                 visible: ko.observable(),
                 tooltip: 'The current available storage from the system internal storage disks, will be used only in the case of no available storage resources on this bucket.'
             },
             {
                 label: 'Overallocated',
-                color: 'rgb(var(--color19))',
+                color: 'rgb(var(--color31))',
                 value: ko.observable(0),
                 visible: ko.observable(),
                 tooltip: 'Overallocation happens when configuring a higher quota than this bucket assigned resources can store'
             },
             {
                 label: 'Overused',
-                color: 'rgb(var(--color20))',
+                color: 'rgb(var(--color26))',
                 value: ko.observable(0),
                 visible: ko.observable(),
                 tooltip: 'Data that was written and exceeded the bucket configured quota'
@@ -209,12 +209,12 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     dataUsage = [
         {
             label: 'Original Data Size',
-            color: 'rgb(var(--color10))',
+            color: 'rgb(var(--color11))',
             value: ko.observable()
         },
         {
             label: 'After Optimizations',
-            color: 'rgb(var(--color6))',
+            color: 'rgb(var(--color20))',
             value: ko.observable()
         }
     ];
@@ -242,17 +242,17 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     rawUsageValues = [
         {
             label: 'Available from Resources',
-            color: 'rgb(var(--color26))',
+            color: 'rgb(var(--color13))',
             value: ko.observable(0)
         },
         {
             label: 'Raw Usage',
-            color: 'rgb(var(--color6))',
+            color: 'rgb(var(--color20))',
             value: ko.observable(0)
         },
         {
             label: 'Shared Resources Usage',
-            color: 'rgb(var(--color7))',
+            color: 'rgb(var(--color29))',
             value: ko.observable(0)
         }
     ];

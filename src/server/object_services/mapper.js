@@ -628,7 +628,7 @@ function get_chunk_info(chunk, adminfo, tiering_status, location_info) {
     }
     const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
     return {
-        tier: chunk.tier.name,
+        tier: chunk.tier.name.unwrap(),
         chunk_coder_config: chunk.chunk_coder_config,
         size: chunk.size,
         frag_size: chunk.frag_size,

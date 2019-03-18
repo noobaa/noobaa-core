@@ -15,7 +15,7 @@
     </a>
 
     <div class="align-start highlight push-next-half">
-        Resource Health Status
+        Resources Health Status
     </div>
 
     <chart-legend class="align-stretch push-next" params="
@@ -26,7 +26,8 @@
     <chartjs class="greedy resources-chart push-next" params="
         type: 'bar',
         options: chart.options,
-        data: chart.data
+        data: chart.data,
+        emptyMessage: 'No resource connected'
     "></chartjs>
 
     <button class="btn overview-btn" ko.click="onAddResources">

@@ -18,7 +18,7 @@ const internalWarningTooltip = deepFreeze({
     text: {
         text:`
             Using the system internal storage is not recommended due to low performance.
-            Please add storage resources(on-premise nodes or cloud resources).
+            Please add storage resources(Local nodes or cloud resources).
         `,
         link: {
             text: 'Learn how to add storage to NooBaa',

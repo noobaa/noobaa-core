@@ -346,7 +346,7 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.FAIL_DELETE_HOST]: ({ host }) => ({
-        message: `Host ${host} deletion failed`,
+        message: `Node ${host} deletion failed`,
         severity: 'error'
     }),
 

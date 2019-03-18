@@ -178,7 +178,7 @@ class MapAllocator {
                 mapper.assign_node_to_block(block, node, this.bucket.system._id);
                 const block_info = mapper.get_block_info(chunk, frag, block);
                 frag.blocks = frag.blocks || [];
-                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication 
+                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication
                     (this.location_info.host_id === node.host_id || this.location_info.node_id === String(node._id))) {
                     frag.blocks.unshift(block_info);
                 } else {
@@ -190,7 +190,7 @@ class MapAllocator {
                 }
             }
             // We must set the tier name for the reply schema check to pass
-            chunk.tier = this.tier_for_write.name;
+            chunk.tier = this.tier_for_write.name.unwrap();
         }
         return true;
     }
@@ -247,7 +247,7 @@ class MapAllocator {
                     return false;
                 }
                 // frag.blocks = frag.blocks || [];
-                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication 
+                if (this.location_info && // optimizing local nodes/hosts - so it will be used for write rather than for replication
                     (this.location_info.host_id === node.host_id || this.location_info.node_id === String(node._id))) {
                     frag.blocks.unshift(block_info);
                 } else {

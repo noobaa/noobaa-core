@@ -42,8 +42,6 @@ const sections = deepFreeze({
     phoneHome: 'phone-home'
 });
 
-const requirementsMarker = (message) => `<span class="remark warning">&nbsp; * ${message ? message : ''}</span>`;
-
 class ServerDetailsFormViewModel extends BaseViewModel {
     constructor({ serverSecret, system }) {
         super();
@@ -204,30 +202,30 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         const totalMemory = ko.pureComputed(
             () => {
                 const { memory } = this.server() || {};
-                return memory ?
-                    `${formatSize(memory.total)} ${this.notEnoughMemory() ?
-                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().ram)}`)  : ''}` :
-                    '';
+                return {
+                    text: memory ? formatSize(memory.total) : '',
+                    minReqMessage: this.notEnoughMemory() ? formatSize(minRequirements().ram) : ''
+                };
             }
         );
 
         const totalStorage = ko.pureComputed(
             () => {
                 const { storage } = this.server() || {};
-                return storage ?
-                    `${formatSize(storage.total)} ${this.notEnoughStorage() ?
-                        requirementsMarker(`Minimum requirements: ${formatSize(minRequirements().storage)}`) : ''}` :
-                    '';
+                return {
+                    text: storage ? formatSize(storage.total) : '',
+                    minReqMessage: this.notEnoughStorage() ? formatSize(minRequirements().storage) : ''
+                };
             }
         );
 
         const cpusCount = ko.pureComputed(
             () => {
                 const { cpus } = this.server() || {};
-                return cpus ?
-                    `${cpus.count} CPUs ${this.notEnoughCpus() ?
-                        requirementsMarker(`Minimum requirements: ${minRequirements().cpu_count} CPUs`) : ''}` :
-                    '';
+                return {
+                    text: cpus ? formatSize(cpus.count) : '',
+                    minReqMessage: this.notEnoughCpus() ? `${minRequirements().cpu_count} CPUs` : ''
+                };
             }
         );
 
@@ -277,14 +275,17 @@ class ServerDetailsFormViewModel extends BaseViewModel {
             },
             {
                 label: 'Total Memory',
+                template: 'valueWithMinReq',
                 value: totalMemory
             },
             {
                 label: 'Total Disk Size',
+                template: 'valueWithMinReq',
                 value: totalStorage
             },
             {
                 label: 'Number of CPUs',
+                template: 'valueWithMinReq',
                 value: cpusCount
             },
             {

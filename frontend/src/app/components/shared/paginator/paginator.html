@@ -12,14 +12,14 @@
         ko.click="onJumpToFirstPage"
         ko.disable="isFirstPage"
     ">
-        <svg-icon class="rotate deg90" params="name: 'dbl-chevron'"></svg-icon>
+        <svg-icon class="icon-small" params="name: 'dbl-angle-left'"></svg-icon>
     </button>
 
     <button class="btn-flat"
         ko.click="onPageBackward"
         ko.disable="isFirstPage"
     ">
-        <svg-icon class="rotate deg90" params="name: 'chevron'"></svg-icon>
+        <svg-icon class="icon-small" params="name: 'angle-left'"></svg-icon>
     </button>
 
     <span class="page-counter" ko.text="pageText"></span>
@@ -28,13 +28,13 @@
         ko.click="onPageForward"
         ko.disable="isLastPage"
     ">
-        <svg-icon class="rotate deg-90" params="name: 'chevron'"></svg-icon>
+        <svg-icon class="icon-small rotate deg180" params="name: 'angle-left'"></svg-icon>
     </button>
 
     <button class="btn-flat"
         ko.click="onJumpToLastPage"
         ko.disable="isLastPage"
     ">
-        <svg-icon class="rotate deg-90" params="name: 'dbl-chevron'"></svg-icon>
+        <svg-icon class="icon-small rotate deg180" params="name: 'dbl-angle-left'"></svg-icon>
     </button>
 </div>

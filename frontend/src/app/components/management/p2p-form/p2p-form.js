@@ -23,10 +23,7 @@ class P2PFormViewModel2 extends ConnectableViewModel {
     isExpanded = ko.observable();
     isDirtyMarkerVisible = ko.observable();
     toggleUri = '';
-    summary = {
-        label: ko.observable(),
-        value: ko.observable()
-    };
+    summary = ko.observable();
     minRangeEnd = ko.observable();
     configDisabled = ko.observable();
     updateButtonTooltip = {
@@ -50,10 +47,7 @@ class P2PFormViewModel2 extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: false,
                 isExpanded: false,
-                summary: {
-                    label: 'Port Number',
-                    value: ''
-                }
+                summary: 'Port Number: '
             });
 
         } else {
@@ -64,8 +58,8 @@ class P2PFormViewModel2 extends ConnectableViewModel {
             const rangeEnd = form ? getFieldValue(form, 'rangeEnd') : p2pSettings.tcpPortRange.end;
             const rangeType = form ? getFieldValue(form, 'rangeType') : (rangeStart === rangeEnd ? 'SINGLE' : 'RANGE');
             const summary = rangeType === 'SINGLE' ?
-                { label: 'Port Number', value: rangeStart } :
-                { label: 'Port Range', value: `${rangeStart}-${rangeEnd}` };
+                `Port Number: ${rangeStart}` :
+                `Port Range: ${rangeStart}-${rangeEnd}`;
 
             ko.assignToProps(this, {
                 dataReady: true,

@@ -31,14 +31,11 @@ delete-button {
         background: red;
     }
 
-    .active {
-        .icon-btn:focus {
-            &, &:hover {
-                background: none;
-                box-shadow: none;
-            }
-        }
+    .icon-btn:focus > svg-icon {
+        fill: rgb(var(--color6));
+    }
 
+    .active {
         .message-wrapper {
             max-width: 300px;
         }

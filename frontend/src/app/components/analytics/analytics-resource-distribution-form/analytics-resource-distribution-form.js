@@ -76,16 +76,11 @@ const compareDistributionRecords = createCompareFunc(
 
 function _getResourceIcon(resource) {
     if (resource.type == 'HOSTS') {
-        return {
-            icon: hostsIcon
-        };
+        return { icon: hostsIcon };
 
     } else if (resource.type === 'CLOUD') {
         const { name: icon } = getCloudResourceTypeIcon({ type: resource.cloudType });
-        return {
-            icon: `${icon}-dark`,
-            selectedIcon: `${icon}-colored`
-        };
+        return { icon: `${icon}` };
     }
 
 }

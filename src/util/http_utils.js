@@ -13,6 +13,7 @@ const https_proxy_agent = require('https-proxy-agent');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
+const cloud_utils = require('./cloud_utils');
 
 function parse_url_query(req) {
     req.originalUrl = req.url;
@@ -296,12 +297,26 @@ function get_unsecured_http_agent(endpoint, proxy) {
             http_proxy_agent(
                 Object.assign(url.parse(proxy)));
     }
-    return protocol === "https:" ?
-        new https.Agent({
-            rejectUnauthorized: false,
-        }) :
-        new http.Agent();
+    // only return unsecured agent for non-aws endpoints
+    if (!cloud_utils.is_aws_endpoint(endpoint)) {
+        return protocol === "https:" ?
+            new https.Agent({
+                rejectUnauthorized: false,
+            }) :
+            new http.Agent();
+    }
 }
+
+// returns true if using https to aws endpoint and not using proxy
+// for http returns undefined
+function should_reject_unauthorized(endpoint, proxy) {
+    const { protocol } = url.parse(endpoint);
+    if (protocol === 'https:') {
+        return cloud_utils.is_aws_endpoint(endpoint) && !proxy;
+    }
+}
+
+
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
@@ -313,3 +328,4 @@ exports.normalize_http_ranges = normalize_http_ranges;
 exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;
 exports.get_unsecured_http_agent = get_unsecured_http_agent;
+exports.should_reject_unauthorized = should_reject_unauthorized;

@@ -42,12 +42,14 @@
             </div>
         </div>
 
-        <data-table class="drives-table greedy content-box push-next" params="
-            columns: columns,
-            data: rows,
-            disabled: !$form.serviceState()
-        "></data-table>
-        <validation-message params="field: $form.nodesState"></validation-message>
+        <div class="column greedy push-next">
+            <data-table class="drives-table greedy content-box" params="
+                columns: columns,
+                data: rows,
+                disabled: !$form.serviceState()
+            "></data-table>
+            <validation-message params="field: $form.nodesState"></validation-message>
+        </div>
     </div>
     <div class="row content-middle pad content-box">
         <p class="greedy push-next remark row" ko.css.disabled="!$form.serviceState()">

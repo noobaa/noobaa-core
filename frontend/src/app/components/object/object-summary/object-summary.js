@@ -122,7 +122,7 @@ class ObjectSummaryViewModel extends ConnectableViewModel {
                 readCount: numeral(object.readCount).format(','),
                 originalSize: {
                     value: hasOnDiskSize ? toBytes(original) : 0,
-                    color: theme.color6
+                    color: theme.color20
                 },
                 actualSize: {
                     value: hasOnDiskSize ? toBytes(onDisk) : 0,

@@ -1,15 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './create-namespace-bucket-modal.html';
-import Observer from 'observer';
-import ResourceRowViewModel from './resource-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
-import { getNamespaceResourceTypeIcon } from 'utils/resource-utils';
+import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
 import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
-import { state$, action$ } from 'state';
 import { inputThrottle } from 'config';
 import {
     updateForm,
@@ -53,47 +50,59 @@ const fieldsByStep = deepFreeze({
     1: [ 'readPolicy', 'writePolicy' ]
 });
 
-class CreateNamespaceBucketModalViewModel extends Observer {
+class ResourceRowViewModel {
+    table = null;
+    state = ko.observable();
+    type = ko.observable();
+    name = ko.observable();
+    target = ko.observable();
+    isSelected = ko.observable();
+    selected = ko.pureComputed({
+        read: this.isSelected,
+        write: this.onToggle,
+        owner: this
+    });
+
+    constructor({ table }) {
+        this.table = table;
+    }
+
+    onToggle(val) {
+        this.table.onToggleReadPolicyResource(this.name(), val);
+    }
+}
+
+class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
+    isStepValid = false;
+    existingNames = [];
     nameRestrictionList = ko.observableArray();
     readPolicyTableColumns = readPolicyTableColumns;
-    readPolicyRows = ko.observableArray();
+    readPolicyRows = ko.observableArray()
+        .ofType(ResourceRowViewModel, { table: this });
     isWritePolicyDisabled = ko.observable();
     writePolicyOptions = ko.observableArray();
     resourceServiceMapping = {};
     readPolicy = [];
-    readPolicyRowParams = {
-        onToggle: this.onToggleReadPolicyResource.bind(this)
-    };
     fields = {
         step: 0,
         bucketName: '',
         readPolicy: [],
         writePolicy: undefined
     };
-    onBucketNameThrottled = throttle(
-        this.onBucketName,
-        inputThrottle,
-        this
-    );
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(getMany(
-                'buckets',
-                'namespaceBuckets',
-                'namespaceResources',
-                ['forms', this.formName]
-            )),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.buckets,
+            state.namespaceBuckets,
+            state.namespaceResources,
+            state.forms[this.formName]
+        ];
     }
 
-    onState([ buckets, namespaceBuckets, resources, form ]) {
+    mapStateToProps(buckets, namespaceBuckets, resources, form) {
         if (!buckets || !namespaceBuckets || !resources || !form) {
             return;
         }
@@ -121,12 +130,13 @@ class CreateNamespaceBucketModalViewModel extends Observer {
             });
 
         const resourceList = Object.values(resources);
-        const readPolicyRows = resourceList
-            .map((resource, i) => {
-                const row = this.readPolicyRows.get(i) || new ResourceRowViewModel(this.readPolicyRowParams);
-                row.onResource(resource, readPolicy);
-                return row;
-            });
+        const readPolicyRows = resourceList.map(resource => ({
+            state: getNamespaceResourceStateIcon(resource),
+            type: getNamespaceResourceTypeIcon(resource),
+            name: resource.name,
+            target: resource.target,
+            isSelected: readPolicy.includes(resource.name)
+        }));
         const writePolicyOptions = resourceList
             .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
@@ -134,36 +144,40 @@ class CreateNamespaceBucketModalViewModel extends Observer {
                 const { name: icon } = getNamespaceResourceTypeIcon(resource);
                 return { value, icon };
             });
-
         const resourceServiceMapping = mapValues(
             resources,
             resource => resource.service
         );
 
-        this.resources = resources;
-        this.existingNames = existingNames;
-        this.nameRestrictionList(nameRestrictionList);
-        this.readPolicyRows(readPolicyRows);
-        this.isWritePolicyDisabled(readPolicy.length === 0);
-        this.writePolicyOptions(writePolicyOptions);
-        this.resourceServiceMapping = resourceServiceMapping;
-        this.isStepValid = isFormValid(form);
-        this.readPolicy = readPolicy;
+        ko.assignToProps(this, {
+            resources,
+            existingNames,
+            nameRestrictionList,
+            readPolicyRows,
+            isWritePolicyDisabled: readPolicy.length === 0,
+            writePolicyOptions,
+            resourceServiceMapping,
+            isStepValid: isFormValid(form),
+            readPolicy
+        });
+
     }
 
-    onBucketName(bucketName) {
-        action$.next(updateForm(this.formName, { bucketName }));
-    }
+    onBucketName = throttle(
+        bucketName => this.dispatch(updateForm(this.formName, { bucketName })),
+        inputThrottle,
+        this
+    );
 
     onToggleReadPolicyResource(resource, select) {
-        const { readPolicy } = this;
+        const { readPolicy, formName } = this;
         if (!select) {
             const filtered = readPolicy.filter(name => name !== resource);
-            action$.next(updateForm(this.formName, { readPolicy: filtered }));
+            this.dispatch(updateForm(formName, { readPolicy: filtered }));
 
         } else if (!readPolicy.includes(resource)) {
             const updated = [ ...readPolicy, resource ];
-            action$.next(updateForm(this.formName, { readPolicy: updated }));
+            this.dispatch(updateForm(formName, { readPolicy: updated }));
         }
     }
 
@@ -191,7 +205,7 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         return errors;
     }
 
-    onWarn (values, resourceServiceMapping) {
+    onWarn(values, resourceServiceMapping) {
         const { step, readPolicy } = values;
         const warnings = {};
 
@@ -209,7 +223,7 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            action$.next(touchForm(this.formName, fieldsByStep[step]));
+            this.dispatch(touchForm(this.formName, fieldsByStep[step]));
             return false;
         }
 
@@ -218,12 +232,14 @@ class CreateNamespaceBucketModalViewModel extends Observer {
 
     onSubmit(values) {
         const { bucketName, readPolicy, writePolicy } = values;
-        action$.next(createNamespaceBucket(bucketName, readPolicy, writePolicy));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            createNamespaceBucket(bucketName, readPolicy, writePolicy)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

@@ -99,10 +99,10 @@ function _getLegend(supportHighAvailability, counters) {
 function _getBar(counters) {
     const values = flatMap(
         [
-            { color: 'color21', count: counters.connected },
-            { color: 'color20', count: counters.pending },
-            { color: 'color19', count: counters.disconnected },
-            { color: 'color18', count: counters.missing }
+            { color: 'color27', count: counters.connected },
+            { color: 'color26', count: counters.pending },
+            { color: 'color31', count: counters.disconnected },
+            { color: 'color09', count: counters.missing }
         ],
         item => makeArray(item.count).fill({
             value: 1,
@@ -144,23 +144,23 @@ class ClusterSummaryViewModel extends ConnectableViewModel {
         values: [
             {
                 label: 'Connected',
-                color: 'rgb(var(--color21))',
+                color: 'rgb(var(--color27))',
                 value: ko.observable()
             },
             {
                 label: 'Pending',
-                color: 'rgb(var(--color20))',
+                color: 'rgb(var(--color26))',
                 value: ko.observable(),
                 visible: ko.observable()
             },
             {
                 label: 'Disconnected',
-                color: 'rgb(var(--color19))',
+                color: 'rgb(var(--color31))',
                 value: ko.observable()
             },
             {
                 label: ko.observable(),
-                color: 'rgb(var(--color18))',
+                color: 'rgb(var(--color09))',
                 value: ko.observable(),
                 visible: ko.observable()
             }

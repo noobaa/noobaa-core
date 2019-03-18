@@ -5,9 +5,9 @@
         ko.click="onToggleSection"
     >
         <svg-icon class="push-next"
-            params="name: stateIcon().name"
-            ko.css="stateIcon().css"
-            ko.tooltip="stateIcon().tooltip"
+            params="name: stateIcon.name"
+            ko.css="stateIcon.css"
+            ko.tooltip="stateIcon.tooltip"
         ></svg-icon>
         <div class="column greedy">
             <h2 class="heading3 greedy">Object Versioning</h2>
@@ -24,7 +24,7 @@
             ko.click="onToggleVersioning"
             ko.preventBubble="'click'"
         >
-            {{toggleBtnText}}
+            {{toggleBtn.text}}
         </button>
         <svg-icon class="icon-small rotate"
             ko.css="{ 'deg-90': !isExpanded() }"

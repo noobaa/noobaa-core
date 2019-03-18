@@ -25,7 +25,7 @@ export const memorySizeOptions = deepFreeze([
 
 export function getFunctionOption(func, accounts, bucket) {
     const { name, version } = func;
-    const value = { name, version };
+    const value = `${name}:${version}`;
     const icon = { name: 'healthy', css: 'success' };
     const label = name;
     const executor = accounts[func.executor];

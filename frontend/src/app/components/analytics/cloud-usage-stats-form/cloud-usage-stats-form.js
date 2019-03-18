@@ -169,7 +169,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                     labels: bars.map(bar => bar.label),
                     datasets: [
                         {
-                            backgroundColor: theme.color6,
+                            backgroundColor: theme.color20,
                             data: bars.map(bar => bar.reads)
                         },
                         {
@@ -184,7 +184,7 @@ class CloudUsageStatsFormViewModel extends ConnectableViewModel {
                 data: {
                     labels: bars.map(bar => bar.label),
                     datasets: [{
-                        backgroundColor: theme.color6,
+                        backgroundColor: theme.color20,
                         data: bars.map(bar => bar.egress)
                     }]
                 }

@@ -109,7 +109,7 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat, _, theme) {
             labels: bars.map(bar => bar.label),
             datasets: [
                 {
-                    backgroundColor: theme.color6,
+                    backgroundColor: theme.color20,
                     data: bars.map(bar => toBytes(bar.readSize))
                 },
                 {
@@ -138,7 +138,7 @@ function _prepareBarChartParams(samples, timeMeta, tickFormat, _, theme) {
                 xAxes: [{
                     categoryPercentage: .4,
                     ticks: {
-                        fontColor: theme.color10
+                        fontColor: theme.color11
                     }
                 }]
             },
@@ -164,7 +164,7 @@ function _prepareLineChartParams(samples, timeMeta, tickFormat, now, theme) {
         pointRadius: 3,
         pointBorderWidth: 4,
         pointHitRadius: 10,
-        pointBorderColor: colorToRgb(...rgbToColor(theme.color10), .2),
+        pointBorderColor: colorToRgb(...rgbToColor(theme.color11), .2),
         pointHoverBorderColor: 'transparent',
         backgroundColor: 'transparent',
         lineTension: 0,
@@ -177,8 +177,8 @@ function _prepareLineChartParams(samples, timeMeta, tickFormat, now, theme) {
             datasets: [
                 {
                     ...commonLineDatasetSettings,
-                    pointBackgroundColor: theme.color6,
-                    borderColor: theme.color6,
+                    pointBackgroundColor: theme.color20,
+                    borderColor: theme.color20,
                     data: data.map(sample => ({
                         x: sample.endTime + 1,
                         y: toBytes(sample.readSize)

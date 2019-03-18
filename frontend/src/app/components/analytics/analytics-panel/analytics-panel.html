@@ -2,15 +2,15 @@
 
 <section class="column greedy tabs">
     <nav>
-        <a ko.attr.href="tabHref('utilization')"
-            ko.css.selected="selectedTab.eq('utilization')"
-        >
-            Utilization
-        </a>
         <a ko.attr.href="tabHref('traffic')"
             ko.css.selected="selectedTab.eq('traffic')"
         >
             Traffic
+        </a>
+        <a ko.attr.href="tabHref('utilization')"
+            ko.css.selected="selectedTab.eq('utilization')"
+        >
+            Utilization
         </a>
         <a ko.attr.href="tabHref('cloud-consumption')"
             ko.css.selected="selectedTab.eq('cloud-consumption')"
@@ -24,19 +24,19 @@
         </a>
     </nav>
     <div class="tabs-row">
-        <!-- ko if: selectedTab.eq('utilization') -->
-        <div class="tab column selected fade-in">
-            <analytics-resource-distribution-form></analytics-resource-distribution-form>
-            <hr>
-            <objects-distribution-form></objects-distribution-form>
-        </div>
-        <!-- /ko -->
-
         <!-- ko if: selectedTab.eq('traffic') -->
         <div class="tab column selected fade-in">
             <bucket-usage-form></bucket-usage-form>
             <hr>
             <account-usage-form></account-usage-form>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: selectedTab.eq('utilization') -->
+        <div class="tab column selected fade-in">
+            <analytics-resource-distribution-form></analytics-resource-distribution-form>
+            <hr>
+            <objects-distribution-form></objects-distribution-form>
         </div>
         <!-- /ko -->
 

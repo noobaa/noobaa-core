@@ -18,19 +18,52 @@
     }
 
     .logo {
-        padding: 13px 4px 10px 4px;
-        border-bottom: 1px solid rgb(var(--color12));
+        position: relative;
+        margin-right: 15px;
+
+
+
+        &::after {
+            content: '';
+            position: absolute;
+            height: 0;
+            width: 0;
+            border-style: solid;
+            border-width: 30px 0 30px 15px;
+            border-color: transparent;
+            border-left-color: rgb(var(--color16));
+            right: -15px;
+            top: 0;
+            z-index: 1;
+        }
+
+  /*      position: relative;*/
+/*        margin-right: 35px;*/
+
+        /*&::after {
+            content: '';
+            display: block;
+            position: absolute;
+            background: inherit;
+            height: 42px;
+            width: 42px;
+            transform: translateX(35px) rotate(45deg) ;
+
+        }*/
 
         > svg-icon {
-            width: 50px;
-            height: 37px;
+            width: calc(71px * 1.3);
+            height: calc(24px * 1.3);
+            margin-left: 11.5px;
+            margin-right: 6px;
+            z-index: 1;
         }
     }
 
     .main-header {
         height: 61px;
-        background-color: rgb(var(--color2));
-        border-bottom: 1px solid rgb(var(--color12));
+        background-color: rgb(var(--color18));
+        border-bottom: 1px solid rgb(var(--color19));
     }
 
 
@@ -38,12 +71,13 @@
         z-index: 1;
     }
 
-    .main-nav {
-        background: rgb(var(--color3));
+    .main-nav, .logo {
+        background: rgb(var(--color16));
     }
 
     main {
         margin: 0 auto;
-        padding: 0 @gutter;
+        padding: @gutter;
+        padding-bottom: @gutter/2;
     }
 }

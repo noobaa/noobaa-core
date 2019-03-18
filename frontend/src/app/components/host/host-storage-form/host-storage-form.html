@@ -26,7 +26,7 @@
 <data-table class="greedy node-table" params="
     columns: columns,
     data: rows,
-    loading: !hostLoaded(),
+    loading: !dataReady(),
     rowDisabledProp: 'isDisabled',
     emptyMessage: 'Storage service is disabled',
     sorting: ko.pc(sorting, onSort, $component)

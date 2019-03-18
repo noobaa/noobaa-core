@@ -9,10 +9,7 @@
                 <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
             </h2>
             <p ko.visible="!isExpanded()">
-                Server address:
-                <span ko.css="address.css"
-                    ko.text="address.text"
-                ></span>
+                Server address: {{address}}
             </p>
             <p ko.visible="isExpanded">
                 If the appliance is not directly connected to the Internet you may need to configure an HTTP proxy to reach external resources and servers

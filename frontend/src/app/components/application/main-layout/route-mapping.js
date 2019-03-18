@@ -185,8 +185,8 @@ function _generateResourcesCrumb(params) {
                 routes.resources,
                 pick(params, ['system', 'tab'])
             ),
-            label: (!params.tab  && 'Node Pools') ||
-                (params.tab === 'pools' && 'Node Pools') ||
+            label: (!params.tab  && 'Pools') ||
+                (params.tab === 'pools' && 'Pools') ||
                 (params.tab === 'cloud' && 'Cloud Resources') ||
                 (params.tab === 'namespace' && 'Namespace Resources')
         }

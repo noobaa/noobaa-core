@@ -103,7 +103,7 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
             },
             {
                 label: 'Potential',
-                color: 'rgb(var(--color21))',
+                color: 'rgb(var(--color16))',
                 value: ko.observable(),
                 visible: ko.observable()
             }

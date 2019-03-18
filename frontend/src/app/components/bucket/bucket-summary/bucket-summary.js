@@ -49,7 +49,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources
         }
         case 'NOT_ENOUGH_RESOURCES': {
             const { desc, driveCount } = _summrizeResiliencyPolicy(bucket.resiliency);
-            return `The bucket’s configured data resiliency is set to ${desc} In order to meet that requirement, each tier must have at least ${driveCount} in their nodes pools or a cloud resource in it\'s placement policy`;
+            return `The bucket’s configured data resiliency is set to ${desc} In order to meet that requirement, each tier must have at least ${driveCount} in their pools or a cloud resource in it\'s placement policy`;
         }
         case 'NOT_ENOUGH_HEALTHY_RESOURCES': {
             return 'Some resources are not healthy and the bucket data allocation cannot be completed. Try fixing problematic resources or change the bucket’s placement policy.';
@@ -106,7 +106,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources
             return 'Bucket doesn\’t have any connected resources in it’s tier. Currently the system is using the internal VM disk capacity to store data which is not recommended. Add resources to the bucket’s tier placement policy.';
         }
         case 'RISKY_TOLERANCE': {
-            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the nodes pools and distribute drives over the different nodes';
+            return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the pools and distribute drives over the different nodes';
         }
         case 'APPROUCHING_QUOTA': {
             const quota = formatSize(getQuotaValue(bucket.quota));
@@ -138,10 +138,6 @@ function _getDataPlacementText(placement) {
     }`;
 }
 
-function _formatAvailablityLimits(val) {
-    return val === 0 ? '0' : formatSize(val);
-}
-
 function _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources) {
     const { name, css, tooltip: { text } } = getBucketStateIcon(bucket);
     const tooltip = _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources);
@@ -162,9 +158,9 @@ class BucketSummrayViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     state = ko.observable();
     dataPlacement = ko.observable();
-    availablityLimitsFormatter = _formatAvailablityLimits;
     availablityTime = ko.observable();
     availablityBar = {
+        format: ko.observable(),
         values: [
             {
                 label: 'Used Data',
@@ -303,12 +299,18 @@ class BucketSummrayViewModel extends ConnectableViewModel {
             const reducedRatio = hasSize ? Math.min(data.sizeReduced / data.size, 1) : 0;
             const dataOptimization = hasSize ? numeral(1 - reducedRatio).format('%') : 'No Data';
             const storageUsed = storage.used + storage.usedOther;
+            const isInOveruse = toBytes(dataBreakdown.overused) > 0;
 
             ko.assignToProps(this, {
                 dataReady: true,
                 state: _getBucketStateInfo(bucket, dataBreakdown, hostPools, cloudResources),
                 dataPlacement: _getDataPlacementText(placement),
                 availablityBar: {
+                    format: val => (
+                        (val === 0 && '0') ||
+                        (quota && !isInOveruse && `Quota: ${formatSize(val)}`) ||
+                        formatSize(val)
+                    ),
                     values: [
                         {
                             value: dataBreakdown.used
@@ -335,7 +337,7 @@ class BucketSummrayViewModel extends ConnectableViewModel {
                     ],
                     markers: [
                         {
-                            visible: Boolean(quota),
+                            visible: Boolean(quota) && isInOveruse,
                             text: quota ?
                                 `Quota: ${formatSize(getQuotaValue(quota))}` :
                                 ''

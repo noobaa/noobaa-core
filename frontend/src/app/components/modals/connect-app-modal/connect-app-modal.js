@@ -15,7 +15,7 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
     accountOptions = ko.observableArray();
     accountActions = [{
         label: 'Create new account',
-        onClick: this.onCreateNewAccount
+        onClick: () => this.onCreateNewAccount()
     }];
     accessKey = ko.observable();
     secretKey = ko.observable();

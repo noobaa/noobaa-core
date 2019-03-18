@@ -12,7 +12,10 @@
         <span class="bar-marker card-shadow card-bg" ko.style="style">{{text}}</span>
     </div>
 
-    <svg class="bar-svg" ko.foreach="lines"">
+    <svg class="bar-svg"
+        ko.css.empty="isEmpty"
+        ko.foreach="lines"
+    >
         <line class="bar-line" ko.attr="$data" />
     </svg>
 </div>

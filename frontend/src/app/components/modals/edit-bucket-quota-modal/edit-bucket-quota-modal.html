@@ -34,15 +34,17 @@
             <validation-message params="field: $form.size"></validation-message>
         </editor>
 
-        <bar class="storage-bar bar-flip-markers push-both"
-            ko.css.disabled="!$form.enabled()"
-            params="
-                values: bar.values,
-                markers: bar.markers,
-                limits: true,
-                format: 'size'
-            "
-        ></bar>
+        <div class="row push-both">
+            <bar class="storage-bar bar-flip-markers greedy push-next"
+                ko.css.disabled="!$form.enabled()"
+                params="
+                    values: bar.values,
+                    markers: bar.markers,
+                    limits: true,
+                    format: 'size'
+                "
+            ></bar>
+        </div>
         <chart-legend class="legend-row push-prev-half"
             ko.css.disabled="!$form.enabled()"
             params="

@@ -26,8 +26,12 @@
     properties: s3AccessInfo,
     loading: !dataReady()
 ">
-    <template name="list">
-        <tag-list params="tags: tags, maxCount: boxCount"></tag-list>
+    <template name="tagList">
+        <tag-list params="
+            tags: tags,
+            maxCount: maxCount,
+            emptyMessage: emptyMessage
+        "></tag-list>
     </template>
 </property-sheet>
 

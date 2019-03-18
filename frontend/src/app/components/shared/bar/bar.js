@@ -47,6 +47,8 @@ class BarViewModel {
     markers = ko.observableArray()
         .ofType(MarkerViewModel);
 
+    isEmpty = ko.observable();
+
     constructor(params) {
         this.sub = ko.computed(() =>
             this.onParams(ko.deepUnwrap(params))
@@ -85,11 +87,14 @@ class BarViewModel {
             stroke: seg.color
         }));
 
+        const sum = sumBy(values);
+        const isEmpty = sum === 0;
         const formatter = getFormatter(format);
+
         const limits = {
             visible: Boolean(showLimits),
-            low: '0',
-            high: formatter(sumBy(values))
+            low: formatter(0),
+            high: formatter(sum)
         };
 
         const markers = _markers
@@ -109,6 +114,7 @@ class BarViewModel {
 
         ko.assignToProps(this, {
             lines,
+            isEmpty,
             markers,
             limits
         });

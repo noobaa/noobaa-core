@@ -32,17 +32,27 @@ then
 else 
     will_wait=false
 fi
+will_wait_count=0
 if ${will_wait}
 then
     while [ -d ~/rpmbuild ]
     do
         sleep 10
+        will_wait_count=$((will_wait_count+1))
+        #setting timeout of 1 hour 
+        if [ ${will_wait_count} -eq 360 ]
+        then
+            echo "~/rpmbuild from previus build exists for more then an hour, Exiting."
+            exit 1
+        fi
     done
     #sleeping randomally to verify that no other build has started.
     sleep $((10+RANDOM%60))
     if [ ! -d ~/rpmbuild ]
     then
         will_wait=false
+    else
+        will_wait_count=0
     fi
 fi
 build/rpm/create_rpm.sh -l ${build_rpm_location}

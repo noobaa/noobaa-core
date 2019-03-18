@@ -379,7 +379,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            type: 'string'
+                            $ref: 'common_api#/definitions/email'
                         }
                     }
                 }
@@ -390,7 +390,7 @@ module.exports = {
                     type: 'object',
                     properties: {
                         account: {
-                            type: 'string'
+                            $ref: 'common_api#/definitions/email'
                         },
                         read_count: {
                             type: 'integer'

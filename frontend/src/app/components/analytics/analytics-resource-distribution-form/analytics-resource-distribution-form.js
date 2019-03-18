@@ -233,7 +233,7 @@ class AnalyticsPanelViewModel extends ConnectableViewModel {
                 barsData: {
                     labels: bars.map(bar => bar.label),
                     datasets: [{
-                        backgroundColor: theme.color6,
+                        backgroundColor: theme.color20,
                         data: bars.map(bar => bar.value)
                     }]
                 }

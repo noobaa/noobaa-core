@@ -265,7 +265,8 @@ const actionToNotification = deepFreeze({
     }),
 
     [types.FAIL_ADD_BUCKET_TIER]: ({ bucket }) => ({
-        message: `Adding a tier to bucket ${bucket} failed`
+        message: `Adding a tier to bucket ${bucket} failed`,
+        severity: 'error'
     }),
 
     [types.COMPLETE_DELETE_BUCKET]: ({ bucket }) => ({

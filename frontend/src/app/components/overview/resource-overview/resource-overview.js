@@ -81,17 +81,17 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
     resourceCounters = [
         {
             label: 'Healthy',
-            color: 'rgb(var(--color21))',
+            color: 'rgb(var(--color27))',
             value: ko.observable()
         },
         {
             label: 'Issues',
-            color: 'rgb(var(--color20))',
+            color: 'rgb(var(--color26))',
             value: ko.observable()
         },
         {
             label: 'Errors',
-            color: 'rgb(var(--color19))',
+            color: 'rgb(var(--color31))',
             value: ko.observable()
         }
     ];
@@ -200,15 +200,15 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                 labels: chartBars.map(bar => bar.label),
                 datasets: [
                     {
-                        backgroundColor: theme.color19,
+                        backgroundColor: theme.color31,
                         data: counters.error
                     },
                     {
-                        backgroundColor: theme.color20,
+                        backgroundColor: theme.color26,
                         data: counters.issue
                     },
                     {
-                        backgroundColor: theme.color21,
+                        backgroundColor: theme.color27,
                         data: counters.healthy
                     }
                 ]

@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './bucket-data-resiliency-policy-form.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { getMany } from 'rx-extensions';
 import * as routes from 'routes';
 import {
     summrizeResiliency,
@@ -111,137 +109,173 @@ function _getRequiredDrives(resiliency) {
     return { text };
 }
 
-class BucketDataResiliencyPolicyFormViewModel extends Observer {
+class BucketDataResiliencyPolicyFormViewModel extends ConnectableViewModel {
     isExpanded = ko.observable();
     bucketName = '';
     toggleUri = '';
-    stateIcon = ko.observable();
+    stateIcon = {
+        name: ko.observable(),
+        css: ko.observable(),
+        tooltip: ko.observable()
+    };
     resiliencyType = ko.observable();
-    usingReplicationPolicy = ko.observable();
-    usingErasureCodingPolicy = ko.observable();
     dataDistribution = ko.observable();
-    numOfCopies = ko.observable();
-    numOfDataFrags = ko.observable();
-    numOfParityFrags = ko.observable();
-    storageOverhead = ko.observable();
-    configuredFailureTolerance = ko.observable();
-    actualFailureTolerance = ko.observable();
-    requiredDrives = ko.observable();
-    rebuildEffort = ko.observable()
     info = [
         {
             label: 'Data Resiliency Type',
-            value: this.resiliencyType
+            value: ko.observable()
         },
         {
             label: 'Number of Copies',
-            value: this.numOfCopies,
-            visible: this.usingReplicationPolicy
+            value: ko.observable(),
+            visible: ko.observable()
         },
         {
             label: 'Number of data fragments',
-            value: this.numOfDataFrags,
-            visible: this.usingErasureCodingPolicy
+            value: ko.observable(),
+            visible: ko.observable()
         },
         {
             label: 'Number of parity fragments',
-            value: this.numOfParityFrags,
-            visible: this.usingErasureCodingPolicy
+            value: ko.observable(),
+            visible: ko.observable()
         },
         {
             label: 'Storage Overhead',
-            value: this.storageOverhead
+            value: ko.observable()
         },
         {
             label: 'Minimum Required Drives',
             template: 'messageWithSeverity',
-            value: this.requiredDrives
+            value: {
+                css: ko.observable(),
+                text: ko.observable(),
+                moreInfo: ko.observable()
+            }
         },
         {
             label: 'Configured Failure Tolerance',
             template: 'messageWithSeverity',
-            value: this.configuredFailureTolerance
+            value: {
+                css: ko.observable(),
+                text: ko.observable(),
+                moreInfo: ko.observable()
+            }
         },
         {
             label: 'Actual Failure Tolerance',
             template: 'messageWithSeverity',
-            value: this.actualFailureTolerance
+            value: {
+                css: ko.observable(),
+                text: ko.observable(),
+                moreInfo: ko.observable()
+            }
         },
         {
             label: 'Rebuild time effort',
             template: 'messageWithSeverity',
-            value: this.rebuildEffort
+            value: {
+                css: ko.observable(),
+                text: ko.observable(),
+                moreInfo: ko.observable()
+            }
         }
     ];
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'location',
-                    'buckets'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        const { location, buckets } = state;
+        const { bucket: bucketName } = location.params;
+        return [
+            location,
+            buckets && buckets[bucketName]
+        ];
     }
 
-    onState([location, buckets]) {
-        const { system, bucket: bucketName, tab = 'data-policies', section } = location.params;
-        this.isExpanded(section === policyName);
+    mapStateToProps(location, bucket) {
+        if (!bucket) {
+            ko.assignToProps(this, {
+                isExpanded: false
+            });
 
-        if (!buckets || !buckets[bucketName]) {
-            this.stateIcon({});
-            this.configuredFailureTolerance({});
-            this.actualFailureTolerance({});
-            this.requiredDrives({});
-            this.rebuildEffort({});
-            return;
+        } else {
+            const { system, tab = 'data-policies', section } = location.params;
+            const toggleUri = realizeUri(routes.bucket, {
+                system,
+                bucket: bucket.name,
+                tab,
+                section: section === policyName ? undefined : policyName
+            });
+            const resiliency = summrizeResiliency(bucket.resiliency);
+            const resiliencyType = getResiliencyTypeDisplay(resiliency.type);
+
+            ko.assignToProps(this, {
+                isExpanded: section === policyName,
+                bucketName: bucket.name,
+                toggleUri,
+                stateIcon: getResiliencyStateIcon(bucket.resiliency),
+                resiliencyType,
+                dataDistribution: resiliency.type === 'REPLICATION' ?
+                    `${resiliency.replicas} copies` :
+                    `${resiliency.dataFrags} data + ${resiliency.parityFrags} parity fragments`,
+                info: [
+                    {
+                        label: 'Data Resiliency Type',
+                        value: resiliencyType
+                    },
+                    {
+                        label: 'Number of Copies',
+                        value: resiliency.replicas,
+                        visible: resiliency.type === 'REPLICATION'
+                    },
+                    {
+                        label: 'Number of data fragments',
+                        value: resiliency.dataFrags,
+                        visible: resiliency.type === 'ERASURE_CODING'
+                    },
+                    {
+                        label: 'Number of parity fragments',
+                        value: resiliency.parityFrags,
+                        visible: resiliency.type === 'ERASURE_CODING'
+                    },
+                    {
+                        label: 'Storage Overhead',
+                        value: numeral(resiliency.storageOverhead).format('%')
+                    },
+                    {
+                        label: 'Minimum Required Drives',
+                        template: 'messageWithSeverity',
+                        value: _getRequiredDrives(resiliency)
+                    },
+                    {
+                        label: 'Configured Failure Tolerance',
+                        template: 'messageWithSeverity',
+                        value: _getConfiguredFailureTolerance(resiliency)
+                    },
+                    {
+                        label: 'Actual Failure Tolerance',
+                        template: 'messageWithSeverity',
+                        value: _getActualFailureTolerance(
+                            bucket.failureTolerance,
+                            resiliency.failureTolerance,
+                            resiliency.requiredDrives
+                        )
+                    },
+                    {
+                        label: 'Rebuild time effort',
+                        template: 'messageWithSeverity',
+                        value: rebuildEffortToDisplay[resiliency.rebuildEffort]
+                    }
+                ]
+            });
         }
-
-        const bucket = buckets[bucketName];
-        const toggleSection = section === policyName ? undefined : policyName;
-        const resiliency = summrizeResiliency(bucket.resiliency);
-        const dataDistribution = resiliency.type === 'REPLICATION' ?
-            `${resiliency.replicas} copies` :
-            `${resiliency.dataFrags} data + ${resiliency.parityFrags} parity fragments`;
-        const configuredFailureTolerance = _getConfiguredFailureTolerance(resiliency);
-        const requiredDrives = _getRequiredDrives(resiliency);
-        const actualFailureTolerance = _getActualFailureTolerance(
-            bucket.failureTolerance,
-            resiliency.failureTolerance,
-            resiliency.requiredDrives
-        );
-        const rebuildEffort = rebuildEffortToDisplay[resiliency.rebuildEffort];
-
-        this.bucketName = bucketName;
-        this.toggleUri = realizeUri(
-            routes.bucket,
-            { system, bucket: bucketName, tab, section: toggleSection }
-        );
-        this.stateIcon(getResiliencyStateIcon(bucket.resiliency));
-        this.resiliencyType(getResiliencyTypeDisplay(resiliency.type));
-        this.usingReplicationPolicy(resiliency.type === 'REPLICATION');
-        this.usingErasureCodingPolicy(resiliency.type === 'ERASURE_CODING');
-        this.dataDistribution(dataDistribution);
-        this.numOfCopies(resiliency.replicas);
-        this.numOfDataFrags(resiliency.dataFrags);
-        this.numOfParityFrags(resiliency.parityFrags);
-        this.storageOverhead(numeral(resiliency.storageOverhead).format('%'));
-        this.configuredFailureTolerance(configuredFailureTolerance);
-        this.actualFailureTolerance(actualFailureTolerance);
-        this.requiredDrives(requiredDrives);
-        this.rebuildEffort(rebuildEffort);
     }
 
     onToggleSection() {
-        action$.next(requestLocation(this.toggleUri));
+        this.dispatch(requestLocation(this.toggleUri));
     }
 
     onEditDataResiliency(_ ,evt) {
-        action$.next(openEditBucketDataResiliencyModal(this.bucketName));
+        this.dispatch(openEditBucketDataResiliencyModal(this.bucketName));
         evt.stopPropagation();
     }
 }

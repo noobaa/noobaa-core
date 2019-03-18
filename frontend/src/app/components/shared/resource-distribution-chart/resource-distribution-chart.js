@@ -9,12 +9,12 @@ import numeral from 'numeral';
 
 const maxChartValues = 6;
 const colors = deepFreeze([
-    'rgb(var(--color6))',
-    'rgb(var(--color28))',
-    'rgb(var(--color29))',
     'rgb(var(--color20))',
-    'rgb(var(--color21))',
-    'rgb(var(--color9))'
+    'rgb(var(--color28))',
+    'rgb(var(--color30))',
+    'rgb(var(--color26))',
+    'rgb(var(--color27))',
+    'rgb(var(--color17))'
 ]);
 
 function _formatRatio(ratio) {

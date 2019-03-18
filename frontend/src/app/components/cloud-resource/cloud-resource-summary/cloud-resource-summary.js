@@ -110,7 +110,7 @@ class CloudResourceSummaryViewModel extends ConnectableViewModel {
                 readCount: numeral(io.readCount).format(','),
                 writeCount: numeral(io.writeCount).format(','),
                 readSize: {
-                    color: theme.color6,
+                    color: theme.color20,
                     value: io.readSize
                 },
                 writeSize: {

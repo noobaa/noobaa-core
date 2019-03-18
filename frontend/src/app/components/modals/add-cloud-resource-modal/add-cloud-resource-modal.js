@@ -1,14 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './add-cloud-resource-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { getCloudServiceMeta, getCloudTargetTooltip } from 'utils/cloud-utils';
 import { validateName } from 'utils/validation-utils';
 import { getFieldValue, isFieldTouched } from 'utils/form-utils';
-import { getMany } from 'rx-extensions';
 import { inputThrottle } from 'config';
 import {
     openAddCloudConnectionModal,
@@ -28,7 +26,7 @@ const allowedServices = deepFreeze([
     'FLASHBLADE'
 ]);
 
-class AddCloudResourceModalViewModel extends Observer {
+class AddCloudResourceModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     existingNames = null;
     connectionOptions = ko.observableArray();
@@ -55,33 +53,28 @@ class AddCloudResourceModalViewModel extends Observer {
         this
     );
 
-    constructor() {
-        super();
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    'session',
-                    'cloudResources',
-                    'hostPools',
-                    ['forms', this.formName],
-                    'cloudTargets'
-                )
-            ),
-            this.onState
-        );
+    selectState(state) {
+        return [
+            state.accounts,
+            state.session,
+            state.cloudResources,
+            state.hostPools,
+            state.forms[this.formName],
+            state.cloudTargets
+        ];
     }
 
-    onState([
+    mapStateToProps(
         accounts,
         session,
         cloudResources,
         hostPools,
         form,
         cloudTargets
-    ]) {
-        if (!accounts || !cloudResources || !hostPools || !form) return;
+    ) {
+        if (!accounts || !cloudResources || !hostPools || !form) {
+            return;
+        }
 
         const { externalConnections } = accounts[session.user];
         const connectionOptions = externalConnections
@@ -131,38 +124,36 @@ class AddCloudResourceModalViewModel extends Observer {
                 };
             });
 
+        const selectedConnection = externalConnections.find(con => con.name === connection);
+        const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
+
+        ko.assignToProps(this, {
+            targetBucketLabel: `Target ${subject}`,
+            targetBucketsEmptyMessage: `No ${subject.toLowerCase()}s found`,
+            targetBucketsErrorMessage: `Cannot retrieve ${subject.toLowerCase()}s`,
+            targetBucketPlaceholder: `Choose: ${subject}`,
+            isTargetBucketsInError: cloudTargets.error,
+            connectionOptions,
+            fetchingTargetBuckets,
+            targetBucketsOptions,
+            existingNames,
+            nameRestrictionList
+        });
+
+
         // Load cloud targets if necessary.
         if (connection && connection !== cloudTargets.connection) {
-            action$.next(fetchCloudTargets(connection));
+            this.dispatch(fetchCloudTargets(connection));
         }
 
         // Suggest a name for the resource if the user didn't enter one himself.
         if (!isResourceNameTouched && targetBucket && resourceName !== targetBucket) {
-            action$.next(updateForm(this.formName, { resourceName: targetBucket }, false));
+            this.dispatch(updateForm(this.formName, { resourceName: targetBucket }, false));
         }
-
-        const selectedConnection = externalConnections.find(con => con.name === connection);
-        const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
-        const targetBucketPlaceholder = `Choose ${subject}`;
-        const targetBucketLabel = `Target ${subject}`;
-        const targetBucketsEmptyMessage = `No ${subject.toLowerCase()}s found`;
-        const targetBucketsErrorMessage = `Cannot retrieve ${subject.toLowerCase()}s`;
-
-
-        this.targetBucketLabel(targetBucketLabel);
-        this.targetBucketsEmptyMessage(targetBucketsEmptyMessage);
-        this.targetBucketsErrorMessage(targetBucketsErrorMessage);
-        this.isTargetBucketsInError(cloudTargets.error);
-        this.connectionOptions(connectionOptions);
-        this.fetchingTargetBuckets(fetchingTargetBuckets);
-        this.targetBucketsOptions(targetBucketsOptions);
-        this.targetBucketPlaceholder(targetBucketPlaceholder);
-        this.existingNames = existingNames;
-        this.nameRestrictionList(nameRestrictionList);
     }
 
     onResourceName(resourceName) {
-        action$.next(updateForm(this.formName, { resourceName }));
+        this.dispatch(updateForm(this.formName, { resourceName }));
     }
 
     onValidate(values, existingNames) {
@@ -190,22 +181,23 @@ class AddCloudResourceModalViewModel extends Observer {
 
     onSubmit(values) {
         const { resourceName, connection, targetBucket } = values;
-        const action = createCloudResource(resourceName, connection, targetBucket);
 
-        action$.next(action);
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal(),
+            createCloudResource(resourceName, connection, targetBucket)
+        );
     }
 
     onAddNewConnection() {
-        action$.next(openAddCloudConnectionModal(allowedServices));
+        this.dispatch(openAddCloudConnectionModal(allowedServices));
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     dispose() {
-        action$.next(dropCloudTargets());
+        this.dispatch(dropCloudTargets());
         super.dispose();
     }
 }

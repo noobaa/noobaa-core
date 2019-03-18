@@ -8,7 +8,7 @@
         overflow-x: hidden;
 
         width: 100%;
-        color: rgb(var(--color9));
+        color: rgb(var(--color17));
         padding: 0 4px;
 
         > a {
@@ -31,18 +31,18 @@
             }
 
             &:before {
-                background-color: rgb(var(--color9));
+                background-color: rgb(var(--color17));
             }
 
             &::after {
                 left: 51%;
                 right: 51%;
-                background-color: rgb(var(--color6));
+                background-color: rgb(var(--color20));
                 transition: 300ms;
             }
 
             &.selected {
-                color: rgb(var(--color6));
+                color: rgb(var(--color20));
 
                 &::after {
                     left: 1px;
@@ -51,8 +51,8 @@
             }
 
             &:focus:not(:active):not(.selected) {
-                background: rgba(var(--color9), .1);
-                box-shadow: 0px 0px 4px rgba(var(--color9), .1);
+                background: rgba(var(--color17), .1);
+                box-shadow: 0px 0px 4px rgba(var(--color17), .1);
             }
         }
     }
@@ -61,7 +61,7 @@
         .row();
         .greedy();
         position: relative;
-        background-color: rgb(var(--color5));
+        background-color: rgb(var(--color01));
         overflow-x: hidden;
         overflow-y: auto;
 

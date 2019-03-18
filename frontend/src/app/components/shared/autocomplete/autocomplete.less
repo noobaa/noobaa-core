@@ -9,7 +9,7 @@ autocomplete {
         width: 100%;
         top: auto;
         bottom: auto;
-        background-color: rgb(var(--color8));
+        background-color: rgb(var(--color02));
         margin-top: 2px;
         padding: 2px 0;
         z-index: 1;
@@ -18,14 +18,14 @@ autocomplete {
         overflow-y: auto;
 
         &::-webkit-scrollbar-thumb  {
-            border-color: rgb(var(--color8));
+            border-color: rgb(var(--color02));
         }
     }
 
     .suggestion {
-        @focus-color: rgba(var(--color6), .3);
+        @focus-color: rgba(var(--color20), .3);
 
-        color: rgb(var(--color3));
+        color: rgb(var(--color16));
         font-size: @font-size3;
         cursor: pointer;
         padding: @gutter/2;
@@ -43,8 +43,8 @@ autocomplete {
         }
 
         &:hover {
-            background-color: rgb(var(--color24));
-            border-color: rgb(var(--color24));
+            background-color: rgb(var(--color04));
+            border-color: rgb(var(--color04));
 
             &.ring {
                 border-color: @focus-color;

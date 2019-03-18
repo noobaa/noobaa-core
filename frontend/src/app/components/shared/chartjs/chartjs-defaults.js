@@ -19,7 +19,7 @@ export default function(themeName) {
             },
             tooltips: {
                 backgroundColor: colorToRgb(
-                    ...rgbToColor(theme.color26),
+                    ...rgbToColor(theme.color13),
                     .8
                 ),
                 position: 'nearest',
@@ -30,11 +30,11 @@ export default function(themeName) {
                 yPadding: gutter / 2,
                 titleFontFamily: style['font-family1'],
                 titleFonrStyle: 'normal',
-                titleFontColor: theme.color8,
+                titleFontColor: theme.color02,
                 titleFontSize: parseInt(style['font-size2']),
                 titleMarginBottom: gutter / 2,
                 bodyFontFamily: style['font-family1'],
-                bodyFontColor: theme.color8,
+                bodyFontColor: theme.color02,
                 bodyFontSize: parseInt(style['font-size1']),
                 bodySpacing: gutter / 2
             }
@@ -43,19 +43,19 @@ export default function(themeName) {
         // Defualt settings that apply to the scales for all chart types.
         scale: {
             gridLines: {
-                color: theme.color16,
-                zeroLineColor: theme.color16,
+                color: theme.color07,
+                zeroLineColor: theme.color07,
                 drawBorder: false
             },
             ticks: {
                 fontSize: 10,
-                fontColor: theme.color10,
+                fontColor: theme.color11,
                 fontFamily: style['font-family1'],
                 min: 0
             },
             scaleLabel: {
                 fontSize: 11,
-                fontColor: theme.color9,
+                fontColor: theme.color17,
                 fontFamily: style['font-family1']
             },
             maxBarThickness: gutter * 3
@@ -72,7 +72,7 @@ export default function(themeName) {
                         display: false
                     },
                     ticks: {
-                        fontColor: theme.color9
+                        fontColor: theme.color17
                     }
                 }]
             }

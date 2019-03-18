@@ -21,7 +21,7 @@ class NamespaceBucketSummaryViewModel extends ConnectableViewModel {
     readCount = ko.observable();
     writeCount = ko.observable();
     lastRead = ko.observable();
-    lastWrite = ko.observabl
+    lastWrite = ko.observable();
 
     selectState(state, params) {
         const { namespaceBuckets: buckets } = state;

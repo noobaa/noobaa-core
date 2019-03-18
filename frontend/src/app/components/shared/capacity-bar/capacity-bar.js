@@ -39,13 +39,13 @@ class CapacityBarViewModel {
         this.values = [
             {
                 value: usedRatio,
-                color: 'rgb(var(--color6)'
+                color: 'rgb(var(--color20)'
             },
             {
                 value: ko.pureComputed(
                     () => 1 - usedRatio()
                 ),
-                color: 'rgb(var(--color16)'
+                color: 'rgb(var(--color07)'
             }
         ];
 

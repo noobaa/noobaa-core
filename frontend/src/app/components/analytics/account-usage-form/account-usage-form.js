@@ -68,7 +68,7 @@ function _perpareChartParams(samples, theme) {
             datasets: [
                 {
 
-                    backgroundColor: theme.color6,
+                    backgroundColor: theme.color20,
                     data: bars.map(bar => toBytes(bar.readSize))
                 },
                 {

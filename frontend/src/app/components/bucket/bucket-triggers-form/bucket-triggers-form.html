@@ -16,7 +16,7 @@
     columns: columns,
     sorting: ko.pc(sorting, onSort, $component),
     data: rows,
-    loading: !bucketLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'No triggers configured for this bucket'
 "></data-table>
 

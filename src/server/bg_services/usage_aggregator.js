@@ -8,6 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
 const system_store = require('../system_services/system_store').get_instance();
 const size_utils = require('../../util/size_utils');
+const { SensitiveString } = require('../../util/schema_utils');
 
 
 
@@ -79,9 +80,9 @@ async function get_accounts_report(params) {
         till: moment(till).endOf('hour').valueOf(),
         accounts
     });
-    const accounts_reports = _.groupBy(usage_reports, report => system_store.data.get_by_id(report.account).email);
+    const accounts_reports = _.groupBy(usage_reports, report => system_store.data.get_by_id(report.account).email.unwrap());
     return _.map(accounts_reports, (reports, account) => reports.reduce((curr, prev) => ({
-        account,
+        account: new SensitiveString(account),
         read_count: prev.read_count + (curr.read_count || 0),
         read_bytes: size_utils.sum_bigint_json(prev.read_bytes, (curr.read_bytes || 0)),
         write_count: prev.write_count + (curr.write_count || 0),

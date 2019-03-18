@@ -965,7 +965,7 @@ async function add_endpoint_usage_report(req) {
 
         if (record.access_key) {
             const account = system_store.data.accounts.find(acc => acc.access_keys &&
-                acc.access_keys[0].access_key.toString() === record.access_key);
+                acc.access_keys[0].access_key.unwrap() === record.access_key.unwrap());
             if (account) insert.account = account._id;
         }
 

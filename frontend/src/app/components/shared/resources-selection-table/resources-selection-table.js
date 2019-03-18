@@ -54,7 +54,10 @@ function _mapHostPoolToRow(id, pool, isDisabled, isSelected) {
         isDisabled,
         isSelected,
         state: getHostPoolStateIcon(pool),
-        type: 'nodes-pool',
+        type: {
+            name: 'nodes-pool',
+            tooltip: 'Nodes Pool'
+        },
         name: {
             text: pool.name,
             tooltip: pool.name

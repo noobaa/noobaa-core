@@ -1,6 +1,6 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row content-middle">
+<div class="row content-middle" ko.ifnot="emptyMessage">
     <ul class="no-wrap list-no-style row content-middle" ko.forEach="tags">
         <!-- ko if: $index() && $component.separator() -->
         <svg-icon class="icon-small push-prev-half"
@@ -23,3 +23,5 @@
     </span>
     <!-- /ko -->
 </div>
+
+{{emptyMessage}}

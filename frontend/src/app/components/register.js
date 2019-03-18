@@ -349,6 +349,7 @@ import placementPolicyToggle from './shared/placement-policy-toggle/placement-po
 import tagList from './shared/tag-list/tag-list';
 import moreInfoIcon from './shared/more-info-icon/more-info-icon';
 import progressBar from './shared/progress-bar/progress-bar';
+import gaugeChart from './shared/gauge-chart/gauge-chart';
 /** INJECT:shared.import **/
 
 // Register the components with knockout component container.
@@ -649,6 +650,7 @@ export default function register(ko, services) {
         tagList,
         moreInfoIcon,
         progressBar,
+        gaugeChart,
         /** INJECT:shared.list **/
 
         // An empty component used for app/data loading periods

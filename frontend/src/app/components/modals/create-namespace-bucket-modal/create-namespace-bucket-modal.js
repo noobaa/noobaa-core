@@ -130,11 +130,9 @@ class CreateNamespaceBucketModalViewModel extends Observer {
         const writePolicyOptions = resourceList
             .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
+                const { name: value } = resource;
                 const { name: icon } = getNamespaceResourceTypeIcon(resource);
-                return {
-                    value: resource.name,
-                    icon: `${icon}-dark`
-                };
+                return { value, icon };
             });
 
         const resourceServiceMapping = mapValues(

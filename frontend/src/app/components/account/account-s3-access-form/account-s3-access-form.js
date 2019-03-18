@@ -12,6 +12,28 @@ import {
 const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 const boxCount = 4;
 
+
+function _getAllowedIpsInfo(allowedIps = []) {
+    return {
+        tags: allowedIps.map(({ start, end }) => {
+            return start === end ? start : `${start} - ${end}`;
+        }),
+        maxCount: boxCount,
+        emptyMessage: 'No IP allowed'
+    };
+}
+
+function _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) {
+    return {
+        tags: hasAccessToAllBuckets ? [] : allowedBuckets,
+        maxCount: boxCount,
+        emptyMessage: hasAccessToAllBuckets ?
+            'All current and future buckets' :
+            '(None)'
+    };
+}
+
+
 class AccountS3AccessFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     accountName = ko.observable();
@@ -25,9 +47,13 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
         },
         {
             label: 'Permitted Buckets',
-            value: ko.observable(),
-            disabled: ko.observable(),
-            template: ko.observable()
+            template: 'tagList',
+            value: {
+                tags: ko.observableArray(),
+                maxCount: boxCount,
+                emptyMessage: ko.observable()
+            },
+            disabled: ko.observable()
         },
         {
             label: 'New Bucket Creation',
@@ -46,9 +72,13 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
         },
         {
             label: 'Allowed IPs',
-            value: ko.observable(),
-            visible: ko.observable(),
-            template: ko.observable()
+            template: 'tagList',
+            value: {
+                tags: ko.observableArray(),
+                maxCount: boxCount,
+                emptyMessage: ko.observable()
+            },
+            visible: ko.observable()
         }
     ];
     credentials = [
@@ -90,23 +120,6 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                 allowedIps
             } = account;
 
-            let allowedIpsTemplate;
-            let allowedIpsInfo = 'No IP allowed';
-            if (allowedIps && allowedIps.length) {
-                const formattedIpList =  allowedIps.map(({ start, end }) => {
-                    return start === end ? start : `${start} - ${end}`;
-                });
-
-                allowedIpsInfo = { tags: formattedIpList, boxCount };
-                allowedIpsTemplate = 'list';
-            }
-
-            let allowedBucketsTemplate;
-            let allowedBucketsInfo = 'All current and future buckets';
-            if (!hasAccessToAllBuckets) {
-                allowedBucketsInfo = allowedBuckets.length ? { tags: allowedBuckets, boxCount } : '(none)';
-                allowedBucketsTemplate = allowedBuckets.length && 'list';
-            }
 
             const regenerateCredentialsTooltip = !hasS3Access ? {
                 align: 'end',
@@ -124,9 +137,8 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                         value: hasS3Access ? 'Enabled' : 'Disabled'
                     },
                     {
-                        value: allowedBucketsInfo,
-                        disabled: !hasS3Access,
-                        template: allowedBucketsTemplate
+                        value: _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets),
+                        disabled: !hasS3Access
                     },
                     {
                         value: account.canCreateBuckets ? 'Allowed' : 'Not Allowed',
@@ -141,9 +153,8 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                         disabled: !hasS3Access
                     },
                     {
-                        value: allowedIpsInfo,
-                        visible: Boolean(hasS3Access && allowedIps),
-                        template: allowedIpsTemplate
+                        value: _getAllowedIpsInfo(allowedIps),
+                        visible: Boolean(hasS3Access && allowedIps)
                     }
                 ],
                 credentials: [

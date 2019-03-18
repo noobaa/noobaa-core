@@ -75,27 +75,27 @@ const resourceTypeOptions = [
     {
         value: 'AWS',
         label: 'AWS S3',
-        icon: 'aws-s3-dark'
+        icon: 'aws-s3'
     },
     {
         value: 'AZURE',
         label: 'Azure Blob',
-        icon: 'azure-dark'
+        icon: 'azure'
     },
     {
         value: 'GOOGLE',
         label: 'Google Cloud',
-        icon: 'google-cloud-dark'
+        icon: 'google-cloud'
     },
     {
         value: 'S3_COMPATIBLE',
         label: 'S3 Compatible',
-        icon: 'cloud-dark'
+        icon: 'cloud'
     },
     {
         value: 'FLASHBLADE',
         label: 'Pure FlashBlade',
-        icon: 'google-cloud-dark' //NBNB
+        icon: 'pure'
     }
 ];
 

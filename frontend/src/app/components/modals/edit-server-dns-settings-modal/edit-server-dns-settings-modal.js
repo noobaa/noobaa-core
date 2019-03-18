@@ -7,7 +7,7 @@ import { isDNSName, isIP } from 'utils/net-utils';
 import { getFieldValue } from 'utils/form-utils';
 import ko from 'knockout';
 
-const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve host names';
+const searchDomainTooltip = 'If configured, search domains will be added to the fully qualified domain names when trying to resolve node names';
 
 class EditServerDNSSettingsModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;

@@ -19,10 +19,7 @@ class ProxyServerFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     isExpanded = ko.observable();
     toggleUri = '';
-    address = {
-        text: ko.observable(),
-        css: ko.observable()
-    };
+    address = ko.observable();
     formFields = ko.observable();
     globalError = ko.observable();
     isDirtyMarkerVisible = ko.observable();
@@ -40,7 +37,8 @@ class ProxyServerFormViewModel extends ConnectableViewModel {
     mapStateToProps(systemLoaded, proxy, location, form) {
         if (!systemLoaded) {
             ko.assignToProps(this,{
-                dataReady: false
+                dataReady: false,
+                address: ''
             });
 
         } else {
@@ -52,10 +50,7 @@ class ProxyServerFormViewModel extends ConnectableViewModel {
                 dataReady: true,
                 isExpanded: section === sectionName,
                 toggleUri: realizeUri(location.route, { system, tab, section: toggleSection }),
-                address: {
-                    text: proxy ? `${proxy.endpoint}:${proxy.port}` : 'Not set',
-                    css: proxy ? 'text-tech' : ''
-                },
+                address: proxy ? `${proxy.endpoint}:${proxy.port}` : 'Not set',
                 globalError:  globalError || '',
                 isDirtyMarkerVisible: form ? isFormDirty(form) : false,
                 formFields: !form ? {

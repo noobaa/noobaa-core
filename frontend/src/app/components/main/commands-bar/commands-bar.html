@@ -3,10 +3,10 @@
 <a href="" class="icon-btn no-focus-ring"
     ko.click="onRefresh"
     ko.tooltip="'Refresh'"
-">
+>
     <svg-icon
         ko.event.animationend="onRefreshAnimationEnd"
-        ko.css.refresh-spin="isRefreshSpinning""
+        ko.css.refresh-spin="isRefreshSpinning"
         params="name: 'refresh'"
     ></svg-icon>
 </a>
@@ -14,7 +14,7 @@
 <button class="icon-btn no-focus-ring"
     ko.click="onAudit"
     ko.tooltip="'Audit'"
-">
+>
     <svg-icon params="name: 'audit'"></svg-icon>
 </button>
 
@@ -23,7 +23,7 @@
     ko.tooltip="'Alerts'"
     ko.css.counter="unreadAlertsCount"
     ko.attr="{ 'data-count': unreadAlertsCount }"
-">
+>
     <svg-icon params="name: 'alert'"></svg-icon>
 </button>
 

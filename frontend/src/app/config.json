@@ -59,6 +59,7 @@
         "baseUrl": "https://storage.googleapis.com/noobaa-fe-assets/release-notes",
         "suffix": "txt"
     },
+    "logo": "logo-up",
     "themes": {
         "dark": "theme-up-dark",
         "light": "theme-up-light"

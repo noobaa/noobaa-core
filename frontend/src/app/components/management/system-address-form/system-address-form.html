@@ -10,8 +10,7 @@
                 <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
             </h2>
             <p ko.visible="!isExpanded()">
-                Server address:
-                <span class="text-tech" ko.text="systemAddress"></span>
+                Server address: {{systemAddress}}
             </p>
             <p ko.visible="isExpanded">
                 Configuring DNS in NooBaa is useful for achieving high availability on installed agents or for working with bucket virtual domains

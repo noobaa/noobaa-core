@@ -5,8 +5,6 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { summarizeServerIssues } from 'utils/cluster-utils';
-import themes from 'themes';
-import numeral from 'numeral';
 import {
     healthyIcon,
     errorIcon,
@@ -31,23 +29,7 @@ const statusMapping = deepFreeze({
     }
 });
 
-const notConnectedUtilization = deepFreeze({
-    cpuUsage: {
-        label: 'CPU: -',
-        value: 0,
-        complement: 1
-    },
-    diskUsage: {
-        label: 'Disk: -',
-        value: 0,
-        complement: 1
-    },
-    memoryUsage: {
-        label: 'Memory: -',
-        value: 0,
-        complement: 1
-    }
-});
+
 
 function _getIssues(server, minRequirements, version) {
     if (server.mode !== 'CONNECTED') {
@@ -95,47 +77,6 @@ function _getIssues(server, minRequirements, version) {
     }
 }
 
-function _getChartData(server, theme) {
-    if (server.mode !== 'CONNECTED') {
-        return notConnectedUtilization;
-    }
-
-    const { cpus, storage, memory } = server;
-    const diskUsage = 1 - (storage.free / storage.total);
-    const memoryUsage = memory.used / memory.total;
-    // const cpuUsage = cpus.usage / cpus.count;
-    const cpuUsage = Math.random();
-
-    return {
-        labels: [
-            `CPU: ${numeral(cpus.usage).format('%')}`,
-            `Disk: ${numeral(diskUsage).format('%')}`,
-            `Memory: ${numeral(memoryUsage).format('%')}`
-        ],
-        datasets: [
-            {
-                backgroundColor: theme.color6,
-                hoverBackgroundColor: theme.color6,
-                data: [
-                    cpuUsage,
-                    diskUsage,
-                    memoryUsage
-                ]
-            },
-            {
-                // Simulate a background using a stacked complement bar.
-                backgroundColor: theme.color18,
-                hoverBackgroundColor: theme.color18,
-                data: [
-                    1 - cpuUsage,
-                    1 - diskUsage,
-                    1 - memoryUsage
-                ]
-            }
-        ]
-    };
-}
-
 class ServerSummaryViewModel2 extends ConnectableViewModel {
     dataReady = ko.observable();
     isConnected = ko.observable();
@@ -155,78 +96,43 @@ class ServerSummaryViewModel2 extends ConnectableViewModel {
             tooltip: ko.observable()
         }
     };
-    chart = {
-        options: {
-            // Disable animation because we cannot lock the background dataset
-            // from also animating.
-            animation: false,
-            maintainAspectRatio: false,
-            scales: {
-                xAxes: [{
-                    stacked: true,
-                    categoryPercentage: .8,
-                    barPercentage: .5
-                }],
-                yAxes: [{
-                    stacked: true,
-                    gridLines: {
-                        color: 'transparent',
-                        drawTicks: false
-                    },
-                    ticks: {
-                        callback: () => ''
-                    }
-                }]
-            },
-            tooltips: {
-                enabled: false
-            }
-        },
-        data: {
-            labels: ko.observableArray(),
-            datasets: [
-                {
-                    backgroundColor: ko.observable(),
-                    hoverBackgroundColor: ko.observable(),
-                    data: ko.observableArray()
-                },
-                {
-                    // Simulate a background using a stacked complement bar.
-                    backgroundColor: ko.observable(),
-                    hoverBackgroundColor: ko.observable(),
-                    data: ko.observableArray()
-                }
-            ]
-        }
-    }
+    cpuUsage = ko.observable();
+    diskUsage = ko.observable();
+    memoryUsage = ko.observable()
 
     selectState(state, params) {
-        const { topology = {}, system, session } = state;
+        const { topology = {}, system } = state;
         const { serverMinRequirements, servers } = topology;
         return [
             servers && servers[params.serverSecret],
             serverMinRequirements,
-            system && system.version,
-            themes[session.uiTheme]
+            system && system.version
         ];
     }
 
-    mapStateToProps(server, minRequirements, systemVersion, theme) {
+    mapStateToProps(server, minRequirements, systemVersion) {
         if (!server) {
             ko.assignToProps(this, {
                 dataReady: false
             });
 
         } else {
+            const { cpus, storage, memory } = server;
+            const cpuUsage = cpus.usage / cpus.count;
+            const diskUsage = 1 - (storage.free / storage.total);
+            const memoryUsage = memory.used / memory.total;
+
+
             ko.assignToProps(this, {
                 dataReady: true,
                 firstRender: false,
                 isConnected: server.mode === 'CONNECTED',
                 status: statusMapping[server.mode],
                 issues: _getIssues(server, minRequirements, systemVersion),
-                chart: {
-                    data: _getChartData(server, theme)
-                }
+                cpuUsage,
+                diskUsage,
+                memoryUsage
+
             });
         }
     }

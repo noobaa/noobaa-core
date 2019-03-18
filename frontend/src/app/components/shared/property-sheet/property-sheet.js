@@ -34,7 +34,7 @@ class PropertyRowViewModel {
     visible = ko.observable();
     disabled = ko.observable();
     allowCopy = ko.observable();
-    template = ko.observable();
+    template = null;
 }
 
 class PropertySheetViewModel {

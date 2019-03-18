@@ -26,10 +26,7 @@ class RemoteSyslogFormViewModel extends ConnectableViewModel {
     isExpanded = ko.observable();
     isDirtyMarkerVisible = ko.observable();
     toggleUri = '';
-    syslogUri = {
-        text: ko.observable(),
-        css: ko.observable()
-    };
+    syslogUri = ko.observable();
     fields = ko.observable();
 
     selectState(state) {
@@ -45,7 +42,8 @@ class RemoteSyslogFormViewModel extends ConnectableViewModel {
     mapStateToProps(systemState, location, form) {
         if (!systemState) {
             ko.assignToProps(this, {
-                isDirtyMarkerVisible: false
+                isDirtyMarkerVisible: false,
+                syslogUri: ''
             });
 
         } else {
@@ -69,14 +67,7 @@ class RemoteSyslogFormViewModel extends ConnectableViewModel {
                 defaultPorts.UDP;
 
             const port = protocol === 'UDP' ? udpPort : defaultPorts.TCP;
-            const syslogUri = enabled ?  {
-                text: `${protocol.toLowerCase()}://${address}:${port}`,
-                css: 'tech-text'
-            } : {
-                text: 'Not set',
-                css: ''
-            };
-
+            const syslogUri = enabled ? `${protocol.toLowerCase()}://${address}:${port}` : 'Not set';
             const { system, tab = 'settings', section } = location.params;
             const isExpanded = section === sectionName;
             const toggleSection = isExpanded ? undefined : sectionName;

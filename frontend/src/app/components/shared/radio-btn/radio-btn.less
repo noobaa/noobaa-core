@@ -27,7 +27,7 @@ radio-btn {
             cx: @radius;
             cy: @radius;
             r: @radius - 1;
-            stroke: rgb(var(--color9));
+            stroke: rgb(var(--color17));
             fill: none;
         }
 
@@ -36,7 +36,7 @@ radio-btn {
             cy: @radius;
             r: 0;
             stroke: none;
-            fill: rgb(var(--color6));
+            fill: rgb(var(--color20));
             transition: all 350ms ease-out;
         }
     }
@@ -45,7 +45,7 @@ radio-btn {
         display: inline-block;
         line-height: 1;
         vertical-align: middle;
-        color: rgb(var(--color9));
+        color: rgb(var(--color17));
         cursor: @cursor-pointer;
     }
 
@@ -54,7 +54,7 @@ radio-btn {
 
         &:focus, &:active {
             ~ .radio-knob > .outer-circle {
-                stroke: rgb(var(--color6));
+                stroke: rgb(var(--color20));
             }
         }
 
@@ -64,15 +64,15 @@ radio-btn {
 
         &:disabled {
             ~ .radio-knob > .outer-circle {
-                stroke: rgb(var(--color18));
+                stroke: rgb(var(--color09));
             }
 
             &:checked ~ .radio-knob > .inner-circle {
-                fill: rgb(var(--color18));
+                fill: rgb(var(--color09));
             }
 
             ~ .radio-label {
-                color: rgb(var(--color18));
+                color: rgb(var(--color09));
                 opacity: .3;
             }
 

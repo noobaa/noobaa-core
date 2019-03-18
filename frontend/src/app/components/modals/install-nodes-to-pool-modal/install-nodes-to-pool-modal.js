@@ -1,12 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './install-nodes-to-pool-modal.html';
-import Observer from 'observer';
-import { state$, action$ } from 'state';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
-import { get } from 'rx-extensions';
 import {
     updateForm,
     fetchNodeInstallationCommands,
@@ -40,7 +38,7 @@ const drivesInputPlaceholder =
     `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
 
-class InstallNodeModalViewModel extends Observer {
+class InstallNodeModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
     osTypes = osTypes;
@@ -61,33 +59,33 @@ class InstallNodeModalViewModel extends Observer {
         }
     };
 
-    constructor({ targetPool }) {
-        super();
-
-        this.targetPool = ko.unwrap(targetPool);
-
-        this.observe(
-            state$.pipe(
-                get('forms', this.formName)
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        const { forms } = state;
+        return [
+            forms && forms[this.formName],
+            params.targetPool
+        ];
     }
 
-    onState(form) {
-        if (!form) return;
+    mapStateToProps(form, targetPool) {
+        if (!form) {
+            return;
+        }
 
         const selectedOs = getFieldValue(form, 'selectedOs');
-        const { hint } = this.osTypes.find(os => os.value === selectedOs);
+        const { hint } = osTypes.find(os => os.value === selectedOs);
 
-        this.osHint(hint);
-        this.excludedDrives = getFieldValue(form, 'excludedDrives');
+        ko.assignToProps(this, {
+            targetPool,
+            osHint: hint,
+            excludedDrives: getFieldValue(form, 'excludedDrives')
+        });
     }
 
     onBeforeStep(step) {
         if (step === 0) {
             // If moving to last step, fetch the intallation commands.
-            action$.next(fetchNodeInstallationCommands(
+            this.dispatch(fetchNodeInstallationCommands(
                 this.targetPool,
                 this.excludedDrives
             ));
@@ -97,11 +95,11 @@ class InstallNodeModalViewModel extends Observer {
     }
 
     onTab(osType) {
-        action$.next(updateForm(this.formName, { selectedOs: osType }));
+        this.dispatch(updateForm(this.formName, { selectedOs: osType }));
     }
 
     onDone() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

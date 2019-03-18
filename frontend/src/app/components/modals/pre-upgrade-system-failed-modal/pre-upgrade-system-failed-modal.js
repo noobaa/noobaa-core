@@ -1,12 +1,10 @@
 import template from './pre-upgrade-system-failed-modal.html';
-import Observer from 'observer';
-import IssueRowViewModel from './issue-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { state$, action$ } from 'state';
 import { closeModal } from 'action-creators';
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, get } from 'utils/core-utils';
 import { formatEmailUri } from 'utils/browser-utils';
-import { get } from 'rx-extensions';
+import { getServerDisplayName } from 'utils/cluster-utils';
 import { support } from 'config';
 
 const columns = deepFreeze([
@@ -25,28 +23,42 @@ const columns = deepFreeze([
     }
 ]);
 
-class PreUpgradeSystemFailedModalViewModel extends Observer {
-    constructor() {
-        super();
+class IssueRowViewModel {
+    icon = {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Failure'
+    };
+    server = ko.observable();
+    details = ko.observable();
 
-        this.columns = columns;
-        this.supportEmail = formatEmailUri(support.email, support.upgradeFailedSubject);
-        this.rows = ko.observableArray();
+    onState(issue, server) {
+        const { message, reportInfo }= issue;
+        this.server(getServerDisplayName(server));
+        this.details({
+            message : message,
+            reportHref: reportInfo && formatEmailUri(support.email, reportInfo)
+        });
 
-        this.observe(
-            state$.pipe(get('topology', 'servers')),
-            this.onState
-        );
+    }
+}
+
+class PreUpgradeSystemFailedModalViewModel extends ConnectableViewModel {
+    columns = columns;
+    supportEmail = formatEmailUri(support.email, support.upgradeFailedSubject);
+    rows = ko.observableArray()
+        .ofType(IssueRowViewModel);
+
+    selectState(state) {
+        return [
+            state.topology.servers
+        ];
     }
 
-    onState(servers) {
-        if (!servers) return;
-
-        const serverList = Object.values(servers);
-        const rows = serverList
-            .reduce((issues, server) => {
-                const { error } = (((server || {}).upgrade || {}).package || {});
-
+    mapStateToProps(servers) {
+        if (servers) {
+            const issues = Object.values(servers).reduce((issues, server) => {
+                const error = get(server, ['upgrade', 'package', 'error']);
                 if (error) {
                     issues.push({
                         server: server.secret,
@@ -54,18 +66,20 @@ class PreUpgradeSystemFailedModalViewModel extends Observer {
                     });
                 }
                 return issues;
-            },[])
-            .map((issue, i) => {
-                const row = this.rows.get(i) || new IssueRowViewModel();
-                row.onState(issue, servers[issue.server]);
-                return row;
-            });
+            },[]);
 
-        this.rows(rows);
+            ko.assignToProps(this, {
+                rows: issues.map(issue => {
+                    const { message, reportInfo } = issue;
+                    const reportHref = reportInfo && formatEmailUri(support.email, reportInfo);
+                    return { message, reportHref };
+                })
+            });
+        }
     }
 
     onClose() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 }
 

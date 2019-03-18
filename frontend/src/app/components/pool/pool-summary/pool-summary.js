@@ -93,31 +93,31 @@ class PoolSummaryViewModel extends ConnectableViewModel {
     pieValues = [
         {
             label: 'Available',
-            color: 'rgb(var(--color18))',
+            color: 'rgb(var(--color09))',
             value: this.availableCapacity,
             tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
         },
         {
             label: 'Unavailable Capacity',
-            color: 'rgb(var(--color30))',
+            color: 'rgb(var(--color14))',
             value: this.unavailableCapacity,
             tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
         },
         {
             label: 'NooBaa Usage',
-            color: 'rgb(var(--color6))',
+            color: 'rgb(var(--color20))',
             value: this.usedByNoobaaCapacity,
             tooltip: 'The actual storage utilization of this pool by the buckets connected to it'
         },
         {
             label: 'Other Usage',
-            color: 'rgb(var(--color7))',
+            color: 'rgb(var(--color29))',
             value: this.usedByOthersCapacity,
             tooltip: 'The machines utilization by OS, local files etc'
         },
         {
             label: 'Reserved',
-            color: 'rgb(var(--color31))',
+            color: 'rgb(var(--color25))',
             value: this.reservedCapacity,
             tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
         }

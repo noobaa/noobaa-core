@@ -6,10 +6,11 @@
             <input type="search"
                 class="push-next"
                 placeholder="Filter by resource name"
-                ko.textInput="ko.pc(filter, onFilterThrottled)" />
+                ko.textInput="ko.pc(filter, onFilter, $component)"
+            />
         </div>
         <button class="btn"
-            ko.enable="resourcesLoaded"
+            ko.enable="dataReady"
             ko.click="onCreate"
         >
             Create Namespace Resource
@@ -25,7 +26,7 @@
     columns: columns,
     sorting: ko.pc(sorting, onSort, $component),
     data: rows,
-    loading: !resourcesLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'System does not contain any namespace resources'
 "></data-table>
 

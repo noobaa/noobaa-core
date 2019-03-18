@@ -7,7 +7,7 @@
     </div>
     <button class="btn"
         ko.click="onEditPlacement"
-        ko.enable="stateLoaded"
+        ko.enable="dataReady"
     >
         Edit placement policy
     </button>
@@ -16,7 +16,7 @@
 <data-table class="greedy placement-table" params="
     columns: columns,
     data: rows,
-    loading: !stateLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'No resources participate in policy'
 ">
     <template name="nameAndRule">

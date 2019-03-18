@@ -80,7 +80,7 @@ function _getBucketsByPool(buckets) {
 }
 
 function _matchFilter(filter, pool) {
-    const { name, region } = pool;
+    const { name, region = '' } = pool;
     return (
         includesIgnoreCase(name, filter) ||
         includesIgnoreCase(region, filter)

@@ -6,7 +6,7 @@
     </h1>
 
     <property-sheet class="pad" params="
-        loading: !stateLoaded(),
+        loading: !dataReady(),
         properties: versionInfo
     ">
         <template name="licenseInfo">
@@ -24,25 +24,28 @@
             <span class="greedy push-next">
                 System Upgrade
             </span>
-            <div ko.tooltip="uploadBtn().tooltip" class="push-next">
+            <div ko.tooltip="uploadBtn.tooltip" class="push-next">
                 <button class="btn"
                     ko.click="onUploadPackage"
-                    ko.disable="uploadBtn().disabled"
+                    ko.disable="uploadBtn.disabled"
                 >
                     Upload Package
                 </button>
             </div>
-            <div ko.tooltip="upgradeBtn().tooltip">
+            <div ko.tooltip="upgradeBtn.tooltip">
                 <button class="btn"
                     ko.click="onUpgradeNow"
-                    ko.disable="upgradeBtn().disabled"
+                    ko.disable="upgradeBtn.disabled"
                 >
                     Upgrade System
                 </button>
             </div>
         </h2>
-        <div class="column" ko.expand="uploadArea().expanded">
-            <drop-area class="push-prev" params="onDrop: onDropPackage, active: uploadArea().disabled">
+        <div class="column" ko.expand="uploadArea.expanded">
+            <drop-area class="push-prev" params="
+                onDrop: onDropPackage,
+                active: uploadArea.active
+            ">
                 <!-- ko if: pkgState.oneOf('NO_PACKAGE') -->
                 <p class="push-next-half">Drag an upgrade package or</p>
                 <label class="btn alt-colors"
@@ -97,7 +100,7 @@
 
     <div class="column pad">
         <property-sheet class="push-next" params="
-            loading: !stateLoaded(),
+            loading: !dataReady(),
             properties: pkgInfo
         ">
             <template name="testResult">
@@ -121,10 +124,10 @@
         >
             <template name="issueDetails">
                 <p>
-                    {{$data().message}}
+                    {{message}}
                     <a class="link"
-                        ko.visible="$data().reportHref"
-                        ko.attr.href="$data().reportHref"
+                        ko.visible="reportHref"
+                        ko.attr.href="reportHref"
                     >
                         Send report
                     </a>

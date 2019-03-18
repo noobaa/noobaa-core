@@ -5,9 +5,9 @@ data-table {
     position: relative;
     text-align: center;
     overflow-y: hidden;
-    background-color: rgb(var(--color5));
-    border-bottom: 1px solid rgb(var(--color16));
-    color: rgb(var(--color9));
+    background-color: rgb(var(--color01));
+    border-bottom: 1px solid rgb(var(--color07));
+    color: rgb(var(--color17));
     width: 100%;
     min-height: 126px;
 
@@ -37,11 +37,11 @@ data-table {
     }
 
     thead > tr {
-        border-bottom: 1px solid rgb(var(--color16));
+        border-bottom: 1px solid rgb(var(--color07));
     }
 
     tbody > tr + tr {
-        border-top: 1px solid rgb(var(--color16));
+        border-top: 1px solid rgb(var(--color07));
     }
 
     th, td {
@@ -77,21 +77,21 @@ data-table {
 
             &:before {
                 top: -2px;
-                border-bottom-color: rgb(var(--color17))
+                border-bottom-color: rgb(var(--color10))
             }
 
 
             &::after {
                 bottom: -2px;
-                border-top-color: rgb(var(--color17));
+                border-top-color: rgb(var(--color10));
             }
 
             &.des::before {
-                border-bottom-color: rgb(var(--color9));
+                border-bottom-color: rgb(var(--color17));
             }
 
             &.asc::after {
-                border-top-color: rgb(var(--color9));
+                border-top-color: rgb(var(--color17));
             }
         }
     }
@@ -128,7 +128,7 @@ data-table {
         position: relative;
         text-align: left;
         font-size: @font-size4;
-        color: rgb(var(--color10));
+        color: rgb(var(--color11));
     }
 
     .expand-col {

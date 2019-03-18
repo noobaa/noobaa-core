@@ -65,19 +65,19 @@ class StorageOverviewViewModel extends ConnectableViewModel {
         {
             label: 'Used',
             value: ko.observable(),
-            color: 'rgb(var(--color6))',
+            color: 'rgb(var(--color20))',
             tooltip: 'The raw storage used in the system'
         },
         {
             label: 'Reserved & Unavailable',
             value: ko.observable(),
-            color: 'rgb(var(--color30))',
+            color: 'rgb(var(--color14))',
             tooltip: 'All offline resources or unusable storage such as OS usage and reserved capacity'
         },
         {
             label: 'Available',
             value: ko.observable(),
-            color: 'rgb(var(--color18))',
+            color: 'rgb(var(--color09))',
             tooltip: 'The total free space for upload prior to data resiliency considerations'
         }
     ];

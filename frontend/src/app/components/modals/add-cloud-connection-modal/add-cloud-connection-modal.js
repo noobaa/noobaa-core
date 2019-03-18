@@ -8,17 +8,15 @@ import s3v4CompatibleFieldsTemplate from './s3-v4-compatible-fields.html';
 import netStorageTemplate from './net-storage-fields.html';
 import googleCloudTemplate from './google-cloud-fields.html';
 import flashbladeFieldsTemplate from './flashblade-fields.html';
-import Observer from 'observer';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, pick, isUndefined } from 'utils/core-utils';
 import { getFieldValue, getFieldError } from 'utils/form-utils';
 import { isUri, readFileAsText } from 'utils/browser-utils';
 import { all, sleep } from 'utils/promise-utils';
 import { cloudServices, getCloudServiceMeta } from 'utils/cloud-utils';
-import { getMany } from 'rx-extensions';
 import { addExternalConnection, updateForm, untouchForm, closeModal } from 'action-creators';
 import { api } from 'services';
-import { state$, action$ } from 'state';
 
 const nameRegExp = /^Connection (\d+)$/;
 const defaultService = 'AWS';
@@ -195,7 +193,7 @@ async function _onS3LikeValidateAsync(
     return errors;
 }
 
-class AddCloudConnectionModalViewModel extends Observer  {
+class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
     formName = this.constructor.name;
     fields = ko.observable();
     asyncTriggers = asyncTriggers;
@@ -203,52 +201,44 @@ class AddCloudConnectionModalViewModel extends Observer  {
     service = '';
     serviceOptions = null;
     existingConnections = null;
-    form = null;
     subTemplate = ko.observable();
     isFormInitialized = ko.observable();
     globalError = ko.observable();
 
-    constructor({ allowedServices = serviceOptions.map(opt => opt.value) }){
-        super();
-
-        this.serviceOptions = serviceOptions
-            .filter(opt => allowedServices.includes(opt.value));
-
-        this.observe(
-            state$.pipe(
-                getMany(
-                    'accounts',
-                    ['session', 'user'],
-                    ['forms', this.constructor.name]
-                )
-            ),
-            this.onState
-        );
+    selectState(state, params) {
+        return [
+            params.allowedServices,
+            state.accounts,
+            state.session && state.session.user,
+            state.forms[this.formName]
+        ];
     }
 
-    onState([accounts, user, form]) {
+    mapStateToProps(allowedServices, accounts, user, form) {
         if (!accounts || !user) {
             return;
         }
 
-        this.globalError(form ? getFieldError(form, 'global') : '');
-        this.existingConnections = accounts[user].externalConnections;
+        const allowedServiceOptions = allowedServices ?
+            serviceOptions.filter(opt => allowedServices.includes(opt.value)) :
+            serviceOptions;
 
+        const globalError  = form ? getFieldError(form, 'global') : '';
+        const existingConnections = accounts[user].externalConnections;
         const service = form ? getFieldValue(form, 'service') : defaultService;
-        if (this.service !== service) {
-            this.service = service;
-            this.subTemplate(templates[service]);
+        const serviceChanged = this.service !== service;
 
-            // Clear the touch state of the form whenever the
-            // service changes.
-            action$.next(untouchForm(this.formName));
-        }
 
-        if (!this.fields()) {
-            this.fields({
+        ko.assignToProps(this, {
+            serviceOptions: allowedServiceOptions,
+            globalError,
+            existingConnections,
+            service,
+            subTemplate: templates[service],
+            fields: !form ? {
                 // Common fields
-                connectionName: _suggestConnectionName(this.existingConnections),
-                service: this.service,
+                connectionName: _suggestConnectionName(existingConnections),
+                service: service,
 
                 // AWS fields.
                 awsEndpoint: 'https://s3.amazonaws.com',
@@ -285,7 +275,13 @@ class AddCloudConnectionModalViewModel extends Observer  {
                 fbEndpoint: '',
                 fbAccessKey: '',
                 fbSecretKey: ''
-            });
+            } : undefined
+        });
+
+        if (serviceChanged) {
+            // Clear the touch state of the form whenever the
+            // service changes.
+            this.dispatch(untouchForm(this.formName));
         }
     }
 
@@ -350,12 +346,14 @@ class AddCloudConnectionModalViewModel extends Observer  {
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
 
-        action$.next(addExternalConnection(connectionName, service, params));
-        action$.next(closeModal());
+        this.dispatch(
+            closeModal,
+            addExternalConnection(connectionName, service, params)
+        );
     }
 
     onCancel() {
-        action$.next(closeModal());
+        this.dispatch(closeModal());
     }
 
     // --------------------------------------
@@ -668,7 +666,7 @@ class AddCloudConnectionModalViewModel extends Observer  {
     async _gcOnKeysFile(file) {
         const gcKeysFileName = file.name;
         const gcKeysJson = await readFileAsText(file);
-        action$.next(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
+        this.dispatch(updateForm(this.formName, { gcKeysFileName, gcKeysJson }));
     }
 }
 

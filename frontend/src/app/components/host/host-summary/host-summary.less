@@ -16,7 +16,7 @@ host-summary {
     .service-state-indicator {
         .remark();
         vertical-align: middle;
-        color: rgb(var(--color10));
+        color: rgb(var(--color11));
         cursor: default;
 
         &::before {
@@ -27,23 +27,23 @@ host-summary {
             line-height: @gutter/2;
             border-radius: @gutter/2;
             margin-right: 2px;
-            background-color: rgb(var(--color10));
+            background-color: rgb(var(--color11));
         }
 
         &.success, &.warning, &.error {
-            color: rgb(var(--color9));
+            color: rgb(var(--color17));
         }
 
         &.success::before {
-            background-color: rgb(var(--color21));
+            background-color: rgb(var(--color27));
         }
 
         &.warning::before {
-            background-color: rgb(var(--color20));
+            background-color: rgb(var(--color26));
         }
 
         &.error::before {
-            background-color: rgb(var(--color19));
+            background-color: rgb(var(--color31));
         }
     }
 

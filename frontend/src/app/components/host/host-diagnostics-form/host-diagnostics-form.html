@@ -26,7 +26,7 @@
 
     <property-sheet class="pad" params="
         properties: debugDetails,
-        loading: !hostLoaded()
+        loading: !dataReady()
     ">
         <template name="debugMode">
             <p ko.visible="$data">
@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    <p class="pad" ko.css.disabled="!hostLoaded()">
+    <p class="pad" ko.css.disabled="!dataReady()">
         Testing a node allows you the verify peer to peer connectivity and bandwidth between this node and several of its peers
     </p>
 </section>

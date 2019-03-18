@@ -2,7 +2,16 @@
 
 <section class="column push-next">
     <h2 class="heading3 pad card-shadow">Contact Support</h2>
-    <property-sheet class="pad" params="properties: contactInfoProps"></property-sheet>
+    <property-sheet class="pad" params="properties: contactInfoProps">
+        <template name="link">
+            <a class="link"
+                ko.attr.href="href"
+                ko.attr.target="target"
+            >
+                {{text}}
+            </a>
+        </template>
+    </property-sheet>
 </section>
 <hr>
 <section class="column">

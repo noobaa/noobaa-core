@@ -31,14 +31,37 @@
     </section>
 
     <section class="c4 column push-both">
-        <h3 class="heading3 push-next">
-            Average utilization over last minute:
-        </h3>
-        <chartjs class="utilization-chart align-middle" params="
+        <div class="row content-middle">
+            <h3 class="heading3 greedy push-next">
+                Average utilization:
+            </h3>
+            <p class="remark content-middle">
+                <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+                Over last minute
+            </p>
+        </div>
+        <div class="row content-middle greedy">
+            <gauge-chart class="gague" params="
+                label: 'CPU',
+                format: 'percentage',
+                value: cpuUsage
+            "></gauge-chart>
+            <gauge-chart class="gague" params="
+                label: 'Disk',
+                format: 'percentage',
+                value: diskUsage
+            "></gauge-chart>
+            <gauge-chart class="gague" params="
+                label: 'Memory',
+                format: 'percentage',
+                value: memoryUsage
+            "></gauge-chart>
+        </div>
+<!--         <chartjs class="utilization-chart align-middle" params="
             type: 'bar',
             options: chart.options,
             data: chart.data
-        "></chartjs>
+        "></chartjs> -->
     </section>
 
     <section class="c4 column card">

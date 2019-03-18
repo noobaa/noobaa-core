@@ -13,7 +13,7 @@ import numeral from 'numeral';
 
 const chartBars = deepFreeze([
     {
-        label: 'Node Pools',
+        label: 'Pools',
         resourceType: 'HOSTS'
     },
     {
@@ -49,23 +49,27 @@ const chartBars = deepFreeze([
 ]);
 
 function _getHostsPoolState(pool) {
-    (pool.mode === 'OPTIMAL' && 'healthy') ||
-    (pool.mode === 'ALL_NODES_OFFLINE' && 'error') ||
-    (pool.mode === 'HAS_NO_NODES' && 'error') ||
-    (pool.mode === 'NO_CAPACITY' && 'error') ||
-    (pool.mode === 'MOST_NODES_ISSUES' && 'error') ||
-    (pool.mode === 'MOST_STORAGE_ISSUES' && 'error') ||
-    (pool.mode === 'MOST_S3_ISSUES' && 'error') ||
-    'issue';
+    return (
+        (pool.mode === 'OPTIMAL' && 'healthy') ||
+        (pool.mode === 'ALL_NODES_OFFLINE' && 'error') ||
+        (pool.mode === 'HAS_NO_NODES' && 'error') ||
+        (pool.mode === 'NO_CAPACITY' && 'error') ||
+        (pool.mode === 'MOST_NODES_ISSUES' && 'error') ||
+        (pool.mode === 'MOST_STORAGE_ISSUES' && 'error') ||
+        (pool.mode === 'MOST_S3_ISSUES' && 'error') ||
+        'issue'
+    );
 }
 
 function _getCloudResourceState(resource) {
-    return (resource.mode === 'OPTIMAL' && 'healthy') ||
+    return (
+        (resource.mode === 'OPTIMAL' && 'healthy') ||
         (resource.mode === 'IO_ERRORS' && 'error') ||
         (resource.mode === 'STORAGE_NOT_EXIST' && 'error') ||
         (resource.mode === 'AUTH_FAILED' && 'error') ||
         (resource.mode === 'ALL_NODES_OFFLINE' && 'error') ||
-        'issue';
+        'issue'
+    );
 }
 
 class ResourceOverviewViewModel extends ConnectableViewModel {
@@ -93,13 +97,22 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
     ];
     chart = {
         options: {
+            layout: {
+                padding: 0
+            },
             maintainAspectRatio: false,
             scales: {
                 yAxes: [{
                     stacked: true,
                     ticks: {
                         suggestedMax: 5,
-                        display: false
+                        callback: (value, i, values) => {
+                            const curr = Math.round(value);
+                            const next = Math.round(values[i - 1]);
+                            return curr !== next ?
+                                `${numeral(curr).format(',')}${' '.repeat(5)}` :
+                                null;
+                        }
                     }
                 }],
                 xAxes: [{
@@ -116,9 +129,12 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                     }
                 },
                 callbacks: {
-                    title: (items) => items.some(item => item.yLabel > 0) ?
-                        items[0].xLabel:
-                        '',
+                    title: items => {
+                        const count = sumBy(items, item => item.yLabel);
+                        return items.some(item => item.yLabel > 0) ?
+                            `${items[0].xLabel}: ${numeral(count).format(',')}`:
+                            '';
+                    },
                     label: item => `${
                         (item.datasetIndex === 2 && 'Healthy') ||
                         (item.datasetIndex === 1 && 'Issues') ||

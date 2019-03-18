@@ -106,6 +106,7 @@ class ObjectSummaryViewModel extends ConnectableViewModel {
 
         } else {
             const { original, onDisk } = object.size;
+            const hasOnDiskSize = Boolean(onDisk);
 
             ko.assignToProps(this, {
                 dataReady: true,
@@ -120,11 +121,11 @@ class ObjectSummaryViewModel extends ConnectableViewModel {
                     'File not read',
                 readCount: numeral(object.readCount).format(','),
                 originalSize: {
-                    value: toBytes(original),
+                    value: hasOnDiskSize ? toBytes(original) : 0,
                     color: theme.color6
                 },
                 actualSize: {
-                    value: toBytes(onDisk || 0),
+                    value: hasOnDiskSize ? toBytes(onDisk) : 0,
                     color: theme.color28
                 }
             });

@@ -8,7 +8,7 @@ paginator {
 
     .paginator-wrapper {
         display: inline-block;
-        line-height: 14px;
+        line-height: 16px;
         font-size: @font-size1;
         margin: 0 auto;
         margin-right: -4px;
@@ -17,21 +17,22 @@ paginator {
     .item-counter {
         display: inline-block;
         margin-right: @gutter/2;
+        vertical-align: middle;
     }
 
     .page-counter {
         display: inline-block;
         margin: 0 @gutter/4;
+        vertical-align: middle;
     }
 
     .btn-flat {
         padding: 0;
         display: inline;
+        vertical-align: middle;
 
-        svg-icon {
-            width: @font-size1;
-            height: @font-size1;
-            margin-top: -2px;
+        > svg-icon {
+            fill: rgb(var(--color9));
         }
 
         &:disabled {

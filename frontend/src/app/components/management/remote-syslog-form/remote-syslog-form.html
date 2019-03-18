@@ -10,10 +10,7 @@
                 <dirty-mark ko.visible="isDirtyMarkerVisible"></dirty-mark>
             </h2>
             <p ko.visible="!isExpanded()">
-                Server address:
-                <span ko.css="syslogUri.css"
-                    ko.text="syslogUri.text"
-                ></span>
+                Server address: {{syslogUri}}
             </p>
             <p ko.visible="isExpanded">
                 Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server

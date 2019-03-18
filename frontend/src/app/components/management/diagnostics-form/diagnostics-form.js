@@ -20,11 +20,21 @@ class DiagnosticsFormViewModel extends ConnectableViewModel {
     contactInfoProps = [
         {
             label: 'By email',
-            value: `<a class="link" href="mailto:${support.email}">${support.email}</a>`
+            template: 'link',
+            value: {
+                href: `mailto:${support.email}`,
+                text: support.email,
+                target: false
+            }
         },
         {
             label: 'Support center',
-            value: `<a class="link" href="${support.helpDesk}" target="_blank">${support.helpDesk}</a>`
+            template: 'link',
+            value: {
+                href: support.helpDesk,
+                text: support.helpDesk,
+                target: '_blank'
+            }
         }
     ];
     debugSheet = [

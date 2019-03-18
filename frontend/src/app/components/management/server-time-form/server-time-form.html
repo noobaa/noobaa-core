@@ -7,8 +7,7 @@
         <div class="column greedy">
             <h2 class="heading3 greedy">Date &amp; Time</h2>
             <p ko.visible="!isExpanded()">
-                Master server time:
-                <span class="text-tech" ko.text="formattedMasterTime"></span>
+                Master server time: {{formattedMasterTime}}
             </p>
             <p ko.visible="isExpanded">
                 Servers date and time has to be configured separately for each server

@@ -29,7 +29,7 @@ const durationOptions = deepFreeze([
 const s3CompatibleOption = {
     value: 'S3_COMPATIBLE',
     label: 'S3 Compatible service',
-    icon: 'cloud-dark'
+    icon: 'cloud'
 };
 
 const aspectRatio = 1.5;

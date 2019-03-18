@@ -1,0 +1,49 @@
+/* Copyright (C) 2016 NooBaa */
+
+gauge-chart {
+    display: block;
+    stroke-width: 15px;
+
+    .gc-svg {
+        width: 100px;
+        height: 50px;
+        fill: transparent;
+
+
+
+        > g {
+            transform: translate(50%, 100%)
+            scale(42.5);
+        }
+    }
+
+    .gc-outline,
+    .gc-filler,
+    .gc-value {
+        vector-effect: non-scaling-stroke;
+    }
+
+    .gc-label {
+        text-align: center;
+        margin-bottom: @gutter/2;
+        color: rgb(var(--color9));
+    }
+
+    .gc-outline {
+        stroke: rgb(var(--color16));
+        d: path("M-1 0 A1 1 0 0 1 1 0");
+    }
+
+    .gc-filler {
+        stroke: rgb(var(--color6));
+    }
+
+    .gc-value {
+        text-anchor: middle;
+        font-size: @font-size3;
+        font-weight:@font-thin;
+        stroke: rgb(var(--color9));
+        stroke-width: 1px;
+        transform: translate(50%, 98%);
+    }
+}

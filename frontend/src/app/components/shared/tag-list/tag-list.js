@@ -24,7 +24,8 @@ function _mapParamsToProps(params) {
     const {
         tags: allTags = [],
         maxCount = Infinity,
-        separator = ''
+        separator = '',
+        emptyMessage: emptyMessageText = ''
     } = params;
 
     const hasTooMany = allTags.length > maxCount;
@@ -54,13 +55,18 @@ function _mapParamsToProps(params) {
         };
     }
 
-    return { tags, extra, separator };
+    const emptyMessage = allTags.length === 0 ?
+        emptyMessageText :
+        '';
+
+    return { tags, extra, separator, emptyMessage };
 }
 
 class TagListViewModel  {
     tags = ko.observableArray();
     separator = ko.observable();
     extra = ko.observable();
+    emptyMessage = ko.observable();
 
     constructor(params) {
         this.sub = ko.computed(() => {

@@ -12,12 +12,14 @@ const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
 const url_utils = require('../../util/url_utils');
+const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
 const func_stats_store = require('./func_stats_store');
 const system_store = require('../system_services/system_store').get_instance();
 const auth_server = require('../common_services/auth_server');
 const node_allocator = require('../node_services/node_allocator');
+
 const AWS = require('aws-sdk');
 
 const FUNC_CONFIG_FIELDS_MUTABLE = [
@@ -66,10 +68,11 @@ async function create_func(req) {
     } = await func_store.instance()
         .create_code_gridfs({ system, name, version, code_stream });
 
+    const func_id = func_store.instance().make_func_id();
     await func_store.instance().create_func({
         ...FUNC_CONFIG_DEFAULTS,
         ..._.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE),
-        _id: func_store.instance().make_func_id(),
+        _id: func_id,
         system,
         exec_account,
         name,
@@ -83,6 +86,15 @@ async function create_func(req) {
         code_size
     });
 
+    Dispatcher.instance().activity({
+        event: 'functions.func_created',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        func: func_id,
+        desc: ''
+    });
+
     await _load_func(req);
     return _get_func_info(req.func);
 }
@@ -93,6 +105,8 @@ async function update_func(req) {
     const { func, params, system } = req;
     const func_config = params.config;
     const config_updates = _.pick(func_config, FUNC_CONFIG_FIELDS_MUTABLE);
+    let code_updated = false;
+
     if (func_config.pools) {
         config_updates.pools = _.map(
             func_config.pools,
@@ -114,6 +128,8 @@ async function update_func(req) {
         config_updates.code_gridfs_id = res.id;
         config_updates.code_sha256 = res.sha256;
         config_updates.code_size = res.size;
+
+        code_updated = true;
     }
 
     config_updates.last_modified = new Date();
@@ -121,6 +137,21 @@ async function update_func(req) {
 
     await func_store.instance().update_func(func._id, config_updates);
     await _load_func(req);
+
+    let act = {
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        func: req.func._id,
+        desc: ''
+    };
+    if (code_updated) {
+        act.event = 'functions.func_code_edit';
+    } else {
+        act.event = 'functions.func_config_edit';
+    }
+
+    Dispatcher.instance().activity(act);
     return _get_func_info(func);
 }
 

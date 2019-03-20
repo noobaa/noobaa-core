@@ -51,6 +51,9 @@ module.exports = {
         pool: {
             objectid: true
         },
+        func: {
+            objectid: true
+        },
         server: {
             type: 'object',
             properties: {

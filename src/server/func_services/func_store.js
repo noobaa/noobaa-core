@@ -86,6 +86,13 @@ class FuncStore {
             .then(res => mongo_utils.check_entity_not_deleted(res, 'func'));
     }
 
+    get_by_id_include_deleted(func_id) {
+        return P.resolve()
+        .then(() => this._funcs.col().findOne({
+            _id: func_id,
+        }));
+    }
+
     list_funcs(system) {
         return P.resolve()
             .then(() => this._funcs.col().find({

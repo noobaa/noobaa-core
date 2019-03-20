@@ -13,6 +13,7 @@ const alerts_rules = require('./alerts_rules');
 const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
+const func_store = require('../func_services/func_store').FuncStore.instance();
 const nodes_client = require('../node_services/nodes_client');
 const { SensitiveString } = require('../../util/schema_utils');
 
@@ -227,6 +228,13 @@ class Dispatcher {
             .then(account => {
                 if (account) {
                     l.account = _.pick(account.record, 'email');
+                }
+                return P.resolve(log_item.func && func_store.get_by_id_include_deleted(log_item.func, 'funcs'));
+            })
+            .then(func => {
+                if (func) {
+                    l.func = _.pick(func, 'name');
+                    l.func.linkable = func.linkable;
                 }
                 return P.resolve(log_item.actor && system_store.data.get_by_id_include_deleted(log_item.actor, 'accounts'));
             })

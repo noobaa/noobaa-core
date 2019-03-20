@@ -310,6 +310,24 @@ export default {
         }
     },
 
+    functions: {
+        displayName: 'Functions',
+        events: {
+            func_created: {
+                message: 'New function created',
+                entityId: ({ func }) => func && func.name
+            },
+            func_config_edit: {
+                message: 'Function config edited',
+                entityId: ({ func }) => func && func.name
+            },
+            func_code_edit: {
+                message: 'Function code edited',
+                entityId: ({ func }) => func && func.name
+            }
+        }
+    },
+
     conf: {
         displayName: 'Configuration',
         events: {

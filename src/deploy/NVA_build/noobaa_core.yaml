@@ -1,7 +1,7 @@
 kind: Secret
 apiVersion: v1
 metadata:
-  name: noobaaimages.azurecr.io  
+  name: noobaaimages.azurecr.io
 type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=
@@ -85,15 +85,17 @@ spec:
   type: LoadBalancer
   ports:
     - port: 80
+      targetPort: 6001
       name: s3
     - port: 443
+      targetPort: 6443
       name: s3-https
     - port: 8080
       name: mng
     - port: 8443
       name: mng-https
   selector:
-    app: noobaa-server    
+    app: noobaa-server
 ---
 kind: StatefulSet
 apiVersion: apps/v1
@@ -128,16 +130,7 @@ spec:
             - containerPort: 8443
             - containerPort: 8444
             - containerPort: 60100
-            - containerPort: 60101
-            - containerPort: 60102
-            - containerPort: 60103
-            - containerPort: 60104
-            - containerPort: 60105
           volumeMounts:
-            - mountPath: /run
-              name: run-volume
-            - mountPath: /run/lock
-              name: run-lock-volume
             - mountPath: /data
               name: datadir
             - mountPath: /log
@@ -145,11 +138,6 @@ spec:
           env:
             - name: CONTAINER_PLATFORM
               value: KUBERNETES
-      volumes:
-        - name: run-volume
-          emptyDir: { medium: "Memory" }
-        - name: run-lock-volume
-          emptyDir: { medium: "Memory" }
       serviceAccountName: noobaa-account
       imagePullSecrets:
         - name: noobaaimages.azurecr.io

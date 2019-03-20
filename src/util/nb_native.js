@@ -96,7 +96,7 @@ async function read_rand_seed(seed_bytes) {
 }
 
 async function generate_entropy(loop_cond) {
-    if (process.platform !== 'linux') return;
+    if (process.platform !== 'linux' || process.env.container === 'docker') return;
     while (loop_cond()) {
         try {
             await async_delay(1000);

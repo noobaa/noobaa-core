@@ -50,3 +50,5 @@ yum install -y ${rpm_location}/noobaa*.rpm
 #clean
 yum clean all
 rm -f ${rpm_location}/noobaa*.rpm
+
+

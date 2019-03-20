@@ -223,11 +223,16 @@ function install_noobaa_repos {
     tar -xzf ./noobaa-NVA.tar.gz
     cd ~
 
-	# Setup Repos
+    # Setup Repos
     if [ "${container}" == "docker" ]; then
         sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
     fi
-	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env
+    # in a container set the endpoint\ssl ports to 6001\6443 since we are not running as root
+    if [ "${container}" == "docker" ]; then
+        echo "ENDPOINT_PORT=6001" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+        echo "ENDPOINT_SSL_PORT=6443" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+    fi
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env
 
     deploy_log "install_noobaa_repos done"
 }
@@ -461,6 +466,36 @@ function add_mongo_ssl_user {
     kill -2 ${mongod_pid}
 }
 
+
+
+function setup_non_root_user() {
+    if [ "${container}" == "docker" ]; then
+        # create home dir for non-root user and copy bashrc
+        local NOOBAA_USER=noob
+        mkdir -p /home/${NOOBAA_USER}
+        cp -f /root/.bashrc /home/${NOOBAA_USER}
+        # give permissions for root group
+        chgrp -R 0 /home/${NOOBAA_USER} && chmod -R g=u /home/${NOOBAA_USER}
+
+        # in openshift the container will run as a random user which belongs to root group
+        # set permissions for group to be same as owner to allow access to necessary files
+        echo "setting file permissions for root group"
+        # allow root group same permissions as root user so it can run supervisord
+        chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
+        # supervisord needs to write supervisor.sock file in /var/log
+        chgrp -R 0 /var/log && chmod -R g=u /var/log
+
+        # noobaa code dir - allow same access as user
+        chgrp -R 0 /root/node_modules && chmod -R g=u /root/node_modules
+
+        # maybe we can make it more fine-grained - for now, give access to all /etc
+        chgrp -R 0 /etc && chmod -R g=u /etc
+
+        # setuid for rsyslog so it can run as root
+        chmod u+s /sbin/rsyslogd
+    fi
+}
+
 function runinstall {
     deploy_log "runinstall start"
     verify_noobaa_pre_requirements
@@ -477,6 +512,7 @@ function runinstall {
     setup_named
     #Make sure the OVA is created with no DHCP or previous IP configuration
     clean_ifcfg
+    setup_non_root_user
     deploy_log "runinstall done"
 }
 

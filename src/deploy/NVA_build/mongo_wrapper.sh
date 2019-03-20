@@ -9,6 +9,12 @@ deploy_log "MONGO_EXEC is: ${MONGO_EXEC}"
 MONGO_PORT=$(echo $@ | sed -n -e 's/^.*port //p' | awk '{print $1}')
 deploy_log "MONGO_PORT is: ${MONGO_PORT}"
 BACKOFF_FILE="/tmp/mongo_wrapper_backoff"
+
+# if we run as root we want to run mongod as a non-root user
+if [ $(id -u) -eq 0 ]; then
+  SU_MONGOD_PREFIX="su - mongod -s"
+fi
+
 #Mongo uses two ports
 #27000 is currently the port for cluster
 #27017 is the port for a single server
@@ -61,7 +67,7 @@ function get_live_pids {
 function kill_mongo_services {
   # list both mongod and mongo_wrapper processes
   mongo_ports_root_procs=$(lsof -i TCP:27017,27000 -s TCP:LISTEN | awk '{print $2}' | grep -v PID)
-  mongo_ports_mongod_procs=$(su - mongod -s /bin/bash -c "lsof -i TCP:27017,27000 -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
+  mongo_ports_mongod_procs=$(${SU_MONGOD_PREFIX} /bin/bash -c "lsof -i TCP:27017,27000 -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   mongo_wrapper_procs=$(ps -elf | grep "NVA_build/mongo_wrapper" | grep -v $$ | grep -v grep | awk '{print $4}')
   all_mongo_procs="${mongo_ports_root_procs} ${mongo_ports_mongod_procs} ${mongo_wrapper_procs} ${MONGO_PID}"
   deploy_log "killing mongo_wrapper and mongod processes ${all_mongo_procs}"
@@ -127,7 +133,7 @@ function backoff_before_start {
 
 function wait_for_mongo_to_start {
   deploy_log "waiting for mongod (pid=${MONGO_PID}) to start listening on port ${MONGO_PORT}"
-  local mongo_listening_pid=$(su - mongod -s /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
+  local mongo_listening_pid=$(${SU_MONGOD_PREFIX} /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   local retries=0
   local MAX_RETRIES=120
   local RETRY_DELAY=5
@@ -139,7 +145,7 @@ function wait_for_mongo_to_start {
       return 1
     fi
     sleep ${RETRY_DELAY}
-    mongo_listening_pid=$(su - mongod -s /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
+    mongo_listening_pid=$(${SU_MONGOD_PREFIX} /bin/bash -c "lsof -i TCP:${MONGO_PORT} -s TCP:LISTEN" | awk '{print $2}' | grep -v PID)
   done
   deploy_log "mongod (pid=${MONGO_PID}) is now listening on port ${MONGO_PORT}"
 }
@@ -154,7 +160,7 @@ kill_mongo_services
 
 # run mongod as mongod user and store its pid in tempfile
 MONGO_PID_FILE=/tmp/mongo_wrapper_$$_mongod.pid
-su - mongod -s /bin/bash -c "${MONGO_EXEC} & echo -n \$! > $MONGO_PID_FILE"
+${SU_MONGOD_PREFIX} /bin/bash -c "${MONGO_EXEC} & echo -n \$! > $MONGO_PID_FILE"
 MONGO_PID=$(cat ${MONGO_PID_FILE})
 deploy_log "mongod pid is ${MONGO_PID}"
 rm -f ${MONGO_PID_FILE}

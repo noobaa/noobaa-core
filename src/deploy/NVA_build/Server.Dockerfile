@@ -13,10 +13,11 @@ COPY ${install_script} /tmp/install_noobaa.sh
 RUN chmod +x /tmp/install_noobaa.sh
 RUN /bin/bash -xc "/tmp/install_noobaa.sh"
 
+
 ###############
 # PORTS SETUP #
 ###############
-EXPOSE 60100-60600
+EXPOSE 60100
 EXPOSE 80
 EXPOSE 443
 EXPOSE 8080
@@ -28,4 +29,6 @@ EXPOSE 26050
 ###############
 # EXEC SETUP #
 ###############
+# run as non root user that belongs to root 
+USER 10001:0
 CMD ["/usr/bin/supervisord", "start_container"]

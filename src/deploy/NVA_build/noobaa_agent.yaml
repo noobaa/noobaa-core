@@ -12,15 +12,24 @@ spec:
       labels:
         app: noobaa-agent
     spec:
+      imagePullSecrets:
+        - noobaaimages.azurecr.io
       containers:
         - name: noobaa-agent
+          image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
+          resources:
+            # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+            requests:
+              cpu: "100m"
+              memory: "500Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
           env:
             # Insert the relevant config for the current agent
             - name: AGENT_CONFIG
               value: "AGENT_CONFIG_VALUE"
           # Insert the relevant image for the agent
-          image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
-          imagePullPolicy: Always
           ports:
             # This should change according to the allocation from the NooBaa server
             - containerPort: 60101

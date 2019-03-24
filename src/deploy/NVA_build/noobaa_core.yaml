@@ -1,38 +1,21 @@
+kind: Secret
 apiVersion: v1
-kind: Service
 metadata:
-  name: s3
-  labels:
-    app: noobaa-server
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: http
-    prometheus.io/port: "8080"
-spec:
-  # LoadBalancer service will alocate an external ip automatically on public cloud providers (aws\azure\gcp, etc.)
-  # for on premise kuberenets clusters there are 3rd party solutions that provide the same functionality. e.g: metalLB (https://metallb.universe.tf)
-  # metalLB installs a controller in the cluster that handles LoadBalancer services and allocates an external ip
-  # without a controller handling LoadBalancer service, it will be handled as a NodePort (can be accessed through the node ip and a random port allocated by kubernetes)
-  type: LoadBalancer
-  ports:
-    - port: 80
-      name: s3
-    - port: 443
-      name: s3-https
-    - port: 8080
-      name: mng
-    - port: 8443
-      name: mng-https
-  selector:
-    app: noobaa-server
+  name: noobaaimages.azurecr.io  
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=
 ---
-apiVersion: v1
 kind: ServiceAccount
+apiVersion: v1
 metadata:
   name: noobaa-account
+spec:
+  imagePullSecrets:
+    - name: noobaaimages.azurecr.io
 ---
-apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   creationTimestamp: null
   name: noobaa-role
@@ -84,11 +67,42 @@ roleRef:
   name: noobaa-role
   apiGroup: rbac.authorization.k8s.io
 ---
-apiVersion: apps/v1beta1
+kind: Service
+apiVersion: v1
+metadata:
+  name: s3
+  labels:
+    app: noobaa-server
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: http
+    prometheus.io/port: "8080"
+spec:
+  # LoadBalancer service will alocate an external ip automatically on public cloud providers (aws\azure\gcp, etc.)
+  # for on premise kuberenets clusters there are 3rd party solutions that provide the same functionality. e.g: metalLB (https://metallb.universe.tf)
+  # metalLB installs a controller in the cluster that handles LoadBalancer services and allocates an external ip
+  # without a controller handling LoadBalancer service, it will be handled as a NodePort (can be accessed through the node ip and a random port allocated by kubernetes)
+  type: LoadBalancer
+  ports:
+    - port: 80
+      name: s3
+    - port: 443
+      name: s3-https
+    - port: 8080
+      name: mng
+    - port: 8443
+      name: mng-https
+  selector:
+    app: noobaa-server    
+---
 kind: StatefulSet
+apiVersion: apps/v1
 metadata:
   name: noobaa-server
 spec:
+  selector:
+    matchLabels:
+      app: noobaa-server
   serviceName: s3
   replicas: 1
   template:
@@ -98,17 +112,15 @@ spec:
     spec:
       containers:
         - name: noobaa-server
+          image: noobaaimages.azurecr.io/noobaa/nbserver
           resources:
+            # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
             requests:
+              cpu: "500m"
               memory: "1Gi"
-              cpu: "1"
             limits:
-              memory: "8Gi"
               cpu: "4"
-          # change image location before running
-          # image: [image registry]/[image]
-          # TODO: Need to update the tag in the build process
-          image: noobaaimages.azurecr.io/noobaa/nbserver:1
+              memory: "8Gi"
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -139,6 +151,9 @@ spec:
         - name: run-lock-volume
           emptyDir: { medium: "Memory" }
       serviceAccountName: noobaa-account
+      imagePullSecrets:
+        - name: noobaaimages.azurecr.io
+
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between

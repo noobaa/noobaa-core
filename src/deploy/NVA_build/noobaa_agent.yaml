@@ -20,6 +20,7 @@ spec:
       containers:
         - name: noobaa-agent
           image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION
+          imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
             requests:

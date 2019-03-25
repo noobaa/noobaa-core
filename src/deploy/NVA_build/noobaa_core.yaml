@@ -83,6 +83,7 @@ spec:
       containers:
         - name: noobaa-server
           image: noobaaimages.azurecr.io/noobaa/nbserver
+          imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
             requests:

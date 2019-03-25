@@ -488,6 +488,10 @@ function setup_non_root_user() {
         # noobaa code dir - allow same access as user
         chgrp -R 0 /root/node_modules && chmod -R g=u /root/node_modules
 
+        # when running with docker /data and /log are not external volumes - allow access
+        chgrp -R 0 /data && chmod -R g=u /data
+        chgrp -R 0 /log && chmod -R g=u /log
+
         # maybe we can make it more fine-grained - for now, give access to all /etc
         chgrp -R 0 /etc && chmod -R g=u /etc
 

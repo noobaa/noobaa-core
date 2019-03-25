@@ -53,10 +53,11 @@ handle_unmanaged_upgrade() {
 stopsignal=KILL
 priority=1
 autostart=true
-user=root
 directory=/root/node_modules/noobaa-core/
-stderr_logfile_backups=3
-stdout_logfile_backups=3
+stdout_logfile=/dev/fd/1
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/fd/1
+stderr_logfile_maxbytes=0
 command=/usr/local/bin/node src/upgrade/upgrade_manager.js --old_version ${data_version} --unmanaged true
 #endprogram
 EOF

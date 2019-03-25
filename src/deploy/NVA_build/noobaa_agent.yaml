@@ -1,8 +1,11 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: noobaa-agent
 spec:
+  selector:
+    matchLabels:
+      app: noobaa-agent
   serviceName: noobaa-agent
   replicas: 3
   updateStrategy:
@@ -13,7 +16,7 @@ spec:
         app: noobaa-agent
     spec:
       imagePullSecrets:
-        - noobaaimages.azurecr.io
+        - name: noobaaimages.azurecr.io
       containers:
         - name: noobaa-agent
           image: noobaaimages.azurecr.io/noobaa/nbagent:AGENT_IMAGE_VERSION

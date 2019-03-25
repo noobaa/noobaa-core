@@ -21,7 +21,7 @@ cd $GOPATH/src/noobaa-operator
 dep ensure -v
 echo -e "${GREEN}generating yaml files for operator..${NC}"
 rm -f $GOPATH/src/noobaa-operator/build/*.yaml
-node ../../../src/tools/yaml_tools.js --split ../../../src/deploy/NVA_build/noobaa_statefulset.yaml --out $GOPATH/src/noobaa-operator/build
+node ../../../src/tools/yaml_tools.js --split ../../../src/deploy/NVA_build/noobaa_core.yaml --out $GOPATH/src/noobaa-operator/build
 if [ "$1" == "run" ]; then
     echo -e "${GREEN}running noobaa-operator locally..${NC}"
     $GOPATH/bin/operator-sdk up local --namespace=default

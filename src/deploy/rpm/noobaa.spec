@@ -49,7 +49,13 @@ Requires:   mongodb-org-mongos = 3.6.3
 Requires:   mongodb-org-tools = 3.6.3
 %else #rhel
 Requires: rh-mongodb36-mongodb = 3.6.3
+Requires: rh-mongodb36-mongodb-server = 3.6.3
+Requires: rh-mongodb36-mongodb-server-syspaths = 3.6.3
+Requires: rh-mongodb36-mongodb-syspaths = 3.6.3
 Requires: rh-mongodb36-mongo-tools = 3.6.3
+Requires: rh-mongodb36-mongo-tools-syspaths = 3.6.3
+Requires: rh-mongodb36-mongo-tools-unit-test = 3.6.3
+Requires: atomic-openshift-clients
 Requires: rhoar-nodejs10
 Requires: supervisor
 %endif
@@ -86,7 +92,13 @@ echo -e "\e[31m\nWait for prompt and then we need to reboot...\n\e[0m"
 %{tmp}/%{installscript}
 
 %changelog
+* Mon Mar 25 2019 Liran Mauda <lmauda@redhat.com>
+- Adding atomic-openshift-clients as Requirement in rhel
+
+* Wed Mar 20 2019 Liran Mauda <lmauda@redhat.com>
+- Fixed the mongod username and groupname
+
 * Wed Mar  6 2019 Liran Mauda <lmauda@redhat.com>
 - spit some of the required packages to centos/fedora and rhel
 - downgraded mongodb from 3.6.5 to 3.6.3
-- added pacaged to the rhel version (nodejs10 and supervisor)
+- added packages to the rhel version (nodejs10 and supervisor)

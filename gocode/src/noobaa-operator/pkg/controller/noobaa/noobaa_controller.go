@@ -6,7 +6,7 @@ import (
 
 	noobaav1alpha1 "noobaa-operator/pkg/apis/noobaa/v1alpha1"
 
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -208,7 +208,7 @@ func (r *ReconcileNoobaa) reconcileNoobaaRoleBinding(nb *noobaav1alpha1.Noobaa) 
 
 func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
 	// Check if the noobaa's stateful-set is already exist. if not create it
-	noobaaStateful := &appsv1beta1.StatefulSet{}
+	noobaaStateful := &appsv1.StatefulSet{}
 	log.Info("Getting noobaa StatefulSet", "Namespace", nb.Namespace, "StatefulSet Name", nb.Name)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nb.Name, Namespace: nb.Namespace}, noobaaStateful)
 	if err != nil && errors.IsNotFound(err) {
@@ -253,7 +253,7 @@ func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeu
 	return false, nil
 }
 
-func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1beta1.StatefulSet) error {
+func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1.StatefulSet) error {
 	err := r.client.Update(context.TODO(), noobaaStateful)
 	if err != nil {
 		log.Error(err, "failed to update noobaa statefulset")
@@ -301,9 +301,9 @@ func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue b
 }
 
 // deploymentForMemcached returns a memcached Deployment object
-func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1beta1.StatefulSet, error) {
+func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1.StatefulSet, error) {
 	ls := labelsForNoobaa(nb.Name)
-	statefulSet := &appsv1beta1.StatefulSet{}
+	statefulSet := &appsv1.StatefulSet{}
 	err := readResourceFromYaml("noobaa-server", statefulSet)
 	if err != nil {
 		log.Error(err, "failed reading stateful set yaml")

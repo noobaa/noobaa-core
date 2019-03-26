@@ -325,7 +325,7 @@ function add_tier_to_bucket(req) {
         pool_name => req.system.pools_by_name[pool_name]._id
     );
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
-    const info = req.system.tiering_policies_by_name[policy.name];
+    const info = req.system.tiering_policies_by_name[policy.name.unwrap()];
     const tier0_ccc = info.tiers[0].tier.chunk_config.chunk_coder_config;
     let chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config || tier0_ccc, req.account, req.system);

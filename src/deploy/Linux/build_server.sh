@@ -65,7 +65,8 @@ wget -P build/public/ https://raw.githubusercontent.com/creationix/nvm/master/nv
 echo "$(date) =====> tar noobaa-NVA-${NB_VERSION}.tar.gz"
 tar \
     --transform='s:^:noobaa-core/:' \
-    --exclude='src/native' \
+    --exclude='src/native/aws-cpp-sdk' \
+    --exclude='src/native/third_party' \
     -czf noobaa-NVA-${NB_VERSION}.tar.gz \
     LICENSE \
     EULA.pdf \

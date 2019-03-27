@@ -37,7 +37,7 @@ const osTypes = deepFreeze([
     {
         value: 'KUBERNETES',
         label: 'Kubernetes',
-        hint: 'Copy into a noobaa.yaml file and run using the command "kubectl create -f noobaa.yaml"'
+        hint: 'Copy into a noobaa.yaml file and run using the command "kubectl apply -f noobaa.yaml"'
     }
 ]);
 

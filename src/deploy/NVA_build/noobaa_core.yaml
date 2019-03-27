@@ -41,15 +41,7 @@ metadata:
   name: s3
   labels:
     app: noobaa-server
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: http
-    prometheus.io/port: "8080"
 spec:
-  # LoadBalancer service will alocate an external ip automatically on public cloud providers (aws\azure\gcp, etc.)
-  # for on premise kuberenets clusters there are 3rd party solutions that provide the same functionality. e.g: metalLB (https://metallb.universe.tf)
-  # metalLB installs a controller in the cluster that handles LoadBalancer services and allocates an external ip
-  # without a controller handling LoadBalancer service, it will be handled as a NodePort (can be accessed through the node ip and a random port allocated by kubernetes)
   type: LoadBalancer
   ports:
     - port: 80
@@ -58,12 +50,34 @@ spec:
     - port: 443
       targetPort: 6443
       name: s3-https
-    - port: 8080
-      name: mng
-    - port: 8443
-      name: mng-https
   selector:
+    noobaa-s3: "true"
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: noobaa-mgmt
+  labels:
     app: noobaa-server
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: http
+    prometheus.io/port: "8080"
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      name: mgmt
+    - port: 8443
+      name: mgmt-https
+    - port: 80
+      targetPort: 6001
+      name: s3
+    - port: 443
+      targetPort: 6443
+      name: s3-https
+  selector:
+    noobaa-mgmt: "true"
 ---
 kind: StatefulSet
 apiVersion: apps/v1
@@ -73,12 +87,14 @@ spec:
   selector:
     matchLabels:
       app: noobaa-server
-  serviceName: s3
+  serviceName: noobaa-mgmt
   replicas: 1
   template:
     metadata:
       labels:
         app: noobaa-server
+        noobaa-s3: "true"
+        noobaa-mgmt: "true"
     spec:
       containers:
         - name: noobaa-server

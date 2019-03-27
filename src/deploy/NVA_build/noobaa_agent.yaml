@@ -14,6 +14,7 @@ spec:
     metadata:
       labels:
         app: noobaa-agent
+        noobaa-s3: "true"
     spec:
       imagePullSecrets:
         - name: noobaaimages.azurecr.io
@@ -33,6 +34,10 @@ spec:
             # Insert the relevant config for the current agent
             - name: AGENT_CONFIG
               value: "AGENT_CONFIG_VALUE"
+            - name: ENDPOINT_PORT
+              value: "6001"
+            - name: ENDPOINT_SSL_PORT
+              value: "6443"
           # Insert the relevant image for the agent
           ports:
             # This should change according to the allocation from the NooBaa server

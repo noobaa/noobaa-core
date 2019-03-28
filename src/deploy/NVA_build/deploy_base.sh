@@ -279,7 +279,7 @@ function setup_bash_completions {
 function general_settings {
 	deploy_log "general_settings start"
 
-    if [ "${container}" != "docker" ]; then
+    if [ "${container}" != "docker" ] && [ "${ID}" != "rhel" ]; then
         #Open n2n ports
         iptables -I INPUT 1 -p tcp --match multiport --dports 60100:60600 -j ACCEPT      
         iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT

@@ -120,8 +120,8 @@ const cases = [
     'create compatible 2 https resource',
     'create compatible 4 http resource',
     'create compatible 4 https resource',
-    'create AWS resource',
-    'create AZURE resource',
+    'create aws resource',
+    'create azure resource',
     'delete all file from resource aws',
     'delete all file from resource azure',
     'delete all file from resource compatible2http',
@@ -203,9 +203,9 @@ async function create_noobaa_for_compatible() {
     try {
         await cf_compatible.createConnection(connections_mapping.AZURE, 'AZURE');
         await cf_compatible.createCloudPool(connections_mapping.AZURE.name, cloudPoolForCompatible, "noobaa-for-compatible");
-        report.success('create AZURE resource');
+        report.success('create azure resource');
     } catch (err) {
-        report.fail('create AZURE resource');
+        report.fail('create azure resource');
         throw err;
     }
 
@@ -248,10 +248,10 @@ async function prepareCompatibleCloudPoolsEnv(type, version) {
             await bf.createBucket(bucket);
             bucket_names.push(bucket);
             await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
-            report.success(`create compatible ${version} ${protocol} resource`);
+            report.success(`create compatible ${version} ${protocol} resource`.toLowerCase());
             // }
         } catch (err) {
-            report.fail(`create compatible ${version} ${protocol} resource`);
+            report.fail(`create compatible ${version} ${protocol} resource`.toLowerCase());
             throw err;
         }
     }
@@ -270,12 +270,12 @@ async function createCloudPools(type) {
             const bucket = cloud_pool_name.toLowerCase();
             await bf.createBucket(bucket);
             bucket_names.push(bucket);
-            report.success(`create ${type} resource`);
+            report.success(`create ${type} resource`.toLowerCase());
             await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
-            report.success(`create ${type} resource`);
+            report.success(`create ${type} resource`.toLowerCase());
         } catch (err) {
             console.error(err);
-            report.fail(`create ${type} resource`);
+            report.fail(`create ${type} resource`.toLowerCase());
             throw err;
         }
     }
@@ -285,9 +285,9 @@ async function clean_env() {
     for (const bucket_name of bucket_names) {
         try {
             await clean_cloud_bucket(server_s3ops, bucket_name);
-            report.success(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`);
+            report.success(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`.toLowerCase());
         } catch (err) {
-            report.fail(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`);
+            report.fail(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`.toLowerCase());
             throw err;
         }
         await bf.deleteBucket(bucket_name);
@@ -296,9 +296,9 @@ async function clean_env() {
     for (const cloud_pool of cloud_pools) {
         try {
             await cf.deleteCloudPool(cloud_pool);
-            report.success(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`);
+            report.success(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`.toLowerCase());
         } catch (err) {
-            report.fail(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`);
+            report.fail(`delete resource ${cloud_pool.slice(0, cloud_pool.lastIndexOf('-'))}`.toLowerCase());
             throw err;
         }
     }

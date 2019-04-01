@@ -108,6 +108,7 @@ import passwordResetFailedModal from './modals/password-reset-failed-modal/passw
 import editFuncConfigModal from './modals/edit-func-config-modal/edit-func-config-modal';
 import invokeFuncModal from './modals/invoke-func-modal/invoke-func-modal';
 import editFuncCodeModal from './modals/edit-func-code-modal/edit-func-code-modal';
+import addFuncTriggerModal from './modals/add-func-trigger-modal/add-func-trigger-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -265,6 +266,7 @@ import funcConfigForm from './func/func-config-form/func-config-form';
 import funcMonitoring from './func/func-monitoring/func-monitoring';
 import funcCodeForm from './func/func-code-form/func-code-form';
 import funcMonitoringForm from './func/func-monitoring-form/func-monitoring-form';
+import funcTriggersForm from './func/func-triggers-form/func-triggers-form';
 /** INJECT:func.import **/
 
 // -------------------------------
@@ -458,6 +460,7 @@ export default function register(ko, services) {
         editFuncConfigModal,
         invokeFuncModal,
         editFuncCodeModal,
+        addFuncTriggerModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -567,6 +570,7 @@ export default function register(ko, services) {
         funcConfigForm,
         funcMonitoring,
         funcCodeForm,
+        funcTriggersForm,
         funcMonitoringForm,
         /** INJECT:func.list **/
 

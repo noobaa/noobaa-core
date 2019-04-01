@@ -276,7 +276,6 @@ export function failUpdateBucketS3Access(bucketName, error) {
 }
 
 export function addBucketTrigger(bucketName, config) {
-
     return {
         type: ADD_BUCKET_TRIGGER,
         payload: { bucketName, config }
@@ -297,25 +296,24 @@ export function failAddBucketTrigger(bucketName, error) {
     };
 }
 
-export function updateBucketTrigger(bucketName, triggerId, config) {
-
+export function updateBucketTrigger(bucketName, triggerId, config, displayEntity) {
     return {
         type: UPDATE_BUCKET_TRIGGER,
-        payload: { bucketName, triggerId, config }
+        payload: { bucketName, triggerId, config, displayEntity}
     };
 }
 
-export function completeUpdateBucketTrigger(bucketName) {
+export function completeUpdateBucketTrigger(displayEntity) {
     return {
         type: COMPLETE_UPDATE_BUCKET_TRIGGER,
-        payload: { bucketName }
+        payload: { displayEntity }
     };
 }
 
-export function failUpdateBucketTrigger(bucketName, error) {
+export function failUpdateBucketTrigger(displayEntity, error) {
     return {
         type: FAIL_UPDATE_BUCKET_TRIGGER,
-        payload: { bucketName, error }
+        payload: { displayEntity, error }
     };
 }
 

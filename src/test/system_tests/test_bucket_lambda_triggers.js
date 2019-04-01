@@ -186,7 +186,7 @@ async function setup() {
         await client.bucket.create_bucket({ name: 'bucket2' });
 
         //find the internal pool and set spillover on thge buckets
-        
+
         await client.bucket.update_bucket({ name: 'bucket1', spillover: internal_resource});
         await client.bucket.update_bucket({ name: 'bucket2', spillover: internal_resource});
 
@@ -196,7 +196,7 @@ async function setup() {
 
         await client.bucket.update_bucket({ name: 'ns.internal.bucket1', spillover: internal_resource});
         await client.bucket.update_bucket({ name: 'ns.internal.bucket2', spillover: internal_resource});
-        
+
         await client.account.add_external_connection(external_connection);
 
         await client.pool.create_namespace_resource({

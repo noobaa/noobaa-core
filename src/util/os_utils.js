@@ -318,7 +318,7 @@ function read_kubernetes_agent_drives() {
     return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
-            file: '-la'
+            file: '-a'
         }, callback))
         .then(volumes => P.all(_.map(volumes, async function(vol) {
                 return P.resolve()

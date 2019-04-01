@@ -371,13 +371,13 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_BUCKET_TRIGGER]: ({ bucketName }) => ({
-        message: `A trigger updated for ${bucketName} successfully`,
+    [types.COMPLETE_UPDATE_BUCKET_TRIGGER]: ({ displayEntity }) => ({
+        message: `A trigger updated for ${displayEntity} successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_UPDATE_BUCKET_TRIGGER]: ({ bucketName }) => ({
-        message: `Updating a trigger for ${bucketName} failed`,
+    [types.FAIL_UPDATE_BUCKET_TRIGGER]: ({ displayEntity }) => ({
+        message: `Updating a trigger for ${displayEntity} failed`,
         severity: 'error'
     }),
 

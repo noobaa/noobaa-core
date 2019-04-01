@@ -754,6 +754,22 @@ export function openAddBucketTriggerModal(bucketName) {
     };
 }
 
+export function openEditFuncTriggerModal(funcName, funcVersion, triggerId) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-bucket-trigger-modal',
+                params: { funcName, funcVersion, triggerId }
+            },
+            options: {
+                size: 'medium',
+                title: 'Edit Trigger'
+            }
+        }
+    };
+}
+
 export function openEditBucketTriggerModal(bucketName, triggerId) {
     return {
         type: OPEN_MODAL,
@@ -765,6 +781,22 @@ export function openEditBucketTriggerModal(bucketName, triggerId) {
             options: {
                 size: 'medium',
                 title: 'Edit Trigger'
+            }
+        }
+    };
+}
+
+export function openAddFuncTriggerModal(funcName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'add-func-trigger-modal',
+                params: { funcName }
+            },
+            options: {
+                size: 'medium',
+                title: 'Add Trigger'
             }
         }
     };

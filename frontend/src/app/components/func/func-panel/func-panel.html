@@ -24,6 +24,12 @@
         >
             Configuration
         </a>
+
+        <a ko.css.selected="selectedTab.eq('triggers')"
+            ko.attr.href="tabHref('triggers')"
+        >
+            Triggers
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -50,5 +56,13 @@
                 funcVersion: funcVersion
             "
         ></func-config-form>
+
+        <func-triggers-form class="tab column greedy"
+            ko.css.selected="selectedTab.eq('triggers')"
+            params="
+                funcName: funcName,
+                funcVersion: funcVersion
+            "
+        ></func-triggers-form>
     </div>
 </div>

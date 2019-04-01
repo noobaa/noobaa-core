@@ -1,0 +1,28 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row alt-bg pad row content-middle">
+    <div class="column greedy push-next">
+        <h3 class="heading3">
+            Function Triggers: {{triggersCount}}
+        </h3>
+    </div>
+    <button class="btn" ko.click="onAddTrigger">
+        Add Trigger
+    </button>
+</div>
+
+<data-table class="functions-table greedy" params="
+    columns: columns,
+    sorting: ko.pc(sorting, onSort, $component),
+    data: rows,
+    loading: !dataReady(),
+    emptyMessage: 'No triggers configured for this function'
+"></data-table>
+
+<paginator params="
+    itemCount: triggersCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>
+
+

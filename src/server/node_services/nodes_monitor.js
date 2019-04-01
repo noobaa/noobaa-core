@@ -1087,9 +1087,16 @@ class NodesMonitor extends EventEmitter {
 
     _set_decommission(item) {
         if (!item.node.decommissioning) {
-            item.node.decommissioning = Date.now();
             if (item.node.node_type === 'ENDPOINT_S3') {
-                item.node.decommissioned = item.node.decommissioning;
+                if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+                    delete item.node.decommissioning;
+                    delete item.node.decommissioned;
+                } else {
+                    item.node.decommissioning = Date.now();
+                    item.node.decommissioned = item.node.decommissioning;
+                }
+            } else {
+                item.node.decommissioning = Date.now();
             }
         }
         this._set_need_update.add(item);
@@ -1900,7 +1907,11 @@ class NodesMonitor extends EventEmitter {
         let { use_s3 = false, use_storage = true, exclude_drives = [] } = agent_config;
         if (info.node_type === 'ENDPOINT_S3') {
             // if endpoint than enable according to configuration
-            return use_s3;
+            if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+                return true;
+            } else {
+                return use_s3;
+            }
         } else if (info.node_type === 'BLOCK_STORE_FS') {
             if (!use_storage) return false; // if storage disable if configured to exclud storage
             if (info.storage.total < config.MINIMUM_AGENT_TOTAL_STORAGE) return false; // disable if not enough storage

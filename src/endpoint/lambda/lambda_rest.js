@@ -108,9 +108,9 @@ function check_headers(req, res) {
         }
     }
 
-    req.content_sha256 = req.headers['x-amz-content-sha256'];
-    if (typeof req.content_sha256 === 'string') {
-        req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+    req.content_sha256_sig = req.headers['x-amz-content-sha256'];
+    if (typeof req.content_sha256_sig === 'string') {
+        req.content_sha256_buf = Buffer.from(req.content_sha256_sig, 'hex');
         if (req.content_sha256_buf.length !== 32) {
             throw new LambdaError(LambdaError.InvalidDigest);
         }

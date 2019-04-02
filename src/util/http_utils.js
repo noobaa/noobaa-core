@@ -190,7 +190,6 @@ function read_request_body(req, options) {
                 }
             } else {
                 req.content_sha256_buf = sha256_buf;
-                if (!req.content_sha256) req.content_sha256 = req.content_sha256_buf.toString('hex');
             }
             return resolve();
         });

@@ -25,6 +25,7 @@ function put_object_uploadId(req, res) {
             num,
             copy_source,
             source_stream: req,
+            chunked_content: req.chunked_content,
             size: copy_source ? undefined : s3_utils.parse_content_length(req),
             md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
             sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,

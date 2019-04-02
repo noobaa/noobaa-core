@@ -24,6 +24,7 @@ const promise_utils = require('../util/promise_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const KeysSemaphore = require('../util/keys_semaphore');
 const CoalesceStream = require('../util/coalesce_stream');
+const ChunkedContentDecoder = require('../util/chunked_content_decoder');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
 const { RpcError, RPC_BUFFERS } = require('../rpc');
 
@@ -272,7 +273,7 @@ class ObjectIO {
             });
     }
 
-    _upload_stream_internal(params, complete_params) {
+    async _upload_stream_internal(params, complete_params) {
 
         params.desc = _.pick(params, 'obj_id', 'num', 'bucket', 'key');
         dbg.log0('UPLOAD:', params.desc, 'streaming to', params.bucket, params.key);
@@ -324,16 +325,15 @@ class ObjectIO {
         });
 
         const pipeline = new Pipeline(params.source_stream);
-        return pipeline
-            .pipe(splitter)
-            .pipe(coder)
-            .pipe(coalescer)
-            .pipe(uploader)
-            .promise()
-            .then(() => {
-                complete_params.md5_b64 = splitter.md5.toString('base64');
-                if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
-            });
+        if (params.chunked_content) pipeline.pipe(new ChunkedContentDecoder());
+        pipeline.pipe(splitter);
+        pipeline.pipe(coder);
+        pipeline.pipe(coalescer);
+        pipeline.pipe(uploader);
+        await pipeline.promise();
+
+        complete_params.md5_b64 = splitter.md5.toString('base64');
+        if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
     }
 
 

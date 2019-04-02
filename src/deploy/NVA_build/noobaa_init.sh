@@ -68,21 +68,20 @@ EOF
 
 fix_non_root_user() {
   # in openshift, when not running as root - ensure that assigned uid has entry in /etc/passwd.
-  if [ `id -u` -ne 0 ]; then
+  if [ $(id -u) -ne 0 ]; then
       local NOOBAA_USER=noob
       if ! grep -q ${NOOBAA_USER}:x /etc/passwd; then
-        echo "${NOOBAA_USER}:x:`id -u`:`id -g`:,,,:/home/$NOOBAA_USER:/bin/bash" >> /etc/passwd
+        echo "${NOOBAA_USER}:x:$(id -u):$(id -g):,,,:/home/$NOOBAA_USER:/bin/bash" >> /etc/passwd
       fi
   fi
 }
 
-init_noobaa_server() { 
-  # make sure /log has limited permissions. this is required by logrotate
-  chmod 755 /log
-
+init_noobaa_server() {
   fix_non_root_user
 
-  # run init scripts
+  ############## run init scripts
+  # change ownership and permissions of /data and /log. assuming that uid is not changed between reboots
+  /root/node_modules/noobaa-core/build/Release/kube_pv_chown $(id -u)
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh
   /root/node_modules/noobaa-core/src/deploy/NVA_build/setup_server_swap.sh

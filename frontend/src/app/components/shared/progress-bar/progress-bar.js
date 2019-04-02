@@ -22,7 +22,7 @@ class ProgressBarViewModel {
                 value: ratio
             },
             {
-                color: 'rgb(var(--color13))',
+                color: 'rgb(var(--color09))',
                 value: ko.pureComputed(() =>
                     1 - ratio()
                 )

@@ -49,7 +49,7 @@ function parse_etag(etag, err) {
 }
 
 function parse_content_length(req) {
-    const size = Number(req.headers['content-length']);
+    const size = Number(req.headers['x-amz-decoded-content-length']) || Number(req.headers['content-length']);
     if (!Number.isInteger(size) || size < 0) {
         dbg.warn('Missing content-length', req.headers['content-length']);
         throw new S3Error(S3Error.MissingContentLength);

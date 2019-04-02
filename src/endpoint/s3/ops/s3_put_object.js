@@ -21,6 +21,7 @@ async function put_object(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: req.headers['content-type'],
+        chunked_content: req.chunked_content,
         copy_source,
         source_stream: req,
         size: copy_source ? undefined : s3_utils.parse_content_length(req),

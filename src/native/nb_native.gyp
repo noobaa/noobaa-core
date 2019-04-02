@@ -110,6 +110,11 @@
             'util/tpool.cpp',
             'util/tpool.h',
         ],
+    }, {
+        'target_name': 'kube_pv_chown',
+        'type': 'executable',
+        'sources': [
+            'tools/kube_pv_chown.c'
+        ]
     }],
-
 }

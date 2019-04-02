@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 NOOBAASEC="/data/noobaa_sec"

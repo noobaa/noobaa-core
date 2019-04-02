@@ -58,7 +58,7 @@ class UpgradeSystemModalViewModel extends ConnectableViewModel {
         ];
     }
 
-    mapStateToProps([systemName, systemState, servers]) {
+    mapStateToProps(systemName, systemState, servers) {
         if (!systemState || !servers) {
             ko.assignToProps(this, {
                 dataReady: false

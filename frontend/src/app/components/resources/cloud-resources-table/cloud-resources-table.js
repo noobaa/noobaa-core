@@ -193,7 +193,7 @@ class RowViewModel {
     }
 
     onDelete(id) {
-        this.table.onDelete(id);
+        this.table.onDeleteCloudResource(id);
     }
 }
 

@@ -67,7 +67,8 @@ class EditNamespaceBucketDataPlacementModalViewModel extends ConnectableViewMode
         .ofType(ResourceRowViewModel, { table: this });
     writePolicyOptions = ko.observableArray();
     isWritePolicyDisabled = ko.observable();
-    readPolicy = '';
+    readPolicy = [];
+    writePolicy = '';
 
     selectState(state, params) {
         const { namespaceBuckets, namespaceResources, forms } = state;
@@ -95,6 +96,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends ConnectableViewMode
             target: resource.target,
             isSelected: readPolicy.includes(resource.name)
         }));
+        const writePolicy = form ? getFieldValue(form, 'writePolicy') : writeTo;
         const writePolicyOptions = resourceList
             .filter(resource => readPolicy.includes(resource.name))
             .map(resource => {
@@ -112,6 +114,7 @@ class EditNamespaceBucketDataPlacementModalViewModel extends ConnectableViewMode
             isWritePolicyDisabled: readPolicy.length === 0,
             readPolicy,
             readPolicyRows,
+            writePolicy,
             writePolicyOptions,
             resourceServiceMapping,
             fields: !form ? {
@@ -153,10 +156,14 @@ class EditNamespaceBucketDataPlacementModalViewModel extends ConnectableViewMode
     }
 
     onToggleReadPolicyResource(resource, select) {
-        const { readPolicy, formName } = this;
+        const { readPolicy, writePolicy, formName } = this;
         if (!select) {
             const filtered = readPolicy.filter(name => name !== resource);
             this.dispatch(updateForm(formName, { readPolicy: filtered }));
+
+            if (writePolicy == resource) {
+                this.dispatch(updateForm(formName, { writePolicy: '' }, false));
+            }
 
         } else if (!readPolicy.includes(resource)) {
             const updated = [ ...readPolicy, resource ];

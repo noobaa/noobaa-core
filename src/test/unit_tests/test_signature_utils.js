@@ -160,13 +160,14 @@ mocha.describe('signature_utils', function() {
             .then(sha256_buf => {
                 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
                 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
-                req.content_sha256 = req.query['X-Amz-Signature'] ?
+                const content_sha256_hdr = req.headers['x-amz-content-sha256'];
+                req.content_sha256_sig = req.query['X-Amz-Signature'] ?
                     UNSIGNED_PAYLOAD :
-                    req.headers['x-amz-content-sha256'];
-                if (typeof req.content_sha256 === 'string' &&
-                    req.content_sha256 !== UNSIGNED_PAYLOAD &&
-                    req.content_sha256 !== STREAMING_PAYLOAD) {
-                    req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+                    content_sha256_hdr;
+                if (typeof content_sha256_hdr === 'string' &&
+                    content_sha256_hdr !== UNSIGNED_PAYLOAD &&
+                    content_sha256_hdr !== STREAMING_PAYLOAD) {
+                    req.content_sha256_buf = Buffer.from(content_sha256_hdr, 'hex');
                     if (req.content_sha256_buf.length !== 32) {
                         throw new Error('InvalidDigest');
                     }
@@ -177,7 +178,7 @@ mocha.describe('signature_utils', function() {
                     }
                 } else {
                     req.content_sha256_buf = sha256_buf;
-                    if (!req.content_sha256) req.content_sha256 = req.content_sha256_buf.toString('hex');
+                    if (!req.content_sha256_sig) req.content_sha256_sig = req.content_sha256_buf.toString('hex');
                 }
                 const auth_token = signature_utils.make_auth_token_from_request(req);
                 const signature = signature_utils.get_signature_from_auth_token(auth_token, SECRETS[auth_token.access_key]);

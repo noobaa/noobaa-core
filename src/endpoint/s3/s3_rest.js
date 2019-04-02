@@ -181,17 +181,23 @@ function check_headers(req, res) {
         }
     }
 
-    req.content_sha256 = req.query['X-Amz-Signature'] ?
+    const content_sha256_hdr = req.headers['x-amz-content-sha256'];
+    req.content_sha256_sig = req.query['X-Amz-Signature'] ?
         UNSIGNED_PAYLOAD :
-        req.headers['x-amz-content-sha256'];
-    if (typeof req.content_sha256 === 'string' &&
-        req.content_sha256 !== UNSIGNED_PAYLOAD &&
-        req.content_sha256 !== STREAMING_PAYLOAD) {
-        req.content_sha256_buf = Buffer.from(req.content_sha256, 'hex');
+        content_sha256_hdr;
+    if (typeof content_sha256_hdr === 'string' &&
+        content_sha256_hdr !== UNSIGNED_PAYLOAD &&
+        content_sha256_hdr !== STREAMING_PAYLOAD) {
+        req.content_sha256_buf = Buffer.from(content_sha256_hdr, 'hex');
         if (req.content_sha256_buf.length !== 32) {
             throw new S3Error(S3Error.InvalidDigest);
         }
     }
+
+    const content_encoding = req.headers['content-encoding'] || '';
+    req.chunked_content =
+        content_encoding.split(',').includes('aws-chunked') ||
+        content_sha256_hdr === STREAMING_PAYLOAD;
 
     const req_time =
         time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||

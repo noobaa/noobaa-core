@@ -338,6 +338,10 @@ function setup_http_server(server) {
 }
 
 function update_virtual_host_suffix(base_address) {
+    if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+        dbg.warn(`skip update of virtual host suffix in kuberentes. support will be added in the future`);
+        return;
+    }
     const suffix = base_address && url.parse(base_address).hostname;
     const new_virtual_suffix = net_utils.is_fqdn(suffix) ? '.' + suffix : undefined;
     if (new_virtual_suffix !== virtual_host_suffix) {

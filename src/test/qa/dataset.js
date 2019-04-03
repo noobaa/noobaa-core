@@ -12,7 +12,7 @@ const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
-require('seedrandom');
+var seedrandom = require('seedrandom');
 
 const test_name = 'dataset';
 dbg.set_process_name(test_name);
@@ -827,7 +827,7 @@ function run_replay() {
 
 async function main() {
     console.log(`Starting dataset. seeding randomness with seed ${TEST_CFG.seed}`);
-    Math.seedrandom(TEST_CFG.seed);
+    seedrandom(TEST_CFG.seed);
     try {
         if (argv.replay) {
             await run_replay();

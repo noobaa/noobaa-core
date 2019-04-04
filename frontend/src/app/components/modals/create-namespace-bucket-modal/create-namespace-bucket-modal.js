@@ -86,6 +86,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     writePolicyOptions = ko.observableArray();
     resourceServiceMapping = {};
     readPolicy = [];
+    writePolicy = '';
     fields = {
         step: 0,
         bucketName: '',
@@ -109,6 +110,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
 
         const bucketName = getFieldValue(form, 'bucketName');
         const readPolicy = getFieldValue(form, 'readPolicy');
+        const writePolicy = getFieldValue(form, 'writePolicy');
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
@@ -158,7 +160,8 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
             writePolicyOptions,
             resourceServiceMapping,
             isStepValid: isFormValid(form),
-            readPolicy
+            readPolicy,
+            writePolicy
         });
 
     }
@@ -170,10 +173,13 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     );
 
     onToggleReadPolicyResource(resource, select) {
-        const { readPolicy, formName } = this;
+        const { readPolicy, writePolicy, formName } = this;
         if (!select) {
             const filtered = readPolicy.filter(name => name !== resource);
-            this.dispatch(updateForm(formName, { readPolicy: filtered }));
+            this.dispatch(updateForm(formName, {
+                readPolicy: filtered,
+                writePolicy: resource === writePolicy ? '' : undefined
+            }));
 
         } else if (!readPolicy.includes(resource)) {
             const updated = [ ...readPolicy, resource ];

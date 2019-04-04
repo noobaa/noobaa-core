@@ -701,7 +701,8 @@ module.exports = {
                 "peer_to_peer_ports",
                 "server_details",
                 "cluster_connectivity_ip",
-                "remote_syslog"
+                "remote_syslog",
+                "toggle_endpoint_agent"
             ],
         },
 

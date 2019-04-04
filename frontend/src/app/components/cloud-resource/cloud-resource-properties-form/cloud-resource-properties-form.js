@@ -18,6 +18,10 @@ class CloudResourcePropertiesFormViewModel extends ConnectableViewModel {
             value: ko.observable()
         },
         {
+            label: 'Service endpoint',
+            value: ko.observable()
+        },
+        {
             label: 'Cloud target bucket',
             value: ko.observable()
         },
@@ -58,6 +62,7 @@ class CloudResourcePropertiesFormViewModel extends ConnectableViewModel {
                 resourceName: resource.name,
                 properties: [
                     { value: resource.name },
+                    { value: resource.endpoint },
                     { value: resource.target },
                     { value: resource.region || unassignedRegionText },
                     { value: formatSize(resource.storage.used) },

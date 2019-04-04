@@ -3,7 +3,7 @@
 <div ko.childEvent.click="onLocalClick"
     ko.globalEvent.click="onGlobalClick"
     ko.css.open="isOpen"
-">
+>
     <div class="menu-header row hpad content-middle text-left cursor-pointer">
         <span class="push-next user-email no-wrap">
             {{accountName}}
@@ -20,6 +20,14 @@
                 My Account
             </a>
         </li>
+        <li>
+            <a class="menu-item"
+                ko.attr.href="connectionPageHref"
+            >
+                My Connections
+            </a>
+        </li>
+        <hr>
         <li>
             <a class="menu-item"
                 ko.attr.href="supportEmailHref"

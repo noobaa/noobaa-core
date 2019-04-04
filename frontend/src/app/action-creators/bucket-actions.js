@@ -233,10 +233,10 @@ export function failUpdateBucketS3Access(bucketName, error) {
     };
 }
 
-export function addBucketTrigger(bucketName, config) {
+export function addBucketTrigger(config) {
     return {
         type: ADD_BUCKET_TRIGGER,
-        payload: { bucketName, config }
+        payload: config
     };
 }
 

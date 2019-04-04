@@ -85,13 +85,16 @@ export default {
             $ref: '#/def/lambdaUsageHistory'
         },
         objectsDistribution: {
-            ref: '#/def/objectsDistribution'
+            $ref: '#/def/objectsDistribution'
         },
         cloudUsageStats: {
-            ref: '#/def/cloudUsageStats'
+            $ref: '#/def/cloudUsageStats'
         },
         platform: {
-            ref: '#/def/platform'
+            $ref: '#/def/platform'
+        },
+        bucketTriggers: {
+            $ref: '#/def/bucketTriggers'
         }
     }
 };

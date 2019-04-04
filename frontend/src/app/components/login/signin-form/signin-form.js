@@ -6,10 +6,14 @@ import ko from 'knockout';
 import { loginInfo } from 'model';
 import { action$ } from 'state';
 import { signIn } from 'action-creators';
+import { formatEmailUri } from 'utils/browser-utils';
+import { support } from 'config';
 
 class SignInFormViewModel extends BaseViewModel {
     constructor() {
         super();
+
+        this.supportEmailHref = formatEmailUri(support.email);
 
         const email = ko.observable();
         this.email = ko.pureComputed({
@@ -21,10 +25,20 @@ class SignInFormViewModel extends BaseViewModel {
                 email: { message: 'Please enter a valid email address' }
             });
 
+        this.isEmailInvalid = ko.pureComputed(() => {
+            const { email } = this;
+            return email.isModified() && !email.isValid() && !email.isValidating();
+        });
+
         this.password = ko.observable()
             .extend({
                 required: { message: 'Please enter a password' }
             });
+
+        this.isPasswordInvalid = ko.pureComputed(() => {
+            const { password } = this;
+            return password.isModified() && !password.isValid() && !password.isValidating();
+        });
 
         this.keepSessionAlive = ko.observable(false);
 

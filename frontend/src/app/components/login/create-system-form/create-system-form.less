@@ -1,64 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 
 .create-system-form {
-    z-index: 1;
 
-    .left-box, .right-box {
-        background-color: rgb(var(--color01));
+    .welcome-message {
+        color: rgb(var(--color02));
     }
 
-    .logo {
-        width: 64px;
-        height: 64px;
-        margin-top: -64px;
-    }
-
-    .steps {
-        width: 550px;
-        position: relative;
-    }
-
-    .pages {
-        overflow: hidden;
-
-        > .page {
-            min-width: 100%;
-            transition: opacity 500ms ease-in-out;
-            opacity: 0;
-
-            + .page {
-                margin-left: -100%;
-            }
-
-            &.selected {
-                opacity: 1;
-                z-index: 1;
-            }
-        }
-    }
-
-    .invalid ~ .hint {
-        display: none;
-    }
-
-    .activation-code-field {
-        padding-right: 1.5em;
-
-        > input {
-            padding-right: 5em;
-        }
-    }
-
-    .resend-btn {
-        height: 36px;
-        line-height: 36px;
-        margin-left: -5em;
-        color: rgb(var(--color11));
-        border-left: 1px solid rgb(var(--color11));
-        padding-left: 11px;
-
-        &:disabled {
-            color: rgb(var(--color09));
-        }
+    .box {
+        width: 600px;
     }
 }

@@ -13,6 +13,11 @@
         >
             S3 Access
         </a>
+        <a ko.attr.href="tabHref('triggers')"
+            ko.css.selected="selectedTab.eq('triggers')"
+        >
+            Triggers
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -25,5 +30,10 @@
             ko.css.selected="selectedTab.eq('s3-access')"
             params="bucket: bucketName"
         ></namespace-bucket-s3-access-form>
+
+        <namespace-bucket-triggers-form class="tab column"
+            ko.css.selected="selectedTab.eq('triggers')"
+            params="bucket: bucketName"
+        ></namespace-bucket-triggers-form>
     </div>
 </div>

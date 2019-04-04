@@ -13,13 +13,6 @@ export function updateModal(options) {
     };
 }
 
-export function lockModal() {
-    return updateModal({
-        backdropClose: false,
-        closeButton: 'disabled'
-    });
-}
-
 export function closeModal(count = 1) {
     return {
         type: CLOSE_MODAL,
@@ -775,13 +768,13 @@ export function openManagementConsoleErrorModal() {
     };
 }
 
-export function openAddBucketTriggerModal(bucketName) {
+export function openAddBucketTriggerModal(bucketName, funcId = null) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'add-bucket-trigger-modal',
-                params: { bucketName }
+                params: { bucketName, funcId }
             },
             options: {
                 size: 'medium',
@@ -791,49 +784,17 @@ export function openAddBucketTriggerModal(bucketName) {
     };
 }
 
-export function openEditFuncTriggerModal(funcName, funcVersion, triggerId) {
+export function openEditBucketTriggerModal(mode, triggerId) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'edit-bucket-trigger-modal',
-                params: { funcName, funcVersion, triggerId }
+                params: { triggerId, mode }
             },
             options: {
                 size: 'medium',
                 title: 'Edit Trigger'
-            }
-        }
-    };
-}
-
-export function openEditBucketTriggerModal(bucketName, triggerId) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-bucket-trigger-modal',
-                params: { bucketName, triggerId }
-            },
-            options: {
-                size: 'medium',
-                title: 'Edit Trigger'
-            }
-        }
-    };
-}
-
-export function openAddFuncTriggerModal(funcName) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'add-func-trigger-modal',
-                params: { funcName }
-            },
-            options: {
-                size: 'medium',
-                title: 'Add Trigger'
             }
         }
     };

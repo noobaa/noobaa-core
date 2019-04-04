@@ -145,20 +145,22 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                 }
             }
         },
-        data: ko.observable()
+        data: ko.observable(),
+        forceEmptyMessage: ko.observable()
     };
 
     selectState(state) {
+        const { location, hostPools, cloudResources, session } = state;
         return [
-            state.location,
-            state.hostPools,
-            state.cloudResources,
-            themes[state.session.uiTheme]
+            location,
+            hostPools,
+            cloudResources,
+            session && themes[session.uiTheme]
         ];
     }
 
     mapStateToProps(location, hostPools, cloudResources, theme) {
-        if (!hostPools || !cloudResources) {
+        if (!hostPools || !cloudResources || !theme) {
             ko.assignToProps(this, {
                 dataReady: false
             });
@@ -229,7 +231,8 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                     { value: sumBy(counters.error) }
                 ],
                 chart: {
-                    data: chartData
+                    data: chartData,
+                    forceEmptyMessage: resourceCount === 0
                 }
             });
         }

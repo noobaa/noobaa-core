@@ -39,10 +39,6 @@ const demo_access_keys = Object.freeze({
 
 const check_connection_timeout = 15 * 1000;
 
-const default_account_preferences = {
-    ui_theme: 'DARK'
-};
-
 /**
  *
  * CREATE_ACCOUNT
@@ -269,9 +265,15 @@ function update_account_s3_access(req) {
 
     //If s3_access is on, update allowed buckets and default_pool
     if (req.rpc_params.s3_access) {
-        if (!req.rpc_params.allowed_buckets ||
-            !req.rpc_params.default_pool) {
-            throw new RpcError('Enabling S3 requires providing allowed_buckets/default_pool');
+        if (!req.rpc_params.default_pool) {
+            const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+            if (pools.length) { // has resources which is not internal - must supply resource
+                throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
+            }
+        }
+
+        if (!req.rpc_params.allowed_buckets) {
+            throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets');
         }
 
         const full_permission = Boolean(req.rpc_params.allowed_buckets.full_permission);
@@ -287,7 +289,10 @@ function update_account_s3_access(req) {
                 system.buckets_by_name[bucket.unwrap()]._id);
         }
         update.allowed_buckets = allowed_buckets;
-        update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
+        update.default_pool = req.rpc_params.default_pool ?
+            system.pools_by_name[req.rpc_params.default_pool]._id :
+            Object.values(req.system.pools_by_name)[0]._id;
+
         if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }
@@ -1016,7 +1021,7 @@ function get_account_info(account, include_connection_cache) {
     }
     info.external_connections = external_connections;
     info.preferences = {
-        ...default_account_preferences,
+        ...config.DEFAULT_ACCOUNT_PREFERENCES,
         ...account.preferences
     };
 
@@ -1153,6 +1158,7 @@ function verify_authorized_account(req) {
 }
 
 function _list_connection_usage(account, credentials) {
+
     let cloud_pool_usage = _.map(
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
@@ -1160,7 +1166,7 @@ function _list_connection_usage(account, credentials) {
             pool.cloud_pool_info.endpoint_type === credentials.endpoint_type &&
             pool.cloud_pool_info.endpoint === credentials.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
-            pool.cloud_pool_info.access_keys.access_key === credentials.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === credentials.access_key
         )), pool => ({
             usage_type: 'CLOUD_RESOURCE',
             entity: pool.name,

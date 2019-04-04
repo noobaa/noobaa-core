@@ -1,9 +1,9 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row alt-bg pad row content-middle">
+<div class="row card-shadow pad content-middle">
     <div class="column greedy push-next">
         <h3 class="heading3">
-            Function Triggers: {{triggersCount}}
+            Function Triggers: {{triggerCount}}
         </h3>
     </div>
     <button class="btn" ko.click="onAddTrigger">
@@ -20,7 +20,7 @@
 "></data-table>
 
 <paginator params="
-    itemCount: triggersCount,
+    itemCount: triggerCount,
     pageSize: pageSize,
     page: ko.pc(page, onPage, $component)
 "></paginator>

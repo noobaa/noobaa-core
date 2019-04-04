@@ -3,7 +3,6 @@
 import template from './edit-bucket-trigger-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import { bucketEvents } from 'utils/bucket-utils';
-import { flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import ko from 'knockout';
@@ -14,20 +13,24 @@ import {
     closeModal
 } from 'action-creators';
 
-function _selectTrigger(buckets, bucketName, triggerId) {
-    const bucket = bucketName ?
-        buckets[bucketName] :
-        Object.values(buckets).find(bucket => bucket.triggers[triggerId]);
+function _getDataBucketOption(bucket) {
+    return {
+        value: bucket.name,
+        remark: 'Data bucket'
+    };
+}
 
-    return bucket && {
-        ...bucket.triggers[triggerId],
-        bucketName: bucket.name
+function _getNamespaceBucketOptions(bucket) {
+    return {
+        value: bucket.name,
+        remark: 'Namespace bucket'
     };
 }
 
 class EditBucketTriggerModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
-    bucketName = '';
+    updateDisplayName = '';
+    originalBucketName = '';
     funcName = '';
     triggerId = '';
     existingTriggers = [];
@@ -42,25 +45,26 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
     }]
 
     selectState(state, params) {
-        const { buckets, functions, accounts, location, forms } = state;
-        const { bucketName, triggerId } = params;
-
         return [
-            bucketName,
-            triggerId,
-            buckets,
-            functions,
-            accounts,
-            location.params.system,
-            Boolean(forms && forms[this.formName])
+            params.mode,
+            params.triggerId,
+            state.buckets,
+            state.namespaceBuckets,
+            state.functions,
+            state.bucketTriggers,
+            state.accounts,
+            state.location.params.system,
+            Boolean(state.forms && state.forms[this.formName])
         ];
     }
 
     mapStateToProps(
-        bucketName,
+        modalMode,
         triggerId,
         buckets,
+        namespaceBuckets,
         funcs,
+        triggers,
         accounts,
         system,
         isFormInitialized
@@ -68,32 +72,33 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
         if (!buckets || !funcs || !accounts) {
             return;
         }
-
-        const trigger = _selectTrigger(buckets, bucketName, triggerId);
-        if (!bucketName) bucketName = trigger.bucketName;
+        const inBucketMode = modalMode === 'BUCKET';
+        const inFuncMode = modalMode === 'FUNCTION';
+        const trigger = triggers[triggerId];
+        const existingTriggers = Object.values(triggers).filter(other => other !== trigger);
         const funcsUrl = realizeUri(routes.funcs, { system: system });
-        const existingTriggers = flatMap(
-            Object.values(buckets),
-            bucket => Object.values(bucket.triggers).map(trigger => ({
-                ...trigger,
-                bucketName: bucket.name}
-            ))
-        ).filter(other => other !== trigger);
-
-        const bucketOptions = this.funcName ? Object.keys(buckets) : [];
-        const funcOptions = Object.values(funcs)
-            .map(func => getFunctionOption(func, accounts, bucketName));
+        const bucketOptions = inFuncMode ? [
+            ...Object.values(buckets).map(_getDataBucketOption),
+            ...Object.values(namespaceBuckets).map(_getNamespaceBucketOptions)
+        ]: null;
+        const funcOptions = inBucketMode  ?
+            Object.values(funcs).map(func =>
+                getFunctionOption(func, accounts, trigger.bucket.name)
+            ) : null;
 
         ko.assignToProps(this, {
-            bucketName,
+            updateDisplayName: inBucketMode ?
+                `funciton ${trigger.func.name}` :
+                `bucket ${trigger.bucket.name}`,
+            originalBucketName: trigger.bucket.name,
             triggerId,
             funcsUrl,
             funcOptions,
             bucketOptions,
             existingTriggers,
             fields: !isFormInitialized ? {
+                bucket: trigger.bucket.name,
                 func: `${trigger.func.name}:${trigger.func.version}`,
-                bucket: bucketName,
                 event: trigger.event,
                 prefix: trigger.prefix,
                 suffix: trigger.suffix,
@@ -113,12 +118,12 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
 
         const unique = existingTriggers
             .every(trigger =>
-                trigger.event !== event ||
-                trigger.func.name !== funcName ||
-                trigger.func.version !== funcVersion ||
-                trigger.bucketName !== bucket ||
-                trigger.prefix !== prefix ||
-                trigger.suffix !== suffix
+                (trigger.bucket.name !== bucket) ||
+                (trigger.event !== event) ||
+                (trigger.func.name !== funcName) ||
+                (trigger.func.version !== funcVersion) ||
+                (trigger.prefix !== prefix) ||
+                (trigger.suffix !== suffix)
             );
 
         if (!unique) {
@@ -130,7 +135,8 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { bucketName, triggerId } = this;
+        const { triggerId, originalBucketName, updateDisplayName } = this;
+        const bucketName = values.bucket;
         const [funcName, funcVersion] = values.func.split(':');
         const config = {
             bucketName,
@@ -142,13 +148,9 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
             enabled: values.active
         };
 
-        const displayName = this.funcName ?
-            `function ${this.funcName}` :
-            `bucket ${this.bucketName}`;
-
         this.dispatch(
             closeModal(),
-            updateBucketTrigger(bucketName, triggerId, config, displayName)
+            updateBucketTrigger(originalBucketName, triggerId, config, updateDisplayName)
         );
     }
 

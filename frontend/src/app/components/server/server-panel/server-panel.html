@@ -8,10 +8,19 @@
         <a ko.css.selected="selectedTab.eq('details')"
             ko.attr.href="tabHref('details')"
         >
-            Services &amp; Information
+            Server details
             <span class="issue-counter warning"
                   ko.attr.data-count="issueCounters.details"
                   ko.visible="issueCounters.details"
+            ></span>
+        </a>
+        <a ko.css.selected="selectedTab.eq('monitoring')"
+            ko.attr.href="tabHref('monitoring')"
+        >
+            Services Monitoring
+            <span class="issue-counter warning"
+                  ko.attr.data-count="issueCounters.monitoring"
+                  ko.visible="issueCounters.monitoring"
             ></span>
         </a>
         <a ko.css.selected="selectedTab.eq('communication')"
@@ -37,10 +46,14 @@
     <div class="tabs-row" ko.if="dataReady">
         <server-details-form class="tab"
             ko.css.selected="selectedTab.eq('details')"
+            params="serverSecret: serverSecret"
+        ></server-details-form>
+        <server-monitoring-form class="tab"
+            ko.css.selected="selectedTab.eq('monitoring')"
             params="
                 serverSecret: serverSecret,
                 system: system
-        "></server-details-form>
+        "></server-monitoring-form>
 
         <server-communication-form class="tab"
             ko.css.selected="selectedTab.eq('communication')"

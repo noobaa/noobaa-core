@@ -32,9 +32,6 @@ export const nodeTestInfo = ko.observable();
 // hold system upload ssl certificate status.
 export const sslCertificateUploadStatus = ko.observable();
 
-// Used to replay read server time events.
-export const serverTime = ko.observable();
-
 // Hold system activation information.
 export const activationState = ko.observable();
 

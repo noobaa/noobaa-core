@@ -2,17 +2,17 @@ import { keyBy, deepFreeze, mapValues } from 'utils/core-utils';
 import { themes } from 'config';
 
 function _readThemeFromStyleSheet(className) {
-    const themeRule = Array.from(document.styleSheets[0].cssRules)
+    const { style } = Array.from(document.styleSheets[0].cssRules)
         .find(rule => rule.selectorText === `.${className}`);
 
-    const props = Array.from(themeRule.styleMap)
-        .filter(rule => rule[0].startsWith('--'));
+    const propNames = Array.from(style)
+        .filter(name => name.startsWith('--'));
 
     return deepFreeze(keyBy(
-        props,
-        ([propName]) => propName.substr(2),
-        ([, propValue]) => {
-            const val = propValue[0][0]
+        propNames,
+        (name) => name.substr(2),
+        name => {
+            const val = style.getPropertyValue(name)
                 .split(',')
                 .map(c => c.trim());
 

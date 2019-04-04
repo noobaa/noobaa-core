@@ -4,7 +4,8 @@ export default {
     type: 'object',
     required: [
         'previewContent',
-        'browser'
+        'browser',
+        'isBrowserStickyDismissed'
     ],
     properties: {
         browser: {

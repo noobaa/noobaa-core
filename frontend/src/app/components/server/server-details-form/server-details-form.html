@@ -1,177 +1,33 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column">
-    <div class="row content-middle pad card-shadow">
-        <h2 class="greedy heading3  push-next">
-            Server Details
-        </h2>
-        <button class="btn push-next"
-            ko.click="onChangeClusterConnectivityIp"
-        >
-            Change Cluster Connectivity IP
-        </button>
-        <button class="btn"
-            ko.disable="!isConnected()"
-            ko.click="onEditServerDetails"
-        >
-            Edit Server Details
-        </button>
-    </div>
-    <property-sheet class="pad server-details" params="properties: infoSheet">
-        <template name="valueWithMinReq">
-            <p class="row content-middle">
-                {{text}}
-                <!-- ko if: minReqMessage -->
-                <span class="remark warning text-super push-prev-half">
-                    * Minimum requirements: {{minReqMessage}}
-                </span>
-                <!-- /ko -->
-            </p>
-        </template>
-    </property-sheet>
-</section>
-<hr>
-<section class="column server-monitor" ko.css.disabled="!isConnected()">
-    <h2 class="heading3 pad card-shadow">
-        Services Monitoring
+<div class="row content-middle pad card-shadow">
+    <h2 class="greedy heading3  push-next">
+        Server Details
     </h2>
-
-    <ul class="pad column list-no-style status-list" >
-        <li class="row push-next" ko.with="version">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">Version:</span>
-            <span ko.text="text" ko.visible="$component.isConnected"></span>
-            <span ko.visible="!$component.isConnected()">Not Available</span>
-        </li>
-
-        <li class="row content-middle push-next" ko.with="serverTime">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">Server Date and Time:</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Server Clock:</span>
-                <span ko.text="clock"></span>
-                <span class="push-both">|</span>
-
-                <span class="push-next-half">NTP:</span>
-                <span ko.text="ntp"></span>
-            </span>
-            <span ko.visible="!$component.isConnected()">Not Available</span>
-            <span class="push-both">|</span>
-            <button class="link"
-                ko.disable="!$component.isConnected()"
-                ko.click="$component.onEditDateAndTime"
-            >
-                Edit
-            </button>
-        </li>
-
-        <li class="row content-middle push-next" ko.with="dnsServers">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">DNS Servers:</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Primary:</span>
-                <span ko.text="primary"></span>
-            </span>
-            <span class="push-both">|</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Secondary:</span>
-                <span ko.text="secondary"></span>
-            </span>
-            <span ko.visible="!$component.isConnected()">Not Available</span>
-            <span class="push-both">|</span>
-            <button class="link"
-                ko.disable="!$component.isConnected()"
-                ko.click="$component.onEditDNSServers"
-            >
-                Edit
-            </button>
-        </li>
-
-        <li class="row content-middle push-next" ko.with="dnsName">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">DNS Name:</span>
-            <span ko.text="name"  ko.visible="$component.isConnected"></span>
-            <span ko.visible="!$component.isConnected()">Not Available</span>
-            <span class="push-both">|</span>
-            <a class="link"
-                ko.attr.href="configurationHref"
-                ko.css.disabled="!$component.isConnected()"
-            >
-                Go to configuration
-            </a>
-        </li>
-
-        <li class="row content-middle push-next" ko.with="remoteSyslog">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">Remote Syslog:</span>
-            <!-- ko if: isConfigured -->
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Last Test:</span>
-                <span ko.text="lastRSyslogSync"></span>
-            </span>
-            <span class="push-both">|</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Server Address:</span>
-                <span ko.text="text" ko.visible="$component.isConnected"></span>
-                <span ko.visible="!$component.isConnected()">Not Available</span>
+    <button class="btn push-next"
+        ko.click="onChangeClusterConnectivityIp"
+    >
+        Change Cluster Connectivity IP
+    </button>
+    <button class="btn"
+        ko.disable="!isConnected()"
+        ko.click="onEditServerDetails"
+    >
+        Edit Server Details
+    </button>
+</div>
+<property-sheet class="pad server-details" params="
+    loading: !dataReady(),
+    properties: details
+">
+    <template name="valueWithMinReq">
+        <p class="row content-middle">
+            {{text}}
+            <!-- ko if: minReqMessage -->
+            <span class="remark warning text-super push-prev-half">
+                * Minimum requirements: {{minReqMessage}}
             </span>
             <!-- /ko -->
-            <!-- ko ifnot: isConfigured -->
-            <span>Not configured</span>
-             <!-- /ko -->
-            <span class="push-both">|</span>
-            <a class="link"
-                ko.attr.href="configurationHref"
-                ko.css.disabled="!$component.isConnected()"
-            >
-                Go to configuration
-            </a>
-        </li>
-
-        <li class="row content-middle push-next" ko.with="phoneHome">
-            <svg-icon class="push-next"
-                params="name: icon().name"
-                ko.css="icon().css"
-                ko.tooltip="tooltip"
-            ></svg-icon>
-            <span class="label push-next highlight">Phone Home:</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Last Sync:</span>
-                <span ko.text="lastPhoneHomeSync"></span>
-            </span>
-            <span class="push-both">|</span>
-            <span class="row" ko.visible="$component.isConnected">
-                <span class="push-next-half">Proxy:</span>
-                <span ko.text="proxy"></span>
-            </span>
-            <span ko.visible="!$component.isConnected()">Not Available</span>
-            <span class="push-both">|</span>
-            <a class="link"
-                ko.attr.href="configurationHref"
-                ko.css.disabled="!$component.isConnected()"
-            >
-                Go to configuration
-            </a>
-        </li>
-    </ul>
-</section>
+        </p>
+    </template>
+</property-sheet>

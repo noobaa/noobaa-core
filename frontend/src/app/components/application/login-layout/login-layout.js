@@ -3,7 +3,7 @@
 import template from './login-layout.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { supportedBrowsers} from 'config';
+import { supportedBrowsers, logo } from 'config';
 import { sessionInfo, serverInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
 import { loadServerInfo } from 'actions';
@@ -13,6 +13,7 @@ class LoginLayoutViewModel extends BaseViewModel {
     constructor() {
         super();
 
+        this.logo = logo;
         this.form = ko.pureComputed(
             () => {
                 if (!supportedBrowsers.includes(recognizeBrowser())) {

@@ -424,7 +424,7 @@ class NodesMonitor extends EventEmitter {
         const host_item = this._consolidate_host(host_nodes);
         return P.map(host_nodes, node => this._delete_node(node))
             .then(() => this._dispatch_node_event(host_item, 'delete_started',
-                `Node ${this._item_hostname(host_item)} deletion process was initiated by ${req.account && req.account.email}. 
+                `Node ${this._item_hostname(host_item)} deletion process was initiated by ${req.account && req.account.email}.
                 The node will be deleted from ${this._item_pool_name(host_item)} once all stored data is secured`,
                 req.account && req.account._id));
     }
@@ -756,6 +756,10 @@ class NodesMonitor extends EventEmitter {
             _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info') && (!_.get(p, 'cloud_pool_info'))))[0]; // default - the 1st host pool in the system
         // system_store.get_account_by_email(system.owner.email).default_pool; //This should not happen, but if it does, use owner's default
 
+        if (!pool) {
+            throw new Error('Cannot find eligible pool');
+        }
+
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
         }
@@ -1080,7 +1084,6 @@ class NodesMonitor extends EventEmitter {
                         item.dispatched_cloud_alert = null;
                         this._cloud_node_alert(alert);
                     } else {
-                        // 
                         item.dispatched_cloud_alert = item.dispatched_cloud_alert || now;
                     }
                 } else {
@@ -3680,8 +3683,8 @@ class NodesMonitor extends EventEmitter {
         const nodes_with_avg_disk_write = partition_avg_disk_write[0];
         const nodes_without_avg_disk_write = partition_avg_disk_write[1];
         if (nodes_with_avg_disk_write.length >= config.NODE_ALLOCATOR_NUM_CLUSTERS) {
-            // TODO: 
-            // Not handling noise at all. 
+            // TODO:
+            // Not handling noise at all.
             // This means that we can have a group of 1 noisy drive.
             // I rely on avg_disk_write as an average reading to handle any noise.
             const kmeans_clusters = kmeans.run(

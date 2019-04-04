@@ -13,13 +13,13 @@ import { requestLocation } from 'action-creators';
 const issuesToTabs = deepFreeze({
     debugMode: 'diagnostics',
     clusterConnectivity: 'communication',
-    version: 'details',
-    dnsNameResolution: 'details',
-    dnsServers: 'details',
-    proxy: 'details',
-    phonehome: 'details',
-    ntp: 'details',
-    remoteSyslog: 'details',
+    version: 'monitoring',
+    dnsNameResolution: 'monitoring',
+    dnsServers: 'monitoring',
+    proxy: 'monitoring',
+    phonehome: 'monitoring',
+    ntp: 'monitoring',
+    remoteSyslog: 'monitoring',
     minRequirements: 'details'
 });
 
@@ -31,6 +31,7 @@ class ServerPanelViewModel extends ConnectableViewModel {
     baseRoute = ko.observable();
     issueCounters = {
         details: ko.observable(),
+        monitoring: ko.observable(),
         diagnostics: ko.observable(),
         communication: ko.observable()
     };

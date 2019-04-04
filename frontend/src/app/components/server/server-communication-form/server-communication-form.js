@@ -1,11 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './server-communication-form.html';
-import BaseViewModel from 'components/base-view-model';
-import TestResultRowViewModel from './test-result-row';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { deepFreeze, keyByProperty } from 'utils/core-utils';
+import { deepFreeze } from 'utils/core-utils';
+import { getServerDisplayName } from 'utils/cluster-utils';
 
 const columns = deepFreeze([
     {
@@ -22,42 +21,74 @@ const columns = deepFreeze([
     }
 ]);
 
-class ServerCommunicationFormViewModel extends BaseViewModel {
-    constructor({ serverSecret }) {
-        super();
+const icons = deepFreeze({
+    notConnected: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Server not connected'
+    },
+    notOperational: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Cannot communicate with server'
+    },
+    connected: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Test completed successfully'
+    }
+});
 
-        this.columns = columns;
+class TestResultRowViewModel {
+    result = {
+        name: ko.observable(),
+        css: ko.observable(),
+        tooltip: ko.observable()
+    };
+    address = ko.observable();
+    name = ko.observable();
+}
 
-        const servers = ko.pureComputed(
-            () => systemInfo() ? systemInfo().cluster.shards[0].servers : []
-        );
+class ServerCommunicationFormViewModel extends ConnectableViewModel {
+    columns = columns;
+    dataReady = ko.observable();
+    rows = ko.observableArray()
+        .ofType(TestResultRowViewModel)
 
-        this.server = ko.pureComputed(
-            () => servers().find(
-                ({ secret }) => secret === ko.unwrap(serverSecret)
-            )
-        );
-
-        this.testResults = ko.pureComputed(
-            () => {
-                if (!this.server()) {
-                    return {};
-                }
-
-                const { results = [] } = this.server().services_status.cluster_communication;
-                return keyByProperty(results, 'secret', ({ status }) => status);
-            }
-        );
-
-        this.otherServers = ko.pureComputed(
-            () => servers().filter(
-                ({ secret }) => secret !== ko.unwrap(serverSecret)
-            )
-        );
+    selectState(state, params) {
+        const { topology } = state;
+        return [
+            params.serverSecret,
+            topology && topology.servers
+        ];
     }
 
-    createServerRow(server) {
-        return new TestResultRowViewModel(server, this.testResults);
+    mapStateToProps(secret, servers) {
+        if (!servers) {
+            ko.assignToProps(this, {
+                dataReady: false
+            });
+
+        } else {
+            const { clusterConnectivity } = servers[secret];
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                rows: Object.values(servers)
+                    .filter(server => server.secret !== secret)
+                    .map(server => {
+                        const { mode, secret } = server;
+                        const name = getServerDisplayName(server);
+                        const address = server.addresses[0].ip;
+                        const result =
+                            (mode !== 'CONNECTED' && icons.notConnected) ||
+                            (clusterConnectivity[secret] !== 'OPERATIONAL' && icons.notOperational) ||
+                            icons.connected;
+
+                        return { result, address, name };
+                    })
+            });
+        }
     }
 }
 

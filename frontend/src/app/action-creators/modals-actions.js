@@ -13,13 +13,6 @@ export function updateModal(options) {
     };
 }
 
-export function lockModal() {
-    return updateModal({
-        backdropClose: false,
-        closeButton: 'disabled'
-    });
-}
-
 export function closeModal(count = 1) {
     return {
         type: CLOSE_MODAL,

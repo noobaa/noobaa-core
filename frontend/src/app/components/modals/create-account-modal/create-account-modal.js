@@ -13,7 +13,7 @@ import {
     touchForm,
     updateForm,
     closeModal,
-    lockModal,
+    updateModal,
     createAccount
 } from 'action-creators';
 
@@ -224,7 +224,10 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
 
     onSubmit(values) {
         this.dispatch(
-            lockModal(),
+            updateModal({
+                backdropClose: false,
+                closeButton: 'disabled'
+            }),
             createAccount(
                 values.accountName.trim(),
                 values.hasLoginAccess,

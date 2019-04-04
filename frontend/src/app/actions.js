@@ -420,19 +420,6 @@ export function setServerDebugLevel(secret, hostname, level){
         .done();
 }
 
-export function loadServerTime(serverSecret) {
-    logAction('loadServerTime', { serverSecret });
-
-    api.cluster_server.read_server_time({ target_secret: serverSecret })
-        .then(
-            time => model.serverTime({
-                server: serverSecret,
-                time: time
-            })
-        )
-        .done();
-}
-
 export function notify(message, severity = 'info') {
     action$.next(showNotification(message, severity));
 }

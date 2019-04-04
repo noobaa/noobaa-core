@@ -14,6 +14,7 @@ class AccountMenuViewModel extends ConnectableViewModel {
     isLocalClick = ko.observable(false);
     accountName = ko.observable();
     accountPageHref = ko.observable();
+    connectionPageHref = ko.observable();
     supportEmailHref = formatEmailUri(support.email);
     helpDeskHref = support.helpDesk;
     oppositeTheme = '';
@@ -40,6 +41,10 @@ class AccountMenuViewModel extends ConnectableViewModel {
                 routes.account,
                 { system, account }
             ),
+            connectionPageHref: realizeUri(
+                routes.account,
+                { system, account, tab: 'connections' }
+            ) ,
             oppositeTheme,
             switchThemeText: `Switch to ${capitalize(oppositeTheme)} Theme`
         });

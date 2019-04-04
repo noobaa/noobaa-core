@@ -18,5 +18,14 @@
             Download Diagnostics
         </working-button>
     </div>
-    <property-sheet class="pad push-next" params="properties: debugModeSheet"></property-sheet>
+    <property-sheet class="pad push-next" params="properties: debugModeSheet">
+        <template name="textWithWarning">
+            <p class="content-middle">
+                {{text}}
+                <span class="warning" ko.visible="warning">
+                    ({{warning}})
+                </span>
+            </p>
+        </template>
+    </property-sheet>
 </section>

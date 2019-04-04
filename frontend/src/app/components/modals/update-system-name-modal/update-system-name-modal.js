@@ -4,7 +4,7 @@ import template from './update-system-name-modal.html';
 import { updateHostname } from 'actions';
 import ko from 'knockout';
 import { action$ } from 'state';
-import { lockModal, closeModal } from 'action-creators';
+import { updateModal, closeModal } from 'action-creators';
 
 class UpdatingSystemNameModalViewModel {
     constructor({ name }) {
@@ -14,7 +14,10 @@ class UpdatingSystemNameModalViewModel {
 
     onUpdate() {
         this.updating(true);
-        action$.next(lockModal());
+        action$.next(updateModal({
+            backdropClose: false,
+            closeButton: 'disabled'
+        }));
         updateHostname(ko.unwrap(this.name));
     }
 

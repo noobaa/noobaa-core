@@ -1,0 +1,215 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<h2 class="heading3 pad card-shadow">
+    Services Monitoring
+</h2>
+
+<!-- ko ifnot: dataReady -->
+<loading-indicator></loading-indicator>
+<!-- /ko -->
+
+<!-- ko if: dataReady -->
+<table class="service-table pad">
+    <!-- Version -->
+    <tr ko.with="version">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            Version:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            {{text}}
+            <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+    </tr>
+
+    <!-- Server Time -->
+    <tr ko.with="serverTime">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            Server Date and Time:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            <span class="row content-middle">
+                <span class="highlight push-next-half">Server Clock:</span>
+                {{clock}}
+                <vr class="seperator"></vr>
+                <span class="highlight push-next-half">NTP:</span>
+                {{ntp}}
+            </span>
+             <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+        <td class="action-col">
+            <button class="icon-btn"
+                ko.enable="$component.isConnected"
+                ko.click="() => $component.onEditDateAndTime()"
+            >
+                <svg-icon params="name: 'edit'"></svg-icon>
+            </button>
+        </td>
+    </tr>
+
+    <!-- DNS Servers -->
+    <tr ko.with="dnsServers">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            DNS Servers:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            <span class="row content-middle">
+                <span class="highlight push-next-half">Primary:</span>
+                {{primary}}
+                <vr class="seperator"></vr>
+                <span class="highlight push-next-half">Secondary:</span>
+                {{secondary}}
+            </span>
+             <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+        <td class="action-col">
+            <button class="icon-btn"
+                ko.enable="$component.isConnected"
+                ko.click="() => $component.onEditDNSServers()"
+            >
+                <svg-icon params="name: 'edit'"></svg-icon>
+            </button>
+        </td>
+    </tr>
+
+    <!-- DNS Name -->
+    <tr ko.with="dnsName">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            DNS Name:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            {{name}}
+             <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+        <td class="action-col">
+            <button class="icon-btn"
+                ko.enable="$component.isConnected"
+                ko.click="() => $component.onNavigateToSystemAddressForm()"
+            >
+                <svg-icon params="name: 'navigate'"></svg-icon>
+            </button>
+        </td>
+    </tr>
+
+    <!-- Remote Syslog -->
+    <tr ko.with="remoteSyslog">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            Remote Syslog:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            <!-- ko if: isConfigured -->
+            <span class="row content-middle">
+                <span class="highlight push-next-half">Last Sync:</span>
+                {{lastStatusCheck}}
+                <vr class="seperator"></vr>
+                <span class="highlight push-next-half">Server Address:</span>
+                {{address}}
+
+            </span>
+            <!-- /ko -->
+            <!-- ko ifnot: isConfigured -->
+            Not Configured
+            <!-- /ko -->
+             <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+        <td class="action-col">
+            <button class="icon-btn"
+                ko.enable="$component.isConnected"
+                ko.click="() => $component.onNavigateToRemoteSyslogForm()"
+            >
+                <svg-icon params="name: 'navigate'"></svg-icon>
+            </button>
+        </td>
+    </tr>
+
+    <!-- Phonehome: -->
+    <tr ko.with="phonehome">
+        <td class="state-col">
+            <svg-icon class="push-next"
+                params="name: icon().name"
+                ko.css="icon().css"
+                ko.tooltip="icon().tooltip"
+            ></svg-icon>
+        </td>
+        <td class="service-col highlight">
+            Phonehome:
+        </td>
+        <td class="info-col">
+            <!-- ko if: $component.isConnected -->
+            <span class="row content-middle">
+                <span class="highlight push-next-half">Last Sync:</span>
+                {{lastStatusCheck}}
+                <vr class="seperator"></vr>
+                <span class="highlight push-next-half">Proxy:</span>
+                {{proxy}}
+            </span>
+            <!-- /ko -->
+            <!-- ko ifnot: $component.isConnected -->
+            Not Available
+            <!-- /ko -->
+        </td>
+        <td class="action-col">
+            <button class="icon-btn"
+                ko.enable="$component.isConnected"
+                ko.click="() => $component.onNavigateToProxyServerForm()"
+            >
+                <svg-icon params="name: 'navigate'"></svg-icon>
+            </button>
+        </td>
+    </tr>
+</table>
+<!-- /ko-->

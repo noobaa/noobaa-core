@@ -208,7 +208,7 @@ function _mapPhonehome(server) {
     const { phonehome_server } = server.services_status;
     return {
         status: phonehome_server.status,
-        lastStatusCheck: phonehome_server.test_time
+        lastStatusCheck: phonehome_server.test_time * 1000
     };
 }
 
@@ -218,7 +218,7 @@ function _mapRemoteSyslog(server) {
 
     return {
         status: remote_syslog.status,
-        lastStatusCheck: remote_syslog.test_time
+        lastStatusCheck: remote_syslog.test_time * 1000
     };
 }
 

@@ -251,9 +251,10 @@ import clusterSummary from './cluster/cluster-summary/cluster-summary';
 // -------------------------------
 import serverPanel from './server/server-panel/server-panel';
 import serverSummary from './server/server-summary/server-summary';
-import serverDetailsForm from './server/server-details-form/server-details-form';
+import serverMonitoringForm from './server/server-monitoring-form/server-monitoring-form';
 import serverDiagnosticsForm from './server/server-diagnostics-form/server-diagnostics-form';
 import serverCommunicationForm from './server/server-communication-form/server-communication-form';
+import serverDetailsForm from './server/server-details-form/server-details-form';
 /** INJECT:server.import **/
 
 // -------------------------------
@@ -569,9 +570,10 @@ export default function register(ko, services) {
 
         serverPanel,
         serverSummary,
-        serverDetailsForm,
+        serverMonitoringForm,
         serverDiagnosticsForm,
         serverCommunicationForm,
+        serverDetailsForm,
         /** INJECT:server.list **/
 
         funcsPanel,

@@ -5,6 +5,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils/core-utils';
 
+
 const icons = deepFreeze({
     success: {
         name: 'healthy',

@@ -9,8 +9,8 @@
         <p class="push-next">Communication tests run automatically every single minute</p>
         <data-table class="communication-table content-box" params="
             columns: columns,
-            data: otherServers,
-            rowFactory: server => createServerRow(server),
+            loading: !dataReady(),
+            data: rows,
             emptyMessage: 'No additional servers in the cluster'
         "></data-table>
     </div>

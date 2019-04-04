@@ -317,65 +317,6 @@ export default {
                     }
                 }
             },
-            triggers: {
-                type: 'object',
-                additionalProperties: {
-                    type: 'object',
-                    required: [
-                        'id',
-                        'mode',
-                        'event',
-                        'func',
-                        'prefix',
-                        'suffix'
-                    ],
-                    properties: {
-                        id: {
-                            type: 'string'
-                        },
-                        mode: {
-                            type: 'string',
-                            enum: [
-                                'OPTIMAL',
-                                'MISSING_PERMISSIONS',
-                                'DISABLED'
-                            ]
-                        },
-                        event: {
-                            type:' string',
-                            enum: [
-                                'ObjectCreated',
-                                'ObjectRemoved',
-                                'ObjectRead'
-                            ]
-                        },
-                        func: {
-                            type: 'object',
-                            required: [
-                                'name',
-                                'version'
-                            ],
-                            properties: {
-                                name: {
-                                    type: 'string'
-                                },
-                                version: {
-                                    type: 'string'
-                                }
-                            }
-                        },
-                        prefix: {
-                            type: 'string'
-                        },
-                        suffix: {
-                            type: 'string'
-                        },
-                        lastRun: {
-                            type:' integer'
-                        }
-                    }
-                }
-            },
             usageDistribution: {
                 type: 'object',
                 required: [

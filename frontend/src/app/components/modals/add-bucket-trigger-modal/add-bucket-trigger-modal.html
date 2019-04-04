@@ -10,6 +10,21 @@
     <div class="column greedy hpad pad-top">
         <p>Triggers will automatically invoke the selected function.</p>
 
+        <!-- ko if: bucketOptions -->
+        <editor params="label: 'Bucket'">
+            <dropdown params="
+                    options: bucketOptions,
+                    selected: $form.bucket,
+                    placeholder: 'Choose Bucket',
+                    hasFocus: true
+                "
+                ko.validationCss="$form.bucket"
+            ></dropdown>
+            <validation-message params="field: $form.bucket"></validation-message>
+        </editor>
+        <!-- /ko -->
+
+        <!-- ko if: funcOptions -->
         <editor params="label: 'Function'">
             <dropdown params="
                     filter: true,
@@ -23,6 +38,7 @@
             ></dropdown>
             <validation-message params="field: $form.func"></validation-message>
         </editor>
+        <!-- /ko -->
 
         <editor params="label: 'Event Type'">
             <dropdown params="

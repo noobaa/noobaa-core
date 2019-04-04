@@ -12,53 +12,80 @@ import {
     closeModal
 } from 'action-creators';
 
+function _mapDataBucketOption(bucket) {
+    return {
+        value: bucket.name,
+        remark: 'Data bucket'
+    };
+}
+
+function _mapNamespaceBucketOption(bucket) {
+    return {
+        value: bucket.name,
+        remark: 'Namespace bucket'
+    };
+}
+
 class AddBucketTriggerModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     bucketName = '';
     existingTriggers = null;
     eventOptions = bucketEvents;
+    bucketOptions = ko.observableArray();
     funcActions = [{
         label: 'Create new function',
         onClick: () => this.onCreateNewFunction()
     }];
     funcOptions = ko.observableArray();
-    fields = {
-        func: null,
-        event: '',
-        prefix: '',
-        suffix: '',
-        active: true
-    };
+    fields = ko.observable();
 
     selectState(state, params) {
-        const { buckets, functions, accounts } = state;
-        const { bucketName } = params;
-
         return [
-            bucketName,
-            buckets && buckets[bucketName].triggers,
-            functions,
-            accounts
+            params.bucketName,
+            params.funcId,
+            state.buckets,
+            state.namespaceBuckets,
+            state.bucketTriggers,
+            state.functions,
+            state.accounts,
+            Boolean(state.forms && state.forms[this.formName])
         ];
     }
 
-    mapStateToProps(bucketName, triggers, funcs, accounts) {
-        if (!triggers || !funcs || !accounts) {
+    mapStateToProps(
+        bucketName,
+        funcId,
+        buckets,
+        namespaceBuckets,
+        triggers,
+        funcs,
+        accounts,
+        isFormInitialized
+    ) {
+        if (!buckets || !namespaceBuckets || !triggers || !funcs || !accounts) {
             return;
         }
 
         ko.assignToProps(this, {
             bucketName,
             existingTriggers: Object.values(triggers),
-            funcOptions: Object.values(funcs).map(func =>
+            bucketOptions: bucketName ? null : [
+                ...Object.values(buckets).map(_mapDataBucketOption),
+                ...Object.values(namespaceBuckets).map(_mapNamespaceBucketOption)
+            ],
+            funcOptions: funcId ? null : Object.values(funcs).map(func =>
                 getFunctionOption(func, accounts, bucketName)
-            )
+            ),
+            fields: !isFormInitialized ? {
+                bucket: bucketName || '',
+                func: funcId || '',
+                event: '',
+                prefix: '',
+                suffix: '',
+                active: true
+            } : undefined
         });
-    }
-
-    onCreateNewFunction() {
-        this.dispatch(openCreateFuncModal());
     }
 
     onValidate(values) {
@@ -78,20 +105,21 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
 
     async onValidateSubmit(values, existingTriggers) {
         const errors = {};
-        const { event, func, prefix, suffix } = values;
+        const { event, func, prefix, suffix, bucket } = values;
         const [funcName, funcVersion] = func.split(':');
 
         const unique = existingTriggers
             .every(trigger =>
-                trigger.event !== event ||
-                    trigger.func.name !== funcName ||
-                    trigger.func.version !== funcVersion ||
-                    trigger.prefix !== prefix ||
-                    trigger.suffix !== suffix
+                (trigger.bucket.name !== bucket) ||
+                (trigger.func.name !== funcName) ||
+                (trigger.func.version !== funcVersion) ||
+                (trigger.event !== event) ||
+                (trigger.prefix !== prefix) ||
+                (trigger.suffix !== suffix)
             );
 
         if (!unique) {
-            errors.event = errors.func = errors.prefix = errors.suffix = ' ';
+            errors.bucket = errors.event = errors.func = errors.prefix = errors.suffix = '';
             errors.global = 'A trigger with the same setting already exists';
         }
 
@@ -101,6 +129,7 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
     onSubmit(values) {
         const [funcName, funcVersion] = values.func.split(':');
         const config = {
+            bucket: values.bucket,
             funcName: funcName,
             funcVersion: funcVersion,
             event: values.event,
@@ -111,8 +140,12 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
 
         this.dispatch(
             closeModal(),
-            addBucketTrigger(this.bucketName, config)
+            addBucketTrigger(config)
         );
+    }
+
+    onCreateNewFunction() {
+        this.dispatch(openCreateFuncModal());
     }
 
     onCancel() {

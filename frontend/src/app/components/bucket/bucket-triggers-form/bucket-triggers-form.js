@@ -154,12 +154,10 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
         .ofType(TriggerRowViewModel, { table: this });
 
     selectState(state, params) {
-        const { buckets, location } = state;
-        const { bucketName } = params;
         return [
-            bucketName,
-            buckets && buckets[bucketName].triggers,
-            location
+            params.bucketName,
+            state.bucketTriggers,
+            state.location
         ];
     }
 
@@ -170,13 +168,18 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
             });
 
         } else {
+            const bucketTriggers = Object.values(triggers)
+                .filter(trigger => {
+                    const { kind, name } = trigger.bucket;
+                    return kind === 'DATA_BUCKET' && name === bucketName;
+                });
             const { params, query, pathname } = location;
             const { sortBy = 'funcName', selectedForDelete } = query;
             const page = Number(query.page) || 0;
             const order = Number(query.page) || 1;
             const { compareKey } = columns.find(column => column.name === sortBy);
             const pageStart = page * this.pageSize;
-            const triggerList = Object.values(triggers);
+            const triggerList = Object.values(bucketTriggers);
             const rows = triggerList
                 .sort(createCompareFunc(compareKey, order))
                 .slice(pageStart, pageStart + this.pageSize)
@@ -200,7 +203,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
     }
 
     onEditTrigger(triggerId) {
-        this.dispatch(openEditBucketTriggerModal(this.bucketName, triggerId));
+        this.dispatch(openEditBucketTriggerModal('BUCKET', triggerId));
     }
 
     onDeleteTrigger(triggerId) {

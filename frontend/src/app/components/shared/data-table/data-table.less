@@ -19,25 +19,44 @@ data-table {
         display: block;
         border-collapse: collapse;
         overflow-y: auto;
-        margin-top: 40px;
+        z-index: 1;
 
         &.table-disabled  {
             opacity: .1;
             pointer-events: none;
         }
+
+        &::-webkit-scrollbar-track {
+            margin-top: 40px;
+        }
     }
 
     thead {
-        position: absolute;
-        width: 100%;
         line-height: 40px;
-        top: 0;
         text-transform: capitalize;
         font-size: @font-size1;
+        z-index: 1;
     }
 
-    thead > tr {
-        border-bottom: 1px solid rgb(var(--color07));
+    thead > tr > th {
+        position: sticky;
+        top: 0;
+
+        &::after{
+            .fill();
+            content: '';
+            top: auto;
+            height: 1px;
+            background-color: rgb(var(--color07));
+        }
+
+    }
+
+    table,
+    thead,
+    thead tr,
+    th {
+        background-color: inherit;
     }
 
     tbody > tr + tr {

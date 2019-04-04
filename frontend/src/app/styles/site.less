@@ -265,7 +265,13 @@ pre {
 }
 
 .disabled {
-    color: rgb(var(--color09));
+    &,
+    .success,
+    .warning,
+    .error,
+    .info {
+        color: rgb(var(--color09));
+    }
 }
 
 .bullet-list {

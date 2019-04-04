@@ -1,129 +1,80 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="row create-system-form">
-    <div class="row pad left-box push-next">
-        <div class="column align-middle">
-            <svg-icon class="logo icon-xbig align-middle"
-                params="name: 'logo'"
-            ></svg-icon>
+<form class="column content-middle"
+    ko.trapFocus="true"
+    ko.validationOptions="{ insertMessages: false }"
+>
+    <h1 class="heading1 push-next welcome-message">
+        Welcome to NooBaa!
+    </h1>
 
-            <h1 class="heading1">Welcome to NooBaa</h1>
-            <p>Two quick steps and we are ready to go</p>
-        </div>
-    </div>
+    <section class="column card-bg card-shadow box push-both">
+        <h2 class="heading1 push-next pad content-box">
+            Create a NooBaa Account
+        </h2>
 
-    <div class="steps right-box column"
-        ko.css="`step${step()}`"
-    >
-        <stepper class="pad content-box"
-            params="steps: steps, current: step"
-        ></stepper>
+        <h3 class="heading3 hpad push-next">
+            Please complete the following information to get started
+        </h3>
 
-        <div class="row pad pages">
-            <div class="page column"
-                ko.css.selected="step() === 0"
-            >
-                <p class="heading3">Create your owner account</p>
 
-                <editor params="label: 'Email address'">
-                    <div class="row content-middle"
-                        data-bind="validationOptions: { insertMessages: false }"
-                    >
-                        <input type="text"
-                            placeholder="Your email address"
-                            ko.disable="isEmailDisabled"
-                            ko.value="email"
-                            ko.hasFocus="true"
-                        />
+        <div class="hpad push-next">
+            <editor params="label: 'System name'">
+                <input type="text"
+                    placeholder="e.g., company-name"
+                    ko.value="systemName"
+                    ko.hasFocus="true"
+                    ko.css.invalid="isSystemNameInvalid"
+                />
+                <span class="val-msg" data-bind="validationMessage: systemName"></span>
+            </editor>
 
-                        <svg-icon class="match-theme spin push-prev-half"
-                            ko.visible="isEmailSpinnerVisible"
-                            params="name: 'in-progress'"></svg-icon>
-                    </div>
-                   <span class="val-msg" data-bind="validationMessage: email"></span>
-                </editor>
+            <editor params="label: 'Email address'">
+                <div class="row content-middle">
 
-                <editor class="push-next" params="
-                    label: 'Password',
-                    insertValMessages: false,
-
-                ">
-                    <password-field ko.css.invalid="isPasswordInvalid" params="
-                        value: password,
-                        placeholder: 'Enter password',
-                        strengthCalc: calcPasswordStrength
-                    "></password-field>
-
-                    <validation-rules-list params="field: password, highlightErrors: wasValidated">
-                    </validation-rules-list>
-                </editor>
-            </div>
-
-            <div class="page column" ko.css.selected="step() === 1">
-                <p class="heading3">
-                    Hi
-                    <span ko.text="name"></span>
-                    , let's configure your system
-                </p>
-
-                <editor params="label: 'NooBaa System name'">
                     <input type="text"
-                        placeholder="Name your system"
-                        ko.value="systemName" />
-                </editor>
+                        placeholder="e.g., shadowman@cloud.com"
+                        ko.disable="isEmailDisabled"
+                        ko.value="email"
+                        ko.css.invalid="isEmailInvalid"
+                    />
 
-                <editor class="preview-only" params="label: 'Server DNS name'">
-                    <div class="row content-middle"
-                        data-bind="validationOptions: { insertMessages: false }"
-                    >
-                        <input type="text"
-                            ko.value="serverDNSName" />
-
-                        <svg-icon class="spin match-theme push-prev-half"
-                            ko.visible="serverDNSName.isValidating"
-                            params="name: 'in-progress'"
-                        ></svg-icon>
-                    </div>
-                    <span class="val-msg" data-bind="validationMessage: serverDNSName"></span>
-                    <p class="hint" ko.visible="serverDNSName.isValid">optional</p>
-                </editor>
-
-                <div class="greedy row">
-                    <p class="remark align-end">
-                        By clicking the Create system button, I accept NooBaa's
-                        <a class="link"
-                            target="_blank"
-                            href="/public/eula">
-                            Terms &amp; Conditions
-                        </a>
-                    </p>
+                    <svg-icon class="match-theme spin push-prev-half"
+                        ko.visible="isEmailSpinnerVisible"
+                        params="name: 'in-progress'"></svg-icon>
                 </div>
-            </div>
+               <span class="val-msg" data-bind="validationMessage: email"></span>
+            </editor>
+
+            <editor class="push-next" params="label: 'Password'">
+                <password-field
+                    ko.css.invalid="isPasswordInvalid"
+                    params="
+                        value: password,
+                        placeholder: 'e.g., ********',
+                        strengthCalc: calcPasswordStrength
+                    "
+                ></password-field>
+
+                <validation-rules-list params="
+                    field: password,
+                    highlightErrors: wasValidated"
+                ></validation-rules-list>
+            </editor>
         </div>
 
-        <div class="row content-middle content-box pad">
-            <p class="greedy highlight">
-                Need any help?
-                <a class="link" ko.attr.href="supportEmailHref">
-                    Contact our support team
+
+        <div class="row content-middle pad content-box">
+            <p class="remark greedy push-next">
+                By clicking on the create system button, you agree  <br>
+                to NooBaa
+                <a class="link"
+                    target="_blank"
+                    href="/public/eula">
+                    terms and conditions
                 </a>
             </p>
-            <button class="link alt-colors push-next"
-                ko.visible="isPrevVisible"
-                ko.click="prev"
-            >
-                Previous
-            </button>
-
-            <button class="btn "
-                ko.visible="isNextVisible"
-                ko.click="next"
-            >
-                Next
-            </button>
-
-            <working-button ko.visible="isCreateSystemVisible"
-                ko.shakeOnClick="shakeCreateBtn"
+            <working-button ko.shakeOnClick="errors().length"
                 params="
                     working: creatingSystem,
                     workingLabel: 'Creating...',
@@ -133,5 +84,14 @@
                 Create System
             </working-button>
         </div>
-    </div>
-</section>
+    </section>
+
+    <p>
+        Need help?
+        <a class="link"
+            ko.attr.href="supportEmailHref"
+        >
+            Contact our support team
+        </a>
+    </p>
+</form>

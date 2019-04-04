@@ -9,7 +9,7 @@ Version:	%{noobaaver}
 Release:	%{revision}%{?dist}
 Summary:	noobaa rpm
 
-License:	Proprietary
+License:	Apache License 2.0
 URL:        https://www.noobaa.com/
 Source0:	%{tarfile}
 Source1:    %{installscript}
@@ -54,7 +54,6 @@ Requires: rh-mongodb36-mongodb-server-syspaths = 3.6.3
 Requires: rh-mongodb36-mongodb-syspaths = 3.6.3
 Requires: rh-mongodb36-mongo-tools = 3.6.3
 Requires: rh-mongodb36-mongo-tools-syspaths = 3.6.3
-Requires: rh-mongodb36-mongo-tools-unit-test = 3.6.3
 Requires: atomic-openshift-clients
 Requires: rhoar-nodejs10
 Requires: supervisor
@@ -92,13 +91,6 @@ echo -e "\e[31m\nWait for prompt and then we need to reboot...\n\e[0m"
 %{tmp}/%{installscript}
 
 %changelog
-* Mon Mar 25 2019 Liran Mauda <lmauda@redhat.com>
-- Adding atomic-openshift-clients as Requirement in rhel
+* Thu Apr  4 2019 Liran Mauda <lmauda@redhat.com>
+- Adding NooBaa Data Platform Capabilities
 
-* Wed Mar 20 2019 Liran Mauda <lmauda@redhat.com>
-- Fixed the mongod username and groupname
-
-* Wed Mar  6 2019 Liran Mauda <lmauda@redhat.com>
-- spit some of the required packages to centos/fedora and rhel
-- downgraded mongodb from 3.6.5 to 3.6.3
-- added packages to the rhel version (nodejs10 and supervisor)

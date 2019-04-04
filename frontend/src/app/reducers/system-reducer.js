@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { pick } from 'utils/core-utils';
+import { pick, flatMap } from 'utils/core-utils';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
@@ -155,12 +155,8 @@ function _mapRemoteSyslog(payload) {
 
 function _mapVMTools(payload) {
     const { cluster } = payload;
-    const { vmtools_installed } = cluster.shards
-        .find(shard =>
-            shard.servers.find(server =>
-                server.secret === cluster.master_secret
-            )
-        );
+    const { vmtools_installed } = flatMap(cluster.shards, shard => shard.servers)
+        .find(server => server.secret === cluster.master_secret);
 
     return vmtools_installed ? 'INSTALLED' : 'NOT_INSTALLED';
 }

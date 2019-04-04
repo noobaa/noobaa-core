@@ -29,7 +29,8 @@ function onCompleteFetchSystemInfo(state, { payload }) {
             serverAttachment: !restrictions.attach_server,
             p2pSettingsChange: !restrictions.peer_to_peer_ports,
             serverDetailsChange: !restrictions.server_details,
-            clusterConnectivityIpChange: !restrictions.cluster_connectivity_ip
+            clusterConnectivityIpChange: !restrictions.cluster_connectivity_ip,
+            toggleEndpointAgent: !restrictions.toggle_endpoint_agent
         }
     };
 }

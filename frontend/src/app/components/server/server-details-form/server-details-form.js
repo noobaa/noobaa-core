@@ -39,7 +39,7 @@ const tab = 'settings';
 const sections = deepFreeze({
     serverDns: 'system-address',
     remoteSyslog: 'remote-syslog',
-    phoneHome: 'phone-home'
+    proxyServer: 'proxy-server'
 });
 
 class ServerDetailsFormViewModel extends BaseViewModel {
@@ -59,7 +59,7 @@ class ServerDetailsFormViewModel extends BaseViewModel {
         );
 
         this.phoneHomeConfigurationHref = ko.pureComputed(
-            () => realizeUri(baseConfigurationRoute(), { section: sections.phoneHome })
+            () => realizeUri(baseConfigurationRoute(), { section: sections.proxyServer })
         );
 
         this.secret = serverSecret;

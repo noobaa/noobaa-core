@@ -36,7 +36,7 @@ class AddCloudResourceModalViewModel extends ConnectableViewModel {
     isTargetBucketsInError = ko.observable();
     fetchingTargetBuckets = ko.observable();
     targetBucketsOptions = ko.observableArray();
-    targetBucketPlaceholder = ko.observable();
+    targetBucketSubject = ko.observable();
     targetBucketLabel = ko.observable();
     connectionActions = deepFreeze([{
         label: 'Add new connection',
@@ -128,10 +128,10 @@ class AddCloudResourceModalViewModel extends ConnectableViewModel {
         const subject = selectedConnection ? getCloudServiceMeta(selectedConnection.service).subject : '';
 
         ko.assignToProps(this, {
+            targetBucketSubject: subject,
             targetBucketLabel: `Target ${subject}`,
             targetBucketsEmptyMessage: `No ${subject.toLowerCase()}s found`,
             targetBucketsErrorMessage: `Cannot retrieve ${subject.toLowerCase()}s`,
-            targetBucketPlaceholder: `Choose: ${subject}`,
             isTargetBucketsInError: cloudTargets.error,
             connectionOptions,
             fetchingTargetBuckets,

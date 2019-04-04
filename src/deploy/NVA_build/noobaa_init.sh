@@ -81,7 +81,7 @@ init_noobaa_server() {
 
   ############## run init scripts
   # change ownership and permissions of /data and /log. assuming that uid is not changed between reboots
-  /root/node_modules/noobaa-core/build/Release/kube_pv_chown $(id -u)
+  /root/node_modules/noobaa-core/build/Release/kube_pv_chown server $(id -u)
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh
   /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh
   /root/node_modules/noobaa-core/src/deploy/NVA_build/setup_server_swap.sh

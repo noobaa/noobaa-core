@@ -87,7 +87,7 @@ class FuncRowViewModel {
     deleteButton = {
         text: 'Delete function',
         tooltip: 'delete function',
-        id: '',
+        id: ko.observable(),
         active: ko.observable(),
         onDelete: id => this.table.onDeleteFunc(id),
         onToggle: id => this.table.onSelectFuncForDelete(id)

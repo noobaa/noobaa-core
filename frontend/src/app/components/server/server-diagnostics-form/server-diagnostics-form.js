@@ -58,11 +58,15 @@ class ServerDiagnosticsFormViewModel extends BaseViewModel {
         this.debugModeSheet = [
             {
                 label: 'Debug Mode',
-                value: ko.pureComputed(
-                    () => this.debugMode() ?
-                        'On <span class="warning">(May cause server slowdown)</span>' :
-                        'Off'
-                )
+                template: 'textWithWarning',
+                value: {
+                    text: ko.pureComputed(() =>
+                        this.debugMode() ? 'On' : 'Off'
+                    ),
+                    warning: ko.pureComputed(() =>
+                        this.debugMode() ? 'May cause server slowdown' : ''
+                    )
+                }
             },
             {
                 label: 'Time Left For Debugging',

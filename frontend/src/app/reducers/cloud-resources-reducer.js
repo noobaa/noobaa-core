@@ -46,6 +46,7 @@ function _mapResource(resource, bucketsByPools) {
         mode,
         region,
         type: cloud_info.endpoint_type,
+        endpoint: cloud_info.endpoint,
         target: cloud_info.target_bucket,
         storage: mapApiStorage(storage),
         usedBy: bucketsByPools[name] || [],

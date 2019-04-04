@@ -7,9 +7,10 @@ export default {
         required: [
             'name',
             'mode',
-            'storage',
-            'target',
             'type',
+            'endpoint',
+            'target',
+            'storage',
             'usedBy',
             'associatedAccounts',
             'createdBy',
@@ -32,12 +33,6 @@ export default {
                     'AUTH_FAILED'
                 ]
             },
-            storage: {
-                $ref: '#/def/common/storage'
-            },
-            target: {
-                type: 'string'
-            },
             type: {
                 type: 'string',
                 enum: [
@@ -48,6 +43,15 @@ export default {
                     'FLASHBLADE',
                     'NET_STORAGE'
                 ]
+            },
+            endpoint: {
+                type: 'string'
+            },
+            target: {
+                type: 'string'
+            },
+            storage: {
+                $ref: '#/def/common/storage'
             },
             region: {
                 type: 'string'

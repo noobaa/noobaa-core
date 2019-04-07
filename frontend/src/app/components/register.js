@@ -19,8 +19,6 @@ import exitConfirmationMessage from './application/exit-confirmation-message/exi
 import signinForm from './login/signin-form/signin-form';
 import createSystemForm from './login/create-system-form/create-system-form';
 import unsupportedForm from './login/unsupported-form/unsupported-form';
-import unableToActivateModal from './login/unable-to-activate-modal/unable-to-activate-modal';
-import internetConnectivityProblemForm from './login/internet-connectivity-problem-form/internet-connectivity-problem-form';
 import changePasswordForm from './login/change-password-form/change-password-form';
 import splashScreen from './login/splash-screen/splash-screen';
 /** INJECT:login.import **/
@@ -378,8 +376,6 @@ export default function register(ko, services) {
         signinForm,
         createSystemForm,
         unsupportedForm,
-        unableToActivateModal,
-        internetConnectivityProblemForm,
         changePasswordForm,
         splashScreen,
         /** INJECT:login.list **/

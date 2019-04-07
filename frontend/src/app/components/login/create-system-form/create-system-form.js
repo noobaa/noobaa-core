@@ -3,25 +3,12 @@
 import template from './create-system-form.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
-import { validateActivation, attemptResolveSystemName } from 'actions';
-import { resendActivationCode, createSystem } from 'action-creators';
-import { activationState, nameResolutionState, serverInfo } from 'model';
+import { attemptResolveSystemName } from 'actions';
+import { createSystem } from 'action-creators';
+import { nameResolutionState, serverInfo } from 'model';
 import moment from 'moment';
-import { deepFreeze } from 'utils/core-utils';
 import { calcPasswordStrength } from 'utils/password-utils';
 import { action$ } from 'state';
-import { sleep } from 'utils/promise-utils';
-
-const activationCodeTooltip = 'An activation code is essential in order to activate your product and can be found in your inbox.  This code would have the following structure: XXXXXX-YYYYYY';
-const activationFaliureReasonMapping = deepFreeze({
-    ACTIVATION_CODE_IN_USE: 'Activation code is already in use',
-    UNKNOWN_ACTIVATION_CODE: 'Activation code does not exists',
-    ACTIVATION_CODE_EMAIL_MISMATCH: 'Email does not match activation code',
-    NETWORK_ERROR: 'Could not connect to the license server'
-});
-
-const resendTooltip = 'Resend activation code';
-const sentTooltip = 'Activation code sent';
 
 class CreateSystemFormViewModel extends BaseViewModel {
     constructor() {
@@ -42,76 +29,20 @@ class CreateSystemFormViewModel extends BaseViewModel {
             () => serverConfig().owner || {}
         );
 
-
-        this.isUnableToActivateModalVisible = ko.pureComputed(
-            () => serverConfig().phone_home_connectivity_status !== 'CONNECTED'
-        );
-
         // First step fields:
         // -------------------
-        this.isActivationCodeDisabled = ko.pureComputed(
-            () => Boolean(ownerAccount().activation_code)
+        this.isEmailDisabled = ko.pureComputed(() =>
+            Boolean(ownerAccount().email)
         );
-        this.isActivationCodeSpinnerVisible = ko.pureComputed(
-            () => !ownerAccount().activation_code && this.activationCode.isValidating()
+        this.isEmailSpinnerVisible = ko.pureComputed(() =>
+            !ownerAccount().email && this.email.isValidating()
         );
-        this.activationCode = ko.observableWithDefault(
-            () => ownerAccount().activation_code
-        ).extend({
-            required: { message: 'Please enter your activation code' },
-            validation: {
-                async: true,
-                validator: (code, _, callback) => {
-                    validateActivation(code);
-
-                    activationState.once(
-                        ({ valid, reason }) => callback({
-                            isValid: valid || reason === 'ACTIVATION_CODE_EMAIL_MISMATCH',
-                            message: reason && activationFaliureReasonMapping[reason]
-                        })
-                    );
-                }
-            }
-        });
-
-        this.activationCodeTooltip = activationCodeTooltip;
-
-        this.isActivationCodeResendDisabled = ko.pureComputed(() => {
-            const { email } = this;
-            return !email.isValid();
-        });
-
-        this.resendTooltip = ko.observable(resendTooltip);
-
-        this.isEmailDisabled = ko.pureComputed(
-            () => Boolean(ownerAccount().email)
-        );
-        this.isEmailSpinnerVisible = ko.pureComputed(
-            () => !ownerAccount().email && this.email.isValidating()
-        );
-        this.email = ko.observableWithDefault(
-            () => ownerAccount().email
+        this.email = ko.observableWithDefault(() =>
+            ownerAccount().email
         )
             .extend({
                 required: { message: 'Please enter an email address' },
-                email: true,
-                validation: {
-                    async: true,
-                    onlyIf: () => {
-                        return this.activationCode.isValid() &&
-                            !this.activationCode.isValidating();
-                    },
-                    validator: (email, _, callback) => {
-                        validateActivation(this.activationCode(), email);
-
-                        activationState.once(
-                            ({ valid, reason }) => callback({
-                                isValid: valid || (reason !== 'ACTIVATION_CODE_EMAIL_MISMATCH' && reason !== 'NETWORK_ERROR'),
-                                message: reason && activationFaliureReasonMapping[reason]
-                            })
-                        );
-                    }
-                }
+                email: true
             });
 
         this.password = ko.observable()
@@ -132,8 +63,8 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         this.calcPasswordStrength = calcPasswordStrength;
 
-        this.name = ko.pureComputed(
-            () => this.email() && this.email().split('@')[0]
+        this.name = ko.pureComputed(() =>
+            this.email() && this.email().split('@')[0]
         );
 
         // Second step fields:
@@ -190,7 +121,6 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.errorsByStep = [
             // Account details validations
             ko.validation.group([
-                this.activationCode,
                 this.email,
                 this.password,
                 this.confirmPassword
@@ -206,19 +136,6 @@ class CreateSystemFormViewModel extends BaseViewModel {
         this.shakeCreateBtn = ko.pureComputed(
             () => this.errorsByStep.some(g => g().length > 0)
         );
-    }
-
-    onResend() {
-        action$.next(resendActivationCode(this.email()));
-        this.resendTooltip(sentTooltip);
-    }
-
-    async onResendEnter() {
-        if (this.resendTooltip() === sentTooltip) {
-            this.resendTooltip(null);
-            await sleep(400);
-            this.resendTooltip(resendTooltip);
-        }
     }
 
     validateStep(step) {
@@ -263,7 +180,6 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
         if (this.validateStep(this.step())) {
             action$.next(createSystem(
-                this.activationCode(),
                 this.email(),
                 this.password(),
                 this.systemName(),

@@ -134,7 +134,6 @@ function setup({ incomplete_rpc_coverage } = {}) {
             .then(() => announce(`base_address ${base_address}`))
             .then(() => announce('create_system()'))
             .then(() => rpc_client.system.create_system({
-                activation_code: '123',
                 name: SYSTEM,
                 email: EMAIL,
                 password: PASSWORD,

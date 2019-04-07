@@ -54,7 +54,6 @@ import {
 } from 'action-types';
 
 export function createSystem(
-    activationCode,
     ownerEmail,
     password,
     systemName,
@@ -65,7 +64,6 @@ export function createSystem(
     return {
         type: CREATE_SYSTEM,
         payload: {
-            activationCode,
             ownerEmail,
             password,
             systemName,

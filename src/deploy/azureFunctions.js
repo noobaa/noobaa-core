@@ -21,18 +21,12 @@ const QA_USER_NAME = 'qaadmin';
 const ADMIN_PASSWORD = '0bj3ctSt0r3!';
 const DEFAULT_VMSIZE = 'Standard_B2s';
 
-const DEV_ACTIVATION_KEY = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
-    "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
-    "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
-    "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
-
 const IMAGE_LOCATION = 'https://jenkinsnoobaastorage.blob.core.windows.net/';
 
 const system = {
     name: 'demo',
     email: 'demo@noobaa.com',
-    password: 'DeMo1',
-    activation_code: DEV_ACTIVATION_KEY
+    password: 'DeMo1'
 };
 
 const NTP = 'time.windows.com';
@@ -203,7 +197,7 @@ class AzureFunctions {
                 serverIP: server_ip
             });
         } else {
-            console.log(`Skipping creation of extension (agent installation), both ip ${server_ip} and 
+            console.log(`Skipping creation of extension (agent installation), both ip ${server_ip} and
                     agentConf ${agentConf === undefined ? 'undefined' : 'exists'} should be supplied`);
         }
         return ip;
@@ -343,7 +337,7 @@ class AzureFunctions {
             };
         }
         await this.createVirtualMachineExtension(vmName, extension);
-        return ip; //LMLM: why do we return the ip that we get? 
+        return ip; //LMLM: why do we return the ip that we get?
     }
 
     async createWinSecurityExtension(vmName) {
@@ -907,7 +901,7 @@ class AzureFunctions {
         const NOOBAA_IMAGE = location + CONTAINER_NAME + '/' + image;
         // const image_prefix = image.split('-')[0];
         var isDone = false;
-        // check if the container exist 
+        // check if the container exist
         return P.fromCallback(callback => blobSvc.doesContainerExist(CONTAINER_NAME, callback))
             //if the container doesn't exist create it
             .then(({ exists }) => !exists && P.fromCallback(callback => blobSvc.createContainer(CONTAINER_NAME, callback)))

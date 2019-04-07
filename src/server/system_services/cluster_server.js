@@ -2,8 +2,6 @@
 /* eslint max-lines: ['error', 2500] */
 'use strict';
 
-const DEV_MODE = (process.env.DEV_MODE === 'true');
-
 const _ = require('lodash');
 const fs = require('fs');
 const moment = require('moment');
@@ -27,7 +25,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const net_utils = require('../../util/net_utils');
-const phone_home_utils = require('../../util/phone_home');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const upgrade_server = require('./upgrade_server');
 
@@ -1268,46 +1265,22 @@ function apply_read_server_time(req) {
 //
 
 function read_server_config(req) {
-    const { test_ph_connectivity = false, ph_proxy } = req.rpc_params;
-    const proxy = ph_proxy && `http://${ph_proxy.address}:${ph_proxy.port}`;
     let using_dhcp = false;
     let srvconf = {};
 
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
         .then(() => {
-            if (DEV_MODE) {
-                return 'CONNECTED';
-            }
-
-            return phone_home_utils.verify_connection_to_phonehome({ proxy }, test_ph_connectivity);
-        })
-        .then(connection_reply => {
-            const phone_home_connectivity_status =
-                (test_ph_connectivity && connection_reply) ||
-                (connection_reply !== 'CONNECTED' && 'WAS_NOT_TESTED') ||
-                'CONNECTED';
-
-            if (phone_home_connectivity_status === 'CONNECTED' && ph_proxy) {
-                dotenv.set({
-                    key: 'PH_PROXY',
-                    value: proxy
-                });
-            }
-
             const { dns_servers, search_domains, ntp = {} } = srvconf;
             const { timezone, server } = ntp;
-            const used_proxy = ph_proxy;
 
             return _get_aws_owner()
                 .then(owner => ({
-                    phone_home_connectivity_status,
                     using_dhcp,
                     dns_servers,
                     search_domains,
                     timezone,
                     ntp_server: server,
-                    used_proxy,
                     owner,
                 }));
         });

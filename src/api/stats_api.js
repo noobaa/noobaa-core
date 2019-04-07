@@ -130,6 +130,12 @@ module.exports = {
                 version: {
                     type: 'string',
                 },
+                os_release: {
+                    type: 'string'
+                },
+                platform: {
+                    type: 'string'
+                },
                 agent_version: {
                     type: 'string',
                 },

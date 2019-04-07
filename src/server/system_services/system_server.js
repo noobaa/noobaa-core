@@ -303,6 +303,7 @@ function create_system(req) {
                 password: req.rpc_params.password,
                 has_login: true,
                 s3_access: true,
+                must_change_password: req.rpc_params.must_change_password,
                 new_system_parameters: {
                     account_id: account._id.toString(),
                     new_system_id: system_id.toString(),

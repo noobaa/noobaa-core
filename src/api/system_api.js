@@ -42,6 +42,10 @@ module.exports = {
                     },
                     proxy_address: {
                         type: 'string'
+                    },
+                    // require password change on first login
+                    must_change_password: {
+                        type: 'boolean'
                     }
                 },
             },

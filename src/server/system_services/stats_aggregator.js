@@ -9,6 +9,7 @@
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const request = require('request');
+const fs = require('fs');
 const P = require('../../util/promise');
 const net_utils = require('../../util/net_utils');
 const dbg = require('../../util/debug_module')(__filename);
@@ -22,6 +23,7 @@ const object_server = require('../object_services/object_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
+const fs_utils = require('../../util/fs_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
@@ -106,16 +108,19 @@ function _aggregate_buckets_config(system) {
 }
 
 //Collect systems related stats and usage
-function get_systems_stats(req) {
+async function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
     sys_stats.count = system_store.data.systems.length;
+    sys_stats.os_release = (await fs.readFileAsync('/etc/redhat-release').catch(fs_utils.ignore_enoent) || 'unkonwn').toString();
+    sys_stats.platform = process.env.PLATFORM;
     var cluster = system_store.data.clusters[0];
     if (cluster && cluster.cluster_id) {
         sys_stats.clusterid = cluster.cluster_id;
     }
 
-    return P.all(_.map(system_store.data.systems, system => {
+    try {
+        sys_stats.systems = await P.all(_.map(system_store.data.systems, system => {
             let new_req = _.defaults({
                 system: system
             }, req);
@@ -149,23 +154,20 @@ function get_systems_stats(req) {
                         },
                         cluster: {
                             members: res.cluster.shards[0].servers.length
-                        }
+                        },
                     }, SINGLE_SYS_DEFAULTS);
                 });
-        }))
-        .then(systems => {
-            sys_stats.systems = systems;
-            return HistoryDataStore.instance().get_system_version_history();
-        })
-        .then(version_history => {
-            sys_stats.version_history = version_history;
-            return sys_stats;
-        })
-        .catch(err => {
-            dbg.warn('Error in collecting systems stats,',
-                'skipping current sampling point', err.stack || err);
-            throw err;
-        });
+        }));
+
+
+        sys_stats.version_history = await HistoryDataStore.instance().get_system_version_history();
+
+        return sys_stats;
+    } catch (err) {
+        dbg.warn('Error in collecting systems stats,',
+            'skipping current sampling point', err.stack || err);
+        throw err;
+    }
 }
 
 var NODES_STATS_DEFAULTS = {
@@ -688,8 +690,7 @@ async function _notify_latest_version() {
             prefix: 'release-notes/',
             delimiter: '/',
         }, callback));
-
-        const items = results.items;
+        const items = results.data.items;
         const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
         const current_val = (current_major * 10000) + (current_minor * 100) + current_patch;
         const un_sorted_files = _.compact(items.map(fl => fl.name
@@ -728,8 +729,8 @@ async function _notify_latest_version() {
             same_major_latest_val = (major * 10000) + (minor * 100) + patch;
         }
 
-        const is_same_major_latest_alpha = same_major_latest.split('-').length > 1 && same_major_latest.split('-')[1] === 'alpha';
-        const is_latest_version_alpha = latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
+        const is_same_major_latest_alpha = same_major_latest && same_major_latest.split('-').length > 1 && same_major_latest.split('-')[1] === 'alpha';
+        const is_latest_version_alpha = latest_version && latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
 
         if (!is_same_major_latest_alpha && same_major_latest && current_val < same_major_latest_val) {
             Dispatcher.instance().alert('INFO',

@@ -13,7 +13,7 @@ try {
 
         // console.log('func_proc: received message', msg);
 
-        if (msg.AWS_EXECUTION_ENV) process.env.AWS_EXECUTION_ENV = 'NOOBAA_FUNCTION';
+        if (msg.AWS_EXECUTION_ENV) process.env.AWS_EXECUTION_ENV = msg.AWS_EXECUTION_ENV;
         if (msg.aws_config) {
             AWS.config.update(msg.aws_config);
         }

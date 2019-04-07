@@ -761,7 +761,7 @@ module.exports = {
                     obj: {
                         $ref: '#/definitions/object_info'
                     },
-                    event_name: { $ref: 'common_api#/definitions/event_name' }
+                    event_name: { $ref: 'common_api#/definitions/bucket_trigger_event' }
                 }
             },
             auth: {

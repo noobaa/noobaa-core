@@ -63,7 +63,7 @@ class NamespaceMerge {
     async read_object_stream(params, object_sdk) {
         const operation = 'ObjectRead';
         const load_for_trigger = !params.noobaa_trigger_agent &&
-            object_sdk.load_additional_info_for_triggers({ active_triggers: this.active_triggers, operation });
+            object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         params = _.omit(params, 'noobaa_trigger_agent');
         let reply;
         let obj = { key: params.key };
@@ -88,7 +88,7 @@ class NamespaceMerge {
 
     async upload_object(params, object_sdk) {
         const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({ active_triggers: this.active_triggers, operation });
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         const reply = await this._ns_put(ns => ns.upload_object(params, object_sdk));
         if (load_for_trigger) {
             const obj = {
@@ -149,10 +149,10 @@ class NamespaceMerge {
 
     async delete_object(params, object_sdk) {
         const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({ active_triggers: this.active_triggers, operation });
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         let obj;
         try {
-            obj = load_for_trigger && _.defaults({ key: obj.key }, await this.read_object_md(params, object_sdk));
+            obj = load_for_trigger && _.defaults({ key: params.key }, await this.read_object_md(params, object_sdk));
         } catch (error) {
             if (!_.includes(EXCEPT_REASONS, error.rpc_code || 'UNKNOWN_ERR')) throw error;
         }
@@ -168,7 +168,7 @@ class NamespaceMerge {
 
     async delete_multiple_objects(params, object_sdk) {
         const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({ active_triggers: this.active_triggers, operation });
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         const head_res = load_for_trigger && await this._ns_map(ns => P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,

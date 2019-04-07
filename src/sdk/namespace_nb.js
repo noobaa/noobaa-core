@@ -19,13 +19,11 @@ class NamespaceNB {
     }
 
     set_triggers_for_bucket(bucket, triggers) {
-        const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
-        const active_triggers = _.map(triggers, trigger => _.pick(trigger, trigger_properties));
-        this.active_triggers_map_by_bucket.set(bucket, active_triggers);
+        this.active_triggers_map_by_bucket.set(bucket, triggers);
     }
 
     get_triggers_for_bucket(bucket) {
-        return this.active_triggers_map_by_bucket.set(bucket);
+        return this.active_triggers_map_by_bucket.get(bucket);
     }
 
     is_same_namespace(other) {
@@ -77,7 +75,7 @@ class NamespaceNB {
             bucket: this.target_bucket,
         }, params);
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
-        const load_for_trigger = !params.noobaa_trigger_agent && object_sdk.load_additional_info_for_triggers({
+        const load_for_trigger = !params.noobaa_trigger_agent && object_sdk.should_run_triggers({
             active_triggers,
             operation
         });
@@ -106,7 +104,7 @@ class NamespaceNB {
             bucket: this.target_bucket,
         }, params);
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({
+        const load_for_trigger = object_sdk.should_run_triggers({
             active_triggers,
             operation
         });
@@ -183,7 +181,7 @@ class NamespaceNB {
         const operation = 'ObjectRemoved';
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({
+        const load_for_trigger = object_sdk.should_run_triggers({
             active_triggers,
             operation
         });
@@ -196,7 +194,7 @@ class NamespaceNB {
         const reply = await object_sdk.rpc_client.object.delete_object(params);
         // TODO: What should I send to the trigger on non existing objects delete?
         if (load_for_trigger && obj) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+            object_sdk.dispatch_triggers({ active_triggers, operation, obj, bucket: params.bucket });
         }
         return reply;
     }
@@ -205,7 +203,7 @@ class NamespaceNB {
         const operation = 'ObjectRemoved';
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
-        const load_for_trigger = object_sdk.load_additional_info_for_triggers({
+        const load_for_trigger = object_sdk.should_run_triggers({
             active_triggers,
             operation
         });

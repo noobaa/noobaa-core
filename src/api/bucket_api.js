@@ -128,7 +128,7 @@ module.exports = {
             }
         },
 
-        get_bucket_namespaces: {
+        read_bucket_sdk_info: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -138,11 +138,7 @@ module.exports = {
                 }
             },
             reply: {
-                anyOf: [{
-                    $ref: '#/definitions/bucket_namespaces_info'
-                }, {
-                    $ref: '#/definitions/bucket_info'
-                }]
+                $ref: '#/definitions/bucket_sdk_info'
             },
             auth: {
                 system: 'admin'
@@ -822,11 +818,10 @@ module.exports = {
             }
         },
 
-        bucket_namespaces_info: {
+        bucket_sdk_info: {
             type: 'object',
             required: [
-                'name',
-                'namespace'
+                'name'
             ],
             properties: {
                 name: {
@@ -859,7 +854,7 @@ module.exports = {
                         type: 'object',
                         properties: {
                             event_name: {
-                                $ref: 'common_api#/definitions/event_name'
+                                $ref: 'common_api#/definitions/bucket_trigger_event'
                             },
                             object_prefix: {
                                 type: 'string'
@@ -1014,7 +1009,7 @@ module.exports = {
             properties: {
                 bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
-                    $ref: 'common_api#/definitions/event_name'
+                    $ref: 'common_api#/definitions/bucket_trigger_event'
                 },
                 func_name: {
                     type: 'string'
@@ -1043,7 +1038,7 @@ module.exports = {
                 },
                 bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                 event_name: {
-                    $ref: 'common_api#/definitions/event_name'
+                    $ref: 'common_api#/definitions/bucket_trigger_event'
                 },
                 func_name: {
                     type: 'string'
@@ -1076,7 +1071,7 @@ module.exports = {
                     objectid: true
                 },
                 event_name: {
-                    $ref: 'common_api#/definitions/event_name'
+                    $ref: 'common_api#/definitions/bucket_trigger_event'
                 },
                 func_name: {
                     type: 'string'

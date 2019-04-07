@@ -64,6 +64,8 @@ const MODE_COMPARE_ORDER = [
     'NO_RESOURCES'
 ];
 
+const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
+
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     let now = Date.now();
     return {
@@ -292,7 +294,7 @@ async function delete_bucket_tagging(req) {
  * READ_BUCKET
  *
  */
-function read_bucket(req, dont_count_objects) {
+function read_bucket(req) {
     var bucket = find_bucket(req);
     var pools = [];
 
@@ -310,37 +312,36 @@ function read_bucket(req, dont_count_objects) {
             hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
             aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
                 bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
-            num_of_objects: dont_count_objects === 'dont_count_objects' ? 0 : MDStore.instance().count_objects_of_bucket(bucket._id),
+            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
             func_configs: get_bucket_func_configs(req, bucket),
             unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
         })
         .then(get_bucket_info);
 }
 
-function get_bucket_namespaces(req) {
-    var bucket = find_bucket(req);
+async function read_bucket_sdk_info(req) {
+    const bucket = find_bucket(req);
     const system = req.system;
 
-    return P.resolve()
-        .then(() => {
-            if (bucket.namespace) {
-                const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
-                return {
-                    name: bucket.name,
-                    namespace: {
-                        write_resource: pool_server.get_namespace_resource_extended_info(
-                            system.namespace_resources_by_name[bucket.namespace.write_resource.name]
-                        ),
-                        read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
-                    },
-                    proxy: system.phone_home_proxy_address,
-                    active_triggers: _.compact(_.map(bucket.lambda_triggers, trigger =>
-                        (trigger.enabled && _.pick(trigger, trigger_properties))))
-                };
-            } else {
-                return read_bucket(req, 'dont_count_objects');
-            }
-        });
+    const reply = {
+        name: bucket.name,
+        proxy: system.phone_home_proxy_address,
+        active_triggers: _.map(
+            _.filter(bucket.lambda_triggers, 'enabled'),
+            trigger => _.pick(trigger, trigger_properties)
+        )
+    };
+
+    if (bucket.namespace) {
+        reply.namespace = {
+            write_resource: pool_server.get_namespace_resource_extended_info(
+                system.namespace_resources_by_name[bucket.namespace.write_resource.name]
+            ),
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
+        };
+    }
+
+    return reply;
 }
 
 /**
@@ -1587,7 +1588,7 @@ exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
 exports.create_bucket_spillover_tier = create_bucket_spillover_tier;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
-exports.get_bucket_namespaces = get_bucket_namespaces;
+exports.read_bucket_sdk_info = read_bucket_sdk_info;
 exports.list_buckets = list_buckets;
 exports.update_buckets = update_buckets;
 //exports.generate_bucket_access = generate_bucket_access;

@@ -23,7 +23,7 @@ class LoginLayoutViewModel extends BaseViewModel {
                     return 'splash-screen';
                 }
 
-                const { initialized, config } = serverInfo();
+                const { initialized } = serverInfo();
                 if (initialized) {
                     const session = sessionInfo();
                     if (isUndefined(session)) {
@@ -40,10 +40,6 @@ class LoginLayoutViewModel extends BaseViewModel {
                     }
 
                 } else {
-                    if (config.phone_home_connectivity_status !== 'CONNECTED') {
-                        return 'internet-connectivity-problem-form';
-                    }
-
                     return 'create-system-form';
                 }
             }

@@ -20,16 +20,13 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password', 'activation_code'],
+                required: ['name', 'email', 'password'],
                 properties: {
                     name: {
                         type: 'string',
                     },
                     email: { $ref: 'common_api#/definitions/email' },
                     password: { $ref: 'common_api#/definitions/password' },
-                    activation_code: {
-                        type: 'string',
-                    },
                     //Optionals: DNS, NTP and NooBaa Domain Name
                     time_config: {
                         $ref: 'cluster_internal_api#/definitions/time_config'
@@ -415,54 +412,6 @@ module.exports = {
                 properties: {
                     valid: {
                         type: 'boolean'
-                    },
-                    reason: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                account: false,
-                system: false,
-            }
-        },
-
-        resend_activation_code: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['email'],
-                properties: {
-                    email: { $ref: 'common_api#/definitions/email' },
-                }
-            },
-            auth: {
-                account: false,
-                system: false,
-            }
-        },
-
-        validate_activation: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['code'],
-                properties: {
-                    code: {
-                        type: 'string'
-                    },
-                    email: { $ref: 'common_api#/definitions/email' },
-                    proxy_address: {
-                        type: 'string'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['valid'],
-                properties: {
-                    valid: {
-                        type: 'boolean',
                     },
                     reason: {
                         type: 'string'

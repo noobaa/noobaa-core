@@ -41,38 +41,6 @@
                    <span class="val-msg" data-bind="validationMessage: email"></span>
                 </editor>
 
-                <editor params="
-                    label: 'Activation code',
-                    tooltip: activationCodeTooltip
-                ">
-                    <div class="row content-middle">
-                        <div class="row content-middle activation-code-field"
-                            ko.validationOptions="{ insertMessages: false }"
-                        >
-                            <input type="text"
-                                ko.disable="isActivationCodeDisabled"
-                                placeholder="e.g. XXXXXX-YYYYYY"
-                                ko.value="activationCode" />
-
-                            <button class="link alt-colors no-outline resend-btn"
-                                tabindex="-1"
-                                ko.tooltip="resendTooltip"
-                                ko.enable="email.isValid"
-                                ko.click="onResend"
-                                ko.event.mouseenter="onResendEnter"
-                            >
-                                Resend
-                            </button>
-                        </div>
-
-                        <svg-icon class="spin"
-                            ko.visible="isActivationCodeSpinnerVisible"
-                            params="name: 'in-progress'"
-                        ></svg-icon>
-                    </div>
-                    <span class="val-msg" data-bind="validationMessage: activationCode"></span>
-                </editor>
-
                 <editor class="push-next" params="
                     label: 'Password',
                     insertValMessages: false,

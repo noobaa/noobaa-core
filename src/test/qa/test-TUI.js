@@ -255,7 +255,7 @@ function ntp_Configuration_parameters(configureTZ, reachable) {
         ntp_parameters.toExpect = 'unreachable';
         ntp_parameters.to_report = `NTP_unreachable_without_TZ`;
     } else {
-        //making sure that we are not missing states... 
+        //making sure that we are not missing states...
         console.log('Configuring reachable NTP with TZ');
         ntp_parameters.ntpString = `${DELETE}pool.ntp.org${DOWN}${DELETE}Asia/Jerusalem\r`;
         ntp_parameters.toExpect = 'pool.ntp.org';
@@ -359,7 +359,7 @@ function dns_Configuration_parameters(configurePrimary, configureSecondary, reac
         dns_parameters.dnsString = `${DELETE}${DOWN}1.1.1.1${DELETE}\r`;
         dns_parameters.to_report = `DNS_primary_empty`;
     } else {
-        //making sure that we are not missing states... 
+        //making sure that we are not missing states...
         console.log('Configuring reachable Primary DNS with reachable Secondary DNS');
         dns_parameters.dnsString = `${DELETE}8.8.8.8${DOWN}${DELETE}8.8.4.4\r`;
         dns_parameters.toExpect = '8.8.8.8';
@@ -483,9 +483,9 @@ async function main() {
             console.log(`${YELLOW}Starting cycle number: ${cycle}${NC}`);
             if (cycle % 2 > 0) {
                 console.log(`Running cycle without system`);
-                // currently we are running only in azure. 
+                // currently we are running only in azure.
                 // clean_ova does not delete /etc/first_install.mrk on platform other then esx
-                // system is always consider started. 
+                // system is always consider started.
                 //isSystemStarted = false;
                 await server_ops.clean_ova(server_ip, secret, true);
                 await server_ops.wait_server_reconnect(server_ip);
@@ -511,7 +511,6 @@ async function main() {
             await dns_Configuration();
             await hostname_Settings();
             if (cycle % 2 > 0) {
-                await server_ops.validate_activation_code(server_ip);
                 await server_ops.create_system_and_check(server_ip);
             }
         }

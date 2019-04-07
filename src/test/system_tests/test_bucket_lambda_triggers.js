@@ -20,6 +20,7 @@ dotenv.load();
 
 /***         Config         ***/
 const TIME_FOR_FUNC_TO_RUN = 15000;
+const TIME_FOR_SDK_TO_UPDATE = 60000;
 const NUM_OF_RETRIES = 10;
 
 var client = rpc.new_client({
@@ -187,15 +188,15 @@ async function setup() {
 
         //find the internal pool and set spillover on thge buckets
 
-        await client.bucket.update_bucket({ name: 'bucket1', spillover: internal_resource});
-        await client.bucket.update_bucket({ name: 'bucket2', spillover: internal_resource});
+        await client.bucket.update_bucket({ name: 'bucket1', spillover: internal_resource });
+        await client.bucket.update_bucket({ name: 'bucket2', spillover: internal_resource });
 
         // Create NS buckets and resources
         await client.bucket.create_bucket({ name: 'ns.internal.bucket1' });
         await client.bucket.create_bucket({ name: 'ns.internal.bucket2' });
 
-        await client.bucket.update_bucket({ name: 'ns.internal.bucket1', spillover: internal_resource});
-        await client.bucket.update_bucket({ name: 'ns.internal.bucket2', spillover: internal_resource});
+        await client.bucket.update_bucket({ name: 'ns.internal.bucket1', spillover: internal_resource });
+        await client.bucket.update_bucket({ name: 'ns.internal.bucket2', spillover: internal_resource });
 
         await client.account.add_external_connection(external_connection);
 
@@ -271,6 +272,7 @@ async function run_test() {
             id: trigger_id,
             enabled: false
         });
+        await P.delay(TIME_FOR_SDK_TO_UPDATE);
 
         console.log(`testing trigger not invoked after removed for ${b}`);
         await test_trigger_dont_run_when_shouldnt(bucket1_user, 'file2.dat', b);
@@ -280,6 +282,7 @@ async function run_test() {
             id: trigger_id,
             enabled: true
         });
+        await P.delay(TIME_FOR_SDK_TO_UPDATE);
         await test_trigger_run_when_should(bucket1_user, 'file3.dat', b);
         console.log(`changing bucket lambda trigger prefix to /bla. on ${b}`);
         await client.bucket.update_bucket_lambda_trigger({
@@ -287,6 +290,7 @@ async function run_test() {
             id: trigger_id,
             object_prefix: '/bla'
         });
+        await P.delay(TIME_FOR_SDK_TO_UPDATE);
 
         await test_trigger_dont_run_when_shouldnt(bucket1_user, '/tmp/file4.dat', b);
         console.log(`changing bucket lambda trigger prefix to /tmp on ${b}`);
@@ -295,6 +299,7 @@ async function run_test() {
             id: trigger_id,
             object_prefix: '/tmp'
         });
+        await P.delay(TIME_FOR_SDK_TO_UPDATE);
 
         await test_trigger_run_when_should(bucket1_user, '/tmp/file5.dat', b);
         system_info = await client.system.read_system();
@@ -343,6 +348,7 @@ async function test_add_bucket_trigger(type, func, bucketname) {
         func_name: func.FunctionName,
         event_name: type
     });
+    await P.delay(TIME_FOR_SDK_TO_UPDATE);
     console.log('bucket lambda trigger created.');
 }
 

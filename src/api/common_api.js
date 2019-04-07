@@ -16,15 +16,9 @@ module.exports = {
 
     definitions: {
 
-        event_name: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
-            anyOf: [{
-                enum: ['ObjectCreated', 'ObjectRemoved', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
-                type: 'string',
-            }, {
-                // Events that do not exist in AWS S3 API
-                enum: ['ObjectRead'],
-                type: 'string',
-            }]
+        bucket_trigger_event: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
+            enum: ['ObjectCreated', 'ObjectRemoved', 'ObjectRead', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
+            type: 'string',
         },
 
         storage_info: {

@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const util = require('util');
-const mongo_utils = require('../util/mongo_utils');
 require('../util/dotenv').load();
 
 // const P = require('../util/promise');
@@ -36,6 +35,7 @@ const NAMESPACE_CACHE_EXPIRY = 60000;
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
 ];
+const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
 
 class ObjectSDK {
 
@@ -74,15 +74,15 @@ class ObjectSDK {
 
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        const bucket = params.bucket || await this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
+        const bucket = params.bucket || await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
         return this._setup_bucket_namespace(bucket);
     }
 
     async _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        const bucket = await this.rpc_client.bucket.get_bucket_namespaces({ name: params.name });
-        if (_.isEqual(bucket.namespace, data.bucket.namespace)) {
+        const bucket = await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
+        if (_.isEqual(bucket, data.bucket)) {
             // namespace unchanged - extend validity for another period
             data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
             return true;
@@ -108,7 +108,7 @@ class ObjectSDK {
         } catch (err) {
             dbg.error('Failed to setup bucket namespace (fallback to no namespace)', err);
         }
-        this.namespace_nb.set_triggers_for_bucket(bucket.name, bucket.triggers);
+        this.namespace_nb.set_triggers_for_bucket(bucket.name.unwrap(), bucket.active_triggers);
         return {
             ns: this.namespace_nb,
             bucket,
@@ -494,7 +494,7 @@ class ObjectSDK {
         return ns.get_bucket_tagging(params);
     }
 
-    async load_additional_info_for_triggers({ active_triggers, operation, obj }) {
+    should_run_triggers({ active_triggers, operation, obj }) {
         return _.some(active_triggers, trigger => {
             const { event_name, object_suffix, object_prefix } = trigger;
             if (event_name !== operation) return false;
@@ -507,10 +507,11 @@ class ObjectSDK {
     }
 
     async dispatch_triggers({ active_triggers, obj, operation, bucket }) {
-        const dispatch = this.load_additional_info_for_triggers({ active_triggers, obj, operation });
+        const dispatch = this.should_run_triggers({ active_triggers, obj, operation });
         if (dispatch) {
-            const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
-            const dispatch_obj = _.defaults({ obj_id: mongo_utils.make_object_id('jensthesloth') }, _.pick(obj, required_obj_properties));
+            const dispatch_obj = _.pick(obj, required_obj_properties);
+            // Dummy obj_id (not all flows return with obj_id and we need it for the API schema)
+            dispatch_obj.obj_id = '10101010aaaabbbbccccdddd';
             await this.rpc_client.object.dispatch_triggers({
                 bucket,
                 event_name: operation,

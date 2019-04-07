@@ -801,7 +801,7 @@ const net_storage_error_mapping = Object.freeze({
 
 async function check_google_connection(params) {
     try {
-        const key_file = JSON.parse(params.secret);
+        const key_file = JSON.parse(params.secret.unwrap());
         const credentials = _.pick(key_file, 'client_email', 'private_key');
         const storage = new GoogleStorage({ credentials, projectId: key_file.project_id });
         await storage.getBuckets();

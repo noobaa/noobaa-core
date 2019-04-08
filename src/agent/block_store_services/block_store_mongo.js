@@ -12,6 +12,15 @@ const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
 const mongo_utils = require('../../util/mongo_utils');
+const Semaphore = require('../../util/semaphore');
+
+// limiting the IO concurrency on mongo
+// we use a very low limit since this is used only for temporary internal storage
+// which is meant for quick onboarding, and not for performance/production.
+const sem_head = new Semaphore(3);
+const sem_read = new Semaphore(1);
+const sem_write = new Semaphore(1);
+const sem_delete = new Semaphore(1);
 
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;
@@ -129,7 +138,8 @@ class BlockStoreMongo extends BlockStoreBase {
 
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
-        return P.join(
+        return sem_read.surround(() =>
+            P.join(
                 buffer_utils.read_stream_join(this._blocks_fs.gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
             )
@@ -140,7 +150,8 @@ class BlockStoreMongo extends BlockStoreBase {
             .catch(err => {
                 dbg.error('_read_block failed:', err, this.base_path);
                 throw err;
-            });
+            })
+        );
     }
 
     _write_block(block_md, data) {
@@ -148,7 +159,8 @@ class BlockStoreMongo extends BlockStoreBase {
         const block_metadata = this._encode_block_md(block_md);
         const block_data = data || Buffer.alloc(0);
         // check to see if the object already exists
-        return this.head_block(block_name)
+        return sem_write.surround(() =>
+            this.head_block(block_name)
             .then(head => {
                 if (block_md.id !== '_test_store_perf') {
                     dbg.warn('block already found in mongo, will overwrite. id =', block_md.id);
@@ -179,7 +191,8 @@ class BlockStoreMongo extends BlockStoreBase {
             .catch(err => {
                 dbg.error('_write_block failed:', err, this.base_path);
                 throw err;
-            });
+            })
+        );
     }
 
     _write_usage_internal() {
@@ -191,7 +204,8 @@ class BlockStoreMongo extends BlockStoreBase {
     _delete_blocks(block_ids) {
         let failed_to_delete_block_ids = [];
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
-        return P.map(block_names, block_name => this._blocks_fs.gridfs().find({
+        return sem_delete.surround(() =>
+            P.map(block_names, block_name => this._blocks_fs.gridfs().find({
                     filename: block_name
                 })
                 .toArray()
@@ -211,11 +225,13 @@ class BlockStoreMongo extends BlockStoreBase {
             .then(() => ({
                 failed_block_ids: failed_to_delete_block_ids,
                 succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
-            }));
+            }))
+        );
     }
 
     head_block(block_name) {
-        return P.resolve(this._blocks_fs.gridfs().find({
+        return sem_head.surround(() =>
+            P.resolve(this._blocks_fs.gridfs().find({
                     filename: block_name
                 }, {
                     limit: 1
@@ -230,7 +246,8 @@ class BlockStoreMongo extends BlockStoreBase {
                 err.code = 'NOT_FOUND';
                 throw err;
                 // throw new RpcError('NOT_FOUND', `head_block: Block ${block_name} response ${usage_file_res}`);
-            });
+            })
+        );
     }
 
 }

@@ -170,17 +170,18 @@ class DataBreakdownFormViewModel extends ConnectableViewModel {
     };
 
     selectState(state) {
+        const { buckets, location, session } = state;
         return [
-            state.buckets,
-            state.location,
-            themes[state.session.uiTheme]
+            buckets,
+            location,
+            session && themes[session.uiTheme]
         ];
     }
 
     mapStateToProps(buckets, location, theme) {
         const { view = 'BUCKETS' } = location.query;
 
-        if (!buckets) {
+        if (!buckets || !theme) {
             ko.assignToProps(this, {
                 dataReady: false,
                 selectedView: view,

@@ -149,16 +149,17 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
     };
 
     selectState(state) {
+        const { location, hostPools, cloudResources, session } = state;
         return [
-            state.location,
-            state.hostPools,
-            state.cloudResources,
-            themes[state.session.uiTheme]
+            location,
+            hostPools,
+            cloudResources,
+            session && themes[session.uiTheme]
         ];
     }
 
     mapStateToProps(location, hostPools, cloudResources, theme) {
-        if (!hostPools || !cloudResources) {
+        if (!hostPools || !cloudResources || !theme) {
             ko.assignToProps(this, {
                 dataReady: false
             });

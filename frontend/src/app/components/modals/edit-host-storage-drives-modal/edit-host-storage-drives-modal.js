@@ -93,6 +93,7 @@ class EditHostStorageDrivesModalViewModel extends ConnectableViewModel {
         }));
 
         ko.assignToProps(this, {
+            host,
             isLastService: disabledModes.includes(endpoint.mode),
             nodesState,
             rows,

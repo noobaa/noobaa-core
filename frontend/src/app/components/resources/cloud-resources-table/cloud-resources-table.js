@@ -147,7 +147,10 @@ function _mapResourceToRow(resource, selectedForDelete, system, lockingAccounts)
             } :null
         },
         usage: formatSize(storage.used),
-        cloudBucket: target,
+        cloudBucket: {
+            text: target,
+            tooltip: target
+        },
         deleteButton: {
             id: name,
             active: selectedForDelete === name,
@@ -170,7 +173,10 @@ class RowViewModel {
     region = ko.observable();
     buckets = ko.observable();
     usage = ko.observable();
-    cloudBucket = ko.observable();
+    cloudBucket = {
+        text: ko.observable(),
+        tooltip: ko.observable()
+    };
     deleteButton = {
         id: ko.observable(),
         text: 'Delete resource',

@@ -71,18 +71,19 @@ class BucketObjectsDistributionFormViewModel extends ConnectableViewModel {
     }
 
     selectState(state) {
+        const { buckets, location, objectsDistribution, session } = state;
         return [
-            state.buckets,
-            state.location,
-            state.objectsDistribution,
-            themes[state.session.uiTheme]
+            buckets,
+            location,
+            objectsDistribution,
+            session && themes[session.uiTheme]
         ];
     }
 
     mapStateToProps(buckets, location, distributions, theme) {
         const { pathname, query } = location;
 
-        if (!buckets || !distributions.buckets) {
+        if (!buckets || !distributions.buckets || !theme) {
             ko.assignToProps(this, {
                 dataReady: false,
                 query: query,

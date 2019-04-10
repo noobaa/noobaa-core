@@ -1,6 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
 
-import './data-table-binding';
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as cellTemplates from './cell-templates';

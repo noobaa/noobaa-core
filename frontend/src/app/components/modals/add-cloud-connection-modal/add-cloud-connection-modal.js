@@ -347,7 +347,7 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
 
         this.dispatch(
-            closeModal,
+            closeModal(),
             addExternalConnection(connectionName, service, params)
         );
     }

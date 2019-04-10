@@ -178,16 +178,17 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
     }
 
     selectState(state) {
+        const { forms, accounts, accountUsageHistory, session } = state;
         return [
-            state.forms[this.formName],
-            state.accounts,
-            state.accountUsageHistory,
-            themes[state.session.uiTheme]
+            forms[this.formName],
+            accounts,
+            accountUsageHistory,
+            session && themes[session.uiTheme]
         ];
     }
 
     mapStateToProps(form, accounts, usageHistory, theme) {
-        if (!accounts || !usageHistory.samples || !getFieldValue(form, 'initialized')) {
+        if (!accounts || !usageHistory.samples || !theme || !getFieldValue(form, 'initialized')) {
             ko.assignToProps(this, {
                 dataReady: false,
                 pathname: location.pathname,

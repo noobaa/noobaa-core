@@ -238,7 +238,7 @@ config.DB_CLEANER = {
 // CLOUD RESOURCES //
 /////////////////////
 // EXPERIMENTAL!! switch to turn off the use of signed urls to delegate cloud read\writes to object_io (s3 compatible only)
-// when this is set to true, block_store_s3 will return s3 credentials to the block_store_client so it can 
+// when this is set to true, block_store_s3 will return s3 credentials to the block_store_client so it can
 // connect directly to the cloud target (and not via a signed url)
 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION = {
     DEFAULT: false,
@@ -373,6 +373,13 @@ config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 config.SEND_EVENTS_REMOTESYS = true;
 config.PROMETHEUS_ENABLED = true;
 
+//////////////////////////////
+// Account preferences      //
+//////////////////////////////
+
+config.DEFAULT_ACCOUNT_PREFERENCES = {
+    ui_theme: 'DARK'
+};
 
 // load a local config file that overwrites some of the config
 try {

@@ -9,7 +9,7 @@
 int
 change_path_permissions(const char* path, long uid)
 {
-    printf("setting permissions of %s for user %d\n", path, uid);
+    printf("setting permissions of %s for user %ld\n", path, uid);
     // change ownership
     int res = chown(path, uid, 0);
     if (res != 0) {

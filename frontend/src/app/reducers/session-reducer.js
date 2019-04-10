@@ -7,6 +7,7 @@ import {
     FAIL_RESTORE_SESSION,
     COMPLETE_SIGN_IN,
     SIGN_OUT,
+    COMPLETE_CHANGE_ACCOUNT_PASSWORD,
     UPDATE_ACCOUNT_UI_THEME
 } from 'action-types';
 
@@ -38,6 +39,13 @@ function onSignOut() {
     return null;
 }
 
+function onCompleteChangeAccountPassword(state) {
+    return {
+        ...state,
+        passwordExpired: false
+    };
+}
+
 function onUpdateAccountUITheme(state, { payload }) {
     const { accountName, theme } = payload;
     if (accountName !== state.user) {
@@ -59,5 +67,6 @@ export default createReducer(initialState, {
     [FAIL_RESTORE_SESSION]: onFailRestoreSession,
     [COMPLETE_SIGN_IN]: onCompleteSignIn,
     [SIGN_OUT]: onSignOut,
+    [COMPLETE_CHANGE_ACCOUNT_PASSWORD]: onCompleteChangeAccountPassword,
     [UPDATE_ACCOUNT_UI_THEME]: onUpdateAccountUITheme
 });

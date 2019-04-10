@@ -39,10 +39,6 @@ const demo_access_keys = Object.freeze({
 
 const check_connection_timeout = 15 * 1000;
 
-const default_account_preferences = {
-    ui_theme: 'DARK'
-};
-
 /**
  *
  * CREATE_ACCOUNT
@@ -1016,7 +1012,7 @@ function get_account_info(account, include_connection_cache) {
     }
     info.external_connections = external_connections;
     info.preferences = {
-        ...default_account_preferences,
+        ...config.DEFAULT_ACCOUNT_PREFERENCES,
         ...account.preferences
     };
 

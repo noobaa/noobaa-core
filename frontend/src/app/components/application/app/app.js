@@ -27,19 +27,17 @@ class AppViewModel extends ConnectableViewModel {
             return;
         }
 
-        if (session && !location.route) {
+        const loggedIn = session && !session.passwordExpired;
+        if (loggedIn && !location.route) {
             // Redirect to the system routes
             const url = realizeUri(routes.system, { system: session.system });
             this.dispatch(requestLocation(url, true));
             return;
         }
 
-        const layout = (session && !session.passwordExpired) ?
-            'main-layout' :
-            'login-layout';
-
+        const layout = loggedIn ? 'main-layout' : 'login-layout';
         const previewCss = previewContent ? 'preview' : '';
-        const themeCss = themes[(session ? session.uiTheme : defaultTheme)];
+        const themeCss = themes[(loggedIn ? session.uiTheme : defaultTheme)];
         const css = [previewCss, themeCss]
             .filter(Boolean)
             .join(' ');

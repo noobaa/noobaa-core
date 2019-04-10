@@ -48,7 +48,7 @@
     "support":  {
         "email": "support@noobaa.com",
         "helpDesk": "https://noobaa.desk.com",
-        "createSystemSupport": "Need help creating a system",
+        "createSystemSupportSubject": "Need help creating a system",
         "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license",
         "missingOVAMailSubject": "Please help me find my original OVA",
         "upgradeFailedSubject": "My system upgrade has failed",

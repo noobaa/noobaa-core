@@ -114,7 +114,7 @@
         'target_name': 'kube_pv_chown',
         'type': 'executable',
         'sources': [
-            'tools/kube_pv_chown.c'
+            'tools/kube_pv_chown.cpp'
         ]
     }],
 }

@@ -1,18 +1,11 @@
-FROM centos:7
-LABEL maintainer="Evgeniy Belyi (jeniawhite92@gmail.com)"
+FROM centos:7 as base
 
-#################
-# INSTALLATIONS #
-#################
+RUN yum -y install epel-release openssl && \
+    yum clean all
 
-RUN yum -y update; yum clean all
-RUN yum -y install epel-release; yum clean all
-RUN yum -y install openssl; yum clean all
-
-################
-# NOOBAA SETUP #
-################
-
+###########################
+# NOOBAA AGENT BASE SETUP #
+###########################
 ENV container docker
 RUN mkdir /noobaa_storage
 ARG noobaa_agent_package=./noobaa-setup
@@ -23,19 +16,35 @@ RUN chmod +x run_agent_container.sh
 RUN chmod +x noobaa-setup
 # This is a dummy token in order to perform the installation
 RUN ./noobaa-setup JZ-
-RUN rm -f /noobaa_storage/agent_conf.json
+RUN tar -zcvf noobaa.tar.gz /usr/local/noobaa/
+
+######################################################
+FROM centos:7
+LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
+
+#################
+# INSTALLATIONS #
+#################
+RUN yum -y install epel-release openssl && \
+    yum clean all
+
+################
+# NOOBAA SETUP #
+################
+ENV container docker
+RUN mkdir /noobaa_storage
+ARG agent_entrypoint=./run_agent_container.sh
+COPY --from=base ${agent_entrypoint} .
+COPY --from=base ./noobaa.tar.gz .
 
 ###############
 # PORTS SETUP #
 ###############
-
 EXPOSE 60101-60600
 
 ###############
 # EXEC SETUP #
 ###############
-
 # run as non root user that belongs to root group
-USER 10001:0
-
+#USER 10001:0
 ENTRYPOINT ["./run_agent_container.sh"]

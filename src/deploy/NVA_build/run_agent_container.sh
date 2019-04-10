@@ -10,6 +10,7 @@ fix_non_root_user() {
   fi
 }
 
+tar -zxvf /noobaa.tar.gz
 fix_non_root_user
 # set ownership\mode of /noobaa_storage
 /usr/local/noobaa/build/Release/kube_pv_chown agent $(id -u)

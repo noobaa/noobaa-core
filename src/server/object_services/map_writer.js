@@ -341,7 +341,7 @@ async function complete_object_multiparts(obj, multipart_req) {
                 `multipart num=${num} etag=${etag} etag_md5_b64=${etag_md5_b64} not found in group ${util.inspect(group)}`);
         }
         md5.update(mp.md5_b64, 'base64');
-        const mp_parts = parts_by_mp[mp._id];
+        const mp_parts = parts_by_mp[mp._id] || [];
         _process_next_parts(mp_parts, context);
         used_multiparts.push(mp);
         // console.log('TODO GGG COMPLETE MULTIPART', JSON.stringify(mp));

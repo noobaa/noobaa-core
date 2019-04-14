@@ -2,10 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: noobaa-agent
+  labels:
+    app: noobaa
 spec:
   selector:
     matchLabels:
-      app: noobaa-agent
+      noobaa-module: noobaa-agent
   serviceName: noobaa-agent
   replicas: 3
   updateStrategy:
@@ -13,7 +15,8 @@ spec:
   template:
     metadata:
       labels:
-        app: noobaa-agent
+        app: noobaa
+        noobaa-module: noobaa-agent
         noobaa-s3: "true"
     spec:
       imagePullSecrets:
@@ -59,6 +62,8 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: noobaastorage
+        labels:
+          app: noobaa
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:

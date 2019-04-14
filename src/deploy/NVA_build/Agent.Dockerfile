@@ -46,5 +46,5 @@ EXPOSE 60101-60600
 # EXEC SETUP #
 ###############
 # run as non root user that belongs to root group
-#USER 10001:0
+USER 10001:0
 ENTRYPOINT ["./run_agent_container.sh"]

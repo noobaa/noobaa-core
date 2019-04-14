@@ -1,0 +1,23 @@
+kind: Secret
+apiVersion: v1
+metadata:
+  name: noobaaimages.azurecr.io
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: noobaa-test
+spec:
+  template:
+    spec:
+      containers:
+      - name: noobaa-test
+        image: noobaaimages.azurecr.io/noobaa/nbtests
+        command: ["node", "src/test/qa/dataset.js", "--help"]
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: noobaaimages.azurecr.io
+  backoffLimit: 1

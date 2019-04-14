@@ -37,9 +37,9 @@ main(int argc, char* argv[])
     }
 
     std::string deployment_type(argv[1]);
-    long uid = atol(argv[2]);
+    long uid = getuid();
     if (uid == 0) {
-        cout << "Error: got 0 as uid - only root will get access. uid passed in argument was " << argv[2] << endl;
+        cout << "Warning: got 0 as uid - only root will get access" << endl;
     }
 
     if (deployment_type == "server") {

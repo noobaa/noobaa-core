@@ -13,7 +13,7 @@ fix_non_root_user() {
 tar -zxvf /noobaa.tar.gz
 fix_non_root_user
 # set ownership\mode of /noobaa_storage
-/usr/local/noobaa/build/Release/kube_pv_chown agent $(id -u)
+/usr/local/noobaa/build/Release/kube_pv_chown agent
 
 AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
 echo "Got base64 agent_conf: ${AGENT_CONFIG}"

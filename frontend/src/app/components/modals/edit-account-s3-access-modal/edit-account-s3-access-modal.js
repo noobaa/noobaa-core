@@ -33,6 +33,7 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
     s3AccessToggleTooltip = ko.observable();
     isAllowAccessToFutureBucketsDisabled = ko.observable();
     resourceOptions = ko.observable();
+    systemHasResources = false;
     bucketOptions = ko.observable();
     fields = ko.observable();
 
@@ -72,6 +73,7 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
             [ hostPools, cloudResources ],
             resources => Object.values(resources).map(mapResourceToOption)
         );
+        const systemHasResources= resourceOptions.length > 0;
 
         const allBuckets = [
             ...Object.keys(buckets),
@@ -94,10 +96,15 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
             !hasS3Access ||
             allowedBuckets.length < bucketOptions.length;
 
+        const defaultResource = account.defaultResource !== 'INTERNAL_STORAGE' ?
+            account.defaultResource :
+            undefined;
+
         ko.assignToProps(this, {
             isS3AccessToggleDisabled: account.isOwner,
             s3AccessToggleTooltip: account.isOwner ? systemOwnerS3AccessTooltip : '',
             resourceOptions: resourceOptions,
+            systemHasResources,
             bucketOptions: bucketOptions,
             isAllowAccessToFutureBucketsDisabled,
             fields: !form ? {
@@ -105,7 +112,7 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
                 hasS3Access: account.hasS3Access,
                 allowAccessToFutureBuckets: account.hasAccessToAllBuckets,
                 allowedBuckets: account.allowedBuckets || [],
-                defaultResource: account.defaultResource,
+                defaultResource,
                 allowBucketCreation: account.canCreateBuckets
             } : undefined
         });
@@ -119,11 +126,22 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
         this.dispatch(updateForm(this.formName, update));
     }
 
-    onValidate({ hasS3Access, defaultResource }) {
-        const errors = {};
+    onWarn(values) {
+        const warnings = {};
+        const { hasS3Access } = values;
 
-        // Validate selected resource
-        if (hasS3Access && !defaultResource) {
+        if (hasS3Access && !this.systemHasResources) {
+            warnings.defaultResource = 'Until connecting resources, internal storage will be used';
+        }
+
+        return warnings;
+    }
+
+    onValidate(values) {
+        const errors = {};
+        const { hasS3Access, defaultResource } = values;
+
+        if (hasS3Access && this.systemHasResources && !defaultResource) {
             errors.defaultResource = 'Please select a default resource for the account';
         }
 

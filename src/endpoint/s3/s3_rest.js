@@ -231,55 +231,57 @@ function authenticate_request(req, res) {
     }
 }
 
-function parse_op_name(req) {
-    const virtual_host_suffix = req.virtual_host_suffix;
-    const method = req.method.toLowerCase();
-    const host = req.headers.host.split(':')[0]; // cutting off port
-    const url = req.url;
+// We removed support for default website hosting (host value is a bucket name)
+// after discussion with eran and gay because it intreeduced a conflict.
+// we will reintreduce it together with bucket site support.
+function parse_bucket_and_key(req) {
+    const { url, headers, virtual_hosts } = req;
+    const host = headers.host.split(':')[0]; // cutting off port
 
-    var bucket = '';
-    var key = '';
-    var i;
+    let virtual_host = null;
+    if (host && host !== 'localhost' && !net.isIP(host)) {
+        virtual_host = virtual_hosts.find(vhost => host.endsWith(`.${vhost}`));
+    }
 
-    // see http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html
-    const is_path_style = !host ||
-        !virtual_host_suffix || // added case for when no DNS name is defined - if we work with IP always using path-style
-        virtual_host_suffix === '.' + host ||
-        net.isIP(host) ||
-        host === 'localhost'; // we added this case on top of the S3 doc cases to handle requests with IP host
-
-    const is_bucket_subdomain =
-        virtual_host_suffix &&
-        host.endsWith(virtual_host_suffix) &&
-        host !== virtual_host_suffix; // non empty bucket name
-
-    if (is_path_style) {
+    let bucket = '';
+    let key = '';
+    if (virtual_host) {
+        bucket = host.slice(0, -(virtual_host.length + 1));
+        key = url.slice(1);
+    } else {
+        // Virtual host was not found falling back to path style.
         const index = url.indexOf('/', 1);
         const pos = index < 0 ? url.length : index;
         bucket = url.slice(1, pos);
         key = url.slice(pos + 1);
-    } else if (is_bucket_subdomain) {
-        bucket = host.slice(0, -virtual_host_suffix.length);
-        key = url.slice(1);
-        req.virtual_hosted_bucket = bucket;
-    } else { // bucket is host - assume DNS points that name to us
-        bucket = host;
-        key = url.slice(1);
-        req.virtual_hosted_bucket = bucket;
     }
 
     // decode and replace hadoop _$folder$ in key
-    bucket = decodeURIComponent(bucket);
-    key = decodeURIComponent(key).replace(/_\$folder\$/, '/');
+    return {
+        bucket: decodeURIComponent(bucket),
+        key: decodeURIComponent(key).replace(/_\$folder\$/, '/'),
+        is_virtual_hosted_bucket: Boolean(virtual_host)
+    };
+}
+
+function parse_op_name(req) {
+    const method = req.method.toLowerCase();
+
+    let { bucket, key, is_virtual_hosted_bucket } = parse_bucket_and_key(req);
     req.params = { bucket, key };
+    if (is_virtual_hosted_bucket) {
+        req.virtual_hosted_bucket = bucket;
+    }
 
     // service url
-    if (!bucket) return `${method}_service`;
+    if (!bucket) {
+        return `${method}_service`;
+    }
 
     // bucket url
     if (!key) {
         const query_keys = Object.keys(req.query);
-        for (i = 0; i < query_keys.length; ++i) {
+        for (let i = 0; i < query_keys.length; ++i) {
             if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${method}_bucket_${query_keys[i]}`;
         }
         return `${method}_bucket`;
@@ -287,7 +289,7 @@ function parse_op_name(req) {
 
     // object url
     const query_keys = Object.keys(req.query);
-    for (i = 0; i < query_keys.length; ++i) {
+    for (let i = 0; i < query_keys.length; ++i) {
         if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${method}_object_${query_keys[i]}`;
     }
     return `${method}_object`;

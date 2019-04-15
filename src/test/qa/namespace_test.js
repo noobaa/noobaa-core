@@ -52,7 +52,7 @@ if (help) {
     process.exit(1);
 }
 
-const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();
@@ -271,7 +271,7 @@ async function create_resource(type) {
         throw new Error(e);
     }
     try {
-        // create namespace resource 
+        // create namespace resource
         await cf.createNamespaceResource(connections_mapping[type].name,
             namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
         report.success(`create ns resource ${type}`);
@@ -367,7 +367,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
     await P.delay(30 * 1000);
     console.error(`${RED}TODO: REMOVE THIS DELAY, IT IS TEMP OVERRIDE FOR BUG #4831${NC}`);
     const uploaded_file_name = await upload_via_noobaa({ type: run_on_clouds[0], bucket: name });
-    //checking that the file was written into the read/write cloud 
+    //checking that the file was written into the read/write cloud
     await check_via_cloud(run_on_clouds[0], uploaded_file_name);
     run_on_clouds.shift();
     for (let cycle = 0; cycle < run_on_clouds.length; cycle++) {

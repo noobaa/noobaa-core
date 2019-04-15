@@ -81,7 +81,7 @@ function init_clients() {
             .then(() => ssh_functions.ssh_exec(client, `sudo bash -c "supervisorctl restart all"`))
             .delay(20000))
         .then(() => {
-            rpc = api.new_rpc('wss://' + TEST_CFG.ip + ':8443');
+            rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.ip + ':8443');
             rpc_client = rpc.new_client({});
             let auth_params = {
                 email: 'demo@noobaa.com',
@@ -151,7 +151,7 @@ function check_arguments_and_update() {
 }
 
 /*
- * Receive expected upgrade status and failed condition, read_system until either one is met and fail/success 
+ * Receive expected upgrade status and failed condition, read_system until either one is met and fail/success
  * according to which one was reached
  */
 async function _verify_upgrade_status(expected, failed, message, topic) {

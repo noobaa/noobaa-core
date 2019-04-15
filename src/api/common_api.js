@@ -535,8 +535,17 @@ module.exports = {
 
         password: {
             wrapper: SensitiveString,
+        },
+
+        port: {
+            type: 'integer',
+            minimum: 0,
+            maximum: 65535
+        },
+
+        hostname_list: {
+            type: 'array',
+            items: { type: 'string' }
         }
-
-
     }
 };

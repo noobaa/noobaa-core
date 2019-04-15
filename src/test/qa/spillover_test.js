@@ -69,7 +69,7 @@ if (help) {
 
 console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
 
-const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();
@@ -275,7 +275,7 @@ async function set_rpc_and_create_auth_token() {
 
 async function check_internal_spillover_without_agents() {
 
-    /* On a system, create a bucket and before adding capacity to it (use an empty pool), 
+    /* On a system, create a bucket and before adding capacity to it (use an empty pool),
        enable spillover and see that the files are written into the internal storage */
     try {
         await createBucketWithEnabledSpillover();
@@ -460,7 +460,7 @@ async function check_quota_on_spillover() {
     const available_space_GB = Math.floor(available_space / 1024 / 1024 / 1024);
     const quota = available_space_GB + 1;
     const uploadSizeMB = Math.floor(available_space / 1024 / 1024);
-    // Setting the quota so it will be on the spillover 
+    // Setting the quota so it will be on the spillover
     console.log(`Setting quota to ${quota} GB, larger the the available space (${uploadSizeMB / 1024} GB)`);
     await bf.setQuotaBucket(bucket, quota, 'GIGABYTE');
     // Start writing
@@ -474,7 +474,7 @@ async function check_quota_on_spillover() {
 
 async function disable_spillover_and_check() {
     for (let count = 0; count < 5; count++) {
-        //Fill bucket 
+        //Fill bucket
         const free_space = await bf.checkFreeSpace(bucket);
         if (free_space !== 0) {
             const uploadSizeMB = Math.floor(free_space / 1024 / 1024);

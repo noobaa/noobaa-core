@@ -3,12 +3,10 @@
 
 const _ = require('lodash');
 const os = require('os');
-const url = require('url');
 const util = require('util');
 const mime = require('mime');
 const crypto = require('crypto');
 const assert = require('assert');
-const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
 
 const P = require('../../util/promise');
@@ -17,6 +15,7 @@ const MDStore = require('./md_store').MDStore;
 const LRUCache = require('../../util/lru_cache');
 const size_utils = require('../../util/size_utils');
 const time_utils = require('../../util/time_utils');
+const addr_utils = require('../../util/addr_utils');
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const http_utils = require('../../util/http_utils');
@@ -572,8 +571,8 @@ async function read_object_md(req) {
         // or when the intention is to use dns name.
         const endpoint =
             adminfo.signed_url_endpoint ||
-            url.parse(req.system.base_address || '').hostname ||
-            ip_module.address();
+            addr_utils.get_base_address(req.system.system_address, 'EXTERNAL').hostname;
+
         const account_keys = req.account.access_keys[0];
         info.s3_signed_url = cloud_utils.get_signed_url({
             endpoint: endpoint,
@@ -952,10 +951,11 @@ async function list_objects_admin(req) {
         const object_info = get_object_info(obj);
         // using the internal IP doesn't work when there is a different external ip
         // or when the intention is to use dns name.
+        const { adminfo } = req.rpc_params;
         const endpoint =
-            (req.rpc_params.adminfo && req.rpc_params.adminfo.signed_url_endpoint) ||
-            url.parse(req.system.base_address || '').hostname ||
-            ip_module.address();
+            (adminfo && adminfo.signed_url_endpoint) ||
+            addr_utils.get_base_address(req.system.system_address, 'EXTERNAL').hostname;
+
         const account_keys = req.account.access_keys[0];
         object_info.s3_signed_url = cloud_utils.get_signed_url({
             endpoint: endpoint,

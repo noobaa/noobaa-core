@@ -73,7 +73,7 @@ const dataset = require('./dataset.js');
 
 console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
 
-const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 const server_s3ops = new S3OPS({ ip: server_ip });
@@ -190,7 +190,7 @@ async function create_noobaa_for_compatible() {
     try {
         server.internal_ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
         connections_mapping.COMPATIBLE.endpoint = 'https://' + server.internal_ip;
-        const rpc2 = api.new_rpc('wss://' + server.ip + ':8443');
+        const rpc2 = api.new_rpc_from_base_address('wss://' + server.ip + ':8443');
         const client2 = rpc2.new_client({});
         await set_rpc_and_create_auth_token(client2);
         bf_compatible = new BucketFunctions(client2);

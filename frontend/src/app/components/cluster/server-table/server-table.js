@@ -85,6 +85,7 @@ function _getStatus(server, version, serverMinRequirements) {
             name: 'problem',
             css: 'warning',
             tooltip: {
+                template: 'list',
                 text: issues,
                 align: 'start',
                 breakWords: false

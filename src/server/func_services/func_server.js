@@ -3,15 +3,13 @@
 
 const _ = require('lodash');
 const stream = require('stream');
-const ip_module = require('ip');
 const request = require('request');
 
 const P = require('../../util/promise');
-const api = require('../../api');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
-const url_utils = require('../../util/url_utils');
+const addr_utils = require('../../util/addr_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
@@ -401,8 +399,9 @@ function _get_func_info(func) {
 }
 
 function _make_rpc_options(req) {
-    // TODO copied from base_address calc from system_server, better define once
-    const base_address = req.system.base_address || api.get_base_address(ip_module.address());
+    // TODO: need to change when we start to run funcs outside the
+    // cluster (should use a proper hint based on agent location)
+    const base_address = addr_utils.get_base_address(req.system.system_address);
     const account = system_store.data.get_by_id(req.func.exec_account);
     const auth_token = auth_server.make_auth_token({
         system_id: req.system._id,
@@ -410,17 +409,15 @@ function _make_rpc_options(req) {
         role: 'admin',
     });
     return {
-        address: base_address,
+        address: base_address.toString(),
         auth_token: auth_token,
     };
 }
 
 function _make_aws_config(req) {
-    // TODO copied from base_address calc from system_server, better define once
-    const ep_host =
-        req.system.base_address ?
-        url_utils.quick_parse(req.system.base_address).hostname :
-        ip_module.address();
+    // TODO: need to change when we start to run funcs outside the
+    // cluster (should use a proper hint based on agent location)
+    const ep_host = addr_utils.get_base_address(req.system.system_address).hostname;
     const ep_port = parseInt(process.env.ENDPOINT_PORT, 10) || 80;
     const account = system_store.data.get_by_id(req.func.exec_account);
     const account_keys = account.access_keys[0];

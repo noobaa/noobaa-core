@@ -20,7 +20,7 @@ const os = require('os');
 const size_utils = require('../util/size_utils');
 const numCPUs = os.cpus().length;
 const FtpSrv = require('ftp-srv');
-
+const net = require('net');
 
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
@@ -43,11 +43,11 @@ const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 const ENDPOINT_BLOB_ENABLED = process.env.ENDPOINT_BLOB_ENABLED === 'true';
 const ENDPOINT_FTP_ENABLED = process.env.ENDPOINT_FTP_ENABLED === 'true';
 
-// this variable is used to save the dns suffix for virtual hosting of buckets
-// it will be updated using update_virtual_host_suffix when getting updated on new base_address if agent
+// this variable is used to save the dns hosts for virtual hosting of buckets
+// it will be updated using update_virtual_hosts when getting updated on new base_address if agent
 // or when a system store load was done if server
-let virtual_host_suffix;
-// this "shared" object is used to save the location information on s3 agents 
+let virtual_hosts = Object.freeze([]);
+// this "shared" object is used to save the location information on s3 agents
 // it will be updated using update_location_info when getting updated on a change of the pool-id the agent is part of
 const location_info = {};
 
@@ -79,28 +79,45 @@ function start_all() {
         let waiting = true;
 
         process.on('message', params => {
-            if (params.message === 'update_base_address') {
-                update_virtual_host_suffix(params.base_address);
-            } else if (params.message === 'location_info') {
-                update_location_info(params.location_info);
-            } else if (params.message === 'set_debug') {
-                dbg.set_level(params.level, 'core');
-            } else if (params.message === 'run_server') {
-                update_virtual_host_suffix(params.base_address);
-                if (!waiting) {
-                    dbg.warn(`got ssl certificates, but already running server 8-O`);
-                    return;
+            switch (params.message) {
+                case 'location_info': {
+                    update_location_info(params.location_info);
+                    break;
                 }
-                waiting = false;
-                dbg.log0(`got ssl certificates. running server`);
-                if (params.location_info) update_location_info(params.location_info);
-                run_server({
-                    s3: true,
-                    lambda: true,
-                    blob: ENDPOINT_BLOB_ENABLED,
-                    certs: params.certs,
-                    n2n_agent: true,
-                });
+                case 'set_debug': {
+                    dbg.set_level(params.level, 'core');
+                    break;
+                }
+                case 'update_virtual_hosts': {
+                    update_virtual_hosts(params.virtual_hosts);
+                    break;
+                }
+                case 'run_server': {
+                    update_virtual_hosts(params.virtual_hosts);
+
+                    if (!waiting) {
+                        dbg.warn(`got ssl certificates, but already running server 8-O`);
+                        return;
+                    }
+
+                    waiting = false;
+                    dbg.log0(`got ssl certificates. running server`);
+                    if (params.location_info) {
+                        update_location_info(params.location_info);
+                    }
+
+                    run_server({
+                        s3: true,
+                        lambda: true,
+                        blob: ENDPOINT_BLOB_ENABLED,
+                        certs: params.certs,
+                        n2n_agent: true,
+                    });
+                    break;
+                }
+                default: {
+                    break;
+                }
             }
         });
 
@@ -114,7 +131,7 @@ function start_all() {
             .delay(30 * 1000));
     } else {
         const system_store = require('../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
-        system_store.on('load', () => update_virtual_host_suffix(system_store.data.systems[0] && system_store.data.systems[0].base_address));
+        system_store.on('load', () => update_virtual_hosts_form_system(system_store.data.systems[0]));
         system_store.refresh();
         run_server({
             s3: true,
@@ -131,7 +148,7 @@ async function run_server(options) {
         // In this case its a HTTP server
         const config_params = await read_config_file();
         // Just in case part of the information is missing, add default params.
-        const { address, port, ssl_port } = _.defaults(argv, config_params, {
+        const { address, port, ssl_port, routing_hint } = _.defaults(argv, config_params, {
             port: process.env.ENDPOINT_PORT || 80,
             ssl_port: process.env.ENDPOINT_SSL_PORT || 443,
         });
@@ -141,14 +158,14 @@ async function run_server(options) {
         const is_local_address = !address ||
             addr_url.hostname === '127.0.0.1' ||
             addr_url.hostname === 'localhost';
+
         if (is_local_address) {
             dbg.log0('Initialize S3 RPC with MDServer');
             const md_server = require('../server/md_server'); // eslint-disable-line global-require
             rpc = await md_server.register_rpc();
         } else {
             dbg.log0('Initialize S3 RPC to address', address);
-            update_virtual_host_suffix(address);
-            rpc = api.new_rpc(address);
+            rpc = api.new_rpc_from_base_address(address, routing_hint);
         }
 
         const endpoint_request_handler = create_endpoint_handler(rpc, options);
@@ -217,7 +234,7 @@ function create_endpoint_handler(rpc, options) {
             return blob_rest_handler(req, res);
         }
 
-        if (virtual_host_suffix) req.virtual_host_suffix = virtual_host_suffix;
+        req.virtual_hosts = virtual_hosts;
         req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
         return s3_rest_handler(req, res);
     }
@@ -337,16 +354,36 @@ function setup_http_server(server) {
     // });
 }
 
-function update_virtual_host_suffix(base_address) {
-    if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-        dbg.warn(`skip update of virtual host suffix in kuberentes. support will be added in the future`);
+function update_virtual_hosts_form_system(system) {
+    if (!system || !system.system_address) {
         return;
     }
-    const suffix = base_address && url.parse(base_address).hostname;
-    const new_virtual_suffix = net_utils.is_fqdn(suffix) ? '.' + suffix : undefined;
-    if (new_virtual_suffix !== virtual_host_suffix) {
-        virtual_host_suffix = new_virtual_suffix;
-        dbg.log0('The virtual host suffix of this agent was changed to this:', virtual_host_suffix, 'base_address', base_address);
+
+    // TODO: Add custom virtual hosts (from system store) to the list.
+    const matching_hostnames = system.system_address
+        .filter(addr =>
+            // Use both s3 and mgmt services to account for the FE upload use case.
+            (addr.service === 's3' || addr.service === 'noobaa-mgmt') &&
+            addr.api === 's3' &&
+            !net.isIP(addr.hostname)
+        )
+        .map(addr => addr.hostname);
+
+    const virtual_hosts_list = _.uniq(matching_hostnames);
+    update_virtual_hosts(virtual_hosts_list);
+}
+
+function update_virtual_hosts(new_virtual_hosts) {
+    new_virtual_hosts = new_virtual_hosts
+        .filter(suffix => net_utils.is_fqdn(suffix))
+        .sort();
+
+    if (new_virtual_hosts.length !== virtual_hosts.length ||
+        new_virtual_hosts.some((host, i) => host !== virtual_hosts[i])) {
+
+        // Clone before freezing in order to prevent unwanted behavior to the calling code.
+        virtual_hosts = Object.freeze([...new_virtual_hosts]);
+        dbg.log0('The virtual hosts list of this agent was changed to:', virtual_hosts);
     }
 }
 

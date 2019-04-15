@@ -35,7 +35,7 @@ if (help) {
 }
 
 const api = require('../../api');
-let rpc = api.new_rpc(`wss://${server_ip}:8443`);
+let rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`);
 let client = rpc.new_client({});
 // the double -t -t is not a mistake! it is needed to force ssh to create a pseudo-tty even though stdin is a pipe
 const sshOptions = ['-t', '-t', '-o', `ServerAliveInterval=60`, '-o', `LogLevel=QUIET`, `noobaa@${server_ip}`];
@@ -489,11 +489,11 @@ async function main() {
                 //isSystemStarted = false;
                 await server_ops.clean_ova(server_ip, secret, true);
                 await server_ops.wait_server_reconnect(server_ip);
-                rpc = api.new_rpc(`wss://${server_ip}:8443`);
+                rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`);
                 client = rpc.new_client({});
             } else {
                 console.log(`Running cycle with System pre-configured`);
-                rpc = api.new_rpc(`wss://${server_ip}:8443`);
+                rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`);
                 client = rpc.new_client({});
                 await authenticate();
             }

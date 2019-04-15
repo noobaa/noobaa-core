@@ -23,6 +23,7 @@ const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
 const json_utils = require('../util/json_utils');
 const promise_utils = require('../util/promise_utils');
+const addr_utils = require('../util/addr_utils');
 
 
 const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
@@ -104,7 +105,8 @@ class AgentCLI {
                     access_key: '123',
                     secret_key: 'abc',
                     system: 'demo',
-                    bucket: 'first.bucket'
+                    bucket: 'first.bucket',
+                    routing_hint: 'EXTERNAL'
                 });
                 if (self.params.address) {
                     self.client.options.address = self.params.address;
@@ -530,6 +532,11 @@ class AgentCLI {
         var self = this;
         dbg.log0('agent started ', node_path, node_name);
         var agent = self.agents[node_name];
+
+        if (!self.params.address) {
+            self.params.address = addr_utils.format_base_address();
+        }
+
         if (!agent) {
             // token wrapper is used by agent to read\write token
             let token_path = path.join(node_path, 'token');
@@ -546,6 +553,7 @@ class AgentCLI {
             };
             agent = new Agent({
                 address: self.params.address,
+                routing_hint: self.params.routing_hint,
                 servers: self.params.servers,
                 node_name: node_name,
                 test_hostname: self.params.test_hostname,
@@ -557,6 +565,7 @@ class AgentCLI {
                 permission_tempering: self.permission_tempering,
                 storage_limit: self.params.storage_limit,
                 is_demo_agent: self.params.demo,
+                virtual_hosts: self.params.virtual_hosts,
                 agent_conf: self.agent_conf,
                 token_wrapper: token_wrapper,
                 create_node_token_wrapper: create_node_token_wrapper,

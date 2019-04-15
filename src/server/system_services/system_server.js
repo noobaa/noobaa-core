@@ -5,7 +5,6 @@ require('../../util/dotenv').load();
 
 const _ = require('lodash');
 const fs = require('fs');
-const url = require('url');
 const tls = require('tls');
 const net = require('net');
 const dns = require('dns');
@@ -14,9 +13,10 @@ const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
 const util = require('util');
+const chance = require('chance')();
 
+const api = require('../../api');
 const P = require('../../util/promise');
-const api = require('../../api/api');
 const pkg = require('../../../package.json');
 const restrict = require('../../../platform_restrictions.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -51,6 +51,8 @@ const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
+const addr_utils = require('../../util/addr_utils');
+const string_utils = require('../../util/string_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -70,32 +72,36 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
 });
 
 // called on rpc server init
-function _init() {
+async function _init() {
     const DEFUALT_DELAY = 5000;
+    let update_done = false;
 
-    function wait_for_system_store() {
-        var update_done = false;
-        P.fcall(function() {
-                if (system_store.is_finished_initial_load && system_store.data.systems.length) {
-                    return P.join(
-                            _initialize_debug_level()
-                        )
-                        .then(() => {
-                            update_done = true;
-                        });
-                }
-            })
-            .catch(err => {
-                dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
-                return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
-            })
-            .then(() => {
-                if (!update_done) {
-                    return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
-                }
-            });
+    while (!update_done) {
+        try {
+            await promise_utils.delay_unblocking(DEFUALT_DELAY);
+            if (system_store.is_finished_initial_load && system_store.data.systems.length) {
+                const [ system ] = system_store.data.systems;
+
+                // Register a routing resolver to provide routing tables for incoming
+                // rpc connections.
+                server_rpc.rpc.register_routing_authority(_resolve_routing);
+
+                await _initialize_debug_level();
+                await _configure_system_address(system._id, system.owner.id);
+                update_done = true;
+            }
+
+        } catch (err) {
+            dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+        }
     }
-    promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+}
+
+function _resolve_routing(hint) {
+    const [ system ] = system_store.data.systems;
+
+    dbg.log0('system_server _resolve_routing', hint, system.system_address);
+    return api.new_router_from_address_list(system.system_address, hint);
 }
 
 function _initialize_debug_level(system) {
@@ -160,16 +166,16 @@ function new_system_defaults(name, owner_account_id) {
     return system;
 }
 
-function new_system_changes(name, owner_account) {
+function new_system_changes(name, owner_account_id) {
     // const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
     const default_bucket_name = 'first.bucket';
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-    const system = new_system_defaults(name, owner_account._id);
+    const system = new_system_defaults(name, owner_account_id);
     // const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
-
     const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
     mongo_pool.mongo_pool_info = {};
+
     const default_chunk_config = {
         _id: system_store.new_system_store_id(),
         system: system._id,
@@ -218,197 +224,200 @@ function new_system_changes(name, owner_account) {
     };
 }
 
-
 /**
  *
  * CREATE_SYSTEM
  *
  */
-function create_system(req) {
+async function create_system(req) {
     dbg.log0('create_system: got create_system with params:', util.inspect(req.rpc_params, { depth: null }));
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
     }
-    const account = {
-        _id: system_store.new_system_store_id(),
-        name: req.rpc_params.name,
-        email: req.rpc_params.email,
-        password: req.rpc_params.password,
-        has_login: true,
-    };
-    const changes = new_system_changes(account.name, account);
-    const system_id = changes.insert.systems[0]._id;
-    const default_pool = changes.insert.pools[0]._id;
-    const owner_secret = system_store.get_server_secret();
-    let reply_token;
-    let ntp_configured = false;
 
-    return P.resolve()
-        .then(() => {
-            // Attempt to resolve DNS name, if supplied
-            if (!req.rpc_params.dns_name) {
-                dbg.log0('create_system: dns name not supplied');
-                return;
-            }
-            dbg.log0(`create_system: supplied dns name is ${req.rpc_params.dns_name}. try to resolve name`);
-            return attempt_server_resolve(_.defaults({
-                    rpc_params: {
-                        server_name: req.rpc_params.dns_name,
-                        version_check: true
-                    }
-                }, req))
-                .then(result => {
-                    if (!result.valid) {
-                        dbg.error(`create_system: could not resolve ${req.rpc_params.dns_name}`);
-                        throw new Error('Could not resolve ' + req.rpc_params.dns_name +
-                            ' Reason ' + result.reason);
-                    }
-                    dbg.log0(`create_system: dns name ${req.rpc_params.dns_name} resolved successfuly`);
-                });
-        })
-        .then(() => P.join(
-            cluster_server.new_cluster_info({ address: "127.0.0.1" }),
+    const {
+        name,
+        email,
+        password,
+        must_change_password,
+        time_config,
+        dns_servers,
+    } = req.rpc_params;
+
+    try {
+        const owner_secret = system_store.get_server_secret();
+        const account_id = system_store.new_system_store_id();
+        const changes = new_system_changes(name, account_id);
+        const system_id = changes.insert.systems[0]._id;
+        const cluster_info = await _get_cluster_info();
+        if (cluster_info) {
+            changes.insert.clusters = [cluster_info];
+        }
+
+        Dispatcher.instance().activity({
+            event: 'conf.create_system',
+            level: 'info',
+            system: system_id,
+            actor: account_id,
+            desc: `${name} was created by ${email.unwrap()}`,
+        });
+
+        await system_store.make_changes(changes);
+        const auth = await _create_owner_account(
+            name,
+            email,
+            password,
+            must_change_password,
+            account_id,
+            system_id,
+            changes.insert.pools[0]._id
+        );
+
+        dbg.log0('create_system: ensuring internal pool structure');
+        await _ensure_internal_structure(system_id);
+        await _configure_time_settings(cluster_info, time_config, owner_secret, auth);
+        await _configure_dns_servers(dns_servers, owner_secret, auth);
+        await _configure_system_address(system_id, account_id);
+        await _configure_system_proxy(auth);
+        await _init_system(system_id);
+
+        dbg.log0(`create_system: sending first stats to phone home`);
+        await server_rpc.client.stats.send_stats(null, auth);
+
+        dbg.log0('create_system: system created Successfully!');
+        return { token: auth.auth_token };
+
+    } catch (err) {
+        dbg.error('create_system: got error during create_system', err);
+        throw err;
+    }
+}
+
+async function _get_cluster_info() {
+    const cluster_info = await cluster_server.new_cluster_info({ address: "127.0.0.1" });
+    if (cluster_info) {
+        const [ntp_server, time_config, dns_config] = await Promise.all([
             os_utils.get_ntp(),
             os_utils.get_time_config(),
             os_utils.get_dns_and_search_domains()
-        ))
-        .spread((cluster_info, ntp_server, time_config, dns_config) => {
-            if (cluster_info) {
-                if (ntp_server) {
-                    dbg.log0(`create_system: ntp server was already configured in first install to ${ntp_server}`);
-                    ntp_configured = true;
-                    cluster_info.ntp = {
-                        timezone: time_config.timezone,
-                        server: ntp_server
-                    };
-                }
-                if (dns_config.dns_servers.length) {
-                    dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
-                    cluster_info.dns_servers = dns_config.dns_servers;
-                }
-                changes.insert.clusters = [cluster_info];
-            }
-            Dispatcher.instance().activity({
-                event: 'conf.create_system',
-                level: 'info',
-                system: system_id,
-                actor: account._id,
-                desc: `${account.name} was created by ${account.email.unwrap()}`,
-            });
-            return system_store.make_changes(changes);
-        })
-        .then(async () => {
-            dbg.log0(`create_system: creating account for ${req.rpc_params.name}, ${req.rpc_params.email}`);
-            const response = await server_rpc.client.account.create_account({
-                //Create the owner account
-                name: req.rpc_params.name,
-                email: req.rpc_params.email,
-                password: req.rpc_params.password,
-                has_login: true,
-                s3_access: true,
-                must_change_password: req.rpc_params.must_change_password,
-                new_system_parameters: {
-                    account_id: account._id.toString(),
-                    new_system_id: system_id.toString(),
-                    default_pool: default_pool.toString(),
-                    allowed_buckets: { full_permission: true },
-                },
-            });
-            reply_token = response.token;
+        ]);
 
-            dbg.log0('create_system: ensuring internal pool structure');
-            await _ensure_internal_structure(system_id);
-
-            //Time config, if supplied
-            if (req.rpc_params.time_config &&
-                (!ntp_configured || req.rpc_params.time_config.ntp_server)
-            ) {
-                let time_config = req.rpc_params.time_config;
-                time_config.target_secret = owner_secret;
-                try {
-                    dbg.log0('create_system: updating time config with:', time_config);
-                    await server_rpc.client.cluster_server.update_time_config(time_config, {
-                        auth_token: reply_token
-                    });
-                } catch (err) {
-                    dbg.error('create_system: Failed updating time config during create system', err);
-                }
-            } else {
-                dbg.log0(`create_system: skipping time configuration. ntp_configured=${ntp_configured}, time_config=`, req.rpc_params.time_config);
-            }
-
-            //DNS servers, if supplied
-            if (!_.isEmpty(req.rpc_params.dns_servers)) {
-                dbg.log0(`create_system: updating dns servers:`, req.rpc_params.dns_servers);
-                try {
-                    await server_rpc.client.cluster_server.update_dns_servers({
-                        target_secret: owner_secret,
-                        dns_servers: req.rpc_params.dns_servers
-                    }, {
-                        auth_token: reply_token
-                    });
-                } catch (err) {
-                    dbg.error('create_system: Failed updating dns server during create system', err);
-                }
-            }
-
-            //DNS name, if supplied
-            if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-                const dns_name = await os_utils.get_kubernetes_dns_name();
-                const base_address = `wss://${dns_name}:${process.env.SSL_PORT}`;
-                dbg.log0('updating base address according to kuberenets dns name:', base_address);
-                if (base_address) {
-                    await server_rpc.client.system.update_base_address({
-                        base_address: base_address
-                    }, {
-                        auth_token: reply_token
-                    });
-                }
-            } else if (req.rpc_params.dns_name) {
-                dbg.log0(`create_system: updating host name to ${req.rpc_params.dns_name}`);
-                try {
-                    await server_rpc.client.system.update_hostname({
-                        hostname: req.rpc_params.dns_name
-                    }, {
-                        auth_token: reply_token
-                    });
-                } catch (err) {
-                    dbg.error('create_system: Failed updating hostname during create system', err);
-                }
-            }
-
-            if (process.env.PH_PROXY) {
-                try {
-                    dbg.log0(`create_system: updating proxy address to ${process.env.PH_PROXY}`);
-                    await server_rpc.client.system.update_phone_home_config({
-                        proxy_address: process.env.PH_PROXY
-                    }, {
-                        auth_token: reply_token
-                    });
-                } catch (err) {
-                    dbg.error('create_system: Failed updating phone home config during create system', err);
-                }
-            }
-        })
-        .then(() => _init_system(system_id))
-        .then(() => {
-            dbg.log0(`create_system: sending first stats to phone home`);
-            return server_rpc.client.stats.send_stats(null, {
-                auth_token: reply_token
-            });
-        })
-        .then(() => {
-            dbg.log0('create_system: system created Successfully!');
-            return {
-                token: reply_token
+        if (ntp_server) {
+            dbg.log0(`create_system: ntp server was already configured in first install to ${ntp_server}`);
+            cluster_info.ntp = {
+                timezone: time_config.timezone,
+                server: ntp_server
             };
-        })
-        .catch(err => {
-            dbg.error('create_system: got error during create_system', err);
-            throw err;
-        });
+        }
+
+        if (dns_config.dns_servers.length) {
+            dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
+            cluster_info.dns_servers = dns_config.dns_servers;
+        }
+    }
+
+    return cluster_info;
 }
 
+async function _create_owner_account(
+    name,
+    email,
+    password,
+    must_change_password,
+    account_id,
+    system_id,
+    default_pool
+) {
+    dbg.log0(`create_system: creating account for ${name}, ${email}`);
+    const { token: auth_token } = await server_rpc.client.account.create_account({
+        name,
+        email,
+        password,
+        has_login: true,
+        s3_access: true,
+        must_change_password,
+        new_system_parameters: {
+            account_id: account_id.toString(),
+            new_system_id: system_id.toString(),
+            default_pool: default_pool.toString(),
+            allowed_buckets: { full_permission: true },
+        },
+    });
+    return { auth_token };
+}
+
+async function _configure_time_settings(cluster_info, time_config, owner_secret, auth) {
+    const ntp_configured = Boolean(cluster_info && cluster_info.ntp);
+    if (time_config && (!ntp_configured || time_config.ntp_server)) {
+        time_config.target_secret = owner_secret;
+        try {
+            dbg.log0('create_system: updating time config with:', time_config);
+            await server_rpc.client.cluster_server.update_time_config(time_config, auth);
+        } catch (err) {
+            dbg.error('create_system: Failed updating time config during create system', err);
+        }
+    } else {
+        dbg.log0(`create_system: skipping time configuration. ntp_configured=${ntp_configured}, time_config=`, time_config);
+    }
+}
+
+async function _configure_dns_servers(dns_servers, owner_secret, auth) {
+    if (!_.isEmpty(dns_servers)) {
+        dbg.log0(`create_system: updating dns servers:`, dns_servers);
+        try {
+            await server_rpc.client.cluster_server.update_dns_servers({
+                target_secret: owner_secret,
+                dns_servers
+            }, auth);
+        } catch (err) {
+            dbg.error('create_system: Failed updating dns server during create system', err);
+        }
+    }
+}
+
+async function _configure_system_address(system_id, account_id) {
+    const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
+        await os_utils.discover_k8s_services() :
+        await os_utils.discover_virtual_appliance_address();
+
+    // This works because the lists are always sorted, see discover_k8s_services().
+    const { system_address: curr_address } = system_store.data.systems[0] || {};
+    if (curr_address && _.isEqual(curr_address, system_address)) {
+        return;
+    }
+
+    await system_store.make_changes({
+        update: {
+            systems: [{
+                _id: system_id,
+                $set: { system_address }
+            }]
+        }
+    });
+
+    // TODO: need to ask nimrod what activity to dispatch.
+    // if (system_address.length > 0) {
+    //     Dispatcher.instance().activity({
+    //         event: 'conf.system_address',
+    //         level: 'info',
+    //         system: system_id,
+    //         actor: account_id,
+    //         desc: `System addresss was set to `,
+    //     });
+    // }
+}
+
+async function _configure_system_proxy(auth) {
+    if (process.env.PH_PROXY) {
+        try {
+            const proxy_address = process.env.PH_PROXY;
+            dbg.log0(`create_system: updating proxy address to ${proxy_address}`);
+            await server_rpc.client.system.update_phone_home_config({ proxy_address }, auth);
+        } catch (err) {
+            dbg.error('create_system: Failed updating phone home config during create system', err);
+        }
+    }
+}
 
 /**
  *
@@ -550,7 +559,10 @@ function read_system(req) {
 
         const stats_by_bucket = _.keyBy(buckets_stats, stats => _.get(system_store.data.get_by_id(stats._id), 'name'));
 
-        const response = {
+        const base_address = addr_utils.get_base_address(system.system_address);
+        const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
+
+        return {
             name: system.name,
             objects: objects_sys.count.toJSNumber(),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
@@ -604,7 +616,8 @@ function read_system(req) {
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
-            base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            dns_name: dns_name,
+            base_address: base_address.toString(),
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
@@ -627,12 +640,6 @@ function read_system(req) {
             },
             platform_restrictions: restrict[process.env.PLATFORM || 'dev'] // dev will be default for now
         };
-
-        const res = _get_ip_and_dns(system);
-        response.ip_address = res.ip_address;
-        response.dns_name = res.dns_name;
-
-        return response;
     });
 }
 
@@ -727,10 +734,9 @@ function delete_system(req) {
 }
 
 function log_frontend_stack_trace(req) {
-    return P.fcall(function() {
-            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
-        })
-        .return();
+    return P.fcall(() => {
+        dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+    });
 }
 
 /**
@@ -788,7 +794,7 @@ function add_role(req) {
     return system_store.make_changes({
         insert: {
             roles: [{
-                _id: system_store.new_system_store_id(),
+                _id: system_store.generate_id(),
                 account: account._id,
                 system: req.system._id,
                 role: req.rpc_params.role,
@@ -846,71 +852,90 @@ function get_system_web_links(system) {
     return _.omitBy(reply, _.isUndefined);
 }
 
+async function _get_agent_conf_id(req, routing_hint) {
+    const { system, rpc_params } = req;
+    const pool = rpc_params.pool ?
+        system.pools_by_name[rpc_params.pool] :
+        system_store.get_account_by_email(system.owner.email).default_pool;
+    const exclude_drives = rpc_params.exclude_drives ? rpc_params.exclude_drives.sort() : [];
+    const use_storage = rpc_params.roles ? rpc_params.roles.indexOf('STORAGE') > -1 : true;
+    const use_s3 = rpc_params.roles ? rpc_params.roles.indexOf('S3') > -1 : false;
+    const roles = rpc_params.roles || ['STORAGE'];
 
-function get_node_installation_string(req) {
-    return P.resolve()
-        .then(() => {
-            const system = req.system;
-            const res = _get_ip_and_dns(system);
-            const server_ip = res.dns_name ? res.dns_name : res.ip_address;
-            const linux_agent_installer = `noobaa-setup-${pkg.version}`;
-            const agent_installer = `noobaa-setup-${pkg.version}.exe`;
-            const pool = req.rpc_params.pool ?
-                req.system.pools_by_name[req.rpc_params.pool] :
-                system_store.get_account_by_email(req.system.owner.email).default_pool;
-            const exclude_drives = req.rpc_params.exclude_drives ? req.rpc_params.exclude_drives.sort() : [];
-            const use_storage = req.rpc_params.roles ? req.rpc_params.roles.indexOf('STORAGE') > -1 : true;
-            const use_s3 = req.rpc_params.roles ? req.rpc_params.roles.indexOf('S3') > -1 : false;
+    // try to find an existing configuration with the same settings
+    const cfg = system_store.data.agent_configs.find(conf =>
+        pool._id === conf.pool._id &&
+        use_storage === conf.use_storage &&
+        use_s3 === conf.use_s3 &&
+        _.isEqual(exclude_drives, conf.exclude_drives) &&
+        routing_hint === conf.routing_hint
+   );
 
-            const roles = req.rpc_params.roles || ['STORAGE'];
-            // try to find an existing configuration with the same settings
-            return P.resolve()
-                .then(() => {
-                    let cfg = system_store.data.agent_configs.find(conf => pool._id === conf.pool._id &&
-                        use_storage === conf.use_storage && use_s3 === conf.use_s3 &&
-                        _.isEqual(exclude_drives, conf.exclude_drives));
-                    if (cfg) {
-                        // return the configuratio id if found
-                        dbg.log0(`found existing configuration with the required settings`);
-                        return cfg._id;
-                    }
-                    dbg.log0(`creating new installation string for pool_id:${pool._id} exclude_drives:${exclude_drives} roles:${roles}`);
-                    // create new configuration with the required settings
-                    let _id = system_store.new_system_store_id();
-                    return system_store.make_changes({
-                        insert: {
-                            agent_configs: [{
-                                _id,
-                                name: 'config-' + Date.now(),
-                                system: system._id,
-                                pool: pool._id,
-                                exclude_drives,
-                                use_storage,
-                                use_s3
-                            }]
-                        }
-                    }).then(() => _id);
-                })
-                .then(async conf_id => {
-                    const create_node_token = _get_create_node_token(system._id, req.account._id, conf_id);
-                    // TODO: remove system and root_path from agent_conf
-                    const agent_conf = {
-                        address: `wss://${server_ip}:${api.get_base_port()}`,
-                        system: system.name,
-                        root_path: './noobaa_storage/',
-                        create_node_token
-                    };
-                    const base64_configuration = Buffer.from(JSON.stringify(agent_conf)).toString('base64');
-                    const kubernetes_yaml = fs.readFileSync(path.resolve(__dirname, '../../deploy/NVA_build/noobaa_agent.yaml'), 'utf8');
-                    return {
-                        LINUX: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${base64_configuration}`,
-                        WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`,
-                        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", base64_configuration).replace("AGENT_IMAGE_VERSION", pkg.version)
-                    };
-                });
+    if (cfg) {
+        dbg.log0(`found existing configuration with the required settings`);
+        return cfg._id;
+
+    } else {
+        // create new configuration with the required settings
+        dbg.log0(`creating new installation string for pool_id:${pool._id} exclude_drives:${exclude_drives} roles:${roles}`);
+        const conf_id = system_store.new_system_store_id();
+        const random_suffix = chance.string({
+            length: 4,
+            pool: string_utils.ALPHA_NUMERIC_CHARSET
         });
+        await system_store.make_changes({
+            insert: {
+                agent_configs: [{
+                    _id: conf_id,
+                    // Fixes the issue of generating more then one name on the same second.
+                    name: `config-${Date.now()}-${random_suffix}`,
+                    system: system._id,
+                    pool: pool._id,
+                    exclude_drives,
+                    use_storage,
+                    use_s3,
+                    routing_hint
+                }]
+            }
+        });
+        return conf_id;
+    }
 }
 
+function _get_base64_install_conf(address, routing_hint, system, create_node_token) {
+    const root_path = './noobaa_storage/';
+    const install_conf = JSON.stringify({ address, routing_hint, system, create_node_token, root_path });
+    return Buffer.from(install_conf).toString('base64');
+}
+
+async function _get_install_info(req, hint) {
+    const conf_id = await _get_agent_conf_id(req, hint);
+    const create_node_token = _get_create_node_token(req.system._id, req.account._id, conf_id);
+    const addr = addr_utils.get_base_address(req.system.system_address, hint);
+    const installer_path = `${addr.hostname}:${addr.port}/public`;
+    const install_conf = _get_base64_install_conf(addr.toString(), hint, req.system.name, create_node_token);
+    return { installer_path, install_conf };
+}
+
+async function get_node_installation_string(req) {
+    const linux_agent_installer = `noobaa-setup-${pkg.version}`;
+    const win_agent_installer = `noobaa-setup-${pkg.version}.exe`;
+    const [
+        kubernetes_yaml,
+        ext_install_info,
+        int_install_info
+    ] = await Promise.all([
+        fs.readFileAsync(path.resolve(__dirname, '../../deploy/NVA_build/noobaa_agent.yaml'), 'utf8'),
+        _get_install_info(req, 'EXTERNAL'),
+        _get_install_info(req, 'INTERNAL')
+    ]);
+
+    return {
+        LINUX: `wget /${ext_install_info.installer_path}/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${ext_install_info.install_conf}`,
+        WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${ext_install_info.installer_path}/${win_agent_installer} -Destination C:\\${win_agent_installer}; C:\\${win_agent_installer} /S /config ${ext_install_info.install_conf}`,
+        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", int_install_info.install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
+    };
+}
 
 async function set_last_stats_report_time(req) {
     var updates = {};
@@ -947,38 +972,6 @@ async function update_n2n_config(req) {
     });
 
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
-}
-
-async function update_base_address(req) {
-    dbg.log0('update_base_address', req.rpc_params);
-    var prior_base_address = req.system && req.system.base_address;
-    const db_update = {
-        _id: req.system._id,
-    };
-    if (req.rpc_params.base_address) {
-        db_update.base_address = req.rpc_params.base_address.toLowerCase();
-    } else {
-        db_update.$unset = {
-            base_address: 1
-        };
-    }
-    await system_store.make_changes({
-        update: {
-            systems: [db_update]
-        }
-    });
-
-    await server_rpc.client.node.sync_monitor_to_store(undefined, {
-        auth_token: req.auth_token
-    });
-
-    Dispatcher.instance().activity({
-        event: 'conf.dns_address',
-        level: 'info',
-        system: req.system._id,
-        actor: req.account && req.account._id,
-        desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address || 'server IP'}`,
-    });
 }
 
 async function verify_phonehome_connectivity(req) {
@@ -1077,7 +1070,8 @@ function configure_remote_syslog(req) {
                 actor: req.account && req.account._id,
                 desc: desc_line,
             });
-        });
+        })
+        .return();
 }
 
 function set_certificate(zip_file) {
@@ -1158,36 +1152,6 @@ function _get_create_node_token(system_id, account_id, agent_config_id) {
     dbg.log0(`created create_node_token: ${token}`);
     return token;
 }
-
-async function update_hostname(req) {
-    // Helper function used to solve missing infromation on the client (SSL_PORT)
-    // during create system process
-
-    // Patch in order to make sure that we won't push IP as base_address
-    // This is done since the FE doesn't send null (should be done on FE end and not here)
-    if (req.rpc_params.hostname !== null && !net.isIP(req.rpc_params.hostname)) {
-        req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
-    }
-
-    const result = await attempt_server_resolve(_.defaults({
-        rpc_params: {
-            server_name: req.rpc_params.hostname,
-            version_check: true
-        }
-    }, req));
-
-    if (!result.valid) {
-        throw new Error('Could not resolve ' + req.rpc_params.hostname +
-            ' Reason ' + result.reason);
-    }
-
-    dbg.log0('attempt_server_resolve returned updating base address');
-    delete req.rpc_params.hostname;
-    return update_base_address(req);
-
-}
-
-
 
 function attempt_server_resolve(req) {
     let result;
@@ -1297,12 +1261,11 @@ async function _ensure_internal_structure(system_id) {
                 role: 'admin',
                 account_id: support_account._id
             })
-        });
+         });
     } catch (err) {
         throw new Error('MONGO POOL CREATION FAILURE:' + err);
     }
-}
-
+ }
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -1314,23 +1277,6 @@ function get_system_info(system, get_id) {
         return _.pick(system, 'name');
     }
 }
-
-
-function _get_ip_and_dns(system) {
-    let response = {};
-    response.ip_address = ip_module.address();
-    if (system.base_address) {
-        let hostname = url.parse(system.base_address).hostname;
-
-        if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
-            response.ip_address = hostname;
-        } else {
-            response.dns_name = hostname;
-        }
-    }
-    return response;
-}
-
 
 function find_account_by_email(req) {
     var account = system_store.get_account_by_email(req.rpc_params.email);
@@ -1361,11 +1307,9 @@ exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
-exports.update_base_address = update_base_address;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.verify_phonehome_connectivity = verify_phonehome_connectivity;
 exports.update_phone_home_config = update_phone_home_config;
-exports.update_hostname = update_hostname;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;

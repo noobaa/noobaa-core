@@ -5,6 +5,7 @@
 const _ = require('lodash');
 const url = require('url');
 const util = require('util');
+const net = require('net');
 const chance = require('chance')();
 // const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
@@ -35,6 +36,7 @@ const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_utils = require('../utils/system_utils');
 const net_utils = require('../../util/net_utils');
+const addr_utils = require('../../util/addr_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
 const RUN_DELAY_MS = 60000;
@@ -498,8 +500,6 @@ class NodesMonitor extends EventEmitter {
                 });
             });
     }
-
-
 
     migrate_nodes_to_pool(req) {
         this._throw_if_not_started_and_loaded();
@@ -1008,6 +1008,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_node_service(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
+            .then(() => this._update_virtual_hosts(item))
             .then(() => this._test_nodes_validity(item))
             .then(() => this._update_status(item))
             .then(() => this._handle_issues(item))
@@ -1321,6 +1322,7 @@ class NodesMonitor extends EventEmitter {
         }
         _.extend(item.node, updates);
         this._set_need_update.add(item);
+        item.virtual_hosts = info.virtual_hosts;
         item.create_node_token = info.create_node_token;
     }
 
@@ -1486,6 +1488,34 @@ class NodesMonitor extends EventEmitter {
 
     }
 
+    _update_virtual_hosts(item) {
+        if (item.node.deleted) return;
+        if (!item.connection) return;
+        if (!item.agent_info) return;
+        if (!item.node_from_store) return;
+
+        // TODO: should add custom virtual hosts to the list.
+        const system = system_store.data.get_by_id(item.node.system);
+        const virtual_hosts = _.uniq(system.system_address
+            .filter(addr =>
+                addr.service === 's3' && // Only s3 service addresses
+                addr.api === 's3' && // which serve the s3 api
+                !net.isIP(addr.hostname) // and are not ips
+            )
+            .map(addr => addr.hostname))
+            .sort();
+
+        if (_.isEqual(item.virtual_hosts, virtual_hosts)) {
+            return;
+        }
+
+        dbg.log0('_update_virtual_hosts:', item.node.name, virtual_hosts);
+        return this.client.agent.update_virtual_hosts({ virtual_hosts }, {
+                connection: item.connection
+            })
+            .timeout(AGENT_RESPONSE_TIMEOUT);
+    }
+
     _update_rpc_config(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
@@ -1503,12 +1533,17 @@ class NodesMonitor extends EventEmitter {
         // only update if the system defined a base address
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
-        if (system.base_address &&
-            system.base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase() &&
+
+        const { routing_hint } = system_store.data.get_by_id(item.node.agent_config) || {};
+        const base_address = addr_utils.get_base_address(system.system_address, routing_hint).toString();
+        const address_configured = system.system_address.some(addr => addr.service === 'noobaa-mgmt');
+        if (address_configured &&
             !item.node.is_internal_node &&
-            !is_localhost(item.agent_info.base_address)) {
-            rpc_config.base_address = system.base_address;
+            !is_localhost(item.agent_info.base_address) &&
+            base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase()) {
+            rpc_config.base_address = base_address;
         }
+
         // make sure we don't modify the system's n2n_config
         const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
         const n2n_config = _.extend(null,

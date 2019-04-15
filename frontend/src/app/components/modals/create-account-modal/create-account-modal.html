@@ -79,7 +79,10 @@
                             "
                             ko.validationCss="$form.defaultResource"
                         ></dropdown>
-                         <validation-message params="field: $form.defaultResource"></validation-message>
+                         <validation-message
+                            ko.css.disabled="isS3AccessDisabled"
+                            params="field: $form.defaultResource"
+                        ></validation-message>
                     </editor>
                 </div>
 

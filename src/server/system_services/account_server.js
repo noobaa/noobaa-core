@@ -265,9 +265,15 @@ function update_account_s3_access(req) {
 
     //If s3_access is on, update allowed buckets and default_pool
     if (req.rpc_params.s3_access) {
-        if (!req.rpc_params.allowed_buckets ||
-            !req.rpc_params.default_pool) {
-            throw new RpcError('Enabling S3 requires providing allowed_buckets/default_pool');
+        if (!req.rpc_params.default_pool) {
+            const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+            if (pools.length) { // has resources which is not internal - must supply resource
+                throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
+            }
+        }
+
+        if (!req.rpc_params.allowed_buckets) {
+            throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets');
         }
 
         const full_permission = Boolean(req.rpc_params.allowed_buckets.full_permission);
@@ -283,7 +289,10 @@ function update_account_s3_access(req) {
                 system.buckets_by_name[bucket.unwrap()]._id);
         }
         update.allowed_buckets = allowed_buckets;
-        update.default_pool = system.pools_by_name[req.rpc_params.default_pool]._id;
+        update.default_pool = req.rpc_params.default_pool ?
+            system.pools_by_name[req.rpc_params.default_pool]._id :
+            Object.values(req.system.pools_by_name)[0]._id;
+
         if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }

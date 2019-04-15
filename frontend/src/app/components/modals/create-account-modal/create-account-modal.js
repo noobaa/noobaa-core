@@ -69,7 +69,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
     s3PlacementToolTip = s3PlacementToolTip;
     allowBucketCreationTooltip = allowBucketCreationTooltip;
     accountNames = null;
-    systemHasResources = null;
+    systemHasResources = false;
     resourceOptions = ko.observable();
     bucketOptions = ko.observable();
     password = randomString();
@@ -154,7 +154,6 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
         const warnings = {};
         const { hasS3Access, step } = values;
 
-        // console.warn(values, this.systemHasResources);
         if (step === 1) {
             if (hasS3Access && !this.systemHasResources) {
                 warnings.defaultResource = 'Until connecting resources, internal storage will be used';

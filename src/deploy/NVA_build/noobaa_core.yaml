@@ -17,7 +17,21 @@ rules:
       - apps
     resources:
       - statefulsets
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - "" # "" indicates the core API group
+    resources:
+      - services
+    verbs:
+      - get
+      - list
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

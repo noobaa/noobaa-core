@@ -5,10 +5,6 @@ var _ = require('lodash');
 var url = require('url');
 var querystring = require('querystring');
 
-module.exports = {
-    quick_parse: quick_parse,
-};
-
 var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
 
 /**
@@ -50,6 +46,17 @@ function quick_parse(url_string, parse_query_string) {
     return u;
 }
 
+function construct_url(def) {
+    const { protocol = 'http', hostname, port } = def;
+    if (!hostname) {
+        throw new Error('Invalid definition, hostname is mandatory');
+    }
+
+    return new URL(port ?
+        `${protocol || 'http'}://${hostname}:${port}` :
+        `${protocol || 'http'}://${hostname}`
+    );
+}
 
 function benchmark() {
     var testing_url = process.argv[2] || "http://127.0.0.1:4545/";
@@ -107,6 +114,9 @@ function benchmark() {
     }
     console.log('\ndone.\n');
 }
+
+exports.quick_parse = quick_parse;
+exports.construct_url = construct_url;
 
 if (require.main === module) {
     benchmark();

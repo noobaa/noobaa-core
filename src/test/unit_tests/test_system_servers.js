@@ -129,9 +129,6 @@ mocha.describe('system_servers', function() {
     mocha.it('system works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => rpc_client.system.update_base_address({
-                base_address: 'fcall://fcall'
-            }))
             .then(() => rpc_client.system.update_n2n_config({
                 config: {}
             }))

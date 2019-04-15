@@ -52,11 +52,11 @@ function usage() {
     --name              -   account prefix (default: ${TEST_CFG_DEFAULTS.name})
     --bucket            -   bucket name (default: ${TEST_CFG_DEFAULTS.bucket})
     --emailSuffix       -   The email suffix (default: ${TEST_CFG_DEFAULTS.emailSuffix})
-    --password          -   Account's Password (default: ${TEST_CFG_DEFAULTS.password}) 
+    --password          -   Account's Password (default: ${TEST_CFG_DEFAULTS.password})
     --s3_access         -   should we have s3 access (default: ${TEST_CFG_DEFAULTS.s3_access})
     --cycles            -   number of cycles (default: ${TEST_CFG_DEFAULTS.cycles})
     --accounts_number   -   number of accounts to create per cycle (default: ${TEST_CFG_DEFAULTS.accounts_number})
-    --skip_report       -   will skip sending report to mongo 
+    --skip_report       -   will skip sending report to mongo
     --skip_delete       -   should we delete the accounts (default: ${TEST_CFG_DEFAULTS.skip_delete})
     --skip_create       -   Skip creating accounts (default: ${TEST_CFG_DEFAULTS.skip_create})
     --help              -   show this help
@@ -297,7 +297,7 @@ async function verify_s3_no_access(email) {
 }
 
 async function login_user(email) {
-    rpc = api.new_rpc('wss://' + TEST_CFG.server_ip + ':8443');
+    rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.server_ip + ':8443');
     client = rpc.new_client({});
     let auth_params = {
         email,

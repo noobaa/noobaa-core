@@ -17,6 +17,8 @@ const P = require('./promise');
 const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
+const net_utils = require('./net_utils');
+const { get_default_ports } = require('../util/addr_utils');
 const dbg = require('./debug_module')(__filename);
 const os_detailed_info = require('getos');
 const dotenv = require('./dotenv');
@@ -917,7 +919,7 @@ async function get_process_parent_pid(proc) {
 
 async function get_services_ps_info(services) {
     try {
-        // look for the service name in "arguments" and not "command". 
+        // look for the service name in "arguments" and not "command".
         // for node services the command is node, and for mongo_wrapper it's bash
         const ps_data = await P.map(services, async srv => {
             const ps_info = await P.fromCallback(callback => ps.lookup({
@@ -1280,14 +1282,87 @@ async function is_vmtools_installed() {
     }
 }
 
-
-async function get_kubernetes_dns_name() {
+async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
     if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
-        throw new Error('get_kubernetes_dns_name is only supported in kubernetes envs');
+        throw new Error('discover_k8s_services is only supported in kubernetes envs');
     }
-    return promise_utils.exec('hostname -d', { return_stdout: true, trim_stdout: true });
+
+    if (!app) {
+        throw new Error(`Invalid app name, got: ${app}`);
+    }
+
+    const text = await promise_utils.exec(
+        'kubectl get services -o json',
+        { return_stdout: true }
+    );
+    const json = JSON.parse(text);
+    const services = json.items.filter(service =>
+        service.metadata.labels.app === app
+    );
+
+    const list = _.flatMap(services, serviceInfo => {
+        const { metadata, spec, status } = serviceInfo;
+        const { ingress } = status.loadBalancer;
+        const internalHostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
+        const externalHostnames = _.flatMap(ingress, item => [item.ip, item.hostname].filter(Boolean));
+
+        return _.flatMap(spec.ports, portInfo => {
+            const common = {
+                service: metadata.name,
+                port: portInfo.port,
+                api: portInfo.name.replace('-https', ''),
+                secure: portInfo.name.endsWith('https'),
+            };
+            return [
+                {
+                    ...common,
+                    kind: 'INTERNAL',
+                    hostname: internalHostname,
+                },
+                ...externalHostnames.map(hostname => ({
+                    ...common,
+                    kind: 'EXTERNAL',
+                    hostname
+                }))
+            ];
+        });
+    });
+
+    return sort_address_list(list);
 }
 
+async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
+    const public_ip = await net_utils.retrieve_public_ip();
+    if (!public_ip || public_ip === ip_module.address()) {
+        return [];
+    }
+
+    const list = Object.entries(get_default_ports())
+        .map(([api, port]) => ({
+            kind: 'EXTERNAL',
+            service: 'noobaa-mgmt',
+            hostname: public_ip,
+            port,
+            api,
+            secure: true,
+        })
+    );
+
+    return sort_address_list(list);
+}
+
+function sort_address_list(address_list) {
+    const sort_fields = ['kind', 'service', 'hostname', 'port', 'api', 'secure'];
+    return address_list.sort((item, other) => {
+        const item_key = sort_fields.map(field => item[field]).join();
+        const other_key = sort_fields.map(field => other[field]).join();
+        return (
+            (item_key < other_key && -1) ||
+            (item_key > other_key && 1) ||
+            0
+        );
+    });
+}
 
 
 // EXPORTS
@@ -1335,4 +1410,5 @@ exports.install_vmtools = install_vmtools;
 exports.is_vmtools_installed = is_vmtools_installed;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
-exports.get_kubernetes_dns_name = get_kubernetes_dns_name;
+exports.discover_k8s_services = discover_k8s_services;
+exports.discover_virtual_appliance_address = discover_virtual_appliance_address;

@@ -71,7 +71,7 @@ if (help) {
     process.exit(1);
 }
 
-const rpc = api.new_rpc('wss://' + server_ip + ':8443');
+const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
 const client = rpc.new_client({});
 
 let report = new Report();

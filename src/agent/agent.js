@@ -54,7 +54,7 @@ class Agent {
         const dbg = this.dbg;
         dbg.log0('Creating agent', params);
 
-        this.rpc = api.new_rpc(params.address);
+        this.rpc = api.new_rpc_from_base_address(params.address, params.routing_hint);
         this.client = this.rpc.new_client();
 
         this.servers = params.servers || [{
@@ -64,8 +64,8 @@ class Agent {
         this.cpu_usage = process.cpuUsage();
         this.cpu_usage.time_stamp = time_utils.microstamp();
 
-        this.base_address = params.address ? params.address.toLowerCase() : this.rpc.router.default;
-        this.master_address = this.base_address;
+        this.base_address = this.rpc.router.default;
+        this.master_address = this.rpc.router.default;
         this.proxy = params.proxy;
         dbg.log0(`this.base_address=${this.base_address}`);
         dbg.log0(`this.master_address=${this.base_address}`);
@@ -73,6 +73,7 @@ class Agent {
         this.location_info = params.location_info;
         this.test_hostname = params.test_hostname;
         this.host_name = os.hostname();
+        this.virtual_hosts = params.virtual_hosts || [];
 
         this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
@@ -602,7 +603,7 @@ class Agent {
         const dbg = this.dbg;
 
         dbg.log0('update_rpc_router: updating address to', address);
-        this.rpc.router = api.new_router(address);
+        this.rpc.router = api.new_router_from_base_address(address);
         if (this.endpoint_info && this.endpoint_info.s3rver_process) {
             this._disable_service();
             this._enable_service();
@@ -733,6 +734,8 @@ class Agent {
                     base_address: this.master_address,
                     certs: this._ssl_certs,
                     location_info: this.location_info,
+                    routing_hint: this.rpc.routing_hint,
+                    virtual_hosts: this.virtual_hosts
                 });
                 break;
             case 'STATS':
@@ -793,7 +796,8 @@ class Agent {
             mem_usage: process.memoryUsage().rss,
             cpu_usage: cpu_percent,
             location_info: this.location_info,
-            io_stats: this.block_store && this.block_store.get_and_reset_io_stats()
+            io_stats: this.block_store && this.block_store.get_and_reset_io_stats(),
+            virtual_hosts: this.virtual_hosts
         };
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;
@@ -843,7 +847,7 @@ class Agent {
                     dbg.log0('storage_info:', storage_info);
                     reply.storage = storage_info;
 
-                    // treat small amount of used storage as 0 (under 200 KB) to avoid noisy 
+                    // treat small amount of used storage as 0 (under 200 KB) to avoid noisy
                     // reporting in a new system
                     const MIN_USED_STORAGE = 200 * 1024;
                     if (storage_info.used < MIN_USED_STORAGE) {
@@ -943,22 +947,34 @@ class Agent {
     }
 
     update_rpc_config(req) {
+        const { n2n_config, rpc_address, base_address } = req.rpc_params;
         const dbg = this.dbg;
-        const n2n_config = req.rpc_params.n2n_config;
-        const rpc_address = req.rpc_params.rpc_address;
         const old_rpc_address = this.rpc_address;
-        const base_address = req.rpc_params.base_address;
         dbg.log0('update_rpc_config', req.rpc_params);
 
         return this._update_rpc_config_internal({
-            n2n_config: n2n_config,
-            rpc_address: rpc_address,
-            old_rpc_address: old_rpc_address,
-            base_address: base_address,
+            n2n_config,
+            rpc_address,
+            old_rpc_address,
+            base_address,
             store_base_address: !_.isUndefined(base_address),
         });
     }
 
+    async update_virtual_hosts(req) {
+        const { dbg } = this;
+        this.virtual_hosts = req.rpc_params.virtual_hosts || [];
+
+        dbg.log0('Writing virtual hosts to agent conf: ', this.virtual_hosts);
+        await this.agent_conf.update({ virtual_hosts: this.virtual_hosts });
+
+        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
+            this.endpoint_info.s3rver_process.send({
+                message: 'update_virtual_hosts',
+                virtual_hosts: this.virtual_hosts
+            });
+        }
+    }
 
     n2n_signal(req) {
         return this.rpc.accept_n2n_signal(req.rpc_params);

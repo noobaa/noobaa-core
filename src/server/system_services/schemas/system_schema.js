@@ -51,9 +51,35 @@ module.exports = {
         maintenance_mode: {
             idate: true
         },
-        // the DNS name or IP address used for the server
-        base_address: {
-            type: 'string'
+        system_address: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['service', 'kind', 'hostname', 'port', 'api', 'secure'],
+                properties: {
+                    service: {
+                        type: 'string',
+                        enum: ['noobaa-mgmt', 's3']
+                    },
+                    kind: {
+                        type: 'string',
+                        enum: ['INTERNAL', 'EXTERNAL']
+                    },
+                    hostname: { type: 'string' },
+                    port: { $ref: 'common_api#/definitions/port' },
+                    api: {
+                        type: 'string',
+                        enum: ['mgmt', 's3', 'md', 'bg', 'hosted-agents']
+                    },
+                    secure: { type: 'boolean' }
+                }
+            }
+        },
+        virtual_hosts: {
+            type: 'array',
+            items: {
+                type: 'string'
+            }
         },
         phone_home_proxy_address: {
             type: 'string'

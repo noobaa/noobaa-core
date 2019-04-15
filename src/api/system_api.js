@@ -287,22 +287,6 @@ module.exports = {
             }
         },
 
-        update_base_address: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['base_address'],
-                properties: {
-                    base_address: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         verify_phonehome_connectivity: {
             method: 'POST',
             params: {
@@ -364,26 +348,6 @@ module.exports = {
                     },
                     port: {
                         type: 'number'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        update_hostname: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['hostname'],
-                properties: {
-                    hostname: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'string'
-                        }]
                     }
                 }
             },

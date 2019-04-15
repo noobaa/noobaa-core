@@ -78,7 +78,7 @@ function usage() {
     --location              -   azure location (default: ${location})
     --configured_ntp        -   ntp server (default: ${configured_ntp})
     --configured_timezone   -   time zone for the ntp (default: ${configured_timezone})
-    --prefix                -   noobaa server prefix name (default: ${prefix}) 
+    --prefix                -   noobaa server prefix name (default: ${prefix})
     --resource              -   azure resource group
     --storage               -   azure storage on the resource group
     --vnet                  -   azure vnet on the resource group
@@ -202,7 +202,7 @@ async function start_server(server) {
 
 async function do_rpc(server, func) {
     if (!server.client) {
-        server.rpc = api.new_rpc('wss://' + server.ip + ':8443');
+        server.rpc = api.new_rpc_from_base_address('wss://' + server.ip + ':8443');
         server.client = server.rpc.new_client({});
         await server.client.create_auth_token({
             email: 'demo@noobaa.com',
@@ -218,7 +218,7 @@ async function do_rpc(server, func) {
             // if UNAUTHORIZED try to authenticate again
             if (err.rpc_code === 'UNAUTHORIZED') {
                 retries += 1;
-                server.rpc = api.new_rpc('wss://' + server.ip + ':8443');
+                server.rpc = api.new_rpc_from_base_address('wss://' + server.ip + ':8443');
                 server.client = server.rpc.new_client({});
                 await server.client.create_auth_token({
                     email: 'demo@noobaa.com',

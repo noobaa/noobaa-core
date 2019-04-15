@@ -32,7 +32,7 @@ const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
 /**
  *
  * RPC
- * 
+ *
  */
 class RPC extends EventEmitter {
 
@@ -50,6 +50,7 @@ class RPC extends EventEmitter {
         this._aggregated_flight_time = 0;
         this._served_requests = 0;
         this.RPC_BUFFERS = RPC_BUFFERS;
+        this._routing_authority = null;
     }
 
     /**
@@ -466,46 +467,54 @@ class RPC extends EventEmitter {
         return conn;
     }
 
-
     /**
      *
      */
     _new_connection(addr_url) {
+        dbg.log1('RPC _new_connection:', addr_url);
         var conn;
         switch (addr_url.protocol) {
             // order protocols by popularity
-            case 'n2n:':
+            case 'n2n:': {
                 conn = new RpcN2NConnection(addr_url, this.n2n_agent);
                 break;
+            }
             case 'ws:':
-            case 'wss:':
+            case 'wss:': {
                 conn = new RpcWsConnection(addr_url);
                 break;
-            case 'fcall:':
+            }
+            case 'fcall:': {
                 conn = new RpcFcallConnection(addr_url);
                 break;
+            }
             case 'tls:':
-            case 'tcp:':
+            case 'tcp:': {
                 conn = new RpcTcpConnection(addr_url);
                 break;
+            }
             case 'http:':
-            case 'https:':
+            case 'https:': {
                 conn = new RpcHttpConnection(addr_url);
                 break;
-            case 'nudp:':
+            }
+            case 'nudp:': {
                 conn = new RpcNudpConnection(addr_url);
                 break;
+            }
             case 'ntcp:':
-            case 'ntls:':
+            case 'ntls:': {
                 conn = new RpcNtcpConnection(addr_url);
                 break;
-            default:
+            }
+            default: {
                 throw new Error('RPC new_connection: bad protocol ' + addr_url.href);
+            }
         }
+
         this._accept_new_connection(conn);
         return conn;
     }
-
 
     /**
      *
@@ -518,6 +527,16 @@ class RPC extends EventEmitter {
             conn.emit('error', err);
             throw err;
         }
+        conn.once('connect', () => {
+            dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
+            if (this.routing_hint) {
+                conn.send(RpcRequest.encode_message({
+                    op: 'routing_req',
+                    reqid: conn._alloc_reqid(),
+                    routing_hint: this.routing_hint,
+                }));
+            }
+        });
         conn.on('message', msg => this._on_message(conn, msg));
         conn.on('close', err => this._connection_closed(conn, err));
         // we let the connection handle it's own errors and decide if to close or not
@@ -670,17 +689,38 @@ class RPC extends EventEmitter {
         }
 
         switch (msg.body.op) {
-            case 'req':
+            case 'req': {
                 P.resolve()
                     .then(() => this._on_request(conn, msg))
                     .catch(err => {
                         dbg.warn('RPC._on_message: ERROR from _on_request', err.stack || err);
                     });
                 break;
-            case 'res':
+            }
+            case 'res': {
                 this._on_response(conn, msg);
                 break;
-            case 'ping':
+            }
+            case 'routing_req': {
+                dbg.log4('RPC ROUTING REQ', conn.connid, msg.body, this.router);
+                const routing = this._routing_authority ? this._routing_authority(msg.body.routing_hint) : undefined;
+
+                dbg.log0('RPC ROUTING RES SEND', routing, conn.connid, conn.url.href);
+                conn.send(RpcRequest.encode_message({
+                    op: 'routing_res',
+                    reqid: msg.body.reqid,
+                    routing,
+                }));
+                break;
+            }
+            case 'routing_res': {
+                dbg.log4('RPC ROUTING RES', conn.connid, msg.body);
+                if (msg.body.routing) {
+                    this.router = msg.body.routing;
+                }
+                break;
+            }
+            case 'ping': {
                 dbg.log4('RPC PONG', conn.connid);
                 P.resolve()
                     .then(() => conn.send(RpcRequest.encode_message({
@@ -689,7 +729,8 @@ class RPC extends EventEmitter {
                     })))
                     .catch(_.noop); // already means the conn is closed
                 break;
-            case 'pong':
+            }
+            case 'pong': {
                 if (conn._ping_reqid_set && conn._ping_reqid_set.has(msg.body.reqid)) {
                     dbg.log4('RPC PINGPONG', conn.connid);
                     conn._ping_reqid_set.delete(msg.body.reqid);
@@ -700,12 +741,14 @@ class RPC extends EventEmitter {
                     } connid ${conn.connid}`);
                 }
                 break;
-            default:
+            }
+            default: {
                 conn.emit('error', new Error('RPC._on_message:' +
                     ' BAD MESSAGE OP ' + msg.body.op +
                     ' reqid ' + msg.body.reqid +
                     ' connid ' + conn.connid));
                 break;
+            }
         }
     }
 
@@ -874,6 +917,11 @@ class RPC extends EventEmitter {
     register_n2n_proxy(proxy_func) {
         dbg.log0('RPC register_n2n_proxy');
         this.n2n_proxy = proxy_func;
+    }
+
+    register_routing_authority(resolve_routing_cb) {
+        dbg.log0('RPC register_routing_authority');
+        this._routing_authority = resolve_routing_cb;
     }
 
     disable_validation() {

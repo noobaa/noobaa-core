@@ -28,7 +28,6 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 
-const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
 const argv = require('minimist')(process.argv);
 const endpoint = require('../../endpoint/endpoint');
@@ -70,7 +69,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
         _incomplete_rpc_coverage = incomplete_rpc_coverage;
     }
 
-    api.get_base_address = () => 'fcall://fcall';
+    server_rpc.get_base_address = () => 'fcall://fcall';
 
     // register api servers and bg_worker servers locally too
     server_rpc.register_system_services();

@@ -606,7 +606,7 @@ async function set_diagnose_system_and_check() {
 }
 
 async function set_rpc_and_create_auth_token() {
-    rpc = api.new_rpc('wss://' + server_ip + ':8443');
+    rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
     client = rpc.new_client({});
     let auth_params = {
         email: 'demo@noobaa.com',

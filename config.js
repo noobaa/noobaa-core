@@ -379,7 +379,13 @@ config.SEND_EVENTS_REMOTESYS = true;
 config.PROMETHEUS_ENABLED = true;
 
 //////////////////////////////
-// Account preferences      //
+// KUBERNETES RELATES       //
+//////////////////////////////
+
+config.KUBE_APP_LABEL = 'noobaa';
+
+//////////////////////////////
+// ACCOUNT PREFERENCES      //
 //////////////////////////////
 
 config.DEFAULT_ACCOUNT_PREFERENCES = {

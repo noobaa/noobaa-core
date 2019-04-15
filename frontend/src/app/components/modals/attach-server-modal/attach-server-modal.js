@@ -28,6 +28,7 @@ class AttachServerModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
     form = null;
+    isStepValid = false;
     version = ko.observable();
     asyncValidationTriggers = ['address', 'secret'];
     fields = {

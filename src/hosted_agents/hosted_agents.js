@@ -15,6 +15,7 @@ const Agent = require('../agent/agent');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
+const addr_utils = require('../util/addr_utils');
 const config = require('../../config');
 
 
@@ -109,7 +110,6 @@ class HostedAgents {
             return;
         }
 
-        const port = process.env.SSL_PORT || 5443;
         const host_id = config.HOSTED_AGENTS_HOST_ID + pool_id;
         const storage_path = path.join(process.cwd(), 'noobaa_storage', node_name);
         const pool_property_path = pool.resource_type === 'INTERNAL' ?
@@ -165,7 +165,7 @@ class HostedAgents {
             pool_name: pool.name
         };
         const agent_params = {
-            address: 'wss://127.0.0.1:' + port,
+            address: addr_utils.format_base_address(),
             proxy: system.phone_home_proxy_address,
             node_name,
             host_id,
@@ -190,7 +190,6 @@ class HostedAgents {
     start_local_agent(params) {
         if (!this._started) return;
 
-        const port = process.env.SSL_PORT || 5443;
         const host_id = uuid();
         const node_name = 'noobaa-internal-agent-' + params.name;
         const storage_path = path.join(process.cwd(), 'noobaa_storage', node_name);
@@ -217,7 +216,7 @@ class HostedAgents {
         };
 
         const agent_params = {
-            address: 'wss://127.0.0.1:' + port,
+            address: addr_utils.format_base_address(),
             node_name: node_name,
             host_id: host_id,
             storage_path: storage_path,

@@ -165,7 +165,7 @@ function strictify(schema, options, base) {
     } else if (schema.type === 'boolean') {
         check_schema_extra_keywords(schema, base, 'type');
     } else if (schema.type === 'integer') {
-        check_schema_extra_keywords(schema, base, ['type', 'format']);
+        check_schema_extra_keywords(schema, base, ['type', 'format', 'minimum', 'maximum']);
     } else if (schema.type === 'number') {
         check_schema_extra_keywords(schema, base, ['type', 'format', 'minimum', 'maximum']);
     } else if (schema.date) {

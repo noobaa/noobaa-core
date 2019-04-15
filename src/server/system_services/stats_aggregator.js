@@ -11,7 +11,6 @@ const _ = require('lodash');
 const request = require('request');
 const fs = require('fs');
 const P = require('../../util/promise');
-const net_utils = require('../../util/net_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const pkg = require('../../../package.json');
@@ -23,6 +22,7 @@ const object_server = require('../object_services/object_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 const size_utils = require('../../util/size_utils');
+const net_utils = require('../../util/net_utils');
 const fs_utils = require('../../util/fs_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
@@ -129,6 +129,10 @@ async function get_systems_stats(req) {
                     // Means that if we do not have any systems, the version number won't be sent
                     sys_stats.version = res.version || process.env.CURRENT_VERSION;
                     const buckets_config = _aggregate_buckets_config(res);
+                    const has_dns_name = system.system_address.some(addr =>
+                        addr.api === 'mgmt' && !net_utils.is_ip(addr.hostnames)
+                    );
+
                     return _.defaults({
                         roles: res.roles.length,
                         tiers: res.tiers.length,
@@ -146,7 +150,7 @@ async function get_systems_stats(req) {
                         owner: res.owner.email,
                         configuration: {
                             dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
-                            dns_name: system.base_address && !net_utils.is_ip(system.base_address),
+                            dns_name: has_dns_name,
                             dns_search: res.cluster.shards[0].servers[0].search_domains.length,
                             ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
                             proxy: !_.isEmpty(res.phone_home_config.proxy_address),

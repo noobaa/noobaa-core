@@ -33,7 +33,7 @@ if (!process.env.PLATFORM) {
     dotenv.load();
 }
 
-function run() {
+async function run() {
     dbg.log0('SERVER_MONITOR: BEGIN');
     monitoring_status = {
         dns_status: "UNKNOWN",
@@ -52,39 +52,52 @@ function run() {
     }
     server_conf = system_store.get_local_cluster_info(true);
 
-    return system_store.refresh()
-        .then(() => _verify_cluster_configuration())
-        .then(() => _check_ntp())
-        .then(() => _check_dns_and_phonehome())
-        .then(() => _check_proxy_configuration())
-        .then(() => _check_remote_syslog())
-        .then(() => _verify_and_update_public_ip())
-        .then(() => _check_is_self_in_dns_table())
-        .then(() => _check_internal_ips())
-        .then(() => _check_network_configuration())
-        .then(() => _check_disk_space())
-        .then(() => _check_for_duplicate_ips())
-        .then(() => {
-            dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
-            return {
-                services: monitoring_status,
-                ip_collision
-            };
-        });
+    await system_store.refresh();
+    await run_monitors();
+
+    dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
+    return {
+        services: monitoring_status,
+        ip_collision
+    };
 }
 
-/*
- * verify this server is synced with cluster configuration.
- * will rectify and align server to cluster
- */
-function _verify_cluster_configuration() {
-    dbg.log1('Verifying configuration in cluster');
-    return _verify_ntp_cluster_config()
-        .then(() => _verify_dns_cluster_config())
-        .then(() => _verify_proxy_cluster_config())
-        .then(() => _verify_remote_syslog_cluster_config())
-        .then(() => _verify_server_certificate())
-        .then(() => _verify_vmtools());
+async function run_monitors() {
+    const { PLATFORM, CONTAINER_PLATFORM } = process.env;
+    const os_type = os.type();
+
+    await _verify_remote_syslog_cluster_config();
+    await _verify_server_certificate();
+    await _check_dns_and_phonehome();
+    await _check_proxy_configuration();
+    await _check_remote_syslog();
+    await _check_internal_ips();
+    await _check_disk_space();
+    await _check_address_changes(CONTAINER_PLATFORM);
+
+    if (PLATFORM !== 'docker') {
+        await _verify_ntp_cluster_config();
+        await _verify_proxy_cluster_config();
+        await _check_ntp();
+        await _verify_and_update_public_ip();
+        await _check_is_self_in_dns_table();
+    }
+
+    if (PLATFORM !== 'docker' && os_type !== 'Darwin') {
+       await _verify_dns_cluster_config();
+    }
+
+    if (PLATFORM !== 'docker' && PLATFORM !== 'azure' && os_type !== 'Darwin') {
+        await _check_network_configuration();
+    }
+
+    if (PLATFORM === 'esx' && os_type === 'Linux') {
+        await _verify_vmtools();
+    }
+
+    if (os_type === 'Linux') {
+        await _check_for_duplicate_ips();
+    }
 }
 
 function _verify_ntp_cluster_config() {
@@ -481,7 +494,7 @@ function _check_disk_space() {
 }
 
 async function _verify_and_update_public_ip() {
-    dbg.log2('_verify_ip_vs_stun');
+    dbg.log2('_verify_and_update_public_ip');
     //Verify what is the public IP of this server
     return net_utils.retrieve_public_ip()
         .catch(() => dbg.error('Failed retrieving public IP address'))
@@ -501,6 +514,30 @@ async function _verify_and_update_public_ip() {
                     .catch(() => dbg.error('Failed updating public IP address'));
             }
         });
+}
+
+async function _check_address_changes(container_platform) {
+    dbg.log2('_check_address_changes');
+    try {
+        const [system] = system_store.data.systems;
+        const system_address = container_platform === 'KUBERNETES' ?
+            await os_utils.discover_k8s_services() :
+            await os_utils.discover_virtual_appliance_address();
+
+        // This works because the lists are always sorted, see discover_k8s_services().
+        if (!_.isEqual(system.system_address, system_address)) {
+            await system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: system.id,
+                        $set: { system_address }
+                    }]
+                }
+            });
+        }
+    } catch (err) {
+        dbg.error('Trying to discover address changes failed');
+    }
 }
 
 // EXPORTS

@@ -155,6 +155,9 @@ module.exports = {
                     location_info: {
                         $ref: 'common_api#/definitions/location_info'
                     },
+                    virtual_hosts: {
+                        $ref: 'common_api#/definitions/hostname_list'
+                    }
                 }
             },
         },
@@ -332,6 +335,17 @@ module.exports = {
                     level: {
                         type: 'integer'
                     }
+                }
+            }
+        },
+
+        update_virtual_hosts: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['virtual_hosts'],
+                properties: {
+                    virtual_hosts: { $ref: 'common_api#/definitions/hostname_list' }
                 }
             }
         },

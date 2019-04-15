@@ -4,6 +4,7 @@
 /* eslint-disable global-require */
 
 const api = require('../api');
+const { format_base_address } = require('../util/addr_utils');
 
 class ServerRpc {
 
@@ -17,7 +18,7 @@ class ServerRpc {
     }
 
     get_base_address(base_hostname) {
-        return api.get_base_address(base_hostname);
+        return format_base_address(base_hostname);
     }
 
     get_server_options() {
@@ -35,27 +36,28 @@ class ServerRpc {
 
     set_new_router(params) {
         // check if some domains are changed to fcall://fcall
-        let is_default_fcall = this.rpc.router.default === 'fcall://fcall';
-        let base_address;
-        let master_address;
+        const fcalls = Object.entries(this.rpc.router)
+            .reduce((list, pair) => {
+                const [domain, addr] = pair;
+                if (addr === 'fcall://fcall') list.push(domain);
+                return list;
+            }, []);
 
         if (params.base_address) {
-            base_address = this.get_base_address(params.base_address);
-        } else if (is_default_fcall) {
-            base_address = this.get_base_address();
-        } else {
-            base_address = this.rpc.router.default;
+            const new_router = api.new_router_from_base_address(
+                this.get_base_address(params.base_address)
+            );
+            new_router.master = this.rpc.router.master;
+            this.rpc.router = new_router;
         }
 
         if (params.master_address) {
-            master_address = this.get_base_address(params.master_address);
+            this.rpc.router.master = this.get_base_address(params.master_address);
         }
 
-        this.rpc.router = api.new_router(base_address, master_address);
-
         // restore default to fcall if needed
-        if (is_default_fcall) {
-            this.rpc.router.default = 'fcall://fcall';
+        for (const domain of fcalls) {
+            this.rpc.router[domain] = 'fcall://fcall';
         }
     }
 

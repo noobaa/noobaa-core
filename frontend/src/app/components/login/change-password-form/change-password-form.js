@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { signOut } from 'action-creators';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/password-utils';
+import { sleep } from 'utils/promise-utils';
 import { action$ } from 'state';
 import { changeAccountPassword, refreshLocation } from 'action-creators';
 
@@ -45,7 +46,7 @@ class ChangePasswordFormViewModel extends BaseViewModel {
         this.errors = ko.validation.group(this);
     }
 
-    change() {
+    async change() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
             this.wasValidated(true);
@@ -57,11 +58,18 @@ class ChangePasswordFormViewModel extends BaseViewModel {
                 sessionInfo().user,
                 this.newPassword(),
             ));
+
+            // A workaround for the problem that the UI does not update after the
+            // the password is reset which cause the user to be locked to the reset window
+            // instead of moving on to the overview page.
+            // A full fix will be issued with the tiering integarion merge.
+            await sleep(1500);
+            location.reload();
         }
     }
 
     back() {
-        signOut();
+        action$.next(signOut());
     }
 }
 

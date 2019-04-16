@@ -3,6 +3,8 @@ FROM centos:7 as base
 RUN yum -y install epel-release openssl && \
     yum clean all
 
+FROM base as basenoobaa
+
 ###########################
 # NOOBAA AGENT BASE SETUP #
 ###########################
@@ -16,17 +18,11 @@ RUN chmod +x run_agent_container.sh
 RUN chmod +x noobaa-setup
 # This is a dummy token in order to perform the installation
 RUN ./noobaa-setup JZ-
-RUN tar -zcvf noobaa.tar.gz /usr/local/noobaa/
+RUN tar -zcf noobaa.tar.gz /usr/local/noobaa/
 
 ######################################################
-FROM centos:7
+FROM base
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
-
-#################
-# INSTALLATIONS #
-#################
-RUN yum -y install epel-release openssl && \
-    yum clean all
 
 ################
 # NOOBAA SETUP #
@@ -34,8 +30,12 @@ RUN yum -y install epel-release openssl && \
 ENV container docker
 RUN mkdir /noobaa_storage
 ARG agent_entrypoint=./run_agent_container.sh
-COPY --from=base ${agent_entrypoint} .
-COPY --from=base ./noobaa.tar.gz .
+ARG kube_pv_chown=./usr/local/noobaa/build/Release/kube_pv_chown
+RUN chgrp 0 /etc/passwd && chmod -R g=u /etc/passwd && \
+    chmod u+s /usr/bin/tar
+COPY --from=basenoobaa ${kube_pv_chown} ./bin/
+COPY --from=basenoobaa ${agent_entrypoint} .
+COPY --from=basenoobaa ./noobaa.tar.gz .
 
 ###############
 # PORTS SETUP #

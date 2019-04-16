@@ -11,6 +11,7 @@ ACCESS_KEY=""
 SECRET_KEY=""
 COMMAND=NONE
 NOOBAA_POD_NAME=noobaa-server-0
+CLUSTER_NAME=$(kubectl config view --minify -o json | jq -r '.clusters[0].name')
 
 
 jq --version &> /dev/null
@@ -114,14 +115,24 @@ function print_noobaa_info {
     fi
 
     MGMT_IP=$(get_service_external_ip noobaa-mgmt)
+    NODE_PORT_MGMT_FALLBACK=$(get_node_port_ip_and_port noobaa-mgmt)
+    NODE_PORT_S3_FALLBACK=$(get_node_port_ip_and_port s3)
+
     # if management external ip is not found assume there is no external ip and don't try find S3
     if [ "${MGMT_IP}" == "" ]; then
-        #TODO: try to extract node ip and ports and print urls for node_ip:node_port
+        get_access_keys ${NODE_PORT_MGMT_FALLBACK}
         echo -e "\n\n================================================================================"
         echo "Could not identify an external IP to connect from outside the cluster"
         echo "External IP is usually allocated automatically for Kubernetes clusters deployed on public cloud providers"
         echo "You can try again later to see if an external IP was allocated using '${SCRIPT_NAME} info'"
         echo
+        echo "Node port based management URL: http://${NODE_PORT_MGMT_FALLBACK}"
+        echo 
+        echo
+        echo "      login email             : ${EMAIL}"
+        echo "      login password          : ${PASSWD}"
+        echo
+        echo "The following for s3 : http://${NODE_PORT_S3_FALLBACK}"
         echo "Cluster internal S3 endpoint  : http://s3.${NAMESPACE}.svc.cluster.local:80 or"
         echo "                                https://s3.${NAMESPACE}.svc.cluster.local:443"
         echo "      S3 access key           : ${ACCESS_KEY}"
@@ -131,16 +142,24 @@ function print_noobaa_info {
         echo -e "================================================================================\n"
     else
         S3_IP=$(get_service_external_ip s3)
-
-        get_access_keys ${MGMT_IP}
+        get_access_keys ${MGMT_IP}:8080
+        # if [[ "${NODE_PORT_MGMT_FALLBACK}" == *"mini"* ]]; then  
+        #    get_access_keys ${NODE_PORT_MGMT_FALLBACK}
+        # else
+        #    get_access_keys ${MGMT_IP}:8080
+        # fi
         echo -e "\n\n================================================================================"
         echo "External management console   : http://${MGMT_IP}:8080 or "
         echo "                                https://${MGMT_IP}:8443"
+        echo "nodePort access for management: http://${NODE_PORT_MGMT_FALLBACK}"
+        echo
         echo "      login email             : ${EMAIL}"
         echo "      login password          : ${PASSWD}"
         echo
         echo "External S3 endpoint          : http://${S3_IP}:80 or "
         echo "                                https://${S3_IP}:443"
+        echo "nodePort access for S3        : http://${NODE_PORT_S3_FALLBACK}"
+        echo
         echo "Cluster internal S3 endpoint  : http://s3.${NAMESPACE}.svc.cluster.local:80 or"
         echo "                                https://s3.${NAMESPACE}.svc.cluster.local:443"
         echo "      S3 access key           : ${ACCESS_KEY}"
@@ -148,9 +167,9 @@ function print_noobaa_info {
         echo -e "\nyou can view all NooBaa resources in kubernetes using the following command:"
         echo "      ${KUBECTL} get all --selector=app=noobaa"
         echo -e "================================================================================\n"
-        echo "Please consider logging in to the mangement console and changing the initial password"
+        echo "Please consider logging in to the management console and changing the initial password"
     fi
-
+        
 }
 
 
@@ -163,27 +182,41 @@ function delete_noobaa {
 
 
 function get_service_external_ip {
-    local IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    local HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-    local RETRIES=0
-    local MAX_RETRIES=60
-    while [ "${IP}" == "" ] && [ "${HOST_NAME}" == "" ]; do
-        RETRIES=$((RETRIES+1))
-        if [ $RETRIES -gt $MAX_RETRIES ]; then
-            return 1
-        fi
-        sleep 5
-        IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-        HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-    done
+    if [ "${CLUSTER_NAME}" != "minikube" ] && [ "${CLUSTER_NAME}" != "minishift" ]; then
+        local IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        local HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        local RETRIES=0
+        local MAX_RETRIES=60
+        while [ "${IP}" == "" ] && [ "${HOST_NAME}" == "" ]; do
+            RETRIES=$((RETRIES+1))
+            if [ $RETRIES -gt $MAX_RETRIES ]; then
+                return 1
+            fi
+            sleep 5
+            IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        done
 
-    if [ "${IP}" == "" ]; then
-        echo ${HOST_NAME}
-    else
-        echo ${IP}
+        if [ "${IP}" == "" ]; then
+            echo ${HOST_NAME}
+        else
+            echo ${IP}
+        fi
     fi
 }
 
+
+function get_node_port_ip_and_port {
+    local NODE_PORT=$(${KUBECTL} get service $1 -o jsonpath='{.spec.ports[0].nodePort}')
+    local HOST_NAME=$(${KUBECTL} get node -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+    if [ "${CLUSTER_NAME}" == "minikube" ]; then
+        echo $(minikube ip):${NODE_PORT}
+    elif [ "${CLUSTER_NAME}" == "minishift" ]; then
+        echo  $(minishift ip):${NODE_PORT}
+    else 
+       echo ${HOST_NAME}:${NODE_PORT}
+    fi
+}
 
 function wait_for_noobaa_ready_with_timeout {
     local TIMEOUT=$1
@@ -202,13 +235,21 @@ function wait_for_noobaa_ready_with_timeout {
 
 function get_access_keys {
     if [ "${PASSWD}" == "" ] || [ "${EMAIL}" == "" ]; then
-        ACCESS_KEY="***********"
-        SECRET_KEY="***********"
-    else
+        local SECRET_INFO=$(${KUBECTL} get secret ${CREDS_SECRET_NAME})
+        if [ "$?" -eq 0 ]; then
+           EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}'  | base64 --decode;printf "\n")
+           PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}'  | base64 --decode;printf "\n")
+           SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}'  | base64 --decode;printf "\n")
+        else
+          ACCESS_KEY="***********"
+          SECRET_KEY="***********"
+        fi
+    fi
+    if [ "${PASSWD}" != "" ] && [ "${EMAIL}" != "" ]; then
         echo "Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready"
-        wait_for_noobaa_ready_with_timeout 600
+        wait_for_noobaa_ready_with_timeout 1200
         if [ $? -eq 0 ]; then
-            local MAX_RETRIES=10
+            local MAX_RETRIES=50
             local RETRIES=0
             # repeat until access_keys are returned
             while [ "${ACCESS_KEY}" == "" ] || [ "${SECRET_KEY}" == "" ] || [ "${ACCESS_KEY}" == "null" ] || [ "${SECRET_KEY}" == "null" ]; do
@@ -219,7 +260,7 @@ function get_access_keys {
                     return 0
                 else
                     #get access token to the system
-                    TOKEN=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
+                    TOKEN=$(curl http://$1/rpc/ --max-time 20 -sd '{
                     "api": "auth_api",
                     "method": "create_auth",
                     "params": {
@@ -229,18 +270,15 @@ function get_access_keys {
                         "password": "'${PASSWD}'"
                     }
                     }' | jq -r '.reply.token')
-
-                    S3_ACCESS_KEYS=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
+                    S3_ACCESS_KEYS=$(curl http://$1/rpc/ --max-time 20 -sd '{
                     "api": "account_api",
                     "method": "read_account",
                     "params": { "email": "'${EMAIL}'" },
                     "auth_token": "'${TOKEN}'"
                     }' | jq -r ".reply.access_keys[0]")
-
                     ACCESS_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".access_key")
                     SECRET_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".secret_key")
-
-                    sleep 10
+                    sleep 2
                     RETRIES=$((RETRIES+1))
                 fi
             done

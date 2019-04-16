@@ -9,7 +9,7 @@ Version:	%{noobaaver}
 Release:	%{revision}%{?dist}
 Summary:	noobaa rpm
 
-License:	Apache License 2.0
+License:	ASL 2.0
 URL:        https://www.noobaa.com/
 Source0:	%{tarfile}
 Source1:    %{installscript}

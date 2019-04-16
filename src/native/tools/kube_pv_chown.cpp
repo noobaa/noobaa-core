@@ -31,7 +31,7 @@ change_path_permissions(const char* path, long uid)
 int
 main(int argc, char* argv[])
 {
-    if (argc != 3) {
+    if (argc != 2) {
         cout << "Error: expected to get server/agent and uid" << endl;
         return 1;
     }

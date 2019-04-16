@@ -99,7 +99,7 @@ function deploy_noobaa {
     ${KUBECTL} create secret generic ${CREDS_SECRET_NAME} --from-literal=name=${SYS_NAME} --from-literal=email=${EMAIL} --from-literal=password=${PASSWD}
     # apply noobaa_core.yaml in the cluster
     ${KUBECTL} apply -f ${NOOBAA_CORE_YAML}
-    echo "Waiting for external IPs to be allocated for NooBaa services. this might take several minutes"
+    echo -e "\nWaiting for external IPs to be allocated for NooBaa services. this might take several minutes"
     sleep 2
     print_noobaa_info
 }
@@ -131,6 +131,7 @@ function print_noobaa_info {
         echo -e "================================================================================\n"
     else
         S3_IP=$(get_service_external_ip s3)
+
         get_access_keys ${MGMT_IP}
         echo -e "\n\n================================================================================"
         echo "External management console   : http://${MGMT_IP}:8080 or "
@@ -164,11 +165,11 @@ function delete_noobaa {
 function get_service_external_ip {
     local IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     local HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-    local tries=0
-    local MAX_TRIES=60
+    local RETRIES=0
+    local MAX_RETRIES=60
     while [ "${IP}" == "" ] && [ "${HOST_NAME}" == "" ]; do
-        tries=$((tries+1))
-        if [ $tries -gt $MAX_TRIES ]; then
+        RETRIES=$((RETRIES+1))
+        if [ $RETRIES -gt $MAX_RETRIES ]; then
             return 1
         fi
         sleep 5
@@ -183,35 +184,73 @@ function get_service_external_ip {
     fi
 }
 
+
+function wait_for_noobaa_ready_with_timeout {
+    local TIMEOUT=$1
+    local RETRY_DELAY=10
+    local TOTAL_WAIT=0
+    while [ ${TOTAL_WAIT} -lt ${TIMEOUT} ]; do
+        local READY=$(${KUBECTL} get pod ${NOOBAA_POD_NAME} -o json | jq -r '.status.containerStatuses[0].ready')
+        if [ "${READY}" == "true" ]; then
+            return 0
+        fi
+        sleep ${RETRY_DELAY}
+        TOTAL_WAIT=$((TOTAL_WAIT+RETRY_DELAY))
+    done
+    return 1
+}
+
 function get_access_keys {
     if [ "${PASSWD}" == "" ] || [ "${EMAIL}" == "" ]; then
         ACCESS_KEY="***********"
         SECRET_KEY="***********"
     else
-        # repeat until access_keys are returned
-        while [ "${ACCESS_KEY}" == "" ] || [ "${SECRET_KEY}" == "" ]; do
-            #get access token to the system
-            TOKEN=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
-            "api": "auth_api",
-            "method": "create_auth",
-            "params": {
-                "role": "admin",
-                "system": "'${SYS_NAME}'",
-                "email": "'${EMAIL}'",
-                "password": "'${PASSWD}'"
-            }
-            }' | jq -r '.reply.token')
+        echo "Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready"
+        wait_for_noobaa_ready_with_timeout 600
+        if [ $? -eq 0 ]; then
+            local MAX_RETRIES=10
+            local RETRIES=0
+            # repeat until access_keys are returned
+            while [ "${ACCESS_KEY}" == "" ] || [ "${SECRET_KEY}" == "" ] || [ "${ACCESS_KEY}" == "null" ] || [ "${SECRET_KEY}" == "null" ]; do
+                if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
+                    echo "Could not get S3 access keys from NooBaa system. Make sure the email and password are correct"
+                    ACCESS_KEY="***********"
+                    SECRET_KEY="***********"
+                    return 0
+                else
+                    #get access token to the system
+                    TOKEN=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
+                    "api": "auth_api",
+                    "method": "create_auth",
+                    "params": {
+                        "role": "admin",
+                        "system": "'${SYS_NAME}'",
+                        "email": "'${EMAIL}'",
+                        "password": "'${PASSWD}'"
+                    }
+                    }' | jq -r '.reply.token')
 
-            S3_ACCESS_KEYS=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
-            "api": "account_api",
-            "method": "read_account",
-            "params": { "email": "'${EMAIL}'" },
-            "auth_token": "'${TOKEN}'"
-            }' | jq -r ".reply.access_keys[0]")
+                    S3_ACCESS_KEYS=$(curl http://$1:8080/rpc/ --max-time 20 -sd '{
+                    "api": "account_api",
+                    "method": "read_account",
+                    "params": { "email": "'${EMAIL}'" },
+                    "auth_token": "'${TOKEN}'"
+                    }' | jq -r ".reply.access_keys[0]")
 
-            ACCESS_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".access_key")
-            SECRET_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".secret_key")
-        done
+                    ACCESS_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".access_key")
+                    SECRET_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".secret_key")
+
+                    sleep 10
+                    RETRIES=$((RETRIES+1))
+                fi
+            done
+        else
+            echo -e "\nCould not get S3 access keys. NooBaa did not become ready for over 10 minutes"
+            echo "Once the pod '${NOOBAA_POD_NAME}' is ready you can get S3 keys using '${SCRIPT_NAME} info' or from the management console"
+            ACCESS_KEY="***********"
+            SECRET_KEY="***********"
+            return 0
+        fi
     fi
 }
 

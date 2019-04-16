@@ -110,6 +110,10 @@ spec:
     spec:
       containers:
         - name: noobaa-server
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: "/version"
           image: noobaaimages.azurecr.io/noobaa/nbserver:2c3cd43
           imagePullPolicy: IfNotPresent
           resources:

@@ -14,10 +14,16 @@ const assert = require('assert');
 const P = require('../../util/promise');
 
 mocha.describe('s3_ops', function() {
+    const AWS_TARGET_BUCKET = 's3-ops-test-bucket';
 
     const { rpc_client, EMAIL } = coretest;
     const BKT1 = 'test-s3-ops-bucket-ops';
     const BKT2 = 'test-s3-ops-object-ops';
+    const BKT3 = 'test2-s3-ops-object-ops';
+
+    const CONNECTION_NAME = 'aws_connection1';
+    const RESOURCE_NAME = 'namespace_target_bucket';
+
     let s3;
 
     mocha.before(function() {
@@ -64,42 +70,124 @@ mocha.describe('s3_ops', function() {
         });
     });
 
-    mocha.describe('object-ops', function() {
-        mocha.before(function() {
-            return s3.createBucket({ Bucket: BKT2 }).promise();
-        });
-        mocha.it('should create text-file', function() {
-            return s3.putObject({ Bucket: BKT2, Key: 'text-file', Body: '', ContentType: 'text/plain' }).promise();
-        });
-        mocha.it('should head text-file', function() {
-            return s3.headObject({ Bucket: BKT2, Key: 'text-file' }).promise();
-        });
-        mocha.it('should get text-file', function() {
-            return s3.getObject({ Bucket: BKT2, Key: 'text-file' }).promise()
-                .then(res => {
-                    assert.strictEqual(res.Body.toString(), '');
-                    assert.strictEqual(res.ContentType, 'text/plain');
-                    assert.strictEqual(res.ContentLength, 0);
+    function test_object_ops(bucket_name, bucket_type) {
+        const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
+        const text_file1 = 'text-file1';
+        const text_file2 = 'text-file2';
+        mocha.before(async function() {
+            if (bucket_type === "regular") {
+                await s3.createBucket({ Bucket: bucket_name }).promise();
+            } else {
+                const read_resources = [RESOURCE_NAME];
+                const write_resource = RESOURCE_NAME;
+                await rpc_client.account.add_external_connection({
+                    name: CONNECTION_NAME,
+                    endpoint: 'https://s3.amazonaws.com',
+                    endpoint_type: 'AWS',
+                    identity: process.env.AWS_ACCESS_KEY_ID,
+                    secret: process.env.AWS_SECRET_ACCESS_KEY,
                 });
-        });
-        mocha.it('should list objects with text-file', function() {
-            return s3.listObjects({ Bucket: BKT2 }).promise()
-                .then(res => {
-                    assert.strictEqual(res.Contents[0].Key, 'text-file');
-                    assert.strictEqual(res.Contents[0].Size, 0);
-                    assert.strictEqual(res.Contents.length, 1);
+                await rpc_client.pool.create_namespace_resource({
+                    name: RESOURCE_NAME,
+                    connection: CONNECTION_NAME,
+                    target_bucket: AWS_TARGET_BUCKET
                 });
+                await rpc_client.bucket.create_bucket({ name: bucket_name, namespace: { read_resources, write_resource } });
+            }
+            await s3.putObject({ Bucket: bucket_name, Key: text_file1, Body: file_body, ContentType: 'text/plain' }).promise();
         });
-        mocha.it('should delete text-file', function() {
-            return s3.deleteObject({ Bucket: BKT2, Key: 'text-file' }).promise();
+        mocha.it('should head text-file', async function() {
+            await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
-        mocha.it('should list objects after no objects left', function() {
-            return s3.listObjects({ Bucket: BKT2 }).promise()
-                .then(res => assert.strictEqual(res.Contents.length, 0));
+        mocha.it('should get text-file', async function() {
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            assert.strictEqual(res.Body.toString(), file_body);
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, file_body.length);
         });
-        mocha.after(function() {
-            return s3.deleteBucket({ Bucket: BKT2 }).promise();
+        mocha.it('should copy text-file', async function() {
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+                CopySource: `/${bucket_name}/${text_file1}`,
+            }).promise();
         });
+        mocha.it('should mutli-part copy text-file', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(60000);
+            const res1 = await s3.createMultipartUpload({
+                Bucket: bucket_name,
+                Key: text_file2
+            }).promise();
+            const res2 = await s3.uploadPartCopy({
+                Bucket: bucket_name,
+                Key: text_file2,
+                UploadId: res1.UploadId,
+                PartNumber: 1,
+                CopySource: `/${bucket_name}/${text_file1}`,
+                CopySourceRange: "bytes=1-5",
+            }).promise();
+            await s3.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: text_file2,
+                UploadId: res1.UploadId,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: res2.CopyPartResult.ETag,
+                        PartNumber: 1
+                    }]
+                }
+            }).promise();
+        });
+        mocha.it('should list objects with text-file', async function() {
+            const res = await s3.listObjects({ Bucket: bucket_name }).promise();
+            assert.strictEqual(res.Contents[0].Key, text_file1);
+            assert.strictEqual(res.Contents[0].Size, file_body.length);
+            assert.strictEqual(res.Contents[1].Key, text_file2);
+            assert.strictEqual(res.Contents[1].Size, 5);
+            assert.strictEqual(res.Contents.length, 2);
+        });
+        mocha.it('should delete text-file', async function() {
+            // eslint-disable-next-line no-invalid-this
+            this.timeout(60000);
+            // await s3.deleteObjects({
+            //     Bucket: bucket_name,
+            //     Delete: {
+            //         Objects: [{ Key: text_file1 }, { Key: text_file2 }]
+            //     }
+            // }).promise();
+            await s3.deleteObject({
+                Bucket: bucket_name,
+                Key: text_file1,
+            }).promise();
+            await s3.deleteObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+            }).promise();
+        });
+        mocha.it('should list objects after no objects left', async function() {
+            const res = await s3.listObjects({ Bucket: bucket_name }).promise();
+            assert.strictEqual(res.Contents.length, 0);
+        });
+        mocha.after(async function() {
+            if (bucket_type === "regular") {
+                await s3.deleteBucket({ Bucket: bucket_name }).promise();
+            } else {
+                await rpc_client.bucket.delete_bucket({ name: bucket_name });
+                await rpc_client.pool.delete_namespace_resource({
+                    name: RESOURCE_NAME,
+                });
+                await rpc_client.account.delete_external_connection({
+                    connection_name: CONNECTION_NAME,
+                });
+            }
+        });
+    }
+    mocha.describe('regular-bucket-object-ops', function() {
+        test_object_ops(BKT2, "regular");
+    });
+    mocha.describe('namespace-bucket-object-ops', function() {
+        test_object_ops(BKT3, "namespace");
     });
 
 });

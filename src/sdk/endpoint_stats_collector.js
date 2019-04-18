@@ -3,9 +3,10 @@
 
 const mime = require('mime');
 
-const P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
+
 
 
 // 30 seconds delay between reports
@@ -30,7 +31,7 @@ class EndpointStatsCollector {
     }
 
     async _send_stats() {
-        await P.delay(SEND_STATS_DELAY);
+        await promise_utils.delay_unblocking(SEND_STATS_DELAY);
         // clear this.send_stats to allow new updates to trigger another _send_stats
         this.send_stats = null;
         try {

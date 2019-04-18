@@ -15,6 +15,13 @@ function put_object_uploadId(req, res) {
     const num = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
     const copy_source = s3_utils.parse_copy_source(req);
 
+    // Copy request sends empty content and not relevant to the object data
+    const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
+        size: s3_utils.parse_content_length(req),
+        md5_b64: req.content_md5 && req.content_md5.toString('base64'),
+        sha256_b64: req.content_sha256_buf && req.content_sha256_buf.toString('base64'),
+    };
+
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
 
@@ -26,9 +33,9 @@ function put_object_uploadId(req, res) {
             copy_source,
             source_stream: req,
             chunked_content: req.chunked_content,
-            size: copy_source ? undefined : s3_utils.parse_content_length(req),
-            md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
-            sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,
+            size,
+            md5_b64,
+            sha256_b64,
             source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
         })
         .then(reply => {

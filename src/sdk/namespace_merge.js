@@ -205,11 +205,11 @@ class NamespaceMerge {
     _merge_multiple_delete_responses(params) {
         const { head_res, deleted_res } = params;
         let ns_conslusion;
-        if (head_res.length !== deleted_res.length) throw new S3Error(S3Error.InternalError);
+        if (head_res && (head_res.length !== deleted_res.length)) throw new S3Error(S3Error.InternalError);
 
         for (let ns = 0; ns < deleted_res.length; ++ns) {
             const deleted_ns = deleted_res[ns];
-            const head_ns = head_res[ns];
+            const head_ns = head_res && head_res[ns];
             const ns_merged = this._handle_single_namespace_deletes({ deleted_ns, head_ns });
             if (ns_conslusion) {
                 for (let obj_index = 0; obj_index < ns_conslusion.length; obj_index++) {
@@ -230,7 +230,7 @@ class NamespaceMerge {
         const { deleted_ns, head_ns } = params;
         for (let i = 0; i < deleted_ns.length; ++i) {
             const res = deleted_ns[i];
-            const obj = head_ns[i];
+            const obj = head_ns && head_ns[i];
             if (_.isUndefined(res && res.err_code)) {
                 response.push({ success: true, obj, res });
             } else {

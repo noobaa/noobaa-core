@@ -282,7 +282,8 @@ class NamespaceS3 {
                 UploadId: params.obj_id,
                 PartNumber: params.num,
                 Body: params.source_stream.pipe(count_stream),
-                ContentLength: params.size
+                ContentMD5: params.md5_b64,
+                ContentLength: params.size,
             }).promise();
         }
         dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
@@ -504,7 +505,7 @@ class NamespaceS3 {
 }
 
 function inspect(x) {
-    return util.inspect(x, true, 5, true);
+    return util.inspect(_.omit(x, 'source_stream'), true, 5, true);
 }
 
 module.exports = NamespaceS3;

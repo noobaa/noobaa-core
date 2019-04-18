@@ -15,6 +15,13 @@ async function put_object(req, res) {
     const copy_source = s3_utils.parse_copy_source(req);
     const tagging = s3_utils.parse_tagging_header(req);
 
+    // Copy request sends empty content and not relevant to the object data
+    const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
+        size: s3_utils.parse_content_length(req),
+        md5_b64: req.content_md5 && req.content_md5.toString('base64'),
+        sha256_b64: req.content_sha256_buf && req.content_sha256_buf.toString('base64'),
+    };
+
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '', sse_c_params);
 
@@ -25,9 +32,9 @@ async function put_object(req, res) {
         chunked_content: req.chunked_content,
         copy_source,
         source_stream: req,
-        size: copy_source ? undefined : s3_utils.parse_content_length(req),
-        md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
-        sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,
+        size,
+        md5_b64,
+        sha256_b64,
         md_conditions: http_utils.get_md_conditions(req),
         source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
         xattr: s3_utils.get_request_xattr(req),

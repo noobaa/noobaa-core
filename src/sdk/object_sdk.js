@@ -309,17 +309,35 @@ class ObjectSDK {
 
 
     // if upload is using a copy source fix the params according to source and target real location
-    async fix_copy_source_params(params, target_ns, is_multipart_flow) {
+    async fix_copy_source_params(params, target_ns) {
         const { bucket, key, version_id, ranges } = params.copy_source;
         const source_params = { bucket, key, version_id, md_conditions: params.source_md_conditions };
+
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
         if (params.tagging_copy) await this._populate_source_object_tagging({ source_params, source_ns, source_md });
+
+        // For ranged copy we don't have the specific range hashes
+        // For non-ranged copy we can verify the content hash on the target object/multipart
+        if (ranges) {
+            params.size = undefined;
+            params.md5_b64 = undefined;
+            params.sha256_b64 = undefined;
+        } else {
+            params.size = source_md.size;
+            params.md5_b64 = source_md.md5_b64;
+            params.sha256_b64 = source_md.sha256_b64;
+        }
+        if (!params.content_type && source_md.content_type) params.content_type = source_md.content_type;
+        if (params.xattr_copy) params.xattr = source_md.xattr;
+        if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
+        if (params.tagging_copy) params.tagging = source_md.tagging;
+
+        // check if source and target are the same and can handle server side copy
         // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
         const actual_source_ns = source_md.ns || source_ns;
         const actual_target_ns = target_ns.get_write_resource();
-        // check if source and target are the same and can handle server side copy
         if (actual_target_ns.is_same_namespace(actual_source_ns)) {
             // fix copy_source in params to point to the correct cloud bucket
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
@@ -327,19 +345,6 @@ class ObjectSDK {
             params.copy_source.version_id = source_md.version_id;
             params.copy_source.ranges = http_utils.normalize_http_ranges(
                 params.copy_source.ranges, source_md.size);
-            if (!is_multipart_flow) {
-                params.md5_b64 = source_md.md5_b64;
-                params.sha256_b64 = source_md.sha256_b64;
-                if (!params.content_type && source_md.content_type) {
-                    params.content_type = source_md.content_type;
-                }
-            }
-            if (params.xattr_copy) {
-                params.xattr = source_md.xattr;
-            }
-            if (params.tagging_copy) {
-                params.tagging = source_md.tagging;
-            }
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
@@ -349,10 +354,6 @@ class ObjectSDK {
                 source_params.end = ranges[0].end;
             }
             params.source_stream = await source_ns.read_object_stream(source_params, this);
-            params.size = source_md.size;
-            if (params.xattr_copy) params.xattr = source_md.xattr;
-            if (params.tagging_copy) params.tagging = source_md.tagging;
-            params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
             if (params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
                 so it can take some time and cause client timeouts`);
@@ -374,7 +375,7 @@ class ObjectSDK {
 
     async upload_object(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns, /*is_multipart_flow =*/ false);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns);
         const reply = await ns.upload_object(params, this);
         // update bucket counters
         stats_collector.instance(this.rpc_client).update_bucket_write_counters({
@@ -403,7 +404,7 @@ class ObjectSDK {
 
     async upload_multipart(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns, /*is_multipart_flow =*/ true);
+        if (params.copy_source) await this.fix_copy_source_params(params, ns);
         return ns.upload_multipart(params, this);
     }
 

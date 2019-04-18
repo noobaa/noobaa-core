@@ -11,5 +11,5 @@ if (DEV_MODE) {
 }
 util.getUserAgentFromPackageJson = () => `NooBaa/${pkg.version} (GPN:noobaa.com; ${stage_or_prod}) NooBaa/${pkg.version}`;
 
-const Storage = require('@google-cloud/storage');
+const { Storage } = require('@google-cloud/storage');
 module.exports = Storage;

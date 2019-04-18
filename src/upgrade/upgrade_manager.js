@@ -11,7 +11,7 @@ const supervisor = require('../server/utils/supervisor_ctrl');
 const platform_upgrade = require('./platform_upgrade');
 const dotenv = require('../util/dotenv');
 
-const REQUIRED_MONGODB_VERSION = '3.6.5';
+const REQUIRED_MONGODB_VERSION = '3.6.3';
 
 dbg.set_process_name('UpgradeManager');
 

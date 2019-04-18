@@ -17,6 +17,8 @@ if [ ! -d "/usr/local/noobaa" ]; then
             AGENT_CONF_PATH=/usr/local/noobaa/agent_conf.json
             if [ "${container}" == "docker" ]; then
                 AGENT_CONF_PATH=/noobaa_storage/agent_conf.json
+                # we will need access to /etc/passwd to setup user on startup
+                chgrp 0 /etc/passwd && chmod -R g=u /etc/passwd
             fi
             mkdir /usr/local/noobaa
             echo "config is:" ${CONFIG}
@@ -35,3 +37,9 @@ else
 fi
 
 ./noobaa-installer --keep --target /usr/local/noobaa
+if [ "${container}" == "docker" ]; then
+    # setuid for kube_pv_chown so it can run as root
+    chown root:root /usr/local/noobaa/build/Release/kube_pv_chown
+    chmod 755 /usr/local/noobaa/build/Release/kube_pv_chown
+    chmod u+s /usr/local/noobaa/build/Release/kube_pv_chown
+fi

@@ -352,22 +352,6 @@ export function openUpdateSystemNameModal(name) {
     };
 }
 
-export function openUnableToActivateModal(reason) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'unable-to-activate-modal',
-                params: { reason }
-            },
-            options: {
-                size: 'small',
-                title: 'NooBaa\'s Activation Servers Unreachable'
-            }
-        }
-    };
-}
-
 export function openCreateAccountModal() {
     return {
         type: OPEN_MODAL,

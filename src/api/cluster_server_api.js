@@ -179,7 +179,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['using_dhcp', 'phone_home_connectivity_status'],
+                required: ['using_dhcp'],
                 properties: {
                     ntp_server: {
                         type: 'string'
@@ -212,18 +212,6 @@ module.exports = {
                                 type: 'number'
                             }
                         }
-                    },
-                    phone_home_connectivity_status: {
-                        enum: [
-                            'CANNOT_REACH_DNS_SERVER',
-                            'CANNOT_RESOLVE_PHONEHOME_NAME',
-                            'CANNOT_CONNECT_INTERNET',
-                            'CANNOT_CONNECT_PHONEHOME_SERVER',
-                            'MALFORMED_RESPONSE',
-                            'CONNECTED',
-                            'WAS_NOT_TESTED'
-                        ],
-                        type: 'string',
                     },
                     owner: {
                         type: 'object',

@@ -11,7 +11,6 @@ export default function(action$, { api }) {
         ofType(CREATE_SYSTEM),
         mergeMap(async action => {
             const {
-                activationCode,
                 ownerEmail,
                 password,
                 systemName,
@@ -22,7 +21,6 @@ export default function(action$, { api }) {
 
             try {
                 const { token } = await api.system.create_system({
-                    activation_code: activationCode,
                     name: systemName,
                     email: ownerEmail,
                     password: password,

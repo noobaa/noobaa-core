@@ -501,8 +501,15 @@ function setup_non_root_user() {
         # maybe we can make it more fine-grained - for now, give access to all /etc
         chgrp -R 0 /etc && chmod -R g=u /etc
 
+        # give access for logrotate
+        chgrp -R 0 /var/lib/logrotate && chmod -R g=u /var/lib/logrotate
+
         # setuid for rsyslog so it can run as root
         chmod u+s /sbin/rsyslogd
+        # setuid for kube_pv_chown so it can run as root
+        chown root:root /root/node_modules/noobaa-core/build/Release/kube_pv_chown
+        chmod 755 /root/node_modules/noobaa-core/build/Release/kube_pv_chown
+        chmod u+s /root/node_modules/noobaa-core/build/Release/kube_pv_chown
     fi
 }
 

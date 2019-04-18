@@ -13,11 +13,6 @@ const P = require('../../util/promise');
 
 let report = new Report();
 
-const activation_code = "pe^*pT%*&!&kmJ8nj@jJ6h3=Ry?EVns6MxTkz+JBwkmk_6e" +
-    "k&Wy%*=&+f$KE-uB5B&7m$2=YXX9tf&$%xAWn$td+prnbpKb7MCFfdx6S?txE=9bB+SVtKXQay" +
-    "zLVbAhqRWHW-JZ=_NCAE!7BVU_t5pe#deWy*d37q6m?KU?VQm?@TqE+Srs9TSGjfv94=32e_a#" +
-    "3H5Q7FBgMZd=YSh^J=!hmxeXtFZE$6bG+^r!tQh-Hy2LEk$+V&33e3Z_mDUVd";
-
 //Enable reporter and set parameters
 function init_reporter(report_params) {
     const suite_name = report_params.suite_name || 'UNKNW_server_func';
@@ -123,23 +118,6 @@ async function wait_server_reconnect(server_ip) {
     }
 }
 
-//will validate the activation code with the email
-async function validate_activation_code(server_ip) {
-    console.log(`Connecting to the server via rpc`);
-    const rpc = api.new_rpc(`wss://${server_ip}:8443`);
-    const client = rpc.new_client({});
-    console.log(`Validating the activation code`);
-    const validate = await client.system.validate_activation({
-        code: activation_code,
-        email: 'demo@noobaa.com'
-    });
-    if (validate.valid === true) {
-        console.log(`The activation code is valid`);
-    } else {
-        throw new Error('The activation code is not valid!!! validate is', validate);
-    }
-}
-
 //will create a system and check that the default account status is true.
 async function create_system_and_check(server_ip) {
     console.log(`Connecting to the server via rpc`);
@@ -149,8 +127,7 @@ async function create_system_and_check(server_ip) {
         await client.system.create_system({
             email: 'demo@noobaa.com',
             name: 'demo',
-            password: 'DeMo1',
-            activation_code
+            password: 'DeMo1'
         });
         let has_account;
         const base_time = Date.now();
@@ -186,21 +163,6 @@ async function clean_ova_and_create_system(server_ip, secret) {
         await wait_server_reconnect(server_ip);
     } catch (e) {
         throw new Error('wait_server_reconnect::' + e);
-    }
-    let retryValidate = true;
-    let retry_count = 1;
-    while (retryValidate) {
-        try {
-            await validate_activation_code(server_ip);
-            retryValidate = false;
-        } catch (e) {
-            retry_count += 1;
-            if (retry_count <= 5) {
-                await P.delay(30 * retry_count * 1000);
-            } else {
-                throw new Error('validate_activation_code::' + e);
-            }
-        }
     }
     try {
         await create_system_and_check(server_ip);
@@ -321,7 +283,6 @@ exports.enable_noobaa_login = enable_noobaa_login;
 exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
-exports.validate_activation_code = validate_activation_code;
 exports.create_system_and_check = create_system_and_check;
 exports.clean_ova_and_create_system = clean_ova_and_create_system;
 exports.upload_upgrade_package = upload_upgrade_package;

@@ -284,6 +284,8 @@ async function run_test() {
         });
         await P.delay(TIME_FOR_SDK_TO_UPDATE);
         await test_trigger_run_when_should(bucket1_user, 'file3.dat', b);
+        // Used for DeleteObjects later on
+        await test_trigger_run_when_should(bucket1_user, 'sloth_multiple.dat', b);
         console.log(`changing bucket lambda trigger prefix to /bla. on ${b}`);
         await client.bucket.update_bucket_lambda_trigger({
             bucket_name: b,
@@ -322,6 +324,7 @@ async function run_test() {
         console.log(`Checking object removed trigger for ${b}`);
         await test_add_bucket_trigger('ObjectRemoved', trigger_based_func_delete, b);
         await test_delete_trigger_run(full_access_user, 'file3.dat', b);
+        await test_delete_trigger_run(full_access_user, 'sloth_multiple.dat', b, /* multiple */ true);
     }
     console.log('test_bucket_lambda_triggers PASSED');
 }
@@ -414,7 +417,7 @@ async function test_trigger_dont_run_when_shouldnt(user, file_param, bucketname)
     }
 }
 
-async function test_delete_trigger_run(user, file_param, bucketname) {
+async function test_delete_trigger_run(user, file_param, bucketname, multiple) {
     console.log(`test delete trigger run for ${bucketname}`);
     let s3 = get_new_server(user);
     let params = {
@@ -433,7 +436,16 @@ async function test_delete_trigger_run(user, file_param, bucketname) {
         console.log('json file not exist - test can\'t succeed:', file_param + '.json', err);
         throw new Error(`expecting head to fail with statusCode 404 - File not found ${bucketname}/${file_param}`);
     }
-    await s3.deleteObject(params).promise();
+
+    if (multiple) {
+        await s3.deleteObjects({
+            Bucket: bucketname,
+            Delete: { Objects: [_.pick(params, 'Key')] },
+        }).promise();
+    } else {
+        await s3.deleteObject(params).promise();
+    }
+
     while (retries < NUM_OF_RETRIES && file_not_deleted) {
         try {
             await s3.headObject(params2).promise();

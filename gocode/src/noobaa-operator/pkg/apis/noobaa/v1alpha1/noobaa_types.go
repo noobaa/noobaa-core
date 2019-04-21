@@ -17,9 +17,9 @@ type NoobaaSpec struct {
 	// version for noobaa-server. if current pod is not in this version than update the server
 	Version string `json:"version"`
 
-	// Email and activation code to use for system creation
-	Email          string `json:"email"`
-	ActivationCode string `json:"activationCode"`
+	// Email and initial password for system creation
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // NoobaaStatus defines the observed state of Noobaa
@@ -28,7 +28,6 @@ type NoobaaStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	PodNames []string `json:"podnames"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

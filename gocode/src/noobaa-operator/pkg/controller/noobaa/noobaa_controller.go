@@ -105,6 +105,11 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
+	requeueSecret, secretErr := r.reconcileNoobaaAzureSecret(nb)
+	if secretErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa azure secret")
+	}
+
 	requeueAccount, accountErr := r.reconcileNoobaaAccount(nb)
 	if accountErr != nil {
 		reqLogger.Error(err, "failed reconciling noobaa account")
@@ -125,19 +130,24 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		reqLogger.Error(err, "failed reconciling noobaa statefulset")
 	}
 
-	requeService, serviceErr := r.reconcileService(nb)
-	if serviceErr != nil {
-		reqLogger.Error(err, "failed reconciling noobaa service")
+	requeS3Service, s3ServiceErr := r.reconcileService(nb, "s3")
+	if s3ServiceErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa s3 service")
+	}
+
+	requeMgmtService, mgmtServiceErr := r.reconcileService(nb, "noobaa-mgmt")
+	if mgmtServiceErr != nil {
+		reqLogger.Error(err, "failed reconciling noobaa management service")
 	}
 
 	if statefulsetErr != nil {
 		return reconcile.Result{}, statefulsetErr
 	}
-	if serviceErr != nil {
-		return reconcile.Result{}, statefulsetErr
+	if s3ServiceErr != nil {
+		return reconcile.Result{}, s3ServiceErr
 	}
 
-	reque := requeService || requeStateful || requeueAccount || requeueRole || requeueRoleBind
+	reque := requeS3Service || requeStateful || requeueAccount || requeueRole || requeueRoleBind || requeueSecret || requeMgmtService
 
 	// noobaa statefulset and service already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: resources already exists", "StatefulSet.Namespace", found.Namespace, "Pod.Name", found.Name)
@@ -161,6 +171,29 @@ func (r *ReconcileNoobaa) reconcileNoobaaAccount(nb *noobaav1alpha1.Noobaa) (req
 		return true, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get account")
+		return true, err
+	}
+	return false, nil
+}
+
+func (r *ReconcileNoobaa) reconcileNoobaaAzureSecret(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
+	noobaaSecret := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "noobaaimages.azurecr.io", Namespace: nb.Namespace}, noobaaSecret)
+	if err != nil && errors.IsNotFound(err) {
+		// Define a new deployment
+		noobaaSecret.ObjectMeta.Name = "noobaaimages.azurecr.io"
+		noobaaSecret.ObjectMeta.Labels = map[string]string{"app": "noobaa"}
+		noobaaSecret.ObjectMeta.Namespace = nb.Namespace
+		noobaaSecret.Type = "kubernetes.io/dockerconfigjson"
+		noobaaSecret.Data = map[string][]byte{".dockerconfigjson": []byte("eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=")}
+		err = r.client.Create(context.TODO(), noobaaSecret)
+		if err != nil {
+			log.Error(err, "Failed to create new azure secret", "noobaaSecret.Namespace", nb.Namespace, "Name", "noobaaimages.azurecr.io")
+			return true, err
+		}
+		return true, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get secret")
 		return true, err
 	}
 	return false, nil
@@ -274,13 +307,13 @@ func (r *ReconcileNoobaa) updateNoobaaStatefulset(noobaaStateful *appsv1.Statefu
 	return nil
 }
 
-func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
+func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa, serviceName string) (requeue bool, err error) {
 	noobaaService := &corev1.Service{}
-	log.Info("Getting noobaa Services", "Namespace", nb.Namespace, "Service Name", "s3")
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "s3", Namespace: nb.Namespace}, noobaaService)
+	log.Info("Getting noobaa Services", "Namespace", nb.Namespace, "Service Name", serviceName)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: nb.Namespace}, noobaaService)
 	if err != nil && errors.IsNotFound(err) {
 		// Define a new deployment
-		service, err := r.serviceForNoobaa(nb)
+		service, err := r.serviceForNoobaa(nb, serviceName)
 		if err != nil {
 			log.Error(err, "failed getting service for noobaa")
 			return true, err
@@ -302,7 +335,6 @@ func (r *ReconcileNoobaa) reconcileService(nb *noobaav1alpha1.Noobaa) (requeue b
 
 // deploymentForMemcached returns a memcached Deployment object
 func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*appsv1.StatefulSet, error) {
-	ls := labelsForNoobaa(nb.Name)
 	statefulSet := &appsv1.StatefulSet{}
 	err := readResourceFromYaml("noobaa-server", statefulSet)
 	if err != nil {
@@ -311,19 +343,17 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 	}
 	statefulSet.ObjectMeta.Namespace = nb.Namespace
 	statefulSet.ObjectMeta.Name = nb.Name
-	// statefulSet.Spec.ServiceName = "s3"
-	statefulSet.Spec.Template.ObjectMeta.Labels = ls
 	if nb.Spec.Image != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Image = nb.Spec.Image
 	}
 	if nb.Spec.Version != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Image = "noobaaimages.azurecr.io/noobaa/nbserver:" + nb.Spec.Version
 	}
-	if nb.Spec.Email != "" && nb.Spec.ActivationCode != "" {
+	if nb.Spec.Email != "" && nb.Spec.Password != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
 			corev1.EnvVar{Name: "CREATE_SYS_NAME", Value: nb.Name},
 			corev1.EnvVar{Name: "CREATE_SYS_EMAIL", Value: nb.Spec.Email},
-			corev1.EnvVar{Name: "CREATE_SYS_CODE", Value: nb.Spec.ActivationCode},
+			corev1.EnvVar{Name: "CREATE_SYS_PASSWD", Value: nb.Spec.Password},
 			corev1.EnvVar{Name: "CONTAINER_PLATFORM", Value: "KUBERNETES"},
 		}
 	}
@@ -333,18 +363,15 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 }
 
 // deploymentForMemcached returns a memcached Deployment object
-func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa) (*corev1.Service, error) {
-	ls := labelsForNoobaa(nb.Name)
+func (r *ReconcileNoobaa) serviceForNoobaa(nb *noobaav1alpha1.Noobaa, serviceName string) (*corev1.Service, error) {
 	service := &corev1.Service{}
-	err := readResourceFromYaml("s3", service)
+	err := readResourceFromYaml(serviceName, service)
 	if err != nil {
 		log.Error(err, "failed reading service yaml")
 		return nil, err
 	}
 
 	service.ObjectMeta.Namespace = nb.Namespace
-	service.ObjectMeta.Labels = ls
-	service.Spec.Selector = ls
 
 	controllerutil.SetControllerReference(nb, service, r.scheme)
 	return service, nil
@@ -360,6 +387,7 @@ func (r *ReconcileNoobaa) roleForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.Role
 	}
 
 	role.ObjectMeta.Namespace = nb.Namespace
+	controllerutil.SetControllerReference(nb, role, r.scheme)
 	return role, nil
 }
 
@@ -373,6 +401,7 @@ func (r *ReconcileNoobaa) roleBindForNoobaa(nb *noobaav1alpha1.Noobaa) (*rbacv1.
 	}
 
 	roleBind.ObjectMeta.Namespace = nb.Namespace
+	controllerutil.SetControllerReference(nb, roleBind, r.scheme)
 	return roleBind, nil
 }
 
@@ -395,10 +424,4 @@ func readResourceFromYaml(resourceName string, into interface{}) error {
 		return err
 	}
 	return nil
-}
-
-// labelsForNoobaa returns the labels for selecting the resources
-// belonging to the given memcached CR name.
-func labelsForNoobaa(name string) map[string]string {
-	return map[string]string{"app": "noobaa", "noobaa_name": name}
 }

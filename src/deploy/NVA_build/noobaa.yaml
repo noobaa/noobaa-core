@@ -1,11 +1,12 @@
 apiVersion: "noobaa.com/v1alpha1"
 kind: "Noobaa"
 metadata:
-  name: "noobaa1"
+  name: "noobaa-test"
 spec:
   ## either image or version must be supplied
-  image: nbserver:1 # a specific image to use
-  # version: "dfe5151" # the tag of the image in azure registry
-  ## if email and activation code are supplied a system will be created automatically
+  # image: nbserver:1 # a specific image to use
+  version: "a643bee" # the tag of the image in azure registry
+  
+  ## if email and password are supplied a system will be created automatically
   # email: "demo@noobaa.com" # email
-  # activationCode: "123456789"
+  # password: "DeMo1" # initial password for console login

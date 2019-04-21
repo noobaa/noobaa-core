@@ -19,14 +19,20 @@ fi
 echo -e "${GREEN}getting dependencies. might take some time..${NC}"
 cd $GOPATH/src/noobaa-operator
 dep ensure -v
-echo -e "${GREEN}generating yaml files for operator..${NC}"
+echo -e "${GREEN}generating yaml files for operator${NC}"
 rm -f $GOPATH/src/noobaa-operator/build/*.yaml
 node ../../../src/tools/yaml_tools.js --split ../../../src/deploy/NVA_build/noobaa_core.yaml --out $GOPATH/src/noobaa-operator/build
 if [ "$1" == "run" ]; then
-    echo -e "${GREEN}running noobaa-operator locally..${NC}"
+    echo -e "${GREEN}running noobaa-operator locally${NC}"
     $GOPATH/bin/operator-sdk up local --namespace=default
 else 
-    echo -e "${GREEN}building noobaa-operator..${NC}"
+    echo -e "${GREEN}building noobaa-operator${NC}"
     $GOPATH/bin/operator-sdk build noobaa-operator
     echo -e "${GREEN}completed!${NC}"
+    if [ "$1" == "push" ]; then
+        TAG=$2
+        echo -e "${GREEN}pushing noobaa-operator to ${TAG}${NC}"
+        docker tag noobaa-operator ${TAG}
+        docker push ${TAG}
+    fi
 fi

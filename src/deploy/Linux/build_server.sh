@@ -69,7 +69,6 @@ tar \
     --exclude='src/native/third_party' \
     -czf noobaa-NVA-${NB_VERSION}.tar.gz \
     LICENSE \
-    EULA.pdf \
     package.json \
     platform_restrictions.json \
     config.js \

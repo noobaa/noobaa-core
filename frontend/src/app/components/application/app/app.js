@@ -14,14 +14,18 @@ class AppViewModel extends ConnectableViewModel {
 
     selectState(state) {
         return [
+            state.env,
             state.session,
             state.location,
-            state.env.previewContent,
             state.lastError
         ];
     }
 
-    mapStateToProps(session, location = {}, previewContent, lastError) {
+    mapStateToProps(env, session, location = {}, lastError) {
+        if (!env) {
+            return;
+        }
+
         if (lastError) {
             this.dispatch(openManagementConsoleErrorModal());
             return;
@@ -36,7 +40,7 @@ class AppViewModel extends ConnectableViewModel {
         }
 
         const layout = loggedIn ? 'main-layout' : 'login-layout';
-        const previewCss = previewContent ? 'preview' : '';
+        const previewCss = env.previewContent ? 'preview' : '';
         const themeCss = themes[(loggedIn ? session.uiTheme : defaultTheme)];
         const css = [previewCss, themeCss]
             .filter(Boolean)

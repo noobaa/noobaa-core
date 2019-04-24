@@ -39,8 +39,7 @@
         "charTimeContribution": 50
     },
     "supportedBrowsers": [
-        "chrome",
-        "firefox"
+        "chrome"
     ],
     "preferdBrowsers": [
         "chrome"

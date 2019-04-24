@@ -20,6 +20,7 @@ import {
 import * as routes from 'routes';
 
 class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
+    formName = this.constructor.name;
     dataReady = ko.observable();
     bucketName = '';
     tierName = '';
@@ -28,7 +29,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     hostPools = ko.observable();
     cloudResources = ko.observable();
     resourcesInUse = ko.observableArray();
-    formName = this.constructor.name;
+    tableHeader = ko.observable();
     formFields = ko.observable();
 
     onWarn = warnPlacementPolicy;
@@ -55,9 +56,9 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const tier = bucket.placement.tiers.find(tier =>
-                tier.name === tierName
-            );
+            const { tiers } = bucket.placement;
+            const tierIndex = tiers.findIndex(tier => tier.name === tierName);
+            const tier = tiers[tierIndex];
             const usingInternalStorage = tier.policyType === 'INTERNAL_STORAGE';
             const resourcesInUse = flatPlacementPolicy(bucket)
                 .filter(record => record.tier !== tierName)
@@ -76,6 +77,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                 cloudResources,
                 resourcesInUse,
                 resourcesHref,
+                tableHeader: `Resources in Tier ${tierIndex + 1} policy`,
                 formFields: !this.formFields() ? {
                     policyType: !usingInternalStorage ?
                         tier.policyType :

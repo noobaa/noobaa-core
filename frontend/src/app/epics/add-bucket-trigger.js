@@ -10,24 +10,32 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(ADD_BUCKET_TRIGGER),
         mergeMap(async action => {
-            const { bucketName, config } = action.payload;
+            const {
+                bucket,
+                funcName,
+                funcVersion,
+                event,
+                prefix,
+                suffix,
+                enabled
+            } = action.payload;
 
             try {
                 await api.bucket.add_bucket_lambda_trigger({
-                    bucket_name: bucketName,
-                    event_name: config.event,
-                    func_name: config.funcName,
-                    func_version: config.funcVersion,
-                    object_prefix: config.prefix,
-                    object_suffix: config.suffix,
-                    enabled: config.enabled
+                    bucket_name: bucket,
+                    func_name: funcName,
+                    func_version: funcVersion,
+                    event_name: event,
+                    object_prefix: prefix,
+                    object_suffix: suffix,
+                    enabled: enabled
                 });
 
-                return completeAddBucketTrigger(bucketName);
+                return completeAddBucketTrigger(bucket);
 
             } catch (error) {
                 return failAddBucketTrigger(
-                    bucketName,
+                    bucket,
                     mapErrorObject(error)
                 );
             }

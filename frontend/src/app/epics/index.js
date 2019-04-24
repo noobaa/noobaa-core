@@ -100,6 +100,7 @@ import updateAccountPreferedTheme from './update-account-prefered-theme';
 import updateServerDnsSettings from './update-server-dns-settings';
 import updateServerDetails from './update-server-details';
 import updateServerTimeSettings from './update-server-time-settings';
+import redirectAfterSignOut from './redirect-after-sign-out';
 
 const epics = [
     // General epics
@@ -114,6 +115,7 @@ const epics = [
     // Session related epics
     restoreSession,
     signIn,
+    redirectAfterSignOut,
 
     // System related epics
     createSystem,

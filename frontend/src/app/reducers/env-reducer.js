@@ -8,24 +8,23 @@ import {
 // ------------------------------
 // Initial State
 // ------------------------------
-const initialState = {
-    previewContent: false
-};
+const initialState = undefined;
 
 // ------------------------------
 // Action Handlers
 // ------------------------------
+function onSetupEnv(env, { payload } ) {
+    return {
+        previewContent: false,
+        browser: payload.browser,
+        isBrowserStickyDismissed: false
+    };
+}
+
 function onTogglePreviewContent(env) {
     return {
         ...env,
         previewContent: !env.previewContent
-    };
-}
-
-function onSetupEnv(env, { payload } ) {
-    return {
-        ...env,
-        browser: payload.browser
     };
 }
 
@@ -40,7 +39,7 @@ function onDismissBrowserSticky(env) {
 // Exported reducer function
 // ------------------------------
 export default createReducer(initialState, {
-    [TOGGLE_PREVIEW_CONTENT]: onTogglePreviewContent,
     [SETUP_ENV]: onSetupEnv,
+    [TOGGLE_PREVIEW_CONTENT]: onTogglePreviewContent,
     [DISSMISS_BROWSER_STICKY]: onDismissBrowserSticky
 });

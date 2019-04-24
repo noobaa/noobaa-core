@@ -145,7 +145,8 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                 }
             }
         },
-        data: ko.observable()
+        data: ko.observable(),
+        forceEmptyMessage: ko.observable()
     };
 
     selectState(state) {
@@ -230,7 +231,8 @@ class ResourceOverviewViewModel extends ConnectableViewModel {
                     { value: sumBy(counters.error) }
                 ],
                 chart: {
-                    data: chartData
+                    data: chartData,
+                    forceEmptyMessage: resourceCount === 0
                 }
             });
         }

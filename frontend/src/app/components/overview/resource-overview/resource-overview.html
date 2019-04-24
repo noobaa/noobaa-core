@@ -27,7 +27,8 @@
         type: 'bar',
         options: chart.options,
         data: chart.data,
-        emptyMessage: 'No resource connected'
+        forceEmptyMessage: chart.forceEmptyMessage,
+        emptyMessage: 'No resources connected',
     "></chartjs>
 
     <button class="btn overview-btn" ko.click="onAddResources">

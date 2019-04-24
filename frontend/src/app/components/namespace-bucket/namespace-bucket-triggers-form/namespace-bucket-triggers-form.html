@@ -1,10 +1,11 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<div class="row alt-bg pad row content-middle">
+<div class="row pad row content-middle card-shadow">
     <div class="column greedy push-next">
         <h3 class="heading3">
-            Function Triggers: {{triggerCount}}
+            Bucket Triggers
         </h3>
+        <p>Triggers will automatically invoke selected function on the bucket.</p>
     </div>
     <button class="btn" ko.click="onAddTrigger">
         Add Trigger
@@ -16,7 +17,7 @@
     sorting: ko.pc(sorting, onSort, $component),
     data: rows,
     loading: !dataReady(),
-    emptyMessage: 'No triggers configured for this function'
+    emptyMessage: 'No triggers configured for this bucket'
 "></data-table>
 
 <paginator params="

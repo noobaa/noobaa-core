@@ -41,7 +41,7 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
             return { mode, tier };
         });
 
-    const { storage, data, quota, stats, triggers, policy_modes, stats_by_type = [] } = bucket;
+    const { storage, data, quota, stats, policy_modes, stats_by_type = [] } = bucket;
     const { resiliency_status, quota_status } = policy_modes;
     return {
         name: bucket.name,
@@ -56,7 +56,6 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         failureTolerance: _mapFailureTolerance(bucket),
         versioning: _mapVersioning(bucket),
         io: _mapIO(stats),
-        triggers: _mapTriggers(triggers),
         usageDistribution: _mapUsageDistribution(bucket, resTypeByName),
         statsByDataType: keyByProperty(
             stats_by_type,
@@ -174,37 +173,6 @@ function _mapIO(stats = {}) {
         writeCount: writes,
         lastWrite: last_write
     };
-}
-
-function _calcTriggerMode(trigger) {
-    if (!trigger.enabled) {
-        return 'DISABLED';
-    }
-
-    if (trigger.permission_problem) {
-        return 'MISSING_PERMISSIONS';
-    }
-
-    return 'OPTIMAL';
-}
-
-function _mapTriggers(triggers) {
-    return keyByProperty(
-        triggers,
-        'id',
-        trigger => ({
-            id: trigger.id,
-            mode: _calcTriggerMode(trigger),
-            event: trigger.event_name,
-            func: {
-                name: trigger.func_name,
-                version: trigger.func_version
-            },
-            prefix: trigger.object_prefix || '',
-            suffix: trigger.object_suffix || '',
-            lastRun: trigger.last_run
-        })
-    );
 }
 
 function _mapVersioning(bucket) {

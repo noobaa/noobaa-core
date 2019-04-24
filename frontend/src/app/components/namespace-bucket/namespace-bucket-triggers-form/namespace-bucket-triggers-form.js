@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import template from './bucket-triggers-form.html';
+import template from './namespace-bucket-triggers-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import moment from 'moment';
@@ -140,7 +140,7 @@ class TriggerRowViewModel {
     }
 }
 
-class BucketTriggersFormViewModel extends ConnectableViewModel {
+class NamespaceBucketTriggersFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     bucketName = '';
     columns = columns;
@@ -155,7 +155,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
 
     selectState(state, params) {
         return [
-            params.bucketName,
+            params.bucket,
             state.bucketTriggers,
             state.location
         ];
@@ -171,7 +171,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
             const bucketTriggers = Object.values(triggers)
                 .filter(trigger => {
                     const { kind, name } = trigger.bucket;
-                    return kind === 'DATA_BUCKET' && name === bucketName;
+                    return kind === 'NAMESPACE_BUCKET' && name === bucketName;
                 });
             const { params, query, pathname } = location;
             const { sortBy = 'funcName', selectedForDelete } = query;
@@ -249,6 +249,6 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: BucketTriggersFormViewModel,
+    viewModel: NamespaceBucketTriggersFormViewModel,
     template: template
 };

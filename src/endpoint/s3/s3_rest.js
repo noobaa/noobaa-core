@@ -42,6 +42,7 @@ const BUCKET_SUB_RESOURCES = Object.freeze({
     versioning: 1,
     versions: 1,
     website: 1,
+    encryption: 1,
 });
 
 const OBJECT_SUB_RESOURCES = Object.freeze({
@@ -58,6 +59,7 @@ const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
 
 const RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
+    BAD_REQUEST: S3Error.BadRequest,
     FORBIDDEN: S3Error.AccessDenied,
     NO_SUCH_BUCKET: S3Error.NoSuchBucket,
     NO_SUCH_OBJECT: S3Error.NoSuchKey,
@@ -100,6 +102,7 @@ function handle_request(req, res) {
     res.setHeader('Access-Control-Allow-Headers',
         'Content-Type,Content-MD5,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
     res.setHeader('Access-Control-Expose-Headers', 'ETag,X-Amz-Version-Id');
+
 
     if (req.method === 'OPTIONS') {
         dbg.log0('OPTIONS!');

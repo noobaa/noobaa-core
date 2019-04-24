@@ -364,6 +364,8 @@ function prepare_chunk(chunk_coder_config, copy_from_chunk) {
 
     if (copy_from_chunk) {
         chunk.cipher_key_b64 = copy_from_chunk.cipher_key_b64;
+        // In case when we encode with defined key we need the relevant IV since it is non zero IV
+        chunk.cipher_iv_b64 = copy_from_chunk.cipher_iv_b64 || Buffer.alloc(32).toString('base64');
     }
 
     call_chunk_coder_must_succeed('enc', chunk);

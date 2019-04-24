@@ -163,6 +163,7 @@ _nb_coder_load_chunk(napi_env env, napi_value v_chunk, struct NB_Coder_Chunk* ch
 
     nb_napi_get_buf_b64(env, v_chunk, "digest_b64", &chunk->digest);
     nb_napi_get_buf_b64(env, v_chunk, "cipher_key_b64", &chunk->cipher_key);
+    nb_napi_get_buf_b64(env, v_chunk, "cipher_iv_b64", &chunk->cipher_iv);
     nb_napi_get_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
 
     if (!chunk->size) {
@@ -297,6 +298,9 @@ _nb_coder_update_chunk(
         }
         if (chunk->cipher_type[0]) {
             nb_napi_set_buf_b64(env, v_chunk, "cipher_key_b64", &chunk->cipher_key);
+            if (chunk->cipher_iv.len) {
+                nb_napi_set_buf_b64(env, v_chunk, "cipher_iv_b64", &chunk->cipher_iv);
+            }
             if (chunk->cipher_auth_tag.len) {
                 nb_napi_set_buf_b64(env, v_chunk, "cipher_auth_tag_b64", &chunk->cipher_auth_tag);
             }

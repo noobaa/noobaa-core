@@ -32,6 +32,8 @@ async function post_object_uploadId(req, res) {
         multiparts
     });
 
+    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
+
     if (reply.version_id && reply.version_id !== 'null') {
         res.setHeader('x-amz-version-id', reply.version_id);
     }

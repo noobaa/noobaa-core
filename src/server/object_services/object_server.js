@@ -53,9 +53,9 @@ async function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
-
     check_quota(req.bucket);
 
+    const encryption = _get_encryption_for_object(req);
     const obj_id = MDStore.instance().make_md_id();
     var info = {
         _id: obj_id,
@@ -67,7 +67,8 @@ async function create_object_upload(req) {
             'application/octet-stream',
         upload_started: obj_id,
         upload_size: 0,
-        tagging: req.rpc_params.tagging
+        tagging: req.rpc_params.tagging,
+        encryption
     };
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
@@ -89,7 +90,15 @@ async function create_object_upload(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        encryption
     };
+}
+
+function _get_encryption_for_object(req) {
+    const bucket_encryption = req.bucket.encryption;
+    const requested_encryption = req.rpc_params.encryption;
+    if (requested_encryption) return requested_encryption; // TODO: Should omit key => _.omit(requested_encryption, 'key_b64');
+    if (bucket_encryption) return bucket_encryption;
 }
 
 /**
@@ -253,6 +262,7 @@ async function complete_object_upload(req) {
     return {
         etag: set_updates.etag,
         version_id: MDStore.instance().get_object_version_id(set_updates),
+        encryption: obj.encryption
     };
 }
 
@@ -294,6 +304,7 @@ async function abort_object_upload(req) {
 async function create_multipart(req) {
     throw_if_maintenance(req);
     const obj = await find_object_upload(req);
+    _check_encryption_permissions(obj.encryption, req.rpc_params.encryption);
     const tier = await map_server.select_tier_for_write(req.bucket);
     const multipart = {
         _id: MDStore.instance().make_md_id(),
@@ -306,6 +317,7 @@ async function create_multipart(req) {
         sha256_b64: req.rpc_params.sha256_b64,
         uncommitted: true,
     };
+
     await MDStore.instance().insert_multipart(multipart);
     return {
         multipart_id: multipart._id,
@@ -313,8 +325,10 @@ async function create_multipart(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        encryption: obj.encryption
     };
 }
+
 
 /**
  *
@@ -370,6 +384,7 @@ async function complete_multipart(req) {
     return {
         etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'),
         create_time: set_updates.create_time.getTime(),
+        encryption: obj.encryption
     };
 }
 
@@ -555,7 +570,7 @@ async function read_node_mapping(req) {
  */
 async function read_object_md(req) {
     dbg.log0('read_object_md:', req.rpc_params);
-    const { bucket, key, md_conditions, adminfo } = req.rpc_params;
+    const { bucket, key, md_conditions, adminfo, encryption } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
@@ -564,6 +579,8 @@ async function read_object_md(req) {
     const obj = await find_object_md(req);
     check_md_conditions(req, md_conditions, obj);
     const info = get_object_info(obj);
+
+    _check_encryption_permissions(obj.encryption, encryption);
 
     if (adminfo) {
 
@@ -601,6 +618,17 @@ async function read_object_md(req) {
     return info;
 }
 
+
+function _check_encryption_permissions(src_enc, req_enc) {
+    if (!src_enc) return;
+    // TODO: Perform a check on KMS/S3/Non Encrypted
+    if (src_enc.key_md5_b64) {
+        if (!req_enc) throw new RpcError('BAD_REQUEST', 'Bad Request');
+        if (src_enc.algorithm !== req_enc.algorithm) throw new RpcError('BAD_REQUEST', 'Bad Request');
+        const req_key_md5_b64 = req_enc.key_md5_b64 || crypto.createHash('md5').update(req_enc.key_b64).digest('base64');
+        if (src_enc.key_md5_b64 !== req_key_md5_b64) throw new RpcError('BAD_REQUEST', 'Bad Request');
+    }
+}
 
 
 /**
@@ -1118,6 +1146,7 @@ function get_object_info(md) {
             last_read: 0,
         },
         tagging: md.tagging,
+        encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0
     };
 }

@@ -7,22 +7,27 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html
  * AKA Create Multipart Upload
  */
-function post_object_uploads(req) {
+async function post_object_uploads(req, res) {
     const tagging = s3_utils.parse_tagging_header(req);
-    return req.object_sdk.create_object_upload({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            content_type: req.headers['content-type'],
-            xattr: s3_utils.get_request_xattr(req),
-            tagging
-        })
-        .then(reply => ({
-            InitiateMultipartUploadResult: {
-                Bucket: req.params.bucket,
-                Key: req.params.key,
-                UploadId: reply.obj_id
-            }
-        }));
+    const encryption = s3_utils.parse_encryption(req);
+    const reply = await req.object_sdk.create_object_upload({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        content_type: req.headers['content-type'],
+        xattr: s3_utils.get_request_xattr(req),
+        tagging,
+        encryption
+    });
+
+    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
+
+    return ({
+        InitiateMultipartUploadResult: {
+            Bucket: req.params.bucket,
+            Key: req.params.key,
+            UploadId: reply.obj_id
+        }
+    });
 }
 
 module.exports = {

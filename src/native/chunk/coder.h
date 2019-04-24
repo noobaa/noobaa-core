@@ -40,6 +40,7 @@ struct NB_Coder_Chunk {
     struct NB_Bufs errors;
     struct NB_Buf digest;
     struct NB_Buf cipher_key;
+    struct NB_Buf cipher_iv;
     struct NB_Buf cipher_auth_tag;
     struct NB_Coder_Frag* frags;
 

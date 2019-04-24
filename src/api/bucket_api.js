@@ -128,6 +128,66 @@ module.exports = {
             }
         },
 
+        put_bucket_encryption: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'encryption',
+                    'name',
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    encryption: {
+                        $ref: 'common_api#/definitions/bucket_encryption'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_encryption: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_encryption: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    encryption: {
+                        $ref: 'common_api#/definitions/bucket_encryption'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         read_bucket_sdk_info: {
             method: 'GET',
             params: {
@@ -795,6 +855,9 @@ module.exports = {
                 },
                 tagging: {
                     $ref: 'common_api#/definitions/tagging'
+                },
+                encryption: {
+                    $ref: 'common_api#/definitions/bucket_encryption'
                 }
             }
         },

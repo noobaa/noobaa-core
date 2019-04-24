@@ -92,6 +92,42 @@ module.exports = {
             }
         },
 
+        bucket_encryption: {
+            type: 'object',
+            properties: {
+                algorithm: {
+                    type: 'string',
+                    enum: ['AES256', 'aws:kms']
+                },
+                kms_key_id: {
+                    type: 'string'
+                }
+            }
+        },
+
+        object_encryption: {
+            type: 'object',
+            properties: {
+                algorithm: {
+                    type: 'string',
+                    enum: ['AES256', 'aws:kms']
+                },
+                kms_key_id: {
+                    type: 'string'
+                },
+                context_b64: {
+                    type: 'string'
+                },
+                key_md5_b64: {
+                    type: 'string'
+                },
+                key_b64: {
+                    type: 'string'
+                }
+            }
+        },
+
+
         drive_info: {
             type: 'object',
             // required: [],

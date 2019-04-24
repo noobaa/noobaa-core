@@ -42,6 +42,9 @@ module.exports = {
                     },
                     tagging: {
                         $ref: 'common_api#/definitions/tagging'
+                    },
+                    encryption: {
+                        $ref: 'common_api#/definitions/object_encryption'
                     }
                 }
             },
@@ -54,6 +57,7 @@ module.exports = {
                     tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -115,6 +119,7 @@ module.exports = {
                 properties: {
                     etag: { type: 'string' },
                     version_id: { type: 'string' },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -172,6 +177,7 @@ module.exports = {
                     sha256_b64: {
                         type: 'string'
                     },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
                 }
             },
             reply: {
@@ -183,6 +189,7 @@ module.exports = {
                     tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -243,6 +250,7 @@ module.exports = {
                     create_time: {
                         idate: true
                     },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -502,6 +510,7 @@ module.exports = {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     adminfo: {
                         type: 'object',
                         properties: {
@@ -1167,6 +1176,7 @@ module.exports = {
                     }
                 },
                 tagging: { $ref: 'common_api#/definitions/tagging' },
+                encryption: { $ref: 'common_api#/definitions/object_encryption' },
                 tag_count: { type: 'integer' },
                 // This is the physical size (aggregation of all blocks)
                 // It does not pay attention to dedup

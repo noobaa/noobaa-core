@@ -185,15 +185,38 @@ class NamespaceS3 {
                 // note that CopySourceRange is only supported by s3.uploadPartCopy()
                 throw new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()');
             }
-            res = await this.s3.copyObject({
+
+            const request = {
                 Key: params.key,
                 CopySource: copy_source,
                 ContentType: params.content_type,
                 Metadata: params.xattr,
                 MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
                 Tagging,
-                TaggingDirective: params.tagging_copy ? 'COPY' : 'REPLACE'
-            }).promise();
+                TaggingDirective: params.tagging_copy ? 'COPY' : 'REPLACE',
+            };
+
+            if (params.copy_source.encryption) {
+                const { algorithm, key_b64, key_md5_b64 } = params.copy_source.encryption;
+                request.CopySourceSSECustomerAlgorithm = algorithm;
+                request.CopySourceSSECustomerKey = key_b64;
+                request.CopySourceSSECustomerKeyMD5 = key_md5_b64;
+            }
+
+            if (params.encryption) {
+                // TODO: How should we pass the context ('x-amz-server-side-encryption-context' var context_b64) if at all?
+                const { algorithm, key_b64, key_md5_b64, kms_key_id } = params.encryption;
+                if (key_b64) {
+                    request.SSECustomerAlgorithm = algorithm;
+                    request.SSECustomerKey = key_b64;
+                    request.SSECustomerKeyMD5 = key_md5_b64;
+                } else {
+                    request.ServerSideEncryption = algorithm;
+                    request.SSEKMSKeyId = kms_key_id;
+                }
+            }
+
+            res = await this.s3.copyObject(request).promise();
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -259,13 +282,29 @@ class NamespaceS3 {
         let res;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
-            res = await this.s3.uploadPartCopy({
+            const request = {
                 Key: params.key,
                 UploadId: params.obj_id,
                 PartNumber: params.num,
                 CopySource: copy_source,
                 CopySourceRange: copy_source_range,
-            }).promise();
+            };
+
+            if (params.copy_source.encryption) {
+                const { algorithm, key_b64, key_md5_b64 } = params.copy_source.encryption;
+                request.CopySourceSSECustomerAlgorithm = algorithm;
+                request.CopySourceSSECustomerKey = key_b64;
+                request.CopySourceSSECustomerKeyMD5 = key_md5_b64;
+            }
+
+            if (params.encryption) {
+                const { algorithm, key_b64, key_md5_b64 } = params.encryption;
+                request.SSECustomerAlgorithm = algorithm;
+                request.SSECustomerKey = key_b64;
+                request.SSECustomerKeyMD5 = key_md5_b64;
+            }
+
+            res = await this.s3.uploadPartCopy(request).promise();
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {

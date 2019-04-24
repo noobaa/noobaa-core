@@ -9,13 +9,16 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
  */
 async function head_object(req, res) {
+    const encryption = s3_utils.parse_encryption(req);
     const object_md = await req.object_sdk.read_object_md({
         bucket: req.params.bucket,
         key: req.params.key,
         version_id: req.query.versionId,
         md_conditions: http_utils.get_md_conditions(req),
+        encryption
     });
     s3_utils.set_response_object_md(res, object_md);
+    s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
 }
 
 module.exports = {

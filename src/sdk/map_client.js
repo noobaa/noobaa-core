@@ -355,7 +355,13 @@ class MapClient {
             end: this.read_end,
             location_info: this.location_info,
         });
-        return res.chunks.map(chunk_info => new ChunkAPI(chunk_info));
+        return res.chunks.map(chunk_info => {
+            // TODO: Maybe move this to map_reader?
+            if (this.object_md.encryption && this.object_md.encryption.key_b64) {
+                chunk_info.cipher_key_b64 = this.object_md.encryption.key_b64;
+            }
+            return new ChunkAPI(chunk_info);
+        });
     }
     /**
      * @returns {Promise<void>}

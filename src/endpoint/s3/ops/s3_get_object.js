@@ -13,16 +13,19 @@ async function get_object(req, res) {
 
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
+    const encryption = s3_utils.parse_encryption(req);
 
     const object_md = await req.object_sdk.read_object_md({
         bucket: req.params.bucket,
         key: req.params.key,
         version_id: req.query.versionId,
         md_conditions: http_utils.get_md_conditions(req),
+        encryption
     });
 
 
     s3_utils.set_response_object_md(res, object_md);
+    s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
     const obj_size = object_md.size;
     const params = {
         object_md,
@@ -30,7 +33,8 @@ async function get_object(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: object_md.content_type,
-        noobaa_trigger_agent
+        noobaa_trigger_agent,
+        encryption,
     };
 
     try {

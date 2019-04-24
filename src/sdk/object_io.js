@@ -49,6 +49,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {number} [seq]
  * @property {Object} [chunk_split_config]
  * @property {Object} [chunk_coder_config]
+ * @property {Object} [encryption]
  * 
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -169,6 +170,7 @@ class ObjectIO {
             'sha256_b64',
             'xattr',
             'tagging',
+            'encryption'
         );
         const complete_params = _.pick(params,
             'obj_id',
@@ -221,7 +223,8 @@ class ObjectIO {
             'num',
             'size',
             'md5_b64',
-            'sha256_b64'
+            'sha256_b64',
+            'encryption'
         );
         const complete_params = _.pick(params,
             'multipart_id',
@@ -258,8 +261,8 @@ class ObjectIO {
      * @param {Object} complete_params
      */
     async _upload_copy(params, complete_params) {
-        const { obj_id, bucket, key, version_id, ranges } = params.copy_source;
-        if (bucket === params.bucket && !ranges) {
+        const { obj_id, bucket, key, version_id, ranges, encryption } = params.copy_source;
+        if (bucket === params.bucket && !ranges && !encryption) {
             /** @type {{ object_md: nb.ObjectInfo, num_parts: number }} */
             const { object_md, num_parts } = await params.client.object.copy_object_mapping({
                 bucket: params.bucket,
@@ -278,19 +281,20 @@ class ObjectIO {
                 bucket,
                 key,
                 obj_id,
-                version_id
+                version_id,
+                encryption
             });
             if (ranges) {
                 params.source_stream = this.read_object_stream({
                     client: params.client,
                     object_md,
                     start: ranges[0].start,
-                    end: ranges[0].end,
+                    end: ranges[0].end
                 });
             } else {
                 params.source_stream = this.read_object_stream({
                     client: params.client,
-                    object_md,
+                    object_md
                 });
             }
             return this._upload_stream(params, complete_params);
@@ -353,6 +357,8 @@ class ObjectIO {
             concurrency: 20,
             coder: 'enc',
             chunk_coder_config: params.chunk_coder_config,
+            // TODO: Load the key from KMS as well
+            cipher_key_b64: params.encryption && params.encryption.key_b64
         });
 
         const coalescer = new CoalesceStream({

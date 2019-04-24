@@ -2,16 +2,17 @@
 
 import ko from 'knockout';
 import moment from 'moment';
+import numeral from 'numeral';
 import template from './func-triggers-form.html';
 import ConnectableViewModel from 'components/connectable';
-import { deepFreeze, flatMap, createCompareFunc } from 'utils/core-utils';
+import { deepFreeze, createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { paginationPageSize } from 'config';
-import { 
-    openAddFuncTriggerModal, 
-    requestLocation, 
+import {
+    openAddBucketTriggerModal,
+    requestLocation,
     removeBucketTrigger,
-    openEditFuncTriggerModal
+    openEditBucketTriggerModal
 } from 'action-creators';
 
 
@@ -32,6 +33,17 @@ const modeToStatus = deepFreeze({
         name: 'healthy',
         css: 'success',
         tooltip: 'Healthy'
+    }
+});
+
+const bucketTypeMeta = deepFreeze({
+    DATA_BUCKET: {
+        displayName: 'Data',
+        route: routes.bucket
+    },
+    NAMESPACE_BUCKET: {
+        displayName: 'Namespace',
+        route: routes.namespaceBucket
     }
 });
 
@@ -108,14 +120,20 @@ class BucketRowViewModel {
         id: ko.observable(),
         icon: 'edit',
         tooltip: 'Edit Trigger',
-        onClick: triggerId => this.table.onEditTrigger(triggerId, this.bucketName.text())
+        onClick: triggerId => this.table.onEditTrigger(
+            triggerId,
+            this.bucketName.text()
+        )
     };
     delete = {
         text: 'Delete Trigger',
         active: ko.observable(),
         id: ko.observable(),
         onToggle: triggerId => this.table.onSelectForDelete(triggerId),
-        onDelete: triggerId => this.table.onDeleteTrigger(triggerId, this.bucketName.text())
+        onDelete: triggerId => this.table.onDeleteTrigger(
+            triggerId,
+            this.bucketName.text()
+        )
     };
 
     constructor({ table }) {
@@ -130,90 +148,82 @@ function _getLastRunText(trigger) {
 
 class FuncTriggersFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
-    funcName = ko.observable();
-    triggersCount = ko.observable();
+    funcId = '';
+    triggerCount = ko.observable();
     sorting = ko.observable({});
     rows = ko.observableArray().ofType(BucketRowViewModel, { table: this });
-    triggersLoaded =  ko.observable();
     pageSize = paginationPageSize;
     page = ko.observable();
     selectedForDelete = ko.observable();
     pathname = '';
     columns = columns;
-    funcVersion = '';
 
     selectState(state, params) {
-        const { functions , buckets } = state;
-        const { funcName, funcVersion } = params;
-        const id = `${funcName}:${funcVersion}`;
+        const { functions , bucketTriggers } = state;
+        const id = `${params.funcName}:${params.funcVersion}`;
         return [
             state.location,
-            funcName,
             functions && functions[id],
-            buckets
+            bucketTriggers
         ];
     }
 
-    mapStateToProps(location, funcName, func, buckets) {
-        if (!func || !buckets) {
+    mapStateToProps(location, func, triggers) {
+        if (!func || !triggers) {
             ko.assignToProps(this, {
-                dataReady: false,
-                funcName
+                dataReady: false
             });
+
         } else {
             const { query, params, pathname } = location;
             const { sortBy = 'bucketName', selectedForDelete } = query;
             const page = Number(query.page || 0);
             const order = Number(query.order || 1);
             const { compareKey } = columns.find(column => column.name === sortBy);
-            const pageStart = Number(page) * this.pageSize;
-            const triggers = flatMap(
-                Object.values(buckets), 
-                bucket => Object.values(bucket.triggers)
-                    .filter(
-                        trigger => trigger.func.name === func.name &&
-                        trigger.func.version === func.version
-                    )
-                    .map(trigger => ({
-                        ...trigger, 
-                        bucketName: bucket.name,
-                        bucketType: 'Data Bucket'
-                    }))
-            );
+            const pageStart = page * paginationPageSize;
 
-            this.triggersCount(triggers.length);
-            ko.assignToProps(this, {
-                dataReady: true,
-                funcName,
-                funcVersion: func.version,
-                rows: Object.values(triggers)
-                    .sort(createCompareFunc(compareKey, Number(order)))
-                    .slice(pageStart, pageStart + this.pageSize)
-                    .map(trigger => ({                        
+            const rows = Object.values(triggers)
+                .filter(trigger =>
+                    trigger.func.name === func.name &&
+                    trigger.func.version === func.version
+                )
+                .sort(createCompareFunc(compareKey, order))
+                .slice(pageStart, pageStart + paginationPageSize)
+                .map(trigger => {
+                    const { name: bucketName, kind: bucketType } = trigger.bucket;
+                    const { displayName: bucketTypeDisplay, route } = bucketTypeMeta[bucketType];
+                    return {
                         state: modeToStatus[trigger.mode],
                         bucketName: {
-                            text: trigger.bucketName,
-                            href: realizeUri(
-                                routes.bucket, 
-                                { system: params.system, bucket: trigger.bucketName }
-                            )
+                            text: bucketName,
+                            href: realizeUri(route, {
+                                system: params.system,
+                                bucket: bucketName
+                            })
                         },
-                        bucketType: trigger.bucketType,
+                        bucketType: bucketTypeDisplay,
                         event: trigger.event,
                         prefix: trigger.prefix || '(not set)',
                         suffix: trigger.suffix || '(not set)',
                         lastRun: _getLastRunText(trigger),
-                        delete: { 
+                        delete: {
                             id: trigger.id,
                             active: selectedForDelete === trigger.id
                         },
                         edit: { id: trigger.id }
-                    }))
+                    };
+                });
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                funcId: `${func.name}:${func.version}`,
+                pathname: pathname,
+                page: page,
+                sorting: { sortBy, order },
+                selectedForDelete,
+                triggerCount: numeral(rows.length).format(','),
+                rows
             });
-            this.pathname = pathname;
-            this.page(Number(page));
-            this.sorting({ sortBy, order: Number(order) });
-            this.selectedForDelete = selectedForDelete;
         }
     }
 
@@ -233,13 +243,11 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
     }
 
     onAddTrigger() {
-        this.dispatch(openAddFuncTriggerModal(
-            this.funcName()
-        ));
+        this.dispatch(openAddBucketTriggerModal(null, this.funcId));
     }
 
     onEditTrigger(triggerId) {
-        this.dispatch(openEditFuncTriggerModal(this.funcName(), this.funcVersion, triggerId));
+        this.dispatch(openEditBucketTriggerModal('FUNCTION', triggerId));
     }
 
     onSelectForDelete(triggerId) {

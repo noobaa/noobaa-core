@@ -33,6 +33,7 @@ import lambdaUsageHistory from './lambda-usage-history';
 import objectsDistribution from './account-usage-history';
 import cloudUsageStats from './cloud-usage-stats';
 import platform from './platform';
+import bucketTriggers from './bucket-triggers';
 import state from './state.js';
 
 const schemas = {
@@ -67,6 +68,7 @@ const schemas = {
     objectsDistribution,
     cloudUsageStats,
     platform,
+    bucketTriggers,
     state
 };
 

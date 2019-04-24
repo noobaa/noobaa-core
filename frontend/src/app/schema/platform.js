@@ -4,7 +4,7 @@ export default {
     type: 'object',
     required: [
         'kind',
-        'restrictions'
+        'featureFlags'
     ],
     properties: {
         kind: {

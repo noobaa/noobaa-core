@@ -54,9 +54,10 @@ const columns = deepFreeze([
 ]);
 
 export function _isBucketUsingResource(bucket, resource) {
-    return flatPlacementPolicy(bucket).some(record =>
-        record.resource === resource
-    );
+    return flatPlacementPolicy(bucket).some(record =>{
+        const { type, name } = record.resource;
+        return type === 'CLOUD' && name == resource;
+    });
 }
 
 export function _isNamespaceBucketUsingResource(bucket, resource) {

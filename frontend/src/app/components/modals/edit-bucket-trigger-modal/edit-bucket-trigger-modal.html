@@ -9,7 +9,7 @@
     <div class="column greedy pad">
         <p>Triggers will automatically invoke the selected function.</p>
 
-        <!-- ko if: funcName -->
+        <!-- ko if: bucketOptions -->
         <editor params="label: 'Bucket'">
             <dropdown params="
                     options: bucketOptions,
@@ -23,7 +23,7 @@
         </editor>
         <!-- /ko -->
 
-        <!-- ko ifnot: funcName -->
+        <!-- ko if: funcOptions -->
         <editor params="label: 'Function'">
             <dropdown params="
                     options: funcOptions,

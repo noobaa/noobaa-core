@@ -104,7 +104,6 @@ import passwordResetFailedModal from './modals/password-reset-failed-modal/passw
 import editFuncConfigModal from './modals/edit-func-config-modal/edit-func-config-modal';
 import invokeFuncModal from './modals/invoke-func-modal/invoke-func-modal';
 import editFuncCodeModal from './modals/edit-func-code-modal/edit-func-code-modal';
-import addFuncTriggerModal from './modals/add-func-trigger-modal/add-func-trigger-modal';
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
 import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
 import addResourcesModal from './modals/add-resources-modal/add-resources-modal';
@@ -157,6 +156,7 @@ import namespaceBucketPanel from './namespace-bucket/namespace-bucket-panel/name
 import namespaceBucketSummary from './namespace-bucket/namespace-bucket-summary/namespace-bucket-summary';
 import namespaceBucketDataPlacementForm from './namespace-bucket/namespace-bucket-data-placement-form/namespace-bucket-data-placement-form';
 import namespaceBucketS3AccessForm from './namespace-bucket/namespace-bucket-s3-access-form/namespace-bucket-s3-access-form';
+import namespaceBucketTriggersForm from './namespace-bucket/namespace-bucket-triggers-form/namespace-bucket-triggers-form';
 /** INJECT:namespace-bucket.import **/
 
 // -------------------------------
@@ -465,7 +465,6 @@ export default function register(ko, services) {
         editFuncConfigModal,
         invokeFuncModal,
         editFuncCodeModal,
-        addFuncTriggerModal,
         bucketPlacementSummaryModal,
         keepUsingInternalStorageModal,
         addResourcesModal,
@@ -506,6 +505,7 @@ export default function register(ko, services) {
         namespaceBucketSummary,
         namespaceBucketDataPlacementForm,
         namespaceBucketS3AccessForm,
+        namespaceBucketTriggersForm,
         /** INJECT:namespace-bucket.list **/
 
         objectPanel,

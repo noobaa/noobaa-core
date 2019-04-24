@@ -7,7 +7,7 @@ export default {
     init: function(element, valueAccessor) {
         ko.utils.registerEventHandler(element, 'keydown', evt => {
             // Binding is disabled or not a tab press
-            if (!ko.unwrap(valueAccessor()) || evt.code.toLowerCase() !== 'tab') {
+            if (!ko.unwrap(valueAccessor()) || (evt.code && evt.code.toLowerCase()) !== 'tab') {
                 return;
             }
 

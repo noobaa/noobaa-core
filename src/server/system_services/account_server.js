@@ -1158,6 +1158,7 @@ function verify_authorized_account(req) {
 }
 
 function _list_connection_usage(account, credentials) {
+
     let cloud_pool_usage = _.map(
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
@@ -1165,7 +1166,7 @@ function _list_connection_usage(account, credentials) {
             pool.cloud_pool_info.endpoint_type === credentials.endpoint_type &&
             pool.cloud_pool_info.endpoint === credentials.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
-            pool.cloud_pool_info.access_keys.access_key === credentials.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === credentials.access_key
         )), pool => ({
             usage_type: 'CLOUD_RESOURCE',
             entity: pool.name,

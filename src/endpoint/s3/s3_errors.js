@@ -126,6 +126,10 @@ const errors_defs = [{
     message: 'The encryption request you specified is not valid. The valid value is AES256.',
     http_code: 400,
 }, {
+    code: 'ServerSideEncryptionConfigurationNotFoundError',
+    message: 'The server side encryption configuration was not found.',
+    http_code: 404,
+}, {
     code: 'InvalidLocationConstraint',
     message: 'The specified location constraint is not valid. For more information about regions, see How to Select a Region for Your Buckets.',
     http_code: 400,

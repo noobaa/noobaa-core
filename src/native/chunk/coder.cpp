@@ -85,6 +85,7 @@ nb_chunk_init(struct NB_Coder_Chunk* chunk)
     nb_bufs_init(&chunk->errors);
     nb_buf_init(&chunk->digest);
     nb_buf_init(&chunk->cipher_key);
+    nb_buf_init(&chunk->cipher_iv);
     nb_buf_init(&chunk->cipher_auth_tag);
 
     chunk->frags = 0;
@@ -105,6 +106,7 @@ nb_chunk_free(struct NB_Coder_Chunk* chunk)
     nb_bufs_free(&chunk->errors);
     nb_buf_free(&chunk->digest);
     nb_buf_free(&chunk->cipher_key);
+    nb_buf_free(&chunk->cipher_iv);
     nb_buf_free(&chunk->cipher_auth_tag);
 
     if (chunk->frags) {
@@ -284,11 +286,24 @@ _nb_encrypt(struct NB_Coder_Chunk* chunk, const EVP_CIPHER* evp_cipher)
     // using iv of zeros since we generate random key per chunk
     const int key_len = EVP_CIPHER_key_length(evp_cipher);
     const int iv_len = EVP_CIPHER_iv_length(evp_cipher);
-    nb_buf_init_zeros(&iv, iv_len);
 
     if (chunk->cipher_key.len) {
         assert(chunk->cipher_key.len == key_len);
+        if (chunk->cipher_iv.len) {
+            // key provided iv provided => key=provided, iv=provided
+            assert(chunk->cipher_iv.len == iv_len);
+            nb_buf_init_shared(&iv, chunk->cipher_iv.data, chunk->cipher_iv.len);
+        } else {
+            // key provided iv not provided => key=provided, iv=random
+            nb_buf_free(&chunk->cipher_iv);
+            nb_buf_init_alloc(&chunk->cipher_iv, iv_len);
+            RAND_bytes(chunk->cipher_iv.data, chunk->cipher_iv.len);
+            nb_buf_init_shared(&iv, chunk->cipher_iv.data, chunk->cipher_iv.len);
+        }
     } else {
+        // key/iv not provided => key=random, iv=zeros
+        nb_buf_init_zeros(&iv, iv_len);
+        nb_buf_free(&chunk->cipher_iv);
         nb_buf_free(&chunk->cipher_key);
         nb_buf_init_alloc(&chunk->cipher_key, key_len);
         RAND_bytes(chunk->cipher_key.data, chunk->cipher_key.len);
@@ -899,8 +914,12 @@ _nb_decrypt(
     const int decrypted_size = chunk->compress_size > 0 ? chunk->compress_size : chunk->size;
     const int padded_size = _nb_align_up(decrypted_size, chunk->data_frags);
 
-    // using iv of zeros since we generate random key per chunk
-    nb_buf_init_zeros(&iv, iv_len);
+    if (chunk->cipher_iv.len) {
+        nb_buf_init_shared(&iv, chunk->cipher_iv.data, chunk->cipher_iv.len);
+    } else {
+        // using iv of zeros since we generate random key per chunk
+        nb_buf_init_zeros(&iv, iv_len);
+    }
 
     StackCleaner cleaner([&] {
         EVP_CIPHER_CTX_free(ctx);

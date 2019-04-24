@@ -222,6 +222,9 @@ module.exports = {
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
+        encryption: {
+            $ref: 'common_api#/definitions/bucket_encryption',
+        },
         lambda_triggers: {
             type: 'array',
             items: {

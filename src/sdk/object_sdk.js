@@ -310,8 +310,8 @@ class ObjectSDK {
 
     // if upload is using a copy source fix the params according to source and target real location
     async fix_copy_source_params(params, target_ns) {
-        const { bucket, key, version_id, ranges } = params.copy_source;
-        const source_params = { bucket, key, version_id, md_conditions: params.source_md_conditions };
+        const { bucket, key, version_id, ranges, encryption } = params.copy_source;
+        const source_params = { bucket, key, version_id, md_conditions: params.source_md_conditions, encryption };
 
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
@@ -496,6 +496,25 @@ class ObjectSDK {
     async get_bucket_tagging(params) {
         const ns = this._get_account_namespace();
         return ns.get_bucket_tagging(params);
+    }
+
+    ///////////////////////
+    // BUCKET ENCRYPTION //
+    ///////////////////////
+
+    async put_bucket_encryption(params) {
+        const ns = this._get_account_namespace();
+        return ns.put_bucket_encryption(params);
+    }
+
+    async delete_bucket_encryption(params) {
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket_encryption(params);
+    }
+
+    async get_bucket_encryption(params) {
+        const ns = this._get_account_namespace();
+        return ns.get_bucket_encryption(params);
     }
 
     should_run_triggers({ active_triggers, operation, obj }) {

@@ -81,6 +81,29 @@ class AccountSpaceNB {
         });
     }
 
+    ///////////////////////
+    // BUCKET ENCRYPTION //
+    ///////////////////////
+
+    put_bucket_encryption(params) {
+        return this.rpc_client.bucket.put_bucket_encryption({
+            name: params.name,
+            encryption: params.encryption
+        });
+    }
+
+    delete_bucket_encryption(params) {
+        return this.rpc_client.bucket.delete_bucket_encryption({
+            name: params.name
+        });
+    }
+
+    get_bucket_encryption(params) {
+        return this.rpc_client.bucket.get_bucket_encryption({
+            name: params.name
+        });
+    }
+
 }
 
 module.exports = AccountSpaceNB;

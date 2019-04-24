@@ -17,13 +17,14 @@ const nb_native = require('./nb_native');
  */
 class ChunkCoder extends stream.Transform {
 
-    constructor({ watermark, concurrency, coder, chunk_coder_config }) {
+    constructor({ watermark, concurrency, coder, chunk_coder_config, cipher_key_b64 }) {
         super({
             objectMode: true,
             allowHalfOpen: false,
             highWaterMark: watermark,
         });
         this.coder = coder;
+        this.cipher_key_b64 = cipher_key_b64;
         this.chunk_coder_config = chunk_coder_config;
         this.stream_promise = P.resolve();
         // using both local and global semaphore to avoid one stream overwhelming the global sem
@@ -49,7 +50,9 @@ class ChunkCoder extends stream.Transform {
     _transform(chunk, encoding, callback) {
         this.stream_sem.surround(() => ChunkCoder.global_sem.surround(() => {
                 chunk.chunk_coder_config = chunk.chunk_coder_config || this.chunk_coder_config;
+                if (this.cipher_key_b64) chunk.cipher_key_b64 = this.cipher_key_b64;
                 const chunk_promise = P.fromCallback(cb => nb_native().chunk_coder(this.coder, chunk, cb));
+                // TODO: Need to remove the cipher_key in case of SSE-C
                 this.stream_promise = P.join(chunk_promise, this.stream_promise).then(() => this.push(chunk));
                 callback();
                 return chunk_promise;

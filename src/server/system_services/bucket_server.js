@@ -238,6 +238,42 @@ async function delete_bucket_tagging(req) {
     });
 }
 
+async function get_bucket_encryption(req) {
+    dbg.log0('get_bucket_encryption:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    return {
+        encryption: bucket.encryption,
+    };
+}
+
+
+async function put_bucket_encryption(req) {
+    dbg.log0('put_bucket_encryption:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                encryption: req.rpc_params.encryption
+            }]
+        }
+    });
+}
+
+
+async function delete_bucket_encryption(req) {
+    dbg.log0('delete_bucket_encryption:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { encryption: 1 }
+            }]
+        }
+    });
+}
+
 
 /**
  *
@@ -1064,7 +1100,8 @@ function get_bucket_info({
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
-        tagging: bucket.tagging
+        tagging: bucket.tagging,
+        encryption: bucket.encryption
     };
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
 
@@ -1418,3 +1455,7 @@ exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;
 exports.delete_bucket_tagging = delete_bucket_tagging;
 exports.put_bucket_tagging = put_bucket_tagging;
 exports.get_bucket_tagging = get_bucket_tagging;
+
+exports.delete_bucket_encryption = delete_bucket_encryption;
+exports.put_bucket_encryption = put_bucket_encryption;
+exports.get_bucket_encryption = get_bucket_encryption;

@@ -8,6 +8,7 @@ const S3Error = require('./s3_errors').S3Error;
 const http_utils = require('../../util/http_utils');
 const time_utils = require('../../util/time_utils');
 const endpoint_utils = require('../endpoint_utils');
+const crypto = require('crypto');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -48,60 +49,75 @@ function parse_etag(etag, err) {
     return etag;
 }
 
+function parse_encryption(req, copy_source) {
+    if (copy_source) return parse_sse_c(req, copy_source);
+    const sse = parse_sse(req);
+    if (sse) {
+        if (req.method === 'GET' || req.method === 'HEAD') throw new S3Error(S3Error.BadRequest);
+        return sse;
+    }
+    return parse_sse_c(req);
+}
 
-function parse_sse_c(req) {
-    const sse_c_key_md5 = req.headers['x-amz-server-side-encryption-customer-key-md5'];
-    const sse_c_algo = req.headers['x-amz-server-side-encryption-customer-algorithm'];
-    const sse_c_key = req.headers['x-amz-server-side-encryption-customer-key'];
+function parse_sse_c(req, copy_source) {
+    const algorithm = req.headers[`x-amz-${copy_source ? 'copy-source-' : ''}server-side-encryption-customer-algorithm`];
+    const key_b64 = req.headers[`x-amz-${copy_source ? 'copy-source-' : ''}server-side-encryption-customer-key`];
+    const key_md5_b64 = req.headers[`x-amz-${copy_source ? 'copy-source-' : ''}server-side-encryption-customer-key-md5`];
 
-    if (!sse_c_key_md5 && !sse_c_algo && !sse_c_key) return;
+    if (!algorithm) {
+        if (key_b64 || key_md5_b64) {
+            throw new S3Error(S3Error.InvalidDigest);
+        } else {
+            return;
+        }
+    }
+
+    if (algorithm !== 'AES256') throw new S3Error(S3Error.InvalidEncryptionAlgorithmError);
+
+    const base64_regex = new RegExp('^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$');
+    if (!key_b64 || !base64_regex.test(key_b64)) throw new S3Error(S3Error.InvalidDigest);
+
+    if (!key_md5_b64 || !base64_regex.test(key_md5_b64)) throw new S3Error(S3Error.InvalidDigest);
+
+    const key = Buffer.from(key_b64, 'base64');
+    const calculated_key = crypto.createHash('md5').update(key).digest('base64');
+    if (key_md5_b64 !== calculated_key) throw new S3Error(S3Error.InvalidDigest);
 
     return {
-        key_md5: _parse_sse_c_key_md5(sse_c_key_md5),
-        key: _parse_sse_c_key(sse_c_key),
-        algo: _parse_sse_c_algo(sse_c_algo)
+        algorithm,
+        key_b64,
+        key_md5_b64
     };
 }
 
-// function parse_sse(req) {
-//     const sse_enc = req.headers['x-amz-server-side-encryption'];
-//     const sse_key = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
+function parse_sse(req) {
+    const algorithm = req.headers['x-amz-server-side-encryption'];
+    const kms_key_id = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
+    const context_b64 = (algorithm === 'aws:kms') && req.headers['x-amz-server-side-encryption-context'];
 
-//     if (!sse_enc) return;
+    if (!algorithm) {
+        if (kms_key_id) {
+            throw new S3Error(S3Error.InvalidDigest);
+        } else {
+            return;
+        }
+    }
 
-//     return {
-//         key_md5: _parse_sse_key_md5(sse_key_md5),
-//         key: _parse_sse_key(sse_key),
-//         sse_enc: _parse_sse_enc(sse_enc)
-//     };
-// }
+    if (algorithm !== 'AES256' && algorithm !== 'aws:kms') throw new S3Error(S3Error.InvalidDigest);
 
+    if (algorithm === 'aws:kms' && !kms_key_id) throw new S3Error(S3Error.InvalidDigest);
+    // const md5_regex = new RegExp('/^[a-f0-9]{32}$/');
+    // if (kms_key_id && !md5_regex.test(kms_key_id)) throw new S3Error(S3Error.InvalidDigest);
 
-function _parse_sse_c_key_md5(md5) {
-    // TODO: More suitable error and better check
-    const md5_regex = new RegExp('/^[a-f0-9]{32}$/');
-    if (md5 === '' || !md5_regex.test(md5)) throw new S3Error(S3Error.InvalidDigest);
-    return md5;
+    // const base64_regex = new RegExp('^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$');
+    // if (context_b64 && !base64_regex.test(context_b64)) throw new S3Error(S3Error.InvalidDigest);
+
+    return {
+        algorithm,
+        kms_key_id,
+        context_b64
+    };
 }
-
-function _parse_sse_c_key(sse_c_key) {
-    // TODO: More suitable error and better check
-    const base64_regex = new RegExp('^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$');
-    if (sse_c_key === '' || !base64_regex.test(sse_c_key)) throw new S3Error(S3Error.InvalidDigest);
-    return sse_c_key;
-}
-
-function _parse_sse_c_algo(sse_c_algo) {
-    // TODO: More suitable error and better check
-    if (sse_c_algo === '' || sse_c_algo !== 'AES256') throw new S3Error(S3Error.InvalidDigest);
-    return sse_c_algo;
-}
-
-// function _parse_sse_enc(sse_enc) {
-//     // TODO: More suitable error and better check
-//     if (sse_enc === '' || (sse_enc !== 'AES256' && sse_enc !== 'aws:kms')) throw new S3Error(S3Error.InvalidDigest);
-//     return sse_enc;
-// }
 
 function parse_content_length(req) {
     const size = Number(req.headers['x-amz-decoded-content-length'] || req.headers['content-length']);
@@ -121,6 +137,30 @@ function parse_part_number(num_str, err) {
     return num;
 }
 
+function set_encryption_response_headers(req, res, encryption = {}) {
+    const { algorithm, kms_key_id, key_md5_b64, } = encryption;
+    const encryption_headers = [
+        'x-amz-server-side-encryption',
+        'x-amz-server-side-encryption-aws-kms-key-id',
+        'x-amz-server-side-encryption-customer-algorithm',
+        'x-amz-server-side-encryption-customer-key',
+        'x-amz-server-side-encryption-customer-key-md5',
+    ];
+
+    encryption_headers.forEach(header => req.headers[header] && res.setHeader(header, req.headers[header]));
+
+    if (algorithm) {
+        if (key_md5_b64) {
+            res.setHeader('x-amz-server-side-encryption-customer-algorithm', algorithm);
+            res.setHeader('x-amz-server-side-encryption-customer-key-md5', key_md5_b64);
+        } else {
+            res.setHeader('x-amz-server-side-encryption', algorithm);
+        }
+    }
+
+    if (kms_key_id) res.setHeader('x-amz-server-side-encryption-aws-kms-key-id', kms_key_id);
+}
+
 function parse_copy_source(req) {
     const source_url = req.headers['x-amz-copy-source'];
     if (!source_url) return;
@@ -128,7 +168,8 @@ function parse_copy_source(req) {
     const { query, bucket, key } = endpoint_utils.parse_source_url(source_url);
     const version_id = query && query.versionId;
     const ranges = http_utils.parse_http_ranges(req.headers['x-amz-copy-source-range']);
-    return { bucket, key, version_id, ranges };
+    const encryption = parse_encryption(req, /* copy_source */ true);
+    return { bucket, key, version_id, ranges, encryption };
 }
 
 function format_copy_source(copy_source) {
@@ -230,6 +271,28 @@ function is_copy_tagging_directive(req) {
     return false;
 }
 
+// Source: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTencryption.html
+function parse_body_encryption_xml(req) {
+    const valid_algo_values = ['AES256', 'aws:kms'];
+    const sse_conf = req.body.ServerSideEncryptionConfiguration;
+    if (!sse_conf) throw new S3Error(S3Error.MalformedXML);
+    const sse_rule = sse_conf.Rule[0];
+    if (!sse_rule) throw new S3Error(S3Error.MalformedXML);
+    const sse_default = sse_rule.ApplyServerSideEncryptionByDefault[0];
+    if (!sse_default) return;
+    const algorithm = sse_default.SSEAlgorithm && sse_default.SSEAlgorithm[0];
+    const kms_key_id = sse_default.KMSMasterKeyID && sse_default.KMSMasterKeyID[0];
+    if (
+        !valid_algo_values.includes(algorithm) ||
+        (kms_key_id && algorithm !== 'aws:kms')
+    ) throw new S3Error(S3Error.MalformedXML);
+    return {
+        algorithm,
+        kms_key_id
+    };
+}
+
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.format_s3_xml_date = format_s3_xml_date;
@@ -241,8 +304,9 @@ exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
 exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;
-exports.parse_sse_c = parse_sse_c;
-// exports.parse_sse = parse_sse;
+exports.parse_encryption = parse_encryption;
 exports.parse_body_tagging_xml = parse_body_tagging_xml;
 exports.parse_tagging_header = parse_tagging_header;
 exports.is_copy_tagging_directive = is_copy_tagging_directive;
+exports.parse_body_encryption_xml = parse_body_encryption_xml;
+exports.set_encryption_response_headers = set_encryption_response_headers;

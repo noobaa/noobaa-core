@@ -6,6 +6,7 @@ const argv = require('minimist')(process.argv);
 const stream = require('stream');
 const assert = require('assert');
 const cluster = require('cluster');
+const crypto = require('crypto');
 
 // const P = require('../util/promise');
 const config = require('../../config');
@@ -30,6 +31,7 @@ argv.md5 = Boolean(argv.md5); // default is false, use --md5
 argv.sha256 = Boolean(argv.sha256); // default is false
 argv.compare = Boolean(argv.compare); // default is false
 argv.verbose = Boolean(argv.verbose); // default is false
+argv.sse_c = Boolean(argv.sse_c); // default is false
 delete argv._;
 
 const master_speedometer = new Speedometer('Total Speed');
@@ -59,6 +61,8 @@ function main() {
         },
     });
 
+    const cipher_key_b64 = argv.sse_c ? crypto.randomBytes(32).toString('base64') : undefined;
+
     const coder = new ChunkCoder({
         watermark: 20,
         concurrency: 20,
@@ -74,13 +78,15 @@ function main() {
                 parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
                 parity_type: config.CHUNK_CODER_EC_PARITY_TYPE,
             } : null)
-        }
+        },
+        cipher_key_b64
     });
 
     const decoder = new ChunkCoder({
         watermark: 20,
         concurrency: 20,
         coder: 'dec',
+        cipher_key_b64
     });
 
     const eraser = new ChunkEraser({

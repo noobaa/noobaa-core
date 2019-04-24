@@ -90,6 +90,7 @@ function blow_parts(params) {
                     compress_size: argv.chunk_size,
                     digest_b64: crypto.randomBytes(32).toString('base64'),
                     cipher_key_b64: crypto.randomBytes(32).toString('base64'),
+                    cipher_iv_b64: crypto.randomBytes(32).toString('base64'),
                     frags: _.times(6, data_index => ({
                         data_index,
                         digest_b64: crypto.randomBytes(32).toString('base64'),

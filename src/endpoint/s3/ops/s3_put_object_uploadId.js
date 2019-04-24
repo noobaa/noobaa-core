@@ -10,8 +10,9 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
  */
-function put_object_uploadId(req, res) {
+async function put_object_uploadId(req, res) {
 
+    const encryption = s3_utils.parse_encryption(req);
     const num = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
     const copy_source = s3_utils.parse_copy_source(req);
 
@@ -25,31 +26,34 @@ function put_object_uploadId(req, res) {
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
 
-    return req.object_sdk.upload_multipart({
-            obj_id: req.query.uploadId,
-            bucket: req.params.bucket,
-            key: req.params.key,
-            num,
-            copy_source,
-            source_stream: req,
-            chunked_content: req.chunked_content,
-            size,
-            md5_b64,
-            sha256_b64,
-            source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
-        })
-        .then(reply => {
-            // TODO: We do not return the VersionId of the object that was copied
-            res.setHeader('ETag', `"${reply.etag}"`);
-            if (copy_source) {
-                return {
-                    CopyPartResult: {
-                        LastModified: s3_utils.format_s3_xml_date(reply.create_time),
-                        ETag: `"${reply.etag}"`
-                    }
-                };
+    const reply = await req.object_sdk.upload_multipart({
+        obj_id: req.query.uploadId,
+        bucket: req.params.bucket,
+        key: req.params.key,
+        num,
+        copy_source,
+        source_stream: req,
+        chunked_content: req.chunked_content,
+        size,
+        md5_b64,
+        sha256_b64,
+        source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
+        encryption
+    });
+
+    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
+
+    // TODO: We do not return the VersionId of the object that was copied
+    res.setHeader('ETag', `"${reply.etag}"`);
+
+    if (copy_source) {
+        return {
+            CopyPartResult: {
+                LastModified: s3_utils.format_s3_xml_date(reply.create_time),
+                ETag: `"${reply.etag}"`
             }
-        });
+        };
+    }
 }
 
 function get_bucket_usage(req, res) {

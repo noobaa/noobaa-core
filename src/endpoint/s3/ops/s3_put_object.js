@@ -10,8 +10,7 @@ const http_utils = require('../../../util/http_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectCOPY.html
  */
 async function put_object(req, res) {
-    // TODO: Use the sse_c_params in the future for encryption
-    const sse_c_params = s3_utils.parse_sse_c(req);
+    const encryption = s3_utils.parse_encryption(req);
     const copy_source = s3_utils.parse_copy_source(req);
     const tagging = s3_utils.parse_tagging_header(req);
 
@@ -23,7 +22,7 @@ async function put_object(req, res) {
     };
 
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
-        req.headers['x-amz-copy-source'] || '', sse_c_params);
+        req.headers['x-amz-copy-source'] || '', encryption || '');
 
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
@@ -40,11 +39,16 @@ async function put_object(req, res) {
         xattr: s3_utils.get_request_xattr(req),
         xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
         tagging,
-        tagging_copy: s3_utils.is_copy_tagging_directive(req)
+        tagging_copy: s3_utils.is_copy_tagging_directive(req),
+        encryption
     });
+
     if (reply.version_id && reply.version_id !== 'null') {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
+
+    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
+
     if (copy_source) {
         // TODO: This needs to be checked regarding copy between diff namespaces
         // In that case we do not have the copy_source property and just read and upload the stream

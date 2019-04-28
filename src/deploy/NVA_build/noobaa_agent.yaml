@@ -1,3 +1,31 @@
+kind: Secret
+apiVersion: v1
+metadata:
+  name: noobaaimages.azurecr.io
+  labels:
+    app: noobaa
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: s3
+  labels:
+    app: noobaa
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 6001
+      name: s3
+    - port: 443
+      targetPort: 6443
+      name: s3-https
+  selector:
+    noobaa-s3: "true"
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

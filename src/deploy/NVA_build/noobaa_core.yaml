@@ -78,6 +78,12 @@ spec:
       name: mgmt
     - port: 8443
       name: mgmt-https
+    - port: 8444
+      name: md-https
+    - port: 8445
+      name: bg-https
+    - port: 8446
+      name: hosted-agents-https
     - port: 80
       targetPort: 6001
       name: s3
@@ -130,6 +136,8 @@ spec:
             - containerPort: 8080
             - containerPort: 8443
             - containerPort: 8444
+            - containerPort: 8445
+            - containerPort: 8446
             - containerPort: 60100
           volumeMounts:
             - mountPath: /data

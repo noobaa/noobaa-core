@@ -1,6 +1,6 @@
 ### Environment info
 - Version: **VERSION**
-- Deployment: **AZURE | AWS | GCLOUD | ESX | VBOX | DEV**
+- Deployment: **KUBERNETES | AZURE | AWS | GCLOUD | ESX | VBOX | DEV**
 - Customer: **NAME**
 
 ### Actual behavior

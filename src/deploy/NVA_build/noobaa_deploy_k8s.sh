@@ -1,10 +1,13 @@
 #!/bin/bash
 
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
 SCRIPT_NAME=$(basename $0)
 EMAIL=""
 PASSWD=""
 SYS_NAME=noobaa
-NAMESPACE=default
+NAMESPACE=$(kubectl config get-contexts | grep "\*" | awk '{print $5}')
 NOOBAA_CORE_YAML=https://s3.amazonaws.com/noobaa-deploy/noobaa_core.yaml
 CREDS_SECRET_NAME=noobaa-create-sys-creds
 ACCESS_KEY=""
@@ -33,7 +36,7 @@ function usage(){
     echo
     echo "Options:"
     echo "-e --email        -   (Required) The email address which is used to create the owner account in NooBaa"
-    echo "-n --namespace    -   The namespace to create NooBaa resources in. This namespace must already exist. using the default namespace by default"
+    echo "-n --namespace    -   The namespace to create NooBaa resources in. This namespace must already exist. using the current namespace by default"
     echo "-p --password     -   Login password to NooBaa management console (required to get S3 access keys)"
     echo "-f --file         -   Use a custom yaml file"
     echo "-s --sys-name     -   The system name in NooBaa management console. default is 'noobaa'"
@@ -69,7 +72,9 @@ do
     fi
 done
 
-
+if [ "${NAMESPACE}" == "" ]; then
+    NAMESPACE=default
+fi
 KUBECTL="kubectl --namespace ${NAMESPACE}"
 
 function error_msg {
@@ -95,12 +100,12 @@ function deploy_noobaa {
 
 
     PASSWD=$(openssl rand -base64 10)
-    echo "Creating NooBaa resources in namespace ${NAMESPACE}"
+    echo -e "${GREEN}Creating NooBaa resources in namespace ${NAMESPACE}${NC}"
     ${KUBECTL} delete secret ${CREDS_SECRET_NAME} &> /dev/null
     ${KUBECTL} create secret generic ${CREDS_SECRET_NAME} --from-literal=name=${SYS_NAME} --from-literal=email=${EMAIL} --from-literal=password=${PASSWD}
     # apply noobaa_core.yaml in the cluster
     ${KUBECTL} apply -f ${NOOBAA_CORE_YAML}
-    echo -e "\nWaiting for external IPs to be allocated for NooBaa services. this might take several minutes"
+    echo -e "\n${GREEN}Waiting for external IPs to be allocated for NooBaa services. this might take several minutes${NC}"
     sleep 2
     print_noobaa_info
 }
@@ -237,16 +242,16 @@ function get_access_keys {
     if [ "${PASSWD}" == "" ] || [ "${EMAIL}" == "" ]; then
         local SECRET_INFO=$(${KUBECTL} get secret ${CREDS_SECRET_NAME})
         if [ "$?" -eq 0 ]; then
-           EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}'  | base64 --decode;printf "\n")
-           PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}'  | base64 --decode;printf "\n")
-           SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}'  | base64 --decode;printf "\n")
+           EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}' | base64 --decode;printf "\n")
+           PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
+           SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
         else
           ACCESS_KEY="***********"
           SECRET_KEY="***********"
         fi
     fi
     if [ "${PASSWD}" != "" ] && [ "${EMAIL}" != "" ]; then
-        echo "Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready"
+        echo -e "${GREEN}Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready${NC}"
         wait_for_noobaa_ready_with_timeout 1200
         if [ $? -eq 0 ]; then
             local MAX_RETRIES=50
@@ -296,7 +301,7 @@ case ${COMMAND} in
     NONE)       usage;;
     DEPLOY)     deploy_noobaa;;
     DELETE)     delete_noobaa;;
-    INFO)       echo "Collecting NooBaa services information. this might take some time"
+    INFO)       echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
                 print_noobaa_info;;
     *)          usage;;
 esac

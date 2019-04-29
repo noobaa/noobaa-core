@@ -41,21 +41,6 @@ const VALID_BUCKET_NAME_REGEXP =
 
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
-const MODE_COMPARE_ORDER = [
-    'OPTIMAL',
-    'REBUILDING',
-    'APPROUCHING_QUOTA',
-    'LOW_CAPACITY',
-    'RISKY_TOLERANCE',
-    'NO_RESOURCES_INTERNAL',
-    'NO_RESOURCES_INTERNAL_ISSUES',
-    'EXCEEDING_QUOTA',
-    'NO_CAPACITY',
-    'NOT_ENOUGH_HEALTHY_RESOURCES',
-    'NOT_ENOUGH_RESOURCES',
-    'NO_RESOURCES'
-];
-
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {

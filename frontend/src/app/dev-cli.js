@@ -15,6 +15,29 @@ import {
 
 const logToConsole = console.log.bind(console);
 
+const HELP = [
+    {
+        function: 'dumpAppLog()',
+        description:  'Downloads Management Console dump file'
+    },
+    {
+        function: 'toggleApiLogging([enable: boolean])',
+        description:  'Toggle the logging of RPC traffic messages to the browser development tools console'
+    },
+    {
+        function: 'openDebugConsole()',
+        description:  'Opens a proprietary debug console tool that tracks the Management Console state'
+    },
+    {
+        function: 'printAsJsonInNewTab(value: any)',
+        description:  'Stringify the value to JSON format and dump the json to a new window/tab.'
+    },
+    {
+        function: 'downloadAsJson(value: any)',
+        description:  'Stringify the value to JSON format and download a file containing the json'
+    }
+];
+
 const actions = mapValues(
     actionCreators,
     creator => function(...args) {
@@ -50,6 +73,12 @@ function dumpAppLog() {
     actions.dumpAppLog();
 }
 
+function help() {
+    for (const f of HELP) {
+        console.log(`%cnb.utils.${f.function} - %c${f.description}`, 'font-weight: bold', 'color:blue');
+    }
+}
+
 const cli = Object.seal({
     model: model,
     schema: schema.def,
@@ -62,7 +91,8 @@ const cli = Object.seal({
         openDebugConsole,
         toggleApiLogging,
         dumpAppLog,
-        togglePreviewContent
+        togglePreviewContent,
+        help
     }
 });
 

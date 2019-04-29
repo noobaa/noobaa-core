@@ -68,8 +68,8 @@ This is noobaa rpm
 %build
 
 %install
-mkdir -p %{_tmppath}/%{name}-%{version}-%{release}
-cp %{SOURCE0} %{SOURCE1} %{_tmppath}/%{name}-%{version}-%{release}
+%{__mkdir_p} %{_tmppath}/%{name}-%{version}-%{release}
+%{__cp} %{SOURCE0} %{SOURCE1} %{_tmppath}/%{name}-%{version}-%{release}
 cd %{_tmppath}/%{name}-%{version}-%{release}
 
 %clean
@@ -77,9 +77,9 @@ cd %{_tmppath}/%{name}-%{version}-%{release}
 
 %post
 echo "Starting to install noobaa"
-mv %{tarfile} /tmp/noobaa-NVA.tar.gz
-chmod +x %{installscript}
-install -m 0755 %{installscript} %{_bindir}/%{installscript}
+%{__mv} %{tarfile} /tmp/noobaa-NVA.tar.gz
+%{__chmod} +x %{installscript}
+%{__install} -m 0755 %{installscript} %{_bindir}/%{installscript}
 %{installscript} runinstall
 echo -e "\e[31m\nWait for prompt and then we need to reboot...\n\e[0m"
 

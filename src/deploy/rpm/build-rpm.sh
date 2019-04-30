@@ -58,10 +58,16 @@ fi
 build/rpm/create_rpm.sh -l ${build_rpm_location}
 if [ $? -eq 0 ]
 then
-    mv ~/rpmbuild/RPMS/noarch/*.rpm build/public/ || exit 1
+    mv ~/rpmbuild/RPMS/noarch/*.rpm build/public/
+    if [ $? -ne 0 ]
+    then
+        rm -rf ~/rpmbuild
+        exit 1
+    fi
     rm -rf ${build_rpm_location}
 else
     rm -rf ${build_rpm_location}
+    rm -rf ~/rpmbuild
     exit 1
 fi
 

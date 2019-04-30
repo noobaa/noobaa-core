@@ -26,7 +26,7 @@ function deploy_log {
 function verify_noobaa_pre_requirements() {
     if [ ! -f /tmp/noobaa-NVA.tar.gz ]
     then
-        echo "There is no noobaa-NVA.tar.gz under /tmp/"
+        deploy_log "There is no noobaa-NVA.tar.gz under /tmp/"
         exit 1
     fi
 }
@@ -209,10 +209,10 @@ function install_noobaa_repos {
     deploy_log "install_noobaa_repos start"
 
     mkdir -p /root/node_modules
-    mv /tmp/noobaa-NVA.tar.gz /root/node_modules
     cd /root/node_modules
-    tar -xzf ./noobaa-NVA.tar.gz
+    tar -xzf /tmp/noobaa-NVA.tar.gz
     cd ~
+    rm -rf /tmp/noobaa-NVA.tar.gz
 
     # Setup Repos
     if [ "${container}" == "docker" ]; then
@@ -485,7 +485,7 @@ function setup_non_root_user() {
 
         # in openshift the container will run as a random user which belongs to root group
         # set permissions for group to be same as owner to allow access to necessary files
-        echo "setting file permissions for root group"
+        deploy_log "setting file permissions for root group"
         # allow root group same permissions as root user so it can run supervisord
         chgrp -R 0 /bin/supervisor* && chmod -R g=u /bin/supervisor*
         # supervisord needs to write supervisor.sock file in /var/log

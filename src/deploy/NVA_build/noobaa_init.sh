@@ -1,6 +1,13 @@
 
 #!/bin/bash
 
+if [ ${container_dbg} ] ;
+then
+  debug="bash -x"
+  export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
+  set -x
+fi
+
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
@@ -76,22 +83,59 @@ fix_non_root_user() {
   fi
 }
 
+extract_noobaa_in_docker() {
+  local file
+  local files=(deploy_base.sh noobaa-NVA.tar.gz noobaa.rpm)
+  if [ "${container}" == "docker" ] ; then
+    cd /tmp/
+    rpm2cpio noobaa.rpm | cpio -idmv
+    rm -rf /tmp/deploy_base.sh
+    mv noobaa-NVA-*.tar.gz noobaa-NVA.tar.gz
+    cd /root/node_modules
+    tar -xzf /tmp/noobaa-NVA.tar.gz
+    cd ~
+    for file in ${files[@]} ; do
+      rm -rf /tmp/${file}
+    done
+  fi
+}
+
+run_kube_pv_chown() {
+  # change ownership and permissions of /data and /log. assuming that uid is not changed between reboots
+  local path="/root/node_modules/noobaa-core/build/Release/"
+  if [ "${container}" == "docker" ] ; then
+      path="/noobaa_init_files/"
+  fi
+  ${path}/kube_pv_chown server
+}
+
+run_init_scripts() {
+  local script
+  local scripts=(fix_server_plat.sh fix_mongo_ssl.sh setup_server_swap.sh)
+  local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
+  ############## run init scripts
+  run_kube_pv_chown
+  cd ${path}
+  for script in ${scripts[@]} ; do
+    ${debug} ./${script}
+    if [ $? -ne 0 ] ; then
+      #Providing in the yaml env variable with the name "container_dbg" 
+      #will trigger the condition below.
+      [ ${container_dbg} ] && sleep 120m
+      echo "Failed to run ${script}"
+      exit 1
+    fi
+  done
+  cd - > /dev/null
+}
+
 init_noobaa_server() {
   fix_non_root_user
-
-  ############## run init scripts
-  # change ownership and permissions of /data and /log. assuming that uid is not changed between reboots
-  /root/node_modules/noobaa-core/build/Release/kube_pv_chown server
-  /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_server_plat.sh
-  /root/node_modules/noobaa-core/src/deploy/NVA_build/fix_mongo_ssl.sh
-  /root/node_modules/noobaa-core/src/deploy/NVA_build/setup_server_swap.sh
-
+  extract_noobaa_in_docker
+  run_init_scripts
 
   #check if unmamnaged upgrade is required
   handle_unmanaged_upgrade
 }
 
 init_noobaa_server
-
-
-

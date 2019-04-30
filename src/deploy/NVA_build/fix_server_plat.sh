@@ -9,7 +9,7 @@ if [ ! -f ${NOOBAASEC} ]; then
     # ensure existence of folders such as mongo, supervisor, etc.
     mkdir -p /log/supervisor
     mkdir -p /data/mongo/cluster/shard1
-    chown -R mongod:mongod /data/mongo/
+    [ "${container}" != "docker" ] && chown -R mongod:mongod /data/mongo/
     cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /data &>> /data/mylog
     cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /data/.env &>> /data/mylog
   fi

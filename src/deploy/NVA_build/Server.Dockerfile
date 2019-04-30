@@ -13,7 +13,6 @@ COPY ${install_script} /tmp/install_noobaa.sh
 RUN chmod +x /tmp/install_noobaa.sh
 RUN /bin/bash -xc "/tmp/install_noobaa.sh"
 
-
 ###############
 # PORTS SETUP #
 ###############

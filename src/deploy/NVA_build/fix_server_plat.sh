@@ -1,6 +1,7 @@
 #!/bin/bash
 
 NOOBAASEC="/data/noobaa_sec"
+CORE_DIR="/root/node_modules/noobaa-core"
 
 # If not sec file, fix it
 if [ ! -f ${NOOBAASEC} ]; then
@@ -9,9 +10,17 @@ if [ ! -f ${NOOBAASEC} ]; then
     # ensure existence of folders such as mongo, supervisor, etc.
     mkdir -p /log/supervisor
     mkdir -p /data/mongo/cluster/shard1
-    [ "${container}" != "docker" ] && chown -R mongod:mongod /data/mongo/
-    cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf /data &>> /data/mylog
-    cp -f /root/node_modules/noobaa-core/src/deploy/NVA_build/env.orig /data/.env &>> /data/mylog
+    if [ "${container}" == "docker" ] ; then
+      # Setup Repos
+      sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
+      # in a container set the endpoint\ssl ports to 6001\6443 since we are not running as root
+      echo "ENDPOINT_PORT=6001" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+      echo "ENDPOINT_SSL_PORT=6443" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+    else
+      chown -R mongod:mongod /data/mongo/
+    fi
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env &>> /data/mylog
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /data &>> /data/mylog
   fi
 
   sec=$(uuidgen | cut -f 1 -d'-')

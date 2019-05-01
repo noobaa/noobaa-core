@@ -3,7 +3,9 @@ CORE_DIR="/root/node_modules/noobaa-core"
 if [ ! -d /data/mongo/ssl/ ]; then
   mkdir -p /data/mongo/ssl/
   mkdir -p /data/bin
-  . ${CORE_DIR}/src/deploy/NVA_build/setup_mongo_ssl.sh
+  cd ${CORE_DIR}/src/deploy/NVA_build/
+  . ./setup_mongo_ssl.sh
+  cd - > /dev/null
   chown -R mongod:mongod /data/mongo/
   chmod 400 -R /data/mongo/ssl/*
   chmod 500 /data/mongo/ssl

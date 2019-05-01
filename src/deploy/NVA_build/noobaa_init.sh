@@ -86,7 +86,8 @@ fix_non_root_user() {
 extract_noobaa_in_docker() {
   local file
   local files=(deploy_base.sh noobaa-NVA.tar.gz noobaa.rpm)
-  if [ "${container}" == "docker" ] ; then
+  local noobaa_core_path="/root/node_modules/noobaa-core/"
+  if [ "${container}" == "docker" ] && [ ! -d ${noobaa_core_path} ] ; then
     cd /tmp/
     rpm2cpio noobaa.rpm | cpio -idmv
     rm -rf /tmp/deploy_base.sh
@@ -101,7 +102,8 @@ extract_noobaa_in_docker() {
 }
 
 run_kube_pv_chown() {
-  # change ownership and permissions of /data and /log. assuming that uid is not changed between reboots
+  # change ownership and permissions of /data and /log. 
+  # assuming that uid is not changed between reboots.
   local path="/root/node_modules/noobaa-core/build/Release/"
   if [ "${container}" == "docker" ] ; then
       path="/noobaa_init_files/"

@@ -13,11 +13,15 @@
 - [x] map_reader.read_node_mapping
 - [x] map_reader should share prepare_chunks_group with map_server
 - [x] map_server - allocate_chunk should sort allocations by location_info
+- [ ] map_builder - handle objects
+- [x] setter for dup_chunk_id 
 
-- [ ] object_io - upload_copy should pass the object_md to read_object_stream - where to get it?
+- [x] object_io - upload_copy should pass the object_md to read_object_stream - where to get it?
+- [ ] fix agent_blocks_reclaimer - populate_nodes, delete_blocks, ... (MDStore.instance(...).populate_nodes_for_blocks is not a function)
+- [ ] fix agent_blocks_verifier - populate_nodes, delete_blocks, ...
 
 - [x] test_object_io
-- [ ] test_map_builder
+- [x] test_map_builder
 - [ ] test_map*
 - [ ] test*
 

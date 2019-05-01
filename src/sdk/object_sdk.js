@@ -330,7 +330,10 @@ class ObjectSDK {
             params.sha256_b64 = source_md.sha256_b64;
         }
         if (!params.content_type && source_md.content_type) params.content_type = source_md.content_type;
-        if (params.xattr_copy) params.xattr = source_md.xattr;
+        if (params.xattr_copy) {
+            params.xattr = source_md.xattr;
+            params.content_type = source_md.content_type;
+        }
         if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
         if (params.tagging_copy) params.tagging = source_md.tagging;
 

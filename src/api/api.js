@@ -179,6 +179,7 @@ function new_rpc(base_address) {
  */
 function new_rpc_default_only(base_address) {
     let rpc = new RPC({
+        APIClient,
         schema: api_schema,
         router: {
             default: base_address

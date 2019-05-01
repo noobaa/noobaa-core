@@ -263,9 +263,9 @@ interface Frag {
     readonly frag_index: string;
     readonly digest_b64: string;
     readonly blocks: Block[];
-    
+
     data?: Buffer;
-    
+
     allocations?: AllocationInfo[];
     is_accessible: boolean;
     is_building_blocks: boolean;
@@ -286,10 +286,10 @@ interface Block {
     readonly size: number;
     readonly address: string;
 
-    node: NodeAPI;
-    pool: Pool;
-    bucket: Bucket;
-    system: System;
+    readonly node: NodeAPI;
+    readonly pool: Pool;
+    readonly bucket: Bucket;
+    readonly system: System;
 
     is_accessible: boolean;
     is_preallocated: boolean;
@@ -302,6 +302,7 @@ interface Block {
     // is_tampered: boolean;
 
     set_parent_ids(frag: Frag, chunk: Chunk);
+    set_node(node: NodeAPI);
 
     to_block_md(): BlockMD;
     to_api(adminfo?: boolean): BlockInfo;
@@ -505,7 +506,7 @@ interface ChunkSchemaDB {
     cipher_auth_tag: DBBuffer;
     frags: FragSchemaDB[];
     parts?: PartSchemaDB[]; // see MDStore.load_parts_objects_for_chunks()
-    // objects?: ObjectMDSchemaDB[]; // see MDStore.load_parts_objects_for_chunks()
+    objects?: any[]; // see MDStore.load_parts_objects_for_chunks()
 }
 
 interface FragSchemaDB {

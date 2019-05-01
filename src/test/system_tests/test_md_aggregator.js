@@ -199,18 +199,17 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
         };
 
         return P.each(bucket.file_names, function(file_name) {
-                return client.object.read_object_mapping({
+                return client.object.read_object_mapping_admin({
                         bucket: bucket.bucket_name,
                         key: file_name,
-                        adminfo: true
                     })
                     .then(res => {
-                        _.forEach(res.parts, part => _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
+                        _.forEach(res.chunks, chunk => _.forEach(chunk.frags, frag => _.forEach(frag.blocks, block => {
                             current_bucket_storage.blocks_size += block.block_md.size;
                         })));
                         current_bucket_storage.objects_size += res.object_md.size;
                         current_bucket_storage.chunks_capacity +=
-                            _.sum(_.map(res.parts, part => part.chunk.compress_size || 0));
+                            _.sum(_.map(res.chunks, chunk => chunk.compress_size || 0));
                     });
             })
             .then(() => {

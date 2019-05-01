@@ -145,7 +145,7 @@ class MDStore {
      * @returns {Promise<nb.ObjectMD[]>}
      */
     async find_objects_by_id(obj_ids) {
-        return this._objects.col().find({ _id: { $in: obj_ids } });
+        return this._objects.col().find({ _id: { $in: obj_ids } }).toArray();
     }
 
     /**
@@ -1115,6 +1115,9 @@ class MDStore {
             });
     }
 
+    /**
+     * @param {nb.ChunkSchemaDB[]} chunks 
+     */
     async load_parts_objects_for_chunks(chunks) {
         if (!chunks || !chunks.length) return;
         const parts = await this._parts.col().find({
@@ -1128,8 +1131,8 @@ class MDStore {
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
         for (const chunk of chunks) {
-            chunk.parts = parts_by_chunk[chunk._id];
-            chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
+            chunk.parts = parts_by_chunk[chunk._id.toHexString()];
+            chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj.toHexString()])));
         }
     }
 
@@ -1217,7 +1220,6 @@ class MDStore {
      * @param {Object} [unset_updates]
      */
     async update_chunks_by_ids(chunk_ids, set_updates, unset_updates) {
-        console.log('update_chunks_by_ids:', chunk_ids, compact_updates(set_updates, unset_updates));
         if (!chunk_ids || !chunk_ids.length) return;
         return this._chunks.col().updateMany({
             _id: {
@@ -1619,15 +1621,13 @@ class MDStore {
     }
 
     /**
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} block_ids 
      */
-    async delete_blocks_of_chunks(chunk_ids) {
+    async delete_blocks_by_ids(block_ids) {
         const delete_date = new Date();
-        if (!chunk_ids || !chunk_ids.length) return;
+        if (!block_ids || !block_ids.length) return;
         return this._blocks.col().updateMany({
-            chunk: {
-                $in: chunk_ids
-            },
+            _id: { $in: block_ids },
             deleted: null
         }, {
             $set: {

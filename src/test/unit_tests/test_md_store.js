@@ -252,8 +252,8 @@ mocha.describe('md_store', function() {
             return md_store.insert_blocks(blocks);
         });
 
-        mocha.it('delete_blocks_of_chunks()', async function() {
-            return md_store.delete_blocks_of_chunks([blocks[0].chunk]);
+        mocha.it('delete_blocks_by_ids()', async function() {
+            return md_store.delete_blocks_by_ids(blocks.map(block => block._id));
         });
 
 

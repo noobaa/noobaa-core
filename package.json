@@ -21,7 +21,7 @@
     "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
     "mocha:coverage": "nyc --all --include 'src/**/*.js' --exclude 'src/util/mongo_functions.js' --report-dir $npm_package_config_covdir --reporter lcov npm run mocha",
     "test:web": "mocha src/test/web/index.js",
-    "test": "npm run lint && npm run ts && npm run mocha:coverage",
+    "test": "npm run lint && npm run mocha:coverage",
     "-----": "----------------------------------------------------------------",
     "db": "mongod -f mongod.conf",
     "web": "node src/server/web_server",

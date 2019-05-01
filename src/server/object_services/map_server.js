@@ -5,6 +5,7 @@
 
 const _ = require('lodash');
 const assert = require('assert');
+// const util = require('util');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -24,7 +25,7 @@ const Barrier = require('../../util/barrier');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const { ChunkDB } = require('./map_db_types');
 // const { new_object_id } = require('../../util/mongo_utils');
-const { BlockAPI } = require('../../sdk/map_api_types');
+const { BlockAPI, get_all_chunks_blocks } = require('../../sdk/map_api_types');
 
 const map_reporter = new PeriodicReporter('map_reporter');
 const make_room_semaphore = new KeysSemaphore(1);
@@ -33,7 +34,6 @@ const ensure_room_barrier = new Barrier({
     expiry_ms: 100,
     process: ensure_room_barrier_process,
 });
-
 
 /**
  * 
@@ -166,8 +166,8 @@ class GetMapping {
                 const pool = chunk.tier.system.pools_by_name[node.pool];
                 alloc.block_md.node = node._id.toHexString();
                 alloc.block_md.pool = pool._id.toHexString();
-                alloc.block_md.node_type = node.node_type;
                 alloc.block_md.address = node.rpc_address;
+                alloc.block_md.node_type = node.node_type;
                 alloc.locality_level = 0;
                 if (this.location_info) {
                     if (this.location_info.node_id === alloc.block_md.node) {
@@ -358,7 +358,7 @@ class PutMapping {
             MDStore.instance().insert_blocks(this.new_blocks),
             MDStore.instance().insert_chunks(this.new_chunks),
             MDStore.instance().insert_parts(this.new_parts),
-            map_deleter.builder_delete_blocks(this.delete_blocks),
+            map_deleter.delete_blocks(this.delete_blocks),
             this.move_to_tier && MDStore.instance().update_chunks_by_ids(this.update_chunk_ids, { tier: this.move_to_tier._id }),
 
             // TODO
@@ -508,16 +508,12 @@ async function _prepare_chunks_group({ chunks, move_to_tier, location_info }) {
     if (!chunks.length) return;
 
     const bucket = chunks[0].bucket;
-    const all_blocks = /** @type {nb.Block[]} */ (
-        /** @type {unknown} */
-        (_.flatMapDeep(chunks, chunk => chunk.frags.map(frag => frag.blocks)))
-    );
+    const all_blocks = get_all_chunks_blocks(chunks);
 
     await Promise.all([
         node_allocator.refresh_tiering_alloc(bucket.tiering),
-        nodes_client.instance().populate_nodes_for_map(chunks[0].bucket.system._id, all_blocks, 'node_id', 'node'),
+        prepare_blocks(all_blocks),
     ]);
-
     const tiering_status = node_allocator.get_tiering_status(bucket.tiering);
 
     for (const chunk of chunks) {
@@ -555,9 +551,30 @@ async function _prepare_chunks_group({ chunks, move_to_tier, location_info }) {
     }
 }
 
+/**
+ * 
+ * @param {nb.Block[]} blocks 
+ */
+async function prepare_blocks(blocks) {
+    if (!blocks || !blocks.length) return;
+    const node_ids = _.uniqBy(blocks.map(block => block.node_id), id => id.toHexString());
+    const system_id = blocks[0].system._id;
+    const { nodes } = await nodes_client.instance().list_nodes_by_identity(
+        system_id,
+        node_ids.map(id => ({ id: id.toHexString() })),
+        nodes_client.NODE_FIELDS_FOR_MAP
+    );
+    const nodes_by_id = _.keyBy(nodes, '_id');
+    for (const block of blocks) {
+        const node = nodes_by_id[block.node_id.toHexString()];
+        block.set_node(node);
+    }
+}
+
 
 exports.GetMapping = GetMapping;
 exports.PutMapping = PutMapping;
 exports.select_tier_for_write = select_tier_for_write;
 exports.make_room_in_tier = make_room_in_tier;
 exports.prepare_chunks = prepare_chunks;
+exports.prepare_blocks = prepare_blocks;

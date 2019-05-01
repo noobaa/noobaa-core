@@ -10,8 +10,9 @@ const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_client = require('../node_services/nodes_client');
-const { BlockDB } = require('./map_db_types');
+const map_server = require('./map_server');
+const { ChunkDB } = require('./map_db_types');
+const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
 /**
  *
  * delete_object_mappings
@@ -34,25 +35,43 @@ async function delete_chunks_if_unreferenced(chunk_ids) {
     if (!chunk_ids || !chunk_ids.length) return;
     dbg.log2('delete_chunks_if_unreferenced: chunk_ids', chunk_ids);
     const unreferenced_chunk_ids = await MDStore.instance().find_parts_unreferenced_chunk_ids(chunk_ids);
-    await delete_chunks(unreferenced_chunk_ids);
+    if (unreferenced_chunk_ids.length) {
+        const chunks_db = await MDStore.instance().find_chunks_by_ids(unreferenced_chunk_ids);
+        await MDStore.instance().load_blocks_for_chunks(chunks_db);
+        const chunks = chunks_db.map(chunk_db => new ChunkDB(chunk_db));
+        await delete_chunks(chunks);
+    }
 }
 
 /**
- * @param {nb.ID[]} chunk_ids 
+ * @param {nb.Chunk[]} chunks
  */
-async function delete_chunks(chunk_ids) {
-    if (!chunk_ids || !chunk_ids.length) return;
-    dbg.log2('delete_chunks: chunk_ids', chunk_ids);
-    const [blocks_db] = await Promise.all([
-        MDStore.instance().find_blocks_of_chunks(chunk_ids),
-        MDStore.instance().delete_blocks_of_chunks(chunk_ids),
+async function delete_chunks(chunks) {
+    if (!chunks || !chunks.length) return;
+    const blocks = get_all_chunks_blocks(chunks).filter(block => !block.to_db().deleted);
+    const chunk_ids = chunks.map(chunk => chunk._id);
+    dbg.log2('delete_chunks: chunks', chunk_ids);
+    await Promise.all([
         MDStore.instance().delete_chunks_by_ids(chunk_ids),
+        delete_blocks(blocks),
     ]);
-    const blocks = blocks_db.map(block_db => new BlockDB(block_db));
-    if (blocks.length) {
-        await nodes_client.instance().populate_nodes_for_map(blocks[0].system._id, blocks, 'node_id', 'node');
+}
+
+/**
+ * @param {nb.Block[]} blocks
+ */
+async function delete_blocks(blocks) {
+    if (!blocks || !blocks.length) return;
+    try {
+        // We should not worry about advancing the delete since there wouldn't be any parallel calls
+        // There is only a single builder which will delete the blocks and they won't be called afterwards
+        await MDStore.instance().delete_blocks_by_ids(mongo_utils.uniq_ids(blocks, '_id'));
+        // Even if we crash here we can assume that the reclaimer will handle the deletions
+        await delete_blocks_from_nodes(blocks);
+    } catch (error) {
+        dbg.error('delete_blocks has error:', error, 'for blocks:', blocks);
+        throw error;
     }
-    await delete_blocks_from_nodes(blocks);
 }
 
 /**
@@ -62,6 +81,7 @@ async function delete_chunks(chunk_ids) {
  */
 async function delete_blocks_from_nodes(blocks) {
     if (!blocks || !blocks.length) return;
+    await map_server.prepare_blocks(blocks);
     try {
         const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
         const succeeded_block_ids = await Promise.all(blocks_by_node.map(delete_blocks_from_node));
@@ -72,23 +92,6 @@ async function delete_blocks_from_nodes(blocks) {
         await MDStore.instance().update_blocks_by_ids(block_ids, { reclaimed: new Date() });
     } catch (err) {
         dbg.warn('delete_blocks_from_nodes: Failed to mark blocks as reclaimed', err);
-    }
-}
-
-/**
- * @param {nb.Block[]} blocks
- */
-async function builder_delete_blocks(blocks) {
-    if (!blocks || !blocks.length) return;
-    try {
-        // We should not worry about advancing the delete since there wouldn't be any parallel calls
-        // There is only a single builder which will delete the blocks and they won't be called afterwards
-        await MDStore.instance().update_blocks_by_ids(mongo_utils.uniq_ids(blocks, '_id'), { deleted: new Date() });
-        // Even if we crash here we can assume that the reclaimer will handle the deletions
-        await delete_blocks_from_nodes(blocks);
-    } catch (error) {
-        dbg.error('builder_delete_blocks has error:', error, 'for blocks:', blocks);
-        throw error;
     }
 }
 
@@ -127,5 +130,5 @@ async function delete_blocks_from_node(blocks) {
 exports.delete_object_mappings = delete_object_mappings;
 exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_chunks = delete_chunks;
+exports.delete_blocks = delete_blocks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;
-exports.builder_delete_blocks = builder_delete_blocks;

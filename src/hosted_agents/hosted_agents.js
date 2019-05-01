@@ -97,7 +97,7 @@ class HostedAgents {
 
 
 
-    _start_pool_agent(pool) {
+    async _start_pool_agent(pool) {
         if (!this._started) return;
         if (!pool) throw new Error(`Internal error: received pool ${pool}`);
         dbg.log0(`_start_pool_agent for pool ${pool.name}`);
@@ -120,76 +120,68 @@ class HostedAgents {
         const system = pool.system;
 
         // TODO: we don't actually need storage_path in cloud agents. see how we can remove it
-        fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS)
-            .then(() => {
-                // read/write token functions to pass to agent. for cloud agents the token is stored in DB
-                // if we don't yet have agent info in the DB add create_node_token
-                const token = auth_server.make_auth_token({
-                    system_id: String(system._id),
-                    account_id: system.owner._id,
-                    role: 'create_node'
-                });
-                const token_wrapper = _get_pool_token_wrapper(pool);
-                const pool_info = pool.resource_type === 'INTERNAL' ?
-                    pool.mongo_pool_info : pool.cloud_pool_info;
-                if (!pool_info.agent_info || !pool_info.agent_info.create_node_token) {
-                    const existing_token = pool_info.agent_info ? pool_info.agent_info.node_token : null;
-                    const pool_agent_path = pool.resource_type === 'INTERNAL' ?
-                        'mongo_pool_info' : 'cloud_pool_info';
-                    let update = {
-                        pools: [{
-                            _id: pool._id,
-                            [`${pool_agent_path}.agent_info`]: {
-                                create_node_token: token,
-                                node_token: existing_token || token
-                            }
-                        }]
-                    };
-                    if (!pool_info.agent_info || !pool_info.agent_info[pool_path_property]) {
-                        update.pools[0][`${pool_agent_path}.agent_info`][pool_path_property] = pool_path;
+        await fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
+        // read/write token functions to pass to agent. for cloud agents the token is stored in DB
+        // if we don't yet have agent info in the DB add create_node_token
+        const token = auth_server.make_auth_token({
+            system_id: String(system._id),
+            account_id: system.owner._id,
+            role: 'create_node'
+        });
+        const { token_wrapper, create_node_token_wrapper } = _get_pool_token_wrapper(pool);
+        const info = pool.resource_type === 'INTERNAL' ?
+            pool.mongo_pool_info : pool.cloud_pool_info;
+        if (!info.agent_info || !info.agent_info.create_node_token) {
+            const existing_token = info.agent_info ? info.agent_info.node_token : null;
+            const pool_agent_path = pool.resource_type === 'INTERNAL' ?
+                'mongo_pool_info' : 'cloud_pool_info';
+            let update = {
+                pools: [{
+                    _id: pool._id,
+                    [`${pool_agent_path}.agent_info`]: {
+                        create_node_token: token,
+                        node_token: existing_token || token
                     }
-                    // after upgrade of systems with old cloud_resources we will have a node_token but not create_node_token
-                    // in that case we just want to add a new create_node_token
-                    return system_store.make_changes({
-                            update
-                        })
-                        .return(token_wrapper);
-                }
-                return token_wrapper;
-            })
-            .then(({ token_wrapper, create_node_token_wrapper }) => {
-                const pool_info = pool.resource_type === 'CLOUD' ? {
-                    endpoint: pool.cloud_pool_info.endpoint,
-                    endpoint_type: pool.cloud_pool_info.endpoint_type,
-                    target_bucket: pool.cloud_pool_info.target_bucket,
-                    auth_method: pool.cloud_pool_info.auth_method,
-                    access_keys: {
-                        access_key: pool.cloud_pool_info.access_keys.access_key,
-                        secret_key: pool.cloud_pool_info.access_keys.secret_key
-                    },
-                    pool_name: pool.name
-                } : {
-                    pool_name: pool.name
-                };
-                const agent_params = {
-                    address: 'wss://127.0.0.1:' + port,
-                    proxy: system.phone_home_proxy_address,
-                    node_name,
-                    host_id,
-                    storage_path,
-                    token_wrapper,
-                    create_node_token_wrapper,
-                };
-                agent_params[pool_path_property] = pool_path;
-                agent_params[pool_info_property] = pool_info;
-                dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
-                const agent = new Agent(agent_params);
-                this._started_agents[node_name] = {
-                    agent,
-                    pool
-                };
-                return agent.start();
-            });
+                }]
+            };
+            if (!info.agent_info || !info.agent_info[pool_path_property]) {
+                update.pools[0][`${pool_agent_path}.agent_info`][pool_path_property] = pool_path;
+            }
+            // after upgrade of systems with old cloud_resources we will have a node_token but not create_node_token
+            // in that case we just want to add a new create_node_token
+            await system_store.make_changes({ update });
+        }
+        const pool_info = pool.resource_type === 'CLOUD' ? {
+            endpoint: pool.cloud_pool_info.endpoint,
+            endpoint_type: pool.cloud_pool_info.endpoint_type,
+            target_bucket: pool.cloud_pool_info.target_bucket,
+            auth_method: pool.cloud_pool_info.auth_method,
+            access_keys: {
+                access_key: pool.cloud_pool_info.access_keys.access_key,
+                secret_key: pool.cloud_pool_info.access_keys.secret_key
+            },
+            pool_name: pool.name
+        } : {
+            pool_name: pool.name
+        };
+        const agent_params = {
+            address: 'wss://127.0.0.1:' + port,
+            proxy: system.phone_home_proxy_address,
+            node_name,
+            host_id,
+            storage_path,
+            token_wrapper,
+            create_node_token_wrapper,
+        };
+        agent_params[pool_path_property] = pool_path;
+        agent_params[pool_info_property] = pool_info;
+        dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
+        const agent = new Agent(agent_params);
+        this._started_agents[node_name] = {
+            agent,
+            pool
+        };
+        await agent.start();
     }
 
 

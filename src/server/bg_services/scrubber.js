@@ -7,7 +7,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const map_server = require('../object_services/map_server');
-const map_builder = require('../object_services/map_builder');
+const { MapBuilder } = require('../object_services/map_builder');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 
@@ -38,8 +38,8 @@ async function background_worker() {
         this.marker = marker;
         if (chunk_ids.length) {
             dbg.log0('SCRUBBER:', 'WORKING ON', chunk_ids.length, 'CHUNKS');
-            const builder = new map_builder.MapBuilder();
-            await builder.run(chunk_ids);
+            const builder = new MapBuilder(chunk_ids);
+            await builder.run();
         }
 
         // return the delay before next batch
@@ -72,8 +72,8 @@ async function background_worker() {
 async function build_chunks(req) {
     const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
     const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
-    const builder = new map_builder.MapBuilder();
-    await builder.run(chunk_ids, tier);
+    const builder = new MapBuilder(chunk_ids, tier);
+    await builder.run();
 }
 
 async function make_room_in_tier(req) {

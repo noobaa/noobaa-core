@@ -559,6 +559,7 @@ async function server_side_copy(params) {
     await s3ops.server_side_copy_file_with_md5(
         TEST_CFG.bucket,
         params.old_filename.name,
+        TEST_CFG.bucket,
         params.new_filename,
         params.old_filename.versionid);
     TEST_STATE.count += 1;
@@ -610,6 +611,7 @@ async function run_rename(params) {
     await s3ops.server_side_copy_file_with_md5(
         TEST_CFG.bucket,
         params.old_filename.name,
+        TEST_CFG.bucket,
         params.new_filename,
         params.old_filename.versionid);
     await s3ops.delete_file(TEST_CFG.bucket, params.old_filename.name, params.old_filename.versionid);

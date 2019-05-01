@@ -166,7 +166,7 @@ mocha.describe('nb_native chunk_coder', function() {
                         chunk.frags = chance.shuffle(chunk.frags);
                         for (let i = 0; i < chunk_coder_config.parity_frags; ++i) {
                             const f = chunk.frags[i];
-                            const b = f.block;
+                            const b = f.data;
                             b.writeUInt8((b.readUInt8(0) + 1) % 256, 0);
                         }
                         call_chunk_coder_must_succeed('dec', chunk);
@@ -174,7 +174,7 @@ mocha.describe('nb_native chunk_coder', function() {
                         // corrupt another fragment - now decode should fail
                         for (let i = chunk_coder_config.parity_frags; i < chunk_coder_config.parity_frags + 1; ++i) {
                             const f = chunk.frags[i];
-                            const b = f.block;
+                            const b = f.data;
                             b.writeUInt8((b.readUInt8(0) + 1) % 256, 0);
                         }
                         call_chunk_coder_must_fail('dec', chunk);
@@ -190,7 +190,7 @@ mocha.describe('nb_native chunk_coder', function() {
                         chunk.frags = chance.shuffle(chunk.frags);
                         for (let i = 0; i < chunk.frags.length; ++i) {
                             const f = chunk.frags[i];
-                            const b = f.block;
+                            const b = f.data;
                             b.writeUInt8((b.readUInt8(0) + 1) % 256, 0);
                             if (chunk_coder_config.frag_digest_type) {
                                 f.digest_b64 = crypto.createHash(chunk_coder_config.frag_digest_type).update(b).digest('base64');
@@ -211,10 +211,10 @@ mocha.describe('nb_native chunk_coder', function() {
                     chunk.frags = chance.shuffle(chunk.frags);
                     for (let i = 0; i < chunk_coder_config.parity_frags; ++i) {
                         const f = chunk.frags[i];
-                        f.block = f.block.slice(0, chance.integer({ min: 0, max: f.block.length - 1 }));
+                        f.data = f.data.slice(0, chance.integer({ min: 0, max: f.data.length - 1 }));
                         if (f.digest_type) {
                             f.digest_b64 = crypto.createHash(f.digest_type)
-                                .update(f.block)
+                                .update(f.data)
                                 .digest('base64');
                         }
                     }
@@ -235,7 +235,7 @@ mocha.describe('nb_native chunk_coder', function() {
                             const frag = frags_by_index[frag_index];
                             if (frag) {
                                 assert.strictEqual(frag2.digest_b64, frag.digest_b64);
-                                assert.deepStrictEqual(frag2.block, frag.block);
+                                assert.deepStrictEqual(frag2.data, frag.data);
                             } else {
                                 assert(frag2.parity_index >= chunk_coder_config.parity_frags);
                             }

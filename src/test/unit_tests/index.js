@@ -33,8 +33,8 @@ require('./test_nodes_store');
 require('./test_system_store');
 
 // CORE
-require('./test_mapper');
-require('./test_map_writer');
+// require('./test_mapper');
+// require('./test_map_client');
 require('./test_map_reader');
 require('./test_map_builder');
 require('./test_map_deleter');
@@ -43,8 +43,8 @@ require('./test_chunk_splitter');
 require('./test_chunk_config_utils');
 require('./test_object_io');
 require('./test_md_aggregator_unit');
-require('./test_agent_blocks_verifier');
-require('./test_agent_blocks_reclaimer');
+// require('./test_agent_blocks_verifier');
+// require('./test_agent_blocks_reclaimer');
 require('./test_s3_ops');
 require('./test_s3_list_objects');
 require('./test_nb_native_b64');

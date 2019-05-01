@@ -75,6 +75,7 @@ class ChunkAPI {
     set is_accessible(val) { this.chunk_info.is_accessible = val; }
     set is_building_blocks(val) { this.chunk_info.is_building_blocks = val; }
     set is_building_frags(val) { this.chunk_info.is_building_frags = val; }
+    set dup_chunk_id(val) { this.chunk_info.dup_chunk = val.toHexString(); }
 
     get frags() {
         if (!this.__frags) {
@@ -326,6 +327,30 @@ class BlockAPI {
         this.bucket_id = chunk.bucket_id;
     }
 
+    /**
+     * @param {nb.NodeAPI} node 
+     */
+    set_node(node) {
+        /** @type {nb.Pool} */
+        const pool = this.system_store.data.systems[0].pools_by_name[node.pool];
+        this.node = node;
+        this.block_md.node = node._id.toHexString();
+        this.block_md.pool = pool._id.toHexString();
+        this.block_md.address = node.rpc_address;
+        this.block_md.node_type = node.node_type;
+        const adminfo = this.block_info.adminfo;
+        if (adminfo) {
+            adminfo.pool_name = pool.name;
+            adminfo.node_name = node.name;
+            adminfo.node_ip = node.ip;
+            adminfo.host_name = node.os_info.hostname;
+            adminfo.mount = node.drive.mount;
+            adminfo.online = Boolean(node.online);
+            adminfo.in_cloud_pool = Boolean(node.is_cloud_node);
+            adminfo.in_mongo_pool = Boolean(node.is_mongo_node);
+        }
+    }
+
     to_block_md() {
         return this.block_md;
     }
@@ -453,8 +478,19 @@ function new_part_api(part_info, bucket_id, system_store) {
 function from_b64(optional_string) {
     if (optional_string) return Buffer.from(optional_string, 'base64');
 }
-
+/**
+ * 
+ * @param {nb.Chunk[]} chunks 
+ * @returns {nb.Block[]}
+ */
+function get_all_chunks_blocks(chunks) {
+    return /** @type {nb.Block[]} */ (
+        /** @type {unknown} */
+        (_.flatMapDeep(chunks, chunk => chunk.frags.map(frag => frag.blocks)))
+    );
+}
 
 exports.ChunkAPI = ChunkAPI;
 exports.FragAPI = FragAPI;
 exports.BlockAPI = BlockAPI;
+exports.get_all_chunks_blocks = get_all_chunks_blocks;

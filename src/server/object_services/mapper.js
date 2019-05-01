@@ -9,7 +9,7 @@ const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const size_utils = require('../../util/size_utils');
-const system_store = require('../system_services/system_store').get_instance();
+// const system_store = require('../system_services/system_store').get_instance();
 
 
 /**
@@ -205,7 +205,7 @@ function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
                 // can be accessible but will eventually be deallocated
                 const block_pool_in_mirror = mirror.spread_pools.find(pool => pool._id.toHexString() === block.pool_id.toHexString());
                 const is_misplaced = !block.node.writable;
-                if (is_misplaced && block_pool_in_mirror) {
+                if (!is_misplaced && block_pool_in_mirror) {
                     used_blocks.push(block);
                     // Also we calculate the weight of the current block allocations
                     // Notice that we do not calculate bad blocks into the weight
@@ -312,51 +312,51 @@ function _block_sort_newer_first(block1, block2) {
     return block2._id.getTimestamp().getTime() - block1._id.getTimestamp().getTime();
 }
 
-/**
- * sorting function for sorting blocks with most recent heartbeat first
- * @param {nb.Block} block1
- * @param {nb.Block} block2
- */
-function _block_sorter_basic(block1, block2) {
-    const node1 = block1.node;
-    const node2 = block2.node;
-    if (node2.readable && !node1.readable) return 1;
-    if (node1.readable && !node2.readable) return -1;
-    return node2.heartbeat - node1.heartbeat;
-}
+// /**
+//  * sorting function for sorting blocks with most recent heartbeat first
+//  * @param {nb.Block} block1
+//  * @param {nb.Block} block2
+//  */
+// function _block_sorter_basic(block1, block2) {
+//     const node1 = block1.node;
+//     const node2 = block2.node;
+//     if (node2.readable && !node1.readable) return 1;
+//     if (node1.readable && !node2.readable) return -1;
+//     return node2.heartbeat - node1.heartbeat;
+// }
 
-/**
- * locality sorting function for blocks
- * @param {nb.LocationInfo} location_info
- */
-function _block_sorter_local(location_info) {
-    return sort_func;
-    /**
-     * locality sorting function for blocks
-     * @param {nb.Block} block1
-     * @param {nb.Block} block2
-     */
-    function sort_func(block1, block2) {
-        const node1 = block1.node;
-        const node2 = block2.node;
-        const { node_id, host_id, pool_id, region } = location_info;
-        if (node2.readable && !node1.readable) return 1;
-        if (node1.readable && !node2.readable) return -1;
-        if (String(node2._id) === node_id && String(node1._id) !== node_id) return 1;
-        if (String(node1._id) === node_id && String(node2._id) !== node_id) return -1;
-        if (node2.host_id === host_id && node1.host_id !== host_id) return 1;
-        if (node1.host_id === host_id && node2.host_id !== host_id) return -1;
-        if (String(block2.pool) === pool_id && String(block1.pool) !== pool_id) return 1;
-        if (String(block1.pool) === pool_id && String(block2.pool) !== pool_id) return -1;
-        if (region) {
-            const pool1 = system_store.data.get_by_id(block1.pool);
-            const pool2 = system_store.data.get_by_id(block2.pool);
-            if (pool2.region === region && pool1.region !== region) return 1;
-            if (pool1.region === region && pool2.region !== region) return -1;
-        }
-        return node2.heartbeat - node1.heartbeat;
-    }
-}
+// /**
+//  * locality sorting function for blocks
+//  * @param {nb.LocationInfo} location_info
+//  */
+// function _block_sorter_local(location_info) {
+//     return sort_func;
+//     /**
+//      * locality sorting function for blocks
+//      * @param {nb.Block} block1
+//      * @param {nb.Block} block2
+//      */
+//     function sort_func(block1, block2) {
+//         const node1 = block1.node;
+//         const node2 = block2.node;
+//         const { node_id, host_id, pool_id, region } = location_info;
+//         if (node2.readable && !node1.readable) return 1;
+//         if (node1.readable && !node2.readable) return -1;
+//         if (String(node2._id) === node_id && String(node1._id) !== node_id) return 1;
+//         if (String(node1._id) === node_id && String(node2._id) !== node_id) return -1;
+//         if (node2.host_id === host_id && node1.host_id !== host_id) return 1;
+//         if (node1.host_id === host_id && node2.host_id !== host_id) return -1;
+//         if (String(block2.pool) === pool_id && String(block1.pool) !== pool_id) return 1;
+//         if (String(block1.pool) === pool_id && String(block2.pool) !== pool_id) return -1;
+//         if (region) {
+//             const pool1 = system_store.data.get_by_id(block1.pool);
+//             const pool2 = system_store.data.get_by_id(block2.pool);
+//             if (pool2.region === region && pool1.region !== region) return 1;
+//             if (pool1.region === region && pool2.region !== region) return -1;
+//         }
+//         return node2.heartbeat - node1.heartbeat;
+//     }
+// }
 
 
 /**
@@ -367,42 +367,42 @@ function _pool_has_redundancy(pool) {
     return Boolean(pool.cloud_pool_info || pool.mongo_pool_info);
 }
 
-/**
- * 
- * @param {nb.Chunk} chunk
- * @param {nb.LocationInfo} [location_info]
- */
-function should_rebuild_chunk_to_local_mirror(chunk, location_info) {
-    if (!location_info) return false;
-    if (!location_info.pool_id && !location_info.region) return false;
-    if (!chunk.tier) return false;
-    // check if the selected tier is in mirroring mode
-    if (chunk.tier.data_placement !== 'MIRROR') return false;
-    // check if a pool in the selected tier policy is the location range or pool
-    if (!find_local_mirror(chunk.tier.mirrors, location_info)) return false;
-    // check if there is already a good block on a mirror that we consider local
-    if (_.isEmpty(chunk.blocks_in_use)) return false;
-    for (const block of chunk.blocks_in_use) {
-        if (block.is_local_mirror) return false;
-    }
-    // check if a pool from the same region appear in the allocations list -
-    // if so then there is enough free space on the pool for this chunk and we should rebuild
-    if (!chunk.allocations) return false;
-    for (const allocation of chunk.allocations) {
-        if (find_local_pool(allocation.pools, location_info)) return true;
-    }
-    // if we didn't find local pool in all allocations (as supposed to by previous conditions) we shouldn't rebuild - not enough space
-    return false;
-    // TODO - we don't actually check for available storage on the local mirror - for now we only consider allocations
-}
+// /**
+//  * 
+//  * @param {nb.Chunk} chunk
+//  * @param {nb.LocationInfo} [location_info]
+//  */
+// function should_rebuild_chunk_to_local_mirror(chunk, location_info) {
+//     if (!location_info) return false;
+//     if (!location_info.pool_id && !location_info.region) return false;
+//     if (!chunk.tier) return false;
+//     // check if the selected tier is in mirroring mode
+//     if (chunk.tier.data_placement !== 'MIRROR') return false;
+//     // check if a pool in the selected tier policy is the location range or pool
+//     if (!find_local_mirror(chunk.tier.mirrors, location_info)) return false;
+//     // check if there is already a good block on a mirror that we consider local
+//     if (_.isEmpty(chunk.blocks_in_use)) return false;
+//     for (const block of chunk.blocks_in_use) {
+//         if (block.is_local_mirror) return false;
+//     }
+//     // check if a pool from the same region appear in the allocations list -
+//     // if so then there is enough free space on the pool for this chunk and we should rebuild
+//     if (!chunk.allocations) return false;
+//     for (const allocation of chunk.allocations) {
+//         if (find_local_pool(allocation.pools, location_info)) return true;
+//     }
+//     // if we didn't find local pool in all allocations (as supposed to by previous conditions) we shouldn't rebuild - not enough space
+//     return false;
+//     // TODO - we don't actually check for available storage on the local mirror - for now we only consider allocations
+// }
 
-/**
- * @param {nb.TierMirror[]} mirrors
- * @param {nb.LocationInfo} [location_info]
- */
-function find_local_mirror(mirrors, location_info) {
-    return mirrors.find(mirror => Boolean(find_local_pool(mirror.spread_pools, location_info)));
-}
+// /**
+//  * @param {nb.TierMirror[]} mirrors
+//  * @param {nb.LocationInfo} [location_info]
+//  */
+// function find_local_mirror(mirrors, location_info) {
+//     return mirrors.find(mirror => Boolean(find_local_pool(mirror.spread_pools, location_info)));
+// }
 
 /**
  * @param {nb.Pool[]} pools
@@ -421,4 +421,4 @@ exports.map_chunk = map_chunk;
 
 exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;
 exports.get_num_blocks_per_chunk = get_num_blocks_per_chunk;
-exports.should_rebuild_chunk_to_local_mirror = should_rebuild_chunk_to_local_mirror;
+// exports.should_rebuild_chunk_to_local_mirror = should_rebuild_chunk_to_local_mirror;

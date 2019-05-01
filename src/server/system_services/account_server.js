@@ -370,8 +370,7 @@ function update_account_s3_access(req) {
                     bucket_server.check_for_lambda_permission_issue(req, bucket, [account]);
                 });
             }
-        })
-        .return();
+        });
 }
 
 
@@ -442,8 +441,7 @@ function update_account(req) {
             account: account._id,
             desc: `${account.email.unwrap()} was updated by ${req.account && req.account.email.unwrap()}` +
                 (event_desc ? '. ' + event_desc : ''),
-        }))
-        .return();
+        }));
 }
 
 /**
@@ -570,8 +568,7 @@ function delete_account(req) {
                 });
                 throw err;
             }
-        )
-        .return();
+        );
 }
 
 /**
@@ -949,8 +946,7 @@ function delete_external_connection(req) {
                 });
                 return val;
             }
-        )
-        .return();
+        );
 }
 
 // UTILS //////////////////////////////////////////////////////////

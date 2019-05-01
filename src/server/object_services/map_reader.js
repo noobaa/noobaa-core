@@ -96,13 +96,7 @@ async function read_parts_mapping(parts) {
     await MDStore.instance().load_blocks_for_chunks(chunks_db);
     const chunks_db_by_id = _.keyBy(chunks_db, '_id');
     const chunks = parts.map(part => {
-        const chunk_db = chunks_db_by_id[part.chunk.toHexString()];
-        if (chunk_db.parts) {
-            chunk_db.parts.push(part);
-        } else {
-            chunk_db.parts = [part];
-        }
-        const chunk = new ChunkDB(chunk_db);
+        const chunk = new ChunkDB({ ...chunks_db_by_id[part.chunk.toHexString()], parts: [part] });
         return chunk;
     });
     await map_server.prepare_chunks({ chunks });

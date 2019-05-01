@@ -9,7 +9,6 @@ const stream = require('stream');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const Pipeline = require('../util/pipeline');
-const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
@@ -274,27 +273,28 @@ class ObjectIO {
             complete_params.md5_b64 = object_md.md5_b64;
             complete_params.sha256_b64 = object_md.sha256_b64;
             complete_params.etag = object_md.etag; // preserve source etag
-        } else if (ranges) {
-            params.source_stream = this.read_object_stream({
-                client: params.client,
-                obj_id,
-                bucket,
-                key,
-                version_id,
-                start: ranges[0].start,
-                end: ranges[0].end,
-            });
-            return this._upload_stream(params, complete_params);
         } else {
-            params.source_stream = this.read_object_stream({
-                client: params.client,
-                obj_id,
+            const object_md = await params.client.object.read_object_md({
                 bucket,
                 key,
-                version_id,
+                obj_id,
+                version_id
             });
+            if (ranges) {
+                params.source_stream = this.read_object_stream({
+                    client: params.client,
+                    object_md,
+                    start: ranges[0].start,
+                    end: ranges[0].end,
+                });
+            } else {
+                params.source_stream = this.read_object_stream({
+                    client: params.client,
+                    object_md,
+                });
+            }
+            return this._upload_stream(params, complete_params);
         }
-        return this._upload_stream(params, complete_params);
     }
 
     /**
@@ -520,7 +520,7 @@ class ObjectIO {
             const requested_end = Math.min(params.end, reader.pos + requested_size);
             this._io_buffers_sem.surround_count(io_sem_size, async () => {
                 try {
-                    const buffers = await this.read_object_with_cache({
+                    const buffers = await this.read_object({
                         ...params,
                         start: reader.pos,
                         end: requested_end,
@@ -530,7 +530,7 @@ class ObjectIO {
                             reader.pos += buffers[i].length;
                             reader.pending.push(buffers[i]);
                         }
-                        dbg.log1('READ reader pos', reader.pos);
+                        dbg.log0('READ reader pos', reader.pos);
                         reader.push(reader.pending.shift());
                     } else {
                         reader.push(null);
@@ -556,7 +556,7 @@ class ObjectIO {
                 setTimeout(async () => {
                     try {
                         await this._io_buffers_sem.surround_count(tail_io_sem_size, async () => {
-                            await this.read_object_with_cache({
+                            await this.read_object({
                                 ...params,
                                 start: params.object_md.size - 1024,
                                 end: params.object_md.size,
@@ -575,15 +575,15 @@ class ObjectIO {
 
     /**
      *
-     * read_object_with_cache
+     * read_object
      *
      * @param {ReadParams} params
      * @returns {Promise<Buffer[]>} a portion of data.
      *      this is mostly likely shorter than requested, and the reader should repeat.
      *      null is returned on empty range or EOF.
      */
-    async read_object_with_cache(params) {
-        dbg.log1('READ read_object_with_cache: range', range_utils.human_range(params));
+    async read_object(params) {
+        dbg.log1('READ read_object: range', range_utils.human_range(params));
 
         if (params.end <= params.start) {
             // empty read range
@@ -598,120 +598,13 @@ class ObjectIO {
             rpc_client: params.client,
             report_error: (block_md, action, err) => this._report_error_on_object_read(params, block_md, err),
         });
-        await mc.run_object();
-        if (mc.had_errors) throw new Error('Read map errors');
-
-        return slice_buffers_in_range(mc.chunks, params.start, params.end);
-
-        // let pos = params.start;
-        // const promises = [];
-
-        // while (pos < params.end && promises.length < config.IO_READ_RANGE_CONCURRENCY) {
-        //     const start = pos;
-        //     const end = Math.min(
-        //         params.end,
-        //         range_utils.align_up(pos + 1, config.IO_OBJECT_RANGE_ALIGN)
-        //     );
-        //     dbg.log2('READ read_object_with_cache: submit concurrent range', range_utils.human_range({ start, end }));
-        //     promises.push(this._read_cache.get_with_cache({ ...params, start, end }));
-        //     pos = end;
-        // }
-
-        // /** @type {Buffer[]} */
-        // const buffers = await Promise.all(promises);
-        // return buffers.filter(b => b && b.length);
-    }
-
-
-    /**
-     *
-     * _init_read_cache
-     *
-     */
-    _init_read_cache() {
-        this._read_cache = new LRUCache({
-            name: 'ReadCache',
-            max_usage: 256 * 1024 * 1024, // 128 MB
-            /**
-             * @param {CachedRead} data
-             * @param {ReadParams} params
-             * @returns {number}
-             */
-            item_usage(data, params) {
-                return (data && data.buffer && data.buffer.length) || 1024;
-            },
-            /**
-             * @param {ReadParams} params
-             * @returns {string}
-             */
-            make_key(params) {
-                const aligned_start = range_utils.align_down(params.start, config.IO_OBJECT_RANGE_ALIGN);
-                const aligned_end = aligned_start + config.IO_OBJECT_RANGE_ALIGN;
-                return params.object_md.obj_id + '\0' + aligned_start + '\0' + aligned_end;
-            },
-            /**
-             * @param {ReadParams} params
-             * @returns {Promise<CachedRead>}
-             */
-            async load(params) {
-                const aligned_start = range_utils.align_down(params.start, config.IO_OBJECT_RANGE_ALIGN);
-                const aligned_end = aligned_start + config.IO_OBJECT_RANGE_ALIGN;
-                const buffer = await this.read_object({ ...params, start: aligned_start, end: aligned_end });
-                return { object_md: params.object_md, buffer };
-            },
-            /**
-             * @param {CachedRead} data
-             * @param {ReadParams} params
-             * @returns {Buffer}
-             */
-            make_val(data, params) {
-                const buffer = data.buffer;
-                if (!buffer) {
-                    dbg.log3('READ ReadCache: null', range_utils.human_range(params));
-                    return buffer;
-                }
-                const start = range_utils.align_down(
-                    params.start, config.IO_OBJECT_RANGE_ALIGN);
-                const end = start + config.IO_OBJECT_RANGE_ALIGN;
-                const inter = range_utils.intersection(
-                    start, end, params.start, params.end);
-                if (!inter) {
-                    dbg.log3('READ ReadCache: empty', range_utils.human_range(params),
-                        'align', range_utils.human_range({
-                            start: start,
-                            end: end
-                        }));
-                    return null;
-                }
-                dbg.log3('READ ReadCache: slice', range_utils.human_range(params),
-                    'inter', range_utils.human_range(inter), 'buffer', buffer.length);
-                return buffer.slice(inter.start - start, inter.end - start);
-            },
-        });
-    }
-
-
-
-    /**
-     * @param {ReadParams} params
-     * @return {Promise<Buffer[]>} buffer - the data. can be shorter than requested if EOF.
-     */
-    async read_object(params) {
-        dbg.log2('READ read_object:', range_utils.human_range(params));
-
-        const mc = new MapClient({
-            object_md: params.object_md,
-            read_start: params.start,
-            read_end: params.end,
-            location_info: this.location_info,
-            rpc_client: params.client,
-            report_error: (block_md, action, err) => this._report_error_on_object_read(params, block_md, err),
-        });
-        await mc.run_object();
+        await mc.run_read_object();
         if (mc.had_errors) throw new Error('Read map errors');
 
         return slice_buffers_in_range(mc.chunks, params.start, params.end);
     }
+
+
 
     /**
      * @param {ReadParams} params

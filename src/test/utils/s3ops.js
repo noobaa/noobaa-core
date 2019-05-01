@@ -102,13 +102,13 @@ class S3OPS {
         }
     }
 
-    async server_side_copy_file_with_md5(bucket, source, destination, versionid) {
+    async server_side_copy_file_with_md5(source_bucket, source, destination_bucket, destination, versionid) {
         try {
-            bucket = bucket || 'first.bucket';
+            destination_bucket = destination_bucket || 'first.bucket';
 
             let params = {
-                Bucket: bucket,
-                CopySource: bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
+                Bucket: destination_bucket,
+                CopySource: source_bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
                 Key: destination,
                 MetadataDirective: 'COPY'
             };
@@ -116,8 +116,8 @@ class S3OPS {
             console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
             let start_ts = Date.now();
             await this.s3.copyObject(params).promise();
-            const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${source}`);
-            verify_md5_map.set(`${this.system_verify_name}/${bucket}/${destination}`, file_md5);
+            const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${source_bucket}/${source}`);
+            verify_md5_map.set(`${this.system_verify_name}/${destination_bucket}/${destination}`, file_md5);
             console.log('SS Copy object took', (Date.now() - start_ts) / 1000, 'seconds');
         } catch (err) {
             this.log_error(`SS Copy failed from ${source} to ${destination}!`, err);

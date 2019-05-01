@@ -14,6 +14,7 @@ const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
+const node_allocator = require('../node_services/node_allocator');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 
@@ -240,8 +241,7 @@ function update_tier(req) {
             }
 
             return res;
-        })
-        .return();
+        });
 }
 
 
@@ -254,7 +254,7 @@ function update_tier(req) {
 function delete_tier(req) {
     dbg.log0('Deleting tier', req.rpc_params.name, 'on', req.system._id);
     const tier = find_tier_by_name(req);
-    return system_store.make_changes({ remove: { tiers: [tier._id] } }).return();
+    return system_store.make_changes({ remove: { tiers: [tier._id] } });
 }
 
 
@@ -309,7 +309,7 @@ function update_chunk_config_for_bucket(req) { // please remove when CCC is per 
         _id: t.tier._id,
         chunk_config: chunk_config._id
     }));
-    return system_store.make_changes(changes).return();
+    return system_store.make_changes(changes);
 }
 
 function add_tier_to_bucket(req) {
@@ -359,7 +359,7 @@ function add_tier_to_bucket(req) {
         })),
         chunk_split_config: policy.chunk_split_config
     }];
-    return system_store.make_changes(changes).return();
+    return system_store.make_changes(changes);
 }
 
 function get_policy_pools(req) {
@@ -380,11 +380,16 @@ function read_policy(req) {
     const pool_names = pools.map(pool => pool.name);
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
+            nodes_client.instance().aggregate_hosts_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_data_free_by_tier(
                 policy.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id)
         )
-        .spread(function(nodes_aggregate_pool, aggregate_data_free_by_tier) {
-            return get_tiering_policy_info(policy, nodes_aggregate_pool, aggregate_data_free_by_tier);
+        .spread(function(nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier) {
+            return get_tiering_policy_info(policy,
+                node_allocator.get_tiering_status(policy),
+                nodes_aggregate_pool,
+                hosts_aggregate_pool,
+                aggregate_data_free_by_tier);
         });
 }
 
@@ -395,7 +400,7 @@ function delete_policy(req) {
         remove: {
             tieringpolicies: [policy._id]
         }
-    }).return();
+    });
 }
 
 

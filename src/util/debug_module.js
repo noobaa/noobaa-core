@@ -45,6 +45,7 @@ function _should_log_to_file() {
 }
 
 // override the default inspect options
+if (!util.inspect.defaultOptions) util.inspect.defaultOptions = {};
 util.inspect.defaultOptions.depth = 10;
 util.inspect.defaultOptions.colors = true;
 util.inspect.defaultOptions.breakLength = Infinity;

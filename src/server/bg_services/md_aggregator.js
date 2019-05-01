@@ -126,29 +126,28 @@ function find_next_range({
         // Assigning NOOBAA_EPOCH so we will gather all data again till the new time
         // This means that we will be eventually consistent
         return system_store.make_changes({
-                update: {
-                    buckets: _.map(system_store.data.buckets, bucket => ({
-                        _id: bucket._id,
-                        storage_stats: {
-                            last_update: config.NOOBAA_EPOCH,
-                            chunks_capacity: 0,
-                            blocks_size: 0,
-                            objects_size: 0,
-                            objects_count: 0,
-                            objects_hist: [],
-                            pools: {},
-                        },
-                    })),
-                    pools: _.map(system_store.data.pools, pool => ({
-                        _id: pool._id,
-                        storage_stats: {
-                            last_update: config.NOOBAA_EPOCH,
-                            blocks_size: 0,
-                        },
-                    }))
-                }
-            })
-            .return();
+            update: {
+                buckets: _.map(system_store.data.buckets, bucket => ({
+                    _id: bucket._id,
+                    storage_stats: {
+                        last_update: config.NOOBAA_EPOCH,
+                        chunks_capacity: 0,
+                        blocks_size: 0,
+                        objects_size: 0,
+                        objects_count: 0,
+                        objects_hist: [],
+                        pools: {},
+                    },
+                })),
+                pools: _.map(system_store.data.pools, pool => ({
+                    _id: pool._id,
+                    storage_stats: {
+                        last_update: config.NOOBAA_EPOCH,
+                        blocks_size: 0,
+                    },
+                }))
+            }
+        });
     }
 
     // on normal operation the time_diff to close can be closed within a single MD_AGGREGATOR_INTERVAL

@@ -40,7 +40,6 @@ const object_md_cache = new LRUCache({
     max_usage: 1000,
     expiry_ms: 1000, // 1 second of blissful ignorance
     load: function(id_str) {
-        console.log('ObjectMDCache: load', id_str);
         const obj_id = MDStore.instance().make_md_id(id_str);
         return MDStore.instance().find_object_by_id(obj_id);
     }
@@ -453,7 +452,7 @@ async function copy_object_mapping(req) {
     throw_if_maintenance(req);
     const [obj, source_obj, multipart] = await Promise.all([
         find_object_upload(req),
-        MDStore.instance().find_object_by_id(req.rpc_params.copy_source.obj_id),
+        MDStore.instance().find_object_by_id(MDStore.instance().make_md_id(req.rpc_params.copy_source.obj_id)),
         req.rpc_params.multipart_id && MDStore.instance().find_multipart_by_id(
             MDStore.instance().make_md_id(req.rpc_params.multipart_id)
         ),

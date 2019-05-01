@@ -33,6 +33,9 @@ const OBJECT_POPULATE_FIELDS = Object.freeze({
 
 class Dispatcher {
 
+    /**
+     * @returns {Dispatcher}
+     */
     static instance() {
         if (!Dispatcher._instance) {
             Dispatcher._instance = new Dispatcher();
@@ -170,7 +173,7 @@ class Dispatcher {
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(
-                log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS, true))
+                log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS))
             .then(() => MDStore.instance().populate_objects(
                 log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {
@@ -246,6 +249,8 @@ class Dispatcher {
             });
     }
 }
+
+Dispatcher._instance = undefined;
 
 // EXPORTS
 exports.Dispatcher = Dispatcher;

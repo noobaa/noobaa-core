@@ -63,7 +63,8 @@ function init_s3() {
 
             return P.ninvoke(s3, 'deleteObjects', {
                 Bucket: TEST_CTX.target_bucket,
-                Delete: { /* required */
+                Delete: {
+                    /* required */
                     Objects: object_keys
                 }
             });
@@ -373,8 +374,7 @@ function main() {
         .catch(function(err) {
             console.error('test_cloud_pools FAILED', err);
             process.exit(1);
-        })
-        .done();
+        });
 }
 
 if (require.main === module) {

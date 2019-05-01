@@ -19,10 +19,6 @@ const block_store_client = require('../agent/block_store_services/block_store_cl
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
 
-/**
- * @typedef {'READ_CHUNK_DATA_ALWAYS'|'READ_CHUNK_DATA_BUILDING'} ReadChunkData
- */
-
 // semphores global to the client
 const block_write_sem_global = new Semaphore(config.IO_WRITE_CONCURRENCY_GLOBAL);
 const block_replicate_sem_global = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
@@ -113,13 +109,8 @@ class MapClient {
     async run() {
         const chunks = await this.get_mapping();
         this.chunks = chunks;
-        await this.process_mapping('READ_CHUNK_DATA_BUILDING');
+        await this.process_mapping();
         await this.put_mapping();
-    }
-
-    async run_object() {
-        this.chunks = await this.read_object_mapping();
-        await this.process_mapping('READ_CHUNK_DATA_ALWAYS');
     }
 
     /**
@@ -157,29 +148,13 @@ class MapClient {
     }
 
     /**
-     * @returns {Promise<nb.Chunk[]>}
-     */
-    async read_object_mapping() {
-        const res = await this.rpc_client.object.read_object_mapping({
-            obj_id: this.object_md.obj_id,
-            bucket: this.object_md.bucket,
-            key: this.object_md.key,
-            start: this.read_start,
-            end: this.read_end,
-            location_info: this.location_info,
-        });
-        return res.chunks.map(chunk_info => new ChunkAPI(chunk_info));
-    }
-
-    /**
-     * @param {ReadChunkData} read_chunk_data
      * @returns {Promise<void>}
      */
-    async process_mapping(read_chunk_data) {
+    async process_mapping() {
         /** @type {nb.Chunk[]} */
         const chunks = await P.map(this.chunks, async chunk => {
             try {
-                return await this.process_chunk(chunk, read_chunk_data);
+                return await this.process_chunk(chunk);
             } catch (err) {
                 chunk.had_errors = true;
                 this.had_errors = true;
@@ -195,17 +170,14 @@ class MapClient {
 
     /**
      * @param {nb.Chunk} chunk 
-     * @param {ReadChunkData} read_chunk_data
      * @returns {Promise<nb.Chunk>}
      */
-    async process_chunk(chunk, read_chunk_data) {
+    async process_chunk(chunk) {
         dbg.log1('MapClient.process_chunk:', chunk);
 
         if (chunk.dup_chunk_id) return chunk;
 
-        if (read_chunk_data === 'READ_CHUNK_DATA_ALWAYS') {
-            await this.read_chunk(chunk);
-        } else if (chunk.is_building_frags) {
+        if (chunk.is_building_frags) {
             await this.read_chunk(chunk);
             await this.encode_chunk(chunk);
         }
@@ -363,6 +335,43 @@ class MapClient {
                     timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
                 });
             }));
+    }
+
+    async run_read_object() {
+        this.chunks = await this.read_object_mapping();
+        await this.read_chunks();
+    }
+
+    /**
+     * @returns {Promise<nb.Chunk[]>}
+     */
+    async read_object_mapping() {
+        const res = await this.rpc_client.object.read_object_mapping({
+            obj_id: this.object_md.obj_id,
+            bucket: this.object_md.bucket,
+            key: this.object_md.key,
+            start: this.read_start,
+            end: this.read_end,
+            location_info: this.location_info,
+        });
+        return res.chunks.map(chunk_info => new ChunkAPI(chunk_info));
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    async read_chunks() {
+        await P.map(this.chunks, async chunk => {
+            try {
+                return await this.read_chunk(chunk);
+            } catch (err) {
+                chunk.had_errors = true;
+                this.had_errors = true;
+                dbg.warn('MapClient.read_chunks: chunk ERROR',
+                    err.stack || err, 'chunk', chunk,
+                    err.chunks ? 'err.chunks ' + util.inspect(err.chunks) : '',
+                );
+            }
+        });
     }
 
     /**

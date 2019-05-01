@@ -657,7 +657,7 @@ function update_system(req) {
         update: {
             systems: [updates]
         }
-    }).return();
+    });
 }
 
 function set_maintenance_mode(req) {
@@ -688,8 +688,7 @@ function set_maintenance_mode(req) {
                 actor: req.account && req.account._id,
                 desc: audit_desc,
             });
-        })
-        .return();
+        });
 }
 
 function set_webserver_master_state(req) {
@@ -724,7 +723,7 @@ function delete_system(req) {
         remove: {
             systems: [req.system._id]
         }
-    }).return();
+    });
 }
 
 function log_frontend_stack_trace(req) {
@@ -795,7 +794,7 @@ function add_role(req) {
                 role: req.rpc_params.role,
             }]
         }
-    }).return();
+    });
 }
 
 
@@ -817,7 +816,7 @@ function remove_role(req) {
         remove: {
             roles: roles_ids
         }
-    }).return();
+    });
 }
 
 
@@ -1078,8 +1077,7 @@ function configure_remote_syslog(req) {
                 actor: req.account && req.account._id,
                 desc: desc_line,
             });
-        })
-        .return();
+        });
 }
 
 function set_certificate(zip_file) {

@@ -68,10 +68,9 @@ function set_debug_host(req) {
     return nodes_server.get_local_monitor().set_debug_host(req);
 }
 
-function update_host_services(req) {
+async function update_host_services(req) {
     const monitor = nodes_server.get_local_monitor();
-    return monitor.update_nodes_services(req)
-        .return();
+    await monitor.update_nodes_services(req);
 }
 
 function diagnose_host(req) {

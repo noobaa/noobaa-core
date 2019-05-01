@@ -182,7 +182,6 @@ async function checkFileInPool(file_name, pool) {
             const { chunks } = await client.object.read_object_mapping_admin({
                 bucket,
                 key: file_name,
-                adminfo: true
             });
             chunkAvailable = chunks.filter(chunk => chunk.adminfo.health === 'available');
             const chunkAvailablelength = chunkAvailable.length;

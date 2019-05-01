@@ -166,21 +166,20 @@ function create_namespace_resource(req) {
 
     dbg.log0('creating namespace_resource:', namespace_resource);
     return system_store.make_changes({
-            insert: {
-                namespace_resources: [namespace_resource]
-            }
-        })
-        // .then(() => {
-        //     Dispatcher.instance().activity({
-        //         event: 'resource.cloud_create',
-        //         level: 'info',
-        //         system: req.system._id,
-        //         actor: req.account && req.account._id,
-        //         pool: pool._id,
-        //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
-        //     });
-        // })
-        .return();
+        insert: {
+            namespace_resources: [namespace_resource]
+        }
+    });
+    // .then(() => {
+    //     Dispatcher.instance().activity({
+    //         event: 'resource.cloud_create',
+    //         level: 'info',
+    //         system: req.system._id,
+    //         actor: req.account && req.account._id,
+    //         pool: pool._id,
+    //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
+    //     });
+    // })
 }
 
 function create_cloud_pool(req) {
@@ -242,8 +241,7 @@ function create_cloud_pool(req) {
                 pool: pool._id,
                 desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
             });
-        })
-        .return();
+        });
 }
 
 function create_mongo_pool(req) {
@@ -268,18 +266,17 @@ function create_mongo_pool(req) {
             pool_name: req.rpc_params.name,
         }, {
             auth_token: req.auth_token
-        }))
-        // .then(() => {
-        //     Dispatcher.instance().activity({
-        //         event: 'resource.cloud_create',
-        //         level: 'info',
-        //         system: req.system._id,
-        //         actor: req.account && req.account._id,
-        //         pool: pool._id,
-        //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
-        //     });
-        // })
-        .return();
+        }));
+    // .then(() => {
+    //     Dispatcher.instance().activity({
+    //         event: 'resource.cloud_create',
+    //         level: 'info',
+    //         system: req.system._id,
+    //         actor: req.account && req.account._id,
+    //         pool: pool._id,
+    //         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
+    //     });
+    // })
 }
 
 function list_pool_nodes(req) {

@@ -180,23 +180,23 @@ async function setup() {
     const triggered_buckets = ['bucket1', 'ns.external.bucket1'];
     let account;
     let system_info = await client.system.read_system();
-    const internal_resource = system_info.pools.find(item => item.name.indexOf('system-internal') > -1).name;
+    // const internal_resource = system_info.pools.find(item => item.name.indexOf('system-internal') > -1).name;
     if (!argv.no_setup) {
         // Create test buckets.
         await client.bucket.create_bucket({ name: 'bucket1' });
         await client.bucket.create_bucket({ name: 'bucket2' });
 
-        //find the internal pool and set spillover on thge buckets
+        // //find the internal pool and set spillover on thge buckets
 
-        await client.bucket.update_bucket({ name: 'bucket1', spillover: internal_resource });
-        await client.bucket.update_bucket({ name: 'bucket2', spillover: internal_resource });
+        // await client.bucket.update_bucket({ name: 'bucket1', spillover: internal_resource });
+        // await client.bucket.update_bucket({ name: 'bucket2', spillover: internal_resource });
 
         // Create NS buckets and resources
         await client.bucket.create_bucket({ name: 'ns.internal.bucket1' });
         await client.bucket.create_bucket({ name: 'ns.internal.bucket2' });
 
-        await client.bucket.update_bucket({ name: 'ns.internal.bucket1', spillover: internal_resource });
-        await client.bucket.update_bucket({ name: 'ns.internal.bucket2', spillover: internal_resource });
+        // await client.bucket.update_bucket({ name: 'ns.internal.bucket1', spillover: internal_resource });
+        // await client.bucket.update_bucket({ name: 'ns.internal.bucket2', spillover: internal_resource });
 
         await client.account.add_external_connection(external_connection);
 

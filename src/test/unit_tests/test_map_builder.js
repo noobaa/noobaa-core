@@ -1,25 +1,29 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {typeof import('./nb')} nb */
+
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup();
 
 const _ = require('lodash');
-const util = require('util');
+// const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
+// const util = require('util');
 
 const P = require('../../util/promise');
-const mapper = require('../../server/object_services/mapper');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const ObjectIO = require('../../sdk/object_io');
 // const map_writer = require('../../server/object_services/map_writer');
-const map_builder = require('../../server/object_services/map_builder');
+const { MapBuilder } = require('../../server/object_services/map_builder');
+const { ChunkDB } = require('../../server/object_services/map_db_types');
+const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
 const map_deleter = require('../../server/object_services/map_deleter');
+const map_reader = require('../../server/object_services/map_reader');
 const SliceReader = require('../../util/slice_reader');
-const system_store = require('../../server/system_services/system_store').get_instance();
 
 const { rpc_client } = coretest;
 const object_io = new ObjectIO();
@@ -46,10 +50,10 @@ coretest.describe_mapper_test_case({
 }) => {
 
     // TODO REMOVE ME
-    if (data_placement !== 'SPREAD' || num_pools !== 1 || replicas !== 1 || data_frags !== 4 || parity_frags !== 2) return;
+    // if (data_placement !== 'SPREAD' || num_pools !== 1 || replicas !== 1 || data_frags !== 4 || parity_frags !== 2) return;
 
     // TODO we need to create more nodes and pools to support all MAPPER_TEST_CASES
-    if (data_placement !== 'SPREAD' || num_pools !== 1 || total_blocks > 10) return;
+    if (total_blocks > 10) return;
 
 
     // UNCOMMENT FOR MANUAL TEST OF EC ONLY:
@@ -65,12 +69,12 @@ coretest.describe_mapper_test_case({
     // TESTS //
     ///////////
 
-    mocha.it.only('builds missing frags', async function() {
+    mocha.it('builds missing frags', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj = await make_object();
         await delete_blocks_keep_minimal_frags(obj);
-        const builder = new map_builder.MapBuilder();
-        await builder.run(obj.chunk_ids);
+        const builder = new MapBuilder(obj.chunk_ids);
+        await builder.run();
         await load_chunks(obj);
         await assert_fully_built(obj);
     });
@@ -80,14 +84,14 @@ coretest.describe_mapper_test_case({
         const obj1 = await make_object();
         const obj2 = await make_object();
         await delete_blocks_keep_minimal_frags(obj1);
-        await delete_blocks(_.flatMap(obj2.chunks, 'blocks'));
+        await delete_blocks(get_all_chunks_blocks(obj2.chunks));
         const chunk_ids = _.concat(obj1.chunk_ids, obj2.chunk_ids);
-        const builder = new map_builder.MapBuilder();
+        const builder = new MapBuilder(chunk_ids);
         try {
-            await builder.run(chunk_ids);
+            await builder.run();
             assert.fail('builder should have failed');
         } catch (err) {
-            assert.strictEqual(err.message, 'MapBuilder had errors');
+            assert.strictEqual(err.message, 'MapBuilder map errors');
         }
         await load_chunks(obj1);
         await assert_fully_built(obj1);
@@ -97,8 +101,8 @@ coretest.describe_mapper_test_case({
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj = await make_object();
         await delete_blocks_keep_minimal_replicas(obj);
-        const builder = new map_builder.MapBuilder();
-        await builder.run(obj.chunk_ids);
+        const builder = new MapBuilder(obj.chunk_ids);
+        await builder.run();
         await load_chunks(obj);
         await assert_fully_built(obj);
     });
@@ -107,12 +111,12 @@ coretest.describe_mapper_test_case({
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj_before = await make_object();
         const obj_after = { ...obj_before };
-        const builder = new map_builder.MapBuilder();
-        await builder.run(obj_before.chunk_ids);
+        const builder = new MapBuilder(obj_before.chunk_ids);
+        await builder.run();
         await load_chunks(obj_after);
         await assert_fully_built(obj_after);
-        const blocks_before = _.flatMap(obj_before.chunks, chunk => _.map(chunk.blocks, block => String(block._id))).sort();
-        const blocks_after = _.flatMap(obj_after.chunks, chunk => _.map(chunk.blocks, block => String(block._id))).sort();
+        const blocks_before = get_all_chunks_blocks(obj_before.chunks).map(block => String(block._id)).sort();
+        const blocks_after = get_all_chunks_blocks(obj_after.chunks).map(block => String(block._id)).sort();
         assert.deepStrictEqual(blocks_after, blocks_before);
         assert(blocks_before.length >= obj_before.chunks.length, 'blocks_before.length >= obj_before.chunks.length');
     });
@@ -121,7 +125,20 @@ coretest.describe_mapper_test_case({
     // FUNCTIONS //
     ///////////////
 
+    /**
+     * @typedef {Object} BuilderObject
+     * @property {string} bucket
+     * @property {string} key
+     * @property {number} size
+     * @property {nb.ID} obj_id
+     * @property {Buffer} data
+     * @property {nb.ID[]} chunk_ids
+     * @property {nb.ChunkSchemaDB[]} chunks
+     */
 
+    /**
+     * @returns {BuilderObject}
+     */
     async function make_object() {
         const size = 1000;
         const data = generator.update(Buffer.alloc(size));
@@ -146,36 +163,34 @@ coretest.describe_mapper_test_case({
             obj_id: params.obj_id,
             data,
             chunk_ids,
+            chunks: undefined,
         };
         await load_chunks(obj);
         return obj;
     }
 
+    /**
+     * @param {BuilderObject} obj
+     */
     async function load_chunks(obj) {
         const chunks = await MDStore.instance().find_chunks_by_ids(obj.chunk_ids);
         await MDStore.instance().load_blocks_for_chunks(chunks);
-        obj.chunks = chunks;
+        obj.chunks = chunks.map(chunk => new ChunkDB(chunk));
     }
 
+    /**
+     * @param {BuilderObject} obj
+     */
     async function delete_blocks_keep_minimal_frags(obj) {
         const { chunks } = obj;
         const blocks_to_delete = [];
         _.forEach(chunks, chunk => {
-            console.log('Keeping minimal frags in chunk', {
-                ...chunk,
-                frags: chunk.frags.map(frag => ({
-                    ...frag,
-                    blocks: frag.blocks && frag.blocks.map(block => _.omit(block, 'node'))
-                }))
-            });
-            const frags_by_id = _.keyBy(chunk.frags, '_id');
+            console.log('Keeping minimal frags in chunk', chunk._id);
             const frags_to_delete = new Set(_.sampleSize(chunk.frags, parity_frags));
-            _.forEach(chunk.blocks, block => {
-                const frag = frags_by_id[block.frag];
-                if (frags_to_delete.has(frag)) {
-                    block.frag = frag;
+            _.forEach(frags_to_delete, frag => {
+                _.forEach(frag.blocks, block => {
                     blocks_to_delete.push(block);
-                }
+                });
             });
         });
         return delete_blocks(blocks_to_delete);
@@ -185,12 +200,9 @@ coretest.describe_mapper_test_case({
         const { chunks } = obj;
         const blocks_to_delete = [];
         _.forEach(chunks, chunk => {
-            console.log('Keeping minimal replicas in chunk', chunk);
-            const frags_by_id = _.keyBy(chunk.frags, '_id');
-            const blocks_by_frag_id = _.groupBy(chunk.blocks, 'frag');
-            _.forEach(blocks_by_frag_id, (blocks, frag_id) => {
-                _.forEach(blocks.slice(1), block => {
-                    block.frag = frags_by_id[block.frag];
+            console.log('Keeping minimal replicas in chunk', chunk._id);
+            _.forEach(chunk.frags, frag => {
+                _.forEach(frag.blocks.slice(1), block => {
                     blocks_to_delete.push(block);
                 });
             });
@@ -199,43 +211,30 @@ coretest.describe_mapper_test_case({
     }
 
     async function delete_blocks(blocks) {
-        console.log('Deleting blocks', blocks.map(block => _.pick(block, '_id', 'size', 'frag')));
+        console.log('Deleting blocks', blocks.map(block => _.pick(block, '_id', 'size', 'frag.id')));
         return P.join(
             map_deleter.delete_blocks_from_nodes(blocks),
             MDStore.instance().update_blocks_by_ids(_.map(blocks, '_id'), { deleted: new Date() })
         );
     }
 
+    /**
+     * 
+     * @param {BuilderObject} obj 
+     */
     async function assert_fully_built(obj) {
-        const { key, data, chunks, obj_id } = obj;
+        const chunks = await map_reader.read_object_mapping({ _id: MDStore.instance().make_md_id(obj.obj_id) });
         _.forEach(chunks, chunk => {
-            console.log('Checking chunk fully built', chunk);
-            const tiering = system_store.data.systems[0].buckets_by_name[bucket].tiering;
-            const tiering_status = _.fromPairs(_.map(tiering.tiers,
-                ({ tier, spillover }) => [tier._id, {
-                    pools: _.fromPairs(_.map(system_store.data.pools,
-                        pool => [pool._id, { valid_for_allocation: true, num_nodes: 1000 }]
-                    )),
-                    mirrors_storage: tier.mirrors.map(mirror => ({
-                        free: { peta: 2, n: 0 },
-                        regular_free: { peta: 1, n: 0 },
-                        redundant_free: { peta: 1, n: 0 },
-                    }))
-                }]
-            ));
-            chunk.chunk_coder_config = chunk_coder_config;
-            const chunk_info = mapper.get_chunk_info(chunk);
-            const select_tier = mapper.select_tier_for_write(tiering, tiering_status);
-            const mapping = mapper.map_chunk(chunk_info, select_tier, tiering, tiering_status);
-            console.log('Chunk mapping', mapping);
-            assert.strictEqual(mapping.allocations, undefined);
-            assert.strictEqual(mapping.deletions, undefined);
-            assert.strictEqual(mapping.missing_frags, undefined);
+            chunk.frags.forEach(frag => {
+                assert.strictEqual(frag.allocations.length, 0);
+                const deletions = frag.blocks.filter(block => block.is_deletion || block.is_future_deletion);
+                assert.strictEqual(deletions.length, 0);
+            });
         });
 
-        const read_data = await object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id });
+        const read_data = await object_io.read_entire_object({ client: rpc_client, object_md: obj });
 
-        assert.deepStrictEqual(read_data, data);
+        assert.deepStrictEqual(read_data, obj.data);
     }
 
 });

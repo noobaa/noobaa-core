@@ -101,7 +101,7 @@ function get_cloud_block_ids(obj_mapping) {
 }
 
 
-function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, test_corruption) {
+async function verify_object_health(expected_num_blocks, bucket_name, pool_names, cloud_pool, test_corruption) {
     console.log(`verifying object ${TEST_CTX.object_key} health. expected num of blocks: ${expected_num_blocks}`);
     let num_blocks = 0;
     let num_parts = 0;
@@ -110,93 +110,83 @@ function verify_object_health(expected_num_blocks, bucket_name, pool_names, clou
     let obj_is_verified = !test_corruption;
     let obj_mapping = {};
     let start_ts = Date.now();
-    return client.node.list_nodes({
-            query: {
-                pools: pool_names,
-                skip_internal: !cloud_pool,
-                skip_mongo_nodes: true
-            }
-        })
-        .then(node_list => promise_utils.pwhile(() => obj_is_invalid || !obj_is_verified,
-            () => client.object.read_object_mapping({
-                bucket: bucket_name,
-                key: TEST_CTX.object_key,
-                adminfo: Boolean(cloud_pool)
-            })
-            .then(object_mapping => {
-                obj_mapping = object_mapping;
-            })
-            .then(() => {
-                // This checks for tempering
-                if (!obj_is_verified) {
-                    let object_io_verifier = new ObjectIO();
-                    object_io_verifier.set_verification_mode();
-                    return object_io_verifier.read_object({
-                            client: client,
-                            bucket: bucket_name,
-                            key: TEST_CTX.object_key,
-                            start: 0,
-                            end: obj_mapping.object_md.size
-                        })
-                        .then(() => {
-                            obj_is_verified = true;
-                        })
-                        .catch(err => {
-                            console.warn(`object could not be verified.`, err);
-                            obj_is_verified = false;
-                        });
-                }
-            })
-            .then(() => {
-                // This will check the number of distinct nodes that hold the object's blocks are all mapped to expected pools
-                let node_ids = _.filter(node_list.nodes, node => !node.has_issues)
-                    .map(node => node._id);
-                let cloud_node_ids = cloud_pool ?
-                    (_.filter(node_list.nodes, node => node.is_cloud_node)
-                        .map(node => node._id)) :
-                    undefined;
-                num_blocks = 0;
-                num_parts = 0;
-                _.each(obj_mapping.parts, part => {
-                    var distinct_nodes_per_part = new Set();
-                    num_parts += 1;
-                    _.each(part.chunk.frags[0].blocks, block => {
-                        if (!distinct_nodes_per_part.has(block.block_md.node)) {
-                            if (_.includes(node_ids, block.block_md.node) ||
-                                (cloud_pool && _.includes(cloud_node_ids, block.block_md.node))) {
-                                num_blocks += 1;
-                            }
-                        }
-                        distinct_nodes_per_part.add(block.block_md.node);
-                    });
-                });
-                num_blocks_per_part = num_blocks / num_parts || 1;
-                obj_is_invalid = !obj_is_verified ||
-                    num_blocks_per_part.toFixed(0) < expected_num_blocks ||
-                    (cloud_pool && !cloud_node_ids);
-                if (obj_is_invalid) {
-                    let diff = Date.now() - start_ts;
-                    print_verification_warning(diff, num_blocks_per_part,
-                        expected_num_blocks, obj_is_verified);
-                    if (diff > (TEST_CTX.timeout * 1000)) {
-                        throw new Error('aborted test after ' + TEST_CTX.timeout + ' seconds');
-                    }
-                    return P.delay(1000);
-                }
-            })))
-        .then(() => {
-            if (cloud_pool) {
-                return test_utils.blocks_exist_on_cloud(get_cloud_block_ids(obj_mapping), AWS_s3);
-            }
-        })
-        .then(() => {
-            console.log('object health verified');
-            return client.object.read_object_mapping({
-                bucket: bucket_name,
-                key: TEST_CTX.object_key,
-                adminfo: Boolean(cloud_pool)
-            });
+    const node_list = await client.node.list_nodes({
+        query: {
+            pools: pool_names,
+            skip_internal: !cloud_pool,
+            skip_mongo_nodes: true
+        }
+    });
+    while (obj_is_invalid || !obj_is_verified) {
+        obj_mapping = await client.object.read_object_mapping_admin({
+            bucket: bucket_name,
+            key: TEST_CTX.object_key
         });
+        // This checks for tempering
+        if (!obj_is_verified) {
+            let object_io_verifier = new ObjectIO();
+            object_io_verifier.set_verification_mode();
+            try {
+                await object_io_verifier.read_object({
+                    client: client,
+                    bucket: bucket_name,
+                    key: TEST_CTX.object_key,
+                    start: 0,
+                    end: obj_mapping.object_md.size
+                });
+                obj_is_verified = true;
+            } catch (err) {
+                console.warn(`object could not be verified.`, err);
+                obj_is_verified = false;
+            }
+        }
+
+        // This will check the number of distinct nodes that hold the object's blocks are all mapped to expected pools
+        let node_ids = _.filter(node_list.nodes, node => !node.has_issues)
+            .map(node => node._id);
+        let cloud_node_ids = cloud_pool ?
+            (_.filter(node_list.nodes, node => node.is_cloud_node)
+                .map(node => node._id)) :
+            undefined;
+        num_blocks = 0;
+        num_parts = 0;
+        for (const chunk of obj_mapping.chunks) {
+            var distinct_nodes_per_part = new Set();
+            num_parts += 1;
+            for (const block of chunk.frags[0].blocks) {
+                if (!distinct_nodes_per_part.has(block.block_md.node)) {
+                    if (_.includes(node_ids, block.block_md.node) ||
+                        (cloud_pool && _.includes(cloud_node_ids, block.block_md.node))) {
+                        num_blocks += 1;
+                    }
+                }
+                distinct_nodes_per_part.add(block.block_md.node);
+            }
+        }
+        num_blocks_per_part = num_blocks / num_parts || 1;
+        obj_is_invalid = !obj_is_verified ||
+            num_blocks_per_part.toFixed(0) < expected_num_blocks ||
+            (cloud_pool && !cloud_node_ids);
+        if (obj_is_invalid) {
+            let diff = Date.now() - start_ts;
+            print_verification_warning(diff, num_blocks_per_part,
+                expected_num_blocks, obj_is_verified);
+            if (diff > (TEST_CTX.timeout * 1000)) {
+                throw new Error('aborted test after ' + TEST_CTX.timeout + ' seconds');
+            }
+            await P.delay(1000);
+        }
+    }
+    if (cloud_pool) {
+        return test_utils.blocks_exist_on_cloud(get_cloud_block_ids(obj_mapping), AWS_s3);
+    }
+
+    console.log('object health verified');
+    const mapping = await client.object.read_object_mapping_admin({
+        bucket: bucket_name,
+        key: TEST_CTX.object_key,
+    });
+    return mapping;
 }
 
 function print_verification_warning(diff, num_blocks_per_part, expected_num_blocks, obj_is_verified) {

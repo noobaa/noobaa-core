@@ -534,8 +534,7 @@ function update_bucket_s3_access(req) {
                 desc: desc_string.join('\n'),
             });
             check_for_lambda_permission_issue(req, bucket, removed_accounts);
-        })
-        .return();
+        });
 }
 
 function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
@@ -645,8 +644,7 @@ function delete_bucket_lifecycle(req) {
         .catch(function(err) {
             dbg.error('Error deleting lifecycle configuration rules', err, err.stack);
             throw err;
-        })
-        .return();
+        });
 }
 
 /**
@@ -781,8 +779,7 @@ function set_bucket_lifecycle_configuration_rules(req) {
         .catch(function(err) {
             dbg.error('Error setting lifecycle configuration rules', err, err.stack);
             throw err;
-        })
-        .return();
+        });
 }
 
 /**

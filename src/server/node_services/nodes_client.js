@@ -10,7 +10,7 @@ const mongo_utils = require('../../util/mongo_utils');
 const node_allocator = require('./node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 
-const NODE_FIELDS_FOR_MAP = [
+const NODE_FIELDS_FOR_MAP = Object.freeze([
     'name',
     'pool',
     'ip',
@@ -26,9 +26,7 @@ const NODE_FIELDS_FOR_MAP = [
     'storage_full',
     'latency_of_disk_read',
     // ... more?
-];
-
-
+]);
 
 class NodesClient {
 
@@ -49,6 +47,19 @@ class NodesClient {
                 query: {
                     pools: [pool_name]
                 }
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                })
+            })
+            .tap(res => mongo_utils.fix_id_type(res.nodes));
+    }
+
+    list_nodes_by_identity(system_id, nodes_identities, fields) {
+        return server_rpc.client.node.list_nodes({
+                query: { nodes: nodes_identities },
+                fields,
             }, {
                 auth_token: auth_server.make_auth_token({
                     system_id: system_id,
@@ -275,17 +286,6 @@ class NodesClient {
             });
     }
 
-    /**
-     * @template T
-     * @param {nb.ID} system_id
-     * @param {T[]} docs
-     * @param {string} doc_id_path
-     * @param {string} doc_path
-     */
-    populate_nodes_for_map(system_id, docs, doc_id_path, doc_path) {
-        return this.populate_nodes(system_id, docs, doc_id_path, doc_path, NODE_FIELDS_FOR_MAP);
-    }
-
     async report_error_on_node_blocks(system_id, blocks_report, bucket_name) {
 
         await server_rpc.client.node.report_error_on_node_blocks({
@@ -326,3 +326,4 @@ NodesClient._instance = undefined;
 
 exports.NodesClient = NodesClient;
 exports.instance = NodesClient.instance;
+exports.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;

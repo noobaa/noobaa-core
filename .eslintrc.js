@@ -299,6 +299,9 @@ module.exports = {
         // prefer using arrow functions for callbacks, but too much to fix
         'prefer-arrow-callback': 'off',
 
+        // prefer using arrow functions for callbacks, but too much to fix
+        'prefer-named-capture-group': 'off',
+
         // we prefer using const, but too much to fix
         'prefer-const': 'off',
 

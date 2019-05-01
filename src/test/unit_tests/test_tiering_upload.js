@@ -173,7 +173,7 @@ mocha.describe('tiering upload', function() {
     //     await rpc_client.object.delete_object({ bucket: BUCKET, key });
     // });
 
-    mocha.it.only('filling in parallel', async function() {
+    mocha.it('filling in parallel', async function() {
         this.timeout(900000); // eslint-disable-line no-invalid-this
         const tier0_before = await get_current_storage(TIER0);
         const tier1_before = await get_current_storage(TIER1);

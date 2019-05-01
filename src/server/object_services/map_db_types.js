@@ -165,7 +165,7 @@ class FragDB {
         this.frag_db = frag_db;
         this.data = undefined_buffer;
         /** @type {nb.AllocationInfo[]} */
-        this.allocations = undefined;
+        this.allocations = [];
         this.is_accessible = false;
         this.is_building_blocks = false;
 
@@ -188,9 +188,9 @@ class FragDB {
     }
     get blocks() {
         if (!this.__blocks) {
-            this.__blocks = this.frag_db.blocks.map(block_db =>
+            this.__blocks = this.frag_db.blocks ? this.frag_db.blocks.map(block_db =>
                 new_block_db(block_db, this, this.chunk)
-            );
+            ) : [];
         }
         return this.__blocks;
     }
@@ -283,13 +283,24 @@ class BlockDB {
         throw new Error(`BlockDB.set_parent_ids: unexpected call`);
     }
 
+    /**
+     * @param {nb.NodeAPI} node 
+     */
+    set_node(node) {
+        /** @type {nb.Pool} */
+        const pool = system_store.data.systems[0].pools_by_name[node.pool];
+        this.node = node;
+        this.block_db.node = node._id;
+        this.block_db.pool = pool._id;
+    }
+
     /** @returns {nb.BlockMD} */
     to_block_md() {
         return {
             id: optional_id_str(this.block_db._id),
             node: optional_id_str(this.block_db.node),
             pool: optional_id_str(this.block_db.pool),
-            address: this.address,
+            address: this.node && this.node.rpc_address,
             size: this.block_db.size,
             digest_type: this.chunk.chunk_coder_config.frag_digest_type,
             digest_b64: this.frag.digest_b64,

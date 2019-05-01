@@ -117,8 +117,14 @@ class AgentCLI {
                 }
             })
             .then(() => os_utils.get_disk_mount_points())
-            .then(mount_points => self.update_ignored_drives(mount_points))
-            .tap(mount_points => self.rename_agent_storage(mount_points))
+            .then(async mount_points => {
+                await self.update_ignored_drives(mount_points);
+                return mount_points;
+            })
+            .then(async mount_points => {
+                self.rename_agent_storage(mount_points);
+                return mount_points;
+            })
             .then(function(mount_points) {
                 if (self.params.test_hostname) {
                     self.params.root_path = './noobaa_storage_' + self.params.test_hostname;

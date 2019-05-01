@@ -207,24 +207,11 @@ function install_kubectl {
 
 function install_noobaa_repos {
     deploy_log "install_noobaa_repos start"
-
     mkdir -p /root/node_modules
     cd /root/node_modules
     tar -xzf /tmp/noobaa-NVA.tar.gz
     cd ~
     rm -rf /tmp/noobaa-NVA.tar.gz
-
-    # Setup Repos
-    if [ "${container}" == "docker" ]; then
-        sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
-    fi
-    # in a container set the endpoint\ssl ports to 6001\6443 since we are not running as root
-    if [ "${container}" == "docker" ]; then
-        echo "ENDPOINT_PORT=6001" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
-        echo "ENDPOINT_SSL_PORT=6443" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
-    fi
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env
-
     deploy_log "install_noobaa_repos done"
 }
 

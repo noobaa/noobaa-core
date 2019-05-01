@@ -165,6 +165,9 @@ spec:
                   name: noobaa-create-sys-creds
                   key: password
                   optional: true
+            # replacing the empty value with any value will set the cotainer to dbg mode
+            - name: container_dbg
+              value: ""
       serviceAccountName: noobaa-account
       imagePullSecrets:
         - name: noobaaimages.azurecr.io

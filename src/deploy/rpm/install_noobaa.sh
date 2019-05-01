@@ -43,10 +43,3 @@ function verify_rpm_exist() {
 verify_rpm_exist
 #config_scl
 config_mongo_repo
-yum install -y ${rpm_location}/noobaa*.rpm
-
-#clean
-yum clean all
-rm -f ${rpm_location}/noobaa*.rpm
-
-

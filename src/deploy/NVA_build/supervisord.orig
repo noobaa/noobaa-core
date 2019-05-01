@@ -7,7 +7,12 @@ PIDFILE="/var/log/supervisord.pid"
 
 start() {
     #run noobaa_init script before start
-    /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_init.sh
+    local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
+    if [ "${container}" == "docker" ]
+    then
+        path="/noobaa_init_files/"
+    fi
+    ${path}/noobaa_init.sh
 
     if [ ! -x "$SUPERVISORD" ]; then
         echo "$SUPERVISORD is not executable."

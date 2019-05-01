@@ -76,11 +76,12 @@ cd %{_tmppath}/%{name}-%{version}-%{release}
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
 
 %post
-echo "Starting to install noobaa"
 %{__mv} %{tarfile} /tmp/noobaa-NVA.tar.gz
 %{__chmod} +x %{installscript}
 %{__install} -m 0755 %{installscript} %{_bindir}/%{installscript}
-%{installscript} runinstall
+# removed this as we use docker, we should note that downstream applaince will need this
+# echo "Starting to install noobaa"
+# %{installscript} runinstall
 echo -e "\e[31m\nWait for prompt and then we need to reboot...\n\e[0m"
 
 %files

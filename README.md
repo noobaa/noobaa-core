@@ -1,8 +1,24 @@
 noobaa-core
 ===========
 
+## What is NooBaa
 ---MISSING---
 Please see https://www.noobaa.com/ for more information.  
+
+## Getting Help
+
+Contacting us - support@noobaa.com
+
+
+Knowledge Base - https://noobaa.desk.com/
+
+## How to Use NooBaa
+
+#### Docker
+---MISSING---  
+
+#### Kubernetes
+---MISSING---  
 
 ## Contributing Code & Submitting Issues
 

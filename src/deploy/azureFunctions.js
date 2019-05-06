@@ -311,6 +311,8 @@ class AzureFunctions {
 
     async createAgentExtension(params) {
         const { vmName, os, serverIP, agentConf, ip } = params;
+        const buf = await fs.readFileAsync("/tmp/details.json");
+        const azure_details = JSON.parse(buf.toString());
         let extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't believe Microsoft
@@ -321,8 +323,8 @@ class AzureFunctions {
                 commandToExecute: 'bash init_agent.sh ' + serverIP + ' ' + agentConf
             },
             protectedSettings: {
-                storageAccountName: 'pluginsstorage',
-                storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
+                storageAccountName: azure_details.AZURE.storageAccountName,
+                storageAccountKey: azure_details.AZURE.storageAccountKey
             },
             location: this.location,
         };
@@ -612,6 +614,8 @@ class AzureFunctions {
 
     async rescanDataDisksExtension(vm) {
         console.log('removing old extension (if exist)');
+        const buf = await fs.readFileAsync("/tmp/details.json");
+        const azure_details = JSON.parse(buf.toString());
         await this.deleteVirtualMachineExtension(vm);
         const extension = {
             publisher: 'Microsoft.OSTCExtensions',
@@ -623,8 +627,8 @@ class AzureFunctions {
                 commandToExecute: 'bash -x ddisk.sh '
             },
             protectedSettings: {
-                storageAccountName: 'pluginsstorage',
-                storageAccountKey: 'bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=='
+                storageAccountName: azure_details.AZURE.storageAccountName,
+                storageAccountKey: azure_details.AZURE.storageAccountKey
             },
             location: this.location,
         };

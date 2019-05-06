@@ -1,17 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
+const fs = require('fs');
 const _ = require('lodash');
-const AzureFunctions = require('../../deploy/azureFunctions');
 const crypto = require('crypto');
+const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const af = require('../utils/agent_functions');
 const ops = require('../utils/basic_server_ops');
+const AzureFunctions = require('../../deploy/azureFunctions');
 
 // Environment Setup
-const clientId = process.env.CLIENT_ID;
 const domain = process.env.DOMAIN;
+const clientId = process.env.CLIENT_ID;
 const secret = process.env.APPLICATION_SECRET;
 const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 const shasum = crypto.createHash('sha1');
@@ -30,9 +31,9 @@ let {
     resource,
     storage,
     vnet,
-    skipsetup = false,
-    keepenv = false,
-    updateenv = false,
+    skip_setup = false,
+    keep_env = false,
+    update_env = false,
     clean = false,
     help = false
 } = argv;
@@ -63,9 +64,9 @@ function usage() {
     --min_required_agents   -   min number of agents required to run the desired tests (default: ${
         min_required_agents}), will fail if could not create this number of agents
     --upgrade_pack          -   location of the file for upgrade
-    --skipsetup             -   skipping creation and deletion of agents.
-    --keepenv               -   skipping deletion of agents at the of the test
-    --updateenv             -   checking for existing agents and adding missing ones
+    --skip_setup             -   skipping creation and deletion of agents.
+    --keep_env               -   skipping deletion of agents at the of the test
+    --update_env             -   checking for existing agents and adding missing ones
     --clean                 -   will only delete the env and exit.
     --help                  -   show this help
     `);
@@ -184,12 +185,12 @@ async function createAgents(isInclude, excludeList) {
     }
     const test_nodes_names = await af.getTestNodes(server_ip, suffix);
     let osesToCreate = oses.slice();
-    //setting the agent list to empty in case of skipsetup
-    if (skipsetup) {
+    //setting the agent list to empty in case of skip_setup
+    if (skip_setup) {
         osesToCreate = [];
     }
     //getting the list of missing agents in case of updating environment
-    if (updateenv) {
+    if (update_env) {
         for (let i = 0; i < test_nodes_names.length; i++) {
             for (let j = 0; j < oses.length; j++) {
                 if (test_nodes_names[i].startsWith(oses[j])) {
@@ -279,6 +280,8 @@ async function runExtensions(vms, script_name, flags = '') {
     });
     await P.map(vms, async osname => {
         console.log(`running extension: ${script_name}`);
+        const buf = await fs.readFileAsync("/tmp/details.json");
+        const azure_details = JSON.parse(buf.toString());
         const extension = {
             publisher: 'Microsoft.OSTCExtensions',
             virtualMachineExtensionType: 'CustomScriptForLinux', // it's a must - don't believe Microsoft
@@ -289,8 +292,8 @@ async function runExtensions(vms, script_name, flags = '') {
                 commandToExecute: 'bash ' + script_name + '.sh ' + flags
             },
             protectedSettings: {
-                storageAccountName: "pluginsstorage",
-                storageAccountKey: "bHabDjY34dXwITjXEasmQxI84QinJqiBZHiU+Vc1dqLNSKQxvFrZbVsfDshPriIB+XIaFVaQ2R3ua1YMDYYfHw=="
+                storageAccountName: azure_details.AZURE.storageAccountName,
+                storageAccountKey: azure_details.AZURE.storageAccountKey
             },
             location: location,
         };
@@ -409,13 +412,13 @@ async function addExcludeDisks(excludeList, number_before_adding_disks) {
 }
 
 async function checkExcludeDisk(excludeList) {
-    const nodes_befor_adding_disks = await af.list_optimal_agents(server_ip, suffix);
-    let includesE = nodes_befor_adding_disks.filter(node => node.includes('-E-'));
-    const includesF = nodes_befor_adding_disks.filter(node => node.includes('-F-'));
-    let includes_exclude1 = nodes_befor_adding_disks.filter(node => node.includes('exclude1'));
-    const prevNum = nodes_befor_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
-    const number_befor_adding_disks = await addExcludeDisks(excludeList, prevNum);
-    console.log(`The number of agents before adding disks is: ${number_befor_adding_disks}`);
+    const nodes_before_adding_disks = await af.list_optimal_agents(server_ip, suffix);
+    let includesE = nodes_before_adding_disks.filter(node => node.includes('-E-'));
+    const includesF = nodes_before_adding_disks.filter(node => node.includes('-F-'));
+    let includes_exclude1 = nodes_before_adding_disks.filter(node => node.includes('exclude1'));
+    const prevNum = nodes_before_adding_disks.length - includesE.concat(includesF.concat(includes_exclude1)).length;
+    const number_before_adding_disks = await addExcludeDisks(excludeList, prevNum);
+    console.log(`The number of agents before adding disks is: ${number_before_adding_disks}`);
     //verifying write, read, diag and debug level.
     await verifyAgent();
     //activate a deactivated node
@@ -435,7 +438,7 @@ async function checkExcludeDisk(excludeList) {
     .delay(120000)
     .then(() => af.isIncluded({
         server_ip,
-        previous_agent_number: number_befor_adding_disks,
+        previous_agent_number: number_before_adding_disks,
         additional_agents: created_agents.length,
         print: 'disable and enable entire host',
         suffix
@@ -526,7 +529,7 @@ async function includeExcludeCycle(isInclude) {
     //verifying write, read, diag and debug level after the upgrade.
     await verifyAgent();
     // Cleaning the machine Extension and installing new one that remove nodes.
-    if (!skipsetup) {
+    if (!skip_setup) {
         await deleteAgent();
     }
 }
@@ -545,7 +548,7 @@ async function main() {
         process.exit(1);
     }
     //deleting the previous test agents machines.
-    if (!(skipsetup || updateenv)) {
+    if (!(skip_setup || update_env)) {
         await runClean();
     }
     // checking the include disk cycle (happy path).
@@ -559,7 +562,7 @@ async function main() {
     await rpc.disconnect_all();
     console.warn('End of Test, cleaning.');
     if (errors.length === 0) {
-        if (!skipsetup && !keepenv) {
+        if (!skip_setup && !keep_env) {
             console.log('deleing the virtual machines.');
             await runClean();
             console.log('All is good - exiting...');

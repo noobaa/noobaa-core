@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: noobaa-obc-provisioner-account
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: noobaa-obc-provisioner-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - secrets
+    verbs:
+      - "*"
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - storage.k8s.io
+    resources:
+      - storageclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - objectbucket.io
+    resources:
+      - "*"
+    verbs:
+      - "*"
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-obc-provisioner-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: noobaa-obc-provisioner-account
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: noobaa-obc-provisioner-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noobaa-obc-provisioner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: noobaa-obc-provisioner
+  template:
+    metadata:
+      labels:
+        name: noobaa-obc-provisioner
+    spec:
+      serviceAccountName: noobaa-obc-provisioner-account
+      containers:
+        - name: noobaa-obc-provisioner
+          # Replace this with the built image name
+          image: dannyzaken/noobaa-obc-provisioner

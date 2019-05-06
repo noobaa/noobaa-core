@@ -50,6 +50,4 @@ Please refer to [How to Contribute](https://github.com/noobaa/noobaa-core/blob/m
 
 Please refer to [Directory Structure](https://github.com/noobaa/noobaa-core/wiki/directory-structure) for better understanding of the project's directory structure  
 
-Please refer to [General Architecture](https://github.com/noobaa/noobaa-core/wiki/general-architecture) for better understanding of the project's architecture  
-
 Please refer to [Developers Guide](https://github.com/noobaa/noobaa-core/wiki/Developers-Guide) for better understanding of the project's architecture  

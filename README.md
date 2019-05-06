@@ -15,19 +15,16 @@ Knowledge Base - https://noobaa.desk.com/ (requires free account registration)
 
 ## How to Use NooBaa
 
-#### Docker
+### Kubernetes
 
-
-#### Kubernetes
-
-## Prerequisites
+#### Prerequisites
 
 You will need  jq (json cli processor).
 For Linux, you can simply run this one-liner:
 ```
 wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64;chmod +x ./jq;cp jq /usr/bin
 ```
-## Deployment
+#### Deployment
 
 ```
 wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh; wget https://raw.githubusercontent.com/noobaa/noobaa-core/src/deploy/NVA_build/noobaa_core.yaml;chmod +x noobaa_deploy_k8s.sh
@@ -40,11 +37,11 @@ wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_
 [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/hvNH9XmcYt8/0.jpg)](http://www.youtube.com/watch?v=hvNH9XmcYt8)
 
 
-#### Join NooBaa's open community
+## Join NooBaa's open community
 
 Subscribe to NooBaa's open community https://www.noobaa.com/community
 
-#### Contributing Code & Submitting Issues
+## Contributing Code & Submitting Issues
 
 We are using github to host code and issues.  
   

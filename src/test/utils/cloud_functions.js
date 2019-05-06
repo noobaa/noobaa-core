@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const fs = require('fs');
 const P = require('../../util/promise');
 
 class CloudFunction {
@@ -9,13 +10,15 @@ class CloudFunction {
         this._client = client;
     }
 
-    getAWSConnection() {
+    async getAWSConnection() {
+        const buf = await fs.readFileAsync("/tmp/details.json");
+        const aws_details = JSON.parse(buf.toString());
         const AWSConnections = {
             name: 'AWSConnection',
             endpoint: "https://s3.amazonaws.com",
             endpoint_type: "AWS",
-            identity: 'AKIAJJCHBZVA3VSS2YCQ',
-            secret: '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'
+            identity: aws_details.AWS.identity,
+            secret: aws_details.AWS.secret
         };
         return AWSConnections;
     }

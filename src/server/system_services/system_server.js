@@ -902,7 +902,7 @@ function get_node_installation_string(req) {
                     return {
                         LINUX: `wget ${server_ip}:${process.env.PORT || 8080}/public/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${base64_configuration}`,
                         WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${server_ip}:${process.env.PORT || 8080}/public/${agent_installer} -Destination C:\\${agent_installer}; C:\\${agent_installer} /S /config ${base64_configuration}`,
-                        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", base64_configuration).replace("AGENT_IMAGE_VERSION", (pkg.version.split('-')[1] || 'latest'))
+                        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", base64_configuration).replace("AGENT_IMAGE_VERSION", pkg.version)
                     };
                 });
         });

@@ -105,11 +105,6 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	requeueSecret, secretErr := r.reconcileNoobaaAzureSecret(nb)
-	if secretErr != nil {
-		reqLogger.Error(err, "failed reconciling noobaa azure secret")
-	}
-
 	requeueAccount, accountErr := r.reconcileNoobaaAccount(nb)
 	if accountErr != nil {
 		reqLogger.Error(err, "failed reconciling noobaa account")
@@ -147,7 +142,7 @@ func (r *ReconcileNoobaa) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, s3ServiceErr
 	}
 
-	reque := requeS3Service || requeStateful || requeueAccount || requeueRole || requeueRoleBind || requeueSecret || requeMgmtService
+	reque := requeS3Service || requeStateful || requeueAccount || requeueRole || requeueRoleBind || requeMgmtService
 
 	// noobaa statefulset and service already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: resources already exists", "StatefulSet.Namespace", found.Namespace, "Pod.Name", found.Name)
@@ -171,29 +166,6 @@ func (r *ReconcileNoobaa) reconcileNoobaaAccount(nb *noobaav1alpha1.Noobaa) (req
 		return true, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get account")
-		return true, err
-	}
-	return false, nil
-}
-
-func (r *ReconcileNoobaa) reconcileNoobaaAzureSecret(nb *noobaav1alpha1.Noobaa) (requeue bool, err error) {
-	noobaaSecret := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "noobaaimages.azurecr.io", Namespace: nb.Namespace}, noobaaSecret)
-	if err != nil && errors.IsNotFound(err) {
-		// Define a new deployment
-		noobaaSecret.ObjectMeta.Name = "noobaaimages.azurecr.io"
-		noobaaSecret.ObjectMeta.Labels = map[string]string{"app": "noobaa"}
-		noobaaSecret.ObjectMeta.Namespace = nb.Namespace
-		noobaaSecret.Type = "kubernetes.io/dockerconfigjson"
-		noobaaSecret.Data = map[string][]byte{".dockerconfigjson": []byte("eyJhdXRocyI6eyJub29iYWFpbWFnZXMuYXp1cmVjci5pbyI6eyJ1c2VybmFtZSI6ImJkOTFiYjVjLTE4MTUtNGE4OC1iOWY3LTk1NWY1MWI1YTE0MyIsInBhc3N3b3JkIjoiMDhlOTJkZTAtZTk3YS00NjE4LWE1NTgtNDQ4YzA0MzlkMjk4IiwiZW1haWwiOiJlcmFuLnRhbWlyQG5vb2JhYS5jb20iLCJhdXRoIjoiWW1RNU1XSmlOV010TVRneE5TMDBZVGc0TFdJNVpqY3RPVFUxWmpVeFlqVmhNVFF6T2pBNFpUa3laR1V3TFdVNU4yRXRORFl4T0MxaE5UVTRMVFEwT0dNd05ETTVaREk1T0E9PSJ9fX0=")}
-		err = r.client.Create(context.TODO(), noobaaSecret)
-		if err != nil {
-			log.Error(err, "Failed to create new azure secret", "noobaaSecret.Namespace", nb.Namespace, "Name", "noobaaimages.azurecr.io")
-			return true, err
-		}
-		return true, nil
-	} else if err != nil {
-		log.Error(err, "Failed to get secret")
 		return true, err
 	}
 	return false, nil
@@ -265,7 +237,7 @@ func (r *ReconcileNoobaa) reconcileStatfulset(nb *noobaav1alpha1.Noobaa) (requeu
 	currImage := noobaaStateful.Spec.Template.Spec.Containers[0].Image
 	currVer := currImage[len(currImage)-7:]
 	if nb.Spec.Version != "" && currVer != "" && nb.Spec.Version != currVer {
-		noobaaStateful.Spec.Template.Spec.Containers[0].Image = "noobaaimages.azurecr.io/noobaa/nbserver:" + nb.Spec.Version
+		noobaaStateful.Spec.Template.Spec.Containers[0].Image = "noobaa/noobaa-core:" + nb.Spec.Version
 		log.Info("updating statefulset to new noobaa version", "old version", currVer, "new version", nb.Spec.Version)
 		err = r.updateNoobaaStatefulset(noobaaStateful)
 		if err != nil {
@@ -347,7 +319,7 @@ func (r *ReconcileNoobaa) statefulSetForNoobaa(nb *noobaav1alpha1.Noobaa) (*apps
 		statefulSet.Spec.Template.Spec.Containers[0].Image = nb.Spec.Image
 	}
 	if nb.Spec.Version != "" {
-		statefulSet.Spec.Template.Spec.Containers[0].Image = "noobaaimages.azurecr.io/noobaa/nbserver:" + nb.Spec.Version
+		statefulSet.Spec.Template.Spec.Containers[0].Image = "noobaa/noobaa-core:" + nb.Spec.Version
 	}
 	if nb.Spec.Email != "" && nb.Spec.Password != "" {
 		statefulSet.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{

@@ -779,7 +779,7 @@ async function upgrade_agents() {
     if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') return;
     dbg.log0(`UPGRADE: updating agents yaml to the new version`);
     // await exec 
-    await exec(`kubectl set image statefulset noobaa-agent noobaa-agent=noobaaimages.azurecr.io/noobaa/nbagent:${pkg.version.split('-')[1] || 'latest'}`, {
+    await exec(`kubectl set image statefulset noobaa-agent noobaa-agent=noobaa/noobaa-agent:${pkg.version}`, {
         ignore_err: true
     });
 }

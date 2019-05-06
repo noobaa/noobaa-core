@@ -34,6 +34,7 @@ wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_
 ./noobaa_deploy_k8s.sh deploy -e <youremail> -n <new namespace> -f ./noobaa_core.yaml
 ```
 
+##### Deployment Video
 [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/Rkig1lZccns/0.jpg)](https://youtu.be/Rkig1lZccns)
 
 

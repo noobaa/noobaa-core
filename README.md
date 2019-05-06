@@ -48,6 +48,5 @@ We are using github to host code and issues.
   
 Please refer to [How to Contribute](https://github.com/noobaa/noobaa-core/blob/master/CONTRIBUTING.md) for more information on how to contribute  
 
-Please refer to [Directory Structure](https://github.com/noobaa/noobaa-core/wiki/directory-structure) for better understanding of the project's directory structure  
 
 Please refer to [Developers Guide](https://github.com/noobaa/noobaa-core/wiki/Developers-Guide) for better understanding of the project's architecture  

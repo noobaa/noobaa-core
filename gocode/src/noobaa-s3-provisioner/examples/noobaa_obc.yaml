@@ -1,0 +1,8 @@
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata:
+  name: noobaa-obc
+spec:
+  #bucketName: "bucket" # a specific bucket name
+  generateBucketName: "noobaa-bucket" # prefix for a generated bucket name
+  storageClassName: nb-storage-class

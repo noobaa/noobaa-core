@@ -35,6 +35,8 @@ Issue labels are divided into several categories:
 
 ## Submitting Code
 ---MISSING---  
+
+
 - Please verify regression by running the unit tests and the system tests on your code  
 - Update existing tests (unit and/or system) on changed flows  
 - Add new tests (unit and/or system) to the the new flows added  
@@ -43,10 +45,13 @@ Issue labels are divided into several categories:
 - Open the relevant issues   
 - Update the needed architecture pages regarding new components or changes to existing components  
 
+
 ---MISSING---
 
 #### Coding Style
 The /src and the /frontend code trees have a different coding style.
+
+
 ---MISSING---
 
 You can run eslint to verify various coding style patterns (.eslintrc exists both in the project root and in the /frontend root)

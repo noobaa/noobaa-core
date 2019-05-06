@@ -1,8 +1,11 @@
 Contributing to NooBaa
 ===========
 
-## Submitting New Issues
 We're happy to get your input on the project. Please consider the following before submitting an issue  
+
+
+## Submitting New Issues
+
 
    1. Make a basic search on keywords to verify there is no existing issue describing the same problem. If there is, please add your information in that issue's discussion instead of opening a new one.
    2. Provide a clear descriptive title to the issue.  

@@ -46,3 +46,4 @@ noobaa.rpm
 /gocode/src/noobaa-operator/vendor
 /gocode/src/noobaa-operator/build/_output
 /gocode/src/noobaa-operator/build/*.yaml
+/gocode/src/noobaa-s3-provisioner/vendor

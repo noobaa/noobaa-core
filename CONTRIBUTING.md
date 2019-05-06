@@ -1,7 +1,7 @@
 Contributing to NooBaa
 ===========
 
-### Submitting New Issues
+## Submitting New Issues
 We're happy to get your input on the project. Please consider the following before submitting an issue  
 
    1. Make a basic search on keywords to verify there is no existing issue describing the same problem. If there is, please add your information in that issue's discussion instead of opening a new one.
@@ -17,7 +17,7 @@ We're happy to get your input on the project. Please consider the following befo
        - Open dev tools and go to console  
        - run nb.utils.dumpAppLog(), save the gz file and upload it as part of the bug  
 
-##### Issue Labels
+#### Issue Labels
 Issue labels are divided into several categories:  
   - Comp-X - This label indicates the issue is within a certain component of the project  
   - Closed X - For issues closed without fixing, this is the closing reason (dup, no repro, no fix)  
@@ -30,7 +30,7 @@ Issue labels are divided into several categories:
   - Misc labels (such as needs investigation, supportability etc)
 
 
-### Submitting Code
+## Submitting Code
 ---MISSING---  
 - Please verify regression by running the unit tests and the system tests on your code  
 - Update existing tests (unit and/or system) on changed flows  
@@ -42,7 +42,7 @@ Issue labels are divided into several categories:
 
 ---MISSING---
 
-##### Coding Style
+#### Coding Style
 The /src and the /frontend code trees have a different coding style.
 ---MISSING---
 

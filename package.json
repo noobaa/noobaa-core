@@ -10,7 +10,6 @@
   },
   "scripts": {
     "preinstall": "npm install node-addon-api nan",
-    "postinstall": "npm run build",
     "---": "------------------------------------------------------------------",
     "build:package": "gulp package_build",
     "build:native": "node-gyp rebuild",

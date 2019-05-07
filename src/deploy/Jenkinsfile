@@ -41,6 +41,7 @@ node('pipeline') {
 			fi
 			 cd $WORKSPACE
 			 npm install
+             npm run build
 			 #npm install azure cloud-cd
 			 #npm install minimist
 			 nvm --version

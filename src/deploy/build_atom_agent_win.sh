@@ -103,6 +103,8 @@ else
                 sed -i '' '/nodetime/d' package.json
                 sed -i '' '/newrelic/d' package.json
                 npm install -dd
+                echo "npm run build"
+                npm run build
                 nodever=$(cat ../../.nvmrc)
                 curl -Lk https://nodejs.org/dist/v${nodever}/win-x86/node.exe > node.exe
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe

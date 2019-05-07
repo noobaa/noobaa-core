@@ -52,6 +52,9 @@ echo "$(date) =====> version $NB_VERSION"
 
 echo "$(date) =====> npm install"
 npm install || exit 1
+#when we build should we devide it to "build": "npm run build:native && npm run build:fe" ?
+echo "$(date) =====> npm run build"
+npm run build || exit 1
 
 echo "$(date) =====> npm install frontend"
 pushd frontend

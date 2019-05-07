@@ -38,6 +38,7 @@ echo "AZURE_STORAGE_CONNECTION_STRING=\'${AZURE_STORAGE_CONNECTION_STRING}\'" >>
 echo "TEST_RUN_NAME=${TEST_RUN_NAME}" >> .env
 
 npm install
+npm run build
 npm install azure
 
 pwd 

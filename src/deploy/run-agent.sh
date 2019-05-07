@@ -24,6 +24,7 @@
 #   time rm -rf node_modules/
 #   time npm config set strict-ssl false
 #   time npm install
+#   time npm run build
 # else
 #   echo '++++++++++  code was not updated ++++++++++'
 # fi

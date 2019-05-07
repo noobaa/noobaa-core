@@ -35,7 +35,7 @@ wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_
 ```
 
 ##### Deployment Video
-[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/Rkig1lZccns/0.jpg)](https://youtu.be/Rkig1lZccns)
+[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/Rkig1lZccns/0.jpg)](https://www.youtube.com/watch?v=fuTKXBMwOes)
 
 
 ## Join NooBaa's open community

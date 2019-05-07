@@ -311,7 +311,7 @@ class AzureFunctions {
 
     async createAgentExtension(params) {
         const { vmName, os, serverIP, agentConf, ip } = params;
-        const buf = await fs.readFileAsync("/tmp/details.json");
+        const buf = fs.readFileSync("/tmp/details.json");
         const azure_details = JSON.parse(buf.toString());
         let extension = {
             publisher: 'Microsoft.OSTCExtensions',
@@ -614,7 +614,7 @@ class AzureFunctions {
 
     async rescanDataDisksExtension(vm) {
         console.log('removing old extension (if exist)');
-        const buf = await fs.readFileAsync("/tmp/details.json");
+        const buf = fs.readFileSync("/tmp/details.json");
         const azure_details = JSON.parse(buf.toString());
         await this.deleteVirtualMachineExtension(vm);
         const extension = {

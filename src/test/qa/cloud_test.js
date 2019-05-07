@@ -137,7 +137,7 @@ const cases = [
 ];
 report.init_reporter({ suite: test_name, conf, mongo_report: true, cases: cases });
 
-const AWSDefaultConnection = await cf.getAWSConnection();
+const AWSDefaultConnection = cf.getAWSConnection();
 connections_mapping = Object.assign(connections_mapping, { AWS: AWSDefaultConnection });
 connections_mapping = Object.assign(connections_mapping, { AZURE: blobops.AzureDefaultConnection });
 

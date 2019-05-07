@@ -104,7 +104,7 @@ async function init_test(target_ip, mng_port = '8080') {
     TEST_CTX.bucketfunc = new BucketFunctions(TEST_CTX.client);
     TEST_CTX.cloudfunc = new CloudFunction(TEST_CTX.client);
 
-    TEST_CTX.aws_connection = await TEST_CTX.cloudfunc.getAWSConnection();
+    TEST_CTX.aws_connection = TEST_CTX.cloudfunc.getAWSConnection();
     TEST_CTX.aws_connection.name = `${TEST_CTX.aws_connection.name}12`;
     TEST_CTX.azure_connection = blobops.AzureDefaultConnection;
     TEST_CTX.azure_connection.name = `${TEST_CTX.azure_connection.name}24`;

@@ -528,7 +528,7 @@ async function disable_quota_and_check() {
 }
 
 /*async function set_cloud_spillover() {
-    const AWSDefaultConnection = cf.getAWSConnection();
+    const AWSDefaultConnection = await cf.getAWSConnection();
     await cf.createConnection(AWSDefaultConnection, 'AWS');
     await cf.createCloudPool(AWSDefaultConnection.name, "qa-bucket", "QA-Bucket");
     await bf.setSpillover(bucket, "qa-bucket");

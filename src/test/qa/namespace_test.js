@@ -86,7 +86,7 @@ report.init_reporter({ suite: test_name, conf: { aws: true, azure: true }, mongo
 let cf = new CloudFunction(client);
 let bf = new BucketFunctions(client);
 
-const AWSDefaultConnection = cf.getAWSConnection();
+const AWSDefaultConnection = await cf.getAWSConnection();
 
 const s3ops = new S3OPS({ ip: server_ip });
 const s3opsAWS = new S3OPS({

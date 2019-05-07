@@ -280,7 +280,7 @@ async function runExtensions(vms, script_name, flags = '') {
     });
     await P.map(vms, async osname => {
         console.log(`running extension: ${script_name}`);
-        const buf = await fs.readFileAsync("/tmp/details.json");
+        const buf = fs.readFileSync("/tmp/details.json");
         const azure_details = JSON.parse(buf.toString());
         const extension = {
             publisher: 'Microsoft.OSTCExtensions',

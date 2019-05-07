@@ -10,8 +10,8 @@ class CloudFunction {
         this._client = client;
     }
 
-    async getAWSConnection() {
-        const buf = await fs.readFileAsync("/tmp/details.json");
+    getAWSConnection() {
+        const buf = fs.readFileSync("/tmp/details.json");
         const aws_details = JSON.parse(buf.toString());
         const AWSConnections = {
             name: 'AWSConnection',

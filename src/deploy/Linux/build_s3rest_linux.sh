@@ -82,6 +82,8 @@ else
 
         echo "npm install"
         npm install --production
+        echo "npm run build"
+        npm run build 
 
         echo "make self extracting package"
         cd ..

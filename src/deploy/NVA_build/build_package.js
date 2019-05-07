@@ -127,6 +127,7 @@ request({
 /*
 git checkout -b build_release_v${newver} ${commit}
 npm install
+npm run build
 gulp NVA_build
 
 

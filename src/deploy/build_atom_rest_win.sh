@@ -74,6 +74,8 @@ else
         pwd
         nodever=$(cat ../../.nvmrc)
         npm install -dd
+        echo "npm run build"
+        npm run build
         curl -Lk https://nodejs.org/dist/v${nodever}/win-x86/node.exe > node.exe                 
         #echo "Downloading atom-shell for windows"
         #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip

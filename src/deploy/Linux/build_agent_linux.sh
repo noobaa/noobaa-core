@@ -110,6 +110,7 @@ then
     verbose fix_package_json
     
     verbose npm install --production
+    verbose npm run build 
     verbose npm install node-linux@0.1.8
 
     verbose rm -rf agent_conf.json src/native

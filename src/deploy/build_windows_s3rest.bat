@@ -76,6 +76,7 @@ nvm arch
 node -p process.arch
 cmd /c npm config set msvs_version=2015 --global
 cmd /c npm install --production || exit 1
+cmd /c npm run build || exit 1
 
 echo "Copy 32 bit build results"
 if not exist ".\build\Release" exit 1
@@ -94,6 +95,7 @@ nvm arch
 node -p process.arch
 cmd /c npm config set msvs_version=2015 --global
 cmd /c npm install --production || exit 1
+cmd /c npm run build || exit 1
 
 echo "Copy 64 bit build results"
 if not exist ".\build\Release" exit 1

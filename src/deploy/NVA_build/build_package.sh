@@ -44,6 +44,7 @@ function build_package() {
   git checkout ${COMMIT}
   cd /git/noobaa-core
   npm install
+  npm run build
   gulp package_build
 }
 

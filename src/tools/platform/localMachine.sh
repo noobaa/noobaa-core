@@ -55,6 +55,7 @@ fi
 if ${runNpm} || ${newMachine}
 then
     npm install
+    npm run build
 fi
 eval $(grep DEV_MODE .env)
 if [ ! ${DEV_MODE} ]

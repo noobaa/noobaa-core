@@ -68,6 +68,7 @@ echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
 #TODO: unsafe-perm is needed because we run as root and is a bad practice 
 #      because it runs deps npm scripts as root on our machine!
 npm install --unsafe-perm
+npm run build --unsafe-perm #Do we need the unsafe-perm here??
 
 echo "starting the sanity_build_test phase"
 node src/test/system_tests/sanity_build_test.js \

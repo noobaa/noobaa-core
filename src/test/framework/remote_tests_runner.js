@@ -35,9 +35,9 @@ rm -rf /tmp/noobaa-NVA-latest.tar.gz
 rm -rf $WORKSPACE/
 if [ ${version} == 'latest' ]
 then
-    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
+    curl -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/api/xml >/tmp/lastSuccessfulBuild.xml
     buildPath=$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print $2}' | awk -F "</relativePath>" '{print $1}' | xargs)
-    curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/$buildPath >/tmp/noobaa-NVA-latest.tar.gz
+    curl -L $JENKINS_URL/job/Build/job/Build-Package-Master/lastSuccessfulBuild/artifact/$buildPath >/tmp/noobaa-NVA-latest.tar.gz
 else 
     yes | azcopy --source http://jenkinspipeline7.blob.core.windows.net/staging-vhds/ --include noobaa-NVA-${version}.tar.gz --destination /tmp/ --source-key $sorceKey
     mv /tmp/noobaa-NVA-${version}.tar.gz /tmp/noobaa-NVA-latest.tar.gz

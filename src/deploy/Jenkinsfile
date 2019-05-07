@@ -14,9 +14,8 @@ node('pipeline') {
 	def buildResult = "SUCCESS"
 	try {
 		stage('Get code from GIT') {
-			echo 'node name: pipeline, DNS name: jenkins-7-pipeline.westus2.cloudapp.azure.com'
 			echo 'Checkouting from git!'
-			checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '22686b32-d2c1-4a6f-9248-d89614dd8a3f', url: 'git@github.com:noobaa/noobaa-core.git']]])
+			checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: 'git@github.com:noobaa/noobaa-core.git']]])
 		}
 		stage('Preparing environment') {
 		    sh script: """
@@ -63,10 +62,10 @@ node('pipeline') {
                 path="$JENKINS_URL/job/Build/job/Build-Package/${build}"
                 pipePath="$JENKINS_URL/job/Test/job/Test-Pipeline-QA/api/xml"
             fi
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \${path}/api/xml >/tmp/lastSuccessfulBuild.xml
+            curl -L \${path}/api/xml >/tmp/lastSuccessfulBuild.xml
             buildPath=\$(cat /tmp/lastSuccessfulBuild.xml | awk -F "<relativePath>" '{print \$2}' | awk -F "</relativePath>" '{print \$1}' | xargs)
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \${pipePath} >/tmp/pipeline.xml
-            curl -u jackyalbo:711d9303458d34ad56c1a48716c02ee5e286570f -L \${path}/artifact/\${buildPath} >/tmp/noobaa-NVA-latest.tar.gz
+            curl -L \${pipePath} >/tmp/pipeline.xml
+            curl -L \${path}/artifact/\${buildPath} >/tmp/noobaa-NVA-latest.tar.gz
             tar -zxvf /tmp/noobaa-NVA-latest.tar.gz -C /tmp/
             cp -r /tmp/noobaa-core/src $WORKSPACE/
             """

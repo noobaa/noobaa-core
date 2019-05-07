@@ -27,7 +27,7 @@ wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64;ch
 #### Deployment
 
 ```
-wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh; wget https://raw.githubusercontent.com/noobaa/noobaa-core/src/deploy/NVA_build/noobaa_core.yaml;chmod +x noobaa_deploy_k8s.sh
+wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh; wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_core.yaml;chmod +x noobaa_deploy_k8s.sh
 ```
 
 ```

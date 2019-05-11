@@ -1,52 +1,57 @@
-noobaa-core
-===========
+# NooBaa
 
-## What is NooBaa
+----
+NooBaa is a data service for cloud environments, providing S3 object-store interface with flexible tiering, mirroring, and spread placement policies, over any storage resource that allows GET/PUT including S3, GCS, Azure Blob, Filesystems, etc.
 
-NooBaa can collapse multiple storage silos into a single, scalable storage fabric, by its ability to virtualize any local storage, whether shared or dedicated, physical or virtual and include both private and public cloud storage, using the same S3 API and management tools. NooBaa also gives you full control over data placement, letting you place data based on security, strategy and cost considerations, in the granularity of an application.
+NooBaa simplifies data administration by connecting to any of the storage silos from private or public clouds, and providing a single scalable data service, using the same S3 API and management tools. NooBaa allows full control over data placement, letting you place data based on security, strategy and cost considerations, in the granularity of an application.
+----
 
-Please see https://www.noobaa.com/ for more information.  
+## To start using NooBaa in Kubernetes
 
-## Getting Help
+Follow this youtube tutorial:
 
-Contacting us - support@noobaa.com
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=fuTKXBMwOes
+" target="_blank"><img src="http://img.youtube.com/vi/fuTKXBMwOes/0.jpg" 
+alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
 
-Knowledge Base - https://noobaa.desk.com/ (requires free account registration)
-
-## How to Use NooBaa
-
-### Kubernetes
-
-#### Prerequisites
-
-You will need  jq (json cli processor).
-For Linux, you can simply run this one-liner:
+1. Install `jq` (json cli tool to allow our script):
+Use your package manager as described in https://stedolan.github.io/jq/download
+For example `sudo apt-get install jq` or `sudo yum install jq` or `brew install jq` (for Mac) or just hack it for linux with:
+```bash
+wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+chmod +x jq
+mv jq /usr/local/bin/
 ```
-wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64;chmod +x ./jq;cp jq /usr/bin
+2. Get deploy files:
+```bash
+wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
+wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_core.yaml
+chmod +x noobaa_deploy_k8s.sh
 ```
-#### Deployment
-
+3. Deploy to current kubernetes context:
+```bash
+./noobaa_deploy_k8s.sh deploy -e <youremail> -n <namespace> -f noobaa_core.yaml
 ```
-wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh; wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_core.yaml;chmod +x noobaa_deploy_k8s.sh
+4. Get info on NooBaa deployment (on current kubernetes context):
+```bash
+./noobaa_deploy_k8s.sh info -n <namespace>
 ```
 
-```
-./noobaa_deploy_k8s.sh deploy -e <youremail> -n <new namespace> -f ./noobaa_core.yaml
-```
+## Help
 
-##### Deployment Video
-[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/Rkig1lZccns/0.jpg)](https://www.youtube.com/watch?v=fuTKXBMwOes)
+- Website - https://www.noobaa.com
+- Knowledge Base - https://noobaa.desk.com
 
+## Communicate
 
-## Join NooBaa's open community
+- Mail to - support@noobaa.com
+- Subscribe to newsletter - https://www.noobaa.com/community
 
-Subscribe to NooBaa's open community https://www.noobaa.com/community
+## Contribute
 
-## Contributing Code & Submitting Issues
+- Read more on [How to Contribute](https://github.com/noobaa/noobaa-core/blob/master/CONTRIBUTING.md)  
+- Read more on [Developers Guide](https://github.com/noobaa/noobaa-core/wiki/Developers-Guide) 
 
-We are using github to host code and issues.  
-  
-Please refer to [How to Contribute](https://github.com/noobaa/noobaa-core/blob/master/CONTRIBUTING.md) for more information on how to contribute  
+# License
 
-
-Please refer to [Developers Guide](https://github.com/noobaa/noobaa-core/wiki/Developers-Guide) for better understanding of the project's architecture  
+Apache License 2.0, see [LICENSE](https://github.com/noobaa/noobaa-core/blob/master/LICENSE)

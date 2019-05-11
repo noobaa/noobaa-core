@@ -1,6 +1,4 @@
-# NooBaa
-
-<img src="/images/noobaa_logo.png" width="240" />
+<img src="/images/noobaa_logo.png" width="200" />
 
 ----
 NooBaa is a data service for cloud environments, providing S3 object-store interface with flexible tiering, mirroring, and spread placement policies, over any storage resource that allows GET/PUT including S3, GCS, Azure Blob, Filesystems, etc.

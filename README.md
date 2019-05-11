@@ -9,13 +9,15 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## To start using NooBaa in Kubernetes
 
-Follow this youtube tutorial:
+Follow this [video tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes)
 
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=fuTKXBMwOes" target="_blank">
+<a href="http://www.youtube.com/watch?v=fuTKXBMwOes" target="_blank">
   <img src="http://img.youtube.com/vi/fuTKXBMwOes/0.jpg"
        alt="http://www.youtube.com/watch?v=fuTKXBMwOes" 
        width="300" border="10" />
 </a>
+
+Here are the tutorial steps for copy-pasta:
 
 1. Install `jq` (json cli tool needed for our bash script):  
 Use your package manager as described in https://stedolan.github.io/jq/download
@@ -48,7 +50,7 @@ chmod +x noobaa_deploy_k8s.sh
 
 ## Communicate
 
-- Mail to support@noobaa.com
+- support@noobaa.com
 - [Subscribe to newsletter](https://www.noobaa.com/community)
 
 ## Contribute

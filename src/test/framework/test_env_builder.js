@@ -458,7 +458,7 @@ function verify_args() {
 
 function print_usage() {
     console.log(`
-Usage:  node ${process.argv0} --resource <resource-group> --vnet <vnet> --storage <storage-account> --name <server-name> --id <run id>
+Usage:  node ${process.argv[1]} --resource <resource-group> --vnet <vnet> --storage <storage-account> --name <server-name> --id <run id>
   --help                        -   show this usage
   --resource <resource-group>   -   the azure resource group to use
   --storage <storage-account>   -   the azure storage account to use

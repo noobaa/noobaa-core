@@ -231,6 +231,7 @@ mocha.describe('system_servers', function() {
             .then(() => rpc_client.tier.create_tier({
                 name: TIER,
                 attached_pools: [POOL],
+                //test
                 data_placement: 'SPREAD',
             }))
             .then(() => rpc_client.tier.read_tier({

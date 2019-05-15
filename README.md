@@ -45,14 +45,14 @@ chmod +x noobaa_deploy_k8s.sh
 
 ## Help
 
-- [Website](https://www.noobaa.com)
+- [Website](https://www.noobaa.io)
 - [Knowledge Base](https://noobaa.desk.com)
 - [Wiki](https://github.com/noobaa/noobaa-core/wiki)
 
 ## Communicate
 
 - support@noobaa.com
-- [Subscribe to newsletter](https://www.noobaa.com/community)
+- [Subscribe to newsletter](https://www.noobaa.io/community)
 
 ## Contribute
 

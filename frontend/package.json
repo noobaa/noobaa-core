@@ -44,7 +44,6 @@
     "gulp-svgstore": "6.1.1",
     "gulp-uglify": "^3.0.0",
     "gulp-watch": "^5.0.0",
-    "gulp-webserver": "^0.9.1",
     "inquirer": "^5.2.0",
     "mocha": "5.1.1",
     "module-alias": "2.0.6",

@@ -2,7 +2,6 @@
 'use strict';
 
 const api = require('../../api');
-const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
@@ -10,7 +9,6 @@ const af = require('../utils/agent_functions');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
-//const vm = require('../utils/vmware');
 
 const test_name = 'reclaim';
 dbg.set_process_name(test_name);
@@ -31,9 +29,9 @@ let current_size = 0;
 
 const {
     location = 'westus2',
-        resource, // = 'pipeline-agents',
-        storage, // = 'pipelineagentsdisks',
-        vnet, // = 'pipeline-agents-vnet',
+        resource,
+        storage,
+        vnet,
         //failed_agents_number = 1,
         server_ip,
         dataset_size = 100, //MB
@@ -88,9 +86,7 @@ report.init_reporter({
 
 let bf = new BucketFunctions(client);
 
-const osesLinuxSet = af.supported_oses('LINUX');
-const osesWinSet = af.supported_oses('WIN');
-
+const osesLinuxSet = af.supported_oses();
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -139,7 +135,7 @@ function set_fileSize() {
     if (dataset_size - current_size === 0) {
         rand_size = 1;
         //if we choose file size grater then the remaining space for the dataset,
-        //set it to be in the size that complet the dataset size.
+        //set it to be in the size that complete the dataset size.
     } else if (rand_size > dataset_size - current_size) {
         rand_size = dataset_size - current_size;
     }
@@ -168,7 +164,7 @@ async function createReclaimPool(reclaim_pool, agentSuffix) {
 
 async function cleanupBucket(bucket) {
     try {
-        console.log('runing clean up files from bucket ' + bucket);
+        console.log('running clean up files from bucket ' + bucket);
         await s3ops.delete_all_objects_in_bucket(bucket, true);
     } catch (err) {
         console.error(`Errors during deleting `, err);
@@ -226,9 +222,7 @@ async function run_main() {
     try {
         await azf.authenticate();
         await set_rpc_and_create_auth_token();
-        await P.join(reclaimCycle(osesWinSet, 'win'), reclaimCycle(osesLinuxSet, 'linux'));
-        //.then(() => reclaimCycle(osesWinSet))
-        //.then(() => af.createRandomAgents(azf, server_ip, storage, vnet, osesWinSet.length, suffix, osesWinSet))
+        await reclaimCycle(osesLinuxSet, 'linux');
         await af.clean_agents(azf, server_ip, suffix);
         console.log('reclaim test was successful!');
         await report.report();

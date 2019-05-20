@@ -110,6 +110,7 @@ spec:
             httpGet:
               port: 8080
               path: "/version"
+            timeoutSeconds: 5
           image: noobaa/noobaa-core:3.0.0
           imagePullPolicy: IfNotPresent
           resources:

@@ -28,6 +28,16 @@ const ADMIN_WIN_USERS = Object.freeze([
     'NT AUTHORITY\\SYSTEM',
     'BUILTIN\\Administrators'
 ]);
+
+const IS_WIN = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
+const IS_LINUX = process.platform === 'linux';
+const IS_ESX = process.env.PLATFORM === 'esx';
+const IS_DOCKER = process.env.container === 'docker';
+const IS_LINUX_VM = IS_LINUX && !IS_DOCKER;
+//TEST_CONTAINER is env variable that is being set by the tests.Dockerfile
+const IS_TEST_CONTAINER = process.env.TEST_CONTAINER;
+
 if (!process.env.PLATFORM) {
     console.log('loading .env file...');
     dotenv.load();
@@ -73,7 +83,7 @@ function os_info(count_mongo_reserved_as_free) {
 function _calculate_free_mem(count_mongo_reserved_as_free) {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
-    if (os.type() !== 'Windows_NT' && os.type() !== 'Darwin') {
+    if (!IS_WIN && !IS_MAC) {
         return P.resolve()
             // get OS cached mem
             .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:')
@@ -109,9 +119,9 @@ function _exec_and_extract_num(command, regex_line) {
 }
 
 function read_drives() {
-    if (os.type() === 'Windows_NT') {
+    if (IS_WIN) {
         return read_windows_drives();
-    } else if (process.env.container === 'docker') {
+    } else if (IS_DOCKER) {
         return read_kubernetes_agent_drives();
     } else {
         return read_mac_linux_drives();
@@ -119,13 +129,13 @@ function read_drives() {
 }
 
 function get_agent_platform_path() {
-    return process.env.container === 'docker' ? '/noobaa_storage/' : './';
+    return IS_DOCKER ? '/noobaa_storage/' : './';
 }
 
 function get_raw_storage() {
     // on containered environments the disk name is not consistent, just return the root mount size.
-    //later on we want to change it to return the size of the perstistent volume mount
-    if (os.type() === 'Linux' && process.env.PLATFORM !== 'docker') {
+    //later on we want to change it to return the size of the persistent volume mount
+    if (IS_LINUX_VM) {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
             .then(res => _.find(res, function(disk) {
                 let expected_name = 'sda';
@@ -156,7 +166,7 @@ function get_raw_storage() {
 }
 
 function get_main_drive_name() {
-    if (os.type() === 'Windows_NT') {
+    if (IS_WIN) {
         return process.env.SystemDrive;
     } else {
         return '/';
@@ -164,10 +174,10 @@ function get_main_drive_name() {
 }
 
 function get_distro() {
-    if (os.type() === 'Darwin') {
+    if (IS_MAC) {
         return P.resolve('OSX - Darwin');
     }
-    if (os.type() === 'Windows_NT') {
+    if (IS_WIN) {
         return P.resolve(`${os.type()} (${os.release()})`);
     }
     return P.fromCallback(callback => os_detailed_info(callback))
@@ -193,7 +203,7 @@ function calc_cpu_usage(current_cpus, previous_cpus) {
         idle: prev.idle + curr.idle,
         irq: prev.irq + curr.irq
     }));
-    // sum current cpus, and substract the sum of previous cpus (take negative of prev_sum as inital val)
+    // sum current cpus, and subtract the sum of previous cpus (take negative of prev_sum as initial val)
     let current_cpus_reduced = current_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
             user: prev.user + curr.user,
             nice: prev.nice + curr.nice,
@@ -216,7 +226,7 @@ function get_disk_mount_points() {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
             return _.filter(drives, drive => {
                 const { mount, drive_id } = drive;
-                if (process.env.container === 'docker' && mount !== '/') return false;
+                if (IS_DOCKER && mount !== '/') return false;
                 const is_win_drive =
                     (/^[a-zA-Z]:$/).test(drive_id);
                 const is_linux_drive =
@@ -242,7 +252,7 @@ function get_disk_mount_points() {
 function get_mount_of_path(file_path) {
     console.log('get_mount_of_path');
 
-    if (os.type() === 'Windows_NT') {
+    if (IS_WIN) {
         return fs.realpathAsync(file_path)
             .then(function(fullpath) {
                 // fullpath[0] = drive letter (C, D, E, ..)
@@ -260,7 +270,7 @@ function get_mount_of_path(file_path) {
 }
 
 function get_drive_of_path(file_path) {
-    if (os.type() === 'Windows_NT') {
+    if (IS_WIN) {
         return fs.realpathAsync(file_path)
             .then(function(fullpath) {
                 const drive_letter = fullpath[0] + fullpath[1];
@@ -283,7 +293,7 @@ function get_drive_of_path(file_path) {
 
 
 function remove_linux_readonly_drives(volumes) {
-    if (os.type() === 'Darwin') return volumes;
+    if (IS_MAC) return volumes;
     // grep command to get read only filesystems from /proc/mount
     let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
     return promise_utils.exec(grep_command, {
@@ -434,11 +444,11 @@ function wmic_parse_list(text) {
 
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Darwin') {
+    if (IS_MAC) {
         return promise_utils.exec('top -c -l 1' + file_redirect);
-    } else if (os.type() === 'Linux') {
+    } else if (IS_LINUX) {
         return promise_utils.exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
-    } else if (os.type() === 'Windows_NT') {
+    } else if (IS_WIN) {
         return P.resolve();
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
@@ -447,7 +457,7 @@ function top_single(dst) {
 
 function slabtop(dst) {
     const file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Linux') {
+    if (IS_LINUX) {
         return promise_utils.exec('slabtop -o' + file_redirect);
     } else {
         return P.resolve();
@@ -456,11 +466,11 @@ function slabtop(dst) {
 
 function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Darwin') {
+    if (IS_MAC) {
         return promise_utils.exec('netstat -na' + file_redirect);
-    } else if (os.type() === 'Windows_NT') {
+    } else if (IS_WIN) {
         return promise_utils.exec('netstat -na >' + dst);
-    } else if (os.type() === 'Linux') {
+    } else if (IS_LINUX) {
         return promise_utils.exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
@@ -473,8 +483,8 @@ function ss_single(dst) {
 }
 
 async function set_manual_time(time_epoch, timez) {
-    if (os.type() === 'Linux') {
-        if (process.env.container === 'docker') {
+    if (IS_LINUX) {
+        if (IS_DOCKER) {
             return;
         }
         await _set_time_zone(timez);
@@ -482,7 +492,7 @@ async function set_manual_time(time_epoch, timez) {
         await promise_utils.exec('systemctl stop ntpd.service');
         await promise_utils.exec('date +%s -s @' + time_epoch);
         await restart_rsyslogd();
-    } else if (os.type() !== 'Darwin') { //Bypass for dev environment
+    } else if (!IS_MAC) { //Bypass for dev environment
         throw new Error('setting time/date not supported on non-Linux platforms');
     }
 }
@@ -490,7 +500,7 @@ async function set_manual_time(time_epoch, timez) {
 function verify_ntp_server(srv) {
     return P.resolve()
         .then(() => {
-            if (os.type() === 'Linux') {
+            if (IS_LINUX) {
                 return promise_utils.exec(`ntpdate -q ${srv}`)
                     .then(() => _.noop)
                     .catch(err => {
@@ -504,7 +514,9 @@ function verify_ntp_server(srv) {
 }
 
 function get_ntp() {
-    if (os.type() === 'Linux') {
+    if (IS_DOCKER) { //Explicitly returning on docker
+        return P.resolve();
+    } else if (IS_LINUX) {
         return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", {
                 ignore_rc: false,
                 return_stdout: true,
@@ -513,15 +525,15 @@ function get_ntp() {
                 let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
             });
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+    } else if (IS_MAC) { //Bypass for dev environment
         return P.resolve();
     }
     throw new Error('NTP not supported on non-Linux platforms');
 }
 
 async function set_ntp(server, timez) {
-    if (os.type() === 'Linux') {
-        if (process.env.container === 'docker') {
+    if (IS_LINUX) {
+        if (IS_DOCKER) {
             return;
         }
         // if server is undefined than clear the ntp server configuration in ntp.conf
@@ -532,13 +544,13 @@ async function set_ntp(server, timez) {
         await promise_utils.exec('/sbin/chkconfig ntpd on 2345');
         await promise_utils.exec('systemctl restart ntpd.service');
         await restart_rsyslogd();
-    } else if (os.type() !== 'Darwin') { //Bypass for dev environment
+    } else if (!IS_MAC) { //Bypass for dev environment
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
 }
 
 function get_yum_proxy() {
-    if (os.type() === 'Linux') {
+    if (IS_LINUX) {
         return promise_utils.exec("cat /etc/yum.conf | grep NooBaa", {
                 ignore_rc: false,
                 return_stdout: true,
@@ -547,7 +559,7 @@ function get_yum_proxy() {
                 let regex_res = (/proxy=(.*) #NooBaa Configured Proxy Server/).exec(res);
                 return regex_res ? regex_res[1] : "";
             });
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+    } else if (IS_MAC) { //Bypass for dev environment
         return P.resolve();
     }
     throw new Error('Yum proxy not supported on non-Linux platforms');
@@ -555,25 +567,24 @@ function get_yum_proxy() {
 
 function set_yum_proxy(proxy_url) {
     var command = "sed -i 's/.*NooBaa Configured Proxy Server.*/#NooBaa Configured Proxy Server/' /etc/yum.conf";
-    if (os.type() === 'Linux') {
+    if (IS_LINUX) {
         if (!_.isEmpty(proxy_url)) {
             command = "sed -i 's/.*NooBaa Configured Proxy Server.*/proxy=" + proxy_url.replace(/\//g, '\\/') +
                 " #NooBaa Configured Proxy Server/' /etc/yum.conf";
         }
         return promise_utils.exec(command);
-    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+    } else if (IS_MAC) { //Bypass for dev environment
         return P.resolve();
     } else {
         throw new Error('setting yum proxy not supported on non-Linux platforms');
     }
 }
 
-
 //
 function _get_dns_servers_in_forwarders_file() {
     return P.resolve()
         .then(() => {
-            if (os.type() !== 'Linux') return [];
+            if (!IS_LINUX_VM) return [];
             return fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders')
                 .then(line => {
                     if (!line) return [];
@@ -587,7 +598,7 @@ function _get_dns_servers_in_forwarders_file() {
 function _get_search_domains(file, options) {
     return P.resolve()
         .then(() => {
-            if (os.type() !== 'Linux') return [];
+            if (!IS_LINUX_VM) return [];
             const { dhcp } = options || {};
             if (dhcp) {
                 // for dhcp configuration we look for "#NooBaa Configured Search"
@@ -658,14 +669,14 @@ function ensure_dns_and_search_domains(server_config) {
 function set_dns_and_search_domains(dns_servers, search_domains) {
     return P.resolve()
         .then(() => {
-            if (os.type() !== 'Linux') return;
+            if (!IS_LINUX) return;
             return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
         });
 }
 
 function _set_dns_server(servers) {
     if (!servers) return;
-    if (process.env.container === 'docker') return;
+    if (IS_DOCKER) return;
     const forwarders_str = (servers.length ? `forwarders { ${servers.join('; ')}; };` : `forwarders { };`) + '\nforward only;\n';
     dbg.log0('setting dns servers in named forwarders configuration');
     dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
@@ -728,7 +739,7 @@ function get_time_config() {
         status: false
     };
 
-    if (os.type() === 'Linux') {
+    if (IS_LINUX_VM) {
         return promise_utils.exec('/usr/bin/ntpstat | head -1', {
                 ignore_rc: false,
                 return_stdout: true,
@@ -754,7 +765,7 @@ function get_time_config() {
                 }
                 return reply;
             });
-    } else if (os.type() === 'Darwin') {
+    } else if (IS_MAC || IS_TEST_CONTAINER) {
         reply.status = true;
         return promise_utils.exec('ls -l /etc/localtime', {
                 ignore_rc: false,
@@ -805,7 +816,7 @@ function get_all_network_interfaces() {
 }
 
 function is_folder_permissions_set(current_path) {
-    if (os.type() !== 'Windows_NT') {
+    if (!IS_WIN) {
         return P.resolve(true);
     }
     let administrators_has_inheritance = false;
@@ -854,7 +865,7 @@ function is_folder_permissions_set(current_path) {
 }
 
 function set_win_folder_permissions(current_path) {
-    if (os.type() !== 'Windows_NT') {
+    if (!IS_WIN) {
         return P.resolve(true);
     }
     return promise_utils.exec('attrib +H ' + current_path)
@@ -873,8 +884,11 @@ function _set_time_zone(tzone) {
 }
 
 function read_server_secret() {
-    if (os.type() === 'Linux') {
-        return fs.readFileAsync(config.CLUSTERING_PATHS.SECRET_FILE)
+    const secret_path = (IS_LINUX) ?
+        config.CLUSTERING_PATHS.SECRET_FILE :
+        config.CLUSTERING_PATHS.DARWIN_SECRET_FILE;
+    if (IS_LINUX && !IS_TEST_CONTAINER) {
+        return fs.readFileAsync(secret_path)
             .then(function(data) {
                 var sec = data.toString();
                 return sec.trim();
@@ -882,8 +896,8 @@ function read_server_secret() {
             .catch(err => {
                 throw new Error('Failed reading secret with ' + err);
             });
-    } else if (os.type() === 'Darwin') {
-        return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
+    } else if (IS_MAC || IS_TEST_CONTAINER) {
+        return fs.readFileAsync(secret_path)
             .then(function(data) {
                 return data.toString().trim();
             })
@@ -892,8 +906,7 @@ function read_server_secret() {
                 //In linux its created as part of the server build process or in an upgrade
                 if (err.code === 'ENOENT') {
                     var id = uuid().substring(0, 8);
-                    return fs.writeFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
-                            id)
+                    return fs.writeFileAsync(secret_path, id)
                         .then(() => id);
                 } else {
                     throw new Error('Failed reading secret with ' + err);
@@ -905,7 +918,7 @@ function read_server_secret() {
 }
 
 function is_supervised_env() {
-    if (os.type() === 'Linux') {
+    if (IS_LINUX && !IS_TEST_CONTAINER) {
         return true;
     }
     return false;
@@ -940,7 +953,7 @@ async function get_services_ps_info(services) {
 
 function reload_syslog_configuration(conf) {
     dbg.log0('setting syslog configuration to: ', conf);
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return P.resolve();
     }
 
@@ -961,7 +974,7 @@ function reload_syslog_configuration(conf) {
 }
 
 function get_syslog_server_configuration() {
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return P.resolve();
     }
     return fs_utils.get_last_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf')
@@ -980,7 +993,7 @@ function get_syslog_server_configuration() {
 }
 
 function restart_noobaa_services() {
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return;
     }
 
@@ -1001,7 +1014,7 @@ function restart_noobaa_services() {
 }
 
 function set_hostname(hostname) {
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return P.resolve();
     }
 
@@ -1015,7 +1028,7 @@ function is_valid_hostname(hostname_string) {
 }
 
 function handle_unreleased_fds() {
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return P.resolve();
     }
 
@@ -1036,9 +1049,9 @@ function handle_unreleased_fds() {
 function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
     return P.resolve()
         .then(() => {
-            if (os.type() === 'Linux') {
+            if (IS_LINUX) {
                 return _check_ports_on_linux(dest_ips, start_port, end_port);
-            } else if (os.type() === 'Windows_NT') {
+            } else if (IS_WIN) {
                 return _check_ports_on_windows(dest_ips, start_port, end_port);
             }
             return true;
@@ -1196,7 +1209,7 @@ function _check_ports_on_linux(dest_ips, start_port, end_port) {
 }
 
 function get_iptables_rules() {
-    if (os.type() !== 'Linux') {
+    if (!IS_LINUX) {
         return P.resolve([]);
     }
     const iptables_command = 'iptables -L INPUT -nv';
@@ -1267,8 +1280,8 @@ function get_iptables_rules() {
 }
 
 async function install_vmtools() {
-    if (os.type() !== 'Linux') return;
-    if (process.env.PLATFORM !== 'esx') return;
+    if (!IS_ESX) return;
+    if (!IS_LINUX_VM) return;
     await promise_utils.exec('yum install -y open-vm-tools');
     await promise_utils.exec('systemctl start vmtoolsd.service');
 }

@@ -21,23 +21,14 @@ const auth_params = {
 const Yellow = "\x1b[33;1m";
 const NC = "\x1b[0m";
 
-function supported_oses(flavor) {
+function supported_oses() {
     const LINUX_FLAVORS = [
         'ubuntu12', 'ubuntu14', 'ubuntu16', 'ubuntu18',
         'centos6', 'centos7',
         'redhat6', 'redhat7'
     ];
-    const WIN_FLAVORS = [
-        'win2008', 'win2012', 'win2016'
-    ];
 
-    if (flavor === 'WIN') {
-        return WIN_FLAVORS;
-    } else if (flavor === 'LINUX') {
-        return LINUX_FLAVORS;
-    } else {
-        return LINUX_FLAVORS.concat(WIN_FLAVORS);
-    }
+    return LINUX_FLAVORS;
 }
 
 async function list_nodes(server_ip) {

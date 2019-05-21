@@ -336,16 +336,12 @@ function send_master_update(is_master, master_address) {
     let hosted_agents_promise = is_master ?
         server_rpc.client.hosted_agents.start() :
         server_rpc.client.hosted_agents.stop();
-    let update_master_promise = _.isUndefined(master_address) ?
-        P.resolve() :
-        server_rpc.client.redirector.publish_to_cluster({
-            method_api: 'server_inter_process_api',
-            method_name: 'update_master_change',
-            target: '', // required but irrelevant
-            request_params: {
-                master_address: master_address
-            }
-        });
+    let update_master_promise = server_rpc.client.redirector.publish_to_cluster({
+        method_api: 'server_inter_process_api',
+        method_name: 'update_master_change',
+        target: '', // required but irrelevant
+        request_params: { master_address, is_master }
+    });
     return P.join(
             server_rpc.client.system.set_webserver_master_state({
                 is_master: is_master
@@ -355,9 +351,7 @@ function send_master_update(is_master, master_address) {
                     role: 'admin'
                 })
             }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
-
             hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
-
             update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
         )
         .return();
@@ -372,6 +366,12 @@ function get_min_requirements() {
     };
 }
 
+function check_if_master() {
+    let current_clustering = get_topology();
+    return !current_clustering || // no cluster info => treat as master
+        !current_clustering.is_clusterized || // not clusterized => treat as master
+        system_store.is_cluster_master; // clusterized and is master
+}
 
 
 //Exports
@@ -392,3 +392,4 @@ exports.get_min_requirements = get_min_requirements;
 exports.get_local_upgrade_path = get_local_upgrade_path;
 exports.get_member_upgrade_stage = get_member_upgrade_stage;
 exports.can_upload_package_in_cluster = can_upload_package_in_cluster;
+exports.check_if_master = check_if_master;

@@ -1304,7 +1304,10 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
         const { metadata, spec, status } = serviceInfo;
         const { ingress } = status.loadBalancer;
         const internalHostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
-        const externalHostnames = _.flatMap(ingress, item => [item.ip, item.hostname].filter(Boolean));
+        const externalHostnames = [
+            ..._.flatMap(ingress, item => [item.ip, item.hostname].filter(Boolean)),
+            ...spec.externalIPs, // see: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+        ];
 
         return _.flatMap(spec.ports, portInfo => {
             const common = {
@@ -1337,6 +1340,7 @@ async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
         return [];
     }
 
+    // Addr rpc services ports.
     const list = Object.entries(get_default_ports())
         .map(([api, port]) => ({
             kind: 'EXTERNAL',

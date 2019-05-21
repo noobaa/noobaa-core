@@ -81,7 +81,7 @@ function init_clients() {
             .then(() => ssh_functions.ssh_exec(client, `sudo bash -c "supervisorctl restart all"`))
             .delay(20000))
         .then(() => {
-            rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.ip + ':8443');
+            rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.ip + ':8443', 'EXTERNAL');
             rpc_client = rpc.new_client({});
             let auth_params = {
                 email: 'demo@noobaa.com',

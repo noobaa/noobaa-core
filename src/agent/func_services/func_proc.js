@@ -49,7 +49,7 @@ try {
 
         if (msg.rpc_options) {
             const api = require('../../api'); // eslint-disable-line global-require
-            const rpc = api.new_rpc_from_base_address(msg.rpc_options.address);
+            const rpc = api.new_rpc_from_base_address(msg.rpc_options.address, 'EXTERNAL');
             const client = rpc.new_client();
             client.options = msg.rpc_options;
             context.rpc_client = client;

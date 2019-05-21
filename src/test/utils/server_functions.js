@@ -104,7 +104,7 @@ async function remove_swap_on_azure(server_ip, secret) {
 //will wait until the server reconnects via rpc
 async function wait_server_reconnect(server_ip) {
     console.log(`Connecting to the server via rpc`);
-    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`);
+    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`, 'EXTERNAL');
     const client = rpc.new_client({});
     for (let retries = 10; retries >= 0; --retries) {
         try {
@@ -121,7 +121,7 @@ async function wait_server_reconnect(server_ip) {
 //will create a system and check that the default account status is true.
 async function create_system_and_check(server_ip) {
     console.log(`Connecting to the server via rpc`);
-    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`);
+    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:8443`, 'EXTERNAL');
     const client = rpc.new_client({});
     try {
         await client.system.create_system({
@@ -205,7 +205,7 @@ async function upgrade_server(server_ip, upgrade) {
 
 
 async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_name) {
-    const rpc = api.new_rpc_from_base_address('wss://' + master_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + master_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     const auth_params = {
         email: 'demo@noobaa.com',

@@ -20,7 +20,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const phone_home_utils = require('../../util/phone_home');
 const config_file_store = require('../system_services/config_file_store').instance();
-
+const clustering_utils = require('../utils/clustering_utils.js');
 
 const dotenv = require('../../util/dotenv');
 
@@ -65,6 +65,7 @@ async function run() {
 async function run_monitors() {
     const { PLATFORM, CONTAINER_PLATFORM } = process.env;
     const os_type = os.type();
+    const is_master = clustering_utils.check_if_master();
 
     await _verify_remote_syslog_cluster_config();
     await _verify_server_certificate();
@@ -73,7 +74,6 @@ async function run_monitors() {
     await _check_remote_syslog();
     await _check_internal_ips();
     await _check_disk_space();
-    await _check_address_changes(CONTAINER_PLATFORM);
 
     if (PLATFORM !== 'docker') {
         await _verify_ntp_cluster_config();
@@ -97,6 +97,11 @@ async function run_monitors() {
 
     if (os_type === 'Linux') {
         await _check_for_duplicate_ips();
+    }
+
+    // Address auto detection should only run on master machine.
+    if (is_master) {
+        await _check_address_changes(CONTAINER_PLATFORM);
     }
 }
 

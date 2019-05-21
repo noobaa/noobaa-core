@@ -528,8 +528,8 @@ class RPC extends EventEmitter {
             throw err;
         }
         conn.once('connect', () => {
-            dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
             if (this.routing_hint) {
+                dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
                 conn.send(RpcRequest.encode_message({
                     op: 'routing_req',
                     reqid: conn._alloc_reqid(),

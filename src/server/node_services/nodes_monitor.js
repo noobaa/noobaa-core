@@ -1952,10 +1952,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _is_master() {
-        let current_clustering = system_store.get_local_cluster_info();
-        return !current_clustering || // no cluster info => treat as master
-            !current_clustering.is_clusterized || // not clusterized => treat as master
-            system_store.is_cluster_master; // clusterized and is master
+        return clustering_utils.check_if_master();
     }
 
     _should_enable_agent(info, agent_config) {
@@ -3768,7 +3765,7 @@ class NodesMonitor extends EventEmitter {
                     block_report);
                 continue;
             }
-            // when the error is NO SPACE we don't want to push the issue 
+            // when the error is NO SPACE we don't want to push the issue
             // because we don't need to put the node in detention
             if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') continue; // TODO SYNC STORAGE SPACE WITH THE NODE...
             // mark the issue on the node

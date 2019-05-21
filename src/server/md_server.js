@@ -12,14 +12,16 @@ server_rpc.register_object_services();
 server_rpc.register_func_services();
 server_rpc.register_common_services();
 
-function register_rpc() {
-    // TODO missing? server_rpc.rpc.router.md = 'fcall://fcall';
+async function register_rpc() {
     const u = url.parse(server_rpc.rpc.router.md);
-    return server_rpc.rpc.start_http_server({
+    await server_rpc.rpc.start_http_server({
         port: u.port,
         protocol: u.protocol,
         logging: true,
-    }).return(server_rpc.rpc);
+    });
+
+    server_rpc.rpc.router.md = 'fcall://fcall';
+    return server_rpc.rpc;
 }
 
 exports.register_rpc = register_rpc;

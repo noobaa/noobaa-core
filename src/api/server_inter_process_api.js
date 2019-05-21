@@ -42,6 +42,9 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
+                    is_master: {
+                        type: 'boolean'
+                    },
                     master_address: {
                         type: 'string',
                     },

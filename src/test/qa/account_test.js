@@ -297,7 +297,7 @@ async function verify_s3_no_access(email) {
 }
 
 async function login_user(email) {
-    rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.server_ip + ':8443');
+    rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.server_ip + ':8443', 'EXTERNAL');
     client = rpc.new_client({});
     let auth_params = {
         email,

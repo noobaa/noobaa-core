@@ -134,7 +134,11 @@ function new_rpc() {
     return new_rpc_from_routing(routing_table);
 }
 
-function new_rpc_from_base_address(base_address, routing_hint = 'EXTERNAL') {
+function new_rpc_from_base_address(base_address, routing_hint) {
+    if (!routing_hint) {
+        throw new Error('Routing hint was not provided');
+    }
+
     // Create a routing table derived from the base address and default port offsets.
     const routing_table = new_router_from_base_address(base_address);
     const rpc = new_rpc_from_routing(routing_table);

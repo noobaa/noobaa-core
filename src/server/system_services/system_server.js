@@ -87,7 +87,17 @@ async function _init() {
                 server_rpc.rpc.register_routing_authority(_resolve_routing);
 
                 await _initialize_debug_level();
-                await _configure_system_address(system._id, system.owner.id);
+
+                // Must ask Mongo directly and not use the indication on the system_store,
+                // using clustering_utils.check_if_master(), because waiting for system
+                // store inital load does not guarantee that the bg updated and published
+                // the indication on the system store.
+                const { ismaster } = await MongoCtrl.is_master();
+                if (ismaster) {
+                    // Only the muster should update the system address.
+                    await _configure_system_address(system._id, system.owner.id);
+                }
+
                 update_done = true;
             }
 
@@ -699,23 +709,19 @@ function set_maintenance_mode(req) {
 }
 
 function set_webserver_master_state(req) {
-    // TODO: This is for future use when we will need to realize if master state changed
-    if (system_store.is_cluster_master !== req.rpc_params.is_master) {
-        system_store.is_cluster_master = req.rpc_params.is_master;
-        if (system_store.is_cluster_master) {
-            // If current server became master
-            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-                .then(() => server_rpc.client.cluster_server.set_debug_level({
-                    level: 0
-                }, {
-                    auth_token: req.auth_token
-                }));
-            //Going Master //TODO:: add this one we get back to HA
-            node_server.start_monitor();
-        } else {
-            //Stepping Down
-            node_server.stop_monitor();
-        }
+    if (req.rpc_params.is_master) {
+        // If current server became master
+        promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+            .then(() => server_rpc.client.cluster_server.set_debug_level({
+                level: 0
+            }, {
+                auth_token: req.auth_token
+            }));
+        //Going Master //TODO:: add this one we get back to HA
+        node_server.start_monitor();
+    } else {
+        //Stepping Down
+        node_server.stop_monitor();
     }
 }
 
@@ -912,7 +918,7 @@ async function _get_install_info(req, hint) {
     const conf_id = await _get_agent_conf_id(req, hint);
     const create_node_token = _get_create_node_token(req.system._id, req.account._id, conf_id);
     const addr = addr_utils.get_base_address(req.system.system_address, hint);
-    const installer_path = `${addr.hostname}:${addr.port}/public`;
+    const installer_path = `https://${addr.hostname}:${addr.port}/public`;
     const install_conf = _get_base64_install_conf(addr.toString(), hint, req.system.name, create_node_token);
     return { installer_path, install_conf };
 }
@@ -930,7 +936,7 @@ async function get_node_installation_string(req) {
     ]);
 
     return {
-        LINUX: `wget /${ext_install_info.installer_path}/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${ext_install_info.install_conf}`,
+        LINUX: `wget --no-check-certificate ${ext_install_info.installer_path}/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${ext_install_info.install_conf}`,
         KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", int_install_info.install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
     };
 }

@@ -172,6 +172,7 @@ class HostedAgents {
             storage_path,
             token_wrapper,
             create_node_token_wrapper,
+            routing_hint: 'LOOPBACK'
         };
         agent_params[pool_path_property] = pool_path;
         agent_params[pool_info_property] = pool_info;

@@ -32,7 +32,7 @@ function supported_oses() {
 }
 
 async function list_nodes(server_ip) {
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const listHosts = await client.host.list_hosts({});
@@ -41,7 +41,7 @@ async function list_nodes(server_ip) {
 }
 
 async function number_offline_nodes(server_ip) {
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const listHosts = await client.host.list_hosts({});
@@ -208,7 +208,7 @@ async function createAgentsWithList(params) {
 }
 
 async function getAgentConfInstallString(server_ip, osType, exclude_drives = [], pool = default_pool) {
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const installationString = await client.system.get_node_installation_string({
@@ -257,7 +257,7 @@ async function runAgentCommandViaSsh(agent_server_ip, username, password, agentC
 }
 
 async function activeAgents(server_ip, deactivated_nodes_list) {
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     for (const name of deactivated_nodes_list) {
@@ -267,7 +267,7 @@ async function activeAgents(server_ip, deactivated_nodes_list) {
 }
 
 async function deactivateAgents(server_ip, activated_nodes_list) {
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     for (const name of activated_nodes_list) {
@@ -278,7 +278,7 @@ async function deactivateAgents(server_ip, activated_nodes_list) {
 
 async function activeAllHosts(server_ip) {
     console.log(`Active All Hosts`);
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const listHosts = await client.host.list_hosts({});
@@ -296,7 +296,7 @@ async function activeAllHosts(server_ip) {
 
 async function deactivateAllHosts(server_ip) {
     console.log(`Deactivating All Hosts`);
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const list_hosts = await client.host.list_hosts({});
@@ -370,7 +370,7 @@ async function start_agent(azf, agent) {
 //removes agents with names that include suffix from Noobaa server
 async function deleteAgents(server_ip, suffix = '') {
     console.log(`Starting the delete agents stage`);
-    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+    const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
     const list_hosts = await client.host.list_hosts({});

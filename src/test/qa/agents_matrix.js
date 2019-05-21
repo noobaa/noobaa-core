@@ -86,7 +86,7 @@ const NC = "\x1b[0m";
 
 //noobaa rpc
 const api = require('../../api');
-const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443');
+const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
 const client = rpc.new_client({});
 const oses = af.supported_oses();
 

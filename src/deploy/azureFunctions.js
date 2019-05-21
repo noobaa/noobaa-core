@@ -925,7 +925,7 @@ class AzureFunctions {
             .tap(ip => P.resolve(ops.wait_for_server(ip)).timeout(10 * 60 * 1000 * 1000))
             .then(ip => {
                 if (createSystem) {
-                    rpc = api.new_rpc_from_base_address('wss://' + ip + ':8443');
+                    rpc = api.new_rpc_from_base_address('wss://' + ip + ':8443', 'EXTERNAL');
                     rpc.disable_validation();
                     client = rpc.new_client({});
                     return client.system.create_system(system)

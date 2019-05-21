@@ -35,14 +35,17 @@ function update_mongo_connection_string(req) {
 }
 
 function update_master_change(req) {
-    let new_master_address = req.rpc_params.master_address;
-    let old_master_address = server_rpc.rpc.router.master;
-    // old_master_address is of the form ws://addr:port. check if new_master_address is differnet
-    if (old_master_address.indexOf(new_master_address) === -1) {
-        dbg.log0(`master changed from ${old_master_address} to ${new_master_address}. updating server_rpc`);
-        server_rpc.set_new_router({
-            master_address: new_master_address
-        });
+    system_store.is_cluster_master = req.rpc_params.is_master;
+    if (req.rpc_params.master_address) {
+        let new_master_address = req.rpc_params.master_address;
+        let old_master_address = server_rpc.rpc.router.master;
+        // old_master_address is of the form ws://addr:port. check if new_master_address is differnet
+        if (old_master_address.indexOf(new_master_address) === -1) {
+            dbg.log0(`master changed from ${old_master_address} to ${new_master_address}. updating server_rpc`);
+            server_rpc.set_new_router({
+                master_address: new_master_address
+            });
+        }
     }
 }
 

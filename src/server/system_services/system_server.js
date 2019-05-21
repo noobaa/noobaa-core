@@ -919,7 +919,6 @@ async function _get_install_info(req, hint) {
 
 async function get_node_installation_string(req) {
     const linux_agent_installer = `noobaa-setup-${pkg.version}`;
-    const win_agent_installer = `noobaa-setup-${pkg.version}.exe`;
     const [
         kubernetes_yaml,
         ext_install_info,
@@ -932,7 +931,6 @@ async function get_node_installation_string(req) {
 
     return {
         LINUX: `wget /${ext_install_info.installer_path}/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${ext_install_info.install_conf}`,
-        WINDOWS: `Import-Module BitsTransfer ; Start-BitsTransfer -Source http://${ext_install_info.installer_path}/${win_agent_installer} -Destination C:\\${win_agent_installer}; C:\\${win_agent_installer} /S /config ${ext_install_info.install_conf}`,
         KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", int_install_info.install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
     };
 }

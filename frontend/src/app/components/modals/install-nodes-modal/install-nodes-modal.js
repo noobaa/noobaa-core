@@ -29,11 +29,6 @@ const osTypes = deepFreeze([
         hint: 'Run using a privileged user'
     },
     {
-        value: 'WINDOWS',
-        label: 'Windows',
-        hint: 'Run using PowerShell'
-    },
-    {
         value: 'KUBERNETES',
         label: 'Kubernetes',
         hint: 'Copy into a noobaa.yaml file and run using the command "kubectl apply -f noobaa.yaml"'
@@ -70,7 +65,6 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
         selectedOs: 'LINUX',
         commands: {
             LINUX: '',
-            WINDOWS: '',
             KUBERNETES: ''
         }
     };

@@ -109,19 +109,8 @@ class AzureFunctions {
                 os.hasImage = false;
             }
         } else if (osname.includes('win')) {
-            // Windows 2012R2 config
-            os.publisher = 'MicrosoftWindowsServer';
-            os.offer = 'WindowsServer';
-            if (ver === '2012') {
-                os.sku = '2012-R2-Datacenter';
-            } else if (ver === '2008') {
-                os.sku = '2008-R2-SP1';
-            } else if (ver === '2016') {
-                os.sku = '2016-Datacenter';
-            }
-            os.version = 'latest';
-            os.osType = 'Windows';
-            os.hasImage = false;
+            // Making sure we are not trying to get windows 
+            throw new Error(`Windows is no longer supported`);
         }
         return os;
     }
@@ -167,10 +156,8 @@ class AzureFunctions {
             sku: osDetails.sku,
             version: 'latest'
         };
-        if (diskSizeGB === 'default' && osDetails.osType !== 'Windows') {
+        if (diskSizeGB === 'default') {
             diskSizeGB = 40;
-        } else if (diskSizeGB === 'default' && osDetails.osType === 'Windows') {
-            diskSizeGB = 140;
         }
         await this.createVirtualMachine({
             vmName,
@@ -192,7 +179,6 @@ class AzureFunctions {
                 vmName,
                 storage,
                 vnet,
-                os: osDetails,
                 agentConf,
                 serverIP: server_ip
             });
@@ -278,10 +264,8 @@ class AzureFunctions {
             image: os + '.vhd',
             location
         });
-        if (diskSizeGB === 'default' && osType !== 'Windows') {
+        if (diskSizeGB === 'default') {
             diskSizeGB = 40;
-        } else if (diskSizeGB === 'default' && osType === 'Windows') {
-            diskSizeGB = 140;
         }
         await this.createVirtualMachineFromImage({
             vmName,
@@ -310,7 +294,7 @@ class AzureFunctions {
     }
 
     async createAgentExtension(params) {
-        const { vmName, os, serverIP, agentConf, ip } = params;
+        const { vmName, serverIP, agentConf, ip } = params;
         const buf = fs.readFileSync("/tmp/details.json");
         const azure_details = JSON.parse(buf.toString());
         let extension = {
@@ -328,41 +312,8 @@ class AzureFunctions {
             },
             location: this.location,
         };
-        if (os.osType === 'Windows') {
-            extension.publisher = 'Microsoft.Compute';
-            extension.virtualMachineExtensionType = 'CustomScriptExtension';
-            extension.typeHandlerVersion = '1.7';
-            extension.settings = {
-                fileUris: ['https://pluginsstorage.blob.core.windows.net/agentscripts/init_agent.ps1'],
-                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File init_agent.ps1 ' + serverIP +
-                    ' ' + agentConf
-            };
-        }
         await this.createVirtualMachineExtension(vmName, extension);
         return ip; //LMLM: why do we return the ip that we get?
-    }
-
-    async createWinSecurityExtension(vmName) {
-        console.log('Creating IaaSAntimalware extension');
-        const extension = {
-            publisher: "Microsoft.Azure.Security",
-            virtualMachineExtensionType: 'IaaSAntimalware',
-            typeHandlerVersion: '1.1',
-            settings: {
-                AntimalwareEnabled: 'true',
-            },
-            autoUpgradeMinorVersion: true,
-            RealtimeProtectionEnabled: 'true',
-            ScheduledScanSettings: {
-                isEnabled: 'true',
-                scanType: 'Quick',
-                day: 7,
-                time: 120
-            },
-            protectedSettings: null,
-            location: this.location
-        };
-        return this.createVirtualMachineExtension(vmName, extension, 'WinSecurityExtension');
     }
 
     async cloneVM(originalVM, newVmName, networkInterfaceName, ipConfigName, vnet, allocate_pip = true) {
@@ -475,12 +426,7 @@ class AzureFunctions {
         };
         console.log('Creating Virtual Machine: ' + vmName);
         return P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(
-                this.resourceGroupName, vmName, vmParameters, callback))
-            .then(() => {
-                if (imageReference.publisher === 'MicrosoftWindowsServer') {
-                    return this.createWinSecurityExtension(vmName);
-                }
-            });
+            this.resourceGroupName, vmName, vmParameters, callback));
     }
 
     async createVirtualMachineFromImage({
@@ -540,8 +486,10 @@ class AzureFunctions {
         vmParameters.networkProfile.networkInterfaces[0].id = nic.id;
         await P.fromCallback(callback => this.computeClient.virtualMachines.createOrUpdate(this.resourceGroupName,
             vmName, vmParameters, callback));
+        // TODO: We are not supporting win agent, we should remove this code
         if (osType === 'Windows') {
-            await this.createWinSecurityExtension(vmName);
+            throw new Error(`we should not install windows`);
+            // await this.createWinSecurityExtension(vmName);
         }
     }
 
@@ -632,18 +580,7 @@ class AzureFunctions {
             },
             location: this.location,
         };
-        if (vm.includes('Linux')) {
-            console.log('running new extension to mount disk to file system for Linux');
-        } else {
-            extension.publisher = 'Microsoft.Compute';
-            extension.virtualMachineExtensionType = 'CustomScriptExtension';
-            extension.typeHandlerVersion = '1.7';
-            extension.settings = {
-                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/ddisk.ps1"],
-                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ddisk.ps1 '
-            };
-            console.log('running new extension to mount disk to file system for Windows');
-        }
+        console.log('running new extension to mount disk to file system for Linux');
         return this.createVirtualMachineExtension(vm, extension);
     }
 

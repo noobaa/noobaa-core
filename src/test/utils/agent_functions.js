@@ -218,7 +218,10 @@ async function getAgentConfInstallString(server_ip, osType, exclude_drives = [],
     if (osType === 'Linux') {
         return installationString.LINUX;
     } else if (osType === 'Windows') {
-        return installationString.WINDOWS;
+        //Throwing an error so we verify we catch every call for this function with windows
+        throw new Error(`osType ${osType} is no longer supported`);
+    } else if (osType === 'Kubernetes') {
+        return installationString.KUBERNETES;
     } else {
         throw new Error(`osType is ${osType}`);
     }

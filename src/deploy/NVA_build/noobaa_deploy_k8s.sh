@@ -13,7 +13,8 @@ CREDS_SECRET_NAME=noobaa-create-sys-creds
 ACCESS_KEY=""
 SECRET_KEY=""
 COMMAND=NONE
-NOOBAA_POD_NAME=noobaa-server-0
+NOOBAA_STATEFULSET_NAME=noobaa-server
+NOOBAA_POD_NAME=${NOOBAA_STATEFULSET_NAME}-0
 CLUSTER_NAME=$(kubectl config view --minify -o json | jq -r '.clusters[0].name')
 
 
@@ -114,7 +115,7 @@ function deploy_noobaa {
 function print_noobaa_info {
 
     #make sure noobaa exist
-    ${KUBECTL} get pod ${NOOBAA_POD_NAME} 2> /dev/null | grep -q ${NOOBAA_POD_NAME}
+    ${KUBECTL} get statefulset ${NOOBAA_STATEFULSET_NAME} 2> /dev/null | grep -q ${NOOBAA_STATEFULSET_NAME}
     if [ $? -ne 0 ]; then
         error_msg "NooBaa is not deployed in the namespace '${NAMESPACE}'. you can deploy using ${SCRIPT_NAME} deploy"
     fi
@@ -190,9 +191,10 @@ function get_service_external_ip {
     if [ "${CLUSTER_NAME}" != "minikube" ] && [ "${CLUSTER_NAME}" != "minishift" ]; then
         local IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
         local HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        local EXTERNAL_IP=$(${KUBECTL} get service $1 -o jsonpath='{.spec.externalIPs[0]}')
         local RETRIES=0
         local MAX_RETRIES=60
-        while [ "${IP}" == "" ] && [ "${HOST_NAME}" == "" ]; do
+        while [ "${IP}" == "" ] && [ "${HOST_NAME}" == "" ] && [ "${EXTERNAL_IP}" == "" ]; do
             RETRIES=$((RETRIES+1))
             if [ $RETRIES -gt $MAX_RETRIES ]; then
                 return 1
@@ -200,12 +202,15 @@ function get_service_external_ip {
             sleep 5
             IP=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
             HOST_NAME=$(${KUBECTL} get service $1 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            EXTERNAL_IP=$(${KUBECTL} get service $1 -o jsonpath='{.spec.externalIPs[0]}')
         done
 
-        if [ "${IP}" == "" ]; then
-            echo ${HOST_NAME}
-        else
+        if [ "${IP}" != "" ]; then
             echo ${IP}
+        elif [ "${HOST_NAME}" != "" ]; then
+            echo ${HOST_NAME}
+        elif [ "${EXTERNAL_IP}" != "" ]; then
+            echo ${EXTERNAL_IP}
         fi
     fi
 }

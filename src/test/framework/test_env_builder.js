@@ -283,7 +283,6 @@ function install_agents() {
                                 storage,
                                 vnet,
                                 ip: agent.ip,
-                                os,
                                 agentConf: agent_conf,
                                 serverIP: server.ip
                             });

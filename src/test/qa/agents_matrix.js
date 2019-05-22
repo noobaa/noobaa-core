@@ -297,16 +297,6 @@ async function runExtensions(vms, script_name, flags = '') {
             },
             location: location,
         };
-        const os = azf.getImagesfromOSname(osname.replace(suffix, ''));
-        if (os.osType === 'Windows') {
-            extension.publisher = 'Microsoft.Compute';
-            extension.virtualMachineExtensionType = 'CustomScriptExtension';
-            extension.typeHandlerVersion = '1.7';
-            extension.settings = {
-                fileUris: ["https://pluginsstorage.blob.core.windows.net/agentscripts/" + script_name + ".ps1"],
-                commandToExecute: 'powershell -ExecutionPolicy Unrestricted -File ' + script_name + '.ps1 ' + flags
-            };
-        }
         try {
             await azf.createVirtualMachineExtension(osname, extension);
         } catch (e) {
@@ -502,7 +492,7 @@ async function includeExcludeCycle(isInclude) {
     // verifying write, read, diag and debug level.
     console.log(``);
     // .then(verifyAgent)
-    // Deploy on an already deployed agent //need to find a way to run quit on win.
+    // Deploy on an already deployed agent //TODO: need to enable it again.
     // .then(() => {
     //     console.log(`Deploy on an already deployed agent`);
     //     return runExtensions(created_agents, 'init_agent', `${server_ip} ${agentConf}`)

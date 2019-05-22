@@ -9,7 +9,7 @@
 const AzureFunctions = require('./azureFunctions');
 const server_functions = require('../test/utils/server_functions');
 const P = require('../util/promise');
-const af = require('../test/utils/agent_functions'); //TODO: remove from here when Win can be copied from an image
+const af = require('../test/utils/agent_functions');
 const srv_ops = require('../test/utils/basic_server_ops');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('azureJs');
@@ -99,7 +99,7 @@ Usage:
     --delete <agents-number>    Number of agents to delete
     --add <agents-number>       The number of agents to add
     --os <name>                 The desired os for the agent (default is centos7). Supported OS types:
-                                ubuntu12/ubuntu14/ubuntu16/ubuntu18/centos6/centos7/redhat6/redhat7/win2008/win2012/win2016
+                                ubuntu12/ubuntu14/ubuntu16/ubuntu18/centos6/centos7/redhat6/redhat7
     --allimages                 Creates 1 agent per each supported OSs. If the number of agents requested exceeds the number of OSs
                                 duplicates would be created.
     --usemarket                 Use OS Images from the market and not prepared VHDs
@@ -140,9 +140,6 @@ const OSNAMES = [
     { type: 'centos7', shortname: 'c7' },
     { type: 'redhat6', shortname: 'r6' },
     { type: 'redhat7', shortname: 'r7' },
-    { type: 'win2008', shortname: 'w8' },
-    { type: 'win2012', shortname: 'w2' },
-    { type: 'win2016', shortname: 'w6' },
 ];
 
 let azf;
@@ -357,7 +354,7 @@ function _runAgent() {
                     console.log(`Provisioning ${util.inspect(machine)}`);
                     return P.resolve()
                         .then(() => {
-                            //TODO: remove from here when Win/redhat7 can be copied from an image 
+                            //TODO: remove from here when redhat7 can be copied from an image 
                             if (!machine.hasimage || argv.usemarket) {
                                 return af.getAgentConf(serverIP)
                                     .then(agentConf => azf.createAgent({

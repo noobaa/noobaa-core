@@ -1,6 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const panic = require('../../util/panic');
+panic.enable_heapdump('coretest');
+
 console.log('loading .env file');
 require('../../util/dotenv').load();
 

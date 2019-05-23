@@ -4,7 +4,6 @@
 require('../../util/dotenv').load();
 
 const _ = require('lodash');
-const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const argv = require('minimist')(process.argv);
@@ -21,6 +20,8 @@ const { CoverageReport } = require('../../util/coverage_utils');
 const COVERAGE_DIR = './report/cov';
 const REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 const DEFAULT_TEST_TIMEOUT = 20 * 60 * 1000; // 20 minutes timeout for a test
+
+const IS_MAC = process.platform === 'darwin';
 
 class TestRunner {
     constructor(args) {
@@ -96,7 +97,7 @@ class TestRunner {
     }
 
     clean_server_for_run() {
-        if (os.type() === 'Darwin') return;
+        if (IS_MAC) return;
         const logs_regexp = /noobaa\.log\...\.gz/;
         const logs_path = '/log/';
         return P.resolve(fs.readdirAsync(logs_path))
@@ -179,7 +180,7 @@ class TestRunner {
     run_tests() {
         var self = this;
         return P.each(self._steps, function(current_step) {
-                return P.resolve(self._print_curent_step(current_step))
+                return P.resolve(self._print_current_step(current_step))
                     .then(function(step_res) {
                         return P.resolve(self._run_current_step(current_step, step_res));
                     })
@@ -215,7 +216,7 @@ class TestRunner {
         }
     }
 
-    _print_curent_step(current_step) {
+    _print_current_step(current_step) {
         var step_res;
         var title;
         return P.fcall(function() {
@@ -285,7 +286,7 @@ class TestRunner {
                 if (this._argv[p.input_arg]) {
                     return this._argv[p.input_arg];
                 } else {
-                    fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
+                    fs.appendFileSync(REPORT_PATH, 'No argument received for ' + p.input_args + '\n');
                 }
             }
         }));
@@ -374,7 +375,7 @@ class TestRunner {
             }))
             .then(function(res) {
 
-                // Add all recieved data to the collector
+                // Add all received data to the collector
                 _.each(res.redirect_reply.aggregated, function(r) {
                     if (r.coverage_data) {
                         report.add_data(r.coverage_data);
@@ -405,11 +406,11 @@ class TestRunner {
             });
     }
 
-    async _restart_services(testrun) {
-        if (os.type() === 'Darwin') return;
-        console.log('Restarting services with TESTRUN arg to', testrun);
+    async _restart_services(test_run) {
+        if (IS_MAC) return;
+        console.log('Restarting services with TESTRUN arg to', test_run);
         var command;
-        if (testrun) {
+        if (test_run) {
             command = "sed -i 's/\\(.*web_server.js\\)/\\1 --TESTRUN/' /data/noobaa_supervisor.conf ";
             command += " ; sed -i 's/\\(.*bg_workers.js\\)/\\1 --TESTRUN/' /data/noobaa_supervisor.conf ";
         } else {

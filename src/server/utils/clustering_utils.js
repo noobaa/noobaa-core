@@ -23,7 +23,6 @@ function get_topology() {
     return system_store.get_local_cluster_info();
 }
 
-
 function update_host_address(address) {
     var current_clustering = system_store.get_local_cluster_info();
     //TODO:: publish changes to cluster!
@@ -366,10 +365,14 @@ function get_min_requirements() {
     };
 }
 
+function check_if_clusterized() {
+    const current_clustering = get_topology();
+    return current_clustering &&
+        current_clustering.is_clusterized;
+}
+
 function check_if_master() {
-    let current_clustering = get_topology();
-    return !current_clustering || // no cluster info => treat as master
-        !current_clustering.is_clusterized || // not clusterized => treat as master
+    return !check_if_clusterized() || // not clusterized => treat as master
         system_store.is_cluster_master; // clusterized and is master
 }
 
@@ -392,4 +395,5 @@ exports.get_min_requirements = get_min_requirements;
 exports.get_local_upgrade_path = get_local_upgrade_path;
 exports.get_member_upgrade_stage = get_member_upgrade_stage;
 exports.can_upload_package_in_cluster = can_upload_package_in_cluster;
+exports.check_if_clusterized = check_if_clusterized;
 exports.check_if_master = check_if_master;

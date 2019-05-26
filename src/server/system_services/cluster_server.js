@@ -27,6 +27,7 @@ const promise_utils = require('../../util/promise_utils');
 const net_utils = require('../../util/net_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const upgrade_server = require('./upgrade_server');
+const cutils = require('../utils/clustering_utils');
 
 let add_member_in_process = false;
 
@@ -1117,8 +1118,7 @@ function _set_debug_level_internal(req, level) {
                 // Only master can update the whole system debug mode level
                 // TODO: If master falls in the process and we already passed him
                 // It means that nobody will update the system in the DB, yet it will be in debug
-                let current_clustering = system_store.get_local_cluster_info();
-                if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+                if (cutils.check_if_clusterized() && !system_store.is_cluster_master) {
                     return;
                 }
                 if (level > 0) {

@@ -161,9 +161,10 @@ app.use(function(req, res, next) {
     return next();
 });
 app.use(function(req, res, next) {
-    let current_clustering = system_store.get_local_cluster_info();
-    if ((current_clustering && current_clustering.is_clusterized) &&
-        !system_store.is_cluster_master && req.originalUrl !== '/upload_package' && req.originalUrl !== '/version') {
+    if (cutil.check_if_clusterized() &&
+        !system_store.is_cluster_master &&
+        req.originalUrl !== '/upload_package' && req.originalUrl !== '/version'
+    ) {
         P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
             .then(host => {
                 res.status(307);
@@ -386,10 +387,8 @@ function getVersion(route) {
     return P.resolve()
         .then(() => {
             const registered = server_rpc.is_service_registered('system_api.read_system');
-            let current_clustering = system_store.get_local_cluster_info();
             let started;
-            if (system_store.data.systems.length === 0 ||
-                (current_clustering && !current_clustering.is_clusterized)) {
+            if (system_store.data.systems.length === 0 || cutil.check_if_clusterized()) {
                 // if no system or not clusterized then no need to wait
                 started = true;
             } else {

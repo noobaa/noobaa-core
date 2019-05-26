@@ -29,8 +29,7 @@ function background_worker() {
 
     dbg.log2(`checking cluster_master`);
 
-    let current_clustering = system_store.get_local_cluster_info();
-    if (current_clustering && current_clustering.is_clusterized) {
+    if (cutil.check_if_clusterized()) {
         // TODO: Currently checks the replica set master since we don't have shards
         // We always need to send so the webserver will be updated if the
         return P.resolve()

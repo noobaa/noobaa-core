@@ -23,7 +23,7 @@ const node_allocator = require('../node_services/node_allocator');
 const PeriodicReporter = require('../../util/periodic_reporter');
 const Barrier = require('../../util/barrier');
 const KeysSemaphore = require('../../util/keys_semaphore');
-const { ChunkDB } = require('./map_db_types');
+const { ChunkDB, BlockDB } = require('./map_db_types');
 // const { new_object_id } = require('../../util/mongo_utils');
 const { BlockAPI, get_all_chunks_blocks } = require('../../sdk/map_api_types');
 
@@ -567,8 +567,26 @@ async function prepare_blocks(blocks) {
     const nodes_by_id = _.keyBy(nodes, '_id');
     for (const block of blocks) {
         const node = nodes_by_id[block.node_id.toHexString()];
-        block.set_node(node);
+        /** @type {nb.Pool} */
+        const pool = system_store.data.systems[0].pools_by_name[node.pool];
+        block.set_node(node, pool);
     }
+}
+
+/**
+ * 
+ * @param {nb.BlockSchemaDB[]} blocks
+ * @return {Promise<nb.Block[]>} 
+ */
+async function prepare_blocks_from_db(blocks) {
+    const db_blocks = blocks.map(block => {
+        const chunk = system_store.data.get_by_id(block.chunk);
+        const frag = system_store.data.get_by_id(block.frag);
+        const block_db = new BlockDB(block, frag, chunk);
+        return block_db;
+    });
+    await prepare_blocks(db_blocks);
+    return db_blocks;
 }
 
 
@@ -578,3 +596,4 @@ exports.select_tier_for_write = select_tier_for_write;
 exports.make_room_in_tier = make_room_in_tier;
 exports.prepare_chunks = prepare_chunks;
 exports.prepare_blocks = prepare_blocks;
+exports.prepare_blocks_from_db = prepare_blocks_from_db;

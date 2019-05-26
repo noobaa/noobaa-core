@@ -86,6 +86,7 @@ class MapClient {
      * @param {nb.LocationInfo} [props.location_info]
      * @param {nb.Tier} [props.move_to_tier]
      * @param {boolean} [props.check_dups]
+     * @param {boolean} [props.verification_mode]
      * @param {Object} props.rpc_client
      * @param {string} [props.desc]
      * @param { (block_md: nb.BlockMD, action: 'write'|'replicate'|'read', err: Error) => Promise<void> } props.report_error
@@ -102,7 +103,7 @@ class MapClient {
         this.desc = props.desc;
         this.report_error = props.report_error;
         this.had_errors = false;
-        this.verification_mode = false;
+        this.verification_mode = props.verification_mode || false;
         Object.seal(this);
     }
 

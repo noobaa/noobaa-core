@@ -10,7 +10,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const server_rpc = require('../server_rpc');
-const mapper = require('../object_services/mapper');
+const map_server = require('../object_services/map_server');
 
 class AgentBlocksVerifier {
 
@@ -70,28 +70,19 @@ class AgentBlocksVerifier {
             });
     }
 
-    populate_agent_blocks_verifier_blocks(blocks) {
+    /**
+     * 
+     * @param {nb.BlockSchemaDB[]} blocks 
+     */
+    async populate_agent_blocks_verifier_blocks(blocks) {
         if (!blocks || !blocks.length) return;
 
-        return this.populate_nodes_for_blocks(blocks)
-            .then(blocks_with_nodes => {
-                const blocks_with_alive_nodes = blocks_with_nodes.filter(block =>
-                    block.node && block.node.rpc_address && block.node.online);
-                if (!blocks_with_alive_nodes || !blocks_with_alive_nodes.length) return;
-                return this.populate_chunks(blocks_with_alive_nodes, 'chunk', { frags: 1, chunk_config: 1 });
-            })
-            .then(populated_blocks => {
-                if (!populated_blocks || !populated_blocks.length) return;
-                return populated_blocks.map(block => {
-                    const chunk_config = this.get_by_id(block.chunk.chunk_config);
-                    if (!chunk_config) {
-                        dbg.warn('populate_agent_blocks_verifier_blocks: Chunk config not found', block.chunk.chunk_config);
-                    }
-                    block.chunk.chunk_coder_config = chunk_config && chunk_config.chunk_coder_config;
-                    const frag = block.chunk.frags.find(frag_rec => String(frag_rec._id) === String(block.frag));
-                    return mapper.get_block_md(block.chunk, frag, block);
-                });
-            });
+        const populated_blocks = await this.populate_and_prepare_for_blocks(blocks);
+        if (!populated_blocks || !populated_blocks.length) return;
+        const blocks_with_alive_nodes = populated_blocks.filter(block =>
+            block.node && block.node.rpc_address && block.node.online);
+        if (!blocks_with_alive_nodes || !blocks_with_alive_nodes.length) return;
+        return populated_blocks.map(block => block.to_block_md());
     }
 
     verify_blocks_on_agents(blocks_to_verify) {
@@ -104,7 +95,7 @@ class AgentBlocksVerifier {
                             verify_blocks
                         }, {
                             address: address,
-                            timeout: config.AGENT_BLOCKS_RECLAIMER_TIMEOUT,
+                            timeout: config.AGENT_BLOCKS_VERIFIER_TIMEOUT,
                         })
                         .catch(err => {
                             dbg.warn('AGENT_BLOCKS_VERIFIER:',
@@ -130,23 +121,11 @@ class AgentBlocksVerifier {
 
     /**
      * @override in unit tests for decoupling dependencies
+     * @param {nb.BlockSchemaDB[]} blocks
+     * @returns {Promise<nb.Block[]>}
      */
-    populate_nodes_for_blocks(...args) {
-        return MDStore.instance().populate_nodes_for_blocks(...args);
-    }
-
-    /**
-     * @override in unit tests for decoupling dependencies
-     */
-    populate_chunks(...args) {
-        return MDStore.instance().populate_chunks(...args);
-    }
-
-    /**
-     * @override in unit tests for decoupling dependencies
-     */
-    get_by_id(...args) {
-        return system_store.data.get_by_id(...args);
+    async populate_and_prepare_for_blocks(blocks) {
+        return map_server.prepare_blocks_from_db(blocks);
     }
 
     /**

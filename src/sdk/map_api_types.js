@@ -351,6 +351,10 @@ class BlockAPI {
         }
     }
 
+    set_digest_type() {
+        throw new Error(`BlockAPI.set_digest_type: unexpected call - used just for testing in BlockDB`);
+    }
+
     to_block_md() {
         return this.block_md;
     }

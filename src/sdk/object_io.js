@@ -596,6 +596,7 @@ class ObjectIO {
             read_end: params.end,
             location_info: this.location_info,
             rpc_client: params.client,
+            verification_mode: this._verification_mode,
             report_error: (block_md, action, err) => this._report_error_on_object_read(params, block_md, err),
         });
         await mc.run_read_object();

@@ -92,8 +92,11 @@ async function _init() {
                 // using clustering_utils.check_if_master(), because waiting for system
                 // store inital load does not guarantee that the bg updated and published
                 // the indication on the system store.
-                const { ismaster } = await MongoCtrl.is_master();
-                if (ismaster) {
+                const is_master =
+                    !cutil.check_if_clusterized() ||
+                    (await MongoCtrl.is_master()).ismaster;
+
+                if (is_master) {
                     // Only the muster should update the system address.
                     await _configure_system_address(system._id, system.owner.id);
                 }

@@ -91,6 +91,7 @@ function create_agent(howmany) {
                 }
             },
             host_id: uuid(),
+            routing_hint: 'LOOPBACK'
         });
         agntCtlConfig.allocated_agents[agent.node_name] = {
             agent: agent,

@@ -16,6 +16,7 @@ const nodes_store = require('../node_services/nodes_store').NodesStore.instance(
 const func_store = require('../func_services/func_store').FuncStore.instance();
 const nodes_client = require('../node_services/nodes_client');
 const SensitiveString = require('../../util/sensitive_string');
+const cutil = require('../utils/clustering_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL0 = 'LOG_LOCAL0';
@@ -157,8 +158,7 @@ class Dispatcher {
     publish_fe_notifications(params, api) {
         return P.resolve()
             .then(() => {
-                let current_clustering = system_store.get_local_cluster_info();
-                if (current_clustering && current_clustering.is_clusterized) {
+                if (cutil.check_if_clusterized()) {
                     return server_rpc.client.cluster_internal.redirect_to_cluster_master();
                 }
             })

@@ -10,6 +10,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const map_deleter = require('../object_services/map_deleter');
+const map_server = require('../object_services/map_server');
 
 class AgentBlocksReclaimer {
 
@@ -29,51 +30,50 @@ class AgentBlocksReclaimer {
         return this.run_agent_blocks_reclaimer();
     }
 
-    run_agent_blocks_reclaimer() {
+    async run_agent_blocks_reclaimer() {
         if (!this.marker) {
             dbg.log0('AGENT_BLOCKS_RECLAIMER:', 'BEGIN');
         }
 
-        return this.iterate_all_blocks(
+        try {
+            const blocks = await this.iterate_all_blocks(
                 this.marker,
                 config.AGENT_BLOCKS_RECLAIMER_BATCH_SIZE,
                 true /* deleted_only */
-            )
-            .then(blocks => {
-                this.marker = blocks.length ? blocks[blocks.length - 1]._id : null;
-                return this.populate_agent_blocks_reclaimer_blocks(blocks);
-            })
-            .then(blocks_to_reclaim => {
-                if (!blocks_to_reclaim || !blocks_to_reclaim.length) return;
-                dbg.log0('AGENT_BLOCKS_RECLAIMER:',
-                    'DELETING:', blocks_to_reclaim);
-                return this.delete_blocks_from_nodes(blocks_to_reclaim);
-            })
-            .then(() => {
-                // return the delay before next batch
-                if (this.marker) {
-                    dbg.log0('AGENT_BLOCKS_RECLAIMER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
-                    return config.AGENT_BLOCKS_RECLAIMER_BATCH_DELAY;
-                }
-                dbg.log0('AGENT_BLOCKS_RECLAIMER:', 'END');
-                return config.AGENT_BLOCKS_RECLAIMER_RESTART_DELAY;
-            })
-            .catch(err => {
-                // return the delay before next batch
-                dbg.error('AGENT_BLOCKS_RECLAIMER:', 'ERROR', err, err.stack);
-                return config.AGENT_BLOCKS_RECLAIMER_ERROR_DELAY;
-            });
+            );
+            this.marker = blocks.length ? blocks[blocks.length - 1]._id : null;
+            const blocks_to_reclaim = await this.populate_agent_blocks_reclaimer_blocks(blocks);
+            if (!blocks_to_reclaim || !blocks_to_reclaim.length) return;
+            dbg.log0('AGENT_BLOCKS_RECLAIMER:',
+                'DELETING:', blocks_to_reclaim);
+            await this.delete_blocks_from_nodes(blocks_to_reclaim);
+            // return the delay before next batch
+            if (this.marker) {
+                dbg.log0('AGENT_BLOCKS_RECLAIMER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
+                return config.AGENT_BLOCKS_RECLAIMER_BATCH_DELAY;
+            }
+            dbg.log0('AGENT_BLOCKS_RECLAIMER:', 'END');
+            return config.AGENT_BLOCKS_RECLAIMER_RESTART_DELAY;
+        } catch (err) {
+            // return the delay before next batch
+            dbg.error('AGENT_BLOCKS_RECLAIMER:', 'ERROR', err, err.stack);
+            return config.AGENT_BLOCKS_RECLAIMER_ERROR_DELAY;
+        }
     }
 
+    /**
+     * 
+     * @param {nb.BlockSchemaDB} blocks 
+     */
     async populate_agent_blocks_reclaimer_blocks(blocks) {
 
         if (!blocks || !blocks.length) return;
 
-        const populated_blocks = await this.populate_nodes_for_blocks(blocks);
+        const db_blocks = await this.populate_nodes_for_blocks(blocks);
 
         // treat blocks that their node could not be populated as "orphan blocks" 
         // that their nodes is missing for some reason (probably deleted)
-        const [orphan_blocks, live_blocks] = _.partition(populated_blocks, block => mongo_utils.is_object_id(block.node));
+        const [orphan_blocks, live_blocks] = _.partition(db_blocks, block => mongo_utils.is_object_id(block.node));
 
         if (orphan_blocks.length) {
             dbg.log0(`identified ${orphan_blocks.length} orphan blocks that their node could not be found. marking them as reclaimed`,
@@ -87,6 +87,9 @@ class AgentBlocksReclaimer {
 
     /**
      * @override in unit tests for decoupling dependencies
+     * 
+     * @param  {...any} args 
+     * @return {nb.BlockSchemaDB[]}
      */
     iterate_all_blocks(...args) {
         return MDStore.instance().iterate_all_blocks(...args);
@@ -109,8 +112,8 @@ class AgentBlocksReclaimer {
     /**
      * @override in unit tests for decoupling dependencies
      */
-    populate_nodes_for_blocks(...args) {
-        return MDStore.instance().populate_nodes_for_blocks(...args);
+    populate_nodes_for_blocks(blocks) {
+        return map_server.prepare_blocks_from_db(blocks);
     }
 
 }

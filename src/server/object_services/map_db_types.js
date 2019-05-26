@@ -252,6 +252,9 @@ class BlockDB {
         /** @type {nb.NodeAPI} */
         this.node = undefined;
 
+        /** @type {nb.DigestType} */
+        this.digest_type = undefined;
+
         // needed only for digest_type and digest_b64:
         this.frag = frag;
         this.chunk = chunk;
@@ -285,13 +288,16 @@ class BlockDB {
 
     /**
      * @param {nb.NodeAPI} node 
+     * @param {nb.Pool} pool
      */
-    set_node(node) {
-        /** @type {nb.Pool} */
-        const pool = system_store.data.systems[0].pools_by_name[node.pool];
+    set_node(node, pool) {
         this.node = node;
         this.block_db.node = node._id;
         this.block_db.pool = pool._id;
+    }
+
+    set_digest_type(dig_type) { // only for test
+        this.digest_type = dig_type;
     }
 
     /** @returns {nb.BlockMD} */
@@ -302,7 +308,7 @@ class BlockDB {
             pool: optional_id_str(this.block_db.pool),
             address: this.node && this.node.rpc_address,
             size: this.block_db.size,
-            digest_type: this.chunk.chunk_coder_config.frag_digest_type,
+            digest_type: this.digest_type || this.chunk.chunk_coder_config.frag_digest_type,
             digest_b64: this.frag.digest_b64,
             node_type: this.node && this.node.node_type,
             is_preallocated: this.is_preallocated,

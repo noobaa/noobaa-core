@@ -13,6 +13,7 @@
     "src/sdk/object*.js",
     "src/server/object_services/*.js",
     "src/test/unit_tests/test_object_io.js",
+    "src/test/unit_tests/test_agent_blocks_verifier.js",
     "src/tools/mapper_speed.js",
   ],
   "exclude": [
@@ -33,7 +34,7 @@
     "src/rpc",
     "src/s3",
     "src/server",
-    "src/test",
+    // "src/test",
     "src/tools",
     "src/upgrade",
     "src/util",

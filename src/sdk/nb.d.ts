@@ -302,7 +302,8 @@ interface Block {
     // is_tampered: boolean;
 
     set_parent_ids(frag: Frag, chunk: Chunk);
-    set_node(node: NodeAPI);
+    set_node(node: NodeAPI, pool: Pool);
+    set_digest_type(dig_type: DigestType);
 
     to_block_md(): BlockMD;
     to_api(adminfo?: boolean): BlockInfo;

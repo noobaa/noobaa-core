@@ -160,7 +160,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             }).toArray())
             .then(blocks => {
                 // Object read cache still keeps the data and we want to read from agents
-                object_io._init_read_cache();
+                object_io.set_verification_mode();
                 const all_reclaimed = _.every(blocks, block => block.reclaimed);
                 if (!all_reclaimed) throw new Error('NOT ALL BLOCKS WERE RECLAIMED');
             })
@@ -228,8 +228,9 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             });
     }
 
-    function verify_read_data(key, data, obj_id) {
-        return object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id })
+    async function verify_read_data(key, data, obj_id) {
+        const object_md = await rpc_client.object.read_object_md({ bucket, key, obj_id });
+        return object_io.read_entire_object({ client: rpc_client, bucket, key, obj_id, object_md })
             .then(read_buf => {
                 // verify the read buffer equals the written buffer
                 assert.strictEqual(data.length, read_buf.length);

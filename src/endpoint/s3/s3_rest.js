@@ -232,7 +232,8 @@ function authenticate_request(req, res) {
 }
 
 // We removed support for default website hosting (host value is a bucket name)
-// after discussion with eran and gay because it intreeduced a conflict.
+// after a discussion with [Ohad, Nimrod, Eran, Guy] because it introduced a conflict
+// that will be resolved with Bucket Website Configuration
 // we will reintreduce it together with bucket site support.
 function parse_bucket_and_key(req) {
     const { url, headers, virtual_hosts } = req;

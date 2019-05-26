@@ -31,8 +31,8 @@ if (argv.endpoint) {
 
 const s3 = new AWS.S3({
     endpoint: argv.endpoint,
-    accessKeyId: argv.access_key,
-    secretAccessKey: argv.secret_key,
+    accessKeyId: argv.access_key && String(argv.access_key),
+    secretAccessKey: argv.secret_key && String(argv.secret_key),
     s3ForcePathStyle: !argv.vhost,
     s3BucketEndpoint: argv.vhost || false,
     signatureVersion: argv.sig, // s3 or v4
@@ -141,7 +141,7 @@ async function list_objects() {
             await list_objects();
         }
     } catch (err) {
-        console.error('LIST ERROR:', _.omit(err, 'stack'));
+        console.error('LIST ERROR:', err);
     }
 }
 
@@ -182,7 +182,7 @@ async function list_objects_v2() {
             return list_objects_v2();
         }
     } catch (err) {
-        console.error('LIST ERROR:', _.omit(err, 'stack'));
+        console.error('LIST ERROR:', err);
     }
 }
 

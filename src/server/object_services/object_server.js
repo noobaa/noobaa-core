@@ -633,7 +633,7 @@ async function list_objects(req) {
         bucket_id: req.bucket._id,
         delimiter: req.rpc_params.delimiter || '',
         prefix: req.rpc_params.prefix || '',
-        key_marker: req.rpc_params.key_marker ? ((req.rpc_params.prefix || '') + req.rpc_params.key_marker) : '',
+        key_marker: req.rpc_params.key_marker || '',
         limit: limit + 1,
         user_limit: limit,
         objects: [],
@@ -662,7 +662,7 @@ async function list_object_versions(req) {
     const limit = _list_limit(req.rpc_params.limit);
     if (!limit) return { is_truncated: false, objects: [], common_prefixes: [] };
 
-    const key_marker = req.rpc_params.key_marker ? ((req.rpc_params.prefix || '') + req.rpc_params.key_marker) : '';
+    const key_marker = req.rpc_params.key_marker || '';
     let version_seq_marker;
     if (key_marker && req.rpc_params.version_id_marker) {
         // in any case where the requested version_id_marker could not be resolved to a valid version_seq
@@ -721,7 +721,7 @@ async function list_uploads(req) {
         bucket_id: req.bucket._id,
         delimiter: req.rpc_params.delimiter || '',
         prefix: req.rpc_params.prefix || '',
-        key_marker: req.rpc_params.key_marker ? ((req.rpc_params.prefix || '') + req.rpc_params.key_marker) : '',
+        key_marker: req.rpc_params.key_marker || '',
         upload_started_marker: req.rpc_params.key_marker && req.rpc_params.upload_id_marker ?
             MDStore.instance().make_md_id(req.rpc_params.upload_id_marker) : undefined,
         limit: limit + 1,

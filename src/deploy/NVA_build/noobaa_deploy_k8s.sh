@@ -16,6 +16,10 @@ COMMAND=NONE
 NOOBAA_STATEFULSET_NAME=noobaa-server
 NOOBAA_POD_NAME=${NOOBAA_STATEFULSET_NAME}-0
 CLUSTER_NAME=$(kubectl config view --minify -o json | jq -r '.clusters[0].name')
+NUM_AGENTS=3
+PV_SIZE_GB=50
+INSTALL_AGENTS=false
+STORAGE_CLASS=""
 
 
 jq --version &> /dev/null
@@ -34,6 +38,7 @@ function usage(){
     echo "deploy            -   deploy NooBaa in a given namespace"
     echo "delete            -   delete an existing NooBaa deployment in a given namespace"
     echo "info              -   get NooBaa deployment details in a given namespace. noobaa credentials (email\password) are requires to get S3 access keys"
+    echo "storage           -   provision kuberentes PVs to use as backend storage for objects. specify --size and --num-pvs to control the provisioned storage"
     echo
     echo "Options:"
     echo "-e --email        -   (Required) The email address which is used to create the owner account in NooBaa"
@@ -41,6 +46,10 @@ function usage(){
     echo "-p --password     -   Login password to NooBaa management console (required to get S3 access keys)"
     echo "-f --file         -   Use a custom yaml file"
     echo "-s --sys-name     -   The system name in NooBaa management console. default is 'noobaa'"
+    echo "--size            -   PV size in GB to use as backend storage to store objects. Notice that by default noobaa uses 3 replicas to store objects. default ${PV_SIZE_GB}GB"
+    echo "--num-pvs         -   number of PVs to provisons as backend storage. Minimum value is 3. default is 3"
+    echo "--class           -   storageClass to use for PVs"
+    # echo "--pv              -   when deploying a new system also provision kubernetes PVs to use as backend storage for objects. default is false"
     echo "-h --help         -   Will show this help"
     exit 0
 }
@@ -54,6 +63,8 @@ do
                         shift 1;;
         info)           COMMAND=INFO
                         shift 1;;
+        storage)        COMMAND=STORAGE
+                        shift 1;;
         -e|--email)     EMAIL=${2}
                         shift 2;;
         -n|--namespace) NAMESPACE=${2}
@@ -64,6 +75,14 @@ do
                         shift 2;;
         -p|--password)  PASSWD=${2}
                         shift 2;;
+        --size)         PV_SIZE_GB=${2}
+                        shift 2;;
+        --num-pvs)      NUM_AGENTS=${2}
+                        shift 2;;
+        --class)        STORAGE_CLASS=${2}
+                        shift 2;;
+        --pv)           INSTALL_AGENTS=true
+                        shift 1;;
         -h|--help)	    usage;;
         *)              usage;;
     esac
@@ -78,7 +97,7 @@ if [ "${NAMESPACE}" == "" ]; then
 fi
 KUBECTL="kubectl --namespace ${NAMESPACE}"
 
-function error_msg {
+function error_and_exit {
     echo "Error: $1"
     exit 1
 }
@@ -86,7 +105,7 @@ function error_msg {
 
 function deploy_noobaa {
     if [ "${EMAIL}" == "" ]; then
-        error_msg "email is required for deploy command"
+        error_and_exit "email is required for deploy command"
     fi
 
 
@@ -96,7 +115,7 @@ function deploy_noobaa {
     #check if noobaa already exist
     ${KUBECTL} get pod ${NOOBAA_POD_NAME} 2> /dev/null | grep -q ${NOOBAA_POD_NAME}
     if [ $? -ne 1 ]; then
-        error_msg "NooBaa is already deployed in the namespace '${NAMESPACE}'. delete it first or deploy in a different namespace"
+        error_and_exit "NooBaa is already deployed in the namespace '${NAMESPACE}'. delete it first or deploy in a different namespace"
     fi
 
 
@@ -109,24 +128,65 @@ function deploy_noobaa {
     echo -e "\n${GREEN}Waiting for external IPs to be allocated for NooBaa services. this might take several minutes${NC}"
     sleep 2
     print_noobaa_info
+
+    # if [ "${INSTALL_AGENTS}" == "true" ]; then
+    #     install_storage_agents
+    # fi
+
 }
 
 
-function print_noobaa_info {
-
+function verify_noobaa_deployed {
     #make sure noobaa exist
     ${KUBECTL} get statefulset ${NOOBAA_STATEFULSET_NAME} 2> /dev/null | grep -q ${NOOBAA_STATEFULSET_NAME}
     if [ $? -ne 0 ]; then
-        error_msg "NooBaa is not deployed in the namespace '${NAMESPACE}'. you can deploy using ${SCRIPT_NAME} deploy"
+        error_and_exit "NooBaa is not deployed in the namespace '${NAMESPACE}'. you can deploy using ${SCRIPT_NAME} deploy"
+    fi
+}
+
+
+function install_storage_agents {
+    verify_noobaa_deployed
+    echo -e "${GREEN}Deploying noobaa agents for storage. This operation will provision ${NUM_AGENTS} PVs of size ${PV_SIZE_GB} GB${NC}"
+    get_all_ips
+    get_auth_token
+    # get kubernetes agents yaml
+    AGENTS_YAML=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ -sd '{
+    "api": "system_api",
+    "method": "get_node_installation_string",
+    "params": {},
+    "auth_token": "'${TOKEN}'"
+    }' | jq -r '.reply.KUBERNETES' | sed -e "s:storage\: 30Gi:storage\: ${PV_SIZE_GB}Gi:" -e "s:replicas\: 3:replicas\: ${NUM_AGENTS}:"  )
+
+    if [ "${STORAGE_CLASS}" != "" ]; then
+        AGENTS_YAML=$(echo "${AGENTS_YAML}" | sed -e "s:#storageClassName\::storageClassName\: ${STORAGE_CLASS}:")
     fi
 
+    TMP_YAML_FILE=$(mktemp)
+    echo "${AGENTS_YAML}" > ${TMP_YAML_FILE}
+    kubectl apply -f ${TMP_YAML_FILE}
+}
+
+function get_all_ips {
     MGMT_IP=$(get_service_external_ip noobaa-mgmt)
     NODE_PORT_MGMT_FALLBACK=$(get_node_port_ip_and_port noobaa-mgmt)
     NODE_PORT_S3_FALLBACK=$(get_node_port_ip_and_port s3)
 
+    ACCESS_IP_AND_PORT=${MGMT_IP}:8080
+    if [ "${MGMT_IP}" == "" ]; then
+        ACCESS_IP_AND_PORT=${NODE_PORT_MGMT_FALLBACK}
+    fi
+}
+
+function print_noobaa_info {
+
+    verify_noobaa_deployed
+
+    get_all_ips
+
     # if management external ip is not found assume there is no external ip and don't try find S3
     if [ "${MGMT_IP}" == "" ]; then
-        get_access_keys ${NODE_PORT_MGMT_FALLBACK}
+        get_access_keys 
         echo -e "\n\n================================================================================"
         echo "Could not identify an external IP to connect from outside the cluster"
         echo "External IP is usually allocated automatically for Kubernetes clusters deployed on public cloud providers"
@@ -148,7 +208,7 @@ function print_noobaa_info {
         echo -e "================================================================================\n"
     else
         S3_IP=$(get_service_external_ip s3)
-        get_access_keys ${MGMT_IP}:8080
+        get_access_keys 
         # if [[ "${NODE_PORT_MGMT_FALLBACK}" == *"mini"* ]]; then  
         #    get_access_keys ${NODE_PORT_MGMT_FALLBACK}
         # else
@@ -184,6 +244,10 @@ function delete_noobaa {
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
     $KUBECTL delete pvc datadir-${NOOBAA_POD_NAME}
     $KUBECTL delete pvc logdir-${NOOBAA_POD_NAME}
+    $KUBECTL delete statefulset noobaa-agent
+    $KUBECTL delete pvc noobaastorage-noobaa-agent-0
+    $KUBECTL delete pvc noobaastorage-noobaa-agent-1
+    $KUBECTL delete pvc noobaastorage-noobaa-agent-2
 }
 
 
@@ -243,62 +307,81 @@ function wait_for_noobaa_ready_with_timeout {
     return 1
 }
 
-function get_access_keys {
+function get_auth_token {
     if [ "${PASSWD}" == "" ] || [ "${EMAIL}" == "" ]; then
         local SECRET_INFO=$(${KUBECTL} get secret ${CREDS_SECRET_NAME})
         if [ "$?" -eq 0 ]; then
-           EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}' | base64 --decode;printf "\n")
-           PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
-           SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
+            EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}' | base64 --decode;printf "\n")
+            PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
+            SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
         else
-          ACCESS_KEY="***********"
-          SECRET_KEY="***********"
-        fi
-    fi
-    if [ "${PASSWD}" != "" ] && [ "${EMAIL}" != "" ]; then
-        echo -e "${GREEN}Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready${NC}"
-        wait_for_noobaa_ready_with_timeout 1200
-        if [ $? -eq 0 ]; then
-            local MAX_RETRIES=50
-            local RETRIES=0
-            # repeat until access_keys are returned
-            while [ "${ACCESS_KEY}" == "" ] || [ "${SECRET_KEY}" == "" ] || [ "${ACCESS_KEY}" == "null" ] || [ "${SECRET_KEY}" == "null" ]; do
-                if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
-                    echo "Could not get S3 access keys from NooBaa system. Make sure the email and password are correct"
-                    ACCESS_KEY="***********"
-                    SECRET_KEY="***********"
-                    return 0
-                else
-                    #get access token to the system
-                    TOKEN=$(curl http://$1/rpc/ --max-time 20 -sd '{
-                    "api": "auth_api",
-                    "method": "create_auth",
-                    "params": {
-                        "role": "admin",
-                        "system": "'${SYS_NAME}'",
-                        "email": "'${EMAIL}'",
-                        "password": "'${PASSWD}'"
-                    }
-                    }' | jq -r '.reply.token')
-                    S3_ACCESS_KEYS=$(curl http://$1/rpc/ --max-time 20 -sd '{
-                    "api": "account_api",
-                    "method": "read_account",
-                    "params": { "email": "'${EMAIL}'" },
-                    "auth_token": "'${TOKEN}'"
-                    }' | jq -r ".reply.access_keys[0]")
-                    ACCESS_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".access_key")
-                    SECRET_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".secret_key")
-                    sleep 2
-                    RETRIES=$((RETRIES+1))
-                fi
-            done
-        else
-            echo -e "\nCould not get S3 access keys. NooBaa did not become ready for over 10 minutes"
-            echo "Once the pod '${NOOBAA_POD_NAME}' is ready you can get S3 keys using '${SCRIPT_NAME} info' or from the management console"
             ACCESS_KEY="***********"
             SECRET_KEY="***********"
-            return 0
         fi
+        if [ "${PASSWD}" != "" ] && [ "${EMAIL}" != "" ]; then
+            wait_for_noobaa_ready_with_timeout 1200
+            if [ $? -eq 0 ]; then
+                local MAX_RETRIES=50
+                local RETRIES=0
+                # repeat until access_keys are returned
+                while [ "${TOKEN}" == "" ]; do
+                    if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
+                        echo "Could not get access token for noobaa"
+                        return 1
+                    else
+                        #get access token to the system
+                        TOKEN=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ --max-time 20 -sd '{
+                        "api": "auth_api",
+                        "method": "create_auth",
+                        "params": {
+                            "role": "admin",
+                            "system": "'${SYS_NAME}'",
+                            "email": "'${EMAIL}'",
+                            "password": "'${PASSWD}'"
+                        }
+                        }' | jq -r '.reply.token')
+                        sleep 2
+                        RETRIES=$((RETRIES+1))
+                    fi
+                done
+            fi    
+        fi
+    fi
+}
+
+function get_access_keys {
+    echo -e "${GREEN}Getting S3 access keys from NooBaa system. Waiting for NooBaa to be ready${NC}"
+    get_auth_token
+    wait_for_noobaa_ready_with_timeout 1200
+    if [ $? -eq 0 ]; then
+        local MAX_RETRIES=50
+        local RETRIES=0
+        # repeat until access_keys are returned
+        while [ "${ACCESS_KEY}" == "" ] || [ "${SECRET_KEY}" == "" ] || [ "${ACCESS_KEY}" == "null" ] || [ "${SECRET_KEY}" == "null" ]; do
+            if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
+                echo "Could not get S3 access keys from NooBaa system. Make sure the email and password are correct"
+                ACCESS_KEY="***********"
+                SECRET_KEY="***********"
+                return 0
+            else
+                S3_ACCESS_KEYS=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ --max-time 20 -sd '{
+                "api": "account_api",
+                "method": "read_account",
+                "params": { "email": "'${EMAIL}'" },
+                "auth_token": "'${TOKEN}'"
+                }' | jq -r ".reply.access_keys[0]")
+                ACCESS_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".access_key")
+                SECRET_KEY=$(echo ${S3_ACCESS_KEYS} | jq -r ".secret_key")
+                sleep 2
+                RETRIES=$((RETRIES+1))
+            fi
+        done
+    else
+        echo -e "\nCould not get S3 access keys. NooBaa did not become ready for over 10 minutes"
+        echo "Once the pod '${NOOBAA_POD_NAME}' is ready you can get S3 keys using '${SCRIPT_NAME} info' or from the management console"
+        ACCESS_KEY="***********"
+        SECRET_KEY="***********"
+        return 0
     fi
 }
 
@@ -306,6 +389,7 @@ case ${COMMAND} in
     NONE)       usage;;
     DEPLOY)     deploy_noobaa;;
     DELETE)     delete_noobaa;;
+    STORAGE)    install_storage_agents;;
     INFO)       echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
                 print_noobaa_info;;
     *)          usage;;

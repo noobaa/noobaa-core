@@ -31,8 +31,8 @@ if (argv.endpoint) {
 
 const s3 = new AWS.S3({
     endpoint: argv.endpoint,
-    accessKeyId: argv.access_key,
-    secretAccessKey: argv.secret_key,
+    accessKeyId: argv.access_key && String(argv.access_key),
+    secretAccessKey: argv.secret_key && String(argv.secret_key),
     s3ForcePathStyle: !argv.vhost,
     s3BucketEndpoint: argv.vhost || false,
     signatureVersion: argv.sig, // s3 or v4

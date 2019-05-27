@@ -15,6 +15,7 @@
     "redirectOverlayDuration": 4000,
     "timeTickInterval": 1000,
     "autoRefreshInterval": 30000,
+    "maxTiersAllowed": 1,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

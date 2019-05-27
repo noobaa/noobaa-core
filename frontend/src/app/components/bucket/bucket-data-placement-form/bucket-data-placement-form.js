@@ -7,6 +7,7 @@ import { deepFreeze } from 'utils/core-utils';
 import { usingInternalStorageWarningTooltip } from 'knowledge-base-articles.json';
 import { formatSize } from 'utils/size-utils';
 import { openAddTierModal, openBucketPlacementSummaryModal } from 'action-creators';
+import { maxTiersAllowed } from 'config';
 
 const addTierTooltips = deepFreeze({
     usingInternal: 'Adding more tiers will be enabled after adding storage resources to tier 1',
@@ -67,11 +68,12 @@ class BucketDataPlacementFormViewModel extends ConnectableViewModel {
             const isUsingInternalStorage = tiers[0].policyType === 'INTERNAL_STORAGE';
             const tierNames = tiers.map(tier => tier.name);
             const tierLabels = tiers.map((_, i) => `Tier ${i + 1}`);
-            const isAddTierDisabled = isUsingInternalStorage || tierNames.length > 1;
+            const hasMaxTiers = tierNames.length >= maxTiersAllowed;
+            const isAddTierDisabled = isUsingInternalStorage || hasMaxTiers;
             const addTierTooltip = {
                 text:
+                    (hasMaxTiers && addTierTooltips.hasMaxTiers) ||
                     (isUsingInternalStorage && addTierTooltips.usingInternal) ||
-                    (tierNames.length > 1 && addTierTooltips.hasMaxTiers) ||
                     '',
                 align: 'end'
             };

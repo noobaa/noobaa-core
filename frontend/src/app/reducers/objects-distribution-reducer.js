@@ -29,6 +29,7 @@ function onFetchObjectsDistribution() {
 
 function onCompleteFetchObjectsDistribution(state, { payload }) {
     return {
+        ...state,
         fetching: false,
         buckets: keyByProperty(
             payload,

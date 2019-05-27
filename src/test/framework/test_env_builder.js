@@ -162,7 +162,7 @@ async function prepare_server() {
         vmSize,
         latestRelease: true,
         createSystem: true,
-        createPools: []
+        createPools: [pool_name]
     };
     if (random_base_version) {
         createServerParams.imagename = await get_random_base_version();

@@ -14,13 +14,13 @@ const P = require('../../util/promise');
 const ObjectIO = require('../../sdk/object_io');
 const promise_utils = require('../../util/promise_utils');
 
+const { rpc_client } = coretest;
+let object_io = new ObjectIO();
+object_io.set_verification_mode();
+
+const BKT = 'first.bucket'; // the default bucket name
+
 mocha.describe('s3_list_objects', function() {
-
-    const { rpc_client } = coretest;
-    let object_io = new ObjectIO();
-    object_io.set_verification_mode();
-
-    const BKT = 'first.bucket'; // the default bucket name
 
     let files_without_folders_to_upload = [];
     let folders_to_upload = [];
@@ -31,6 +31,7 @@ mocha.describe('s3_list_objects', function() {
     let same_multipart_file1 = [];
     let same_multipart_file2 = [];
     let small_folder_with_multipart = [];
+    let prefix_infinite_loop_test = [];
 
     var i = 0;
     for (i = 0; i < 264; i++) {
@@ -60,6 +61,11 @@ mocha.describe('s3_list_objects', function() {
     for (i = 0; i < 10; i++) {
         small_folder_with_multipart.push(`multipart2/file${i}`);
     }
+    for (i = 0; i < 1; i++) {
+        prefix_infinite_loop_test.push(`d/d/d/`);
+        prefix_infinite_loop_test.push(`d/d/f`);
+        prefix_infinite_loop_test.push(`d/f`);
+    }
 
     mocha.it('general use case', function() {
         const self = this; // eslint-disable-line no-invalid-this
@@ -68,7 +74,7 @@ mocha.describe('s3_list_objects', function() {
         return run_case(_.concat(folders_to_upload,
                 files_in_folders_to_upload,
                 files_without_folders_to_upload,
-                files_in_utf_diff_delimiter
+                files_in_utf_diff_delimiter,
             ),
             function(server_upload_response) {
                 // Uploading zero size objects from the key arrays that were provided
@@ -432,133 +438,165 @@ mocha.describe('s3_list_objects', function() {
             }, /* only_initiate = */ true);
     });
 
-    function upload_multiple_files(array_of_names) {
-        return P.map(array_of_names, name => P.resolve()
-            .then(() => rpc_client.object.create_object_upload({
-                bucket: BKT,
-                key: name,
-                content_type: 'application/octet-stream',
-            }))
-            .then(create_reply => rpc_client.object.complete_object_upload({
-                obj_id: create_reply.obj_id,
-                bucket: BKT,
-                key: name,
-            })));
-    }
+    mocha.it('prefix with delimiter infinite infinite loop listing', function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(10 * 60 * 1000);
 
-    function initiate_upload_multiple_files(array_of_names) {
-        return P.map(array_of_names, name => P.resolve()
-            .then(() => rpc_client.object.create_object_upload({
-                bucket: BKT,
-                key: name,
-                content_type: 'application/octet-stream',
-            }))
-            .then(create_reply => ({
-                obj_id: create_reply.obj_id,
-                key: name,
-            })));
-    }
-
-    function is_sorted_array(arr) {
-        return _.every(arr, function(value, index, array) {
-            if (index === 0) return true;
-            // either it is the first element, or otherwise this element should
-            // not be smaller than the previous element.
-            // spec requires string conversion
-            const equal_key = index && String(array[index - 1].key) === String(value.key);
-            return equal_key ?
-                // We should not worry in this case regarding prefix and obj
-                // since they will not have the same key
-                // TODO GUY this check is incomplete, can't use String(obj_id) ...
-                true : // String(array[index - 1].obj_id) <= String(value.obj_id) :
-                String(array[index - 1].key) <= String(value.key);
-        });
-    }
-
-    function clean_up_after_case(array_of_names, abort_upload) {
-        return abort_upload ?
-            P.map(array_of_names, obj => P.resolve()
-                .then(() => rpc_client.object.abort_object_upload({
-                    bucket: BKT,
-                    key: obj.key,
-                    obj_id: obj.obj_id,
-                }))) :
-            rpc_client.object.delete_multiple_objects({
-                bucket: BKT,
-                objects: array_of_names.map(key => ({ key })),
-            });
-    }
-
-    function run_case(array_of_names, case_func, only_initiate) {
-        let response_array = [];
-        return P.resolve()
-            .then(function() {
-                return only_initiate ?
-                    initiate_upload_multiple_files(array_of_names) :
-                    upload_multiple_files(array_of_names);
-            })
-            .tap(response => {
-                response_array = response;
-            })
-            .then(response => case_func(response))
-            .then(() => clean_up_after_case(only_initiate ? response_array : array_of_names, only_initiate));
-    }
-
-    function truncated_listing(params, use_upload_id_marker, upload_mode) {
-        return P.resolve()
-            .then(function() {
-                // Initialization of IsTruncated in order to perform the first while cycle
-                var listObjectsResponse = {
-                    is_truncated: true,
-                    objects: [],
-                    common_prefixes: [],
-                    key_marker: ''
-                };
-
-                var query_obj = {
-                    key_marker: listObjectsResponse.key_marker
-                };
-
-                if (use_upload_id_marker) {
-                    listObjectsResponse.upload_id_marker = '';
-                    query_obj.upload_id_marker = listObjectsResponse.upload_id_marker;
-                }
-
-                return promise_utils.pwhile(
-                        function() {
-                            return listObjectsResponse.is_truncated;
-                        },
-                        function() {
-                            listObjectsResponse.is_truncated = false;
-                            const func_params = _.defaults(query_obj, params);
-                            return (
-                                    upload_mode ?
-                                    rpc_client.object.list_uploads(func_params) :
-                                    rpc_client.object.list_objects(func_params)
-                                )
-                                .then(function(res) {
-                                    listObjectsResponse.is_truncated = res.is_truncated;
-                                    let res_list = {
-                                        objects: res.objects,
-                                        common_prefixes: res.common_prefixes
-                                    };
-                                    if (res_list.objects.length) {
-                                        listObjectsResponse.objects = _.concat(listObjectsResponse.objects, res_list.objects);
-                                    }
-                                    if (res_list.common_prefixes.length) {
-                                        listObjectsResponse.common_prefixes =
-                                            _.concat(listObjectsResponse.common_prefixes, res_list.common_prefixes);
-                                    }
-                                    listObjectsResponse.key_marker = res.next_marker;
-                                    query_obj.key_marker = res.next_marker;
-                                    if (use_upload_id_marker) {
-                                        listObjectsResponse.upload_id_marker = res.next_upload_id_marker;
-                                        query_obj.upload_id_marker = res.next_upload_id_marker;
-                                    }
-
-                                });
-                        })
-                    .return(listObjectsResponse);
-            });
-    }
+        return run_case(
+            prefix_infinite_loop_test,
+            function(server_upload_response) {
+                // Uploading zero size objects from the key arrays that were provided
+                return P.resolve()
+                    .then(function() {
+                        return truncated_listing({
+                                bucket: BKT,
+                                prefix: 'd/',
+                                delimiter: '/',
+                                limit: 1,
+                            }, /* use_upload_id_marker = */ false, /* upload_mode = */ false)
+                            .then(function(list_reply) {
+                                if (!(list_reply &&
+                                        _.difference(['d/d/'], list_reply.common_prefixes).length === 0 &&
+                                        _.difference(['d/f'],
+                                            _.map(list_reply.objects, obj => obj.key)).length === 0 &&
+                                        (list_reply.common_prefixes.length + list_reply.objects.length === 2) &&
+                                        is_sorted_array(list_reply.objects) &&
+                                        is_sorted_array(list_reply.common_prefixes) &&
+                                        !list_reply.is_truncated)) {
+                                    throw new Error(`prefix infinite loop failed on basic list`);
+                                }
+                            });
+                    });
+            }, /* only_initiate = */ false);
+    });
 });
+
+function upload_multiple_files(array_of_names) {
+    return P.map(array_of_names, name => P.resolve()
+        .then(() => rpc_client.object.create_object_upload({
+            bucket: BKT,
+            key: name,
+            content_type: 'application/octet-stream',
+        }))
+        .then(create_reply => rpc_client.object.complete_object_upload({
+            obj_id: create_reply.obj_id,
+            bucket: BKT,
+            key: name,
+        })));
+}
+
+function initiate_upload_multiple_files(array_of_names) {
+    return P.map(array_of_names, name => P.resolve()
+        .then(() => rpc_client.object.create_object_upload({
+            bucket: BKT,
+            key: name,
+            content_type: 'application/octet-stream',
+        }))
+        .then(create_reply => ({
+            obj_id: create_reply.obj_id,
+            key: name,
+        })));
+}
+
+function is_sorted_array(arr) {
+    return _.every(arr, function(value, index, array) {
+        if (index === 0) return true;
+        // either it is the first element, or otherwise this element should
+        // not be smaller than the previous element.
+        // spec requires string conversion
+        const equal_key = index && String(array[index - 1].key) === String(value.key);
+        return equal_key ?
+            // We should not worry in this case regarding prefix and obj
+            // since they will not have the same key
+            // TODO GUY this check is incomplete, can't use String(obj_id) ...
+            true : // String(array[index - 1].obj_id) <= String(value.obj_id) :
+            String(array[index - 1].key) <= String(value.key);
+    });
+}
+
+function clean_up_after_case(array_of_names, abort_upload) {
+    return abort_upload ?
+        P.map(array_of_names, obj => P.resolve()
+            .then(() => rpc_client.object.abort_object_upload({
+                bucket: BKT,
+                key: obj.key,
+                obj_id: obj.obj_id,
+            }))) :
+        rpc_client.object.delete_multiple_objects({
+            bucket: BKT,
+            objects: array_of_names.map(key => ({ key })),
+        });
+}
+
+function run_case(array_of_names, case_func, only_initiate) {
+    let response_array = [];
+    return P.resolve()
+        .then(function() {
+            return only_initiate ?
+                initiate_upload_multiple_files(array_of_names) :
+                upload_multiple_files(array_of_names);
+        })
+        .tap(response => {
+            response_array = response;
+        })
+        .then(response => case_func(response))
+        .then(() => clean_up_after_case(only_initiate ? response_array : array_of_names, only_initiate));
+}
+
+function truncated_listing(params, use_upload_id_marker, upload_mode) {
+    return P.resolve()
+        .then(function() {
+            // Initialization of IsTruncated in order to perform the first while cycle
+            var listObjectsResponse = {
+                is_truncated: true,
+                objects: [],
+                common_prefixes: [],
+                key_marker: ''
+            };
+
+            var query_obj = {
+                key_marker: listObjectsResponse.key_marker
+            };
+
+            if (use_upload_id_marker) {
+                listObjectsResponse.upload_id_marker = '';
+                query_obj.upload_id_marker = listObjectsResponse.upload_id_marker;
+            }
+
+            return promise_utils.pwhile(
+                    function() {
+                        return listObjectsResponse.is_truncated;
+                    },
+                    function() {
+                        listObjectsResponse.is_truncated = false;
+                        const func_params = _.defaults(query_obj, params);
+                        return (
+                                upload_mode ?
+                                rpc_client.object.list_uploads(func_params) :
+                                rpc_client.object.list_objects(func_params)
+                            )
+                            .then(function(res) {
+                                listObjectsResponse.is_truncated = res.is_truncated;
+                                let res_list = {
+                                    objects: res.objects,
+                                    common_prefixes: res.common_prefixes
+                                };
+                                if (res_list.objects.length) {
+                                    listObjectsResponse.objects = _.concat(listObjectsResponse.objects, res_list.objects);
+                                }
+                                if (res_list.common_prefixes.length) {
+                                    listObjectsResponse.common_prefixes =
+                                        _.concat(listObjectsResponse.common_prefixes, res_list.common_prefixes);
+                                }
+                                listObjectsResponse.key_marker = res.next_marker;
+                                query_obj.key_marker = res.next_marker;
+                                if (use_upload_id_marker) {
+                                    listObjectsResponse.upload_id_marker = res.next_upload_id_marker;
+                                    query_obj.upload_id_marker = res.next_upload_id_marker;
+                                }
+
+                            });
+                    })
+                .return(listObjectsResponse);
+        });
+}

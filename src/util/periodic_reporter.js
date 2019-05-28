@@ -6,13 +6,16 @@ const size_utils = require('./size_utils');
 
 class PeriodicReporter {
 
-    constructor(name) {
+    constructor(name, enabled = false) {
         this.name = name;
         this.events = [];
+        this.enabled = enabled;
     }
 
     add_event(name, bytes, time) {
-        this.events.push({ name, bytes, time });
+        if (this.enabled) {
+            this.events.push({ name, bytes, time });
+        }
     }
 
     set_interval(delay_ms = 1000) {

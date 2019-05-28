@@ -27,7 +27,7 @@ const { ChunkDB } = require('./map_db_types');
 // const { new_object_id } = require('../../util/mongo_utils');
 const { BlockAPI, get_all_chunks_blocks } = require('../../sdk/map_api_types');
 
-const map_reporter = new PeriodicReporter('map_reporter');
+const map_reporter = new PeriodicReporter('map_reporter', false);
 const make_room_semaphore = new KeysSemaphore(1);
 const ensure_room_barrier = new Barrier({
     max_length: 10,
@@ -36,13 +36,13 @@ const ensure_room_barrier = new Barrier({
 });
 
 /**
- * 
+ *
  * GetMapping
- * 
+ *
  * TODO:
  * - location_info
  * - alloc.sources?
- * 
+ *
  */
 class GetMapping {
 
@@ -222,9 +222,9 @@ class GetMapping {
 
 
 /**
- * 
+ *
  * PUT_MAPPING
- * 
+ *
  */
 class PutMapping {
 
@@ -278,7 +278,7 @@ class PutMapping {
     }
 
     /**
-     * @param {nb.Chunk} chunk 
+     * @param {nb.Chunk} chunk
      */
     add_new_chunk(chunk) {
         chunk.set_new_chunk_id();
@@ -294,7 +294,7 @@ class PutMapping {
     }
 
     /**
-     * @param {nb.Chunk} chunk 
+     * @param {nb.Chunk} chunk
      */
     add_existing_chunk(chunk) {
         this.update_chunk_ids.push(chunk._id);
@@ -422,7 +422,7 @@ async function make_room_in_tier(tier_id, bucket_id) {
     });
 }
 /**
- * @param {Array<{ tier: nb.Tier, bucket: nb.Bucket }>} tiers_and_buckets 
+ * @param {Array<{ tier: nb.Tier, bucket: nb.Bucket }>} tiers_and_buckets
  */
 async function ensure_room_barrier_process(tiers_and_buckets) {
     const uniq_tiers_and_buckets = _.uniqBy(tiers_and_buckets, 'tier');
@@ -552,8 +552,8 @@ async function _prepare_chunks_group({ chunks, move_to_tier, location_info }) {
 }
 
 /**
- * 
- * @param {nb.Block[]} blocks 
+ *
+ * @param {nb.Block[]} blocks
  */
 async function prepare_blocks(blocks) {
     if (!blocks || !blocks.length) return;

@@ -1075,7 +1075,8 @@ function _stop_services() {
 
 function _set_debug_level_internal(req, level) {
     dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
-    return server_rpc.client.redirector.publish_to_cluster({
+    return P.resolve()
+        .then(() => server_rpc.client.redirector.publish_to_cluster({
             method_api: 'debug_api',
             method_name: 'set_debug_level',
             target: '', // required but irrelevant
@@ -1085,7 +1086,7 @@ function _set_debug_level_internal(req, level) {
             }
         }, {
             auth_token: req.auth_token
-        })
+        }))
         .then(() => MongoCtrl.set_debug_level(level ? 5 : 0))
         .then(() => {
             var update_object = {};

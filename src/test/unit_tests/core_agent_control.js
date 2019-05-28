@@ -90,8 +90,7 @@ function create_agent(howmany) {
                     create_node_token = _.cloneDeep(new_token);
                 }
             },
-            host_id: uuid(),
-            routing_hint: 'LOOPBACK'
+            host_id: uuid()
         });
         agntCtlConfig.allocated_agents[agent.node_name] = {
             agent: agent,

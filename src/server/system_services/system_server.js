@@ -1063,11 +1063,12 @@ function configure_remote_syslog(req) {
         };
     }
 
-    return system_store.make_changes({
+    return P.resolve()
+        .then(() => system_store.make_changes({
             update: {
                 systems: [update]
             }
-        })
+        }))
         .then(() => os_utils.reload_syslog_configuration(params))
         .then(() => {
             Dispatcher.instance().activity({

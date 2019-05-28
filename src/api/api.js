@@ -108,7 +108,7 @@ class APIClient {
 
 function new_router_from_base_address(base_address) {
     const { protocol, hostname, port, slashes } = url.parse(base_address);
-    const ports = get_default_ports(port);
+    const ports = get_default_ports(Number(port));
 
     return {
         default: url.format({ protocol, slashes, hostname, port: port }),
@@ -124,7 +124,7 @@ function new_router_from_address_list(address_list, hint) {
         default: get_base_address(address_list, hint, 'mgmt').toString(),
         md: get_base_address(address_list, hint, 'md').toString(),
         bg: get_base_address(address_list, hint, 'bg').toString(),
-        hosted_agents: get_base_address(address_list, hint, 'hosted-agents').toString(),
+        hosted_agents: get_base_address(address_list, hint, 'hosted_agents').toString(),
         master: get_base_address(address_list, hint, 'mgmt').toString()
     };
 }

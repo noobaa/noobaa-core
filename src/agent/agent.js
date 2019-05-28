@@ -54,7 +54,10 @@ class Agent {
         const dbg = this.dbg;
         dbg.log0('Creating agent', params);
 
-        this.rpc = api.new_rpc_from_base_address(params.address, params.routing_hint);
+        this.rpc = params.routing_hint ?
+            api.new_rpc_from_base_address(params.address, params.routing_hint) :
+            api.new_rpc_from_routing(api.new_router_from_base_address(params.address));
+
         this.client = this.rpc.new_client();
 
         this.servers = params.servers || [{

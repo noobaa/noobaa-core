@@ -10,7 +10,7 @@ const api_default_port_offset = {
      mgmt: 0,
      md: 1,
      bg: 2,
-     'hosted-agents': 3
+     'hosted_agents': 3
 };
 
 function format_base_address(hostname = '127.0.0.1', port = default_base_port) {

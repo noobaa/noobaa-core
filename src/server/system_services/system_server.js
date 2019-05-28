@@ -803,7 +803,7 @@ function add_role(req) {
     return system_store.make_changes({
         insert: {
             roles: [{
-                _id: system_store.generate_id(),
+                _id: system_store.new_system_store_id(),
                 account: account._id,
                 system: req.system._id,
                 role: req.rpc_params.role,

@@ -1323,10 +1323,14 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
         ];
 
         return _.flatMap(spec.ports, portInfo => {
+            const api = portInfo.name
+                .replace('-https', '')
+                .replace(/-/g, '_');
+
             const common = {
                 service: metadata.name,
                 port: portInfo.port,
-                api: portInfo.name.replace('-https', ''),
+                api: api,
                 secure: portInfo.name.endsWith('https'),
             };
             return [

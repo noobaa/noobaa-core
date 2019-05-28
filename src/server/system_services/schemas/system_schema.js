@@ -69,7 +69,7 @@ module.exports = {
                     port: { $ref: 'common_api#/definitions/port' },
                     api: {
                         type: 'string',
-                        enum: ['mgmt', 's3', 'md', 'bg', 'hosted-agents']
+                        enum: ['mgmt', 's3', 'md', 'bg', 'hosted_agents']
                     },
                     secure: { type: 'boolean' }
                 }

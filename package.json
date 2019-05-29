@@ -13,7 +13,7 @@
     "---": "------------------------------------------------------------------",
     "build:package": "gulp package_build",
     "build:native": "node-gyp rebuild",
-    "build:fe": "node src/tools/npm_install.js frontend",
+    "build:fe": "cd frontend && npm install && npm run build",
     "build": "npm run build:native && npm run build:fe",
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src --quiet",

@@ -35,8 +35,7 @@ const staticAssetsSelector = [
     '!src/assets/icons/*.svg'
 ];
 
-const libs = [
-    {
+const libs = [{
         name: 'knockout',
         module: 'dist/knockout.debug.js'
     },
@@ -148,7 +147,7 @@ function bundleLib() {
         noParse: true
     });
 
-    libs.forEach(lib =>  {
+    libs.forEach(lib => {
         const { module, name, exposeAs = name } = lib;
         const fullPath = path.join(cwd, libsPath, name, module);
         b.require(fullPath, { expose: exposeAs });
@@ -453,7 +452,7 @@ function letsToLessClass() {
     return through.obj(function(file, encoding, callback) {
         const contents = file.contents.toString('utf-8');
         const regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
-        const output =  [];
+        const output = [];
 
         let matches = regExp.exec(contents);
         while (matches) {
@@ -472,7 +471,7 @@ function letsToLessClass() {
 }
 
 function cssClassToJson() {
-    return through.obj(function (file, encoding, callback) {
+    return through.obj(function(file, encoding, callback) {
         const contents = file.contents.toString('utf-8');
         const regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
         const output = {};

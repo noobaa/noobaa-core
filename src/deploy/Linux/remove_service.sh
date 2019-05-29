@@ -28,9 +28,6 @@ function echo_to_log {
   echo $@ >> /var/log/noobaa_service_rem_${instdate}
 }
 
-#attempting to remove old service installations
-/usr/local/noobaa/node /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service >> /var/log/noobaa_service_rem_${instdate} 2>&1
-
 echo_to_log "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo_to_log "Systemd detected. Uninstalling service"

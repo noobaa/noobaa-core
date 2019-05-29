@@ -59,6 +59,7 @@ npm run build || exit 1
 echo "$(date) =====> npm install frontend"
 pushd frontend
 npm install || exit 1
+npm run build || exit 1
 popd
 
 echo "$(date) =====> download node.js tarball ($NODEJS_VERSION} and nvm.sh (latest)"

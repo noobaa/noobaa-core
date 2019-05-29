@@ -80,7 +80,6 @@
     "event-stream": "4.0.1",
     "express": "4.16.4",
     "forever": "1.0.0",
-    "forever-service": "0.5.11",
     "ftp-srv": "4.1.0",
     "get-folder-size": "2.0.1",
     "getos": "3.1.1",

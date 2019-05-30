@@ -190,7 +190,7 @@ class KubernetesFunctions {
     async create_agent(params) {
         const {
             namespace,
-            num_agents,
+            // num_agents,
             yaml_path = "./agent.yaml"
         } = params;
         const run_with_namespace = await this.run_with_namespace(namespace);
@@ -206,7 +206,7 @@ class KubernetesFunctions {
     async edit_image_in_yaml(params) {
         const {
             yaml,
-            num_agents
+            // num_agents
         } = params;
         const file_content = fs.readFileSync(yaml);
         console.log(file_content);
@@ -215,7 +215,7 @@ class KubernetesFunctions {
     async edit_number_of_agents(params) {
         const {
             agent_yaml,
-            num_agents
+            // num_agents
         } = params;
         await this.editYaml(agent_yaml);
     }

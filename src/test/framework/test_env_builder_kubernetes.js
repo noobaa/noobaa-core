@@ -9,7 +9,7 @@ dbg.set_process_name('test_env_builder_kubernetes');
 
 const {
     image_tag,
-    noobaa_core_yaml = "src/deploy/NVA_build/noobaa_core.yaml",
+    // noobaa_core_yaml = "src/deploy/NVA_build/noobaa_core.yaml",
     namespace = "",
     skip_agent_creation,
     clean_only,

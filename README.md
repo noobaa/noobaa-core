@@ -36,11 +36,11 @@ chmod +x noobaa_deploy_k8s.sh
 ```
 3. Deploy to current kubernetes context:
 ```bash
-./noobaa_deploy_k8s.sh deploy -e <youremail> -n <namespace> -f noobaa_core.yaml
+./noobaa_deploy_k8s.sh deploy -f noobaa_core.yaml -e adminoobaa@noobaa.io -n noobaa-core
 ```
 4. Get info on NooBaa deployment (on current kubernetes context):
 ```bash
-./noobaa_deploy_k8s.sh info -n <namespace>
+./noobaa_deploy_k8s.sh info -n noobaa-core
 ```
 
 ## Help

@@ -143,7 +143,7 @@ class MapClient {
     async put_mapping() {
         // TODO should we filter out chunk.had_errors from put mapping?
         await this.rpc_client.object.put_mapping({
-            chunks: this.chunks.map(chunk => chunk.to_api()),
+            chunks: this.chunks.filter(chunk => !chunk.had_errors).map(chunk => chunk.to_api()),
             move_to_tier: this.move_to_tier && this.move_to_tier._id,
         });
     }

@@ -10,6 +10,7 @@ module.exports = [{
         unique: false,
         partialFilterExpression: {
             obj: { $exists: true },
+            deleted: null,
         }
     }
 }];

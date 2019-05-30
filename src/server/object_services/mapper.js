@@ -417,6 +417,7 @@ function find_local_pool(pools, location_info) {
 
 // EXPORTS
 exports.select_tier_for_write = select_tier_for_write;
+exports.select_mirror_for_write = select_mirror_for_write;
 exports.map_chunk = map_chunk;
 
 exports.is_chunk_good_for_dedup = is_chunk_good_for_dedup;

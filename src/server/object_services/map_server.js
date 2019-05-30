@@ -5,7 +5,6 @@
 
 const _ = require('lodash');
 const assert = require('assert');
-// const util = require('util');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -127,7 +126,7 @@ class GetMapping {
                     await P.map(uniq_tiers, tier => ensure_room_in_tier(tier, bucket));
                     await P.delay(config.ALLOCATE_RETRY_DELAY_MS);
                     // TODO Decide if we want to update the chunks mappings when looping
-                    // await this.prepare_chunks_group(chunks, bucket);
+                    // await _prepare_chunks_group({ chunks, move_to_tier: this.move_to_tier, location_info: this.location_info });
                 }
             }
         }));
@@ -363,7 +362,6 @@ class PutMapping {
             MDStore.instance().insert_chunks(this.new_chunks),
             MDStore.instance().insert_parts(this.new_parts),
             map_deleter.delete_blocks(this.delete_blocks),
-            this.move_to_tier && MDStore.instance().update_chunks_by_ids(this.update_chunk_ids, { tier: this.move_to_tier._id }),
 
             // TODO
             // (upload_size > obj.upload_size) && MDStore.instance().update_object_by_id(obj._id, { upload_size: upload_size })
@@ -375,12 +373,25 @@ class PutMapping {
 
 /**
  * @param {nb.Bucket} bucket
+ * @returns {Promise<nb.Tier>}
  */
 async function select_tier_for_write(bucket) {
     const tiering = bucket.tiering;
     await node_allocator.refresh_tiering_alloc(tiering);
     const tiering_status = node_allocator.get_tiering_status(tiering);
     return mapper.select_tier_for_write(tiering, tiering_status);
+}
+
+/**
+ * @param {nb.Tier} tier
+ * @param {nb.Tiering} tiering
+ * @param {nb.LocationInfo} location_info
+ * @returns {Promise<nb.TierMirror>}
+ */
+async function select_mirror_for_write(tier, tiering, location_info) {
+    await node_allocator.refresh_tiering_alloc(tiering);
+    const tiering_status = node_allocator.get_tiering_status(tiering);
+    return mapper.select_mirror_for_write(tier, tiering, tiering_status, location_info);
 }
 
 
@@ -468,17 +479,17 @@ function enough_room_in_tier(tier, bucket) {
     const tier_status = tiering_status[tier_id_str];
     const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === tier_id_str);
     if (!tier_in_tiering || !tier_status) throw new Error(`Can't find current tier in bucket`);
-    const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_maximum(
+    const available_to_upload = size_utils.json_to_bigint(size_utils.reduce_minimum(
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
     if (available_to_upload && available_to_upload.greater(config.ENOUGH_ROOM_IN_TIER_THRESHOLD)) {
-        dbg.log0('make_room_in_tier: has enough room', tier.name, available_to_upload.toJSNumber(), '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        dbg.log0('enough_room_in_tier: has enough room', tier.name, available_to_upload.toJSNumber(), '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
         map_reporter.add_event(`has_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return true;
     } else {
-        dbg.log0(`make_room_in_tier: not enough room ${tier.name}:`,
+        dbg.log0(`enough_room_in_tier: not enough room ${tier.name}:`,
             `${available_to_upload.toJSNumber()} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
-        map_reporter.add_event(`not_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
+        map_reporter.add_event(`enough_room_in_tier: not_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return false;
     }
 }
@@ -523,9 +534,13 @@ async function _prepare_chunks_group({ chunks, move_to_tier, location_info }) {
     for (const chunk of chunks) {
 
         chunk.is_accessible = false;
+        chunk.is_building_blocks = false;
+        chunk.is_building_frags = false;
         let num_accessible_frags = 0;
         for (const frag of chunk.frags) {
             frag.is_accessible = false;
+            frag.is_building_blocks = false;
+            frag.allocations = [];
             for (const block of frag.blocks) {
                 if (!block.node || !block.node._id) {
                     dbg.warn('ORPHAN BLOCK (ignoring)', block);
@@ -601,6 +616,8 @@ async function prepare_blocks_from_db(blocks) {
 exports.GetMapping = GetMapping;
 exports.PutMapping = PutMapping;
 exports.select_tier_for_write = select_tier_for_write;
+exports.select_mirror_for_write = select_mirror_for_write;
+exports.enough_room_in_tier = enough_room_in_tier;
 exports.make_room_in_tier = make_room_in_tier;
 exports.prepare_chunks = prepare_chunks;
 exports.prepare_blocks = prepare_blocks;

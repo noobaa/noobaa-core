@@ -4,14 +4,16 @@
 /** @typedef {typeof import('../../sdk/nb')} nb */
 
 const _ = require('lodash');
-// const util = require('util');
+const util = require('util');
 
-// const dbg = require('../../util/debug_module')(__filename);
+const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const MDStore = require('./md_store').MDStore;
 const map_server = require('./map_server');
 const mongo_utils = require('../../util/mongo_utils');
 const { ChunkDB } = require('./map_db_types');
+const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 
 /**
  *
@@ -44,7 +46,10 @@ async function read_object_mapping(obj, start, end, location_info) {
         end_gt: rng.start,
     });
     // console.log('TODO GGG read_object_mapping', parts);
-    const chunks = await read_parts_mapping(parts);
+    let chunks = await read_parts_mapping(parts, location_info);
+    if (await update_chunks_on_read(chunks, location_info)) {
+        chunks = await read_parts_mapping(parts, location_info);
+    }
     return chunks;
 }
 
@@ -89,11 +94,13 @@ async function read_node_mapping(node_ids, skip, limit) {
 /**
  * 
  * @param {nb.PartSchemaDB[]} parts
+ * @param {nb.LocationInfo} [location_info]
  * @returns {Promise<nb.Chunk[]>}
  */
-async function read_parts_mapping(parts) {
+async function read_parts_mapping(parts, location_info) {
     const chunks_db = await MDStore.instance().find_chunks_by_ids(mongo_utils.uniq_ids(parts, 'chunk'));
-    await MDStore.instance().load_blocks_for_chunks(chunks_db);
+    const sorter = location_info ? _block_sorter_local(location_info) : _block_sorter_basic;
+    await MDStore.instance().load_blocks_for_chunks(chunks_db, sorter);
     const chunks_db_by_id = _.keyBy(chunks_db, '_id');
     const chunks = parts.map(part => {
         const chunk = new ChunkDB({ ...chunks_db_by_id[part.chunk.toHexString()], parts: [part] });
@@ -104,59 +111,48 @@ async function read_parts_mapping(parts) {
 }
 
 
-// /**
-//  * @param {nb.Chunk[]} chunks
-//  * @param {nb.LocationInfo} [location_info]
-//  */
-// async function update_chunks_on_read(chunks, location_info) {
-//     const chunks = _.map(parts, 'chunk');
-//     const tiering_status_by_bucket_id = {};
-
-//     for (const chunk of chunks) {
-//         map_server.populate_chunk(chunk);
-//     }
-
-//     await _load_chunk_mappings(chunks, tiering_status_by_bucket_id);
-
-//     const chunks_to_scrub = [];
-//     try {
-//         const bucket = system_store.data.get_by_id(chunks[0].bucket);
-//         const tiering_status = tiering_status_by_bucket_id[bucket._id];
-//         const selected_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
-//         for (const chunk of chunks) {
-//             map_server.populate_chunk(chunk);
-//             if (!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) {
-//                 dbg.log0('Chunk with low tier will be sent for rebuilding', chunk);
-//                 chunks_to_scrub.push(chunk);
-//             } else if (location_info) {
-//                 const chunk_info = mapper.get_chunk_info(chunk);
-//                 const mapping = mapper.map_chunk(chunk_info, chunk.tier, bucket.tiering, tiering_status, location_info);
-//                 if (mapper.should_rebuild_chunk_to_local_mirror(mapping, location_info)) {
-//                     dbg.log2('Chunk with following mapping will be sent for rebuilding', chunk, mapping);
-//                     chunks_to_scrub.push(chunk);
-//                 }
-//             }
-//         }
-//         if (chunks_to_scrub.length) {
-//             dbg.log1('Chunks wasn\'t found in local pool - the following will be rebuilt:', util.inspect(chunks_to_scrub));
-//             await server_rpc.client.scrubber.build_chunks({
-//                 chunk_ids: _.map(chunks_to_scrub, '_id'),
-//                 tier: selected_tier._id,
-//             }, {
-//                 auth_token: auth_server.make_auth_token({
-//                     system_id: chunks_to_scrub[0].system,
-//                     role: 'admin'
-//                 })
-//             });
-//         }
-//     } catch (err) {
-//         dbg.warn('Chunks failed to rebuilt - skipping');
-//     }
-//     if (chunks_to_scrub.length) {
-//         // mismatch type...
-//         await MDStore.instance().load_blocks_for_chunks(chunks);
-//     }
-// }
+/**
+ * @param {nb.Chunk[]} chunks
+ * @param {nb.LocationInfo} [location_info]
+ */
+async function update_chunks_on_read(chunks, location_info) {
+    const chunks_to_scrub = [];
+    try {
+        const bucket = chunks[0].bucket;
+        const selected_tier = await map_server.select_tier_for_write(bucket);
+        for (const chunk of chunks) {
+            if ((!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) &&
+                map_server.enough_room_in_tier(selected_tier, bucket)) {
+                dbg.log0('Chunk with low tier will be sent for rebuilding', chunk._id);
+                chunks_to_scrub.push(chunk);
+            } else if (location_info) {
+                if (chunk.tier.data_placement !== 'MIRROR') return;
+                const mirror = await map_server.select_mirror_for_write(chunk.tier, bucket.tiering, location_info);
+                if (mirror.spread_pools.find(pool => (location_info.region && location_info.region === pool.region) ||
+                        location_info.pool_id === String(pool._id))) {
+                    dbg.log2('Chunk with following mapping will be sent for rebuilding', chunk);
+                    chunks_to_scrub.push(chunk);
+                }
+            }
+        }
+        if (chunks_to_scrub.length) {
+            const chunk_ids = _.map(chunks_to_scrub, '_id');
+            dbg.log1('Chunks wasn\'t found in local pool/upper tier - the following will be rebuilt:', util.inspect(chunks_to_scrub));
+            await server_rpc.client.scrubber.build_chunks({
+                chunk_ids,
+                tier: selected_tier._id,
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: bucket.system._id,
+                    role: 'admin'
+                })
+            });
+        }
+    } catch (err) {
+        dbg.warn('Chunks failed to rebuilt - skipping');
+    }
+    return chunks_to_scrub.length;
+}
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.
 function sanitize_object_range(obj, start, end) {
@@ -182,6 +178,50 @@ function sanitize_object_range(obj, start, end) {
         start: start,
         end: end,
     };
+}
+
+/**
+ * sorting function for sorting blocks with most recent heartbeat first
+ * @param {nb.Block} block1
+ * @param {nb.Block} block2
+ */
+function _block_sorter_basic(block1, block2) {
+    const node1 = block1.node;
+    const node2 = block2.node;
+    if (node2.readable && !node1.readable) return 1;
+    if (node1.readable && !node2.readable) return -1;
+    return node2.heartbeat - node1.heartbeat;
+}
+
+/**
+ * locality sorting function for blocks
+ * @param {nb.LocationInfo} location_info
+ */
+function _block_sorter_local(location_info) {
+    return sort_func;
+    /**
+     * locality sorting function for blocks
+     * @param {nb.Block} block1
+     * @param {nb.Block} block2
+     */
+    function sort_func(block1, block2) {
+        const node1 = block1.node;
+        const node2 = block2.node;
+        const { node_id, host_id, pool_id, region } = location_info;
+        if (node2.readable && !node1.readable) return 1;
+        if (node1.readable && !node2.readable) return -1;
+        if (String(node2._id) === node_id && String(node1._id) !== node_id) return 1;
+        if (String(node1._id) === node_id && String(node2._id) !== node_id) return -1;
+        if (node2.host_id === host_id && node1.host_id !== host_id) return 1;
+        if (node1.host_id === host_id && node2.host_id !== host_id) return -1;
+        if (String(block2.pool) === pool_id && String(block1.pool) !== pool_id) return 1;
+        if (String(block1.pool) === pool_id && String(block2.pool) !== pool_id) return -1;
+        if (region) {
+            if (block2.pool.region === region && block1.pool.region !== region) return 1;
+            if (block1.pool.region === region && block2.pool.region !== region) return -1;
+        }
+        return node2.heartbeat - node1.heartbeat;
+    }
 }
 
 // EXPORTS

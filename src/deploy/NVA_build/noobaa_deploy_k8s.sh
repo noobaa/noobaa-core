@@ -4,7 +4,7 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 SCRIPT_NAME=$(basename $0)
-EMAIL=""
+EMAIL="admin@noobaa.io"
 PASSWD=""
 SYS_NAME=noobaa
 NAMESPACE=$(kubectl config get-contexts | grep "\*" | awk '{print $5}')
@@ -41,7 +41,7 @@ function usage(){
     echo "storage           -   provision kuberentes PVs to use as backend storage for objects. specify --size and --num-pvs to control the provisioned storage"
     echo
     echo "Options:"
-    echo "-e --email        -   (Required) The email address which is used to create the owner account in NooBaa"
+    echo "-e --email        -   Custom email address to use for the NooBaa system owner account"
     echo "-n --namespace    -   The namespace to create NooBaa resources in. This namespace must already exist. using the current namespace by default"
     echo "-p --password     -   Login password to NooBaa management console (required to get S3 access keys)"
     echo "-f --file         -   Use a custom yaml file"

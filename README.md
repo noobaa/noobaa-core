@@ -10,7 +10,33 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## To start using NooBaa in Kubernetes
 
-Follow this [video tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes)
+1. Deps - use your package manager to install:
+
+ - `kubectl`
+ - `curl`
+ - `openssl` (for generating random password)
+ - `jq` (https://stedolan.github.io/jq/download)
+
+2. Get script:
+
+```bash
+curl -O https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
+chmod +x noobaa_deploy_k8s.sh
+```
+
+3. Deploy - to current kubernetes context, use current namespace if -n is not provided:
+
+```bash
+./noobaa_deploy_k8s.sh deploy [-n noobaa]
+```
+
+4. Whenever you need to get NooBaa info from current kubernetes context:
+
+```bash
+./noobaa_deploy_k8s.sh info [-n noobaa]
+```
+
+This [youtube tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes) will guide you through.
 
 <a href="http://www.youtube.com/watch?v=fuTKXBMwOes" target="_blank">
   <img src="http://img.youtube.com/vi/fuTKXBMwOes/0.jpg"
@@ -18,30 +44,6 @@ Follow this [video tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes)
        width="300" border="10" />
 </a>
 
-Here are the tutorial steps for copy-pasta:
-
-1. Install `jq` (json cli tool needed for our bash script):  
-Use your package manager as described in https://stedolan.github.io/jq/download
-For example `sudo apt-get install jq` or `sudo yum install jq` or `brew install jq` (for Mac) or just hack it for linux with:
-```bash
-wget -O jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
-chmod +x jq
-mv jq /usr/local/bin/
-```
-2. Get deploy files:
-```bash
-wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
-wget https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_core.yaml
-chmod +x noobaa_deploy_k8s.sh
-```
-3. Deploy to current kubernetes context:
-```bash
-./noobaa_deploy_k8s.sh deploy -n noobaa-core -e try@noobaa.io -f noobaa_core.yaml 
-```
-4. Get info on NooBaa deployment (on current kubernetes context):
-```bash
-./noobaa_deploy_k8s.sh info -n noobaa-core
-```
 
 ## Help
 

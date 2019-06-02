@@ -44,6 +44,8 @@ if (argv.verbose) {
 let base_address;
 let http_address;
 let http_server;
+let https_address;
+let https_server;
 let _setup = false;
 let _incomplete_rpc_coverage;
 const api_coverage = new Set();
@@ -123,10 +125,22 @@ function setup({ incomplete_rpc_coverage } = {}) {
             logging: true,
             default_handler: endpoint_request_handler,
         });
+
+        await announce('start_https_server');
+        https_server = await server_rpc.rpc.start_http_server({
+            port: 0,
+            protocol: 'wss:',
+            logging: true,
+            default_handler: endpoint_request_handler,
+        });
+
         // the http/ws port is used by the agents
         const http_port = http_server.address().port;
         base_address = `ws://127.0.0.1:${http_port}`;
         http_address = `http://127.0.0.1:${http_port}`;
+
+        const https_port = https_server.address().port;
+        https_address = `https://127.0.0.1:${https_port}`;
 
         // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
         await node_server.start_monitor();
@@ -181,6 +195,8 @@ function setup({ incomplete_rpc_coverage } = {}) {
         await mongo_client.instance().disconnect();
         await announce('http_server close()');
         if (http_server) http_server.close();
+        await announce('https_server close()');
+        if (https_server) https_server.close();
         await announce('coretest done ...');
         setInterval(() => {
             const reqs = process._getActiveRequests();
@@ -221,6 +237,10 @@ async function clear_test_nodes() {
 
 function get_http_address() {
     return http_address;
+}
+
+function get_https_address() {
+    return https_address;
 }
 
 // This was coded for tests that create multiple systems (not nessesary parallel, could be creation of system after deletion of system)
@@ -426,4 +446,5 @@ exports.PASSWORD = PASSWORD;
 exports.rpc_client = rpc_client;
 exports.new_rpc_client = new_rpc_client;
 exports.get_http_address = get_http_address;
+exports.get_https_address = get_https_address;
 exports.describe_mapper_test_case = describe_mapper_test_case;

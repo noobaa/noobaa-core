@@ -739,7 +739,7 @@ function get_time_config() {
         status: false
     };
 
-    if (IS_LINUX_VM) {
+    if (IS_LINUX) {
         return promise_utils.exec('/usr/bin/ntpstat | head -1', {
                 ignore_rc: false,
                 return_stdout: true,

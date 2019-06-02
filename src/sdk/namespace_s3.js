@@ -122,7 +122,9 @@ class NamespaceS3 {
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
-            const res = await this.s3.headObject({ Key: params.key }).promise();
+            const request = { Key: params.key };
+            this._assign_encryption_to_request(params, request);
+            const res = await this.s3.headObject(request).promise();
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
@@ -135,10 +137,12 @@ class NamespaceS3 {
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         return new P((resolve, reject) => {
-            const req = this.s3.getObject({
-                    Key: params.key,
-                    Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
-                })
+            const request = {
+                Key: params.key,
+                Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
+            };
+            this._assign_encryption_to_request(params, request);
+            const req = this.s3.getObject(request)
                 .on('error', err => {
                     this._translate_error_code(err);
                     dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
@@ -196,25 +200,7 @@ class NamespaceS3 {
                 TaggingDirective: params.tagging_copy ? 'COPY' : 'REPLACE',
             };
 
-            if (params.copy_source.encryption) {
-                const { algorithm, key_b64, key_md5_b64 } = params.copy_source.encryption;
-                request.CopySourceSSECustomerAlgorithm = algorithm;
-                request.CopySourceSSECustomerKey = key_b64;
-                request.CopySourceSSECustomerKeyMD5 = key_md5_b64;
-            }
-
-            if (params.encryption) {
-                // TODO: How should we pass the context ('x-amz-server-side-encryption-context' var context_b64) if at all?
-                const { algorithm, key_b64, key_md5_b64, kms_key_id } = params.encryption;
-                if (key_b64) {
-                    request.SSECustomerAlgorithm = algorithm;
-                    request.SSECustomerKey = key_b64;
-                    request.SSECustomerKeyMD5 = key_md5_b64;
-                } else {
-                    request.ServerSideEncryption = algorithm;
-                    request.SSEKMSKeyId = kms_key_id;
-                }
-            }
+            this._assign_encryption_to_request(params, request);
 
             res = await this.s3.copyObject(request).promise();
         } else {
@@ -228,15 +214,20 @@ class NamespaceS3 {
                 // clear count for next updates
                 count = 0;
             });
-            res = await this.s3.putObject({
+
+            const request = {
                 Key: params.key,
                 Body: params.source_stream.pipe(count_stream),
                 ContentLength: params.size,
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,
                 Metadata: params.xattr,
-                Tagging
-            }).promise();
+                Tagging,
+            };
+
+            this._assign_encryption_to_request(params, request);
+
+            res = await this.s3.putObject(request).promise();
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
@@ -266,12 +257,14 @@ class NamespaceS3 {
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
-        const res = await this.s3.createMultipartUpload({
+        const request = {
             Key: params.key,
             ContentType: params.content_type,
             Metadata: params.xattr,
             Tagging
-        }).promise();
+        };
+        this._assign_encryption_to_request(params, request);
+        const res = await this.s3.createMultipartUpload(request).promise();
 
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         return { obj_id: res.UploadId };
@@ -290,19 +283,7 @@ class NamespaceS3 {
                 CopySourceRange: copy_source_range,
             };
 
-            if (params.copy_source.encryption) {
-                const { algorithm, key_b64, key_md5_b64 } = params.copy_source.encryption;
-                request.CopySourceSSECustomerAlgorithm = algorithm;
-                request.CopySourceSSECustomerKey = key_b64;
-                request.CopySourceSSECustomerKeyMD5 = key_md5_b64;
-            }
-
-            if (params.encryption) {
-                const { algorithm, key_b64, key_md5_b64 } = params.encryption;
-                request.SSECustomerAlgorithm = algorithm;
-                request.SSECustomerKey = key_b64;
-                request.SSECustomerKeyMD5 = key_md5_b64;
-            }
+            this._assign_encryption_to_request(params, request);
 
             res = await this.s3.uploadPartCopy(request).promise();
         } else {
@@ -316,14 +297,19 @@ class NamespaceS3 {
                 // clear count for next updates
                 count = 0;
             });
-            res = await this.s3.uploadPart({
+
+            const request = {
                 Key: params.key,
                 UploadId: params.obj_id,
                 PartNumber: params.num,
                 Body: params.source_stream.pipe(count_stream),
                 ContentMD5: params.md5_b64,
                 ContentLength: params.size,
-            }).promise();
+            };
+
+            this._assign_encryption_to_request(params, request);
+
+            res = await this.s3.uploadPart(request).promise();
         }
         dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
@@ -539,6 +525,32 @@ class NamespaceS3 {
 
     _translate_error_code(err) {
         if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+    }
+
+    _assign_encryption_to_request(params, request) {
+        if (params.copy_source && params.copy_source.encryption) {
+            const { algorithm, key_b64 } = params.copy_source.encryption;
+            request.CopySourceSSECustomerAlgorithm = algorithm;
+            // TODO: There is a bug in the AWS S3 JS SDK that he encodes to base64 once again
+            // This will generate an error of non correct key, this is why we decode and send as ascii string
+            // Also the key_md5_b64 will be populated by the SDK.
+            request.CopySourceSSECustomerKey = Buffer.from(key_b64, 'base64').toString('ascii');
+        }
+
+        if (params.encryption) {
+            // TODO: How should we pass the context ('x-amz-server-side-encryption-context' var context_b64) if at all?
+            const { algorithm, key_b64, kms_key_id } = params.encryption;
+            if (key_b64) {
+                request.SSECustomerAlgorithm = algorithm;
+                // TODO: There is a bug in the AWS S3 JS SDK that he encodes to base64 once again
+                // This will generate an error of non correct key, this is why we decode and send as ascii string
+                // Also the key_md5_b64 will be populated by the SDK.
+                request.SSECustomerKey = Buffer.from(key_b64, 'base64').toString('ascii');
+            } else {
+                request.ServerSideEncryption = algorithm;
+                request.SSEKMSKeyId = kms_key_id;
+            }
+        }
     }
 
 }

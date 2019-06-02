@@ -386,7 +386,6 @@ function setup_supervisors {
     deploy_log "setup_supervisors adding noobaa config to supervisord"
     echo "[include]" >> /etc/supervisord.conf
     echo "files = /data/noobaa_supervisor.conf" >> /etc/supervisord.conf
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /data
     if [ "${container}" != "docker" ]; then
         ${SUPERD} start
         ${SUPERCTL} reread

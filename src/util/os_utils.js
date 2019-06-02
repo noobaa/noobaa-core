@@ -1305,41 +1305,40 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
     }
 
     const text = await promise_utils.exec(
-        'kubectl get services -o json',
-        { return_stdout: true }
+        'kubectl get services -o json', { return_stdout: true }
     );
     const json = JSON.parse(text);
     const services = json.items.filter(service =>
         service.metadata.labels.app === app
     );
 
-    const list = _.flatMap(services, serviceInfo => {
-        const { metadata, spec, status } = serviceInfo;
+    const list = _.flatMap(services, service_info => {
+        const { metadata, spec = {}, status } = service_info;
+        const { externalIPs = [] } = spec
         const { ingress } = status.loadBalancer;
-        const internalHostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
-        const externalHostnames = [
+        const internal_hostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
+        const external_hostnames = [
             ..._.flatMap(ingress, item => [item.ip, item.hostname].filter(Boolean)),
-            ...spec.externalIPs, // see: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+            ...externalIPs, // see: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
         ];
 
-        return _.flatMap(spec.ports, portInfo => {
-            const api = portInfo.name
+        return _.flatMap(spec.ports, port_info => {
+            const api = port_info.name
                 .replace('-https', '')
                 .replace(/-/g, '_');
 
             const common = {
                 service: metadata.name,
-                port: portInfo.port,
+                port: port_info.port,
                 api: api,
-                secure: portInfo.name.endsWith('https'),
+                secure: port_info.name.endsWith('https'),
             };
-            return [
-                {
+            return [{
                     ...common,
                     kind: 'INTERNAL',
-                    hostname: internalHostname,
+                    hostname: internal_hostname,
                 },
-                ...externalHostnames.map(hostname => ({
+                ...external_hostnames.map(hostname => ({
                     ...common,
                     kind: 'EXTERNAL',
                     hostname
@@ -1366,8 +1365,7 @@ async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
             port,
             api,
             secure: true,
-        })
-    );
+        }));
 
     return sort_address_list(list);
 }

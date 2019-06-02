@@ -24,16 +24,16 @@ curl -O https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/N
 chmod +x noobaa_deploy_k8s.sh
 ```
 
-3. Deploy - to current kubernetes context, use current namespace if -n is not provided:
+3. Deploy - uses current kubernetes context & namespace (-n overrides current namespace):
 
 ```bash
-./noobaa_deploy_k8s.sh deploy [-n noobaa]
+./noobaa_deploy_k8s.sh deploy -n noobaa
 ```
 
-4. Whenever you need to get NooBaa info from current kubernetes context:
+4. Whenever you need to get NooBaa info:
 
 ```bash
-./noobaa_deploy_k8s.sh info [-n noobaa]
+./noobaa_deploy_k8s.sh info -n noobaa
 ```
 
 This [youtube tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes) will guide you through.

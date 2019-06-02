@@ -1314,7 +1314,7 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
 
     const list = _.flatMap(services, service_info => {
         const { metadata, spec = {}, status } = service_info;
-        const { externalIPs = [] } = spec
+        const { externalIPs = [] } = spec;
         const { ingress } = status.loadBalancer;
         const internal_hostname = `${metadata.name}.${metadata.namespace}.svc.cluster.local`;
         const external_hostnames = [

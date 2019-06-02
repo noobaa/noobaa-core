@@ -262,7 +262,7 @@ class ObjectIO {
      */
     async _upload_copy(params, complete_params) {
         const { obj_id, bucket, key, version_id, ranges, encryption } = params.copy_source;
-        if (bucket === params.bucket && !ranges && !encryption) {
+        if (bucket === params.bucket && !ranges && !(encryption || params.encryption)) {
             /** @type {{ object_md: nb.ObjectInfo, num_parts: number }} */
             const { object_md, num_parts } = await params.client.object.copy_object_mapping({
                 bucket: params.bucket,
@@ -404,6 +404,7 @@ class ObjectIO {
      */
     async _upload_chunks(params, complete_params, chunks, callback) {
         try {
+            const is_using_encryption = params.encryption || (params.copy_source && params.copy_source.encryption);
             params.range = {
                 start: params.start,
                 end: params.start,
@@ -441,7 +442,7 @@ class ObjectIO {
             const mc = new MapClient({
                 chunks: map_chunks,
                 location_info: params.location_info,
-                check_dups: true,
+                check_dups: !is_using_encryption,
                 rpc_client: params.client,
                 desc: params.desc,
                 report_error: (block_md, action, err) => this._report_error_on_object_upload(params, block_md, action, err),

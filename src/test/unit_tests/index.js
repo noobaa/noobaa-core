@@ -47,6 +47,7 @@ require('./test_agent_blocks_verifier');
 require('./test_agent_blocks_reclaimer');
 require('./test_s3_ops');
 require('./test_s3_list_objects');
+require('./test_s3_encryption');
 require('./test_nb_native_b64');
 require('./test_node_allocator');
 require('./test_bucket_chunks_builder');

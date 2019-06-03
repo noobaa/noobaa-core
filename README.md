@@ -10,9 +10,8 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## Deploy to Kubernetes
 
-[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1&loop=1)
+To deploy run the following commands:
 
-To run the deploy script:
 ```bash
 curl -O https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
 chmod +x noobaa_deploy_k8s.sh
@@ -27,6 +26,8 @@ NOTE: check that you have these tools installed in your package manager (brew/yu
 
 
 ## Tutorials
+
+[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1&loop=1)
 
 [NooBaa From Zero to Multi Cloud on youtube](https://youtu.be/fuTKXBMwOes)
 

@@ -107,7 +107,6 @@ class SystemUpgradingModalViewModel extends ConnectableViewModel {
     }
 
     onFakeProgress(fakeProgress) {
-        // console.warn(fakeProgress);
         const progress = Math.max(this.progress.peek(), fakeProgress);
         ko.assignToProps(this, {
             progress,

@@ -4,6 +4,7 @@ import { map, delay } from 'rxjs/operators';
 import { ofType } from 'rx-extensions';
 import { SIGN_OUT } from 'action-types';
 import { requestLocation } from 'action-creators';
+import * as routes from 'routes';
 
 export default function(action$) {
     // Adding the delay in order to enusre that the UI has refreshed before changing to the new location,
@@ -12,6 +13,6 @@ export default function(action$) {
     return action$.pipe(
         ofType(SIGN_OUT),
         delay(1),
-        map(() => requestLocation('/'))
+        map(() => requestLocation(routes.root))
     );
 }

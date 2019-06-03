@@ -1014,5 +1014,21 @@ export function openCreateEmptyPoolModal() {
         }
     };
 }
+
+export function openSessionExpiredModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'session-expired-modal',
+            options: {
+                title: 'Session Expired',
+                size: 'xsmall',
+                severity: 'info',
+                closeButton: 'hidden',
+                backdropClose: false
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

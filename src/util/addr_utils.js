@@ -17,8 +17,13 @@ function format_base_address(hostname = '127.0.0.1', port = default_base_port) {
     return url.format(`wss://${hostname}:${port}`);
 }
 
-function get_base_address(address_list, hint = 'INTERNAL', api = 'mgmt') {
-    const protocol = 'wss';
+function get_base_address(address_list, options = {}) {
+    let {
+        hint = 'INTERNAL',
+        api = 'mgmt',
+        protocol = 'wss'
+    } = options;
+
     const api_list = address_list.filter(addr => addr.api === api);
     let default_port = default_base_port + api_default_port_offset[api];
 

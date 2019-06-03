@@ -77,6 +77,31 @@ module.exports = {
             }
         },
 
+        create_external_user_account: {
+            doc: 'Create a account based on an openshift user identity',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'email'],
+                properties: {
+                   name: { $ref: 'common_api#/definitions/account_name' },
+                   email: { $ref: 'common_api#/definitions/email' }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+                account: true
+            }
+        },
 
         read_account: {
             doc: 'Read the info of the authorized account',
@@ -422,8 +447,6 @@ module.exports = {
         },
 
     },
-
-
 
     definitions: {
         account_info: {

@@ -19,6 +19,9 @@ export default {
                 token: {
                     type: 'string'
                 },
+                expired: {
+                    type: 'boolean'
+                },
                 user: {
                     type: 'string'
                 },

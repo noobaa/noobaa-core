@@ -62,9 +62,26 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 
     const { has_accounts } = await api.account.accounts_status();
     if (has_accounts) {
-        serverInfo({
-            initialized: true
-        });
+        try {
+            const res = await fetch('/oauth/authorize', {
+                method: 'HEAD',
+                redirect: 'manual'
+            });
+
+            serverInfo({
+                initialized: true,
+                supportOAuth:
+                    res.type === 'opaqueredirect' &&
+                    res.status === 0
+            });
+
+        } catch (err) {
+            serverInfo({
+                initialized: true,
+                supportOAuth: false
+            });
+        }
+
     } else {
         const config = await api.cluster_server.read_server_config({
             test_ph_connectivity: testPhonehomeConnectvity,

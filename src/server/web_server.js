@@ -35,6 +35,8 @@ const cutil = require('./utils/clustering_utils');
 const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
 const auth_server = require('./common_services/auth_server');
+const addr_utils = require('../util/addr_utils');
+const kube_utils = require('../util/kube_utils');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -319,14 +321,10 @@ if (prom_reports.instance().enabled()) {
 
 }
 
-
-//Upgrade from 0.3.X will try to return to this path. We will redirect it.
-app.get('/console', function(req, res) {
-    return res.redirect('/fe/');
-});
-
 app.get('/', function(req, res) {
-    return res.redirect('/fe/');
+    // Forward any query parameters
+    const [, query = ''] = req.url.split(/(?=\?)/);
+    return res.redirect(`/fe/${query}`);
 });
 
 // Upgrade checks
@@ -441,6 +439,55 @@ function getVersion(route) {
         });
 }
 
+// An oauth authorize endpoint that forwards to the OpenShift authorization server.
+app.get('/oauth/authorize', async (req, res) => {
+    const {
+        KUBERNETES_SERVICE_HOST,
+        KUBERNETES_SERVICE_PORT,
+        OAUTH_SERVICE_HOST,
+    } = process.env;
+
+    if (!KUBERNETES_SERVICE_HOST || !KUBERNETES_SERVICE_PORT) {
+        dbg.warn('/oauth/authorize: oauth is supported only on OpenShift deployments');
+        res.status(500);
+        res.end();
+        return;
+    }
+
+    if (!OAUTH_SERVICE_HOST) {
+        dbg.warn('/oauth/authorize: oauth support was not configured for this system');
+        res.status(500);
+        res.end();
+        return;
+    }
+
+    let redirect_host;
+    if (dev_mode) {
+        redirect_host = `https://localhost:${https_port}`;
+
+    } else {
+        const { system_address } = system_store.data.systems[0];
+        redirect_host = addr_utils.get_base_address(system_address, {
+            hint: 'EXTERNAL',
+            protocol: 'https'
+        }).toString();
+    }
+
+    const k8s_namespace = await kube_utils.read_namespace();
+    const client_id = `system:serviceaccount:${k8s_namespace}:noobaa-account`;
+    const redirect_uri = new URL(config.OAUTH_REDIRECT_ENDPOINT, redirect_host);
+    const return_url = new URL(req.url, 'http://dummy').searchParams.get('return-url');
+    const authorization_endpoint = new URL(config.OAUTH_AUTHORIZATION_ENDPOINT, `https://${OAUTH_SERVICE_HOST}`);
+    authorization_endpoint.searchParams.set('client_id', client_id);
+    authorization_endpoint.searchParams.set('response_type', 'code');
+    authorization_endpoint.searchParams.set('scope', config.OAUTH_REQUIRED_SCOPE);
+    authorization_endpoint.searchParams.set('redirect_uri', redirect_uri);
+    authorization_endpoint.searchParams.set('state', decodeURIComponent(return_url));
+
+    res.redirect(authorization_endpoint);
+});
+
+
 // Get the current version
 app.get('/version', (req, res) => getVersion(req.url)
     .then(({ status, version }) => {
@@ -466,7 +513,7 @@ function cache_control(seconds) {
     };
 }
 
-function handleUpgrade(req, res, next) {
+function handle_upgrade(req, res, next) {
     return getVersion(req.url)
         .then(({ status }) => {
             if (status === 404) { //Currently 404 marks during upgrade
@@ -481,7 +528,7 @@ function handleUpgrade(req, res, next) {
         });
 }
 
-function serveFE(filename) {
+function serve_fe(filename) {
     const filePath = path.join(rootdir, 'frontend', 'dist', filename);
     return (req, res) => {
         res.sendFile(filePath);
@@ -508,10 +555,10 @@ app.use('/public/license-info', license_info.serve_http);
 // Serve the new frontend (management console)
 app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
-app.get('/fe', handleUpgrade, serveFE('index.html'));
-app.get('/fe/debug', handleUpgrade, serveFE('debug.html'));
+app.get('/fe', handle_upgrade, serve_fe('index.html'));
+app.get('/fe/debug', handle_upgrade, serve_fe('debug.html'));
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
-app.get('/fe/**/', handleUpgrade, serveFE('index.html'));
+app.get('/fe/**/', handle_upgrade, serve_fe('index.html'));
 app.use('/', express.static(path.join(rootdir, 'public')));
 
 

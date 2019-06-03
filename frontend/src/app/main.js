@@ -29,7 +29,9 @@ import {
     httpWaitForResponse,
     createBroadcastChannel,
     getDocumentMetaTag,
-    getWindowName
+    getWindowName,
+    hasSameOrigin,
+    navigateTo
 } from 'utils/browser-utils';
 
 
@@ -69,7 +71,9 @@ function registerSideEffects(action$, state$) {
         httpWaitForResponse: httpWaitForResponse,
         createBroadcastChannel: createBroadcastChannel,
         getDocumentMetaTag: getDocumentMetaTag,
-        getWindowName: getWindowName
+        getWindowName: getWindowName,
+        hasSameOrigin: hasSameOrigin,
+        navigateTo: navigateTo
     };
 
     const injectedServices = {

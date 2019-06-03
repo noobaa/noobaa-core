@@ -51,6 +51,7 @@ class RPC extends EventEmitter {
         this._served_requests = 0;
         this.RPC_BUFFERS = RPC_BUFFERS;
         this._routing_authority = null;
+        this._error_handler = null;
     }
 
     /**
@@ -143,7 +144,7 @@ class RPC extends EventEmitter {
             return this._proxy(api, method_api, params, options);
         }
 
-        const request_promise = P.resolve()
+        let request_promise = P.resolve()
             .then(() => {
 
                 dbg.log1('RPC._request: START',
@@ -191,16 +192,16 @@ class RPC extends EventEmitter {
                 if (!req.took_srv) req._set_times(0);
 
                 dbg.log1(`RPC._request: DONE srv ${
-                req.srv
-            } reqid ${
-                req.reqid
-            } took [${
-                req.took_srv.toFixed(1)
-            }+${
-                req.took_flight.toFixed(1)
-            }=${
-                req.took_total.toFixed(1)
-            }]`);
+                    req.srv
+                } reqid ${
+                    req.reqid
+                } took [${
+                    req.took_srv.toFixed(1)
+                }+${
+                    req.took_flight.toFixed(1)
+                }=${
+                    req.took_total.toFixed(1)
+                }]`);
 
                 // return_rpc_req mode allows callers to get back the request
                 // instead of a bare reply, and the reply is in req.reply
@@ -220,29 +221,35 @@ class RPC extends EventEmitter {
                 }
 
                 dbg.error(`RPC._request: response ERROR srv ${
-                req.srv
-            } params ${
-                util.inspect(params, true, null, true)
-            } reqid ${
-                req.reqid
-            } took [${
-                req.took_srv.toFixed(1)
-            }+${
-                req.took_flight.toFixed(1)
-            }=${
-                req.took_total.toFixed(1)
-            }]`, err.stack || err);
+                    req.srv
+                } params ${
+                    util.inspect(params, true, null, true)
+                } reqid ${
+                    req.reqid
+                } took [${
+                    req.took_srv.toFixed(1)
+                }+${
+                    req.took_flight.toFixed(1)
+                }=${
+                    req.took_total.toFixed(1)
+                }]`, err.stack || err);
 
                 throw err;
-
             })
-            .finally(() =>
+            .finally(() => {
                 // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
-                this._release_connection(req));
+                this._release_connection(req);
+            });
 
-        return options.timeout ?
+        request_promise = options.timeout ?
             request_promise.timeout(options.timeout, new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT')) :
             request_promise;
+
+        request_promise = (typeof this._error_handler === 'function') ?
+            request_promise.catch(err => { if (this._error_handler(err) !== true) throw err; }) :
+            request_promise;
+
+        return request_promise;
     }
 
 
@@ -949,6 +956,11 @@ class RPC extends EventEmitter {
      */
     set_stats_handler(stats_handler) {
         this._stats_handler = stats_handler;
+    }
+
+    set_error_handler(error_handler) {
+        dbg.log0('RPC set_error_handler');
+        this._error_handler = error_handler;
     }
 
 }

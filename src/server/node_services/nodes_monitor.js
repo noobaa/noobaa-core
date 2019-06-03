@@ -1527,7 +1527,7 @@ class NodesMonitor extends EventEmitter {
         // don't update local agents which are using local host
 
         const { routing_hint } = system_store.data.get_by_id(item.node.agent_config) || {};
-        const base_address = addr_utils.get_base_address(system.system_address, routing_hint).toString();
+        const base_address = addr_utils.get_base_address(system.system_address, { hint: routing_hint }).toString();
         const address_configured = system.system_address.some(addr => addr.service === 'noobaa-mgmt');
         if (address_configured &&
             !item.node.is_internal_node &&

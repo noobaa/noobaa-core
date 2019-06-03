@@ -588,7 +588,7 @@ async function read_object_md(req) {
         // or when the intention is to use dns name.
         const endpoint =
             adminfo.signed_url_endpoint ||
-            addr_utils.get_base_address(req.system.system_address, 'EXTERNAL').hostname;
+            addr_utils.get_base_address(req.system.system_address, { hint: 'EXTERNAL' }).hostname;
 
         const account_keys = req.account.access_keys[0];
         info.s3_signed_url = cloud_utils.get_signed_url({
@@ -982,7 +982,7 @@ async function list_objects_admin(req) {
         const { adminfo } = req.rpc_params;
         const endpoint =
             (adminfo && adminfo.signed_url_endpoint) ||
-            addr_utils.get_base_address(req.system.system_address, 'EXTERNAL').hostname;
+            addr_utils.get_base_address(req.system.system_address, { hint: 'EXTERNAL' }).hostname;
 
         const account_keys = req.account.access_keys[0];
         object_info.s3_signed_url = cloud_utils.get_signed_url({

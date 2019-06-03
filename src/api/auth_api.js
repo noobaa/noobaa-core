@@ -69,6 +69,29 @@ module.exports = {
             }
         },
 
+        create_k8s_auth: {
+            doc: 'Authenticate a k8s account using an OAuth grant code and return an access token.',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['grant_code'],
+                properties: {
+                    grant_code: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
+
         create_access_key_auth: {
             doc: 'Authenticate account with access key, ' +
                 'and returns an access token. ' +

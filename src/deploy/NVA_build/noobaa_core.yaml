@@ -32,6 +32,12 @@ rules:
     verbs:
       - get
       - list
+  - apiGroups:
+    - authentication.k8s.io
+    resources:
+    - tokenreviews
+    verbs:
+    - create
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -171,6 +177,15 @@ spec:
                   name: noobaa-create-sys-creds
                   key: password
                   optional: true
+            - name: OAUTH_SERVICE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: noobaa-config-map
+                  key: oauth_service_host
+                  optional: true
+            # replacing the empty value with any value will set the cotainer to dbg mode
+            - name: container_dbg
+              value: ""
       serviceAccountName: noobaa-account
 
   volumeClaimTemplates:

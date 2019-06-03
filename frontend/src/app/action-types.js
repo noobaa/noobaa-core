@@ -9,10 +9,12 @@ export const CHANGE_LOCATION = 'CHANGE_LOCATION';
 export const RESTORE_SESSION = 'RESTORE_SESSION';
 export const COMPLETE_RESTORE_SESSION = 'COMPLETE_RESTORE_SESSION';
 export const FAIL_RESTORE_SESSION = 'FAIL_RESTORE_SESSION';
+export const EXPIRE_SESSION = 'EXPIRE_SESSION';
 export const SIGN_IN = 'SIGN_IN';
 export const COMPLETE_SIGN_IN = 'COMPLETE_SIGN_IN';
 export const FAIL_SIGN_IN = 'FAIL_SIGN_IN';
 export const SIGN_OUT = 'SIGN_OUT';
+export const SIGN_IN_WITH_OAUTH = 'SIGN_IN_WITH_OAUTH';
 
 // Drawer related actions.
 export const OPEN_DRAWER = 'OPEN_DRAWER';

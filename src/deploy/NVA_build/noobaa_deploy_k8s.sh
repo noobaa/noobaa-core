@@ -10,6 +10,7 @@ SYS_NAME=noobaa
 NAMESPACE=$(kubectl config get-contexts | grep "\*" | awk '{print $5}')
 NOOBAA_CORE_YAML=https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_core.yaml
 CREDS_SECRET_NAME=noobaa-create-sys-creds
+TOKEN_SECRET_NAME=noobaa-auth-token
 ACCESS_KEY=""
 SECRET_KEY=""
 COMMAND=NONE
@@ -220,7 +221,7 @@ function print_noobaa_info {
         echo "nodePort access for management: http://${NODE_PORT_MGMT_FALLBACK}"
         echo
         echo "      login email             : ${EMAIL}"
-        echo "      login password          : ${PASSWD}"
+        echo "      initial password        : ${PASSWD}"
         echo
         echo "External S3 endpoint          : http://${S3_IP}:80 or "
         echo "                                https://${S3_IP}:443"
@@ -241,13 +242,15 @@ function print_noobaa_info {
 
 function delete_noobaa {
     echo "Deleting NooBaa resources in namespace ${NAMESPACE}"
+    ${KUBECTL} delete secret ${TOKEN_SECRET_NAME}
+    ${KUBECTL} delete secret ${CREDS_SECRET_NAME}
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
-    $KUBECTL delete pvc datadir-${NOOBAA_POD_NAME}
-    $KUBECTL delete pvc logdir-${NOOBAA_POD_NAME}
-    $KUBECTL delete statefulset noobaa-agent
-    $KUBECTL delete pvc noobaastorage-noobaa-agent-0
-    $KUBECTL delete pvc noobaastorage-noobaa-agent-1
-    $KUBECTL delete pvc noobaastorage-noobaa-agent-2
+    ${KUBECTL} delete pvc datadir-${NOOBAA_POD_NAME}
+    ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
+    ${KUBECTL} delete statefulset noobaa-agent
+    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-0
+    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-1
+    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-2
 }
 
 
@@ -308,44 +311,49 @@ function wait_for_noobaa_ready_with_timeout {
 }
 
 function get_auth_token {
-    if [ "${PASSWD}" == "" ] || [ "${EMAIL}" == "" ]; then
-        local SECRET_INFO=$(${KUBECTL} get secret ${CREDS_SECRET_NAME})
-        if [ "$?" -eq 0 ]; then
-            EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}' | base64 --decode;printf "\n")
-            PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
-            SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
-        else
-            ACCESS_KEY="***********"
-            SECRET_KEY="***********"
-        fi
-        if [ "${PASSWD}" != "" ] && [ "${EMAIL}" != "" ]; then
-            wait_for_noobaa_ready_with_timeout 1200
-            if [ $? -eq 0 ]; then
-                local MAX_RETRIES=50
-                local RETRIES=0
-                # repeat until access_keys are returned
-                while [ "${TOKEN}" == "" ]; do
-                    if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
-                        echo "Could not get access token for noobaa"
-                        return 1
-                    else
-                        #get access token to the system
-                        TOKEN=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ --max-time 20 -sd '{
-                        "api": "auth_api",
-                        "method": "create_auth",
-                        "params": {
-                            "role": "admin",
-                            "system": "'${SYS_NAME}'",
-                            "email": "'${EMAIL}'",
-                            "password": "'${PASSWD}'"
-                        }
-                        }' | jq -r '.reply.token')
-                        sleep 2
-                        RETRIES=$((RETRIES+1))
-                    fi
-                done
-            fi    
-        fi
+    ${KUBECTL} get secret ${CREDS_SECRET_NAME} &> /dev/null
+    if [ "$?" -ne 0 ]; then
+        error_and_exit "could not find secret ${CREDS_SECRET_NAME} in namespace ${NAMESPACE}"
+    fi
+    EMAIL=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.email}' | base64 --decode;printf "\n")
+    PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
+    SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
+    ${KUBECTL} get secret ${TOKEN_SECRET_NAME} &> /dev/null
+    if [ "$?" -eq 0 ]; then
+        TOKEN=$(${KUBECTL} get secret ${TOKEN_SECRET_NAME} -o jsonpath='{.data.token}' 2> /dev/null | base64 --decode;printf "\n")
+        ${KUBECTL} get secret ${CREDS_SECRET_NAME} &> /dev/null
+    else
+        wait_for_noobaa_ready_with_timeout 1200
+        if [ $? -eq 0 ]; then
+            local MAX_RETRIES=50
+            local RETRIES=0
+            # repeat until access_keys are returned
+            while [ "${TOKEN}" == "" ]; do
+                if [ ${RETRIES} -gt ${MAX_RETRIES} ]; then
+                    echo "Could not get access token for noobaa"
+                    return 1
+                else
+                    #get access token to the system
+                    TOKEN=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ --max-time 20 -sd '{
+                    "api": "auth_api",
+                    "method": "create_auth",
+                    "params": {
+                        "role": "admin",
+                        "system": "'${SYS_NAME}'",
+                        "email": "'${EMAIL}'",
+                        "password": "'${PASSWD}'"
+                    }
+                    }' | jq -r '.reply.token')
+                    sleep 2
+                    RETRIES=$((RETRIES+1))
+                fi
+            done
+            if [ "${TOKEN}" != "" ]; then 
+                # if got a token succesfuly then store it in a secret 
+                ${KUBECTL} create secret generic ${TOKEN_SECRET_NAME} --from-literal=token=${TOKEN}
+            fi
+
+        fi    
     fi
 }
 

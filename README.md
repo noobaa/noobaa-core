@@ -10,7 +10,7 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## Deploy to Kubernetes
 
-[![asciicast](https://asciinema.org/a/eyeFiPX0JbpHM0QAeWM2Agb7u.svg)](https://asciinema.org/a/eyeFiPX0JbpHM0QAeWM2Agb7u?speed=2&autoplay=1&loop=1)
+[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1&loop=1)
 
 To run the deploy script:
 ```bash

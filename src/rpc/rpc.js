@@ -688,6 +688,10 @@ class RPC extends EventEmitter {
             return;
         }
 
+        // provide defaults to simplify rpc http with curl
+        if (!msg.body.op) msg.body.op = 'req';
+        if (!msg.body.reqid) msg.body.reqid = conn._alloc_reqid();
+
         switch (msg.body.op) {
             case 'req': {
                 P.resolve()

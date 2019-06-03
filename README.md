@@ -8,48 +8,35 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ----
 
-## To start using NooBaa in Kubernetes
+## Deploy to Kubernetes
 
-1. Deps - use your package manager to install:
+[![asciicast](https://asciinema.org/a/2cef8S6mUdv9a7d8jcK3GtRZ6.svg)](https://asciinema.org/a/2cef8S6mUdv9a7d8jcK3GtRZ6?speed=2&rows=20&cols=125&size=small&autoplay=1&loop=1)
 
- - `kubectl`
- - `curl`
- - `openssl` (for generating random password)
- - `jq` (https://stedolan.github.io/jq/download)
-
-2. Get script:
-
+To run the deploy script:
 ```bash
 curl -O https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
 chmod +x noobaa_deploy_k8s.sh
-```
-
-3. Deploy - uses current kubernetes context & namespace (-n overrides current namespace):
-
-```bash
 ./noobaa_deploy_k8s.sh deploy -n noobaa
 ```
 
-4. Whenever you need to get NooBaa info:
+NOTE: check that you have these tools installed in your package manager (brew/yum/apt/etc):
+ - `kubectl`
+ - `curl`
+ - `openssl`
+ - `jq` - https://stedolan.github.io/jq/download
 
-```bash
-./noobaa_deploy_k8s.sh info -n noobaa
-```
 
-This [youtube tutorial](http://www.youtube.com/watch?v=fuTKXBMwOes) will guide you through.
+## Tutorials
 
-<a href="http://www.youtube.com/watch?v=fuTKXBMwOes" target="_blank">
-  <img src="http://img.youtube.com/vi/fuTKXBMwOes/0.jpg"
-       alt="http://www.youtube.com/watch?v=fuTKXBMwOes" 
-       width="300" border="10" />
-</a>
+[NooBaa From Zero to Multi Cloud on youtube](https://youtu.be/fuTKXBMwOes)
 
+[![Watch the video](https://img.youtube.com/vi/fuTKXBMwOes/default.jpg)](https://youtu.be/fuTKXBMwOes)
 
 ## Help
 
 - [Website](https://www.noobaa.io)
-- [Knowledge Base](https://noobaa.desk.com)
-- [Wiki](https://github.com/noobaa/noobaa-core/wiki)
+- [Knowledge Base](https://noobaa.desk.com) - articles for specific user tasks
+- [Wiki](https://github.com/noobaa/noobaa-core/wiki) - articles for hackers
 
 ## Communicate
 

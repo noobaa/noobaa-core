@@ -27,7 +27,7 @@ NOTE: check that you have these tools installed in your package manager (brew/yu
 
 ## Tutorials
 
-[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1&loop=1)
+[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1)
 
 [NooBaa From Zero to Multi Cloud on youtube](https://youtu.be/fuTKXBMwOes)
 

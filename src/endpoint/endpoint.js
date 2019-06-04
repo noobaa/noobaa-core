@@ -11,6 +11,7 @@ require('../util/dotenv').load();
 const _ = require('lodash');
 const fs = require('fs');
 const url = require('url');
+const path = require('path');
 const util = require('util');
 const argv = require('minimist')(process.argv);
 const http = require('http');
@@ -30,10 +31,11 @@ const config = require('../../config');
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
+const os_utils = require('../util/os_utils');
 const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
-const http_utils = require('../util/http_utils');
 const net_utils = require('../util/net_utils');
+const http_utils = require('../util/http_utils');
 
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
@@ -284,7 +286,7 @@ function unavailable_handler(req, res) {
 
 
 function read_config_file() {
-    return fs.readFileAsync('agent_conf.json')
+    return fs.readFileAsync(path.join(os_utils.get_agent_platform_path(), 'agent_conf.json'))
         .then(data => {
             let agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));

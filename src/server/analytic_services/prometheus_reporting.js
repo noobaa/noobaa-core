@@ -59,12 +59,18 @@ class PrometheusReporting {
             help: 'Cloud number of operations',
             labelNames: ['type', 'number']
         });
+
+        this._metrics.system_capacity = new prom_client.Gauge({
+            name: 'noobaa_system_capacity',
+            help: 'System capacity',
+        });
     }
 
     export_metrics() {
         const exported = this._prom_client.register.getSingleMetricAsString('noobaa_cloud_types') + '\n' +
             this._prom_client.register.getSingleMetricAsString('noobaa_object_histo') + '\n' +
             this._prom_client.register.getSingleMetricAsString('noobaa_cloud_bandwidth') + '\n' +
+            this._prom_client.register.getSingleMetricAsString('noobaa_system_capacity') + '\n' +
             this._prom_client.register.getSingleMetricAsString('noobaa_cloud_ops');
 
         return exported;
@@ -99,6 +105,11 @@ class PrometheusReporting {
         if (!this.enabled()) return;
         this._metrics.cloud_ops.set({ type: type + '_write_ops' }, write_num);
         this._metrics.cloud_ops.set({ type: type + '_read_ops' }, read_num);
+    }
+
+    set_system_capacity(capacity_num) {
+        if (!this.enabled()) return;
+        this._metrics.system_capacity.set(capacity_num);
     }
 
     update_cloud_bandwidth(type, write_size, read_size) {

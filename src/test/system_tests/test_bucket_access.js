@@ -11,7 +11,6 @@ var rpc = api.new_rpc();
 var argv = require('minimist')(process.argv);
 var assert = require('assert');
 var AWS = require('aws-sdk');
-var https = require('https');
 var fs = require('fs');
 var uuid = require('uuid/v4');
 
@@ -19,9 +18,20 @@ var uuid = require('uuid/v4');
 dotenv.load();
 
 
+const {
+    no_setup,
+    mgmt_ip = '127.0.0.1',
+    mgmt_port = '8080',
+    s3_ip = '127.0.0.1',
+    s3_port = '80',
+} = argv;
+
+
+const target_s3_endpoint = `http://${s3_ip}:${s3_port}`;
+
 
 var client = rpc.new_client({
-    address: 'ws://127.0.0.1:' + process.env.PORT
+    address: `ws://${mgmt_ip}:${mgmt_port}`
 });
 
 let full_access_user = {
@@ -85,7 +95,7 @@ function main() {
 
 
 function setup() {
-    if (argv.no_setup) {
+    if (no_setup) {
         return;
     }
 
@@ -115,16 +125,11 @@ function get_new_server(user) {
     let access_key = user.access_keys.access_key;
     let secret_key = user.access_keys.secret_key;
     return new AWS.S3({
-        endpoint: 'https://127.0.0.1',
+        endpoint: target_s3_endpoint,
         s3ForcePathStyle: true,
         accessKeyId: access_key.unwrap(),
         secretAccessKey: secret_key.unwrap(),
         maxRedirects: 10,
-        httpOptions: {
-            agent: new https.Agent({
-                rejectUnauthorized: false,
-            })
-        }
     });
 }
 

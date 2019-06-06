@@ -8,5 +8,15 @@ coverage/
 logs/
 metadata_storage/
 noobaa_storage/
-gocode/
 heapdump-*
+
+## go ignored files
+/gocode/pkg
+/gocode/bin
+/gocode/src/github.com
+/gocode/src/golang.org
+/gocode/src/noobaa-operator/vendor
+/gocode/src/noobaa-operator/build/_output
+/gocode/src/noobaa-operator/build/*.yaml
+/gocode/src/noobaa-s3-provisioner/vendor
+/gocode/src/noobaa-s3-provisioner/bin

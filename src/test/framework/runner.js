@@ -87,7 +87,7 @@ class TestRunner {
                 return self.wait_for_server_to_start(30, 8080);
             })
             .then(function() {
-                return self.wait_for_server_to_start(30, 80);
+                return self.wait_for_server_to_start(30, 6001);
             })
             .delay(5000) //Workaround for agents sending HBs and re-registering to the server
             .catch(function(err) {
@@ -161,7 +161,7 @@ class TestRunner {
                 return self._restart_services(false);
             })
             .then(function() {
-                return self.wait_for_server_to_start(30, 80);
+                return self.wait_for_server_to_start(30, 6001);
             })
             .then(function() {
                 return self.wait_for_server_to_start(30, 8080);

@@ -135,6 +135,39 @@ async function create_system_and_check(server_ip) {
     }
 }
 
+
+//will create a system and check that the default account status is true.
+async function create_system(server_ip, port, protocol) {
+    protocol = protocol || 'wss';
+    const rpc = api.new_rpc_from_base_address(`${protocol}://${server_ip}:${port}`, 'EXTERNAL');
+    const client = rpc.new_client({});
+    try {
+        await client.system.create_system({
+            email: 'demo@noobaa.com',
+            name: 'demo',
+            password: 'DeMo1'
+        });
+        let has_account;
+        const base_time = Date.now();
+        while (Date.now() - base_time < 60 * 1000) {
+            try {
+                const account_stat = await client.account.accounts_status({});
+                has_account = account_stat.has_accounts;
+                if (has_account) break;
+            } catch (e) {
+                console.warn(`Waiting for the default account to be in status true`);
+                await P.delay(5 * 1000);
+            }
+        }
+        if (!has_account) {
+            throw new Error(`Couldn't create system. no account`);
+        }
+    } catch (err) {
+        throw new Error(`Couldn't create system`, err);
+    }
+}
+
+
 async function clean_ova_and_create_system(server_ip, secret) {
     try {
         await clean_ova(server_ip, secret);
@@ -261,6 +294,35 @@ async function clean_pre_upgrade_leftovers(params) {
     await ssh.ssh_exec(ssh_client, `sudo bash -c "rm -rf /tmp/test/ /tmp/new_version.tar.gz /tmp/nb_upgrade_*"`);
 }
 
+
+async function create_pool(server_ip, port, pool_name) {
+    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:${port}`, 'EXTERNAL');
+    const client = rpc.new_client({});
+    const auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    await client.create_auth_token(auth_params);
+    await client.pool.create_hosts_pool({ name: pool_name, hosts: [] });
+}
+
+async function get_num_optimal_agents(server_ip, port) {
+    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:${port}`, 'EXTERNAL');
+    const client = rpc.new_client({});
+    const auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo1',
+        system: 'demo'
+    };
+    await client.create_auth_token(auth_params);
+    return (await client.host.list_hosts({
+        query: {
+            mode: ['OPTIMAL']
+        }
+    })).hosts.length;
+}
+
 exports.enable_noobaa_login = enable_noobaa_login;
 exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
@@ -272,3 +334,6 @@ exports.init_reporter = init_reporter;
 exports.add_server_to_cluster = add_server_to_cluster;
 exports.remove_swap_on_azure = remove_swap_on_azure;
 exports.clean_pre_upgrade_leftovers = clean_pre_upgrade_leftovers;
+exports.create_system = create_system;
+exports.create_pool = create_pool;
+exports.get_num_optimal_agents = get_num_optimal_agents;

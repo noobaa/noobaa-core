@@ -3,7 +3,7 @@
     "defaultSeverity": "error",
     "rulesDirectory": [],
     "linterOptions": {
-        "exclude": [],
+        "exclude": []
     },
 
     "rules": {

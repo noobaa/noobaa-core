@@ -38,7 +38,15 @@ const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 const ALERT_LOW_TRESHOLD = 10;
 const ALERT_HIGH_TRESHOLD = 20;
 
+const FULL_STATISTICS_CYCLE = 6;
+
 var failed_sent = 0;
+// This value is non persistent on process restarts
+// This means that there might be a situation when we won't get phone home data
+// If the process will always crash prior to reaching the required amount of cycles (FULL_STATISTICS_CYCLE)
+// Also in case of failures with sending the phone home we won't perform the partial cycles
+// TODO: Maybe add some sort of a timeout mechanism to the failures in order to perform partial cycles?
+var current_cycle = 0;
 
 /*
  * Stats Collction API
@@ -450,6 +458,17 @@ function get_all_stats(req) {
         });
 }
 
+async function get_partial_stats(req) {
+    const stats_payload = {
+        systems_stats: null,
+    };
+
+    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
+    stats_payload.systems_stats = await get_systems_stats(req);
+
+    return stats_payload;
+}
+
 /*
  * Prometheus Metrics Parsing, POC grade
  */
@@ -637,54 +656,81 @@ function _handle_payload(payload) {
 
 }
 
-function background_worker() {
-    let statistics;
+async function background_worker() {
+    if (!system_store.is_finished_initial_load) return;
+    const system = system_store.data.systems[0];
+    if (!system) return;
+    // Shouldn't be more than but just in case
+    const is_full_cycle = (current_cycle >= FULL_STATISTICS_CYCLE);
 
-    if (!system_store.is_finished_initial_load) return P.resolve();
-    let system = system_store.data.systems[0];
-    if (!system) return P.resolve();
-
-    dbg.log('Central Statistics gathering started');
+    dbg.log(`STATS_AGGREGATOR ${is_full_cycle ? 'full' : 'partial'} cycle started`);
     //Run the system statistics gatheting
-    return P.resolve()
-        .then(() => _notify_latest_version())
-        .then(() => {
-            let support_account = _.find(system_store.data.accounts, account => account.is_support);
-            return server_rpc.client.stats.get_all_stats({}, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system._id,
-                    role: 'admin',
-                    account_id: support_account._id
-                })
-            });
-        })
-        .then(payload => {
-            statistics = payload;
-            return _handle_payload(payload);
-        })
-        .then(() => {
-            const free_bytes = size_utils.bigint_to_bytes(statistics.systems_stats.systems[0].free_space);
-            const total_bytes = size_utils.bigint_to_bytes(statistics.systems_stats.systems[0].total_space);
 
-            if (total_bytes > 0) {
-                const free_precntage = Math.floor((free_bytes / total_bytes) * 100);
-                if (free_precntage < ALERT_LOW_TRESHOLD) {
-                    Dispatcher.instance().alert('MAJOR',
-                        system_store.data.systems[0]._id,
-                        `Free storage is lower than ${ALERT_LOW_TRESHOLD}%`,
-                        Dispatcher.rules.once_weekly);
-                } else if (free_precntage < ALERT_HIGH_TRESHOLD) {
-                    Dispatcher.instance().alert('MAJOR',
-                        system_store.data.systems[0]._id,
-                        `Free storage is lower than ${ALERT_HIGH_TRESHOLD}%`,
-                        Dispatcher.rules.once_weekly);
-                }
-            }
-        }) // adding to here
-        .catch(err => {
-            dbg.warn('Phone Home data send failed', err.stack || err);
+    try {
+        if (is_full_cycle) {
+            await _perform_full_cycle();
+            current_cycle = 0;
+        } else {
+            await _perform_partial_cycle();
+            current_cycle += 1;
+        }
+    } catch (error) {
+        dbg.warn(`STATS_AGGREGATOR ${is_full_cycle ? 'full' : 'partial'} cycle failed`, error.stack || error);
+    }
+}
+
+async function _perform_full_cycle() {
+    const system = system_store.data.systems[0];
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+
+    await _notify_latest_version();
+
+    const payload = await server_rpc.client.stats.get_all_stats({}, {
+        auth_token: auth_server.make_auth_token({
+            system_id: system._id,
+            role: 'admin',
+            account_id: support_account._id
         })
-        .return();
+    });
+
+    await _handle_payload(payload);
+
+    const free_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].free_space);
+    const total_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].total_space);
+
+    if (total_bytes > 0) {
+        const free_precntage = Math.floor((free_bytes / total_bytes) * 100);
+        if (free_precntage < ALERT_LOW_TRESHOLD) {
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Free storage is lower than ${ALERT_LOW_TRESHOLD}%`,
+                Dispatcher.rules.once_weekly);
+        } else if (free_precntage < ALERT_HIGH_TRESHOLD) {
+            Dispatcher.instance().alert('MAJOR',
+                system_store.data.systems[0]._id,
+                `Free storage is lower than ${ALERT_HIGH_TRESHOLD}%`,
+                Dispatcher.rules.once_weekly);
+        }
+    }
+}
+
+async function _perform_partial_cycle() {
+    const system = system_store.data.systems[0];
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
+
+    const payload = await server_rpc.client.stats.get_partial_stats({}, {
+        auth_token: auth_server.make_auth_token({
+            system_id: system._id,
+            role: 'admin',
+            account_id: support_account._id
+        })
+    });
+
+    // TODO: Should split to relevant functions with addition of metrics or logic on info gathered
+    const free_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].free_space);
+    const total_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].total_space);
+    const capacity = 100 - Math.floor((free_bytes / total_bytes) * 100);
+    prom_report.instance().set_system_capacity(capacity);
 }
 
 async function _notify_latest_version() {
@@ -769,6 +815,7 @@ exports.get_pool_stats = get_pool_stats;
 exports.get_cloud_pool_stats = get_cloud_pool_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
+exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;
 //OP stats collection

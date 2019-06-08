@@ -8,9 +8,8 @@ assignees: ''
 ---
 
 ### Environment info
-- Version: **VERSION**
-- Deployment: **KUBERNETES | AZURE | AWS | GCLOUD | ESX | VBOX | DEV**
-- Customer: **NAME**
+- NooBaa Version: **VERSION**
+- Platform: **Kubernetes 1.14.1 | minikube 1.1.1 | OpenShift 4.1 | other: specify**
 
 ### Actual behavior
 1.
@@ -21,6 +20,4 @@ assignees: ''
 ### Steps to reproduce
 1.
 
-### Screenshots or Logs or other output that would be helpful
-
-### Additional Information
+### More information - Screenshots / Logs / Other output

@@ -303,7 +303,7 @@ class NodesClient {
         // until it will refresh the alloc.
         for (const block_report of blocks_report) {
             if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') {
-                const bucket = _.find(system_store.data.buckets, b => (b.name === bucket_name));
+                const bucket = _.find(system_store.data.buckets, b => (b.name.unwrap() === bucket_name.unwrap()));
                 await node_allocator.refresh_tiering_alloc(bucket.tiering, 'force');
             } else {
                 const node_id = block_report.block_md.node;

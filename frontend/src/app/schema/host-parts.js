@@ -18,8 +18,9 @@ export default {
                 type: 'object',
                 required: [
                     'mode',
-                    'object',
                     'bucket',
+                    'object',
+                    'version',
                     'start',
                     'end'
                 ],

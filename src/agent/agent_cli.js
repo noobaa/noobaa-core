@@ -106,8 +106,10 @@ class AgentCLI {
                     secret_key: 'abc',
                     system: 'demo',
                     bucket: 'first.bucket',
-                    routing_hint: 'EXTERNAL'
                 });
+                if (!self.params.scale) {
+                    self.params.routing_hint = 'EXTERNAL';
+                }
                 if (self.params.address) {
                     self.client.options.address = self.params.address;
                 }

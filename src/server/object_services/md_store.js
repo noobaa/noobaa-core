@@ -1121,7 +1121,8 @@ class MDStore {
     async load_parts_objects_for_chunks(chunks) {
         if (!chunks || !chunks.length) return;
         const parts = await this._parts.col().find({
-                chunk: { $in: mongo_utils.uniq_ids(chunks, '_id') }
+                chunk: { $in: mongo_utils.uniq_ids(chunks, '_id') },
+                deleted: null
             })
             .toArray();
         const objects = await this._objects.col().find({

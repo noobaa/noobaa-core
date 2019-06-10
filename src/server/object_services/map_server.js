@@ -115,13 +115,17 @@ class GetMapping {
             const total_size = _.sumBy(chunks, 'size');
             await _prepare_chunks_group({ chunks, move_to_tier: this.move_to_tier, location_info: this.location_info });
             let done = false;
+            let retries = 0;
             while (!done) {
                 const start_alloc_time = Date.now();
                 done = await this.allocate_chunks(chunks);
                 map_reporter.add_event(`allocate_chunks(${bucket.name})`, total_size, Date.now() - start_alloc_time);
                 if (!done) {
+                    retries += 1;
+                    if (retries > config.IO_WRITE_BLOCK_RETRIES) throw new Error('Couldn\'t allocate chunk - Will stop retries');
                     const uniq_tiers = _.uniq(_.map(chunks, 'tier'));
                     await P.map(uniq_tiers, tier => ensure_room_in_tier(tier, bucket));
+                    await P.delay(config.ALLOCATE_RETRY_DELAY_MS);
                     // TODO Decide if we want to update the chunks mappings when looping
                     // await this.prepare_chunks_group(chunks, bucket);
                 }
@@ -206,7 +210,7 @@ class GetMapping {
                     });
                     alloc.block_md.is_preallocated = true;
                 } catch (err) {
-                    dbg.warn('GetMapping: preallocate_block failed, will retry', alloc);
+                    dbg.warn('GetMapping: preallocate_block failed, will retry', alloc.block_md);
                     ok = false;
                 }
             });
@@ -579,10 +583,14 @@ async function prepare_blocks(blocks) {
  * @return {Promise<nb.Block[]>} 
  */
 async function prepare_blocks_from_db(blocks) {
+    const chunk_ids = blocks.map(block => block.chunk);
+    const chunks = await MDStore.instance().find_chunks_by_ids(chunk_ids);
+    const chunks_by_id = _.keyBy(chunks, '_id');
     const db_blocks = blocks.map(block => {
-        const chunk = system_store.data.get_by_id(block.chunk);
-        const frag = system_store.data.get_by_id(block.frag);
-        const block_db = new BlockDB(block, frag, chunk);
+        const chunk_db = new ChunkDB(chunks_by_id[block.chunk.toHexString()]);
+        const frag_db = _.find(chunk_db.frags, frag =>
+            frag._id.toHexString() === block.frag.toHexString());
+        const block_db = new BlockDB(block, frag_db, chunk_db);
         return block_db;
     });
     await prepare_blocks(db_blocks);

@@ -55,7 +55,7 @@ function onCompleteFetchHostObjects(state, { payload }) {
             mode,
             bucket: obj.bucket,
             object: obj.key,
-            version: obj.version_id,
+            version: obj.version_id || null,
             start: part.start,
             end: part.end
         };

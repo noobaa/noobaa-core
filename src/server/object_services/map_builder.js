@@ -126,7 +126,7 @@ class MapBuilder {
                 //     chunk.tier = mapper.select_tier_for_write(chunk.bucket.tiering, tiering_status);
                 // }
 
-                if (!chunk.parts || !chunk.parts.length || chunk.parts.every(part => Boolean(part.to_db().deleted))) {
+                if (!chunk.parts || !chunk.parts.length) {
                     dbg.log0('unreferenced chunk to delete', chunk);
                     chunks_to_delete.push(chunk);
                     return;

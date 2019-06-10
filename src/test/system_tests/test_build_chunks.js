@@ -506,6 +506,7 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
                     return client.pool.create_nodes_pool(pool_to_create);
                 });
         })
+        .then(() => promise_utils.retry(24, 5000, () => pools_in_good_status(pool_names)))
         .then(() => cloud_pool && client.account.add_external_connection({
                 name: 'test_build_chunks_cloud',
                 endpoint_type: 'AWS',
@@ -553,6 +554,20 @@ function has_expected_num_nodes(pool_name, num_of_nodes) {
             let msg = `pool ${pool_name} has ${nodes_list.nodes.length} nodes. expected: ${num_of_nodes}`;
             console.warn(msg);
             return P.reject(new Error(msg));
+        });
+}
+
+function pools_in_good_status(pool_names) {
+    return client.system.read_system({})
+        .then(system => {
+            _.each(system.pools, pool => {
+                if (pool_names.includes(pool.name) && pool.mode !== 'OPTIMAL') {
+                    let msg = `pool ${pool.name} is not in OPTIMAL state, ${pool.mode}`;
+                    console.warn(msg);
+                    throw new Error(msg);
+                }
+            });
+            return P.resolve();
         });
 }
 

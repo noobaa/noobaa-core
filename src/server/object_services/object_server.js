@@ -603,7 +603,7 @@ async function read_object_md(req) {
         // count object capacity
         const MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY = 20 * 1024 * 1024 * 1024;
         if (info.size < MAX_SIZE_CAP_FOR_OBJECT_RAW_QUERY) {
-            const chunks = await map_reader.read_object_mapping(obj);
+            const chunks = await map_reader.read_object_mapping_admin(obj);
             info.capacity_size = 0;
             for (const chunk of chunks) {
                 for (const frag of chunk.frags) {

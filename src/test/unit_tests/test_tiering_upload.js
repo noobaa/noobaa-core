@@ -260,7 +260,7 @@ mocha.describe('tiering upload', function() {
         await node_allocator.refresh_tiering_alloc(tiering, 'force');
         const tiering_status = node_allocator.get_tiering_status(tiering);
 
-        const tier_status = tiering_status[tier0._id];
+        const tier_status = tiering_status[tier0._id.toHexString()];
         const storage = tier_status.mirrors_storage[0];
         // const { storage } = await rpc_client.tier.read_tier({ name: TIER0 });
         console.log('GGG get_current_storage:', util.inspect(storage, { depth: null }));

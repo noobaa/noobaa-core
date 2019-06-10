@@ -159,7 +159,7 @@ interface MirrorStatus {
 interface Bucket extends Base {
     _id: ID;
     deleted?: Date;
-    name: string;
+    name: SensitiveString;
     system: System;
     versioning: 'DISABLED' | 'SUSPENDED' | 'ENABLED';
     tiering: Tiering;

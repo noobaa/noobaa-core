@@ -8,9 +8,9 @@ import { updateForm } from 'action-creators';
 export default function(action$) {
     return action$.pipe(
         ofType(COMPLETE_FETCH_NODE_INSTALLATION_COMMANDS),
-        map(action => updateForm(
-            'InstallNodeModalViewModel',
-            { commands: action.payload.commands }
-        ))
+        map(action => {
+            const command = action.payload.commands['KUBERNETES'];
+            return updateForm('InstallNodeModalViewModel', { command });
+        })
     );
 }

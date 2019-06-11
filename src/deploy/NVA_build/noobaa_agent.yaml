@@ -39,6 +39,12 @@ spec:
     spec:
       containers:
         - name: noobaa-agent
+          readinessProbe:
+            # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+            # ready when s3 port is open
+            tcpSocket:
+              port: 6001
+            timeoutSeconds: 5
           image: noobaa/noobaa-agent:AGENT_IMAGE_VERSION
           imagePullPolicy: IfNotPresent
           resources:

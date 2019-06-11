@@ -121,9 +121,10 @@ spec:
       containers:
         - name: noobaa-server
           readinessProbe:
-            httpGet:
-              port: 8080
-              path: "/version"
+            # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+            # ready when s3 port is open
+            tcpSocket:
+              port: 6001
             timeoutSeconds: 5
           image: noobaa/noobaa-core:3.0.0
           imagePullPolicy: IfNotPresent

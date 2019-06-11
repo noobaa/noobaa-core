@@ -9,7 +9,6 @@ import { realizeUri } from 'utils/browser-utils';
 import * as routes from 'routes';
 import { installNodes as learnMoreHref } from 'knowledge-base-articles';
 import {
-    updateForm,
     touchForm,
     openCreateEmptyPoolModal,
     fetchNodeInstallationCommands,
@@ -22,19 +21,6 @@ const steps = deepFreeze([
     'Install'
 ]);
 
-const osTypes = deepFreeze([
-    {
-        value: 'LINUX',
-        label: 'Linux',
-        hint: 'Run using a privileged user'
-    },
-    {
-        value: 'KUBERNETES',
-        label: 'Kubernetes',
-        hint: 'Copy into a noobaa.yaml file and run using the command "kubectl apply -f noobaa.yaml"'
-    }
-]);
-
 const drivesInputPlaceholder =
     `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
@@ -44,14 +30,12 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
     learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
-    osTypes = osTypes;
     drivesInputPlaceholder = drivesInputPlaceholder;
     poolActions = [{
         label: 'Create new pool',
         onClick: this.onCreateNewPool.bind(this)
     }];
     poolOptions = ko.observableArray();
-    osHint = ko.observable();
     hostPoolsHref = ko.observable();
     targetPool = '';
     excludeDrives = [];
@@ -59,21 +43,17 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
     fields = {
         step: 0,
         targetPool: '',
-        poolName: '',
         excludeDrives: false,
         excludedDrives: [],
-        selectedOs: 'LINUX',
-        commands: {
-            LINUX: '',
-            KUBERNETES: ''
-        }
+        command: ''
     };
 
     selectState(state) {
+        const { hostPools, forms, location } = state;
         return [
-            state.hostPools,
-            state.forms[this.formName],
-            state.location.params.system
+            hostPools,
+            forms[this.formName],
+            location.params.system
         ];
     }
 
@@ -82,8 +62,7 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
             return;
         }
 
-        const { targetPool, selectedOs, excludedDrives } =  getFormValues(form);
-        const { hint } = this.osTypes.find(os => os.value === selectedOs);
+        const { targetPool, excludedDrives } =  getFormValues(form);
         const hostPoolsHref = realizeUri(routes.resources, { system, tab: 'pools' });
         const poolOptions = Object.values(hostPools)
             .sort(_compareByCreationTime)
@@ -104,7 +83,6 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
             });
 
         ko.assignToProps(this, {
-            osHint: hint,
             poolOptions,
             targetPool,
             excludedDrives,
@@ -128,7 +106,7 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
 
     onBeforeStep(step) {
         if (!this.isStepValid) {
-            this.dispatch(touchForm(this.formName, ['targetPool', 'poolName']));
+            this.dispatch(touchForm(this.formName, ['targetPool']));
             return false;
 
         } else {
@@ -146,10 +124,6 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
 
     onCreateNewPool() {
         this.dispatch(openCreateEmptyPoolModal());
-    }
-
-    onTab(osType) {
-        this.dispatch(updateForm(this.formName, { selectedOs: osType }));
     }
 
     onDone() {

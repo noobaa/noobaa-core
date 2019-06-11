@@ -42,7 +42,7 @@ class PaginatorViewModel {
         );
 
         this.lastPageIndex = ko.pureComputed(() =>
-            Math.floor(this.count() / pageSize)
+            this.count() > 0 ? Math.floor((this.count() - 1) / pageSize) : 0
         );
 
         this.isFirstPage = ko.pureComputed(() =>

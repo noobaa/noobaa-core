@@ -16,19 +16,6 @@ const steps = deepFreeze([
     'Install'
 ]);
 
-const osTypes = deepFreeze([
-    {
-        value: 'LINUX',
-        label: 'Linux',
-        hint: 'Run using a privileged user'
-    },
-    {
-        value: 'KUBERNETES',
-        label: 'Kubernetes',
-        hint: 'Copy into a noobaa.yaml file and run using the command "kubectl apply -f noobaa.yaml"'
-    }
-]);
-
 const drivesInputPlaceholder =
     `e.g., /mnt or c:\\ and click enter ${String.fromCodePoint(0x23ce)}`;
 
@@ -36,21 +23,15 @@ const drivesInputPlaceholder =
 class InstallNodeModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps;
-    osTypes = osTypes;
     targetPool = '';
     drivesInputPlaceholder = drivesInputPlaceholder;
-    osHint = ko.observable();
     targetPool = '';
     excludeDrives = [];
     fields = {
         step: 0,
         excludeDrives: false,
         excludedDrives: [],
-        selectedOs: 'LINUX',
-        commands: {
-            LINUX: '',
-            KUBERNETES: ''
-        }
+        command: ''
     };
 
     selectState(state, params) {
@@ -66,12 +47,8 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
             return;
         }
 
-        const selectedOs = getFieldValue(form, 'selectedOs');
-        const { hint } = osTypes.find(os => os.value === selectedOs);
-
         ko.assignToProps(this, {
             targetPool,
-            osHint: hint,
             excludedDrives: getFieldValue(form, 'excludedDrives')
         });
     }
@@ -86,10 +63,6 @@ class InstallNodeModalViewModel extends ConnectableViewModel {
         }
 
         return true;
-    }
-
-    onTab(osType) {
-        this.dispatch(updateForm(this.formName, { selectedOs: osType }));
     }
 
     onDone() {

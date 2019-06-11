@@ -88,27 +88,22 @@
                 </p>
 
                 <div class="greedy tabs">
-                    <nav ko.foreach="osTypes">
-                        <a tabindex="0"
-                            ko.keysToClicks="['space', 'enter']"
-                            ko.css.selected="$form.selectedOs.eq(value)"
-                            ko.click="() => $parent.onTab(value)"
-                            ko.hasFocus="$index.eq(0)"
-                        >{{label}}</a>
+                    <nav>
+                        <a class="selected">
+                            Kubernetes
+                        </a>
                     </nav>
-
-                    <div class="tabs-row" ko.foreach="osTypes">
-                        <div class="tab pad row content-box config-box"
-                            ko.css.selected="$form.selectedOs.eq(value)"
-                            ko.let.command="($form.commands() || {})[value]"
-                        >
-                            <p class="text-tech greedy">{{command}}</p>
-                            <copy-to-clipboard-button params="value: command">
+                    <div class="tabs-row">
+                        <div class="tab pad row content-box config-box selected">
+                            <p class="text-tech greedy">{{$form.command}}</p>
+                            <copy-to-clipboard-button params="value: $form.command">
                             </copy-to-clipboard-button>
                         </div>
                     </div>
                 </div>
-                <p class="remark">{{osHint}}</p>
+                <p class="remark">
+                    Copy into a noobaa.yaml file and run using the command "kubectl apply -f noobaa.yaml"
+                </p>
             </div>
             <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">

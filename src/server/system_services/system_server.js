@@ -917,30 +917,25 @@ function _get_base64_install_conf(address, routing_hint, system, create_node_tok
     return Buffer.from(install_conf).toString('base64');
 }
 
-async function _get_install_info(req, hint) {
+async function _get_install_conf(req, hint) {
     const conf_id = await _get_agent_conf_id(req, hint);
     const create_node_token = _get_create_node_token(req.system._id, req.account._id, conf_id);
     const addr = addr_utils.get_base_address(req.system.system_address, hint);
-    const installer_path = `https://${addr.hostname}:${addr.port}/public`;
     const install_conf = _get_base64_install_conf(addr.toString(), hint, req.system.name, create_node_token);
-    return { installer_path, install_conf };
+    return install_conf;
 }
 
 async function get_node_installation_string(req) {
-    const linux_agent_installer = `noobaa-setup-${pkg.version}`;
     const [
         kubernetes_yaml,
-        ext_install_info,
-        int_install_info
+        install_conf
     ] = await Promise.all([
         fs.readFileAsync(path.resolve(__dirname, '../../deploy/NVA_build/noobaa_agent.yaml'), 'utf8'),
-        _get_install_info(req, 'EXTERNAL'),
-        _get_install_info(req, 'INTERNAL')
+        _get_install_conf(req, 'INTERNAL')
     ]);
 
     return {
-        LINUX: `wget --no-check-certificate ${ext_install_info.installer_path}/${linux_agent_installer} && chmod 755 ${linux_agent_installer} && ./${linux_agent_installer} ${ext_install_info.install_conf}`,
-        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", int_install_info.install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
+        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
     };
 }
 

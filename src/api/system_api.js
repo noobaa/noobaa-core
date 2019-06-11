@@ -255,12 +255,6 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    LINUX: {
-                        type: 'string'
-                    },
-                    WINDOWS: {
-                        type: 'string'
-                    },
                     KUBERNETES: {
                         type: 'string'
                     }

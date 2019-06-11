@@ -84,7 +84,7 @@ async function run_monitors() {
     }
 
     if (PLATFORM !== 'docker' && os_type !== 'Darwin') {
-       await _verify_dns_cluster_config();
+        await _verify_dns_cluster_config();
     }
 
     if (PLATFORM !== 'docker' && PLATFORM !== 'azure' && os_type !== 'Darwin') {
@@ -313,10 +313,6 @@ function _check_dns_and_phonehome() {
                     break;
                 case "CANNOT_REACH_DNS_SERVER":
                     monitoring_status.dns_status = "UNREACHABLE";
-                    Dispatcher.instance().alert('CRIT',
-                        system_store.data.systems[0]._id,
-                        `DNS server/s could not be reached, check DNS server configuration or connectivity`,
-                        Dispatcher.rules.once_daily);
                     break;
                 default:
                     break;

@@ -22,4 +22,13 @@ if [ ! -f $AGENT_CONF_FILE ]; then
 fi
 echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
 cd /usr/local/noobaa
-./node ./src/agent/agent_cli
+./node ./src/agent/agent_cli 
+# Providing an env variable with the name "LOOP_ON_FAIL=true" 
+# will trigger the condition below.
+# Currently we will loop on any exit of the agent_cli 
+# regurdless to the exit code
+while [ "${LOOP_ON_FAIL}" == "true" ] 
+do
+  echo "$(date) Failed to run ${script}" 
+  sleep 10
+done

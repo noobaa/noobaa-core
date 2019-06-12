@@ -1148,8 +1148,8 @@ function get_bucket_info({
         info.stats = {
             reads: bucket_stats.total_reads || 0,
             writes: bucket_stats.total_writes || 0,
-            last_read: bucket_stats.last_read || 0,
-            last_write: bucket_stats.last_write || 0,
+            last_read: bucket_stats.last_read || -1,
+            last_write: bucket_stats.last_write || -1,
         };
         // group stats by the first part of the content type and reduce
         const content_type_stats = _.get(bucket, 'storage_stats.stats_by_content_type', []);

@@ -635,7 +635,6 @@ module.exports = {
         restriction_enum: {
             type: 'string',
             enum: [
-                "vmtools",
                 "dns_name",
                 "dns_server",
                 "search_domains",
@@ -808,9 +807,6 @@ module.exports = {
                             type: 'integer'
                         },
                     },
-                },
-                vmtools_installed: {
-                    type: 'boolean'
                 },
                 ip_collision: {
                     type: 'array',

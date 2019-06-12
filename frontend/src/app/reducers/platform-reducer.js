@@ -22,7 +22,6 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     return {
         kind: 'UNKNOWN',
         featureFlags: {
-            vmToolsInstallation: !restrictions.vmtools,
             serverClockConfig: !restrictions.time_config,
             systemAddressChange: !restrictions.dns_name,
             dnsServersChange: !restrictions.dns_server,

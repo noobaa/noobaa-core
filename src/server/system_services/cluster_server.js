@@ -816,82 +816,6 @@ async function apply_updated_time_config(req) {
     }
 }
 
-function install_vmtools(req) {
-    dbg.log0('install_vmtools called with', req.rpc_params);
-    const local_info = system_store.get_local_cluster_info(true);
-    var params = req.rpc_params;
-    var target_servers = [];
-    let audit_hostname;
-
-    // Check condition and mark the vmtools installation flag.
-    const mark_install_flag = P.resolve()
-        .then(() => {
-            if (params.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[params.target_secret];
-                if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', params.target_secret, ' was not found');
-                }
-                target_servers.push(cluster_server);
-                audit_hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
-            } else {
-                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
-            }
-
-            if (local_info.is_clusterized && !target_servers.every(server => {
-                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
-                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
-                })) {
-                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
-            }
-
-            let updates = _.map(target_servers, server => ({
-                _id: server._id,
-                vmtools_installed: true,
-            }));
-
-            return system_store.make_changes({
-                update: {
-                    clusters: updates,
-                }
-            });
-        });
-
-    // try to install and dispatch an activity after installation is complete.
-    mark_install_flag
-        .then(() => {
-            dbg.log0('calling install_vmtools for', _.map(target_servers, srv => srv.owner_address));
-            return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.apply_install_vmtools(params, {
-                    address: server_rpc.get_base_address(server.owner_address)
-                });
-            });
-        })
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.vmtools_install',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                server: {
-                    hostname: audit_hostname,
-                    secret: params.target_secret
-                },
-                desc: `VMware tools was succesfully installed`,
-            });
-        })
-        .return();
-
-    // return the success or failure of setting the installation flag.
-    return mark_install_flag
-        .return();
-}
-
-
-function apply_install_vmtools(req) {
-    dbg.log0('Recieved apply_install_vmtools req', req.rpc_params);
-    return os_utils.install_vmtools();
-}
-
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
     if (dns_servers_config.search_domains && process.env.PLATFORM === 'azure') {
@@ -1815,8 +1739,6 @@ exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
 exports.update_time_config = update_time_config;
 exports.apply_updated_time_config = apply_updated_time_config;
-exports.install_vmtools = install_vmtools;
-exports.apply_install_vmtools = apply_install_vmtools;
 exports.update_dns_servers = update_dns_servers;
 exports.apply_updated_dns_servers = apply_updated_dns_servers;
 exports.set_debug_level = set_debug_level;

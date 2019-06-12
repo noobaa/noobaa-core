@@ -244,21 +244,6 @@ module.exports = {
             }
         },
 
-        apply_install_vmtools: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string'
-                    }
-                },
-            },
-            auth: {
-                system: false,
-            }
-        },
-
         collect_server_diagnostics: {
             method: 'POST',
             reply: {

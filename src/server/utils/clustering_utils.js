@@ -199,7 +199,6 @@ function get_cluster_info(rs_status) {
             dns_servers: cinfo.dns_servers || [],
             search_domains: cinfo.search_domains || [],
             time_epoch: time_epoch,
-            vmtools_installed: Boolean(cinfo.vmtools_installed),
             ip_collision: cinfo.ip_collision
         };
 

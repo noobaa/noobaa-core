@@ -13,7 +13,6 @@ export default {
         featureFlags: {
             type: 'object',
             required: [
-                'vmToolsInstallation',
                 'serverClockConfig',
                 'systemAddressChange',
                 'dnsServersChange',
@@ -24,9 +23,6 @@ export default {
                 'toggleEndpointAgent'
             ],
             properties: {
-                vmToolsInstallation: {
-                    type: 'boolean'
-                },
                 serverClockConfig: {
                     type: 'boolean'
                 },

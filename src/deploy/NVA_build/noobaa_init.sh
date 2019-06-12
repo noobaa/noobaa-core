@@ -1,7 +1,6 @@
-
 #!/bin/bash
 
-if [ ${container_dbg} ] ;
+if [ "${LOOP_ON_FAIL}" == "true" ]
 then
   debug="bash -x"
   export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
@@ -121,11 +120,13 @@ run_init_scripts() {
   for script in ${scripts[@]} ; do
     ${debug} ./${script}
     if [ $? -ne 0 ] ; then
-      #Providing in the yaml env variable with the name "container_dbg" 
+      #Providing an env variable with the name "LOOP_ON_FAIL=true" 
       #will trigger the condition below.
-      [ ${container_dbg} ] && sleep 120m
-      echo "Failed to run ${script}"
-      exit 1
+      while [ "${LOOP_ON_FAIL}" == "true" ]
+      do
+        echo "$(date) Failed to run ${script}"
+        sleep 10
+      done
     fi
   done
   cd - > /dev/null

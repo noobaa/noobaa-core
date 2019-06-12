@@ -73,13 +73,6 @@ class ChangePasswordFormViewModel extends BaseViewModel {
                 sessionInfo().user,
                 this.newPassword(),
             ));
-
-            // A workaround for the problem that the UI does not update after the
-            // the password is reset which cause the user to be locked to the reset window
-            // instead of moving on to the overview page.
-            // A full fix will be issued with the tiering integarion merge.
-            await sleep(1500);
-            location.reload();
         }
     }
 

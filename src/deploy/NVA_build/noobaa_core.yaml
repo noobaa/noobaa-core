@@ -171,15 +171,12 @@ spec:
                   name: noobaa-create-sys-creds
                   key: password
                   optional: true
-            # replacing the empty value with any value will set the cotainer to dbg mode
-            - name: container_dbg
-              value: ""
       serviceAccountName: noobaa-account
 
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between
-    # minkube restarts. if we want it to be persistent between restarts we need to statically provision a
+    # minikube restarts. if we want it to be persistent between restarts we need to statically provision a
     # volume according to this https://kubernetes.io/docs/setup/minikube/#persistent-volumes
     - metadata:
         name: logdir

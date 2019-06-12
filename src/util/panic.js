@@ -1,12 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const child_process = require('child_process');
+
 // catch process uncaught exceptions, and treat as a panic and exit after logging
 // since restarting the process is the most stable way of recovery
 process.on('uncaughtException', err => panic('process uncaughtException', err));
 
 function panic(message, err) {
     console.error('PANIC:', message, err.stack || err);
+    while (process.env.LOOP_ON_FAIL === 'true') {
+        console.warn('Encountered an error, holding the process on an infinite loop');
+        child_process.execSync('sleep 10');
+    }
     process.exit(1);
 }
 

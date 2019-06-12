@@ -253,7 +253,7 @@ async function complete_object_upload(req) {
         event: 'obj.uploaded',
         obj: obj._id,
         actor: req.account && req.account._id,
-        desc: `${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name}.` +
+        desc: `${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name.unwrap()}.` +
             `\nUpload size: ${upload_size}.` +
             `\nUpload duration: ${upload_duration}.` +
             `\nUpload speed: ${upload_speed}/sec.`,

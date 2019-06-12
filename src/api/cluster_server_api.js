@@ -85,21 +85,6 @@ module.exports = {
             }
         },
 
-        install_vmtools: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         set_debug_level: {
             method: 'POST',
             params: {

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { pick, flatMap } from 'utils/core-utils';
+import { pick } from 'utils/core-utils';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
@@ -37,7 +37,6 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         sslCert: payload.has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(payload),
         remoteSyslog: _mapRemoteSyslog(payload),
-        vmTools: _mapVMTools(payload),
         p2pSettings: _mapP2PSettings(payload),
         proxyServer: _mapProxyServer(payload),
         phoneHome:_mapPhoneHome(payload),
@@ -151,14 +150,6 @@ function _mapRemoteSyslog(payload) {
     if (!config) return;
 
     return pick(config, ['protocol', 'address', 'port']);
-}
-
-function _mapVMTools(payload) {
-    const { cluster } = payload;
-    const { vmtools_installed } = flatMap(cluster.shards, shard => shard.servers)
-        .find(server => server.secret === cluster.master_secret);
-
-    return vmtools_installed ? 'INSTALLED' : 'NOT_INSTALLED';
 }
 
 function _mapP2PSettings(payload) {

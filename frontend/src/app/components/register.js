@@ -219,7 +219,6 @@ import remoteSyslogForm from './management/remote-syslog-form/remote-syslog-form
 import serverSslForm from './management/server-ssl-form/server-ssl-form';
 import serverTimeForm from './management/server-time-form/server-time-form';
 import serverDnsSettingsForm from './management/server-dns-settings-form/server-dns-settings-form';
-import vmToolsForm from './management/vm-tools-form/vm-tools-form';
 /** INJECT:management.import **/
 
 // -------------------------------
@@ -550,7 +549,6 @@ export default function register(ko, services) {
         serverSslForm,
         serverTimeForm,
         serverDnsSettingsForm,
-        vmToolsForm,
         /** INJECT:management.list **/
 
         accountsPanel,

@@ -6,7 +6,6 @@ import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
 import { getFieldValue } from 'utils/form-utils';
 import {
-    updateForm,
     fetchNodeInstallationCommands,
     closeModal
 } from 'action-creators';

@@ -32,7 +32,6 @@ const ADMIN_WIN_USERS = Object.freeze([
 const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
-const IS_ESX = process.env.PLATFORM === 'esx';
 const IS_DOCKER = process.env.container === 'docker';
 const IS_LINUX_VM = IS_LINUX && !IS_DOCKER;
 //TEST_CONTAINER is env variable that is being set by the tests.Dockerfile
@@ -1246,22 +1245,6 @@ function get_iptables_rules() {
         });
 }
 
-async function install_vmtools() {
-    if (!IS_ESX) return;
-    if (!IS_LINUX_VM) return;
-    await promise_utils.exec('yum install -y open-vm-tools');
-    await promise_utils.exec('systemctl start vmtoolsd.service');
-}
-
-async function is_vmtools_installed() {
-    try {
-        await promise_utils.exec('yum -q list installed open-vm-tools', { ignore_rc: false });
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
 async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
     if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
         throw new Error('discover_k8s_services is only supported in kubernetes envs');
@@ -1390,8 +1373,6 @@ exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
 exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
 exports.get_services_ps_info = get_services_ps_info;
-exports.install_vmtools = install_vmtools;
-exports.is_vmtools_installed = is_vmtools_installed;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
 exports.discover_k8s_services = discover_k8s_services;

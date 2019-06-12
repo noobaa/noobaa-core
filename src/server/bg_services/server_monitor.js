@@ -81,10 +81,6 @@ async function run_monitors() {
         await _check_network_configuration();
     }
 
-    if (PLATFORM === 'esx' && os_type === 'Linux') {
-        await _verify_vmtools();
-    }
-
     if (os_type === 'Linux') {
         await _check_for_duplicate_ips();
     }
@@ -107,18 +103,6 @@ function _verify_dns_cluster_config() {
 
     return os_utils.ensure_dns_and_search_domains(cluster_conf)
         .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));
-}
-
-async function _verify_vmtools() {
-    if (process.env.PLATFORM !== 'esx') return;
-    if (os.type() !== 'Linux') return;
-    dbg.log2('Verifying vmtools configuration in relation to cluster config');
-    let cluster_vmtools_install = server_conf.vmtools_installed;
-    const server_vmtools_install = await os_utils.is_vmtools_installed();
-    if (cluster_vmtools_install && !server_vmtools_install) {
-        dbg.warn(`Server doesn't have vmtools installed while cluster have it enabled, installing...`);
-        await os_utils.install_vmtools();
-    }
 }
 
 function _verify_server_certificate() {

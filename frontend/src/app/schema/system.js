@@ -8,7 +8,6 @@ export default {
         'nodeVersion',
         'ipAddress',
         'maintenanceMode',
-        'vmTools',
         'p2pSettings',
         'phoneHome',
         'debug',
@@ -103,14 +102,6 @@ export default {
                     $ref: '#/def/common/port'
                 }
             }
-        },
-        vmTools: {
-            type: 'string',
-            enum: [
-                'NOT_INSTALLED',
-                'INSTALLING',
-                'INSTALLED'
-            ]
         },
         p2pSettings: {
             type: 'object',

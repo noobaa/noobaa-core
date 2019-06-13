@@ -6,7 +6,6 @@ import ko from 'knockout';
 import { signOut } from 'action-creators';
 import { sessionInfo, resetPasswordState } from 'model';
 import { calcPasswordStrength } from 'utils/password-utils';
-import { sleep } from 'utils/promise-utils';
 import { action$ } from 'state';
 import { changeAccountPassword, refreshLocation } from 'action-creators';
 import { formatEmailUri } from 'utils/browser-utils';

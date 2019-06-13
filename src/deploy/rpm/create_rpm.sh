@@ -12,7 +12,7 @@ eval set -- "${OPTIONS}"
 function usage(){
     set +x
     echo "$0 [options]"
-    echo -e "\nPlace the noobaa tarball, deploy_base.sh and the noobaa.spec in a folder"
+    echo -e "\nPlace the noobaa tarball, setup_platform.sh and the noobaa.spec in a folder"
     echo -e "you can change the default location (\e[32m${files_location}\e[0m) by using the -l/--location flag\n"
     echo "-l --location     -   The files location (default: ${files_location})"
     echo "-h --help         -   Will show this help"
@@ -50,7 +50,7 @@ function create_rpm(){
     cp ${files_location}/${spec_name} ~/rpmbuild/SPECS/
    
     cp  ${files_location}/noobaa-NVA-${version}-${revision}.tar.gz ~/rpmbuild/SOURCES/
-    cp ${files_location}/deploy_base.sh ~/rpmbuild/SOURCES/
+    cp ${files_location}/setup_platform.sh ~/rpmbuild/SOURCES/
     current_directory=$(pwd)
     cd ~/rpmbuild/SPECS/
     local srpm=$(rpmbuild -bs noobaa.spec)
@@ -74,9 +74,9 @@ function verify_pre_requirements(){
         echo "there is no tarball in ${files_location}, Exiting"
         exit 1
     fi
-    if [ ! -f ${files_location}/deploy_base.sh ]
+    if [ ! -f ${files_location}/setup_platform.sh ]
     then
-        echo "there is no deploy_base.sh in ${files_location}, Exiting"
+        echo "there is no setup_platform.sh in ${files_location}, Exiting"
         exit 1
     fi
     if [ ! -f ${files_location}/noobaa.spec ]

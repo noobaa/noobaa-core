@@ -29,7 +29,7 @@ if [ ! -f ${NOOBAASEC} ]; then
   echo ${sec} | passwd noobaaroot --stdin >/dev/null
   sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
   #verify JWT_SECRET exists in .env, if not create it
-  if ! grep -q JWT_SECRET /data/.env; then
+  if ! grep -q JWT_SECRET /data/.env; then &> /dev/null
     jwt=$(cat /data/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
     echo "JWT_SECRET=${jwt}" >> /data/.env
   fi

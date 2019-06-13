@@ -80,7 +80,7 @@ async function _init() {
         try {
             await promise_utils.delay_unblocking(DEFUALT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
-                const [ system ] = system_store.data.systems;
+                const [system] = system_store.data.systems;
 
                 // Register a routing resolver to provide routing tables for incoming
                 // rpc connections.
@@ -92,8 +92,7 @@ async function _init() {
                 // using clustering_utils.check_if_master(), because waiting for system
                 // store inital load does not guarantee that the bg updated and published
                 // the indication on the system store.
-                const is_master =
-                    !cutil.check_if_clusterized() ||
+                const is_master = !cutil.check_if_clusterized() ||
                     (await MongoCtrl.is_master()).ismaster;
 
                 if (is_master) {
@@ -111,7 +110,7 @@ async function _init() {
 }
 
 function _resolve_routing(hint) {
-    const [ system ] = system_store.data.systems;
+    const [system] = system_store.data.systems;
 
     dbg.log0('system_server _resolve_routing', hint, system.system_address);
     return api.new_router_from_address_list(system.system_address, hint);
@@ -878,7 +877,7 @@ async function _get_agent_conf_id(req, routing_hint) {
         use_s3 === conf.use_s3 &&
         _.isEqual(exclude_drives, conf.exclude_drives) &&
         routing_hint === conf.routing_hint
-   );
+    );
 
     if (cfg) {
         dbg.log0(`found existing configuration with the required settings`);
@@ -1021,7 +1020,6 @@ function update_phone_home_config(req) {
                 systems: [update]
             }
         }))
-        .then(() => os_utils.set_yum_proxy(req.rpc_params.proxy_address))
         .then(() => server_rpc.client.hosted_agents.stop())
         .then(() => server_rpc.client.hosted_agents.start())
         .then(() => {
@@ -1264,11 +1262,11 @@ async function _ensure_internal_structure(system_id) {
                 role: 'admin',
                 account_id: support_account._id
             })
-         });
+        });
     } catch (err) {
         throw new Error('MONGO POOL CREATION FAILURE:' + err);
     }
- }
+}
 
 // UTILS //////////////////////////////////////////////////////////
 

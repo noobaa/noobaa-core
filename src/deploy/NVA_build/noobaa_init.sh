@@ -83,20 +83,13 @@ fix_non_root_user() {
 }
 
 extract_noobaa_in_docker() {
-  local file
-  local files=(deploy_base.sh noobaa-NVA.tar.gz noobaa.rpm)
+  local tar="noobaa-NVA.tar.gz"
   local noobaa_core_path="/root/node_modules/noobaa-core/"
   if [ "${container}" == "docker" ] && [ ! -d ${noobaa_core_path} ] ; then
-    cd /tmp/
-    rpm2cpio noobaa.rpm | cpio -idmv
-    rm -rf /tmp/deploy_base.sh
-    mv noobaa-NVA-*.tar.gz noobaa-NVA.tar.gz
     cd /root/node_modules
     tar -xzf /tmp/noobaa-NVA.tar.gz
     cd ~
-    for file in ${files[@]} ; do
-      rm -rf /tmp/${file}
-    done
+    rm -rf /tmp/${tar}
   fi
 }
 
@@ -112,7 +105,7 @@ run_kube_pv_chown() {
 
 run_init_scripts() {
   local script
-  local scripts=(fix_server_plat.sh fix_mongo_ssl.sh setup_server_swap.sh)
+  local scripts=(fix_server_plat.sh fix_mongo_ssl.sh)
   local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
   ############## run init scripts
   run_kube_pv_chown

@@ -3,8 +3,6 @@
 
 const fs = require('fs');
 const os = require('os');
-const net = require('net');
-const url = require('url');
 const moment = require('moment');
 
 const _ = require('lodash');
@@ -75,14 +73,6 @@ async function run_monitors() {
     await _check_internal_ips();
     await _check_disk_space();
 
-    if (PLATFORM !== 'docker') {
-        await _verify_ntp_cluster_config();
-        await _verify_proxy_cluster_config();
-        await _check_ntp();
-        await _verify_and_update_public_ip();
-        await _check_is_self_in_dns_table();
-    }
-
     if (PLATFORM !== 'docker' && os_type !== 'Darwin') {
         await _verify_dns_cluster_config();
     }
@@ -103,41 +93,6 @@ async function run_monitors() {
     if (is_master) {
         await _check_address_changes(CONTAINER_PLATFORM);
     }
-}
-
-function _verify_ntp_cluster_config() {
-    dbg.log2('Verifying date and time configuration in relation to cluster config');
-    let cluster_conf = server_conf.ntp;
-    return P.all([os_utils.get_ntp(), os_utils.get_time_config()])
-        .spread((platform_ntp, platform_time_config) => {
-            let platform_conf = {
-                server: platform_ntp,
-                timezone: platform_time_config.timezone
-            };
-            if (!_are_platform_and_cluster_conf_equal(platform_conf, cluster_conf)) {
-                dbg.warn(`platform ntp not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
-                return os_utils.set_ntp(cluster_conf.server, cluster_conf.timezone);
-            }
-        })
-        .catch(err => dbg.error('failed to reconfigure ntp cluster config on the server. reason:', err));
-}
-
-function _verify_proxy_cluster_config() {
-    dbg.log2('Verifying proxy configuration in relation to cluster config');
-    let cluster_conf = _.isEmpty(system_store.data.systems[0].phone_home_proxy_address) ? { proxy: undefined } : {
-        proxy: system_store.data.systems[0].phone_home_proxy_address
-    };
-    return os_utils.get_yum_proxy()
-        .then(platform_proxy => {
-            let platform_conf = {
-                proxy: platform_proxy
-            };
-            if (!_are_platform_and_cluster_conf_equal(platform_conf, cluster_conf)) {
-                dbg.warn(`platform proxy settings not synced to cluster. Platform conf: `, platform_conf, 'cluster_conf:', cluster_conf);
-                return os_utils.set_yum_proxy(cluster_conf.proxy);
-            }
-        })
-        .catch(err => dbg.error('failed to reconfigure proxy config on the server. reason:', err));
 }
 
 function _verify_dns_cluster_config() {
@@ -166,7 +121,6 @@ async function _verify_vmtools() {
     }
 }
 
-
 function _verify_server_certificate() {
     dbg.log2('Verifying certificate in relation to cluster config');
     return P.join(
@@ -191,7 +145,6 @@ function _verify_server_certificate() {
         });
 }
 
-
 function _verify_remote_syslog_cluster_config() {
     dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
     let system = system_store.data.systems[0];
@@ -214,53 +167,6 @@ function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
     cluster_conf = _.omitBy(cluster_conf, _.isEmpty);
     return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) || // are they both either empty or undefined
         _.isEqual(platform_conf, cluster_conf); // if not, are they equal
-}
-
-function _check_ntp() {
-    if (process.env.PLATFORM === 'docker') return;
-    dbg.log2('_check_ntp');
-    if (_.isEmpty(server_conf.ntp) || _.isEmpty(server_conf.ntp.server)) return;
-    monitoring_status.ntp_status = "UNKNOWN";
-    return os_utils.verify_ntp_server(server_conf.ntp.server)
-        .catch(err => {
-            monitoring_status.ntp_status = "UNREACHABLE";
-            Dispatcher.instance().alert('MAJOR',
-                system_store.data.systems[0]._id,
-                `NTP Server ${server_conf.ntp.server} could not be reached, check NTP server configuration or connectivity`,
-                Dispatcher.rules.once_daily);
-            throw err;
-        })
-        .then(() => promise_utils.exec(`ntpstat`, {
-            ignore_rc: true,
-            return_stdout: true
-        }))
-        .then(ntpstat_res => {
-            if (ntpstat_res.startsWith('unsynchronised')) {
-                //Due to an issue with ntpstat not showing the correct ntpd status after ntf.conf change and ntpd restart
-                //Double verify unsynched with ntpq
-                return promise_utils.exec(`ntpq -np | tail -1`, {
-                        ignore_rc: true,
-                        return_stdout: true
-                    })
-                    .then(ntpq_res => {
-                        if (!ntpq_res.startsWith('*')) {
-                            monitoring_status.ntp_status = "FAULTY";
-                            Dispatcher.instance().alert('MAJOR',
-                                system_store.data.systems[0]._id,
-                                `Local server time is not synchronized with NTP Server, check NTP server configuration`,
-                                Dispatcher.rules.once_daily);
-                            throw new Error('unsynchronised');
-                        }
-                    });
-            }
-        })
-        .then(() => {
-            monitoring_status.ntp_status = "OPERATIONAL";
-        })
-        .catch(err => {
-            monitoring_status.ntp_status = monitoring_status.ntp_status || "FAULTY";
-            dbg.warn('error while checking ntp', err);
-        });
 }
 
 function _check_dns_and_phonehome() {
@@ -432,38 +338,6 @@ function _check_remote_syslog() {
         });
 }
 
-function _check_is_self_in_dns_table() {
-    dbg.log2('_check_is_self_in_dns_table');
-    const system_dns = !_.isEmpty(system_store.data.systems[0].base_address) &&
-        url.parse(system_store.data.systems[0].base_address).hostname;
-    if (_.isEmpty(system_dns) || net.isIPv4(system_dns) || net.isIPv6(system_dns)) return; // dns name is not configured
-
-    let addresses = [server_conf.owner_address];
-    if (server_conf.owner_public_address) {
-        addresses.push(server_conf.owner_public_address);
-    }
-    return net_utils.dns_resolve(system_dns)
-        .then(ip_address_table => {
-            if (ip_address_table.some(r => addresses.indexOf(r) >= 0)) {
-                monitoring_status.dns_name = "OPERATIONAL";
-            } else {
-                monitoring_status.dns_name = "FAULTY";
-                Dispatcher.instance().alert('CRIT',
-                    system_store.data.systems[0]._id,
-                    `Server DNS name ${system_dns} does not point to this server's IP`,
-                    Dispatcher.rules.once_daily);
-            }
-        })
-        .catch(err => {
-            monitoring_status.dns_name = "UNKNOWN";
-            Dispatcher.instance().alert('CRIT',
-                system_store.data.systems[0]._id,
-                `Server DNS name ${system_dns} could not be resolved`,
-                Dispatcher.rules.once_daily);
-            dbg.warn(`Error when trying to find address in dns resolve table: ${server_conf.owner_address}. err:`, err.stack || err);
-        });
-}
-
 function _check_internal_ips() {
     dbg.log2('_check_internal_ips');
     return server_rpc.client.cluster_server.check_cluster_status()
@@ -492,29 +366,6 @@ function _check_disk_space() {
             Dispatcher.rules.once_weekly);
     }
     return os_utils.handle_unreleased_fds();
-}
-
-async function _verify_and_update_public_ip() {
-    dbg.log2('_verify_and_update_public_ip');
-    //Verify what is the public IP of this server
-    return net_utils.retrieve_public_ip()
-        .catch(() => dbg.error('Failed retrieving public IP address'))
-        .then(public_ip => {
-            //If public IP can be deduced => if different then internal update owner_public_address
-            if (public_ip &&
-                server_conf.owner_address !== public_ip &&
-                server_conf.owner_public_address !== public_ip) {
-                return system_store.make_changes({
-                        update: {
-                            clusters: [{
-                                _id: server_conf._id,
-                                owner_public_address: public_ip
-                            }]
-                        }
-                    })
-                    .catch(() => dbg.error('Failed updating public IP address'));
-            }
-        });
 }
 
 async function _check_address_changes(container_platform) {

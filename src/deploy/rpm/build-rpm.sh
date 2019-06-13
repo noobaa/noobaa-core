@@ -23,7 +23,7 @@ echo "=====> creating rpm noobaa-NVA-${NB_VERSION}.rpm"
 build_rpm_location="build/rpm"
 mkdir -pm 777 ${build_rpm_location}
 cp build/public/noobaa-NVA-${NB_VERSION}.tar.gz ${build_rpm_location}
-cp ./src/deploy/NVA_build/deploy_base.sh ${build_rpm_location}
+cp ./src/deploy/NVA_build/setup_platform.sh ${build_rpm_location}
 cp ./src/deploy/rpm/{create_rpm.sh,noobaa.spec} ${build_rpm_location}
 chmod 777 ${build_rpm_location}/create_rpm.sh
 if [ -d ~/rpmbuild ] 

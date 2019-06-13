@@ -1,7 +1,7 @@
 %define revision dev
 %define noobaaver dev
 %define tarfile %{name}-NVA-%{version}-%{revision}.tar.gz
-%define installscript deploy_base.sh
+%define installscript setup_platform.sh
 %define buildroot %{_tmppath}/%{name}-%{version}-%{release}
 
 Name:		noobaa

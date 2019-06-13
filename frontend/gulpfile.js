@@ -13,11 +13,9 @@ const browserify = require('browserify');
 const stringify = require('stringify');
 const babelify = require('babelify');
 const watchify = require('watchify');
-const runSequence = require('run-sequence');
 const through = require('through2');
 const moment = require('moment');
 const spawn = require('child_process').spawn;
-const less = require('less');
 const $ = require('gulp-load-plugins')();
 const { version } = require('../package.json');
 
@@ -109,35 +107,42 @@ const apiBlackList = [
 ];
 
 // ----------------------------------
-// Build Tasks
+// Atomic Tasks
 // ----------------------------------
 
-gulp.on('error', () => console.log('ERROR'));
+function clean() {
+    return del([buildPath]);
+}
 
-gulp.task('build', cb => {
-    runSequence(
-        'clean',
-        [
-            'build-lib',
-            'build-api',
-            'build-app',
-            'build-debug',
-            'compile-styles',
-            'generate-svg-icons',
-            'copy'
-        ],
-        'verify-build',
-        cb
-    );
-});
+function installDeps() {
+    return gulp.src('./bower.json')
+        .pipe($.install());
+}
 
-gulp.task('clean', cb => {
-    del([buildPath]).then(() => {
-        cb();
-    });
-});
+function buildDeps(done) {
+    const libsToBuild = libs
+        .filter(lib => lib.build)
+        .map(lib => {
+            const workingDir = path.join(cwd, libsPath, lib.name);
+            const pkgFile = path.join(workingDir, 'package.json');
+            const command = lib.build;
+            return { workingDir, pkgFile, command };
+        });
 
-gulp.task('build-lib', ['build-deps'], () => {
+    gulp.src(libsToBuild.map(lib => lib.pkgFile))
+        .pipe($.install(() => {
+            const builds = libsToBuild
+                .map(lib => spawnAsync(lib.command, { cwd: lib.workingDir }));
+
+            Promise.all(builds).then(
+                () => done(),
+                done
+            );
+        }))
+        .on('error', errorHandler);
+}
+
+function bundleLib() {
     const b = browserify({
         debug: true,
         noParse: true
@@ -157,9 +162,9 @@ gulp.task('build-lib', ['build-deps'], () => {
         .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
-});
+}
 
-gulp.task('build-api', () => {
+function buildAPI() {
     const b = browserify({
         paths: ['./node_modules'],
         debug: true
@@ -169,7 +174,7 @@ gulp.task('build-api', () => {
     apiBlackList.forEach(
         file => {
             const path = require.resolve(`../src/rpc/${file}`);
-            console.log(`[${moment().format('HH:mm:ss')}] build-api: Ignoring ${path}`);
+            formattedLog('buildAPI', `Ignoring ${path}`);
             b.ignore(path);
         }
     );
@@ -190,81 +195,55 @@ gulp.task('build-api', () => {
         .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
         .pipe(gulp.dest(buildPath));
-});
+}
 
-gulp.task('build-app', ['lint-app', 'build-js-style'], () => {
-    return bundleCode('app', false);
-});
+function lintApp() {
+    return lintFolder('app');
+}
 
-gulp.task('build-debug', ['lint-debug'], () => {
-    return bundleCode('debug', false);
-});
-
-gulp.task('compile-styles', () => {
-    return gulp.src('src/app/**/*.less', { base: '.' })
-        .pipe($.lessImport('styles.less'))
-        .pipe($.sourcemaps.init())
-        .pipe($.less())
-        .on('error', errorHandler)
-        .pipe($.if(uglify, $.minifyCss()))
-        .pipe($.sourcemaps.write('./'))
-        .pipe(gulp.dest(buildPath));
-});
-
-gulp.task('generate-svg-icons', () => {
-    return gulp.src('src/assets/icons/*.svg')
-        .pipe($.rename({ suffix: '-icon' }))
-        .pipe($.svgstore({ inlineSvg: true }))
-        .pipe(gulp.dest(path.join(buildPath, 'assets')));
-});
-
-gulp.task('copy', () => {
-    return injectVersion(staticAssetsSelector);
-});
-
-gulp.task('build-js-style', () => {
+function buildJSStyle() {
     return gulp.src('src/app/styles/constants.less', { base: 'src/app/styles' })
         .pipe(letsToLessClass())
         .pipe($.less())
         .pipe(cssClassToJson())
         .pipe(gulp.dest(buildPath));
-});
+}
 
-gulp.task('build-deps', ['install-deps'], cb => {
-    const libsToBuild = libs
-        .filter(lib => lib.build)
-        .map(lib => {
-            const workingDir = path.join(cwd, libsPath, lib.name);
-            const pkgFile = path.join(workingDir, 'package.json');
-            const command = lib.build;
-            return { workingDir, pkgFile, command };
-        });
+function bundleApp() {
+    return bundleCode('app', false);
+}
 
-    gulp.src(libsToBuild.map(lib => lib.pkgFile))
-        .pipe($.install(() => {
-            const builds = libsToBuild
-                .map(lib => spawnAsync(lib.command, { cwd: lib.workingDir }));
+function compileStyles() {
+    return gulp.src('src/app/**/*.less', { base: '.' })
+        .pipe($.lessImport('styles.less'))
+        .pipe($.sourcemaps.init())
+        .pipe($.less())
+        .on('error', errorHandler)
+        .pipe($.if(uglify, $.cleanCss()))
+        .pipe($.sourcemaps.write('./'))
+        .pipe(gulp.dest(buildPath));
+}
 
-            Promise.all(builds)
-                .then(() => cb(), cb);
-        }))
-        .on('error', errorHandler);
-});
+function generateSVGIcons() {
+    return gulp.src('src/assets/icons/*.svg')
+        .pipe($.rename({ suffix: '-icon' }))
+        .pipe($.svgstore({ inlineSvg: true }))
+        .pipe(gulp.dest(path.join(buildPath, 'assets')));
+}
 
-gulp.task('install-deps', () => {
-    return gulp.src('./bower.json')
-        .pipe($.install());
-});
+function copy() {
+    return injectVersion(staticAssetsSelector);
+}
 
-gulp.task('lint-app', () => {
-    return lint('app');
-});
+function lintDebug() {
+    return lintFolder('debug');
+}
 
-gulp.task('lint-debug', () => {
-    return lint('debug');
-});
+function bundleDebug() {
+    return bundleCode('debug', false);
+}
 
-gulp.task('verify-build', cb => {
+function verifyBuild() {
     if (lintErrors > 0) {
         console.error(`[${moment().format('HH:mm:ss')}] Build encountered ${lintErrors} lint errors`);
     }
@@ -277,82 +256,116 @@ gulp.task('verify-build', cb => {
         process.exit(1);
     }
 
-    cb();
-});
+    return Promise.resolve();
+}
 
-// ----------------------------------
-// Watch Tasks
-// ----------------------------------
+function invalidateBowerJson() {
+    // Invalidate the cached bower.json.
+    delete require.cache[require.resolve('bower.json')];
+}
 
-gulp.task('watch', cb => {
-    runSequence(
-        'clean',
-        [
-            'build-api',
-            'watch-lib',
-            'watch-app',
-            'watch-debug',
-            'watch-styles',
-            'watch-svg-icons',
-            'watch-assets'
-        ],
-        cb
+function watchLib() {
+    return gulp.watch(
+        'bower.json',
+        gulp.series(
+            invalidateBowerJson,
+            buildLib
+        )
     );
-});
+}
 
-gulp.task('watch-lib', ['build-lib'], () => {
-    return $.watch('bower.json', () => {
-        // Invalidate the cached bower.json.
-        delete require.cache[require.resolve('bower.json')];
-        runSequence('build-lib');
-    });
-});
-
-gulp.task('watch-app', ['lint-app', 'build-js-style'], () => {
+function watchApp(){
     return bundleCode('app', true);
-});
+}
 
-gulp.task('watch-debug', ['lint-debug'], () => {
+function watchDebug() {
     return bundleCode('debug', true);
-});
+}
 
-gulp.task('watch-styles', ['compile-styles'], () => {
-    return $.watch(['src/app/**/*.less'], event => {
-        // A workaround for https://github.com/stevelacy/gulp-less/issues/283#ref-issue-306992692
-        // (with underlaying bug https://github.com/less/less.js/issues/3185)
-        const fileManagers = less.environment && less.environment.fileManagers || [];
-        fileManagers.forEach(function (fileManager) {
-            const relativePath = path.relative(process.cwd(), event.path);
-            if (fileManager.contents && fileManager.contents[relativePath]) {
-                // clear the changed file cache;
-                fileManager.contents[relativePath] = null;
-            }
-        });
-
-        runSequence('compile-styles');
-    });
-});
-
-gulp.task('watch-svg-icons', ['generate-svg-icons'], () => {
-    return $.watch([ 'src/assets/icons/*.svg' ], () => {
-        runSequence('generate-svg-icons');
-    });
-});
-
-gulp.task('watch-assets', ['copy'], () => {
-    return $.watch(
-        staticAssetsSelector,
-        vinyl => injectVersion(vinyl.path)
+function watchStyles() {
+    return gulp.watch(
+        ['src/app/**/*.less'],
+        compileStyles
     );
-});
+}
 
-// ----------------------------------
-// Test tasks
-// ----------------------------------
-gulp.task('test', () => {
+function watchSVGIcons() {
+    return gulp.watch(
+        [ 'src/assets/icons/*.svg' ],
+        generateSVGIcons
+    );
+}
+
+function watchAssets() {
+    return gulp.watch(staticAssetsSelector)
+        .on('all', (_, path) => {
+            formattedLog('watchAssets', `Change detected in '${path}' recopying...`);
+            injectVersion(path);
+        });
+}
+
+function test() {
     return gulp.src('src/tests/index.js')
         .pipe($.mocha({ reporter: 'spec' }));
-});
+}
+
+// ----------------------------------
+// Composite Tasks
+// ----------------------------------
+
+const buildLib = gulp.series(
+    installDeps,
+    buildDeps,
+    bundleLib
+);
+
+const buildApp = gulp.series(
+    gulp.parallel(
+        lintApp,
+        buildJSStyle
+    ),
+    bundleApp
+);
+
+const buildDebug = gulp.series(
+    lintDebug,
+    bundleDebug
+);
+
+const buildStyles = gulp.series(
+    installDeps,
+    compileStyles
+);
+
+const lint = gulp.parallel(
+    lintApp,
+    lintDebug
+);
+
+const build = gulp.series(
+    clean,
+    gulp.parallel(
+        buildLib,
+        buildAPI,
+        buildApp,
+        buildDebug,
+        buildStyles,
+        generateSVGIcons,
+        copy
+    ),
+    verifyBuild
+);
+
+const watch = gulp.series(
+    build,
+    gulp.parallel(
+        watchLib,
+        watchApp,
+        watchDebug,
+        watchStyles,
+        watchSVGIcons,
+    )
+);
 
 // ----------------------------------
 // Helper functions
@@ -383,12 +396,12 @@ function createBundler(folder, useWatchify) {
             packageCache: {},
             plugin: [ watchify ]
         })
-            .on('update', modules => console.log(
-                `[${moment().format('HH:mm:ss')}] Change detected in '${modules}' rebundling...`
-            ))
-            .on('time', t => console.log(
-                `[${moment().format('HH:mm:ss')}] Bundling ended after ${t/1000} s`
-            ));
+            .on('update', modules => {
+                formattedLog('browserify', `Change detected in '${modules}' rebundling...`);
+            })
+            .on('time', t => {
+                formattedLog('browserify', `Bundling ended after ${t/1000} s`);
+            });
 
     } else {
         return browserify({
@@ -484,7 +497,7 @@ function injectVersion(selector) {
         .pipe(gulp.dest(buildPath));
 }
 
-function lint(folder) {
+function lintFolder(folder) {
     return gulp.src(`src/${folder}/**/*.js`)
         .pipe($.eslint())
         .pipe($.eslint.format())
@@ -498,3 +511,27 @@ function errorHandler(err) {
     console.log(err.toString(), '\u0007');
     this.emit('end');
 }
+
+function formattedLog(task, message) {
+    console.log(`[${moment().format('HH:mm:ss')}] ${task}: ${message}`);
+}
+
+// ----------------------------------
+// Exported Tasks
+// ----------------------------------
+
+Object.assign(exports, {
+    clean,
+    build,
+    buildLib,
+    buildAPI,
+    buildApp,
+    buildDebug,
+    buildStyles,
+    lint,
+    watch,
+    test,
+    watchAssets,
+    installDeps
+});
+

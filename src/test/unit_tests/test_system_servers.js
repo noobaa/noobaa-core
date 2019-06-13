@@ -28,8 +28,6 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
-    const SERVER_RESTART_DELAY = 10000;
-    let server_secret = '';
     let nodes_list;
 
     ///////////////
@@ -82,10 +80,7 @@ mocha.describe('system_servers', function() {
                 email: EMAIL1
             }))
             .then(() => rpc_client.system.read_system())
-            .then(res => {
-                server_secret = res.cluster.master_secret;
-                return rpc_client.system.list_systems();
-            })
+            .then(() => rpc_client.system.list_systems())
             .then(() => rpc_client.events.read_activity_log({
                 limit: 2016
             }));
@@ -129,43 +124,6 @@ mocha.describe('system_servers', function() {
     mocha.it('system works', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         return P.resolve()
-            .then(() => rpc_client.system.update_n2n_config({
-                config: {}
-            }))
-            //.then(() => rpc_client.system.start_debug({level:0}))
-            .then(() => rpc_client.cluster_server.update_time_config({
-                epoch: Math.round(Date.now() / 1000),
-                target_secret: server_secret,
-                timezone: "Asia/Jerusalem"
-            }))
-            .then(() => rpc_client.cluster_server.update_dns_servers({
-                target_secret: server_secret,
-                dns_servers: ['8.8.8.8']
-            }))
-            .delay(SERVER_RESTART_DELAY)
-            .then(() => rpc_client.cluster_server.update_dns_servers({
-                target_secret: server_secret,
-                dns_servers: ['8.8.8.8', '8.8.4.4']
-            }))
-            .delay(SERVER_RESTART_DELAY)
-            .then(() => rpc_client.cluster_server.update_time_config({
-                timezone: "Asia/Jerusalem",
-                target_secret: server_secret,
-                ntp_server: 'time.windows.com'
-            }))
-            // DZDZ - changing search domains causes the network to the server to be lost until server is restarted
-            // for now avoid this until we find a solution
-            // .then(() => rpc_client.cluster_server.update_dns_servers({
-            //     target_secret: server_secret,
-            //     dns_servers: ['8.8.8.8', '8.8.4.4'],
-            //     search_domains: ['noobaa']
-            // }))
-            .delay(SERVER_RESTART_DELAY)
-            // TODO - commented out for tiering integration cause test takes too long to timeout
-            // .then(() => rpc_client.cluster_server.diagnose_system({}))
-            // .then(() => rpc_client.cluster_server.diagnose_system({
-            //     target_secret: server_secret,
-            // }))
             .then(() => rpc_client.system.update_system({
                 name: SYS1,
             }))

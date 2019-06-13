@@ -197,65 +197,6 @@ node('pipeline') {
             ${env_builder_clean} \${flags}
             """
         },
-        "Upgrade": {
-            echo 'Running Upgrade test'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh &> /dev/null
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)8
-            flags="${azureEnv} --name upgrade --id \${id}" 
-            node src/test/qa/two_step_upgrade_test.js \
-                \${flags} \
-                --upgrade_package /tmp/noobaa-NVA-latest.tar.gz 
-            """
-            echo 'Deleting Upgrade test env'
-            sh script: """
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)8
-            flags="${azureEnv} --name cluster --id \${id} "
-            ${env_builder_clean} \${flags}
-            """
-        },
-        "cluster test": {
-            echo 'Running cluster_test'
-            sh script: """
-            export NVM_DIR=/opt/nvm
-            . /opt/nvm/nvm.sh &> /dev/null
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
-            flags="${azureEnv} --name cluster --id \${id}"
-            node src/test/qa/cluster_test.js \
-                \${flags} \
-                --upgrade_pack /tmp/noobaa-NVA-latest.tar.gz 
-            """
-            echo 'Deleting cluster_test env'
-            sh script: """
-            id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)9
-            flags="${azureEnv} --name cluster --id \${id} "
-            ${env_builder_clean} \${flags}
-            """
-        },
-        // "TUI": {
-        //     echo 'Running test_TUI'
-        //     sh script: """
-        //     env
-        //     export NVM_DIR=/opt/nvm
-        //     . /opt/nvm/nvm.sh &> /dev/null
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
-        //     flags="${azureEnv} --name TUI --id \${id} --skip_agent_creation --create_lg"
-        //         node src/test/framework/test_env_builder.js \
-        //             \${flags} \
-        //             --upgrade /tmp/noobaa-NVA-latest.tar.gz \
-        //             --js_script $WORKSPACE/src/test/framework/remote_tests_runner.js \
-        //             --script_to_run src/test/qa/test-TUI.js
-        //     """
-        //     echo 'Deleting test_TUI env'
-        //     sh script: """
-        //     id=\$(cat /tmp/pipeline.xml | awk -F "<number>" '{print \$2}' | awk -F "</number>" '{print \$1}' | tail -1)10
-        //     flags="${azureEnv} --name TUI --id \${id} "
-        //     node src/test/framework/test_env_builder.js \
-        //         \${flags} \
-        //         --clean_only
-        //     """
-        // },
         "System config": {
             echo 'Running System config'
             sh script: """

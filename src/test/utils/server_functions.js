@@ -47,24 +47,6 @@ async function enable_noobaa_login(server_ip, secret) {
     await ssh.ssh_stick(client_ssh);
 }
 
-//will set first install mark via ssh
-async function set_first_install_mark(server_ip, secret) {
-    const client_ssh = await ssh.ssh_connect({
-        host: server_ip,
-        //  port: 22,
-        username: 'noobaaroot',
-        password: secret,
-        keepaliveInterval: 5000,
-    });
-    //enabling noobaa user login
-    await ssh.ssh_exec(client_ssh, `
-        if [ ! -f /etc/first_install.mrk ]
-        then
-            date | sudo tee -a /etc/first_install.mrk &> /dev/null
-        fi
-        `);
-}
-
 //will run clean_ova and reboot the server
 async function clean_ova(server_ip, secret) {
     try {
@@ -280,7 +262,6 @@ async function clean_pre_upgrade_leftovers(params) {
 }
 
 exports.enable_noobaa_login = enable_noobaa_login;
-exports.set_first_install_mark = set_first_install_mark;
 exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
 exports.create_system_and_check = create_system_and_check;

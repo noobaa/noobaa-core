@@ -139,10 +139,6 @@ async function create_configuration() {
     //Create lambda funcs
     await _create_lambda();
 
-
-    //Create system config
-    await _create_configuration();
-
     await TEST_CTX.client.system.read_system();
     TEST_CTX._rpc.enable_validation();
 }
@@ -312,30 +308,6 @@ async function _create_accounts() {
     await TEST_CTX.client.account.create_account(ac3);
     await TEST_CTX.client.account.create_account(ac4);
     await TEST_CTX.client.account.update_account(ac4_update);
-}
-
-async function _create_configuration() {
-    console.info('Creating various configuration');
-    //NTP
-    await TEST_CTX.client.cluster_server.update_time_config({
-        ntp_server: 'time.windows.com',
-        timezone: 'Asia/Jerusalem'
-    });
-
-    //DNS
-    await TEST_CTX.client.cluster_server.update_dns_servers({
-        dns_servers: ['8.8.8.8', '8.8.4.4']
-    });
-
-    //rsyslog
-    await TEST_CTX.client.system.configure_remote_syslog({
-        enabled: true,
-        address: '127.0.0.1',
-        protocol: 'TCP',
-        port: 8001
-    });
-
-    //TODO Proxy
 }
 
 async function _create_lambda() {

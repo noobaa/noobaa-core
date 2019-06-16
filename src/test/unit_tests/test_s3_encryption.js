@@ -16,6 +16,7 @@ const FILE_NAME = 'sloth-file.txt';
 const FILE_NAME_COPY = 'sloth-file-copy.txt';
 const SSECustomerKeyOrig = '123456789012345678901234567890AB';
 const SSECustomerKeyCopy = '123456789012345678901234567890AC';
+const SKIP_TEST = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY;
 
 async function get_s3_instances() {
     const account_info = await rpc_client.account.read_account({
@@ -108,7 +109,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
     mocha.it('should get bucket encryption error without encryption configured', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT }).promise();
-            throw new Error('Expected to get error with unconfigured bucket encryption', res);
+            throw new Error('Expected to get an error with unconfigured bucket encryption', res);
         } catch (error) {
             assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
             assert(error.code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.code}`);
@@ -134,7 +135,6 @@ mocha.describe('Bucket Encryption Operations', async () => {
 });
 
 mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
-
     const BKT = 'sloth-ns-bucket-encryption';
     const CONNECTION_NAME = 'aws_connection1';
     const AWS_TARGET_BUCKET = 'test-sloth-ns-bucket-encryption';
@@ -146,7 +146,10 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-
+        if (SKIP_TEST) {
+            console.log('No AWS credentials found in env. Skipping test');
+            self.skip();
+        }
         [aws_s3, local_s3] = Object.values(await get_s3_instances());
         const read_resources = [RESOURCE_NAME];
         const write_resource = RESOURCE_NAME;
@@ -236,7 +239,10 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-
+        if (SKIP_TEST) {
+            console.log('No AWS credentials found in env. Skipping test');
+            self.skip();
+        }
         await rpc_client.bucket.delete_bucket({ name: BKT });
         await rpc_client.pool.delete_namespace_resource({
             name: RESOURCE_NAME,

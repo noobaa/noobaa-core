@@ -344,12 +344,16 @@ const lint = gulp.parallel(
 
 const build = gulp.series(
     clean,
+    installDeps,
     gulp.parallel(
-        buildLib,
+        gulp.series(
+            buildDeps,
+            bundleLib
+        ),
         buildAPI,
         buildApp,
         buildDebug,
-        buildStyles,
+        compileStyles,
         generateSVGIcons,
         copy
     ),

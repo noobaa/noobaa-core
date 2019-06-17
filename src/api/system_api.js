@@ -507,21 +507,6 @@ module.exports = {
                 ssl_port: {
                     type: 'string'
                 },
-                // TODO: Should be removed by Ohad
-                web_links: {
-                    type: 'object',
-                    properties: {
-                        agent_installer: {
-                            type: 'string',
-                        },
-                        linux_agent_installer: {
-                            type: 'string',
-                        },
-                        s3rest_installer: {
-                            type: 'string',
-                        },
-                    }
-                },
                 maintenance_mode: {
                     type: 'object',
                     required: ['state'],

@@ -625,7 +625,6 @@ function read_system(req) {
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,
             ssl_port: process.env.SSL_PORT,
-            web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
             dns_name: dns_name,
@@ -831,33 +830,6 @@ function remove_role(req) {
             roles: roles_ids
         }
     });
-}
-
-
-function get_system_web_links(system) {
-    var reply = _.mapValues(system.resources, function(val, key) {
-        if (key === 'toObject' || !_.isString(val) || !val) {
-            return;
-        }
-        var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
-        versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
-        dbg.log1('resource link:', val, versioned_resource);
-        return '/public/' + versioned_resource;
-        // var params = {
-        //     Bucket: S3_SYSTEM_BUCKET,
-        //     Key: '/' + val,
-        //     Expires: 24 * 3600 // 1 day
-        // };
-        // if (aws_s3) {
-        //     return aws_s3.getSignedUrl('getObject', params);
-        // } else {
-        //     // workaround if we didn't setup aws credentials,
-        //     // and just try a plain unsigned url
-        //     return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
-        // }
-    });
-    // remove keys with undefined values
-    return _.omitBy(reply, _.isUndefined);
 }
 
 async function _get_agent_conf_id(req, routing_hint) {

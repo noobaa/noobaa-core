@@ -266,6 +266,10 @@ class Agent {
         }
     }
 
+    suppress_logs() {
+        this.dbg.set_level(-5, 'core');
+    }
+
     _update_servers_list(new_list) {
         // check if base_address appears in new_list. if not add it.
         if (_.isUndefined(new_list.find(srv => srv.address.toLowerCase() === this.base_address.toLowerCase()))) {

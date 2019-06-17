@@ -19,7 +19,7 @@ function start_mongo() {
     source /opt/rh/rh-mongodb36/enable
     mkdir -p /data/db
     echo "$(date) starting mongod"
-    mongod &
+    mongod --logpath /dev/null &
     PID=$!
 }
 

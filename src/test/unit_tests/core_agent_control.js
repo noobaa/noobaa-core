@@ -122,6 +122,7 @@ function start_agent(node_name) {
             }
         })
         .then(() => {
+            ent.agent.suppress_logs();
             ent.started = true;
         });
 }

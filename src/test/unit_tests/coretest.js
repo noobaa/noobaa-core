@@ -28,18 +28,20 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 
-const dbg = require('../../util/debug_module')(__filename);
 const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (process.env.SUPPRESS_LOGS) {
+    dbg.set_level(-5, 'core');
+} else if (argv.verbose) {
+    dbg.set_level(5, 'core');
+}
+
 const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
 const account_server = require('../../server/system_services/account_server');
 const core_agent_control = require('./core_agent_control');
-
-if (argv.verbose) {
-    dbg.set_level(5, 'core');
-}
 
 let base_address;
 let http_address;
@@ -96,6 +98,7 @@ function setup({ incomplete_rpc_coverage } = {}) {
     });
 
     async function announce(msg) {
+        if (process.env.SUPPRESS_LOGS) return;
         const l = Math.max(80, msg.length + 4);
         console.log('='.repeat(l));
         console.log('=' + ' '.repeat(l - 2) + '=');

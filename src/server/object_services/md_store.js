@@ -125,7 +125,7 @@ class MDStore {
     }
 
     async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {
-        console.log('update_object_by_id:', obj_id, compact_updates(set_updates, unset_updates, inc_updates));
+        dbg.log('update_object_by_id:', obj_id, compact_updates(set_updates, unset_updates, inc_updates));
         const res = await this._objects.col().updateOne({ _id: obj_id },
             compact_updates(set_updates, unset_updates, inc_updates)
         );

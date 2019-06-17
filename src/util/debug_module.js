@@ -421,13 +421,17 @@ class InternalDebugLogger {
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
         const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-        if (console_wrapper) {
-            console[logfunc](msg_info.message_console);
-            console_wrapper.wrapper_console();
+        if (this._log_console.silent) {
+            if (console_wrapper) {
+                console_wrapper.wrapper_console();
+            }
+        } else if (console_wrapper) {
+                console[logfunc](msg_info.message_console);
+                console_wrapper.wrapper_console();
         } else {
-            console[logfunc](...msg_info.message_browser);
+                console[logfunc](...msg_info.message_browser);
+            }
         }
-    }
 }
 
 const int_dbg = InternalDebugLogger.instance();

@@ -28,6 +28,7 @@ spec:
       noobaa-module: noobaa-agent
   serviceName: noobaa-agent
   replicas: 3
+  podManagementPolicy: Parallel
   updateStrategy:
     type: RollingUpdate
   template:

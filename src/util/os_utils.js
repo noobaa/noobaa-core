@@ -29,7 +29,6 @@ const ADMIN_WIN_USERS = Object.freeze([
     'BUILTIN\\Administrators'
 ]);
 
-const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
 const IS_DOCKER = process.env.container === 'docker';
@@ -82,7 +81,7 @@ function os_info(count_mongo_reserved_as_free) {
 function _calculate_free_mem(count_mongo_reserved_as_free) {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
-    if (!IS_WIN && !IS_MAC) {
+    if (!IS_MAC) {
         return P.resolve()
             // get OS cached mem
             .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:')
@@ -118,9 +117,7 @@ function _exec_and_extract_num(command, regex_line) {
 }
 
 function read_drives() {
-    if (IS_WIN) {
-        return read_windows_drives();
-    } else if (IS_DOCKER) {
+    if (IS_DOCKER) {
         return read_kubernetes_agent_drives();
     } else {
         return read_mac_linux_drives();
@@ -165,19 +162,12 @@ function get_raw_storage() {
 }
 
 function get_main_drive_name() {
-    if (IS_WIN) {
-        return process.env.SystemDrive;
-    } else {
-        return '/';
-    }
+    return '/';
 }
 
 function get_distro() {
     if (IS_MAC) {
         return P.resolve('OSX - Darwin');
-    }
-    if (IS_WIN) {
-        return P.resolve(`${os.type()} (${os.release()})`);
     }
     return P.fromCallback(callback => os_detailed_info(callback))
         .then(distro => {
@@ -226,8 +216,6 @@ function get_disk_mount_points() {
             return _.filter(drives, drive => {
                 const { mount, drive_id } = drive;
                 if (IS_DOCKER && mount !== '/') return false;
-                const is_win_drive =
-                    (/^[a-zA-Z]:$/).test(drive_id);
                 const is_linux_drive =
                     (mount === '/') ||
                     (mount.startsWith('/') && drive_id.startsWith('/dev/'));
@@ -237,7 +225,7 @@ function get_disk_mount_points() {
                     mount.startsWith('/boot') ||
                     mount.startsWith('/private/') || // mac
                     drive_id.includes('by-uuid');
-                if ((is_win_drive || is_linux_drive) && !exclude_drive) {
+                if (is_linux_drive && !exclude_drive) {
                     // TODO GUY appending noobaa_storage is bizarr in this generic context
                     drive.mount = path.join(mount, 'noobaa_storage');
                     dbg.log0('Found relevant volume', drive_id);
@@ -250,44 +238,22 @@ function get_disk_mount_points() {
 
 function get_mount_of_path(file_path) {
     console.log('get_mount_of_path');
-
-    if (IS_WIN) {
-        return fs.realpathAsync(file_path)
-            .then(function(fullpath) {
-                // fullpath[0] = drive letter (C, D, E, ..)
-                // fullpath[1] = ':'
-                return fullpath[0] + fullpath[1];
-            });
-    } else {
-        return P.fromCallback(callback => node_df({
-                file: file_path
-            }, callback))
-            .then(function(drives) {
-                return drives && drives[0] && drives[0].mount;
-            });
-    }
+    return P.fromCallback(callback => node_df({
+            file: file_path
+        }, callback))
+        .then(function(drives) {
+            return drives && drives[0] && drives[0].mount;
+        });
 }
 
 function get_drive_of_path(file_path) {
-    if (IS_WIN) {
-        return fs.realpathAsync(file_path)
-            .then(function(fullpath) {
-                const drive_letter = fullpath[0] + fullpath[1];
-                return wmic('volume where DriveLetter="' + drive_letter + '"');
-            })
-            .then(volumes =>
-                volumes &&
-                volumes[0] &&
-                windows_volume_to_drive(volumes[0]));
-    } else {
-        return P.fromCallback(callback => node_df({
-                file: file_path
-            }, callback))
-            .then(volumes =>
-                volumes &&
-                volumes[0] &&
-                linux_volume_to_drive(volumes[0]));
-    }
+    return P.fromCallback(callback => node_df({
+            file: file_path
+        }, callback))
+        .then(volumes =>
+            volumes &&
+            volumes[0] &&
+            linux_volume_to_drive(volumes[0]));
 }
 
 
@@ -338,51 +304,6 @@ function read_kubernetes_agent_drives() {
             .then(res => _.compact(res)));
 }
 
-function read_windows_drives() {
-    var windows_drives = {};
-    return wmic('volume')
-        .then(function(volumes) {
-            return _.compact(_.map(volumes, function(vol) {
-                // drive type codes:
-                // 0 = Unknown
-                // 1 = No Root Directory
-                // 2 = Removable Disk
-                // 3 = Local Disk
-                // 4 = Network Drive
-                // 5 = Compact Disc
-                // 6 = RAM Disk
-                if (vol.DriveType !== '3') return;
-                if (!vol.DriveLetter) return;
-                //Azure temporary disk
-                if (vol.Label.indexOf('Temporary Storage') === 0) return;
-                return windows_volume_to_drive(vol);
-            }));
-        })
-        .then(function(local_volumes) {
-            windows_drives = local_volumes;
-            return wmic('netuse')
-                .then(function(network_volumes) {
-                    var all_drives = {};
-                    if (_.compact(network_volumes).length > 0) {
-
-                        all_drives = _(windows_drives).concat(_.compact(_.map(network_volumes, function(network_vol) {
-                            return {
-                                mount: network_vol.RemotePath,
-                                drive_id: network_vol.LocalName,
-                                storage: {
-                                    total: 0,
-                                    free: 0,
-                                }
-                            };
-                        })));
-                        return all_drives.value();
-                    } else {
-                        return windows_drives;
-                    }
-                });
-        });
-}
-
 function linux_volume_to_drive(vol, skip) {
     return _.omitBy({
         mount: vol.mount,
@@ -395,60 +316,12 @@ function linux_volume_to_drive(vol, skip) {
     }, _.isUndefined);
 }
 
-function windows_volume_to_drive(vol) {
-    return {
-        mount: vol.DriveLetter,
-        drive_id: vol.DriveLetter,
-        storage: {
-            total: parseInt(vol.Capacity, 10),
-            free: parseInt(vol.FreeSpace, 10),
-        }
-    };
-}
-
-function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value', {
-            ignore_rc: false,
-            return_stdout: true,
-        })
-        .then(function(res) {
-            return wmic_parse_list(res);
-        });
-}
-
-function wmic_parse_list(text) {
-    // split by double eol -
-    // we get two \r between the \n, so we tolerate any whitespace
-    var list = text.trim().split(/\s*\n\s*\n\s*/);
-    for (var i = 0; i < list.length; i++) {
-        var item = list[i].trim();
-        if (!item) continue;
-        var lines = item.split('\n');
-        var item_obj = {};
-        for (var j = 0; j < lines.length; j++) {
-            var line = lines[j].trim();
-            if (!line) continue;
-            var index = line.indexOf('=');
-            if (index < 0) continue;
-            var key = line.slice(0, index).trim();
-            var val = line.slice(index + 1).trim();
-            item_obj[key] = val;
-        }
-        // OEMLogoBitmap field is an encoded bitmap image - it's big and unwanted
-        delete item_obj.OEMLogoBitmap;
-        list[i] = item_obj;
-    }
-    return list;
-}
-
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
         return promise_utils.exec('top -c -l 1' + file_redirect);
     } else if (IS_LINUX) {
         return promise_utils.exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
-    } else if (IS_WIN) {
-        return P.resolve();
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
     }
@@ -467,8 +340,6 @@ function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
         return promise_utils.exec('netstat -na' + file_redirect);
-    } else if (IS_WIN) {
-        return promise_utils.exec('netstat -na >' + dst);
     } else if (IS_LINUX) {
         return promise_utils.exec('netstat -nap' + file_redirect);
     } else {
@@ -782,9 +653,6 @@ function get_all_network_interfaces() {
 }
 
 function is_folder_permissions_set(current_path) {
-    if (!IS_WIN) {
-        return P.resolve(true);
-    }
     let administrators_has_inheritance = false;
     let system_has_full_control = false;
     let found_other_permissions = false;
@@ -828,19 +696,6 @@ function is_folder_permissions_set(current_path) {
                 ', No Other user with permissions:', !found_other_permissions);
             return system_has_full_control && administrators_has_inheritance && !found_other_permissions;
         });
-}
-
-function set_win_folder_permissions(current_path) {
-    if (!IS_WIN) {
-        return P.resolve(true);
-    }
-    return promise_utils.exec('attrib +H ' + current_path)
-        .then(() => promise_utils.exec('icacls  ' + current_path + ' /reset /t /c /q'))
-        .then(() => promise_utils.exec('icacls  ' + current_path +
-            ' /grant:r administrators:(oi)(ci)F' +
-            ' /grant:r system:F' +
-            ' /remove:g BUILTIN\\Users' +
-            ' /inheritance:r'));
 }
 
 function _set_time_zone(tzone) {
@@ -1017,103 +872,12 @@ function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
         .then(() => {
             if (IS_LINUX) {
                 return _check_ports_on_linux(dest_ips, start_port, end_port);
-            } else if (IS_WIN) {
-                return _check_ports_on_windows(dest_ips, start_port, end_port);
             }
             return true;
         })
         .catch(err => {
             dbg.error('got error on is_port_range_open_in_firewall', err);
             return true;
-        });
-}
-
-
-function _check_ports_on_windows(dest_ips, start_port, end_port) {
-    let allowed_by_default = true;
-    // get the current profile, and check if it's enabled:
-    return promise_utils.exec('netsh advfirewall show currentprofile', {
-            ignore_rc: false,
-            return_stdout: true,
-            timeout: 60000
-        })
-        .then(curr_profile_out => {
-            const lines = curr_profile_out.trim().split('\r\n');
-            // check if firewall is on for this profile. the on\off indication is in the 3rd line:
-            const firewall_enabled = lines[2].split(/\s+/)[1].trim() === 'ON';
-            if (firewall_enabled) {
-                // get the default rule for inbound traffic:
-                const policy_line = lines.find(line => line.indexOf('Firewall Policy') > -1);
-                allowed_by_default = policy_line.indexOf('BlockInbound') === -1;
-                // get all active inbound rules
-                return _get_win_fw_rules();
-            }
-        })
-        .then(rules => {
-            // filter out non TCP rules
-            const filtered_rules = rules.filter(rule => (rule.Protocol && (rule.Protocol === 'TCP' || rule.Protocol === 'Any')));
-            // sort the rules so that block rules are first:
-            filtered_rules.sort((a, b) => {
-                if (a.Action === 'Block' && b.Action !== 'Block') return -1;
-                else if (a.Action !== 'Block' && b.Action === 'Block') return 1;
-                else return 0;
-            });
-
-            let ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
-                // go over all relevant rules, and look for the first matching rule (maybe partial match)
-                for (const rule of filtered_rules) {
-                    if (port >= rule.LocalPort[0] && port <= rule.LocalPort[1]) {
-                        // the rule matches some of the range. return if accept or reject
-                        return rule.Action;
-                    }
-                }
-                // if none of the rules matches the port, return the default action
-                return allowed_by_default ? 'Allow' : 'Block';
-            });
-            dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
-            // for now if any port in the range is blocked, return false
-            return _.isUndefined(ports_groups.Block);
-        })
-        .catch(err => {
-            dbg.error('failed checking firewall rules on windows. treat as all ports are open', err);
-            return true;
-        });
-}
-
-function _get_win_fw_rules() {
-    const fields_to_use = ['RemoteIP', 'Protocol', 'LocalPort', 'Rule Name', 'Action'];
-    // return fs.readFileAsync('/Users/dannyzaken/Downloads/monitor.txt', 'utf8')
-    return promise_utils.exec('netsh advfirewall monitor show firewall rule name=all dir=in profile=active', {
-            ignore_rc: false,
-            return_stdout: true,
-            timeout: 60000
-        })
-        .then(rules_output => {
-            const rules = rules_output.toString().trim()
-                // split by empty line separator between different rules
-                .split('\r\n\r\n')
-                // map each rule to an object
-                .map(block => block.split('\r\n')
-                    // remove separator line
-                    .filter(line => line.indexOf('---') === -1)
-                    .reduce((prev_obj, line) => {
-                        const split_line = line.split(':').map(word => word.trim());
-                        const key = split_line[0];
-                        const val = split_line[1];
-                        const ret_obj = {};
-                        if (key === 'LocalPort') {
-                            const ports = val.split('-').map(port => parseInt(port, 10));
-                            // if single port than push "end port" to be the same as start port
-                            if (ports.length === 1) ports.push(ports[0]);
-                            ret_obj[key] = ports;
-                        } else if (fields_to_use.includes(key)) {
-                            ret_obj[key] = val;
-                        }
-                        return Object.assign(ret_obj, prev_obj);
-                    }, {})
-                );
-
-            return rules;
         });
 }
 
@@ -1357,7 +1121,6 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
-exports.set_win_folder_permissions = set_win_folder_permissions;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_and_search_domains = set_dns_and_search_domains;

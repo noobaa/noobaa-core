@@ -5,13 +5,10 @@
  * This script wraps agent_cli
  * it keeps it alive and should also handle ugprades, repairs etc.
  */
-const os = require('os');
 const fs = require('fs');
 const url = require('url');
 const request = require('request');
 const path = require('path');
-
-const WIN_AGENT = os.type() === 'Windows_NT';
 
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
@@ -34,24 +31,21 @@ const AGENT_MSG_CODES = Object.freeze([
 const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
-    SETUP_FILENAME: WIN_AGENT ? 'noobaa-setup.exe' : 'noobaa-setup',
-    MD5_FILENAME: WIN_AGENT ? 'noobaa-setup.exe.md5' : 'noobaa-setup.md5',
-    UNINSTALL_FILENAME: WIN_AGENT ? 'uninstall-noobaa.exe' : 'uninstall_noobaa_agent.sh',
+    SETUP_FILENAME: 'noobaa-setup',
+    MD5_FILENAME: 'noobaa-setup.md5',
+    UNINSTALL_FILENAME: 'uninstall_noobaa_agent.sh',
     PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
-    NUM_UPGRADE_WARNINGS: WIN_AGENT ? 3 : 18, // for windows it seems unnecessary to wait. reducing for now
+    NUM_UPGRADE_WARNINGS: 18,
     TIME_BETWEEN_WARNINGS: 10000,
     PATHS_TO_BACKUP: ['src', 'node_modules', 'build'],
 };
 
 CONFIGURATION.SETUP_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.SETUP_FILENAME);
 CONFIGURATION.MD5_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.MD5_FILENAME);
-CONFIGURATION.UNINSTALL_FILE = CONFIGURATION.PROCESS_DIR + (WIN_AGENT ? '\\' : '/') + CONFIGURATION.UNINSTALL_FILENAME;
-CONFIGURATION.INSTALLATION_COMMAND = WIN_AGENT ? `"${CONFIGURATION.SETUP_FILE}" /S` :
-    `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
-CONFIGURATION.UNINSTALL_COMMAND = WIN_AGENT ? `"${CONFIGURATION.UNINSTALL_FILE}" /S` :
-    `setsid ${CONFIGURATION.UNINSTALL_FILE} >> /dev/null`;
-CONFIGURATION.WIN_OLD_NODE_FILE = path.join(CONFIGURATION.PROCESS_DIR, 'node_old.exe');
+CONFIGURATION.UNINSTALL_FILE = CONFIGURATION.PROCESS_DIR + '/' + CONFIGURATION.UNINSTALL_FILENAME;
+CONFIGURATION.INSTALLATION_COMMAND = `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
+CONFIGURATION.UNINSTALL_COMMAND = `setsid ${CONFIGURATION.UNINSTALL_FILE} >> /dev/null`;
 
 process.chdir(path.join(__dirname, '..', '..'));
 CONFIGURATION.BACKUP_DIR = path.join(process.cwd(), `backup`);
@@ -114,8 +108,6 @@ async function run_agent_cli(agent_args = []) {
     });
 }
 
-
-
 dbg.log0('deleting file', CONFIGURATION.SETUP_FILE);
 
 
@@ -123,10 +115,6 @@ async function clean_old_files() {
     try {
         // clean previous setup file (why?)
         await fs_utils.file_delete(CONFIGURATION.SETUP_FILE);
-        if (WIN_AGENT) {
-            // if running on windows - clean node_old.exe
-            await fs_utils.file_delete(CONFIGURATION.WIN_OLD_NODE_FILE);
-        }
 
         // clean previous backup dir
         const files = await fs.readdirAsync(process.cwd());

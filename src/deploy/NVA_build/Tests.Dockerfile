@@ -77,8 +77,13 @@ ENV TEST_CONTAINER true
 RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
 RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y -q rh-mongodb36 && \
-    yum install -y -q kubernetes-client && \
     yum clean all
+
+RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mv ./kubectl /usr/local/bin/kubectl
+
 
 ##############################################################
 # Layers:

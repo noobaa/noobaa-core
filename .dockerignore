@@ -9,3 +9,4 @@ logs/
 metadata_storage/
 noobaa_storage/
 gocode/
+heapdump-*

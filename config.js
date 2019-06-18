@@ -379,6 +379,7 @@ config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 
 config.SEND_EVENTS_REMOTESYS = true;
 config.PROMETHEUS_ENABLED = true;
+config.PROMETHEUS_PREFIX = 'NooBaa_';
 
 //////////////////////////////
 // KUBERNETES RELATES       //

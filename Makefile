@@ -1,7 +1,7 @@
 GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
-TESTSER_TAG?="noobaa/tester"
-SERVER_TAG?="noobaa/server"
-AGENT_TAG?="noobaa/agent"
+TESTSER_TAG?="noobaa-tester"
+SERVER_TAG?="noobaa-server"
+AGENT_TAG?="noobaa-agent"
 export
 
 all: builder tester server agent

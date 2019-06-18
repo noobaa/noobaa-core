@@ -190,8 +190,7 @@ function _mapDNS(server) {
         servers: {
             list: server.dns_servers,
             status: dns_servers
-        },
-        searchDomains: server.search_domains
+        }
     };
 }
 

@@ -432,82 +432,17 @@ function _get_dns_servers_in_forwarders_file() {
         });
 }
 
-function _get_search_domains(file, options) {
-    return P.resolve()
-        .then(() => {
-            if (!IS_LINUX_VM) return [];
-            const { dhcp } = options || {};
-            if (dhcp) {
-                // for dhcp configuration we look for "#NooBaa Configured Search"
-                return fs_utils.find_line_in_file(file, '#NooBaa Configured Search')
-                    .then(line => {
-                        if (!line) return [];
-                        let domains_regx_res = line.match(/".*?"/g);
-                        // if null return empty array
-                        if (!domains_regx_res) return [];
-                        // remove double quotes from the strings
-                        return domains_regx_res.map(domain => domain.replace(/"/g, ''));
-                    });
-            } else {
-                // in static ip configuration files we look for "DOMAIN=" as a marker
-                return fs_utils.find_line_in_file(file, 'DOMAIN=')
-                    .then(line => {
-                        if (!line) return [];
-                        const domains_str = line.split('"')[1];
-                        if (!domains_str) return [];
-                        return domains_str.split(' ');
-                    });
-            }
-        });
-}
-
-function get_dns_and_search_domains() {
+function get_dns_config() {
     // return dns configuration set in /etc/sysconfig/network
-    return P.join(_get_dns_servers_in_forwarders_file(), _get_search_domains('/etc/sysconfig/network'))
-        .spread((dns_servers, search_domains) => ({ dns_servers, search_domains }));
+    return _get_dns_servers_in_forwarders_file()
+        .then(dns => ({ dns_servers: dns }));
 }
 
-function ensure_dns_and_search_domains(server_config) {
-    const ensure_dns = _get_dns_servers_in_forwarders_file()
-        .then(dns_servers => {
-            // compare dns in server_config to the one written in forwarders file
-            if (!_.isEqual(dns_servers, server_config.dns_servers)) {
-                dbg.warn(`ensure_dns_and_search_domains: found mismatch in dns servers. db has`,
-                    server_config.dns_servers,
-                    `${config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE} has`, dns_servers,
-                    `resetting according to db`);
-                return _set_dns_server(server_config.dns_servers);
-            }
-        });
-
-    const static_search_domain_files = Object.keys(os.networkInterfaces())
-        .filter(nic => nic.startsWith('eth'))
-        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic);
-
-    const ensure_search_domains = P.join(
-            P.map(static_search_domain_files, file => _get_search_domains(file)
-                .then(search_domains => ({ search_domains, file }))),
-            _get_search_domains('/etc/dhclient.conf', { dhcp: true })
-            .then(search_domains => ({ search_domains, file: '/etc/dhclient.conf' }))
-        )
-        .spread((static_domains, dhcp_domains) => {
-            const domain_configs = static_domains.concat(dhcp_domains);
-            const invalid_config = domain_configs.find(conf => !_.isEqual(conf.search_domains, server_config.search_domains));
-            if (invalid_config) {
-                dbg.warn(`found mismatch in search domains. db has`, server_config.search_domains,
-                    `${invalid_config.file} has `, invalid_config.search_domains, ' resetting according to db');
-                return _set_search_domains(server_config.search_domains);
-            }
-        });
-
-    return P.join(ensure_dns, ensure_search_domains);
-}
-
-function set_dns_and_search_domains(dns_servers, search_domains) {
+function set_dns_config(dns_servers) {
     return P.resolve()
         .then(() => {
             if (!IS_LINUX) return;
-            return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
+            return P.resolve(_set_dns_server(dns_servers));
         });
 }
 
@@ -523,44 +458,6 @@ function _set_dns_server(servers) {
             promise_utils.exec('systemctl restart named')
                 .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
                 .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
-        });
-}
-
-
-function _set_search_domains(search_domains) {
-    if (!search_domains) return;
-
-    dbg.log0(`_set_search_domains: got these search domais to set:`, search_domains);
-
-    const commands_to_exec = [];
-
-    // prepare command for setting search domains in dhclient
-    if (search_domains.length) {
-        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/prepend domain-search "${search_domains.join('", "')}";\
-        #NooBaa Configured Search/' /etc/dhclient.conf`);
-    } else {
-        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/dhclient.conf`);
-    }
-
-    // prepare command for setting search domains in network configuration scripts
-    // updating /etc/sysconfig/network does not propagate to resolve.conf, but writing to ifcfg files does
-    // we will write to all of them including /etc/sysconfig/network
-    let domain_command = `sed -i 's/DOMAIN=.*/DOMAIN="${search_domains.join(' ')}"/' `;
-
-    const network_scripts_files = Object.keys(os.networkInterfaces())
-        .filter(nic => nic.startsWith('eth'))
-        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic)
-        .concat('/etc/sysconfig/network');
-
-    dbg.log0(`setting search domains in the following files:`, network_scripts_files);
-    network_scripts_files.forEach(file => commands_to_exec.push(domain_command + file));
-
-    return P.map(commands_to_exec, command => promise_utils.exec(command), { concurrency: 5 })
-        .then(() => {
-            // perform network restart in the background
-            promise_utils.exec('systemctl restart network')
-                .then(() => dbg.log0('successfully restarted network after setting search domains to', search_domains))
-                .catch(err => dbg.error('failed on systemctl restart network when setting search domains to', search_domains, err));
         });
 }
 
@@ -639,17 +536,6 @@ function get_local_ipv4_ips() {
 function get_networking_info() {
     var ifaces = os.networkInterfaces();
     return ifaces;
-}
-
-function get_all_network_interfaces() {
-    return promise_utils.exec('ip addr | grep "state UP\\|state DOWN" | awk \'{print $2}\' | sed \'s/:/ /g\'', {
-            ignore_rc: false,
-            return_stdout: true,
-        })
-        .then(nics => {
-            nics = nics.substring(0, nics.length - 1);
-            return nics.split('\n');
-        });
 }
 
 function is_folder_permissions_set(current_path) {
@@ -1116,15 +1002,14 @@ exports.set_ntp = set_ntp;
 exports.get_ntp = get_ntp;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
-exports.get_all_network_interfaces = get_all_network_interfaces;
 exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
-exports.set_dns_and_search_domains = set_dns_and_search_domains;
-exports.get_dns_and_search_domains = get_dns_and_search_domains;
+exports.set_dns_config = set_dns_config;
+exports.get_dns_config = get_dns_config;
 exports.restart_noobaa_services = restart_noobaa_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
@@ -1134,7 +1019,6 @@ exports.handle_unreleased_fds = handle_unreleased_fds;
 exports.calc_cpu_usage = calc_cpu_usage;
 exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
-exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
 exports.get_services_ps_info = get_services_ps_info;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;

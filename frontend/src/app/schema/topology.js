@@ -115,8 +115,7 @@ const server = {
         dns: {
             type: 'object',
             required: [
-                'servers',
-                'searchDomains'
+                'servers'
             ],
             properties: {
                 nameResolution: {
@@ -142,12 +141,6 @@ const server = {
                     },
                     status: {
                         $ref: '#/def/common/serviceCheckResult'
-                    }
-                },
-                searchDomains: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
                     }
                 }
             }

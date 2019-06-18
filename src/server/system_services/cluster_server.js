@@ -24,7 +24,6 @@ const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const net_utils = require('../../util/net_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const upgrade_server = require('./upgrade_server');
 const cutils = require('../utils/clustering_utils');
@@ -818,10 +817,6 @@ async function apply_updated_time_config(req) {
 
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
-    if (dns_servers_config.search_domains && process.env.PLATFORM === 'azure') {
-        console.log(`search domains are not supported in azure. throwing`);
-        throw new RpcError('BAD_REQUEST', 'search domains are not supported in azure');
-    }
     var target_servers = [];
     const local_info = system_store.get_local_cluster_info(true);
     return P.fcall(function() {
@@ -850,9 +845,6 @@ function update_dns_servers(req) {
             if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
                 throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
             }
-            if (dns_servers_config.search_domains && !dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
-                throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
-            }
             if (local_info.is_clusterized && !target_servers.every(server => {
                     let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
                     return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
@@ -861,12 +853,11 @@ function update_dns_servers(req) {
             }
             const config_to_compare = [
                 dns_servers_config.dns_servers || [],
-                dns_servers_config.search_domains || []
             ];
             // don't update servers that already have the dame configuration
             target_servers = target_servers.filter(srv => {
-                const { dns_servers = [], search_domains = [] } = srv;
-                return !_.isEqual(config_to_compare, [dns_servers, search_domains]);
+                const { dns_servers = [] } = srv;
+                return !_.isEqual(config_to_compare, [dns_servers]);
             });
             if (!target_servers.length) {
                 dbg.log0(`DNS changes are the same as current configuration. skipping`);
@@ -874,8 +865,7 @@ function update_dns_servers(req) {
             }
             let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,
-                dns_servers: dns_servers_config.dns_servers,
-                search_domains: dns_servers_config.search_domains
+                dns_servers: dns_servers_config.dns_servers
             }, _.isUndefined));
             return system_store.make_changes({
                 update: {
@@ -907,7 +897,7 @@ function update_dns_servers(req) {
 
 function apply_updated_dns_servers(req) {
     return P.resolve()
-        .then(() => os_utils.set_dns_and_search_domains(req.rpc_params.dns_servers, req.rpc_params.search_domains))
+        .then(() => os_utils.set_dns_config(req.rpc_params.dns_servers))
         .return();
 }
 
@@ -1196,14 +1186,13 @@ function read_server_config(req) {
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
         .then(() => {
-            const { dns_servers, search_domains, ntp = {} } = srvconf;
+            const { dns_servers, ntp = {} } = srvconf;
             const { timezone, server } = ntp;
 
             return _get_aws_owner()
                 .then(owner => ({
                     using_dhcp,
                     dns_servers,
-                    search_domains,
                     timezone,
                     ntp_server: server,
                     owner,
@@ -1523,7 +1512,7 @@ function _add_new_server_to_replica_set(params) {
         .then(() => P.join(
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_and_search_domains(),
+            os_utils.get_dns_config(),
             (ntp_server, time_config, dns_config) => {
                 // insert an entry for this server in clusters collection.
                 new_topology._id = system_store.new_system_store_id();
@@ -1671,7 +1660,7 @@ function _attach_server_configuration(cluster_server) {
         return cluster_server;
     }
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(), os_utils.get_dns_and_search_domains())
+            os_utils.get_time_config(), os_utils.get_dns_config())
         .spread(function(ntp_line, time_config, dns_config) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
@@ -1683,10 +1672,6 @@ function _attach_server_configuration(cluster_server) {
 
             if (dns_config.dns_servers.length > 0) {
                 cluster_server.dns_servers = dns_config.dns_servers;
-            }
-
-            if (dns_config.search_domains.length) {
-                cluster_server.search_domains = dns_config.search_domains;
             }
 
             return cluster_server;

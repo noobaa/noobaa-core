@@ -49,8 +49,7 @@ class EditServerDNSSettingsModalViewModel extends ConnectableViewModel {
                     hasNoPrimaryDNS: !primaryDNS,
                     formFields: {
                         primaryDNS,
-                        secondaryDNS,
-                        searchDomains: dns.searchDomains
+                        secondaryDNS
                     }
                 });
             }
@@ -58,7 +57,7 @@ class EditServerDNSSettingsModalViewModel extends ConnectableViewModel {
     }
 
     onValidate(values) {
-        const { primaryDNS, secondaryDNS, searchDomains } = values;
+        const { primaryDNS, secondaryDNS } = values;
         const errors = {};
 
         if (primaryDNS && !isIP(primaryDNS)) {
@@ -70,24 +69,19 @@ class EditServerDNSSettingsModalViewModel extends ConnectableViewModel {
             errors.secondaryDNS = 'Please enter a valid IP address';
         }
 
-        if (!searchDomains.every(isDNSName)) {
-            errors.searchDomains = 'All values must be a valid domain names';
-        }
-
         return errors;
     }
 
     onSubmit(values) {
         const { serverSecret, serverHostname } = this;
-        const { primaryDNS, secondaryDNS, searchDomains } = values;
+        const { primaryDNS, secondaryDNS } = values;
 
         this.dispatch(
             updateServerDNSSettings(
                 serverSecret,
                 serverHostname,
                 primaryDNS,
-                secondaryDNS,
-                searchDomains
+                secondaryDNS
             ),
             closeModal()
         );

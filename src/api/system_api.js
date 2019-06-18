@@ -637,7 +637,6 @@ module.exports = {
             enum: [
                 "dns_name",
                 "dns_server",
-                "search_domains",
                 "time_config",
                 "attach_server",
                 "peer_to_peer_ports",
@@ -785,12 +784,6 @@ module.exports = {
                     type: 'string'
                 },
                 dns_servers: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    },
-                },
-                search_domains: {
                     type: 'array',
                     items: {
                         type: 'string'

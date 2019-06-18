@@ -78,7 +78,6 @@ const SINGLE_SYS_DEFAULTS = {
     configuration: {
         dns_servers: 0,
         dns_name: false,
-        dns_search: 0,
         ntp_server: false,
         proxy: false,
         remote_syslog: false
@@ -159,7 +158,6 @@ async function get_systems_stats(req) {
                         configuration: {
                             dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
                             dns_name: has_dns_name,
-                            dns_search: res.cluster.shards[0].servers[0].search_domains.length,
                             ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
                             proxy: !_.isEmpty(res.phone_home_config.proxy_address),
                             remote_syslog: !_.isEmpty(res.remote_syslog_config),

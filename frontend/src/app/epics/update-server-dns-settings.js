@@ -13,8 +13,7 @@ export default function(action$, { api }) {
                 secret,
                 hostname,
                 primaryDNS,
-                secondaryDNS,
-                searchDomains
+                secondaryDNS
             } = action.payload;
 
             const dnsServers = [primaryDNS, secondaryDNS].filter(Boolean);
@@ -22,8 +21,7 @@ export default function(action$, { api }) {
             try {
                 await api.cluster_server.update_dns_servers({
                     target_secret: secret,
-                    dns_servers: dnsServers,
-                    search_domains: searchDomains
+                    dns_servers: dnsServers
                 });
 
                 return completeUpdateServerDNSSettings(secret, hostname);

@@ -63,8 +63,7 @@ export function updateServerDNSSettings(
     secret,
     hostname,
     primaryDNS,
-    secondaryDNS,
-    searchDomains
+    secondaryDNS
 ) {
     return {
         type: UPDATE_SERVER_DNS_SETTINGS,
@@ -72,8 +71,7 @@ export function updateServerDNSSettings(
             secret,
             hostname,
             primaryDNS,
-            secondaryDNS,
-            searchDomains
+            secondaryDNS
         }
     };
 }

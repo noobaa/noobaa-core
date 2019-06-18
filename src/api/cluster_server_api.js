@@ -181,12 +181,6 @@ module.exports = {
                     using_dhcp: {
                         type: 'boolean'
                     },
-                    search_domains: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                    },
                     used_proxy: {
                         type: 'object',
                         properties: {

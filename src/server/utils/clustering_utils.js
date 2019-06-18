@@ -197,7 +197,6 @@ function get_cluster_info(rs_status) {
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
             dns_servers: cinfo.dns_servers || [],
-            search_domains: cinfo.search_domains || [],
             time_epoch: time_epoch,
             ip_collision: cinfo.ip_collision
         };

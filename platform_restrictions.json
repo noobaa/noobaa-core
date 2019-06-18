@@ -1,6 +1,6 @@
 {
     "azure": [
-        "search_domains"
+        
     ],
     "alyun": [
         
@@ -19,7 +19,6 @@
     ],
     "docker": [
         "dns_server",
-        "search_domains",
         "time_config",
         "attach_server",
         "peer_to_peer_ports",

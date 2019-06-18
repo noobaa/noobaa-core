@@ -311,7 +311,7 @@ async function _get_cluster_info() {
         const [ntp_server, time_config, dns_config] = await Promise.all([
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_and_search_domains()
+            os_utils.get_dns_config()
         ]);
 
         if (ntp_server) {

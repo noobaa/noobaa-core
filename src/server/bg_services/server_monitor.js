@@ -61,7 +61,7 @@ async function run() {
 }
 
 async function run_monitors() {
-    const { PLATFORM, CONTAINER_PLATFORM } = process.env;
+    const { CONTAINER_PLATFORM } = process.env;
     const os_type = os.type();
     const is_master = clustering_utils.check_if_master();
 
@@ -73,14 +73,6 @@ async function run_monitors() {
     await _check_internal_ips();
     await _check_disk_space();
 
-    if (PLATFORM !== 'docker' && os_type !== 'Darwin') {
-        await _verify_dns_cluster_config();
-    }
-
-    if (PLATFORM !== 'docker' && PLATFORM !== 'azure' && os_type !== 'Darwin') {
-        await _check_network_configuration();
-    }
-
     if (os_type === 'Linux') {
         await _check_for_duplicate_ips();
     }
@@ -89,20 +81,6 @@ async function run_monitors() {
     if (is_master) {
         await _check_address_changes(CONTAINER_PLATFORM);
     }
-}
-
-function _verify_dns_cluster_config() {
-    if (os.type() === 'Darwin') return;
-    if (process.env.PLATFORM === 'docker') return;
-
-    dbg.log2('Verifying dns configuration in relation to cluster config');
-    let cluster_conf = {
-        dns_servers: _.compact(server_conf.dns_servers),
-        search_domains: _.compact(server_conf.search_domains)
-    };
-
-    return os_utils.ensure_dns_and_search_domains(cluster_conf)
-        .catch(err => dbg.error('failed to reconfigure dns cluster config on the server. reason:', err));
 }
 
 function _verify_server_certificate() {
@@ -212,43 +190,6 @@ function _check_dns_and_phonehome() {
             }
         })
         .catch(err => dbg.warn('Error when trying to check dns and phonehome status.', err.stack || err));
-}
-
-function _check_network_configuration() {
-    dbg.log2('check_network_configuration');
-    if (os.type() === 'Darwin') return;
-    if (process.env.PLATFORM === 'azure') return; // no first_install_wizard - can't control network configuration
-    if (process.env.PLATFORM === 'docker') return; // no first_install_wizard - can't control network configuration
-    if (!server_conf.heartbeat) return;
-    let ips = os_utils.get_local_ipv4_ips();
-    if (server_conf.is_clusterized && !_.find(ips, ip => ip === server_conf.owner_address)) {
-        Dispatcher.instance().alert('MAJOR',
-            system_store.data.systems[0]._id,
-            `IP address change was detected in server ${server_conf.heartbeat.health.os_info.hostname},
-            please update the server IP in Cluster->${server_conf.heartbeat.health.os_info.hostname}->Change IP`,
-            Dispatcher.rules.once_daily);
-        dbg.log0('server ip was changed, IP:', server_conf.owner_address, 'not in the ip list:', ips);
-    }
-    let data = "";
-    return os_utils.get_all_network_interfaces()
-        .then(interfaces => {
-            dbg.log2('current network interfaces are', interfaces);
-            return P.map(interfaces, inter => {
-                data += inter + '\n';
-                return fs_utils.find_line_in_file('/data/noobaa_network', inter)
-                    .then(line => {
-                        if (!line) { // if didn't found the interface in the file
-                            Dispatcher.instance().alert('MAJOR',
-                                system_store.data.systems[0]._id,
-                                `New network interface ${inter} was detected in server ${server_conf.heartbeat.health.os_info.hostname},
-                            please configure it using the server console`);
-                            dbg.log0('found new interface', inter);
-                        }
-                    });
-            });
-        })
-        .then(() => fs_utils.replace_file('/data/noobaa_network', data))
-        .catch(err => dbg.error(`_check_network_configuration caught ${err}`));
 }
 
 function _check_for_duplicate_ips() {

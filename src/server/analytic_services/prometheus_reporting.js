@@ -5,6 +5,10 @@ const _ = require('lodash');
 const prom_client = require('prom-client');
 const config = require('../../../config.js');
 
+function get_metric_name(name) {
+    return config.PROMETHEUS_PREFIX + name;
+}
+
 //POC Only
 //Need to look at alerting as well
 class PrometheusReporting {
@@ -30,48 +34,48 @@ class PrometheusReporting {
 
     define_metrics() {
         this._metrics = {};
-        prom_client.collectDefaultMetrics({ prefix: 'noobaa_defaults_' });
+        prom_client.collectDefaultMetrics({ prefix: get_metric_name('defaults_') });
 
         //POC grade only, need to define actual interesting metrics
         //Currently called from stats_aggregator, md_aggregator and other stats collectors are probebly as interesting to look at
 
         //This is a gauge type metric, can be incremented/decremented and reset
         this._metrics.cloud_types = new prom_client.Gauge({
-            name: 'noobaa_cloud_types',
+            name: get_metric_name('cloud_types'),
             help: 'Cloud Resource Types in the System',
             labelNames: ['type', 'count']
         });
 
         this._metrics.object_histo = new prom_client.Gauge({
-            name: 'noobaa_object_histo',
+            name: get_metric_name('object_histo'),
             help: 'Object Sizes Histogram Across the System',
             labelNames: ['size', 'avg', 'count']
         });
 
         this._metrics.cloud_bandwidth = new prom_client.Gauge({
-            name: 'noobaa_cloud_bandwidth',
+            name: get_metric_name('cloud_bandwidth'),
             help: 'Cloud bandwidth usage',
             labelNames: ['type', 'size']
         });
 
         this._metrics.cloud_ops = new prom_client.Gauge({
-            name: 'noobaa_cloud_ops',
+            name: get_metric_name('cloud_ops'),
             help: 'Cloud number of operations',
             labelNames: ['type', 'number']
         });
 
         this._metrics.system_capacity = new prom_client.Gauge({
-            name: 'noobaa_system_capacity',
+            name: get_metric_name('system_capacity'),
             help: 'System capacity',
         });
     }
 
     export_metrics() {
-        const exported = this._prom_client.register.getSingleMetricAsString('noobaa_cloud_types') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_object_histo') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_cloud_bandwidth') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_system_capacity') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_cloud_ops');
+        const exported = this._prom_client.register.getSingleMetricAsString(get_metric_name('cloud_types')) + '\n' +
+            this._prom_client.register.getSingleMetricAsString(get_metric_name('object_histo')) + '\n' +
+            this._prom_client.register.getSingleMetricAsString(get_metric_name('cloud_bandwidth')) + '\n' +
+            this._prom_client.register.getSingleMetricAsString(get_metric_name('system_capacity')) + '\n' +
+            this._prom_client.register.getSingleMetricAsString(get_metric_name('cloud_ops'));
 
         return exported;
     }

@@ -439,7 +439,7 @@ function getVersion(route) {
         });
 }
 
-// An oauth authorize endpoint that forwards to the OpenShift authorization server.
+// An oauth authorize endpoint that forwards to the OAuth authorization server.
 app.get('/oauth/authorize', async (req, res) => {
     const {
         KUBERNETES_SERVICE_HOST,

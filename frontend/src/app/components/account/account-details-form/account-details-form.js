@@ -20,6 +20,7 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
     button = {
         label: ko.observable(),
         tooltip: ko.observable(),
+        isVisible: ko.observable(),
         isDisabled: ko.observable()
     };
     profileInfo = [
@@ -38,12 +39,12 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
 
         return [
             accounts && accounts[params.accountName],
-            session && session.user
+            session
         ];
     }
 
-    mapStateToProps(account, currentUser) {
-        if (!account) {
+    mapStateToProps(account, session) {
+        if (!account || !session) {
             ko.assignToProps(this, {
                 button: {
                     label: 'Reset Password',
@@ -53,8 +54,10 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
             });
 
         } else {
+            const { user, authorizedBy } = session;
             const { isOwner, hasLoginAccess } = account;
-            const isCurrentUser = currentUser === account.name;
+            const isCurrentUser = user === account.name;
+            const allowResetPassword = authorizedBy === 'noobaa';
             const role  = !isOwner ?
                 (account.hasLoginAccess ? 'Admin' : 'Application') :
                 'Owner';
@@ -64,6 +67,7 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
                 isCurrentUser,
                 button: {
                     label: isCurrentUser ? 'Change Password' : 'Reset Password',
+                    isVisible: allowResetPassword,
                     isDisabled: !hasLoginAccess,
                     tooltip: hasLoginAccess ? actionUnavailableTooltip : ''
                 },

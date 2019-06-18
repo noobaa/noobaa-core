@@ -13,6 +13,7 @@ export default {
                 'system',
                 'persistent',
                 'passwordExpired',
+                'authorizedBy',
                 'uiTheme'
             ],
             properties: {
@@ -33,6 +34,13 @@ export default {
                 },
                 passwordExpired: {
                     type: 'boolean'
+                },
+                authorizedBy: {
+                    type: 'string',
+                    enum: [
+                        'noobaa',
+                        'k8s'
+                    ]
                 },
                 uiTheme: {
                     type: 'string',

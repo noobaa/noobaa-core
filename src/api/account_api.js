@@ -78,7 +78,7 @@ module.exports = {
         },
 
         create_external_user_account: {
-            doc: 'Create a account based on an openshift user identity',
+            doc: 'Create an account based on an oauth user identity',
             method: 'POST',
             params: {
                 type: 'object',

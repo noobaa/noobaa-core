@@ -19,6 +19,7 @@ class AccountMenuViewModel extends ConnectableViewModel {
     helpDeskHref = support.helpDesk;
     oppositeTheme = '';
     switchThemeText = ko.observable();
+    allowSignOut = ko.observable();
 
     selectState(state) {
         const { session, location } = state;
@@ -46,7 +47,8 @@ class AccountMenuViewModel extends ConnectableViewModel {
                 { system, account, tab: 'connections' }
             ) ,
             oppositeTheme,
-            switchThemeText: `Switch to ${capitalize(oppositeTheme)} Theme`
+            switchThemeText: `Switch to ${capitalize(oppositeTheme)} Theme`,
+            allowSignOut: session.authorizedBy === 'noobaa'
         });
     }
 
@@ -72,7 +74,9 @@ class AccountMenuViewModel extends ConnectableViewModel {
     }
 
     onSignOut() {
-        this.dispatch(signOut());
+        if (this.allowSignOut()) {
+            this.dispatch(signOut());
+        }
     }
 }
 

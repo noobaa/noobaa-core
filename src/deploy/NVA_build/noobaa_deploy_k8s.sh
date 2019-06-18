@@ -392,7 +392,7 @@ function create_config_map {
     local OAUTH_SERVICE_HOST=$(${KUBECTL} get route openshift-authentication -n openshift-authentication -o jsonpath='{.spec.host}')
     ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME} &> /dev/null
     ${KUBECTL} create configmap ${NOOBAA_CONFIGMAP_NAME} \
-        --from-literal=oauth_service_host=OAUTH_SERVICE_HOST
+        --from-literal=oauth_service_host=${OAUTH_SERVICE_HOST}
 }
 
 function set_oauth_redirect_uri {

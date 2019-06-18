@@ -5,7 +5,6 @@ const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const ip_module = require('ip');
-const fs = require('fs');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -18,7 +17,6 @@ const SensitiveString = require('../../util/sensitive_string');
 const oauth_utils = require('../../util/oauth_utils');
 const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
-const config = require('../../../config');
 
 /**
  *
@@ -135,19 +133,22 @@ function create_auth(req) {
                 }
             }
 
-            let token = make_auth_token({
+            const token = make_auth_token({
                 account_id: target_account._id,
                 system_id: system && system._id,
                 role: role_name,
                 extra: req.rpc_params.extra,
             });
 
-            let info = _get_auth_info(target_account, system, role_name, req.rpc_params.extra);
+            const info = _get_auth_info(
+                target_account,
+                system,
+                'noobaa',
+                role_name,
+                req.rpc_params.extra
+            );
 
-            return {
-                token: token,
-                info: info
-            };
+            return { token, info };
         });
 }
 
@@ -200,7 +201,6 @@ async function create_k8s_auth(req) {
 
     const sa_token = await kube_utils.read_sa_token(unauthorized_error);
     const kube_namespace = await kube_utils.read_namespace(unauthorized_error);
-    console.warn('OMOMOM', sa_token, kube_namespace);
     const oauth_client = `system:serviceaccount:${kube_namespace}:noobaa-account`;
     const { access_token, expires_in } = await oauth_utils.trade_grant_code_for_access_token(
         OAUTH_SERVICE_HOST,
@@ -230,7 +230,7 @@ async function create_k8s_auth(req) {
         const owner_token = make_auth_token({
             account_id: system.owner._id,
             system_id: system._id,
-            role: 'admin'
+            role: 'admin',
         });
 
         await server_rpc.client.account.create_external_user_account(
@@ -253,14 +253,23 @@ async function create_k8s_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'account does not have an admin role');
     }
 
+    const authorized_by = 'k8s';
     const token = make_auth_token({
         account_id: account._id,
         system_id: system._id,
         expiry: Math.floor(expires_in * 1000),
-        role: 'admin'
+        role: 'admin',
+        authorized_by
     });
 
-    const info = _get_auth_info(account, system, 'admin', req.rpc_params.extra);
+    const info = _get_auth_info(
+        account,
+        system,
+        authorized_by,
+        'admin',
+        req.rpc_params.extra
+    );
+
     return { token, info };
 }
 
@@ -377,7 +386,13 @@ function read_auth(req) {
         return {};
     }
 
-    return _get_auth_info(req.account, req.system, req.auth.role, req.auth.extra);
+    return _get_auth_info(
+        req.account,
+        req.system,
+        req.auth.authorized_by,
+        req.auth.role,
+        req.auth.extra
+    );
 }
 
 
@@ -577,11 +592,8 @@ function _prepare_auth_request(req) {
 
 }
 
-function _get_auth_info(account, system, role, extra) {
-    let response = {
-        role: role,
-        extra: extra
-    };
+function _get_auth_info(account, system, authorized_by, role, extra) {
+    const response = { authorized_by, role, extra };
 
     if (account) {
         response.account = _.pick(account, 'name', 'email');
@@ -626,6 +638,7 @@ function has_bucket_permission(bucket, account) {
  */
 function make_auth_token(options) {
     var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
+    auth.authorized_by = options.authorized_by || 'noobaa';
 
     // don't incude keys if value is falsy, to minimize the token size
     auth = _.omitBy(auth, value => !value);

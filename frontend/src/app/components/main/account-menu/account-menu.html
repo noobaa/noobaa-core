@@ -57,10 +57,20 @@
             <!-- workaround using target black to allow the link to resolve even so the upper div loses the focus -->
             <a class="menu-item"
                 href="javascript:void(0)"
+                ko.css.disabled="!allowSignOut()"
+                ko.preventBubble="['click']"
                 ko.click="onSignOut"
             >
-                Sign Out
+                <div class="column">
+                    <span>Sign Out</span>
+                    <span class="remark"
+                        ko.visible="!allowSignOut()"
+                    >
+                        Not available for OpenShift users
+                    </span>
+                </div>
             </a>
         </li>
+
     </ul>
 </div>

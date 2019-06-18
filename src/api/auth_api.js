@@ -34,6 +34,13 @@ module.exports = {
                             'should be permitted to delegate such authorization (e.g. admin).',
                         $ref: 'common_api#/definitions/password',
                     },
+                    authorized_by: {
+                        type: 'string',
+                        enum: [
+                            'noobaa',
+                            'oauth'
+                        ]
+                    },
                     system: {
                         type: 'string',
                     },
@@ -83,8 +90,15 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                additionalProperties: true,
-                properties: {}
+                required: ['token', 'info'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                    info: {
+                        $ref: '#/definitions/auth_info'
+                    }
+                }
             },
             auth: {
                 account: false,
@@ -176,6 +190,13 @@ module.exports = {
                             type: 'string',
                         },
                     }
+                },
+                authorized_by: {
+                    type: 'string',
+                    enum: [
+                        'noobaa',
+                        'k8s'
+                    ]
                 },
                 role: {
                     type: 'string',

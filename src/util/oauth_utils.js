@@ -126,7 +126,7 @@ async function review_token(
         return JSON.parse(body);
 
     } catch (err) {
-        throw make_error('mailformed token review json response');
+        throw make_error('malformed token review json response');
     }
 }
 

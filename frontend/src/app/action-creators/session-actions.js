@@ -30,6 +30,7 @@ export function completeRestoreSession(
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
+            authorizedBy: sessionInfo.authorized_by,
             persistent: persistent,
             uiTheme
         }
@@ -65,7 +66,8 @@ export function completeSignIn(
             user: account.email,
             system: system.name,
             passwordExpired: Boolean(account.must_change_password),
-            persistent: persistent,
+            authorizedBy: sessionInfo.authorized_by,
+            persistent,
             uiTheme
         }
     };

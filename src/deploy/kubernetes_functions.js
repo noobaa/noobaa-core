@@ -19,20 +19,26 @@ class KubernetesFunctions {
         context,
         output_dir = "./",
         node_ip,
-        namespace_prefix
+        namespace
     }) {
         this.context = context;
         this.output_dir = output_dir;
         this.node_ip = node_ip;
-        if (namespace_prefix) {
+        if (namespace) {
             this._create_namespace = true;
-            this._namespace = `${namespace_prefix}-${Date.now()}`;
+            this.namespace = namespace;
         }
     }
 
 
     async init() {
-        this._namespace = await this.get_namespace();
+        if (!this.namespace) {
+            if (IS_IN_POD) {
+                this.namespace = (await fs.readFileAsync('/var/run/secrets/kubernetes.io/serviceaccount/namespace')).toString();
+            } else {
+                this.namespace = await this.kubectl(`config view --minify --output 'jsonpath={..namespace}'`, { ignore_namespace: true });
+            }
+        }
         if (this._create_namespace) {
             await this.create_namespace();
         }
@@ -44,7 +50,7 @@ class KubernetesFunctions {
         } = options;
         try {
             const context = this.context ? `--context ${this.context}` : '';
-            const namespace = ignore_namespace || !this._namespace ? '' : `-n ${this._namespace}`;
+            const namespace = ignore_namespace || !this.namespace ? '' : `-n ${this.namespace}`;
             const command_to_exec = `kubectl ${context} ${namespace} ${command}`;
             return promise_utils.exec(command_to_exec, { return_stdout: true, trim_stdout: true });
         } catch (err) {
@@ -53,11 +59,11 @@ class KubernetesFunctions {
     }
 
     async create_namespace() {
-        await this.kubectl(`create namespace ${this._namespace}`, { ignore_namespace: true });
+        await this.kubectl(`create namespace ${this.namespace}`, { ignore_namespace: true });
     }
 
     async delete_namespace() {
-        await this.kubectl(`delete namespace ${this._namespace}`, { ignore_namespace: true });
+        await this.kubectl(`delete namespace ${this.namespace}`, { ignore_namespace: true });
     }
 
     /**  
@@ -93,21 +99,15 @@ class KubernetesFunctions {
         }
     }
 
-    async get_namespace() {
-        if (this._namespace) {
-            return this._namespace;
-        }
-        if (IS_IN_POD) {
-            return (await fs.readFileAsync('/var/run/secrets/kubernetes.io/serviceaccount/namespace')).toString();
-        } else {
-            return this.kubectl(`config view --minify --output 'jsonpath={..namespace}'`, { ignore_namespace: true });
-        }
-    }
-
-    update_statefulset({ statefulset, replicas, image, envs, cpu, mem, pv }) {
+    update_statefulset({ statefulset, replicas, image, envs, cpu, mem, pv, pull_always }) {
         if (image) {
             // modify image of the statefulset
             statefulset.spec.template.spec.containers[0].image = image;
+        }
+
+        if (pull_always) {
+            // change pull policy to always
+            statefulset.spec.template.spec.containers[0].imagePullPolicy = 'Always';
         }
 
         if (cpu) {
@@ -136,15 +136,31 @@ class KubernetesFunctions {
     }
 
 
-    async deploy_server({ image, server_yaml, envs, cpu, mem, pv }) {
+    /**
+     * if running inside a pod there is no need for LB service (external ip)
+     * avoid allocating external ips to save quotas
+     */
+    convert_lb_to_node_port(services) {
+        if (IS_IN_POD) {
+            for (const srv of services) {
+                if (srv.spec.type === 'LoadBalancer') {
+                    srv.spec.type = 'NodePort';
+                }
+            }
+        }
+    }
+
+
+    async deploy_server({ image, server_yaml, envs, cpu, mem, pv, pull_always }) {
         const server_details = {};
         try {
-            let resources_file_path = path.join(this.output_dir, `${this._namespace}.server_deployment.${Date.now()}.json`);
+            let resources_file_path = path.join(this.output_dir, `${this.namespace}.server_deployment.${Date.now()}.json`);
             // modify resources and write to temp yaml
             const resources = await this.read_resources(server_yaml);
             const statefulset = resources.find(res => res.kind === 'StatefulSet');
             const pod_name = `${statefulset.metadata.name}-0`;
-            this.update_statefulset({ statefulset, image, envs, cpu, mem, pv });
+            this.update_statefulset({ statefulset, image, envs, cpu, mem, pv, pull_always });
+            this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
 
             console.log('deploying server resources from file', resources_file_path);
@@ -155,7 +171,7 @@ class KubernetesFunctions {
             const { address: s3_addr, ports: s3_ports } = await this.get_service_address('s3');
             const { address: mgmt_addr, ports: mgmt_ports } = await this.get_service_address('noobaa-mgmt', 'mgmt-https');
             server_details.services = {
-                namespace: this._namespace,
+                namespace: this.namespace,
                 s3: { address: s3_addr, ports: s3_ports },
                 mgmt: { address: mgmt_addr, ports: mgmt_ports },
             };
@@ -173,14 +189,18 @@ class KubernetesFunctions {
     }
 
 
-    async deploy_agents({ image, num_agents, agents_yaml, envs, cpu, mem, pv }) {
+    async deploy_agents({ image, num_agents, agents_yaml, envs, cpu, mem, pv, pull_always }) {
+        if (!num_agents) {
+            return;
+        }
         try {
-            let resources_file_path = path.join(this.output_dir, `${this._namespace}.agents_deployment.${Date.now()}.json`);
+            let resources_file_path = path.join(this.output_dir, `${this.namespace}.agents_deployment.${Date.now()}.json`);
             // modify resources and write to temp yaml
             const resources = await this.read_resources(agents_yaml);
             const statefulset = resources.find(res => res.kind === 'StatefulSet');
             const statefulset_name = statefulset.metadata.name;
-            this.update_statefulset({ statefulset, image, replicas: num_agents, cpu, mem, envs, pv });
+            this.update_statefulset({ statefulset, image, replicas: num_agents, cpu, mem, envs, pv, pull_always });
+            this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
 
             console.log('deploying agents resources from file', resources_file_path);

@@ -1,6 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_bucket_lambda_triggers');
+
 const _ = require('lodash');
 const api = require('../../api');
 const P = require('../../util/promise');
@@ -9,14 +16,20 @@ const ops = require('../utils/basic_server_ops');
 const config = require('../../../config.js');
 const path = require('path');
 const rpc = api.new_rpc();
-const argv = require('minimist')(process.argv);
 const zip_utils = require('../../util/zip_utils');
 const assert = require('assert');
 const AWS = require('aws-sdk');
-const https = require('https');
 const fs = require('fs');
 
 dotenv.load();
+
+const {
+    mgmt_ip = '127.0.0.1',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+        s3_port = '80',
+} = argv;
+
 
 /***         Config         ***/
 const TIME_FOR_FUNC_TO_RUN = 15000;
@@ -24,7 +37,7 @@ const TIME_FOR_SDK_TO_UPDATE = 60000;
 const NUM_OF_RETRIES = 10;
 
 var client = rpc.new_client({
-    address: 'ws://127.0.0.1:' + process.env.PORT
+    address: `ws://${mgmt_ip}:${mgmt_port}`
 });
 
 let full_access_user = {
@@ -55,7 +68,7 @@ let bucket1_user = {
 
 const external_connection = {
     auth_method: 'AWS_V2',
-    endpoint: 'http://127.0.0.1',
+    endpoint: `http://${s3_ip}:${s3_port}`,
     endpoint_type: 'S3_COMPATIBLE',
     identity: '123',
     secret: 'abc',
@@ -141,16 +154,11 @@ function get_new_server(user) {
     let access_key = user.access_keys.access_key.unwrap();
     let secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.S3({
-        endpoint: 'https://127.0.0.1',
+        endpoint: `http://${s3_ip}:${s3_port}`,
         s3ForcePathStyle: true,
         accessKeyId: access_key,
         secretAccessKey: secret_key,
         maxRedirects: 10,
-        httpOptions: {
-            agent: new https.Agent({
-                rejectUnauthorized: false,
-            })
-        }
     });
 }
 
@@ -159,7 +167,7 @@ function get_new_lambda(user) {
     let secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.Lambda({
         region: 'us-east-1',
-        endpoint: 'http://127.0.0.1:' + String(process.env.ENDPOINT_PORT || 80),
+        endpoint: `http://${s3_ip}:${s3_port}`,
         accessKeyId: access_key,
         secretAccessKey: secret_key,
         sslEnabled: false,

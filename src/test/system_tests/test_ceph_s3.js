@@ -1,20 +1,34 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
+
+const fs = require('fs');
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_ceph_s3');
+
 const _ = require('lodash');
 const P = require('../../util/promise');
 const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
-const os = require('os');
 
 require('../../util/dotenv').load();
+
+const {
+    mgmt_ip = '127.0.0.1',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+} = argv;
 
 
 const api = require('../../api');
 let rpc = api.new_rpc();
 
 let client = rpc.new_client({
-    address: 'ws://127.0.0.1:' + process.env.PORT
+    address: `ws://${mgmt_ip}:${mgmt_port}`
 });
 
 let auth_params = {
@@ -311,18 +325,18 @@ module.exports = {
     run_test: run_test
 };
 
-async function deploy_ceph() {
-    console.info('Starting Deployment Of Ceph Tests...');
-    let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} ${os.platform() === 'darwin' ? 'mac' : ''} > /tmp/ceph_deploy.log`;
+async function ceph_test_setup() {
     try {
-        let res = await promise_utils.exec(command, {
-            ignore_rc: false,
-            return_stdout: true
-        });
-        console.info(res);
+        console.info(`Updating ${CEPH_TEST.ceph_config} with host = ${s3_ip}...`);
+        // update config with the s3 endpoint
+        const conf_file = `${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
+        const conf_file_content = (await fs.readFileAsync(conf_file)).toString();
+        const new_conf_file_content = conf_file_content.replace(/host = localhost/g, `host = ${s3_ip}`);
+        await fs.writeFileAsync(conf_file, new_conf_file_content);
+        console.log('conf file updated');
     } catch (err) {
-        console.error('Failed Deployment Of Ceph Tests', err, err.stack);
-        throw new Error('Failed Deployment Of Ceph Tests');
+        console.error('Failed Setup Of Ceph Tests', err, err.stack);
+        throw new Error('Failed Setup Of Ceph Tests');
     }
 }
 
@@ -395,10 +409,10 @@ async function run_test() {
     await client.create_auth_token(auth_params);
 
     try {
-        await deploy_ceph();
+        await ceph_test_setup();
     } catch (err) {
-        console.error('Failed deploying ceph tests', err);
-        throw new Error('Failed deploying ceph tests');
+        console.error('Failed setup ceph tests', err);
+        throw new Error('Failed setup ceph tests');
     }
 
     let system_info = await client.system.read_system();

@@ -1,6 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_bucket_access');
+
 var api = require('../../api');
 var P = require('../../util/promise');
 var dotenv = require('../../util/dotenv');
@@ -8,7 +15,6 @@ var ops = require('../utils/basic_server_ops');
 var config = require('../../../config.js');
 var rpc = api.new_rpc();
 
-var argv = require('minimist')(process.argv);
 var assert = require('assert');
 var AWS = require('aws-sdk');
 var fs = require('fs');

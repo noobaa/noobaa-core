@@ -149,7 +149,7 @@ async function create_system(server_ip, port, protocol) {
         });
         let has_account;
         const base_time = Date.now();
-        while (Date.now() - base_time < 60 * 1000) {
+        while (Date.now() - base_time < 120 * 1000) {
             try {
                 const account_stat = await client.account.accounts_status({});
                 has_account = account_stat.has_accounts;

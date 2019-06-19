@@ -1,20 +1,32 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_bucket_placement');
+
 var basic_server_ops = require('../utils/basic_server_ops');
 var P = require('../../util/promise');
 var api = require('../../api');
-var argv = require('minimist')(process.argv);
 var _ = require('lodash');
 var dotenv = require('../../util/dotenv');
 dotenv.load();
 
-argv.ip = argv.ip || '127.0.0.1';
+
+const {
+    mgmt_ip = '127.0.0.1',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+} = argv;
+
 argv.access_key = argv.access_key || '123';
 argv.secret_key = argv.secret_key || 'abc';
 var rpc = api.new_rpc();
 var client = rpc.new_client({
-    address: 'ws://' + argv.ip + ':' + process.env.PORT
+    address: 'ws://' + mgmt_ip + ':' + mgmt_port
 });
 
 const TEST_BUCKET_NAME = 'bucket1';
@@ -58,7 +70,7 @@ async function upload_random_file() {
     const fkey = await basic_server_ops.generate_random_file(20);
     try {
         console.log('Uploading file ', fkey, 'to', TEST_BUCKET_NAME);
-        await basic_server_ops.upload_file(argv.ip, fkey, TEST_BUCKET_NAME, fkey);
+        await basic_server_ops.upload_file(s3_ip, fkey, TEST_BUCKET_NAME, fkey);
         await P.delay(3000);
         return fkey;
     } catch (err) {
@@ -177,14 +189,14 @@ async function perform_quota_tests() {
     let fl = await basic_server_ops.generate_random_file(1);
     console.log('Uploading 1MB file');
     try {
-        await basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
+        await basic_server_ops.upload_file(s3_ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
     } catch (err) {
         throw new Error(`perform_quota_tests should not fail ul 1mb when quota is 1gb ${err}`);
     }
     fl = await basic_server_ops.generate_random_file(1200);
     console.log('uploading 1.2GB file');
     try {
-        await basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
+        await basic_server_ops.upload_file(s3_ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
     } catch (err) {
         throw new Error(`perform_quota_tests should not fail ul 1mb when quota is 1gb ${err}`);
     }
@@ -193,7 +205,7 @@ async function perform_quota_tests() {
     fl = await basic_server_ops.generate_random_file(30);
     let didFail = false;
     try {
-        await basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl, 20, true);
+        await basic_server_ops.upload_file(s3_ip, fl, TEST_QUOTA_BUCKET_NAME, fl, 20, true);
     } catch (err) {
         didFail = true;
         console.info('Expected failure of file over quota limit');

@@ -174,13 +174,11 @@ class ReportsSummarizer {
             const date_line = date_line_Array.join(SEPARATOR);
             const final_lines = all_cases.map(test_case => {
                 const case_results = reports.map(report => {
-                    const { passed_cases, failed_cases, didnt_run } = report.results;
+                    const { passed_cases, failed_cases /*, didnt_run  */} = report.results;
                     if (passed_cases[test_case] > 0) {
                         return 1;
                     } else if (failed_cases[test_case] > 0) {
                         return 0;
-                    } else if (didnt_run[test_case] > 0) {
-                        return -1;
                     } else {
                         return -1;
                     }

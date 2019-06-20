@@ -263,7 +263,7 @@ async function runAgentCommandViaSsh(agent_server_ip, username, password, agentC
     //becoming root and running the agent command
     console.log(`running agent command on ${agent_server_ip}`);
     const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
-    if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
+    if (!generateOSCommand) throw new Error(`Unknown os type: ${osType}`);
     await ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));
 }
 

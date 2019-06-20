@@ -381,7 +381,7 @@ async function test_trigger_run_when_should(user, file_param, bucketname) {
                 console.log('file wasn\'t created yet...');
                 await P.delay(TIME_FOR_FUNC_TO_RUN);
             } else {
-                throw new Error('expecting head to fail with statusCode 404 - File not found but got different error', err);
+                throw new Error(`expecting head to fail with statusCode 404 - File not found but got different error ${err}`);
             }
         }
     }
@@ -456,7 +456,7 @@ async function test_delete_trigger_run(user, file_param, bucketname, multiple) {
             if (err.statusCode === 404) {
                 file_not_deleted = false;
             } else {
-                throw new Error('expecting head to fail with statusCode 404 - File not found but got different error', err);
+                throw new Error(`expecting head to fail with statusCode 404 - File not found but got different error ${err}`);
             }
         }
     }

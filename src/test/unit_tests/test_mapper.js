@@ -646,7 +646,7 @@ coretest.describe_mapper_test_case({
         const frags_to_use = params.frags || frags;
         const frag_i = i % frags_to_use.length;
         const frag = params.frag || frags_to_use[frag_i];
-        const frag_index = frag && _frag_index(frag);
+        const frag_index = _frag_index(frag);
 
         const pools_to_use = params.pools || pools_by_tier_id[tier._id];
         const pool_i = Math.floor(i / frags_to_use.length) % pools_to_use.length;

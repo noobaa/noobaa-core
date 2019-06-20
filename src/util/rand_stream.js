@@ -25,7 +25,7 @@ class RandStream extends stream.Readable {
         super(options);
         this.max_length = max_length;
         this.chunk_size = (options && options.highWaterMark) || 1024 * 1024;
-        this.generator = this[`generate_${options.generator || 'cipher'}`];
+        this.generator = this[`generate_${(options && options.generator) || 'cipher'}`];
         this.cipher_seed = options && options.cipher_seed;
         this.pos = 0;
         this.ticks = 0;

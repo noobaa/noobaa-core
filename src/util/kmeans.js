@@ -102,7 +102,7 @@ class Clusterize {
         if (!options || !vector) {
             throw new Error('Provide 2 arguments: vector, options');
         }
-        if (!options || !options.k || options.k < 1) {
+        if (!options.k || options.k < 1) {
             throw new Error('Provide a correct number k of clusters');
         }
         if (options.distance &&

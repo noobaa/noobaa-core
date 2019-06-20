@@ -10,9 +10,9 @@ const P = require('../../util/promise');
 const RandStream = require('../../util/rand_stream');
 const ChunkSplitter = require('../../util/chunk_splitter');
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
 
 mocha.describe('ChunkSplitter', function() {

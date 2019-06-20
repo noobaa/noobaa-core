@@ -408,7 +408,7 @@ function run_test() {
         .catch(err => {
             rpc.disconnect_all();
             console.error('test_s3_authentication FAILED: ', err.stack || err);
-            throw new Error('test_s3_authentication FAILED: ', err);
+            throw new Error(`test_s3_authentication FAILED: ${err}`);
         });
 }
 

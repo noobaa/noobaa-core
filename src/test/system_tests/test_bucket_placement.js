@@ -49,7 +49,7 @@ async function run_test() {
     } catch (err) {
         console.error('test_bucket_placement FAILED: ', err.stack || err);
         rpc.disconnect_all();
-        throw new Error('test_bucket_placement FAILED: ', err);
+        throw new Error(`test_bucket_placement FAILED: ${err}`);
     }
 }
 
@@ -179,14 +179,14 @@ async function perform_quota_tests() {
     try {
         await basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
     } catch (err) {
-        throw new Error('perform_quota_tests should not fail ul 1mb when quota is 1gb', err);
+        throw new Error(`perform_quota_tests should not fail ul 1mb when quota is 1gb ${err}`);
     }
     fl = await basic_server_ops.generate_random_file(1200);
     console.log('uploading 1.2GB file');
     try {
         await basic_server_ops.upload_file(argv.ip, fl, TEST_QUOTA_BUCKET_NAME, fl);
     } catch (err) {
-        throw new Error('perform_quota_tests should not fail ul 1mb when quota is 1gb', err);
+        throw new Error(`perform_quota_tests should not fail ul 1mb when quota is 1gb ${err}`);
     }
     console.log('waiting for md_aggregation calculations');
     await P.delay(120000);
@@ -220,7 +220,7 @@ function update_quota_on_bucket(limit_gb) {
             }
         })
         .catch(err => {
-            throw new Error(`Failed setting quota with ${limit_gb}`, err);
+            throw new Error(`Failed setting quota with ${limit_gb} - ${err}`);
         });
 }
 

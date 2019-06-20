@@ -108,43 +108,41 @@ function run_upgrade() {
             dbg.error(err);
         }))
         .then(() => {
-            if (argv.from_file) {
-                if (argv.from_file === '') {
-                    dbg.log0(`upgrade.js called with ${argv}`);
-                    dbg.log0(`Must supply path to upgrade package`);
-                    throw new Error('run_upgrade: Must supply path to upgrade package');
-                } else {
-                    var stdout;
-                    var stderr;
-                    dbg.log0(`upgrade.js called for package extraction`);
-                    return P.resolve()
-                        .then(() => {
-                            var fname = '/log/noobaa_deploy_out_' + argv.fsuffix + '.log';
-                            stdout = fs.openSync(fname, 'a');
-                            stderr = fs.openSync(fname, 'a');
-                        })
-                        .then(() => {
-                            let upgrade_proc = spawn(NEW_NODE_BIN, [
-                                NEW_UPGRADE_SCRIPT,
-                                '--do_upgrade', 'true',
-                                '--fsuffix', argv.fsuffix,
-                                '--cluster_str', argv.cluster_str
-                            ], {
-                                detached: true,
-                                stdio: ['ignore', stdout, stderr, 'ipc'],
-                                cwd: `${EXTRACTION_PATH}/noobaa-core/`
-                            });
-                            upgrade_proc.on('exit', (code, signal) => {
-                                // upgrade.js is supposed to kill this node process, so it should not exit while
-                                // this node process is still running. treat exit as error.
-                                if (code) {
-                                    const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
-                                    dbg.error(err_msg);
-                                }
-                            });
-                            upgrade_proc.on('error', dbg.error);
+            if (argv.from_file === '') {
+                dbg.log0(`upgrade.js called with ${argv}`);
+                dbg.log0(`Must supply path to upgrade package`);
+                throw new Error('run_upgrade: Must supply path to upgrade package');
+            } else if (argv.from_file) {
+                var stdout;
+                var stderr;
+                dbg.log0(`upgrade.js called for package extraction`);
+                return P.resolve()
+                    .then(() => {
+                        var fname = '/log/noobaa_deploy_out_' + argv.fsuffix + '.log';
+                        stdout = fs.openSync(fname, 'a');
+                        stderr = fs.openSync(fname, 'a');
+                    })
+                    .then(() => {
+                        let upgrade_proc = spawn(NEW_NODE_BIN, [
+                            NEW_UPGRADE_SCRIPT,
+                            '--do_upgrade', 'true',
+                            '--fsuffix', argv.fsuffix,
+                            '--cluster_str', argv.cluster_str
+                        ], {
+                            detached: true,
+                            stdio: ['ignore', stdout, stderr, 'ipc'],
+                            cwd: `${EXTRACTION_PATH}/noobaa-core/`
                         });
-                }
+                        upgrade_proc.on('exit', (code, signal) => {
+                            // upgrade.js is supposed to kill this node process, so it should not exit while
+                            // this node process is still running. treat exit as error.
+                            if (code) {
+                                const err_msg = `upgrade.js process was closed with code ${code} and signal ${signal}`;
+                                dbg.error(err_msg);
+                            }
+                        });
+                        upgrade_proc.on('error', dbg.error);
+                    });
             } else if (argv.do_upgrade) {
                 dbg.log0(`upgrade.js called with ${argv}`);
                 return do_upgrade();

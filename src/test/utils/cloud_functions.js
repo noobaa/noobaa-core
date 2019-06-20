@@ -32,7 +32,7 @@ class CloudFunction {
                 target_bucket
             });
         } catch (err) {
-            throw new Error('Failed to create cloud pool ', err);
+            throw new Error(`Failed to create cloud pool ${err}`);
         }
     }
 
@@ -43,7 +43,7 @@ class CloudFunction {
                 name: pool
             });
         } catch (err) {
-            throw new Error(`Failed to delete cloud pool error`, err);
+            throw new Error(`Failed to delete cloud pool error ${err}`);
         }
     }
 
@@ -83,7 +83,7 @@ class CloudFunction {
                 connection_name
             });
         } catch (err) {
-            throw new Error('Failed to delete connection ', err);
+            throw new Error(`Failed to delete connection ${err}`);
         }
     }
 
@@ -96,7 +96,7 @@ class CloudFunction {
                 target_bucket
             });
         } catch (err) {
-            throw new Error('Failed to create namespace resource ', err);
+            throw new Error(`Failed to create namespace resource ${err}`);
         }
     }
 
@@ -107,7 +107,7 @@ class CloudFunction {
                 name: namespace
             });
         } catch (err) {
-            throw new Error(`Failed to delete cloud pool error`, err);
+            throw new Error(`Failed to delete cloud pool error ${err}`);
         }
     }
 }

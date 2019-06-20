@@ -370,7 +370,7 @@ async function run_all_tests() {
         tests_list = await promise_utils.exec(tests_list_command, { ignore_rc: false, return_stdout: true });
     } catch (err) {
         console.error('Failed getting tests list');
-        throw new Error('Failed getting tests list', err);
+        throw new Error(`Failed getting tests list ${err}`);
     }
 
     tests_list = tests_list.split('\n');

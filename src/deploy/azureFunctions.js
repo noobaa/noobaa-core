@@ -858,7 +858,7 @@ class AzureFunctions {
                             if (result.copy.status === 'success') {
                                 isDone = true;
                             } else if (result.copy.status !== 'pending') {
-                                throw new Error('got wrong status while copying', result.copy.status);
+                                throw new Error(`got wrong status while copying ${result.copy.status}`);
                             }
                         }
                     })

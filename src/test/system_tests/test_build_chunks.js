@@ -302,7 +302,7 @@ function run_test() {
         .then(() => console.log('test test_build_chunks SUCCESS'))
         .catch(err => {
             console.error('test_build_chunks FAILED: ', err.stack || err);
-            throw new Error('test_build_chunks FAILED: ', err);
+            throw new Error(`test_build_chunks FAILED: ${err}`);
         })
         .finally(() => rpc.disconnect_all());
 }

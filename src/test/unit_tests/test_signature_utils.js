@@ -13,11 +13,10 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const signature_utils = require('../../util/signature_utils');
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
-
 
 mocha.describe('signature_utils', function() {
 

@@ -213,9 +213,9 @@ function setup({ incomplete_rpc_coverage } = {}) {
 
 }
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
 
 // create some test agents named 0, 1, 2, ..., count

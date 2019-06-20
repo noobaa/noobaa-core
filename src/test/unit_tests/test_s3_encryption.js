@@ -65,7 +65,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
     mocha.it('should get bucket encryption error without encryption configured', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT }).promise();
-            throw new Error('Expected to get error with unconfigured bucket encryption', res);
+            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
         } catch (error) {
             assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
             assert(error.code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.code}`);
@@ -109,7 +109,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
     mocha.it('should get bucket encryption error without encryption configured', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT }).promise();
-            throw new Error('Expected to get an error with unconfigured bucket encryption', res);
+            throw new Error(`Expected to get an error with unconfigured bucket encryption ${res}`);
         } catch (error) {
             assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
             assert(error.code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.code}`);
@@ -172,7 +172,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     mocha.it('should get bucket encryption error without encryption configured', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT }).promise();
-            throw new Error('Expected to get error with unconfigured bucket encryption', res);
+            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
         } catch (error) {
             assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
             assert(error.code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.code}`);
@@ -216,7 +216,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     mocha.it('should get bucket encryption error without encryption configured', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT }).promise();
-            throw new Error('Expected to get error with unconfigured bucket encryption', res);
+            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
         } catch (error) {
             assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
             assert(error.code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.code}`);
@@ -302,7 +302,7 @@ async function copy_part(s3_client, BKT) {
             Bucket: BKT,
             Key: FILE_NAME_COPY,
         }).promise();
-        throw new Error('Expected to get error with access without encryption keys', reply);
+        throw new Error(`Expected to get error with access without encryption keys ${reply}`);
     } catch (error) {
         // TODO: Should be this error: An error occurred (400) when calling the HeadObject operation: Bad Request
         assert(error.message === null || error.message === 'BadRequest', `Error message does not match got: ${error.message}`);
@@ -317,7 +317,7 @@ async function copy_part(s3_client, BKT) {
             SSECustomerAlgorithm: 'AES256',
             SSECustomerKey: SSECustomerKeyOrig,
         }).promise();
-        throw new Error('Expected to get error with access without old encryption keys', reply);
+        throw new Error(`Expected to get error with access without old encryption keys ${reply}`);
     } catch (error) {
         // TODO: Should be this error: An error occurred (400) when calling the HeadObject operation: Bad Request
         assert(error.message === null, `Error message does not match got: ${error.message}`);
@@ -373,7 +373,7 @@ async function copy(s3_client, BKT) {
             Bucket: BKT,
             Key: FILE_NAME_COPY,
         }).promise();
-        throw new Error('Expected to get error with access without encryption keys', reply);
+        throw new Error(`Expected to get error with access without encryption keys ${reply}`);
     } catch (error) {
         // TODO: Should be this error: An error occurred (400) when calling the HeadObject operation: Bad Request
         assert(error.message === null, `Error message does not match got: ${error.message}`);
@@ -388,7 +388,7 @@ async function copy(s3_client, BKT) {
             SSECustomerAlgorithm: 'AES256',
             SSECustomerKey: SSECustomerKeyOrig,
         }).promise();
-        throw new Error('Expected to get error with access without old encryption keys', reply);
+        throw new Error(`Expected to get error with access without old encryption keys ${reply}`);
     } catch (error) {
         // TODO: Should be this error: An error occurred (400) when calling the HeadObject operation: Bad Request
         assert(error.message === null, `Error message does not match got: ${error.message}`);

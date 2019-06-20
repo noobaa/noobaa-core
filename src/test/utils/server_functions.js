@@ -163,7 +163,7 @@ async function create_system(server_ip, port, protocol) {
             throw new Error(`Couldn't create system. no account`);
         }
     } catch (err) {
-        throw new Error(`Couldn't create system`, err);
+        throw new Error(`Couldn't create system ${err}`);
     }
 }
 

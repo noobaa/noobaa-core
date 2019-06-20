@@ -87,7 +87,7 @@ mocha.describe('md_aggregator', function() {
                     }
                 }
             };
-            // console.log(pool_deltas);
+            // coretest.log(pool_deltas);
             const bucket_update = md_aggregator.calculate_new_bucket({
                 bucket: { _id: 123 },
                 existing_chunks_aggregate: { 123: null, 234: null },
@@ -193,7 +193,7 @@ mocha.describe('md_aggregator', function() {
                 existing_blocks_aggregate: added_block,
                 deleted_blocks_aggregate: deleted_block,
             });
-            // console.log(new_storage_stats);
+            // coretest.log(new_storage_stats);
             assert.deepStrictEqual(new_storage_stats, expected_storage_stats);
         });
 
@@ -216,7 +216,7 @@ mocha.describe('md_aggregator', function() {
             const target_now = last_update + CYCLE;
             const system_store = make_test_system_store(last_update);
             const block_id1 = md_store.make_md_id_from_time(last_update + sub_cycle());
-            console.log('block 1 addtion date', block_id1.getTimestamp().getTime());
+            coretest.log('block 1 addtion date', block_id1.getTimestamp().getTime());
 
             return P.resolve()
                 .then(() => md_store.insert_blocks([{
@@ -268,8 +268,8 @@ mocha.describe('md_aggregator', function() {
             const block_id2 = md_store.make_md_id_from_time(last_update + sub_cycle());
             const bucket = system_store.data.buckets[0];
             const pool = system_store.data.pools[0];
-            console.log('block 1 addtion date', block_id1.getTimestamp().getTime());
-            console.log('block 2 addtion date', block_id2.getTimestamp().getTime());
+            coretest.log('block 1 addtion date', block_id1.getTimestamp().getTime());
+            coretest.log('block 2 addtion date', block_id2.getTimestamp().getTime());
 
             return P.resolve()
                 .then(() => md_store.insert_blocks([
@@ -524,7 +524,7 @@ mocha.describe('md_aggregator', function() {
             make_changes(changes) {
                 this.changes_list.push(changes);
                 if (this.debug) {
-                    console.log('system store changes #',
+                    coretest.log('system store changes #',
                         this.changes_list.length,
                         util.inspect(changes, true, null, true)
                     );

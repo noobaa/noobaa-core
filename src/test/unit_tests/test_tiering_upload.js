@@ -110,7 +110,7 @@ mocha.describe('tiering upload', function() {
         const up = await upload_and_get_storage(upload_size);
         const diff_percent = Math.abs((up.tier0_change / upload_size) - 1);
 
-        console.log('test_tiering_upload:', up, 'diff_percent', diff_percent);
+        coretest.log('test_tiering_upload:', up, 'diff_percent', diff_percent);
         if (diff_percent > 0.05) {
             assert.fail(`Expected diff_percent > 0.05 but got ${diff_percent}`);
         }
@@ -126,7 +126,7 @@ mocha.describe('tiering upload', function() {
         const tier1_skew = Math.abs(up.tier1_change - expected_tier1_change);
         const tier1_skew_percent = Math.abs((up.tier1_change / expected_tier1_change) - 1);
 
-        console.log('test_tiering_upload:', up,
+        coretest.log('test_tiering_upload:', up,
             'expected_tier1_change', expected_tier1_change,
             'tier1_skew', tier1_skew,
             'tier1_skew_percent', tier1_skew_percent
@@ -164,7 +164,7 @@ mocha.describe('tiering upload', function() {
     //     const storage2 = await get_current_storage(TIER1);
     //     const used_delta = storage1.free - storage2.free;
     //     const diff_percent = Math.abs((used_delta / (upload_size - (100 * 1024 * 1024))) - 1);
-    //     console.log('test_tiering_upload: test2',
+    //     coretest.log('test_tiering_upload: test2',
     //         'used_delta', used_delta,
     //         'diff_percent', diff_percent);
     //     if (diff_percent > 0.05) {
@@ -188,7 +188,7 @@ mocha.describe('tiering upload', function() {
         const tier1_skew = Math.abs(tier1_change - expected_tier1_change);
         const tier1_skew_percent = Math.abs((tier1_change / expected_tier1_change) - 1);
 
-        console.log('test_tiering_upload:',
+        coretest.log('test_tiering_upload:',
             'expected_tier1_change', expected_tier1_change,
             'tier1_change', tier1_change,
             'tier1_skew', tier1_skew,
@@ -234,7 +234,7 @@ mocha.describe('tiering upload', function() {
         const tier0_change = tier0_before.free - tier0_after.free;
         const tier1_change = tier1_before.free - tier1_after.free;
 
-        console.log('upload_and_get_storage:',
+        coretest.log('upload_and_get_storage:',
             'upload_size', upload_size,
             'key', key,
             'tier0_change', tier0_change,
@@ -263,7 +263,7 @@ mocha.describe('tiering upload', function() {
         const tier_status = tiering_status[tier0._id.toHexString()];
         const storage = tier_status.mirrors_storage[0];
         // const { storage } = await rpc_client.tier.read_tier({ name: TIER0 });
-        console.log('GGG get_current_storage:', util.inspect(storage, { depth: null }));
+        coretest.log('GGG get_current_storage:', util.inspect(storage, { depth: null }));
         return storage;
     }
 });

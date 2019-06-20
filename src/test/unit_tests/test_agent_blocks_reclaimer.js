@@ -23,7 +23,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
 
     constructor(blocks = [], nodes = [], test_suffix = '') {
         super(`ReclaimerMock-${test_suffix}`);
-        console.log('ReclaimerMock INIT', test_suffix, blocks, nodes);
+        coretest.log('ReclaimerMock INIT', test_suffix, blocks, nodes);
         this.blocks = blocks;
         this.nodes = nodes;
         this.reclaimed_blocks = [];
@@ -96,7 +96,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
 
     delete_blocks_from_nodes(blocks) {
         this.reclaimed_blocks = _.concat(this.reclaimed_blocks, blocks.map(block => String(block._id)));
-        console.log('delete_blocks', blocks);
+        coretest.log('delete_blocks', blocks);
         return P.resolve()
             .then(() => {
                 blocks.forEach(block_rec => {

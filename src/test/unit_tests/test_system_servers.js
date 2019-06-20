@@ -133,7 +133,7 @@ mocha.describe('system_servers', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const list_nodes = await rpc_client.node.list_nodes({});
         nodes_list = list_nodes.nodes;
-        console.log('nodes_list', _.map(nodes_list, 'name'));
+        coretest.log('nodes_list', _.map(nodes_list, 'name'));
         await assert(nodes_list.length >= 6, `${nodes_list.length} >= 6`);
         await rpc_client.pool.create_nodes_pool({
             name: POOL,
@@ -283,7 +283,7 @@ mocha.describe('system_servers', function() {
                     /* Copyright (C) 2016 NooBaa */
                     'use strict';
                     exports.handler = function(event, context, callback) {
-                    console.log('func event', event);
+                    coretest.log('func event', event);
                     callback();
                     };
                     `
@@ -323,7 +323,7 @@ mocha.describe('system_servers', function() {
         if (config.SKIP_EXTERNAL_TESTS) this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
         if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.log('No AWS credentials found in env. Skipping test');
+            coretest.log('No AWS credentials found in env. Skipping test');
             this.skip(); // eslint-disable-line no-invalid-this
         }
 

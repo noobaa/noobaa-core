@@ -48,7 +48,7 @@ mocha.describe('s3_ops', function() {
                     region: 'us-east-1',
                     httpOptions: { agent: new http.Agent({ keepAlive: false }) },
                 });
-                console.log('S3 CONFIG', s3.config);
+                coretest.log('S3 CONFIG', s3.config);
             });
     });
 
@@ -175,7 +175,7 @@ mocha.describe('s3_ops', function() {
         });
         mocha.after(async function() {
             if (SKIP_TEST) {
-                console.log('No AWS credentials found in env. Skipping test');
+                coretest.log('No AWS credentials found in env. Skipping test');
                 this.skip(); // eslint-disable-line no-invalid-this
             }
             if (bucket_type === "regular") {

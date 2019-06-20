@@ -77,7 +77,7 @@ async function delete_vm(status) {
             return azf.deleteVirtualMachine(vmName)
                 .catch(err => {
                     console.error(`failed deleting ${vmName} with error: `, err.message);
-                    throw new Error(`failed deleting ${vmName} with error: `, err.message);
+                    throw new Error(`failed deleting ${vmName} with error: ${err.message}`);
                 });
         }
     }, { concurrency: 30 });

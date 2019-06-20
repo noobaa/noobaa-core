@@ -12,9 +12,9 @@ const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../rpc');
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
 
 class APIClient {

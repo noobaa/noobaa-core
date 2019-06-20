@@ -59,7 +59,7 @@ let target_addresses;
 argv.debug = argv.debug || 0;
 
 // profiling tools
-if (argv.leak) {
+if (argv.leak && memwatch) {
     memwatch.on('leak', info => dbg.warn('LEAK', info));
 }
 let heapdiff;

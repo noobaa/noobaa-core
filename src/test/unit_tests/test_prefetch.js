@@ -7,9 +7,9 @@ var mocha = require('mocha');
 // var assert = require('assert');
 var Prefetch = require('../../util/prefetch');
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
 
 

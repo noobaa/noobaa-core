@@ -149,12 +149,12 @@ function print_summary() {
     console.log('');
     console.log('*********************************************************');
 
-    if (UL_TEST.skip_generation) {
-        //TODO: real numbers
-        console.log('Test Summary', UL_TEST.num_files, 'files, each', UL_TEST.file_size, 'KB', 'with', UL_TEST.numthreads, 'threads');
-    } else {
-        console.log('Test Summary', UL_TEST.num_files, 'files, each', UL_TEST.file_size, 'KB', 'with', UL_TEST.numthreads, 'threads');
-    }
+    //if (UL_TEST.skip_generation) {
+    //    //TODO: real numbers
+    //    console.log('Test Summary', UL_TEST.num_files, 'files, each', UL_TEST.file_size, 'KB', 'with', UL_TEST.numthreads, 'threads');
+    //} else {
+    console.log('Test Summary', UL_TEST.num_files, 'files, each', UL_TEST.file_size, 'KB', 'with', UL_TEST.numthreads, 'threads');
+    //}
 
     console.log('Test results, breakdown per each 1K uploads:');
     var i = 0;

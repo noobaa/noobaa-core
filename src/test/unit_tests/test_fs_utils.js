@@ -8,9 +8,9 @@ var assert = require('assert');
 var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 
-function log(msg) {
+function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
-    console.log(msg);
+    console.log(...args);
 }
 
 mocha.describe('fs_utils', function() {

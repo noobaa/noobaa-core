@@ -252,7 +252,7 @@ class NamespaceMerge {
         const get_object_status = object => {
             if (object.success && object.obj) return STATUSES.SUCCEEDED_WITH_INFO;
             if (object.success) return STATUSES.SUCCEEDED_WITHOUT_INFO;
-            if (!object.success && object.obj) return STATUSES.FAILED_WITH_INFO;
+            if (object.obj) return STATUSES.FAILED_WITH_INFO;
             return STATUSES.FAILED_WITHOUT_INFO;
         };
         const curr_status = get_object_status(curr);

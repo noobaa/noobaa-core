@@ -13,6 +13,11 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const signature_utils = require('../../util/signature_utils');
 
+function log(msg) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(msg);
+}
+
 
 mocha.describe('signature_utils', function() {
 
@@ -68,17 +73,17 @@ mocha.describe('signature_utils', function() {
         }
 
         if (test_name === 'get-header-value-multiline.sreq') {
-            console.log('Skipping', test_name, '- the multiline header test is broken');
+            console.warn('Skipping', test_name, '- the multiline header test is broken');
             return;
         }
 
         if (test_name === 'post-vanilla-query-space.sreq') {
-            console.log('Skipping', test_name, '- the query space test is broken');
+            console.warn('Skipping', test_name, '- the query space test is broken');
             return;
         }
 
         mocha.it(test_name, function() {
-            console.log('Test:', test_name);
+            log('Test:', test_name);
             const request_data = fs.readFileSync(fname);
             return send_signed_request(request_data);
         });
@@ -110,7 +115,7 @@ mocha.describe('signature_utils', function() {
             .then(() => {
                 socket.destroy();
                 reply = reply.trim();
-                console.log('REPLY:', reply);
+                log('REPLY:', reply);
                 const CONT = 'HTTP/1.1 100 Continue';
                 if (reply.startsWith(CONT)) {
                     reply = reply.slice(CONT.length).trim();
@@ -139,7 +144,7 @@ mocha.describe('signature_utils', function() {
         }
         res.setHeader('Connection', 'close');
         if (req.method === 'OPTIONS') return res.end();
-        console.log(
+        log(
             'Handle:', req.method, req.originalUrl,
             'query', req.query,
             'headers', req.headers);
@@ -148,11 +153,11 @@ mocha.describe('signature_utils', function() {
                 req.on('data', data => {
                         hasher.update(data);
                         body_len += data.length;
-                        console.log(`Request body length so far ${body_len}`);
+                        log(`Request body length so far ${body_len}`);
                     })
                     .once('end', () => {
                         const sha256 = hasher.digest();
-                        console.log(`Request body ended body length ${body_len} sha256 ${sha256.toString('hex')}`);
+                        log(`Request body ended body length ${body_len} sha256 ${sha256.toString('hex')}`);
                         return resolve(sha256);
                     })
                     .once('error', reject);
@@ -182,7 +187,7 @@ mocha.describe('signature_utils', function() {
                 }
                 const auth_token = signature_utils.make_auth_token_from_request(req);
                 const signature = signature_utils.get_signature_from_auth_token(auth_token, SECRETS[auth_token.access_key]);
-                console.log('auth_token', auth_token, 'signature', signature);
+                log('auth_token', auth_token, 'signature', signature);
                 if (signature !== auth_token.signature) {
                     throw new Error('Signature mismatch');
                 }

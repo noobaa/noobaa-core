@@ -185,7 +185,7 @@ coretest.describe_mapper_test_case({
         const { chunks } = obj;
         const blocks_to_delete = [];
         _.forEach(chunks, chunk => {
-            console.log('Keeping minimal frags in chunk', chunk._id);
+            coretest.log('Keeping minimal frags in chunk', chunk._id);
             const frags_to_delete = new Set(_.sampleSize(chunk.frags, parity_frags));
             _.forEach(frags_to_delete, frag => {
                 _.forEach(frag.blocks, block => {
@@ -200,7 +200,7 @@ coretest.describe_mapper_test_case({
         const { chunks } = obj;
         const blocks_to_delete = [];
         _.forEach(chunks, chunk => {
-            console.log('Keeping minimal replicas in chunk', chunk._id);
+            coretest.log('Keeping minimal replicas in chunk', chunk._id);
             _.forEach(chunk.frags, frag => {
                 _.forEach(frag.blocks.slice(1), block => {
                     blocks_to_delete.push(block);
@@ -211,7 +211,7 @@ coretest.describe_mapper_test_case({
     }
 
     async function delete_blocks(blocks) {
-        console.log('Deleting blocks', blocks.map(block => _.pick(block, '_id', 'size', 'frag.id')));
+        coretest.log('Deleting blocks', blocks.map(block => _.pick(block, '_id', 'size', 'frag.id')));
         return P.join(
             map_deleter.delete_blocks_from_nodes(blocks),
             MDStore.instance().update_blocks_by_ids(_.map(blocks, '_id'), { deleted: new Date() })

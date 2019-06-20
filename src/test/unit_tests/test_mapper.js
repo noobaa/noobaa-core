@@ -195,7 +195,7 @@ coretest.describe_mapper_test_case({
             });
             const selected_tier = mapper.select_tier_for_write(tiering, default_tiering_status);
             const mapping = mapper.map_chunk(chunk, selected_tier, tiering, default_tiering_status);
-            console.log('JAJA ', util.inspect(mapping, { depth: null }));
+            coretest.log('JAJA ', util.inspect(mapping, { depth: null }));
             assert(mapping.accessible, 'accessible');
             assert.strictEqual(mapping.allocations, undefined);
             assert.strictEqual(mapping.deletions, undefined);

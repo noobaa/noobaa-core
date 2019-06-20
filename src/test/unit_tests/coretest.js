@@ -213,6 +213,11 @@ function setup({ incomplete_rpc_coverage } = {}) {
 
 }
 
+function log(msg) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(msg);
+}
+
 // create some test agents named 0, 1, 2, ..., count
 async function init_test_nodes(client, system, count) {
     await node_server.start_monitor();
@@ -443,6 +448,7 @@ function _describe_mapper_test_case(test_case, func) {
 
 exports.setup = setup;
 exports.no_setup = _.noop;
+exports.log = log;
 exports.SYSTEM = SYSTEM;
 exports.EMAIL = EMAIL;
 exports.PASSWORD = PASSWORD;

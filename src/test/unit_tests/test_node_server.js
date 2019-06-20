@@ -23,7 +23,7 @@ mocha.describe('node_server', function() {
             .then(() => rpc_client.node.list_nodes({}))
             .then(res => {
                 nodes = res.nodes;
-                console.log('NODES', nodes);
+                coretest.log('NODES', nodes);
                 assert(res.nodes.length >= 2);
             })
             .then(() => rpc_client.node.read_node({

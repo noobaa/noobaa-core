@@ -8,6 +8,11 @@ var assert = require('assert');
 var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 
+function log(msg) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(msg);
+}
+
 mocha.describe('fs_utils', function() {
     const self = this; // eslint-disable-line no-invalid-this
 
@@ -21,8 +26,8 @@ mocha.describe('fs_utils', function() {
                 fs_utils.disk_usage('src/server'),
                 fs_utils.disk_usage('src/test')
             ).spread((server_usage, test_usage) => {
-                console.log('disk_usage of src:', server_usage);
-                console.log('disk_usage of src/test:', test_usage);
+                log('disk_usage of src:', server_usage);
+                log('disk_usage of src/test:', test_usage);
                 assert(test_usage.size / server_usage.size > 0.50,
                     'disk usage size of src/test is less than 50% of src/server,',
                     'what about some quality :)');

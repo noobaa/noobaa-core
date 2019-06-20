@@ -111,7 +111,7 @@ coretest.describe_mapper_test_case({
         await verify_read_data(key, data, params.obj_id);
         await verify_nodes_mapping();
         await rpc_client.object.delete_object({ bucket, key });
-        console.log('upload_and_verify: OK', size);
+        coretest.log('upload_and_verify: OK', size);
     }
 
     async function multipart_upload_and_verify(part_size, num_parts) {
@@ -123,7 +123,7 @@ coretest.describe_mapper_test_case({
         const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
 
         const mp_list_before = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
-        console.log('list_multiparts before', mp_list_before);
+        coretest.log('list_multiparts before', mp_list_before);
         assert.strictEqual(mp_list_before.multiparts.length, 0);
 
         const get_part_slice = i => data.slice(i * part_size, (i + 1) * part_size);
@@ -163,7 +163,7 @@ coretest.describe_mapper_test_case({
         ));
 
         const mp_list_after = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
-        console.log('list_multiparts after', mp_list_after);
+        coretest.log('list_multiparts after', mp_list_after);
         assert.strictEqual(mp_list_after.multiparts.length, num_parts);
         assert.deepStrictEqual(
             mp_list_after.multiparts.map(mp => mp.etag),
@@ -181,7 +181,7 @@ coretest.describe_mapper_test_case({
         await verify_read_data(key, data, obj_id);
         await verify_nodes_mapping();
         await rpc_client.object.delete_object({ bucket, key });
-        console.log('multipart_upload_and_verify: OK', part_size, num_parts);
+        coretest.log('multipart_upload_and_verify: OK', part_size, num_parts);
     }
 
     async function verify_read_mappings(key, size) {
@@ -192,7 +192,7 @@ coretest.describe_mapper_test_case({
             const frags = chunk.frags;
             const part = chunk.parts[0];
             const { start, end } = part;
-            // console.log(`TODO GGG READ PART pos=${pos}`, JSON.stringify(part));
+            // coretest.log(`TODO GGG READ PART pos=${pos}`, JSON.stringify(part));
             assert.strictEqual(start, pos);
             pos = end;
             assert.strictEqual(frags.length, total_frags);

@@ -3,6 +3,7 @@
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+(return 0 2>/dev/null) && IS_SOURCED=true || IS_SOURCED=false # explain: return will fail unless the script is sourced
 SCRIPT_NAME=$(basename $0)
 EMAIL="admin@noobaa.io"
 PASSWD=""
@@ -30,6 +31,7 @@ if [ $? -ne 0 ]; then
 fi
 
 function usage(){
+    [ "$IS_SOURCED" = "true" ] && return
     set +x
     echo -e "Usage:\n\t${SCRIPT_NAME} [command] [options]"
     echo -e "\nDeploy NooBaa server in Kubernetes"
@@ -39,6 +41,8 @@ function usage(){
     echo "delete            -   delete an existing NooBaa deployment in a given namespace"
     echo "info              -   get NooBaa deployment details in a given namespace. noobaa credentials (email\password) are requires to get S3 access keys"
     echo "storage           -   provision kuberentes PVs to use as backend storage for objects. specify --size and --num-pvs to control the provisioned storage"
+    echo "cloud-info        -   show list of cloud connections"
+    echo "cloud-add         -   add new cloud connections - must supply all the --cloud-* flags (see below)"
     echo
     echo "Options:"
     echo "-e --email        -   Custom email address to use for the NooBaa system owner account"
@@ -50,6 +54,13 @@ function usage(){
     echo "--num-pvs         -   number of PVs to provisons as backend storage. Minimum value is 3. default is 3"
     echo "--class           -   storageClass to use for PVs"
     # echo "--pv              -   when deploying a new system also provision kubernetes PVs to use as backend storage for objects. default is false"
+    echo "cloud-add arguments:"
+    echo "--cloud-name      -   uniq name for the cloud connection"
+    echo "--cloud-type      -   AWS | AZURE | GOOGLE | S3_COMPATIBLE"
+    echo "--cloud-sigver    -   AWS_V4 | AWS_V2"
+    echo "--cloud-endpoint  -   http://HOSTNAME:PORT"
+    echo "--cloud-access    -   ACCESS_KEY"
+    echo "--cloud-secret    -   SECRET_KEY"
     echo "-h --help         -   Will show this help"
     exit 0
 }
@@ -64,6 +75,10 @@ do
         info)           COMMAND=INFO
                         shift 1;;
         storage)        COMMAND=STORAGE
+                        shift 1;;
+        cloud-info)     COMMAND=CLOUD_INFO
+                        shift 1;;
+        cloud-add)      COMMAND=CLOUD_ADD
                         shift 1;;
         -e|--email)     EMAIL=${2}
                         shift 2;;
@@ -83,6 +98,12 @@ do
                         shift 2;;
         --pv)           INSTALL_AGENTS=true
                         shift 1;;
+        --cloud-name)       CLOUD_NAME=$2; shift 2;;
+        --cloud-type)       CLOUD_TYPE=$2; shift 2;;
+        --cloud-sigver)     CLOUD_SIGNATURE_VERSION=$2; shift 2;;
+        --cloud-endpoint)   CLOUD_ENDPOINT=$2; shift 2;;
+        --cloud-access)     CLOUD_ACCESS_KEY=$2; shift 2;;
+        --cloud-secret)     CLOUD_SECRET_KEY=$2; shift 2;;
         -h|--help)	    usage;;
         *)              usage;;
     esac
@@ -378,14 +399,52 @@ function get_access_keys {
     done
 }
 
-case ${COMMAND} in 
-    NONE)       usage;;
-    DEPLOY)     deploy_noobaa;;
-    DELETE)     delete_noobaa;;
-    STORAGE)    install_storage_agents;;
-    INFO)       echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
-                print_noobaa_info;;
-    *)          usage;;
-esac
+function cloud_add {
+    verify_noobaa_deployed
+    get_all_ips
+    get_auth_token
 
-exit 0
+    curl $ACCESS_IP_AND_PORT/rpc/ -sd '{
+        "api": "account_api",
+        "method": "add_external_connection",
+        "auth_token": "'${TOKEN}'",
+        "params": {
+            "name": "'$CLOUD_NAME'",
+            "endpoint_type": "'$CLOUD_TYPE'",
+            "auth_method": "'$CLOUD_SIGNATURE_VERSION'",
+            "endpoint": "'$CLOUD_ENDPOINT'",
+            "identity": "'$CLOUD_ACCESS_KEY'",
+            "secret": "'$CLOUD_SECRET_KEY'"
+        }
+    }' | jq
+}
+
+function cloud_info {
+    verify_noobaa_deployed
+    get_all_ips
+    get_auth_token
+
+    curl $ACCESS_IP_AND_PORT/rpc/ -sd '{
+        "api": "system_api",
+        "method": "read_system",
+        "auth_token": "'${TOKEN}'"
+    }' | jq '.reply.accounts[].external_connections'
+}
+
+# run command only if not sourced
+if [ "$IS_SOURCED" = "false" ]
+then
+    case ${COMMAND} in 
+        NONE)       usage;;
+        DEPLOY)     deploy_noobaa;;
+        DELETE)     delete_noobaa;;
+        STORAGE)    install_storage_agents;;
+        CLOUD_INFO) cloud_info;;
+        CLOUD_ADD)  cloud_add;;
+        INFO)       echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
+                    print_noobaa_info;;
+        *)          usage;;
+    esac
+
+    exit 0
+fi

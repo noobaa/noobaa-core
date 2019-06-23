@@ -57,12 +57,7 @@ import deleteObject from './delete-object';
 import fetchObjectParts from './fetch-object-parts';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
 import deleteHost from './delete-host';
-import uploadUpgradePackage from './upload-upgrade-package';
-import runUpgradePackageTests from './run-upgrade-package-tests';
 import fetchVersionReleaseNotes from './fetch-version-release-notes';
-import invokeUpgradeSystem from './invoke-upgrade-system';
-import upgradeSystem from './upgrade-system';
-import reloadAfterSystemUpgrade from './reload-after-system-upgrade';
 import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
 import addBucketTrigger from './add-bucket-trigger';
@@ -71,7 +66,6 @@ import removeBucketTrigger from './remove-bucket-trigger';
 import closeModalsOnLocationChange from './close-modals-on-location-change';
 import attachServerToCluster from './attach-server-to-cluster';
 import createCloudResource from './create-cloud-resource';
-import updateRemoteSyslog from './update-remote-syslog';
 import createLambdaFunc from './create-lambda-func';
 import updateLambdaFuncConfig from './update-lambda-func-config';
 import updateLambdaFuncCode from './update-lambda-func-code';
@@ -89,16 +83,13 @@ import fetchObjectsDistribution from './fetch-objects-distribution';
 import fetchCloudUsageStats from './fetch-cloud-usage-stats';
 import updateP2PSettings from './update-p2p-settings';
 import resendActivationCode from './resend-activation-code';
-import updateProxyServerSettings from './update-proxy-server-settings';
 import setSystemDebugMode from './set-system-debug-mode';
 import collectSystemDiagnostics from './collect-system-diagnostics';
 import scheduleDebugModeRefresh from './schedule-debug-mode-refresh';
 import scheduleMaintenanceModeRefresh from './schedule-maintenance-mode-refresh';
 import scheduleAutoRefresh from './schedule-auto-refresh';
 import updateAccountPreferedTheme from './update-account-prefered-theme';
-import updateServerDnsSettings from './update-server-dns-settings';
 import updateServerDetails from './update-server-details';
-import updateServerTimeSettings from './update-server-time-settings';
 import redirectAfterSignOut from './redirect-after-sign-out';
 
 const epics = [
@@ -107,7 +98,6 @@ const epics = [
     notify,
     downloadFile,
     fetchCloudTargets,
-    reloadAfterSystemUpgrade,
     closeModalsOnLocationChange,
     scheduleAutoRefresh,
 
@@ -123,17 +113,11 @@ const epics = [
     fetchNodeInstallationCommands,
     updateInstallNodesFormCommandsField,
     fetchSystemStorageHistory,
-    uploadUpgradePackage,
-    runUpgradePackageTests,
     fetchVersionReleaseNotes,
-    invokeUpgradeSystem,
-    upgradeSystem,
-    updateRemoteSyslog,
     enterMaintenanceMode,
     leaveMaintenanceMode,
     updateP2PSettings,
     resendActivationCode,
-    updateProxyServerSettings,
     setSystemDebugMode,
     collectSystemDiagnostics,
     scheduleDebugModeRefresh,
@@ -142,11 +126,9 @@ const epics = [
     // Topology related epics
     updateServerAddress,
     attachServerToCluster,
-    updateServerDnsSettings,
     updateServerDetails,
-    updateServerTimeSettings,
 
-    // Alerts related epics
+    // Alerts related epicsƒup
     fetchAlerts,
     updateAlerts,
     fetchUnreadAlertsCount,

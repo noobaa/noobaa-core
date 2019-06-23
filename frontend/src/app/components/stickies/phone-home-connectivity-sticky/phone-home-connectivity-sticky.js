@@ -2,30 +2,21 @@
 
 import template from './phone-home-connectivity-sticky.html';
 import ConnectableViewModel from 'components/connectable';
-import { realizeUri } from 'utils/browser-utils';
 import ko from 'knockout';
-import * as routes from 'routes';
 
 class PhoneHomeConnectivityStickyViewModel extends ConnectableViewModel {
     isActive = ko.observable();
-    proxySettingsHref = ko.observable();
 
     selectState(state) {
-        const { system, location } = state;
+        const { system } = state;
         return [
-            system ? system.phoneHome.reachable : true,
-            location.params.system
+            system ? system.phoneHome.reachable : true
         ];
     }
 
-    mapStateToProps(isPhoneHomeReachable, system) {
+    mapStateToProps(isPhoneHomeReachable) {
         ko.assignToProps(this, {
-            isActive: !isPhoneHomeReachable,
-            proxySettingsHref: realizeUri(routes.management, {
-                system,
-                tab: 'settings',
-                section: 'proxy-server'
-            })
+            isActive: !isPhoneHomeReachable
         });
     }
 }

@@ -50,7 +50,6 @@ import ipCollisionSticky from './stickies/ip-collision-sticky/ip-collision-stick
 import installNodesModal from './modals/install-nodes-modal/install-nodes-modal';
 import installNodesToPoolModal from './modals/install-nodes-to-pool-modal/install-nodes-to-pool-modal';
 import welcomeModal from './modals/welcome-modal/welcome-modal';
-import afterUpgradeModal from './modals/after-upgrade-modal/after-upgrade-modal';
 import addCloudResourceModal from './modals/add-cloud-resource-modal/add-cloud-resource-modal';
 import addCloudConnectionModal from './modals/add-cloud-connection-modal/add-cloud-connection-modal';
 import s3AccessDetailsModal from './modals/s3-access-details-modal/s3-access-details-modal';
@@ -60,12 +59,9 @@ import fileUploadsModal from './modals/file-uploads-modal/file-uploads-modal';
 import deleteCurrentAccountWarningModal from './modals/delete-current-account-warning-modal/delete-current-account-warning-modal';
 import objectPreviewModal from './modals/object-preview-modal/object-preview-modal';
 import testNodeModal from './modals/test-node-modal/test-node-modal';
-import editServerDnsSettingsModal from './modals/edit-server-dns-settings-modal/edit-server-dns-settings-modal';
-import editServerTimeSettingsModal from './modals/edit-server-time-settings-modal/edit-server-time-settings-modal';
 import editAccountS3AccessModal from './modals/edit-account-s3-access-modal/edit-account-s3-access-modal';
 import editServerDetailsModal from './modals/edit-server-details-modal/edit-server-details-modal';
 import assignHostsModal from './modals/assign-hosts-modal/assign-hosts-modal';
-import updateSystemNameModal from './modals/update-system-name-modal/update-system-name-modal';
 import createAccountModal from './modals/create-account-modal/create-account-modal';
 import accountCreatedModal from './modals/account-created-modal/account-created-modal';
 import editBucketQuotaModal from './modals/edit-bucket-quota-modal/edit-bucket-quota-modal';
@@ -82,11 +78,6 @@ import editNamespaceBucketDataPlacementModal from './modals/edit-namespace-bucke
 import emptyDataPlacementWarningModal from './modals/empty-data-placement-warning-modal/empty-data-placement-warning-modal';
 import setNodeAsTrustedModal from './modals/set-node-as-trusted-modal/set-node-as-trusted-modal';
 import confirmDeleteHostModal from './modals/confirm-delete-host-modal/confirm-delete-host-modal';
-import upgradeSystemModal from './modals/upgrade-system-modal/upgrade-system-modal';
-import upgradingSystemModal from './modals/upgrading-system-modal/upgrading-system-modal';
-import upgradeSystemFailedModal from './modals/upgrade-system-failed-modal/upgrade-system-failed-modal';
-import preUpgradeSystemFailedModal from './modals/pre-upgrade-system-failed-modal/pre-upgrade-system-failed-modal';
-import finalizeUpgradeModal from './modals/finalize-upgrade-modal/finalize-upgrade-modal';
 import editBucketDataResiliencyModal from './modals/edit-bucket-data-resiliency-modal/edit-bucket-data-resiliency-modal';
 import riskyBucketDataResiliencyWarningModal from './modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal';
 import changeClusterConnectivityIpModal from './modals/change-cluster-connectivity-ip-modal/change-cluster-connectivity-ip-modal';
@@ -95,7 +86,6 @@ import addBucketTriggerModal from './modals/add-bucket-trigger-modal/add-bucket-
 import editBucketTriggerModal from './modals/edit-bucket-trigger-modal/edit-bucket-trigger-modal';
 import attachServerModal from './modals/attach-server-modal/attach-server-modal';
 import createFuncModal from './modals/create-func-modal/create-func-modal';
-import afterUpgradeFailureModal from './modals/after-upgrade-failure-modal/after-upgrade-failure-modal';
 import createBucketModal from './modals/create-bucket-modal/create-bucket-modal';
 import assignRegionModal from './modals/assign-region-modal/assign-region-modal';
 import changePasswordModal from './modals/change-password-modal/change-password-modal';
@@ -113,6 +103,7 @@ import regenerateAccountCredentialsModal from './modals/regenerate-account-crede
 import editTierDataPlacementModal from './modals/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
 import addTierModal from './modals/add-tier-modal/add-tier-modal';
 import sessionExpiredModal from './modals/session-expired-modal/session-expired-modal';
+import deployK8sPoolModal from './modals/deploy-k8s-pool-modal/deploy-k8s-pool-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -212,15 +203,10 @@ import hostDiagnosticsForm from './host/host-diagnostics-form/host-diagnostics-f
 // -------------------------------
 import managementPanel from './management/management-panel/management-panel';
 import p2pForm from './management/p2p-form/p2p-form';
-import systemAddressForm from './management/system-address-form/system-address-form';
 import versionForm from './management/version-form/version-form';
 import diagnosticsForm from './management/diagnostics-form/diagnostics-form';
 import maintenanceForm from './management/maintenance-form/maintenance-form';
-import proxyServerForm from './management/proxy-server-form/proxy-server-form';
-import remoteSyslogForm from './management/remote-syslog-form/remote-syslog-form';
 import serverSslForm from './management/server-ssl-form/server-ssl-form';
-import serverTimeForm from './management/server-time-form/server-time-form';
-import serverDnsSettingsForm from './management/server-dns-settings-form/server-dns-settings-form';
 /** INJECT:management.import **/
 
 // -------------------------------
@@ -250,12 +236,12 @@ import clusterSummary from './cluster/cluster-summary/cluster-summary';
 // -------------------------------
 // Server page components
 // -------------------------------
-import serverPanel from './server/server-panel/server-panel';
-import serverSummary from './server/server-summary/server-summary';
-import serverMonitoringForm from './server/server-monitoring-form/server-monitoring-form';
-import serverDiagnosticsForm from './server/server-diagnostics-form/server-diagnostics-form';
-import serverCommunicationForm from './server/server-communication-form/server-communication-form';
-import serverDetailsForm from './server/server-details-form/server-details-form';
+// import serverPanel from './server/server-panel/server-panel';
+// import serverSummary from './server/server-summary/server-summary';
+// import serverMonitoringForm from './server/server-monitoring-form/server-monitoring-form';
+// import serverDiagnosticsForm from './server/server-diagnostics-form/server-diagnostics-form';
+// import serverCommunicationForm from './server/server-communication-form/server-communication-form';
+// import serverDetailsForm from './server/server-details-form/server-details-form';
 /** INJECT:server.import **/
 
 // -------------------------------
@@ -412,7 +398,6 @@ export default function register(ko, services) {
         installNodesModal,
         installNodesToPoolModal,
         welcomeModal,
-        afterUpgradeModal,
         addCloudResourceModal,
         addCloudConnectionModal,
         s3AccessDetailsModal,
@@ -422,12 +407,9 @@ export default function register(ko, services) {
         deleteCurrentAccountWarningModal,
         objectPreviewModal,
         testNodeModal,
-        editServerDnsSettingsModal,
-        editServerTimeSettingsModal,
         editAccountS3AccessModal,
         editServerDetailsModal,
         assignHostsModal,
-        updateSystemNameModal,
         createAccountModal,
         accountCreatedModal,
         editBucketQuotaModal,
@@ -444,11 +426,6 @@ export default function register(ko, services) {
         emptyDataPlacementWarningModal,
         setNodeAsTrustedModal,
         confirmDeleteHostModal,
-        upgradeSystemModal,
-        upgradingSystemModal,
-        upgradeSystemFailedModal,
-        preUpgradeSystemFailedModal,
-        finalizeUpgradeModal,
         editBucketDataResiliencyModal,
         riskyBucketDataResiliencyWarningModal,
         changeClusterConnectivityIpModal,
@@ -457,7 +434,6 @@ export default function register(ko, services) {
         editBucketTriggerModal,
         attachServerModal,
         createFuncModal,
-        afterUpgradeFailureModal,
         createBucketModal,
         assignRegionModal,
         changePasswordModal,
@@ -475,6 +451,7 @@ export default function register(ko, services) {
         editTierDataPlacementModal,
         addTierModal,
         sessionExpiredModal,
+        deployK8sPoolModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -544,15 +521,10 @@ export default function register(ko, services) {
 
         managementPanel,
         p2pForm,
-        systemAddressForm,
         versionForm,
         diagnosticsForm,
         maintenanceForm,
-        proxyServerForm,
-        remoteSyslogForm,
         serverSslForm,
-        serverTimeForm,
-        serverDnsSettingsForm,
         /** INJECT:management.list **/
 
         accountsPanel,
@@ -570,12 +542,12 @@ export default function register(ko, services) {
         clusterSummary,
         /** INJECT:cluster.list **/
 
-        serverPanel,
-        serverSummary,
-        serverMonitoringForm,
-        serverDiagnosticsForm,
-        serverCommunicationForm,
-        serverDetailsForm,
+        // serverPanel,
+        // serverSummary,
+        // serverMonitoringForm,
+        // serverDiagnosticsForm,
+        // serverCommunicationForm,
+        // serverDetailsForm,
         /** INJECT:server.list **/
 
         funcsPanel,

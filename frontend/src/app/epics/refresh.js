@@ -36,7 +36,6 @@ export default function(action$) {
             types.COMPLETE_DELETE_OBJECT,
             types.UPLOAD_OBJECTS,
             types.COMPLETE_OBJECT_UPLOAD,
-            types.COMPLETE_INVOKE_UPGRADE_SYSTEM,
             types.REMOVE_HOST,
             types.COMPLETE_UPDATE_BUCKET_S3_ACCESS,
             types.COMPLETE_ADD_BUCKET_TRIGGER,
@@ -44,7 +43,6 @@ export default function(action$) {
             types.COMPLETE_REMOVE_BUCKET_TRIGGER,
             types.COMPLETE_ATTACH_SERVER_TO_CLUSTER,
             types.COMPLETE_CREATE_CLOUD_RESOURCE,
-            types.COMPLETE_UPDATE_REMOTE_SYSLOG,
             types.COMPLETE_CREATE_LAMBDA_FUNC,
             types.COMPLETE_UPDATE_LAMBDA_FUNC_CONFIG,
             types.COMPLETE_UPDATE_LAMBDA_FUNC_CODE,
@@ -55,11 +53,8 @@ export default function(action$) {
             types.COMPLETE_REGENERATE_ACCOUNT_CREDENTIALS,
             types.COMPLETE_ASSIGN_REGION_TO_RESOURCE,
             types.COMPLETE_UPDATE_P2P_SETTINGS,
-            types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS,
             types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
-            types.COMPLETE_UPDATE_SERVER_DNS_SETTINGS,
-            types.COMPLETE_UPDATE_SERVER_DETAILS,
-            types.COMPLETE_UPDATE_SERVER_TIME_SETTINGS
+            types.COMPLETE_UPDATE_SERVER_DETAILS
         ),
         map(() => refreshLocation())
     );

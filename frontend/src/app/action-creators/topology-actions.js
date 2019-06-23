@@ -5,15 +5,9 @@ import {
     ATTACH_SERVER_TO_CLUSTER,
     COMPLETE_ATTACH_SERVER_TO_CLUSTER,
     FAIL_ATTACH_SERVER_TO_CLUSTER,
-    UPDATE_SERVER_DNS_SETTINGS,
-    COMPLETE_UPDATE_SERVER_DNS_SETTINGS,
-    FAIL_UPDATE_SERVER_DNS_SETTINGS,
     UPDATE_SERVER_DETAILS,
     COMPLETE_UPDATE_SERVER_DETAILS,
-    FAIL_UPDATE_SERVER_DETAILS,
-    UPDATE_SERVER_TIME_SETTINGS,
-    COMPLETE_UPDATE_SERVER_TIME_SETTINGS,
-    FAIL_UPDATE_SERVER_TIME_SETTINGS
+    FAIL_UPDATE_SERVER_DETAILS
 } from 'action-types';
 
 export function updateServerAddress(secret, newAddress, hostname) {
@@ -59,37 +53,6 @@ export function failAttachServerToCluster(secret, error) {
     };
 }
 
-export function updateServerDNSSettings(
-    secret,
-    hostname,
-    primaryDNS,
-    secondaryDNS
-) {
-    return {
-        type: UPDATE_SERVER_DNS_SETTINGS,
-        payload: {
-            secret,
-            hostname,
-            primaryDNS,
-            secondaryDNS
-        }
-    };
-}
-
-export function completeUpdateServerDNSSettings(secret, hostname) {
-    return {
-        type: COMPLETE_UPDATE_SERVER_DNS_SETTINGS,
-        payload: { secret, hostname }
-    };
-}
-
-export function failUpdateServerDNSSettings(secret, hostname, error) {
-    return {
-        type: FAIL_UPDATE_SERVER_DNS_SETTINGS,
-        payload: { secret, hostname, error }
-    };
-}
-
 export function updateServerDetails(secret, hostname, newHostname, locationTag) {
     return {
         type: UPDATE_SERVER_DETAILS,
@@ -116,24 +79,3 @@ export function failUpdateServerDetails(secret, hostname, error) {
     };
 }
 
-export function updateServerTimeSettings(secret, hostname, timezone, ntpServer, epoch) {
-    return {
-        type: UPDATE_SERVER_TIME_SETTINGS,
-        payload: { secret, hostname, timezone, epoch, ntpServer }
-    };
-}
-
-export function completeUpdateServerTimeSettings(secret, hostname) {
-    return {
-        type: COMPLETE_UPDATE_SERVER_TIME_SETTINGS,
-        payload: { secret, hostname }
-    };
-}
-
-export function failUpdateServerTimeSettings(secret, hostname, error) {
-    return {
-        type: FAIL_UPDATE_SERVER_TIME_SETTINGS,
-        payload: { secret, hostname, error }
-    };
-
-}

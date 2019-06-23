@@ -4,6 +4,10 @@ server-table {
     .column();
 
     .server-data-table {
+        .usage-cell > progress-bar {
+            width: 85%;
+        }
+
         .state-col {
             min-width: 44px;
         }
@@ -13,28 +17,14 @@ server-table {
             width: 100%;
         }
 
-        .address-col{
-            min-width: 110px;
-        }
-
-        .disk-usage-col {
-            min-width: 90px;
-        }
-
-        .memory-usage-col {
-            min-width: 100px;
-        }
-
+        .disk-usage-col,
+        .memory-usage-col,
         .cpu-usage-col {
-            min-width: 90px;
-        }
-
-        .location-col {
-            min-width: 100px;
+            min-width: 140px;
         }
 
         .version-col {
-            min-width: 80px;
+            min-width: 120px;
         }
     }
 }

@@ -98,20 +98,6 @@ const server = {
         clockSkew: {
             type: 'integer'
         },
-        ntp: {
-            type: 'object',
-            required: [
-                'server'
-            ],
-            properties: {
-                server: {
-                    type: 'string'
-                },
-                status: {
-                    $ref: '#/def/common/serviceCheckResult'
-                }
-            }
-        },
         dns: {
             type: 'object',
             required: [
@@ -145,17 +131,6 @@ const server = {
                 }
             }
         },
-        proxy: {
-            type: 'object',
-            required: [
-                'status'
-            ],
-            properties: {
-                status:{
-                    $ref: '#/def/common/serviceCheckResult'
-                }
-            }
-        },
         phonehome: {
             type: 'object',
             required: [
@@ -171,18 +146,6 @@ const server = {
                 }
             }
         },
-        remoteSyslog: {
-            required: [
-                'status',
-                'lastStatusCheck'
-            ],
-            status: {
-                $ref: '#/def/common/serviceCheckResult'
-            },
-            lastStatusCheck: {
-                type: 'integer'
-            }
-        },
         clusterConnectivity: {
             type: 'object',
             additionalProperties: {
@@ -194,56 +157,6 @@ const server = {
         },
         isMaster: {
             type: 'boolean'
-        },
-        upgrade:{
-            type: 'object',
-            properties: {
-                progress: {
-                    type: 'number'
-                },
-                error: {
-                    type: 'string'
-                },
-                package: {
-                    type: 'object',
-                    required: [
-                        'state'
-                    ],
-                    properties: {
-                        state: {
-                            type: 'string',
-                            enum: [
-                                'UPLOADING',
-                                'TESTING',
-                                'TESTED'
-                            ]
-                        },
-                        progress: {
-                            type: 'number'
-                        },
-                        testedAt: {
-                            type: 'integer'
-                        },
-                        version: {
-                            type: 'string'
-                        },
-                        error: {
-                            type: 'object',
-                            require: [
-                                'message'
-                            ],
-                            properties: {
-                                message: {
-                                    type: 'string'
-                                },
-                                reportInfo: {
-                                    type: 'string'
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 };

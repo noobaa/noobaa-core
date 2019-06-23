@@ -1,142 +1,18 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<section class="column push-next">
-    <h2 class="heading3 pad card-shadow">
-        Version Control
-    </h1>
+<h2 class="heading3 pad card-shadow">
+    Version Control
+</h1>
 
-    <property-sheet class="pad" params="
-        loading: !dataReady(),
-        properties: versionInfo
-    ">
-        <template name="licenseInfo">
-            Available |
-            <a class="link" target="_blank" href="/public/license-info">
-                See details
-            </a>
-        </template>
-    </property-sheet>
-</seciton>
-<hr>
-<section class="column">
-    <div class="card-shadow pad column">
-        <h2 class="heading3 row content-middle">
-            <span class="greedy push-next">
-                System Upgrade
-            </span>
-            <div ko.tooltip="uploadBtn.tooltip" class="push-next">
-                <button class="btn"
-                    ko.click="onUploadPackage"
-                    ko.disable="uploadBtn.disabled"
-                >
-                    Upload Package
-                </button>
-            </div>
-            <div ko.tooltip="upgradeBtn.tooltip">
-                <button class="btn"
-                    ko.click="onUpgradeNow"
-                    ko.disable="upgradeBtn.disabled"
-                >
-                    Upgrade System
-                </button>
-            </div>
-        </h2>
-        <div class="column" ko.expand="uploadArea.expanded">
-            <drop-area class="push-prev" params="
-                onDrop: onDropPackage,
-                active: uploadArea.active
-            ">
-                <!-- ko if: pkgState.oneOf('NO_PACKAGE') -->
-                <p class="push-next-half">Drag an upgrade package or</p>
-                <label class="btn alt-colors"
-                    tabindex="0"
-                    ko.keysToClicks="['space', 'enter']"
-                >
-                    Browse
-                    <input type="file"
-                        class="hide"
-                        tabindex="-1"
-                        ko.attr.accept="pkgSuffix",
-                        ko.event.change="onSelectPackage"
-                    />
-                </label>
-                <!-- /ko -->
+<property-sheet class="pad" params="
+    loading: !dataReady(),
+    properties: versionInfo
+">
+    <template name="licenseInfo">
+        Available |
+        <a class="link" target="_blank" href="/public/license-info">
+            See details
+        </a>
+    </template>
+</property-sheet>
 
-                <!-- ko if: pkgState.eq('UPLOADING') -->
-                <svg-icon class="spin match-theme push-next-half" params="name: 'in-progress'"></svg-icon>
-                <p class="row content-middle">
-                    Uploading Package... {{pkgStateProgressText}}
-                    <button class="link alt-colors push-prev-half"
-                        ko.click="onCancelUpload"
-                    >
-                            Cancel
-                    </button>
-                </p>
-                <!-- /ko -->
-
-                <!-- ko if: pkgState.eq('TESTING') -->
-                <svg-icon class="spin match-theme push-next-half" params="name: 'in-progress'"></svg-icon>
-                <p>Validating Package... {{pkgStateProgressText}}</p>
-                <!-- /ko -->
-
-                <!-- ko if: pkgState.eq('TESTED') -->
-                <svg-icon class="push-next-half"
-                    ko.css="pkgTestResult().icon.css"
-                    params="name: pkgTestResult().icon.name"
-                ></svg-icon>
-
-                <p class="push-next-half">{{pkgTestResult().dropAreaMessage}}</p>
-                <label class="link alt-colors">
-                    Upload another package
-                    <input type="file" class="hide"
-                        ko.attr.accept="pkgSuffix"
-                        ko.event.change="onSelectPackage"
-                    />
-                </label>
-                <!-- /ko -->
-            </drop-area>
-        </div>
-    </div>
-
-    <div class="column pad">
-        <property-sheet class="push-next" params="
-            loading: !dataReady(),
-            properties: pkgInfo
-        ">
-            <template name="testResult">
-                <p class="row content-middle" ko.if="$data">
-                    <svg-icon class="icon-small push-next-half"
-                        ko.css="icon.css"
-                        params="name: icon.name"
-                    ></svg-icon>
-                    {{propertyText}}
-                </p>
-            </template>
-        </property-sheet>
-
-
-        <data-table class="pkg-issues-table content-box push-next"
-            ko.visible="isPkgTestResultsVisible"
-            params="
-                columns: pkgIssuesColumns,
-                data: pkgIssuesRows
-            "
-        >
-            <template name="issueDetails">
-                <p>
-                    {{message}}
-                    <a class="link"
-                        ko.visible="reportHref"
-                        ko.attr.href="reportHref"
-                    >
-                        Send report
-                    </a>
-                </p>
-            </template>
-        </data-table>
-
-        <button class="btn align-start" ko.click="onRerunTest" ko.visible="isPkgTestResultsVisible">
-            Rerun Test
-        </button>
-    </div>
-</section>

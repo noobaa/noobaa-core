@@ -1,0 +1,148 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: fields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+      <wizard class="column greedy" params="
+        steps: steps,
+        step: $form.step,
+        renderControls: false,
+        onBeforeStep: onBeforeStep,
+        onComplete: $form.submit,
+        onCancel: onCancel,
+        actionLabel: deployBtnLabel
+    ">
+        <section class="column greedy">
+            <div class="column pad greedy">
+                <p class="push-next">
+                    Kubernetes nodes will be deployed in a kuberenetes pool type,
+                    and cannot be re-assigned later on to other resources.
+                </p>
+                <editor params="label: 'Kubernetes Pool Name'">
+                    <input class="push-next"
+                        type="text"
+                        placeholder="Type here"
+                        ko.textInput="ko.pc($form.poolName, onPoolName)"
+                        ko.validationCss="$form.poolName"
+                        ko.hasFocus="true"
+                    />
+                    <ul class="restriction-list" ko.foreach="nameRestrictionList">
+                        <li ko.text="label" ko.css="css"></li>
+                    </ul>
+                </editor>
+            </div>
+            <div class="content-box pad row content-middle">
+                <p class="greedy push-next row">
+                    <svg-icon class="icon-small push-next-quarter"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    <span class="remark">
+                        If you wish to scale up an existing kubernetes pool go to <br>
+                        Resources > Pools > kubernetes pool
+                    </span>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+
+        <section class="column greedy">
+            <div class="column pad greedy">
+                <p class="push-next">
+                    A Kubernetes node is a worker machine in Kubernetes and can be deployed by configuring a stateful set.
+                    these nodes cannot be moved from their original pool.
+                    Each kubernetes node is used as Endpoint by default.
+                </p>
+                <editor class="editor-large-label"
+                    params="
+                        label: 'Nubmer of Nodes (pods)',
+                        tooltip: '??????'
+                    "
+                >
+                    <input type="number"
+                        min="1"
+                        step="1"
+                        ko.value="$form.nodeCount"
+                        ko.validationCss="$form.nodeCount"
+                    />
+                    <validation-message params="field: $form.nodeCount">
+                    </validation-message>
+                </editor>
+                <editor class="editor-large-label"
+                    params="label: 'Node PV Size'"
+                >
+                    <div class="row content-middle">
+                        <input class="push-next"
+                            type="number"
+                            min="1"
+                            step="1"
+                            ko.value="$form.pvSize"
+                            ko.validationCss="$form.pvSize"
+                        />
+                        <dropdown class="size-unit-dd" params="
+                            options: unitOptions,
+                            selected: $form.pvSizeUnit
+                        "></dropdown>
+                    </div>
+                    <validation-message params="field: $form.pvSize">
+                    </validation-message>
+                </editor>
+            </div>
+            <div class="content-box pad column content-end">
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+
+        <section class="column greedy">
+            <div class="column pad greedy">
+                <h2 class="heading3 push-next-half">
+                    Before deploying, review the kubernetes pool details:
+                </h2>
+                <div class="content-box pad-double hpad row content-middle push-next">
+                    <div class="column greedy content-middle">
+                        <span class="highlight push-next-quarter">{{formattedNodeCount}}</span>
+                        <sapn class="remark">Nodes (Pods)</sapn>
+                    </div>
+                    <vr></vr>
+                    <div class="column greedy content-middle">
+                        <span class="highlight push-next-quarter">{{formattedCapacity}}</span>
+                        <sapn class="remark">Total Pool Capacity</sapn>
+                    </div>
+                    <vr></vr>
+                    <div class="column greedy content-middle">
+                        <span class="highlight push-next-quarter">StatefullSet</span>
+                        <sapn class="remark">Kind</sapn>
+                    </div>
+                    <vr></vr>
+                    <div class="column greedy content-middle">
+                        <span class="highlight push-next-quarter">Storage & Endpoint</span>
+                        <sapn class="remark">Node Services</sapn>
+                    </div>
+                </div>
+
+                <div class="column">
+                    <radio-btn params="
+                        group: 'deployMethod',
+                        value: 'NOOBAA',
+                        selected: $form.deployMethod,
+                        label: 'Deploy localy (in the kubernetes cluster)',
+                        hasFocus: true
+                    "></radio-btn>
+                    <p class="push-next">The Kubernetes nodes will deploy within the cluster</p>
+                    <radio-btn params="
+                        group: 'deployMethod',
+                        value: 'YAML',
+                        selected: $form.deployMethod,
+                        label: 'Deploy external to the kubernetes cluster'
+                    "></radio-btn>
+                    <p class="push-next">A YAML file will be provided for an external cluster deployment</p>
+                </div>
+            </div>
+            <div class="content-box pad column content-end">
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+    </wizard>
+</managed-form>

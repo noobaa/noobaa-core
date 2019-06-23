@@ -8,11 +8,6 @@ import { timeTickInterval, timeLongFormat } from 'config';
 import ko from 'knockout';
 import moment from 'moment';
 import * as routes from 'routes';
-import {
-    openEditServerDNSSettingsModal,
-    openEditServerTimeSettingsModal,
-    requestLocation
-} from 'action-creators';
 
 function _selectIcon(connected, configured, issue, healthyStatus) {
     if (!connected) {
@@ -64,62 +59,24 @@ function _getVersion(server, issue) {
     };
 }
 
-function _getServerTime(server, issue) {
-    const { mode, clockSkew, timezone, ntp: ntpInfo } = server;
+function _getServerTime(server) {
+    const { mode, clockSkew, timezone } = server;
     const time = Date.now() + clockSkew;
 
     return {
-        icon: _selectIcon(mode === 'CONNECTED', true, issue, 'Working Properly'),
+        icon: _selectIcon(mode === 'CONNECTED', true, null, 'Working Properly'),
         time,
         timezone,
-        clock: moment.tz(time, timezone).format(timeLongFormat),
-        ntp: ntpInfo ? ntpInfo.server : 'Not configured'
+        clock: moment.tz(time, timezone).format(timeLongFormat)
     };
 
 }
 
-function _getDNSServers(server, issue) {
-    const { mode, dns } = server;
-    const servers = dns.servers.list;
-    const [ primary = 'Not configured', secondary = 'Not configured' ] = servers;
-
-    return {
-        icon: _selectIcon(mode === 'connected', servers.length > 0, issue, 'Reachable and working'),
-        primary,
-        secondary
-    };
-}
-
-function _getDNSName(server, issue, name) {
-    const { mode } = server;
-
-    return {
-        icon: _selectIcon(mode === 'CONNECTED', Boolean(name), issue, 'Resolvable to server\'s IP'),
-        name: name || 'Not configured'
-    };
-}
-
-function _getRemoteSyslog(server, issue, remoteSyslogConf) {
-    const { mode, remoteSyslog, clockSkew } = server;
-    const isConfigured = Boolean(remoteSyslogConf);
-    const { protocol, address, port } = remoteSyslogConf || {};
-
-    return {
-        isConfigured,
-        icon: _selectIcon(mode === 'CONNECTED', isConfigured, issue, 'Reachable and working'),
-        address: isConfigured ? `${protocol.toLowerCase()}://${address}:${port}` : 'Not configured',
-        lastStatusCheck: isConfigured ? moment(remoteSyslog.lastStatusCheck + clockSkew).fromNow() : ''
-    };
-}
-
-function _getPhonehome(server, phoneHomeIssue, proxyIssue, proxyConf) {
+function _getPhonehome(server, issue) {
     const { mode, phonehome, clockSkew } = server;
-    const [issue] = [phoneHomeIssue, proxyIssue].filter(Boolean);
-    const { endpoint, port } = proxyConf || {};
 
     return {
         icon: _selectIcon(mode === 'CONNECTED', true, issue, 'Reachable and working'),
-        proxy: proxyConf ? `${endpoint}:${port}` : 'Not configured',
         lastStatusCheck: moment(phonehome.lastStatusCheck + clockSkew).fromNow()
     };
 }
@@ -137,27 +94,10 @@ class ServerDetailsFormViewModel extends ConnectableViewModel {
         icon: ko.observable({}),
         time: 0,
         timezone: '',
-        clock: ko.observable(),
-        ntp: ko.observable()
-    };
-    dnsServers = {
-        icon: ko.observable({}),
-        primary: ko.observable(),
-        secondary: ko.observable()
-    };
-    dnsName = {
-        icon: ko.observable({}),
-        name: ko.observable()
-    };
-    remoteSyslog = {
-        icon: ko.observable({}),
-        isConfigured: ko.observable(),
-        address: ko.observable(),
-        lastStatusCheck: ko.observable()
+        clock: ko.observable()
     };
     phonehome = {
         icon: ko.observable({}),
-        proxy: ko.observable(),
         lastStatusCheck: ko.observable()
     };
 
@@ -196,11 +136,8 @@ class ServerDetailsFormViewModel extends ConnectableViewModel {
                 isConnected: server.mode === 'CONNECTED',
                 secret: server.secret,
                 version: _getVersion(server, issues.version),
-                serverTime: _getServerTime(server, issues.ntp),
-                dnsServers: _getDNSServers(server, issues.dnsServers),
-                dnsName: _getDNSName(server, issues.dnsNameResolution, system.dnsName),
-                remoteSyslog: _getRemoteSyslog(server, issues.remoteSyslog, system.remoteSyslog),
-                phonehome: _getPhonehome(server, issues.phonehome, issues.proxy, system.phonehome)
+                serverTime: _getServerTime(server),
+                phonehome: _getPhonehome(server, issues.phonehome)
             });
         }
     }
@@ -219,29 +156,6 @@ class ServerDetailsFormViewModel extends ConnectableViewModel {
                 clock: moment.tz(updatedTime, timezone).format(timeLongFormat)
             }
         });
-    }
-
-    onEditDateAndTime() {
-        this.dispatch(openEditServerTimeSettingsModal(this.secret));
-    }
-
-    onEditDNSServers() {
-        this.dispatch(openEditServerDNSSettingsModal(this.secret));
-    }
-
-    onNavigateToSystemAddressForm() {
-        const url = realizeUri(this.managmentUrl, { section: 'system-address' });
-        this.dispatch(requestLocation(url));
-    }
-
-    onNavigateToRemoteSyslogForm() {
-        const url = realizeUri(this.managmentUrl, { section: 'remote-syslog' });
-        this.dispatch(requestLocation(url));
-    }
-
-    onNavigateToProxyServerForm() {
-        const url = realizeUri(this.managmentUrl, { section: 'proxy-server' });
-        this.dispatch(requestLocation(url));
     }
 }
 

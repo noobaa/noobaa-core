@@ -68,7 +68,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                 }
                 return {
                     mongo_status: mongo_status,
-                    storage: root.storage
+                    storage: root && root.storage
                 };
             })
             .then(info => {

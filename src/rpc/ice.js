@@ -714,7 +714,7 @@ Ice.prototype._init_udp_connection = function(conn) {
 
     function close_conn(err) {
         if (err) {
-            dbg.log0('ICE UDP CLOSING', err || '');
+            dbg.log0('ICE UDP CLOSING', err);
         }
         conn.close();
     }

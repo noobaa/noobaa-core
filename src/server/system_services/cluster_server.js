@@ -400,7 +400,7 @@ function join_to_cluster(req) {
         )
         .then(verify_res => {
             if (verify_res !== 'OKAY') {
-                throw new Error('Verify join preconditions failed with result', verify_res);
+                throw new Error(`Verify join preconditions failed with result ${verify_res}`);
             }
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
@@ -550,7 +550,7 @@ function update_member_of_cluster(req) {
             req
         })))
         .then(version_check_res => {
-            if (version_check_res.result !== 'OKAY') throw new Error('Verify member version check returned', version_check_res);
+            if (version_check_res.result !== 'OKAY') throw new Error(`Verify member version check returned ${version_check_res}`);
         })
         .then(() => {
             let shard_index = -1;

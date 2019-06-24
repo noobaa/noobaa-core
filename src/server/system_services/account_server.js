@@ -578,7 +578,7 @@ function delete_account(req) {
  */
 function list_accounts(req) {
     let accounts;
-    if (req.account.is_support) {
+    if (req.account && req.account.is_support) {
         // for support account - list all accounts
         accounts = system_store.data.accounts;
     } else if (req.account) {
@@ -681,7 +681,7 @@ async function add_external_connection(req) {
         level: 'info',
         system: req.system && req.system._id,
         actor: req.account && req.account._id,
-        account: req.account._id,
+        account: req.account && req.account._id,
         desc: `Connection "${info.name}" was created by ${req.account && req.account.email.unwrap()}.
             \nEndpoint: ${req.rpc_params.endpoint}
             \nAccess key: ${req.rpc_params.identity}`,

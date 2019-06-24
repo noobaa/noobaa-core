@@ -23,6 +23,16 @@ module.exports = {
             }
         },
 
+        get_partial_systems_stats: {
+            method: 'GET',
+            reply: {
+                $ref: '#/definitions/partial_systems_stats'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_nodes_stats: {
             method: 'GET',
             reply: {
@@ -97,6 +107,16 @@ module.exports = {
             method: 'GET',
             reply: {
                 $ref: '#/definitions/all_stats'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        get_partial_stats: {
+            method: 'GET',
+            reply: {
+                $ref: '#/definitions/partial_stats'
             },
             auth: {
                 system: 'admin'
@@ -310,7 +330,7 @@ module.exports = {
 
         cloud_pool_stats: {
             type: 'object',
-            required: ['pool_count', 'cloud_pool_count', 'cloud_pool_target'],
+            required: ['pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target'],
             properties: {
                 pool_count: {
                     type: 'integer'
@@ -321,20 +341,24 @@ module.exports = {
                 cloud_pool_target: {
                     type: 'object',
                     properties: {
-                        amazon: {
-                            type: 'integer'
-                        },
-                        azure: {
-                            type: 'integer'
-                        },
-                        gcp: {
-                            type: 'integer'
-                        },
-                        other: {
-                            type: 'integer'
-                        }
+                        amazon: { type: 'integer' },
+                        azure: { type: 'integer' },
+                        gcp: { type: 'integer' },
+                        s3_comp: { type: 'integer' },
+                        other: { type: 'integer' },
                     }
                 },
+                unhealthy_cloud_pool_target: {
+                    type: 'object',
+                    properties: {
+                        amazon_unhealthy: { type: 'integer' },
+                        azure_unhealthy: { type: 'integer' },
+                        gcp_unhealthy: { type: 'integer' },
+                        s3_comp_unhealthy: { type: 'integer' },
+                        other_unhealthy: { type: 'integer' },
+                    }
+                },
+
                 compatible_auth_type: {
                     type: 'object',
                     properties: {
@@ -454,6 +478,59 @@ module.exports = {
                 object_usage_stats: {
                     $ref: '#/definitions/object_usage_stats'
                 },
+            }
+        },
+
+        partial_stats: {
+            type: 'object',
+            required: ['systems_stats', 'cloud_pool_stats'],
+            properties: {
+                systems_stats: {
+                    $ref: '#/definitions/partial_systems_stats'
+                },
+                cloud_pool_stats: {
+                    $ref: '#/definitions/cloud_pool_stats'
+                },
+            }
+        },
+
+        partial_systems_stats: {
+            type: 'object',
+            required: ['systems'],
+            properties: {
+                systems: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'free_space', 'total_space', 'buckets_stats'],
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            free_space: {
+                                $ref: 'common_api#/definitions/bigint'
+                            },
+                            total_space: {
+                                $ref: 'common_api#/definitions/bigint'
+                            },
+                            buckets_stats: {
+                                $ref: '#/definitions/partial_buckets_stats'
+                            },
+                        }
+                    }
+                }
+            }
+        },
+
+        partial_buckets_stats: {
+            type: 'object',
+            required: ['buckets', 'objects_in_buckets', 'unhealthy_buckets', 'bucket_claims', 'objects_in_bucket_claims'],
+            properties: {
+                buckets: { type: 'integer' },
+                objects_in_buckets: { type: 'integer' },
+                unhealthy_buckets: { type: 'integer' },
+                bucket_claims: { type: 'integer' },
+                objects_in_bucket_claims: { type: 'integer' },
             }
         },
     },

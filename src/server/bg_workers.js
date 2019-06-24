@@ -93,7 +93,7 @@ function run_master_workers() {
     if (config.central_stats.send_stats === 'true' && config.PHONE_HOME_BASE_URL) {
         register_bg_worker({
             name: 'system_server_stats_aggregator',
-            delay: config.central_stats.send_time_cycle,
+            delay: config.central_stats.partial_send_time_cycle,
         }, stats_aggregator.background_worker);
     }
 

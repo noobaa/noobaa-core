@@ -184,7 +184,7 @@ async function create_noobaa_for_compatible() {
         }
     } catch (err) {
         console.log(err);
-        throw new Error('Can\'t create server and upgrade servers', err);
+        throw new Error(`Can't create server and upgrade servers ${err}`);
     }
 
     try {
@@ -197,7 +197,7 @@ async function create_noobaa_for_compatible() {
         cf_compatible = new CloudFunction(client2);
     } catch (err) {
         console.log(err);
-        throw new Error('Failed creating RPC', err);
+        throw new Error(`Failed creating RPC ${err}`);
     }
 
     try {

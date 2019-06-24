@@ -148,7 +148,7 @@ function new_rpc_from_base_address(base_address, routing_hint) {
 
 function new_rpc_from_routing(routing_table) {
     if (!routing_table) {
-        throw new TypeError('Invalid new_router:', routing_table);
+        throw new TypeError(`Invalid new_router: ${routing_table}`);
     }
 
     return new RPC({

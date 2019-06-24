@@ -110,8 +110,7 @@ async function do_upgrade(req) {
     let server = system_store.get_local_cluster_info();
     if (server.upgrade.status !== 'UPGRADING') {
         dbg.error('Not in upgrade state:', ' State Is: ', server.upgrade.status || 'NO_STATUS');
-        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '',
-            ' State Is: ', server.upgrade.status || 'NO_STATUS');
+        throw new Error(`Not in upgrade state: ${server.upgrade.error ? server.upgrade.error : ''} State Is: ${server.upgrade.status || "NO_STATUS"}`);
     }
     if (server.upgrade.path === '') {
         dbg.error('No package path supplied');
@@ -194,7 +193,7 @@ async function upgrade_cluster(req) {
     // get all cluster members other than the master
     let cinfo = system_store.get_local_cluster_info();
     if (cinfo.upgrade.status !== 'CAN_UPGRADE' && cinfo.upgrade.status !== 'UPGRADE_FAILED') {
-        throw new Error('Not in upgrade state:', cinfo.upgrade.error ? cinfo.upgrade.error : '');
+        throw new Error(`Not in upgrade state: ${cinfo.upgrade.error ? cinfo.upgrade.error : ''}`);
     }
     const upgrade_path = _get_upgrade_path();
     // upgrade can only be called from master. throw error otherwise

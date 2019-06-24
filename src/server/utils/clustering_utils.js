@@ -49,7 +49,7 @@ function update_host_address(address) {
         })
         .catch(err => {
             dbg.log0('Failed updating host address in clustering info');
-            throw new Error('Failed updating host address in clustering info', err, err.stack);
+            throw new Error(`Failed updating host address in clustering info ${err}, ${err.stack}`);
         });
 }
 

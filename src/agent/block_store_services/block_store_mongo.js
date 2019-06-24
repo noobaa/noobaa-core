@@ -242,7 +242,8 @@ class BlockStoreMongo extends BlockStoreBase {
                 if (usage_file_res && usage_file_res[0]) {
                     return usage_file_res[0];
                 }
-                const err = new Error('head_block: Block ', block_name, ' response ', usage_file_res);
+
+                const err = new Error(`head_block: Block ${block_name} response ${usage_file_res}`);
                 err.code = 'NOT_FOUND';
                 throw err;
                 // throw new RpcError('NOT_FOUND', `head_block: Block ${block_name} response ${usage_file_res}`);

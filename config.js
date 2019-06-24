@@ -321,7 +321,8 @@ if (!is_windows) {
 config.PHONE_HOME_BASE_URL = 'https://phonehome.noobaa.com';
 config.central_stats = {
     send_stats: 'true',
-    send_time_cycle: 5 * 60 * 1000, //5 min
+    partial_send_time_cycle: 5 * 60 * 1000, //5 min
+    full_cycle_ratio: 6, // One full cycle per 5 partial cycles
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 2 //TODO: We might want to split between agent and server
 };

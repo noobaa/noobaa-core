@@ -40,7 +40,8 @@ module.exports = {
                                 },
                             }
                         }
-                    }
+                    },
+                    bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 }
             },
             reply: {
@@ -694,6 +695,7 @@ module.exports = {
                 namespace: {
                     $ref: '#/definitions/bucket_namespace'
                 },
+                bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
@@ -877,6 +879,20 @@ module.exports = {
                 },
                 write_resource: {
                     type: 'string'
+                }
+            }
+        },
+
+        bucket_claim: {
+            type: 'object',
+            required: ['policy_type', 'namespace'],
+            properties: {
+                // TODO: Fill this with relevant info
+                policy_type: {
+                    type: 'string',
+                },
+                namespace: {
+                    type: 'string',
                 }
             }
         },

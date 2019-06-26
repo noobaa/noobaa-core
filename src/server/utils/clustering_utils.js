@@ -209,7 +209,6 @@ function get_cluster_info(rs_status) {
                 phonehome_server: status.ph_status,
                 phonehome_proxy: status.proxy_status,
                 ntp_server: status.ntp_status,
-                remote_syslog: status.remote_syslog_status,
                 cluster_communication: {
                     test_completed: status.cluster_status !== 'UNKNOWN',
                     results: status.cluster_status === 'UNKNOWN' ? undefined : status.cluster_status

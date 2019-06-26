@@ -304,10 +304,6 @@ module.exports = {
                     type: 'string',
                     enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                 },
-                remote_syslog_status: {
-                    type: 'string',
-                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                },
                 cluster_status: {
                     anyOf: [{
                         type: 'string',

@@ -351,11 +351,6 @@ export default {
                 entityId: () => ''
             },
 
-            remote_syslog: {
-                message: 'Remote Syslog Set',
-                entityId: () => ''
-            },
-
             set_certificate: {
                 message: 'Certificate Set',
                 entityId: () => ''

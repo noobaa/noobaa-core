@@ -361,7 +361,6 @@ async function set_manual_time(time_epoch, timez) {
         await promise_utils.exec('systemctl disable ntpd.service');
         await promise_utils.exec('systemctl stop ntpd.service');
         await promise_utils.exec('date +%s -s @' + time_epoch);
-        await restart_rsyslogd();
     } else if (!IS_MAC) { //Bypass for dev environment
         throw new Error('setting time/date not supported on non-Linux platforms');
     }
@@ -413,7 +412,6 @@ async function set_ntp(server, timez) {
         await promise_utils.exec(command);
         await promise_utils.exec('/sbin/chkconfig ntpd on 2345');
         await promise_utils.exec('systemctl restart ntpd.service');
-        await restart_rsyslogd();
     } else if (!IS_MAC) { //Bypass for dev environment
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
@@ -459,11 +457,6 @@ function _set_dns_server(servers) {
                 .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
                 .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
         });
-}
-
-
-function restart_rsyslogd() {
-    return promise_utils.exec('supervisorctl restart rsyslog');
 }
 
 function get_time_config() {
@@ -656,47 +649,6 @@ async function get_services_ps_info(services) {
         dbg.error('got error on get_services_ps_info:', err);
         throw err;
     }
-}
-
-function reload_syslog_configuration(conf) {
-    dbg.log0('setting syslog configuration to: ', conf);
-    if (!IS_LINUX) {
-        return P.resolve();
-    }
-
-    if (conf && conf.enabled) {
-        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
-            .then(data => {
-                // Sending everything except NooBaa logs
-                let add_destination = `if $syslogfacility-text != 'local0' then ${conf.protocol === 'TCP' ? '@@' : '@'}${conf.address}:${conf.port}`;
-                return fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf',
-                    data + '\n' + add_destination);
-            })
-            .then(() => restart_rsyslogd());
-    } else {
-        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
-            .then(data => fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf', data))
-            .then(() => restart_rsyslogd());
-    }
-}
-
-function get_syslog_server_configuration() {
-    if (!IS_LINUX) {
-        return P.resolve();
-    }
-    return fs_utils.get_last_line_in_file('/etc/rsyslog.d/noobaa_syslog.conf')
-        .then(conf_line => {
-            if (conf_line) {
-                if (!conf_line.startsWith('#')) {
-                    let regex_res = (/(@+)([\d.]+):(\d+)/).exec(conf_line);
-                    return {
-                        protocol: regex_res[1] === '@@' ? 'TCP' : 'UDP',
-                        address: regex_res[2],
-                        port: parseInt(regex_res[3], 10)
-                    };
-                }
-            }
-        });
 }
 
 function restart_noobaa_services() {
@@ -1006,8 +958,6 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
-exports.reload_syslog_configuration = reload_syslog_configuration;
-exports.get_syslog_server_configuration = get_syslog_server_configuration;
 exports.set_dns_config = set_dns_config;
 exports.get_dns_config = get_dns_config;
 exports.restart_noobaa_services = restart_noobaa_services;

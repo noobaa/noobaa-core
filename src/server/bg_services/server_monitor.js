@@ -65,11 +65,9 @@ async function run_monitors() {
     const os_type = os.type();
     const is_master = clustering_utils.check_if_master();
 
-    await _verify_remote_syslog_cluster_config();
     await _verify_server_certificate();
     await _check_dns_and_phonehome();
     await _check_proxy_configuration();
-    await _check_remote_syslog();
     await _check_internal_ips();
     await _check_disk_space();
 
@@ -105,23 +103,6 @@ function _verify_server_certificate() {
                     .then(() => os_utils.restart_noobaa_services());
             }
         });
-}
-
-function _verify_remote_syslog_cluster_config() {
-    dbg.log2('Verifying remote syslog server configuration in relation to cluster config');
-    let system = system_store.data.systems[0];
-    let syslog_conf = _.clone(system.remote_syslog_config);
-    return os_utils.get_syslog_server_configuration()
-        .then(platform_syslog_server => {
-            if (!_are_platform_and_cluster_conf_equal(platform_syslog_server, syslog_conf)) {
-                dbg.warn(`platform remote syslog not synced to cluster. Platform conf: `, platform_syslog_server, 'cluster_conf:', syslog_conf);
-                if (syslog_conf) {
-                    syslog_conf.enabled = true;
-                }
-                return os_utils.reload_syslog_configuration(syslog_conf);
-            }
-        })
-        .catch(err => dbg.error('failed to reconfigure remote syslog cluster config on the server. reason:', (err && err.code) || err));
 }
 
 function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
@@ -238,28 +219,6 @@ function _check_proxy_configuration() {
                 `Proxy server ${system.phone_home_proxy_address} could not be reached, check Proxy configuration or connectivity`,
                 Dispatcher.rules.once_daily);
             dbg.warn('Error when trying to check proxy status.', err.stack || err);
-        });
-}
-
-function _check_remote_syslog() {
-    dbg.log2('_check_remote_syslog');
-    let system = system_store.data.systems[0];
-    if (_.isEmpty(system.remote_syslog_config)) return;
-    if (_.isEmpty(system.remote_syslog_config.address)) return;
-    monitoring_status.remote_syslog_status = {
-        test_time: moment().unix()
-    };
-    return net_utils.ping(system.remote_syslog_config.address)
-        .then(() => {
-            monitoring_status.remote_syslog_status.status = "OPERATIONAL";
-        })
-        .catch(err => {
-            monitoring_status.remote_syslog_status.status = "UNREACHABLE";
-            Dispatcher.instance().alert('MAJOR',
-                system_store.data.systems[0]._id,
-                `Remote syslog server ${system.remote_syslog_config.address} could not be reached, check Syslog configuration or connectivity`,
-                Dispatcher.rules.once_daily);
-            dbg.warn('Error when trying to check remote syslog status.', err.stack || err);
         });
 }
 

@@ -245,11 +245,7 @@ function full_dir_copy(src, dst, filter_regex) {
 
 function tar_pack(tar_file_name, source, ignore_file_changes) {
     let cmd;
-    if (is_windows) {
-        cmd = '7za.exe a -ttar -so tmp.tar ' +
-            source.replace(/\//g, '\\') + '| 7za.exe a -si ' +
-            tar_file_name.replace(/\//g, '\\');
-    } else if (is_mac) {
+    if (is_mac) {
         cmd = 'tar -zcvf ' + tar_file_name + ' ' + source + '/*';
     } else {
         cmd = 'tar -zcvf ' +

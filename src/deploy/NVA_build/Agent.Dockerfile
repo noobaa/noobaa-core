@@ -26,7 +26,6 @@ COPY src/deploy/NVA_build/fix_package_json.sh ./
 
 # remove irrelevant packages
 RUN sed -i '/babel/d' package.json && \
-    sed -i '/gulp/d' package.json && \
     sed -i '/mocha/d' package.json && \
     sed -i '/nyc/d' package.json && \
     sed -i '/istanbul/d' package.json && \
@@ -58,9 +57,6 @@ COPY . ../noobaa-core/
 RUN chmod +x ../noobaa-core/src/deploy/NVA_build/run_agent_container.sh && \
     cp ../noobaa-core/LICENSE . && \
     cp ../noobaa-core/config.js . && \
-    cp ../noobaa-core/src/deploy/Linux/noobaa_service_installer.sh . && \
-    cp ../noobaa-core/src/deploy/Linux/uninstall_noobaa_agent.sh . && \
-    cp ../noobaa-core/src/deploy/Linux/remove_service.sh . && \
     cp -R ../noobaa-core/src/s3 src/ && \
     cp -R ../noobaa-core/src/sdk src/ && \
     cp -R ../noobaa-core/src/endpoint src/ && \

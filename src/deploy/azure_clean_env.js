@@ -59,6 +59,11 @@ function _validateEnvironmentVariablesAndBaseParams() {
         missing_args += '\t--vnet <vnet>\n';
     }
 
+    if (missing_args) {
+        console.error(`Missing the following arguments to run:\n ${missing_args}`);
+        process.exit(3);
+    }
+
     if (argv.id) {
         id = '-' + id;
     } else {

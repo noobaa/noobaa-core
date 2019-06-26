@@ -385,7 +385,7 @@ function _delete_resource_pool(req, pool, account) {
                     auth_token: req.auth_token
                 });
             }
-            return P.each(pool_nodes && pool_nodes.nodes, node => {
+            return P.each(pool_nodes.nodes, node => {
                     nodes_client.instance().delete_node_by_name(req.system._id, node.name);
                 })
                 .then(function() {

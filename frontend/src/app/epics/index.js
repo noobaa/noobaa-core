@@ -82,7 +82,6 @@ import enterMaintenanceMode from './enter-maintenance-mode';
 import leaveMaintenanceMode from './leave-maintenance-mode';
 import fetchCloudResourceObjects from './fetch-cloud-resource-objects';
 import assignRegionToResource from './assign-region-to-resource';
-import installVMTools from './install-vm-tools';
 import fetchBucketUsageHistory from './fetch-bucket-usage-history';
 import fetchAccountUsageHistory from './fetch-account-usage-history';
 import fetchLambdaFuncUsageHistory from './fetch-lambda-func-usage-history';
@@ -132,7 +131,6 @@ const epics = [
     updateRemoteSyslog,
     enterMaintenanceMode,
     leaveMaintenanceMode,
-    installVMTools,
     updateP2PSettings,
     resendActivationCode,
     updateProxyServerSettings,

@@ -1,25 +1,89 @@
-FROM centos:7 as base
-LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
+FROM noobaa/builder as base
+WORKDIR /noobaa-core/
+
+#####################################################################
+# Layers:
+#   Title: npm install (using package.json)
+#   Size: ~ 825 MB
+#   Cache: rebuild when ther is new package.json or package-lock.json
+#####################################################################
+COPY ./package*.json ./
+RUN source /opt/rh/devtoolset-7/enable && \
+    npm install
+RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
 
 ##############################################################
 # Layers:
-#   Title: installing pre requirments
-#   Size: ~ 377 MB
+#   Title: Building the native code
+#   Size: ~ 10 MB
+#   Cache: rebuild when Node.js there a change in the native 
+#          directory or in the binding.gyp
+##############################################################
+COPY ./binding.gyp .
+COPY ./src/native ./src/native/
+RUN source /opt/rh/devtoolset-7/enable && \
+    npm run build:native
+
+##############################################################
+# Layers:
+#   Title: Copying the code and Building the frontend
+#   Size: ~ 18 MB
+#   Cache: rebuild when changing any file 
+#          which is not excluded by .dockerignore 
+##############################################################
+COPY ./frontend/package*.json ./frontend/
+RUN cd frontend && \
+    npm install
+COPY ./frontend/gulpfile.js ./frontend/
+COPY ./frontend/bower.json ./frontend/
+RUN cd frontend && \
+    npm run install-deps
+
+COPY ./frontend/ ./frontend/
+COPY ./images/ ./images/
+COPY ./src/rpc/ ./src/rpc/
+COPY ./src/api/ ./src/api/
+COPY ./src/util/ ./src/util/
+COPY ./config.js ./
+RUN source /opt/rh/devtoolset-7/enable && \
+    npm run build:fe
+
+COPY . ./
+
+##############################################################
+# Layers:
+#   Title: Setting the GIT Commit hash in the package.json
+#   Size: ~ 0 MB
+#   Cache: rebuild when using the --build-arg flag
+#
+# Setting GIT_COMMIT for the base
+# In order to set it we need to run build with 
+# --build-arg GIT_COMMIT=$(git rev-parse HEAD)
+##############################################################
+ARG GIT_COMMIT 
+RUN if [ "${GIT_COMMIT}" != "" ]; then sed -i 's/^  "version": "\(.*\)",$/  "version": "\1-'${GIT_COMMIT:0:7}'",/' package.json; fi
+
+FROM centos:7 as tester
+
+ENV container docker
+ENV TEST_CONTAINER true
+
+##############################################################
+# Layers:
+#   Title: installing unitest pre requirments
+#   Size: ~ 262 MB
 #   Cache: rebuild when we adding/removing requirments
 ##############################################################
-ENV container docker
-RUN yum install -y -q wget unzip which vim && \
-    yum group install -y -q "Development Tools" && \ 
+RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
+RUN yum install -y -q ntpdate vim centos-release-scl && \
+    yum install -y -q rh-mongodb36 && \
     yum clean all
-RUN version="1.3.0" && \
-    wget -q http://www.tortall.net/projects/yasm/releases/yasm-${version}.tar.gz && \
-    tar xf yasm-${version}.tar.gz && \
-    pushd yasm-${version} && \
-    ./configure && \
-    make && \
-    make install && \
-    popd && \
-    rm -rf yasm-${version} yasm-${version}.tar.gz
+
+RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mv ./kubectl /usr/local/bin/kubectl
+
 
 ##############################################################
 # Layers:
@@ -41,64 +105,11 @@ RUN export PATH=$PATH:/usr/local/bin && \
     nvm alias default $(nvm current) && \
     cd ~ && \
     ln -sf $(which node) /usr/local/bin/node && \
-    ln -sf $(which npm) /usr/local/bin/npm
+    ln -sf $(which npm) /usr/local/bin/npm && \
+    npm config set unsafe-perm true
+
+COPY --from=base /noobaa-core /noobaa-core
 WORKDIR /noobaa-core/
-
-#####################################################################
-# Layers:
-#   Title: npm install (using package.json)
-#   Size: ~ 825 MB
-#   Cache: rebuild when ther is new package.json or package-lock.json
-#####################################################################
-COPY ./package*.json ./
-RUN npm install
-RUN echo 'PATH=$PATH:/noobaa-core/node_modules/.bin' >> ~/.bashrc
-
-##############################################################
-# Layers:
-#   Title: Building the native code
-#   Size: ~ 10 MB
-#   Cache: rebuild when Node.js there a change in the native 
-#          directory or in the binding.gyp
-##############################################################
-COPY ./binding.gyp .
-COPY ./src/native ./src/native/
-RUN npm run build:native
-
-##############################################################
-# Layers:
-#   Title: Building the frontend
-#   Size: ~ 18 MB
-#   Cache: rebuild when there a change in the frontend directory 
-#
-##############################################################
-COPY ./frontend/ ./frontend/
-COPY ./src/tools/npm_install.js ./src/tools/
-RUN npm run build:fe
-
-##############################################################
-# Layers:
-#   Title: Building the frontend
-#   Size: ~ 139 MB 
-#   Cache: rebuild when tchanging any file 
-#          which is not excluded by .dockerignore 
-##############################################################
-COPY . ./
-
-FROM base as unitest
-
-##############################################################
-# Layers:
-#   Title: installing unitest pre requirments
-#   Size: ~ 262 MB
-#   Cache: rebuild when we adding/removing requirments
-##############################################################
-ENV TEST_CONTAINER true
-RUN yum install -y -q centos-release-scl && \
-    yum install -y -q rh-mongodb36 && \
-    yum install -y ntpdate && \ 
-    yum clean all
-
 ##############################################################
 # Layers:
 #   Title: Setting some test env variables
@@ -122,4 +133,4 @@ RUN mkdir -p /data/ && \
     echo "AWS_SECRET_ACCESS_KEY=$aws_secret_access_key_arg" >> /data/.env && \
     echo "AZURE_STORAGE_CONNECTION_STRING=$azure_storage_arg" >> /data/.env 
 
-CMD ["/bin/bash", "-c", "src/test/unit_tests/run_npm_test_on_test_container.sh"]
+CMD ["./src/test/unit_tests/run_npm_test_on_test_container.sh"]

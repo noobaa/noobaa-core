@@ -212,7 +212,7 @@ class BucketFunctions {
                 }
             });
         } catch (err) {
-            throw new Error('Failed to create Namespace bucket ', err);
+            throw new Error(`Failed to create Namespace bucket ${err}`);
         }
     }
 
@@ -227,7 +227,7 @@ class BucketFunctions {
                 }
             });
         } catch (err) {
-            throw new Error('Failed to update Namespace bucket ', err);
+            throw new Error(`Failed to update Namespace bucket ${err}`);
         }
     }
 

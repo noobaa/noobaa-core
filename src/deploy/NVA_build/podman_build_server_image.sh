@@ -25,7 +25,7 @@ else
     mv ./${rpm_file} ./noobaa.rpm
 fi
 
-script="install_noobaa.sh"
+script="set_mongo_repo.sh"
 dockerfile="Server.Dockerfile"
 
 cp ./src/deploy/rpm/${script} ./

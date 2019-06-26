@@ -1,11 +1,22 @@
-.git
-node_modules
+.git/
+node_modules/
+frontend/node_modules/
+frontend/src/lib/
+frontend/dist/
+build/
+coverage/
+logs/
+metadata_storage/
+noobaa_storage/
+heapdump-*
 
-/frontend/src/lib/
-/frontend/dist/
-
-/build
-/coverage
-/logs
-/metadata_storage
-/noobaa_storage
+## go ignored files
+/gocode/pkg
+/gocode/bin
+/gocode/src/github.com
+/gocode/src/golang.org
+/gocode/src/noobaa-operator/vendor
+/gocode/src/noobaa-operator/build/_output
+/gocode/src/noobaa-operator/build/*.yaml
+/gocode/src/noobaa-s3-provisioner/vendor
+/gocode/src/noobaa-s3-provisioner/bin

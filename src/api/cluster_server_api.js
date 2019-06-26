@@ -85,21 +85,6 @@ module.exports = {
             }
         },
 
-        install_vmtools: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    target_secret: {
-                        type: 'string'
-                    }
-                },
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         set_debug_level: {
             method: 'POST',
             params: {
@@ -195,12 +180,6 @@ module.exports = {
                     },
                     using_dhcp: {
                         type: 'boolean'
-                    },
-                    search_domains: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
                     },
                     used_proxy: {
                         type: 'object',

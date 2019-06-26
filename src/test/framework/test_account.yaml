@@ -1,0 +1,54 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: noobaa-tests-account
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-tests-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - endpoints
+      - persistentvolumeclaims
+      - events
+      - configmaps
+      - secrets
+      - serviceaccounts
+    verbs:
+      - "*"
+  - apiGroups:
+      - apps
+    resources:
+      - "*"
+    verbs:
+      - "*"
+  - apiGroups:
+      - apps
+    resources:
+      - "*"
+    verbs:
+      - "*"
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - "*"
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: noobaa-tests-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: noobaa-tests-account
+roleRef:
+  kind: Role
+  name: noobaa-tests-role
+  apiGroup: rbac.authorization.k8s.io

@@ -63,9 +63,9 @@ function _handle_ph_get(ph_get_result, google_get_result, ph_dns_result) {
     if (ph_get_result.isFulfilled()) {
         let ph_reply = ph_get_result.value();
         dbg.log0(`Received Response From ${config.PHONE_HOME_BASE_URL}`,
-            ph_reply && ph_reply.response.statusCode, ph_reply.body);
+            ph_reply && ph_reply.response.statusCode, ph_reply && ph_reply.body);
         if ((_.get(ph_reply, 'response.statusCode') || 0) === 200) {
-            if (String(ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
+            if (String(ph_reply && ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
                 return 'CONNECTED';
             }
             return 'MALFORMED_RESPONSE';

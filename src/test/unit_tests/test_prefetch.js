@@ -7,6 +7,11 @@ var mocha = require('mocha');
 // var assert = require('assert');
 var Prefetch = require('../../util/prefetch');
 
+function log(...args) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(...args);
+}
+
 
 mocha.describe('prefetch', function() {
 
@@ -19,9 +24,9 @@ mocha.describe('prefetch', function() {
                     high_length: 32,
                     load: function(count) {
                         var n = count;
-                        console.log('... LOAD', n, '(' + count + ')', 'length', pr.length);
+                        log('... LOAD', n, '(' + count + ')', 'length', pr.length);
                         return P.delay(5).then(function() {
-                            console.log('>>> LOAD', n, '(' + count + ')', 'length', pr.length);
+                            log('>>> LOAD', n, '(' + count + ')', 'length', pr.length);
                             return _.times(n, function() {
                                 id += 1;
                                 return id;
@@ -32,12 +37,12 @@ mocha.describe('prefetch', function() {
             })
             .delay(10)
             .then(function() {
-                console.log('A - length', pr.length);
+                log('A - length', pr.length);
                 var promise = P.resolve();
                 _.times(10, function() {
                     promise = promise.delay(0).then(function() {
                         return pr.fetch(2).then(function(res) {
-                            console.log('A - fetch', res, 'length', pr.length);
+                            log('A - fetch', res, 'length', pr.length);
                         });
                     });
                 });
@@ -45,16 +50,16 @@ mocha.describe('prefetch', function() {
             })
             .delay(10)
             .then(function() {
-                console.log('B - length', pr.length);
+                log('B - length', pr.length);
                 return P.all(_.times(10, function() {
                     return pr.fetch(2).then(function(res) {
-                        console.log('B - fetch', res, 'length', pr.length);
+                        log('B - fetch', res, 'length', pr.length);
                     });
                 }));
             })
             .delay(10)
             .then(function() {
-                console.log('length', pr.length);
+                log('length', pr.length);
             });
     });
 

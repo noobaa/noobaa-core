@@ -1,27 +1,24 @@
 {
     "azure": [
-        "vmtools",
-        "search_domains"
+        
     ],
     "alyun": [
-        "vmtools"
+        
     ],
     "aws": [
-        "vmtools"
+        
     ],
     "esx": [
 
     ],
     "google": [
-        "vmtools"
+        
     ],
     "dev": [
-        "vmtools"
+        
     ],
     "docker": [
-        "vmtools",
         "dns_server",
-        "search_domains",
         "time_config",
         "attach_server",
         "peer_to_peer_ports",

@@ -222,6 +222,19 @@ module.exports = {
         tagging: {
             $ref: 'common_api#/definitions/tagging',
         },
+        bucket_claim: {
+            type: 'object',
+            required: ['policy_type', 'namespace'],
+            properties: {
+                // TODO: Fill this with relevant info
+                policy_type: {
+                    type: 'string',
+                },
+                namespace: {
+                    type: 'string',
+                },
+            }
+        },
         encryption: {
             $ref: 'common_api#/definitions/bucket_encryption',
         },

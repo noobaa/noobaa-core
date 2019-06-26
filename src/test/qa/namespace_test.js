@@ -159,7 +159,7 @@ async function getPropertiesFromS3Bucket(s3ops_arg, bucket, file_name) {
             size: object_list.Body.length
         };
     } catch (err) {
-        throw new Error(`Getting md5 data from file ${file_name}`, err);
+        throw new Error(`Getting md5 data from file ${file_name} ${err}`);
     }
 }
 
@@ -237,7 +237,7 @@ async function uploadFileToNoobaaS3(bucket, file_name) {
     try {
         await s3ops.put_file_with_md5(bucket, file_name, 15, data_multiplier);
     } catch (err) {
-        throw new Error(`Failed upload file ${file_name}`, err);
+        throw new Error(`Failed upload file ${file_name} ${err}`);
     }
 }
 
@@ -248,7 +248,7 @@ async function deleteNamesapaceBucket(bucket) {
         report.success('delete ns bucket');
     } catch (err) {
         report.fail('delete ns bucket');
-        throw new Error(`Failed to delete namespace bucket with error`, err);
+        throw new Error(`Failed to delete namespace bucket with error ${err}`);
     }
 }
 

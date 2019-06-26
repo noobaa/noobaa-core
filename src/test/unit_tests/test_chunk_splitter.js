@@ -10,6 +10,11 @@ const P = require('../../util/promise');
 const RandStream = require('../../util/rand_stream');
 const ChunkSplitter = require('../../util/chunk_splitter');
 
+function log(...args) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(...args);
+}
+
 mocha.describe('ChunkSplitter', function() {
 
     mocha.it('is consistent', function() {
@@ -47,7 +52,7 @@ mocha.describe('ChunkSplitter', function() {
         ];
         return P.map(bufs, data => split_buffer({ avg_chunk, delta_chunk, data }))
             .then(res => {
-                res.forEach(p => console.log(p));
+                res.forEach(p => log(p));
                 // remove the first and last points from the comparison
                 const points = res[0].slice(1, -1);
                 for (let i = 1; i < res.length; ++i) {

@@ -32,7 +32,7 @@ mocha.describe('system_store', function() {
     after(function() {
         // hacky - all the added systems were failing some of the next tests
         // remove all dummy systems
-        console.log('cleaning test systems:');
+        coretest.log('cleaning test systems:');
         return mongo_client.instance().collection('systems').remove({
             name: {
                 $nin: ['demo', 'coretest']
@@ -51,7 +51,7 @@ mocha.describe('system_store', function() {
         return _get_wiredtiger_log()
             .then(first_log_res => {
                 first_log = first_log_res;
-                console.log('Loop make_changes: First WiredTiger Log', first_log_res);
+                coretest.log('Loop make_changes: First WiredTiger Log', first_log_res);
                 return promise_utils.loop(LOOP_CYCLES, cycle => system_store.make_changes({
                     insert: {
                         systems: [{
@@ -65,9 +65,9 @@ mocha.describe('system_store', function() {
             .then(() => _get_wiredtiger_log())
             .then(second_log_res => {
                 second_log = second_log_res;
-                console.log('Loop make_changes: Second WiredTiger Log', second_log_res);
+                coretest.log('Loop make_changes: Second WiredTiger Log', second_log_res);
                 const log_diff = _get_wiredtiger_log_diff(first_log, second_log);
-                console.log('Loop make_changes: WiredTiger Log Diff', log_diff);
+                coretest.log('Loop make_changes: WiredTiger Log Diff', log_diff);
             });
     });
 
@@ -78,7 +78,7 @@ mocha.describe('system_store', function() {
         return _get_wiredtiger_log()
             .then(first_log_res => {
                 first_log = first_log_res;
-                console.log('Parallel make_changes: First WiredTiger Log', first_log_res);
+                coretest.log('Parallel make_changes: First WiredTiger Log', first_log_res);
                 return P.map(new Array(PARALLEL_CHANGES), (x, i) => system_store.make_changes({
                     insert: {
                         systems: [{
@@ -92,9 +92,9 @@ mocha.describe('system_store', function() {
             .then(() => _get_wiredtiger_log())
             .then(second_log_res => {
                 second_log = second_log_res;
-                console.log('Parallel make_changes: Second WiredTiger Log', second_log_res);
+                coretest.log('Parallel make_changes: Second WiredTiger Log', second_log_res);
                 const log_diff = _get_wiredtiger_log_diff(first_log, second_log);
-                console.log('Parallel make_changes: WiredTiger Log Diff', log_diff);
+                coretest.log('Parallel make_changes: WiredTiger Log Diff', log_diff);
             });
     });
 

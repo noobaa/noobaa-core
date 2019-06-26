@@ -12,6 +12,11 @@ const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../rpc');
 
+function log(...args) {
+    if (process.env.SUPPRESS_LOGS) return;
+    console.log(...args);
+}
+
 class APIClient {
     constructor(rpc, default_options) {
         this.rpc = rpc;
@@ -359,7 +364,7 @@ mocha.describe('RPC', function() {
                         .then(res => {
                             assert.deepEqual(res, REPLY);
                         }, err => {
-                            console.log('UNEXPECTED ERROR', err, err.stack);
+                            log('UNEXPECTED ERROR', err, err.stack);
                             throw new Error('UNEXPECTED ERROR');
                         });
                 });
@@ -370,7 +375,7 @@ mocha.describe('RPC', function() {
                     rpc.register_service(test_api, server);
                     return client.test[method_name](_.cloneDeep(PARAMS))
                         .then(res => {
-                            console.log('UNEXPECTED REPLY', res);
+                            log('UNEXPECTED REPLY', res);
                             throw new Error('UNEXPECTED REPLY');
                         }, err => {
                             assert.deepEqual(err.rpc_code, ERROR_CODE);
@@ -399,7 +404,7 @@ mocha.describe('RPC', function() {
             server.put = req => {
                 const reply = server.common(req);
                 const received_params_attachments = req.rpc_params[RPC_BUFFERS];
-                console.log('received_params_attachments', received_params_attachments);
+                log('received_params_attachments', received_params_attachments);
                 assert(_.isEqual(params_attachments, received_params_attachments));
                 reply[RPC_BUFFERS] = reply_attachments;
                 received = true;
@@ -410,7 +415,7 @@ mocha.describe('RPC', function() {
                 .then(reply => {
                     assert(received);
                     const received_reply_attachments = reply[RPC_BUFFERS];
-                    console.log('received_reply_attachments', received_reply_attachments);
+                    log('received_reply_attachments', received_reply_attachments);
                     assert(_.isEqual(reply_attachments, received_reply_attachments));
                 });
         });

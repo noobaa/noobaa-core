@@ -270,24 +270,12 @@ async function platform_upgrade_2_4_0() {
 }
 
 async function platform_upgrade_common(params) {
-    await copy_first_install();
     await supervisor_tmp_deletion_rules();
 }
-
-async function copy_first_install() {
-    if (process.env.PLATFORM === 'docker') return;
-    dbg.log0('UPGRADE: copying first_install_dialog.sh and setting permissions');
-    await exec(`cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_dialog.sh /etc/profile.d/`);
-    await exec(`chown root:root /etc/profile.d/first_install_dialog.sh`);
-    await exec(`chmod 4755 /etc/profile.d/first_install_dialog.sh`);
-}
-
 
 function should_upgrade_platform() {
     return os.type() === 'Linux';
 }
-
-
 
 async function exec(command, options = {}) {
     try {

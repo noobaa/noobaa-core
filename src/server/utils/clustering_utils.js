@@ -49,7 +49,7 @@ function update_host_address(address) {
         })
         .catch(err => {
             dbg.log0('Failed updating host address in clustering info');
-            throw new Error('Failed updating host address in clustering info', err, err.stack);
+            throw new Error(`Failed updating host address in clustering info ${err}, ${err.stack}`);
         });
 }
 
@@ -197,9 +197,7 @@ function get_cluster_info(rs_status) {
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
             dns_servers: cinfo.dns_servers || [],
-            search_domains: cinfo.search_domains || [],
             time_epoch: time_epoch,
-            vmtools_installed: Boolean(cinfo.vmtools_installed),
             ip_collision: cinfo.ip_collision
         };
 

@@ -28,67 +28,55 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
-    const SERVER_RESTART_DELAY = 10000;
-    let server_secret = '';
     let nodes_list;
 
     ///////////////
     //  ACCOUNT  //
     ///////////////
 
-    mocha.it('account works', function() {
+    mocha.it('account works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.account.accounts_status())
-            .then(res => assert(res.has_accounts, 'has_accounts'))
-            .then(() => rpc_client.account.read_account({
-                email: EMAIL
-            }))
-            .then(() => rpc_client.account.list_accounts())
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.account.update_account({
-                email: EMAIL,
-                name: EMAIL1,
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.account.update_account({
-                email: EMAIL,
-                name: EMAIL,
-            }))
-            .then(() => rpc_client.account.create_account({
-                name: EMAIL1,
-                email: EMAIL1,
-                password: EMAIL1,
-                has_login: true,
-                s3_access: true,
-                allowed_buckets: {
-                    full_permission: false,
-                    permission_list: []
-                },
-                default_pool: config.NEW_SYSTEM_POOL_NAME
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.system.add_role({
-                email: EMAIL1,
-                role: 'admin',
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.system.remove_role({
-                email: EMAIL1,
-                role: 'admin',
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.account.delete_account({
-                email: EMAIL1
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(res => {
-                server_secret = res.cluster.master_secret;
-                return rpc_client.system.list_systems();
-            })
-            .then(() => rpc_client.events.read_activity_log({
-                limit: 2016
-            }));
+        const accounts_status = await rpc_client.account.accounts_status();
+        await assert(accounts_status.has_accounts, 'has_accounts');
+        await rpc_client.account.read_account({ email: EMAIL });
+        await rpc_client.account.list_accounts();
+        await rpc_client.system.read_system();
+        await rpc_client.account.update_account({
+            email: EMAIL,
+            name: EMAIL1,
+        });
+        await rpc_client.system.read_system();
+        await rpc_client.account.update_account({
+            email: EMAIL,
+            name: EMAIL,
+        });
+        await rpc_client.account.create_account({
+            name: EMAIL1,
+            email: EMAIL1,
+            password: EMAIL1,
+            has_login: true,
+            s3_access: true,
+            allowed_buckets: {
+                full_permission: false,
+                permission_list: []
+            },
+            default_pool: config.NEW_SYSTEM_POOL_NAME
+        });
+        await rpc_client.system.read_system();
+        await rpc_client.system.add_role({
+            email: EMAIL1,
+            role: 'admin',
+        });
+        await rpc_client.system.read_system();
+        await rpc_client.system.remove_role({
+            email: EMAIL1,
+            role: 'admin',
+        });
+        await rpc_client.system.read_system();
+        await rpc_client.account.delete_account({ email: EMAIL1 });
+        await rpc_client.system.read_system();
+        await rpc_client.system.list_systems();
+        await rpc_client.events.read_activity_log({ limit: 2016 });
     });
 
     ////////////
@@ -126,162 +114,105 @@ mocha.describe('system_servers', function() {
     //  SYSTEM  //
     //////////////
 
-    mocha.it('system works', function() {
+    mocha.it('system works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.system.update_n2n_config({
-                config: {}
-            }))
-            //.then(() => rpc_client.system.start_debug({level:0}))
-            .then(() => rpc_client.cluster_server.update_time_config({
-                epoch: Math.round(Date.now() / 1000),
-                target_secret: server_secret,
-                timezone: "Asia/Jerusalem"
-            }))
-            .then(() => rpc_client.cluster_server.update_dns_servers({
-                target_secret: server_secret,
-                dns_servers: ['8.8.8.8']
-            }))
-            .delay(SERVER_RESTART_DELAY)
-            .then(() => rpc_client.cluster_server.update_dns_servers({
-                target_secret: server_secret,
-                dns_servers: ['8.8.8.8', '8.8.4.4']
-            }))
-            .delay(SERVER_RESTART_DELAY)
-            .then(() => rpc_client.cluster_server.update_time_config({
-                timezone: "Asia/Jerusalem",
-                target_secret: server_secret,
-                ntp_server: 'time.windows.com'
-            }))
-            // DZDZ - changing search domains causes the network to the server to be lost until server is restarted
-            // for now avoid this until we find a solution
-            // .then(() => rpc_client.cluster_server.update_dns_servers({
-            //     target_secret: server_secret,
-            //     dns_servers: ['8.8.8.8', '8.8.4.4'],
-            //     search_domains: ['noobaa']
-            // }))
-            .delay(SERVER_RESTART_DELAY)
-            // TODO - commented out for tiering integration cause test takes too long to timeout
-            // .then(() => rpc_client.cluster_server.diagnose_system({}))
-            // .then(() => rpc_client.cluster_server.diagnose_system({
-            //     target_secret: server_secret,
-            // }))
-            .then(() => rpc_client.system.update_system({
-                name: SYS1,
-            }))
-            .then(() => rpc_client.create_auth_token({
-                email: EMAIL,
-                password: PASSWORD,
-                system: SYS1,
-            }))
-            .then(() => rpc_client.system.update_system({
-                name: SYSTEM,
-            }));
+        await rpc_client.system.update_system({ name: SYS1 });
+        await rpc_client.create_auth_token({
+            email: EMAIL,
+            password: PASSWORD,
+            system: SYS1,
+        });
+        await rpc_client.system.update_system({ name: SYSTEM });
     });
 
     ////////////
     //  POOL  //
     ////////////
 
-    mocha.it('pool works', function() {
+    mocha.it('pool works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.node.list_nodes({}))
-            .then(res => {
-                nodes_list = res.nodes;
-                console.log('nodes_list', _.map(nodes_list, 'name'));
-                assert(nodes_list.length >= 6, `${nodes_list.length} >= 6`);
-            })
-            .then(() => rpc_client.pool.create_nodes_pool({
-                name: POOL,
-                nodes: _.map(nodes_list.slice(0, 3),
-                    node => _.pick(node, 'name')),
-            }))
-            .then(() => rpc_client.pool.read_pool({
-                name: POOL,
-            }))
-            .then(() => rpc_client.pool.assign_nodes_to_pool({
-                name: POOL,
-                nodes: _.map(nodes_list.slice(3, 6),
-                    node => _.pick(node, 'name')),
-            }))
-            .then(() => rpc_client.pool.assign_nodes_to_pool({
-                name: config.NEW_SYSTEM_POOL_NAME,
-                nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
-                    node => _.pick(node, 'name')),
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(() => rpc_client.pool.list_pool_nodes({
-                name: POOL
-            }))
-            .then(() => rpc_client.pool.get_associated_buckets({
-                name: POOL
-            }));
+        const list_nodes = await rpc_client.node.list_nodes({});
+        nodes_list = list_nodes.nodes;
+        coretest.log('nodes_list', _.map(nodes_list, 'name'));
+        await assert(nodes_list.length >= 6, `${nodes_list.length} >= 6`);
+        await rpc_client.pool.create_nodes_pool({
+            name: POOL,
+            nodes: _.map(nodes_list.slice(0, 3),
+                node => _.pick(node, 'name')),
+        });
+        await rpc_client.pool.read_pool({ name: POOL });
+        await rpc_client.pool.assign_nodes_to_pool({
+            name: POOL,
+            nodes: _.map(nodes_list.slice(3, 6),
+                node => _.pick(node, 'name')),
+        });
+        await rpc_client.pool.assign_nodes_to_pool({
+            name: config.NEW_SYSTEM_POOL_NAME,
+            nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
+                node => _.pick(node, 'name')),
+        });
+        await rpc_client.system.read_system();
+        await rpc_client.pool.list_pool_nodes({ name: POOL });
+        await rpc_client.pool.get_associated_buckets({ name: POOL });
     });
 
     ////////////
     //  TIER  //
     ////////////
 
-    mocha.it('tier works', function() {
+    mocha.it('tier works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.tier.create_tier({
-                name: TIER,
-                attached_pools: [POOL],
-                data_placement: 'SPREAD',
-            }))
-            .then(() => rpc_client.tier.read_tier({
-                name: TIER,
-            }))
-            .then(() => rpc_client.tier.update_tier({
-                name: TIER,
-                data_placement: 'MIRROR',
-            }))
-            .then(() => rpc_client.system.read_system());
+        await rpc_client.tier.create_tier({
+            name: TIER,
+            attached_pools: [POOL],
+            data_placement: 'SPREAD',
+        });
+        await rpc_client.tier.read_tier({
+            name: TIER,
+        });
+        await rpc_client.tier.update_tier({
+            name: TIER,
+            data_placement: 'MIRROR',
+        });
+        await rpc_client.system.read_system();
     });
 
     //////////////////////
     //  TIERING_POLICY  //
     //////////////////////
 
-    mocha.it('tiering policy works', function() {
+    mocha.it('tiering policy works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.tiering_policy.create_policy({
-                name: TIERING_POLICY,
-                tiers: [{
-                    order: 0,
-                    tier: TIER,
-                    spillover: false,
-                    disabled: false
-                }]
-            }))
-            .then(() => rpc_client.tiering_policy.read_policy({
-                name: TIERING_POLICY
-            }))
-            .then(() => rpc_client.tiering_policy.update_policy({
-                name: TIERING_POLICY,
-                chunk_split_config: {
-                    avg_chunk: 999,
-                    delta_chunk: 22,
-                },
-                tiers: [{
-                    order: 0,
-                    tier: TIER,
-                    spillover: false,
-                    disabled: false
-                }, {
-                    order: 1,
-                    tier: TIER,
-                    spillover: true,
-                    disabled: false
-                }]
-            }))
-            .then(() => rpc_client.tiering_policy.get_policy_pools({
-                name: TIERING_POLICY
-            }))
-            .then(() => rpc_client.system.read_system());
+        await rpc_client.tiering_policy.create_policy({
+            name: TIERING_POLICY,
+            tiers: [{
+                order: 0,
+                tier: TIER,
+                spillover: false,
+                disabled: false
+            }]
+        });
+        await rpc_client.tiering_policy.read_policy({ name: TIERING_POLICY });
+        await rpc_client.tiering_policy.update_policy({
+            name: TIERING_POLICY,
+            chunk_split_config: {
+                avg_chunk: 999,
+                delta_chunk: 22,
+            },
+            tiers: [{
+                order: 0,
+                tier: TIER,
+                spillover: false,
+                disabled: false
+            }, {
+                order: 1,
+                tier: TIER,
+                spillover: true,
+                disabled: false
+            }]
+        });
+        await rpc_client.tiering_policy.get_policy_pools({ name: TIERING_POLICY });
+        await rpc_client.system.read_system();
     });
 
     //////////////
@@ -344,159 +275,133 @@ mocha.describe('system_servers', function() {
             );
     });
 
-    mocha.it('lambda triggers works', function() {
+    mocha.it('lambda triggers works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => zip_utils.zip_from_files([{
-                path: 'main.js',
-                data: `
+        const zipfile = await zip_utils.zip_from_files([{
+            path: 'main.js',
+            data: `
                     /* Copyright (C) 2016 NooBaa */
                     'use strict';
                     exports.handler = function(event, context, callback) {
-                    console.log('func event', event);
+                    coretest.log('func event', event);
                     callback();
                     };
                     `
-            }]))
-            .then(zipfile => zip_utils.zip_to_buffer(zipfile))
-            .then(zipbuffer => rpc_client.func.create_func({
-                config: {
-                    name: 'func1',
-                    version: '$LATEST',
-                    handler: 'main.handler'
-                },
-                code: { zipfile_b64: zipbuffer.toString('base64') }
-            }))
-            .then(() => rpc_client.bucket.add_bucket_lambda_trigger({
-                bucket_name: BUCKET,
-                event_name: 'ObjectCreated',
-                func_name: 'func1',
-                object_prefix: '/bla/'
-            }))
-            .then(() => rpc_client.bucket.read_bucket({
-                name: BUCKET,
-            }))
-            .tap(bucket => rpc_client.bucket.update_bucket_lambda_trigger({
-                bucket_name: BUCKET,
-                id: bucket.triggers[0].id,
-                enabled: false
-            }))
-            .then(bucket => rpc_client.bucket.delete_bucket_lambda_trigger({
-                bucket_name: BUCKET,
-                id: bucket.triggers[0].id,
-            }))
-            .then(() => rpc_client.func.delete_func({
+        }]);
+        const zipbuffer = await zip_utils.zip_to_buffer(zipfile);
+        await rpc_client.func.create_func({
+            config: {
                 name: 'func1',
-                version: '$LATEST'
-            }));
+                version: '$LATEST',
+                handler: 'main.handler'
+            },
+            code: { zipfile_b64: zipbuffer.toString('base64') }
+        });
+        await rpc_client.bucket.add_bucket_lambda_trigger({
+            bucket_name: BUCKET,
+            event_name: 'ObjectCreated',
+            func_name: 'func1',
+            object_prefix: '/bla/'
+        });
+        const bucket = await rpc_client.bucket.read_bucket({ name: BUCKET });
+        await rpc_client.bucket.update_bucket_lambda_trigger({
+            bucket_name: BUCKET,
+            id: bucket.triggers[0].id,
+            enabled: false
+        });
+        await rpc_client.bucket.delete_bucket_lambda_trigger({
+            bucket_name: BUCKET,
+            id: bucket.triggers[0].id,
+        });
+        await rpc_client.func.delete_func({
+            name: 'func1',
+            version: '$LATEST'
+        });
     });
 
-    mocha.it('namespace works', function() {
+    mocha.it('namespace works', async function() {
         if (config.SKIP_EXTERNAL_TESTS) this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        if (!process.env.AWS_ACCESS_KEY_ID ||
-            !process.env.AWS_SECRET_ACCESS_KEY) {
-            throw new Error('No valid AWS credentials in env - ' +
-                'AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY are required ' +
-                'for testing account.add_external_connection()');
+        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+            coretest.log('No AWS credentials found in env. Skipping test');
+            this.skip(); // eslint-disable-line no-invalid-this
         }
-        return P.resolve()
-            .then(() => rpc_client.account.add_external_connection({
-                name: NAMESPACE_RESOURCE_CONNECTION,
-                endpoint: 'https://s3.amazonaws.com',
-                endpoint_type: 'AWS',
-                identity: process.env.AWS_ACCESS_KEY_ID,
-                secret: process.env.AWS_SECRET_ACCESS_KEY
-            }))
-            .then(() => rpc_client.pool.create_namespace_resource({
-                name: NAMESPACE_RESOURCE_NAME,
-                connection: NAMESPACE_RESOURCE_CONNECTION,
-                target_bucket: BUCKET
-            }))
-            .then(() => rpc_client.bucket.create_bucket({
-                name: NAMESPACE_BUCKET,
-                namespace: {
-                    read_resources: [NAMESPACE_RESOURCE_NAME],
-                    write_resource: NAMESPACE_RESOURCE_NAME
-                },
-            }))
-            .then(() => rpc_client.bucket.delete_bucket({
-                name: NAMESPACE_BUCKET,
-            }))
-            .then(() => rpc_client.pool.delete_namespace_resource({
-                name: NAMESPACE_RESOURCE_NAME,
-            }))
-            .then(() => rpc_client.account.delete_external_connection({
-                connection_name: NAMESPACE_RESOURCE_CONNECTION,
-            }));
+
+        await rpc_client.account.add_external_connection({
+            name: NAMESPACE_RESOURCE_CONNECTION,
+            endpoint: 'https://s3.amazonaws.com',
+            endpoint_type: 'AWS',
+            identity: process.env.AWS_ACCESS_KEY_ID,
+            secret: process.env.AWS_SECRET_ACCESS_KEY
+        });
+        await rpc_client.pool.create_namespace_resource({
+            name: NAMESPACE_RESOURCE_NAME,
+            connection: NAMESPACE_RESOURCE_CONNECTION,
+            target_bucket: BUCKET
+        });
+        await rpc_client.bucket.create_bucket({
+            name: NAMESPACE_BUCKET,
+            namespace: {
+                read_resources: [NAMESPACE_RESOURCE_NAME],
+                write_resource: NAMESPACE_RESOURCE_NAME
+            },
+        });
+        await rpc_client.bucket.delete_bucket({ name: NAMESPACE_BUCKET });
+        await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_NAME });
+        await rpc_client.account.delete_external_connection({ connection_name: NAMESPACE_RESOURCE_CONNECTION });
     });
 
     /////////////
     //  STATS  //
     /////////////
 
-    mocha.it('stats works', function() {
+    mocha.it('stats works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.stats.get_systems_stats({}))
-            .then(() => rpc_client.stats.get_nodes_stats({}))
-            .then(() => rpc_client.stats.get_ops_stats({}))
-            .then(() => rpc_client.stats.get_all_stats({}));
+        await rpc_client.stats.get_systems_stats({});
+        await rpc_client.stats.get_nodes_stats({});
+        await rpc_client.stats.get_ops_stats({});
+        await rpc_client.stats.get_all_stats({});
     });
 
     ////////////
     //  MISC  //
     ////////////
 
-    mocha.it('misc works', function() {
+    mocha.it('misc works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.debug.set_debug_level({
-                module: 'rpc',
-                level: 0
-            }));
+        await rpc_client.debug.set_debug_level({
+            module: 'rpc',
+            level: 0
+        });
     });
 
     /////////////////
     //  DELETIONS  //
     /////////////////
 
-    mocha.it('deletions works', function() {
+    mocha.it('deletions works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.bucket.delete_bucket({
-                name: BUCKET,
-            }))
-            .then(() => rpc_client.tiering_policy.delete_policy({
-                    name: TIERING_POLICY,
-                })
-                .then(res => {
-                    throw new Error('TIERING_POLICY: ' + TIERING_POLICY +
-                        ' should have been deleted by now');
-                })
-                .catch(err => {
-                    if (err.rpc_code !== 'NO_SUCH_TIERING_POLICY') throw err;
-                })
-            )
-            .then(() => rpc_client.tier.delete_tier({
-                    name: TIER,
-                })
-                .then(() => {
-                    throw new Error('TIER: ' + TIER +
-                        ' should have been deleted by now');
-                })
-                .catch(err => {
-                    if (err.rpc_code !== 'NO_SUCH_TIER') throw err;
-                })
-            )
-            .then(() => rpc_client.pool.assign_nodes_to_pool({
-                name: config.NEW_SYSTEM_POOL_NAME,
-                nodes: _.map(nodes_list, node => _.pick(node, 'name')),
-            }))
-            .then(() => rpc_client.pool.delete_pool({
-                name: POOL,
-            }))
-            .then(() => rpc_client.system.read_system());
+        await rpc_client.bucket.delete_bucket({
+            name: BUCKET,
+        });
+        try {
+            await rpc_client.tiering_policy.delete_policy({ name: TIERING_POLICY });
+            throw new Error('TIERING_POLICY: ' + TIERING_POLICY + ' should have been deleted by now');
+        } catch (err) {
+            if (err.rpc_code !== 'NO_SUCH_TIERING_POLICY') throw err;
+        }
+        try {
+            await rpc_client.tier.delete_tier({ name: TIER });
+            throw new Error('TIER: ' + TIER + ' should have been deleted by now');
+        } catch (err) {
+            if (err.rpc_code !== 'NO_SUCH_TIER') throw err;
+        }
+        await rpc_client.pool.assign_nodes_to_pool({
+            name: config.NEW_SYSTEM_POOL_NAME,
+            nodes: _.map(nodes_list, node => _.pick(node, 'name')),
+        });
+        await rpc_client.pool.delete_pool({ name: POOL });
+        await rpc_client.system.read_system();
         // .then(() => coretest.clear_test_nodes())
         // .then(() => rpc_client.system.delete_system());
     });

@@ -29,10 +29,8 @@ const ADMIN_WIN_USERS = Object.freeze([
     'BUILTIN\\Administrators'
 ]);
 
-const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
-const IS_ESX = process.env.PLATFORM === 'esx';
 const IS_DOCKER = process.env.container === 'docker';
 const IS_LINUX_VM = IS_LINUX && !IS_DOCKER;
 //TEST_CONTAINER is env variable that is being set by the tests.Dockerfile
@@ -83,7 +81,7 @@ function os_info(count_mongo_reserved_as_free) {
 function _calculate_free_mem(count_mongo_reserved_as_free) {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
-    if (!IS_WIN && !IS_MAC) {
+    if (!IS_MAC) {
         return P.resolve()
             // get OS cached mem
             .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:')
@@ -119,9 +117,7 @@ function _exec_and_extract_num(command, regex_line) {
 }
 
 function read_drives() {
-    if (IS_WIN) {
-        return read_windows_drives();
-    } else if (IS_DOCKER) {
+    if (IS_DOCKER) {
         return read_kubernetes_agent_drives();
     } else {
         return read_mac_linux_drives();
@@ -166,19 +162,12 @@ function get_raw_storage() {
 }
 
 function get_main_drive_name() {
-    if (IS_WIN) {
-        return process.env.SystemDrive;
-    } else {
-        return '/';
-    }
+    return '/';
 }
 
 function get_distro() {
     if (IS_MAC) {
         return P.resolve('OSX - Darwin');
-    }
-    if (IS_WIN) {
-        return P.resolve(`${os.type()} (${os.release()})`);
     }
     return P.fromCallback(callback => os_detailed_info(callback))
         .then(distro => {
@@ -227,8 +216,6 @@ function get_disk_mount_points() {
             return _.filter(drives, drive => {
                 const { mount, drive_id } = drive;
                 if (IS_DOCKER && mount !== '/') return false;
-                const is_win_drive =
-                    (/^[a-zA-Z]:$/).test(drive_id);
                 const is_linux_drive =
                     (mount === '/') ||
                     (mount.startsWith('/') && drive_id.startsWith('/dev/'));
@@ -238,7 +225,7 @@ function get_disk_mount_points() {
                     mount.startsWith('/boot') ||
                     mount.startsWith('/private/') || // mac
                     drive_id.includes('by-uuid');
-                if ((is_win_drive || is_linux_drive) && !exclude_drive) {
+                if (is_linux_drive && !exclude_drive) {
                     // TODO GUY appending noobaa_storage is bizarr in this generic context
                     drive.mount = path.join(mount, 'noobaa_storage');
                     dbg.log0('Found relevant volume', drive_id);
@@ -251,44 +238,22 @@ function get_disk_mount_points() {
 
 function get_mount_of_path(file_path) {
     console.log('get_mount_of_path');
-
-    if (IS_WIN) {
-        return fs.realpathAsync(file_path)
-            .then(function(fullpath) {
-                // fullpath[0] = drive letter (C, D, E, ..)
-                // fullpath[1] = ':'
-                return fullpath[0] + fullpath[1];
-            });
-    } else {
-        return P.fromCallback(callback => node_df({
-                file: file_path
-            }, callback))
-            .then(function(drives) {
-                return drives && drives[0] && drives[0].mount;
-            });
-    }
+    return P.fromCallback(callback => node_df({
+            file: file_path
+        }, callback))
+        .then(function(drives) {
+            return drives && drives[0] && drives[0].mount;
+        });
 }
 
 function get_drive_of_path(file_path) {
-    if (IS_WIN) {
-        return fs.realpathAsync(file_path)
-            .then(function(fullpath) {
-                const drive_letter = fullpath[0] + fullpath[1];
-                return wmic('volume where DriveLetter="' + drive_letter + '"');
-            })
-            .then(volumes =>
-                volumes &&
-                volumes[0] &&
-                windows_volume_to_drive(volumes[0]));
-    } else {
-        return P.fromCallback(callback => node_df({
-                file: file_path
-            }, callback))
-            .then(volumes =>
-                volumes &&
-                volumes[0] &&
-                linux_volume_to_drive(volumes[0]));
-    }
+    return P.fromCallback(callback => node_df({
+            file: file_path
+        }, callback))
+        .then(volumes =>
+            volumes &&
+            volumes[0] &&
+            linux_volume_to_drive(volumes[0]));
 }
 
 
@@ -339,51 +304,6 @@ function read_kubernetes_agent_drives() {
             .then(res => _.compact(res)));
 }
 
-function read_windows_drives() {
-    var windows_drives = {};
-    return wmic('volume')
-        .then(function(volumes) {
-            return _.compact(_.map(volumes, function(vol) {
-                // drive type codes:
-                // 0 = Unknown
-                // 1 = No Root Directory
-                // 2 = Removable Disk
-                // 3 = Local Disk
-                // 4 = Network Drive
-                // 5 = Compact Disc
-                // 6 = RAM Disk
-                if (vol.DriveType !== '3') return;
-                if (!vol.DriveLetter) return;
-                //Azure temporary disk
-                if (vol.Label.indexOf('Temporary Storage') === 0) return;
-                return windows_volume_to_drive(vol);
-            }));
-        })
-        .then(function(local_volumes) {
-            windows_drives = local_volumes;
-            return wmic('netuse')
-                .then(function(network_volumes) {
-                    var all_drives = {};
-                    if (_.compact(network_volumes).length > 0) {
-
-                        all_drives = _(windows_drives).concat(_.compact(_.map(network_volumes, function(network_vol) {
-                            return {
-                                mount: network_vol.RemotePath,
-                                drive_id: network_vol.LocalName,
-                                storage: {
-                                    total: 0,
-                                    free: 0,
-                                }
-                            };
-                        })));
-                        return all_drives.value();
-                    } else {
-                        return windows_drives;
-                    }
-                });
-        });
-}
-
 function linux_volume_to_drive(vol, skip) {
     return _.omitBy({
         mount: vol.mount,
@@ -396,60 +316,12 @@ function linux_volume_to_drive(vol, skip) {
     }, _.isUndefined);
 }
 
-function windows_volume_to_drive(vol) {
-    return {
-        mount: vol.DriveLetter,
-        drive_id: vol.DriveLetter,
-        storage: {
-            total: parseInt(vol.Capacity, 10),
-            free: parseInt(vol.FreeSpace, 10),
-        }
-    };
-}
-
-function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value', {
-            ignore_rc: false,
-            return_stdout: true,
-        })
-        .then(function(res) {
-            return wmic_parse_list(res);
-        });
-}
-
-function wmic_parse_list(text) {
-    // split by double eol -
-    // we get two \r between the \n, so we tolerate any whitespace
-    var list = text.trim().split(/\s*\n\s*\n\s*/);
-    for (var i = 0; i < list.length; i++) {
-        var item = list[i].trim();
-        if (!item) continue;
-        var lines = item.split('\n');
-        var item_obj = {};
-        for (var j = 0; j < lines.length; j++) {
-            var line = lines[j].trim();
-            if (!line) continue;
-            var index = line.indexOf('=');
-            if (index < 0) continue;
-            var key = line.slice(0, index).trim();
-            var val = line.slice(index + 1).trim();
-            item_obj[key] = val;
-        }
-        // OEMLogoBitmap field is an encoded bitmap image - it's big and unwanted
-        delete item_obj.OEMLogoBitmap;
-        list[i] = item_obj;
-    }
-    return list;
-}
-
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
         return promise_utils.exec('top -c -l 1' + file_redirect);
     } else if (IS_LINUX) {
         return promise_utils.exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
-    } else if (IS_WIN) {
-        return P.resolve();
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
     }
@@ -468,8 +340,6 @@ function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
         return promise_utils.exec('netstat -na' + file_redirect);
-    } else if (IS_WIN) {
-        return promise_utils.exec('netstat -na >' + dst);
     } else if (IS_LINUX) {
         return promise_utils.exec('netstat -nap' + file_redirect);
     } else {
@@ -549,38 +419,6 @@ async function set_ntp(server, timez) {
     }
 }
 
-function get_yum_proxy() {
-    if (IS_LINUX) {
-        return promise_utils.exec("cat /etc/yum.conf | grep NooBaa", {
-                ignore_rc: false,
-                return_stdout: true,
-            })
-            .then(res => {
-                let regex_res = (/proxy=(.*) #NooBaa Configured Proxy Server/).exec(res);
-                return regex_res ? regex_res[1] : "";
-            });
-    } else if (IS_MAC) { //Bypass for dev environment
-        return P.resolve();
-    }
-    throw new Error('Yum proxy not supported on non-Linux platforms');
-}
-
-function set_yum_proxy(proxy_url) {
-    var command = "sed -i 's/.*NooBaa Configured Proxy Server.*/#NooBaa Configured Proxy Server/' /etc/yum.conf";
-    if (IS_LINUX) {
-        if (!_.isEmpty(proxy_url)) {
-            command = "sed -i 's/.*NooBaa Configured Proxy Server.*/proxy=" + proxy_url.replace(/\//g, '\\/') +
-                " #NooBaa Configured Proxy Server/' /etc/yum.conf";
-        }
-        return promise_utils.exec(command);
-    } else if (IS_MAC) { //Bypass for dev environment
-        return P.resolve();
-    } else {
-        throw new Error('setting yum proxy not supported on non-Linux platforms');
-    }
-}
-
-//
 function _get_dns_servers_in_forwarders_file() {
     return P.resolve()
         .then(() => {
@@ -594,83 +432,17 @@ function _get_dns_servers_in_forwarders_file() {
         });
 }
 
-
-function _get_search_domains(file, options) {
-    return P.resolve()
-        .then(() => {
-            if (!IS_LINUX_VM) return [];
-            const { dhcp } = options || {};
-            if (dhcp) {
-                // for dhcp configuration we look for "#NooBaa Configured Search"
-                return fs_utils.find_line_in_file(file, '#NooBaa Configured Search')
-                    .then(line => {
-                        if (!line) return [];
-                        let domains_regx_res = line.match(/".*?"/g);
-                        // if null return empty array
-                        if (!domains_regx_res) return [];
-                        // remove double quotes from the strings
-                        return domains_regx_res.map(domain => domain.replace(/"/g, ''));
-                    });
-            } else {
-                // in static ip configuration files we look for "DOMAIN=" as a marker
-                return fs_utils.find_line_in_file(file, 'DOMAIN=')
-                    .then(line => {
-                        if (!line) return [];
-                        const domains_str = line.split('"')[1];
-                        if (!domains_str) return [];
-                        return domains_str.split(' ');
-                    });
-            }
-        });
-}
-
-function get_dns_and_search_domains() {
+function get_dns_config() {
     // return dns configuration set in /etc/sysconfig/network
-    return P.join(_get_dns_servers_in_forwarders_file(), _get_search_domains('/etc/sysconfig/network'))
-        .spread((dns_servers, search_domains) => ({ dns_servers, search_domains }));
+    return _get_dns_servers_in_forwarders_file()
+        .then(dns => ({ dns_servers: dns }));
 }
 
-function ensure_dns_and_search_domains(server_config) {
-    const ensure_dns = _get_dns_servers_in_forwarders_file()
-        .then(dns_servers => {
-            // compare dns in server_config to the one written in forwarders file
-            if (!_.isEqual(dns_servers, server_config.dns_servers)) {
-                dbg.warn(`ensure_dns_and_search_domains: found mismatch in dns servers. db has`,
-                    server_config.dns_servers,
-                    `${config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE} has`, dns_servers,
-                    `resetting according to db`);
-                return _set_dns_server(server_config.dns_servers);
-            }
-        });
-
-    const static_search_domain_files = Object.keys(os.networkInterfaces())
-        .filter(nic => nic.startsWith('eth'))
-        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic);
-
-    const ensure_search_domains = P.join(
-            P.map(static_search_domain_files, file => _get_search_domains(file)
-                .then(search_domains => ({ search_domains, file }))),
-            _get_search_domains('/etc/dhclient.conf', { dhcp: true })
-            .then(search_domains => ({ search_domains, file: '/etc/dhclient.conf' }))
-        )
-        .spread((static_domains, dhcp_domains) => {
-            const domain_configs = static_domains.concat(dhcp_domains);
-            const invalid_config = domain_configs.find(conf => !_.isEqual(conf.search_domains, server_config.search_domains));
-            if (invalid_config) {
-                dbg.warn(`found mismatch in search domains. db has`, server_config.search_domains,
-                    `${invalid_config.file} has `, invalid_config.search_domains, ' resetting according to db');
-                return _set_search_domains(server_config.search_domains);
-            }
-        });
-
-    return P.join(ensure_dns, ensure_search_domains);
-}
-
-function set_dns_and_search_domains(dns_servers, search_domains) {
+function set_dns_config(dns_servers) {
     return P.resolve()
         .then(() => {
             if (!IS_LINUX) return;
-            return P.join(_set_dns_server(dns_servers), _set_search_domains(search_domains));
+            return P.resolve(_set_dns_server(dns_servers));
         });
 }
 
@@ -686,44 +458,6 @@ function _set_dns_server(servers) {
             promise_utils.exec('systemctl restart named')
                 .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
                 .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
-        });
-}
-
-
-function _set_search_domains(search_domains) {
-    if (!search_domains) return;
-
-    dbg.log0(`_set_search_domains: got these search domais to set:`, search_domains);
-
-    const commands_to_exec = [];
-
-    // prepare command for setting search domains in dhclient
-    if (search_domains.length) {
-        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/prepend domain-search "${search_domains.join('", "')}";\
-        #NooBaa Configured Search/' /etc/dhclient.conf`);
-    } else {
-        commands_to_exec.push(`sed -i 's/.*#NooBaa Configured Search.*/#NooBaa Configured Search/' /etc/dhclient.conf`);
-    }
-
-    // prepare command for setting search domains in network configuration scripts
-    // updating /etc/sysconfig/network does not propagate to resolve.conf, but writing to ifcfg files does
-    // we will write to all of them including /etc/sysconfig/network
-    let domain_command = `sed -i 's/DOMAIN=.*/DOMAIN="${search_domains.join(' ')}"/' `;
-
-    const network_scripts_files = Object.keys(os.networkInterfaces())
-        .filter(nic => nic.startsWith('eth'))
-        .map(nic => '/etc/sysconfig/network-scripts/ifcfg-' + nic)
-        .concat('/etc/sysconfig/network');
-
-    dbg.log0(`setting search domains in the following files:`, network_scripts_files);
-    network_scripts_files.forEach(file => commands_to_exec.push(domain_command + file));
-
-    return P.map(commands_to_exec, command => promise_utils.exec(command), { concurrency: 5 })
-        .then(() => {
-            // perform network restart in the background
-            promise_utils.exec('systemctl restart network')
-                .then(() => dbg.log0('successfully restarted network after setting search domains to', search_domains))
-                .catch(err => dbg.error('failed on systemctl restart network when setting search domains to', search_domains, err));
         });
 }
 
@@ -804,21 +538,7 @@ function get_networking_info() {
     return ifaces;
 }
 
-function get_all_network_interfaces() {
-    return promise_utils.exec('ip addr | grep "state UP\\|state DOWN" | awk \'{print $2}\' | sed \'s/:/ /g\'', {
-            ignore_rc: false,
-            return_stdout: true,
-        })
-        .then(nics => {
-            nics = nics.substring(0, nics.length - 1);
-            return nics.split('\n');
-        });
-}
-
 function is_folder_permissions_set(current_path) {
-    if (!IS_WIN) {
-        return P.resolve(true);
-    }
     let administrators_has_inheritance = false;
     let system_has_full_control = false;
     let found_other_permissions = false;
@@ -862,19 +582,6 @@ function is_folder_permissions_set(current_path) {
                 ', No Other user with permissions:', !found_other_permissions);
             return system_has_full_control && administrators_has_inheritance && !found_other_permissions;
         });
-}
-
-function set_win_folder_permissions(current_path) {
-    if (!IS_WIN) {
-        return P.resolve(true);
-    }
-    return promise_utils.exec('attrib +H ' + current_path)
-        .then(() => promise_utils.exec('icacls  ' + current_path + ' /reset /t /c /q'))
-        .then(() => promise_utils.exec('icacls  ' + current_path +
-            ' /grant:r administrators:(oi)(ci)F' +
-            ' /grant:r system:F' +
-            ' /remove:g BUILTIN\\Users' +
-            ' /inheritance:r'));
 }
 
 function _set_time_zone(tzone) {
@@ -1051,103 +758,12 @@ function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
         .then(() => {
             if (IS_LINUX) {
                 return _check_ports_on_linux(dest_ips, start_port, end_port);
-            } else if (IS_WIN) {
-                return _check_ports_on_windows(dest_ips, start_port, end_port);
             }
             return true;
         })
         .catch(err => {
             dbg.error('got error on is_port_range_open_in_firewall', err);
             return true;
-        });
-}
-
-
-function _check_ports_on_windows(dest_ips, start_port, end_port) {
-    let allowed_by_default = true;
-    // get the current profile, and check if it's enabled:
-    return promise_utils.exec('netsh advfirewall show currentprofile', {
-            ignore_rc: false,
-            return_stdout: true,
-            timeout: 60000
-        })
-        .then(curr_profile_out => {
-            const lines = curr_profile_out.trim().split('\r\n');
-            // check if firewall is on for this profile. the on\off indication is in the 3rd line:
-            const firewall_enabled = lines[2].split(/\s+/)[1].trim() === 'ON';
-            if (firewall_enabled) {
-                // get the default rule for inbound traffic:
-                const policy_line = lines.find(line => line.indexOf('Firewall Policy') > -1);
-                allowed_by_default = policy_line.indexOf('BlockInbound') === -1;
-                // get all active inbound rules
-                return _get_win_fw_rules();
-            }
-        })
-        .then(rules => {
-            // filter out non TCP rules
-            const filtered_rules = rules.filter(rule => (rule.Protocol && (rule.Protocol === 'TCP' || rule.Protocol === 'Any')));
-            // sort the rules so that block rules are first:
-            filtered_rules.sort((a, b) => {
-                if (a.Action === 'Block' && b.Action !== 'Block') return -1;
-                else if (a.Action !== 'Block' && b.Action === 'Block') return 1;
-                else return 0;
-            });
-
-            let ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
-                // go over all relevant rules, and look for the first matching rule (maybe partial match)
-                for (const rule of filtered_rules) {
-                    if (port >= rule.LocalPort[0] && port <= rule.LocalPort[1]) {
-                        // the rule matches some of the range. return if accept or reject
-                        return rule.Action;
-                    }
-                }
-                // if none of the rules matches the port, return the default action
-                return allowed_by_default ? 'Allow' : 'Block';
-            });
-            dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
-            // for now if any port in the range is blocked, return false
-            return _.isUndefined(ports_groups.Block);
-        })
-        .catch(err => {
-            dbg.error('failed checking firewall rules on windows. treat as all ports are open', err);
-            return true;
-        });
-}
-
-function _get_win_fw_rules() {
-    const fields_to_use = ['RemoteIP', 'Protocol', 'LocalPort', 'Rule Name', 'Action'];
-    // return fs.readFileAsync('/Users/dannyzaken/Downloads/monitor.txt', 'utf8')
-    return promise_utils.exec('netsh advfirewall monitor show firewall rule name=all dir=in profile=active', {
-            ignore_rc: false,
-            return_stdout: true,
-            timeout: 60000
-        })
-        .then(rules_output => {
-            const rules = rules_output.toString().trim()
-                // split by empty line separator between different rules
-                .split('\r\n\r\n')
-                // map each rule to an object
-                .map(block => block.split('\r\n')
-                    // remove separator line
-                    .filter(line => line.indexOf('---') === -1)
-                    .reduce((prev_obj, line) => {
-                        const split_line = line.split(':').map(word => word.trim());
-                        const key = split_line[0];
-                        const val = split_line[1];
-                        const ret_obj = {};
-                        if (key === 'LocalPort') {
-                            const ports = val.split('-').map(port => parseInt(port, 10));
-                            // if single port than push "end port" to be the same as start port
-                            if (ports.length === 1) ports.push(ports[0]);
-                            ret_obj[key] = ports;
-                        } else if (fields_to_use.includes(key)) {
-                            ret_obj[key] = val;
-                        }
-                        return Object.assign(ret_obj, prev_obj);
-                    }, {})
-                );
-
-            return rules;
         });
 }
 
@@ -1279,22 +895,6 @@ function get_iptables_rules() {
         });
 }
 
-async function install_vmtools() {
-    if (!IS_ESX) return;
-    if (!IS_LINUX_VM) return;
-    await promise_utils.exec('yum install -y open-vm-tools');
-    await promise_utils.exec('systemctl start vmtoolsd.service');
-}
-
-async function is_vmtools_installed() {
-    try {
-        await promise_utils.exec('yum -q list installed open-vm-tools', { ignore_rc: false });
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
 async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
     if (process.env.CONTAINER_PLATFORM !== 'KUBERNETES') {
         throw new Error('discover_k8s_services is only supported in kubernetes envs');
@@ -1400,20 +1000,16 @@ exports.set_manual_time = set_manual_time;
 exports.verify_ntp_server = verify_ntp_server;
 exports.set_ntp = set_ntp;
 exports.get_ntp = get_ntp;
-exports.set_yum_proxy = set_yum_proxy;
-exports.get_yum_proxy = get_yum_proxy;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
-exports.get_all_network_interfaces = get_all_network_interfaces;
 exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
-exports.set_win_folder_permissions = set_win_folder_permissions;
 exports.reload_syslog_configuration = reload_syslog_configuration;
 exports.get_syslog_server_configuration = get_syslog_server_configuration;
-exports.set_dns_and_search_domains = set_dns_and_search_domains;
-exports.get_dns_and_search_domains = get_dns_and_search_domains;
+exports.set_dns_config = set_dns_config;
+exports.get_dns_config = get_dns_config;
 exports.restart_noobaa_services = restart_noobaa_services;
 exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
@@ -1423,10 +1019,7 @@ exports.handle_unreleased_fds = handle_unreleased_fds;
 exports.calc_cpu_usage = calc_cpu_usage;
 exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;
-exports.ensure_dns_and_search_domains = ensure_dns_and_search_domains;
 exports.get_services_ps_info = get_services_ps_info;
-exports.install_vmtools = install_vmtools;
-exports.is_vmtools_installed = is_vmtools_installed;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
 exports.discover_k8s_services = discover_k8s_services;

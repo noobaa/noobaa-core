@@ -18,6 +18,7 @@ const Histogram = require('../../util/histogram');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
+const bucket_server = require('../system_services/bucket_server');
 const object_server = require('../object_services/object_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
@@ -38,12 +39,10 @@ const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 const ALERT_LOW_TRESHOLD = 10;
 const ALERT_HIGH_TRESHOLD = 20;
 
-const FULL_STATISTICS_CYCLE = 6;
-
 var failed_sent = 0;
 // This value is non persistent on process restarts
 // This means that there might be a situation when we won't get phone home data
-// If the process will always crash prior to reaching the required amount of cycles (FULL_STATISTICS_CYCLE)
+// If the process will always crash prior to reaching the required amount of cycles (full_cycle_ratio)
 // Also in case of failures with sending the phone home we won't perform the partial cycles
 // TODO: Maybe add some sort of a timeout mechanism to the failures in order to perform partial cycles?
 var current_cycle = 0;
@@ -59,6 +58,14 @@ const SYSTEM_STATS_DEFAULTS = {
     count: 0,
     systems: [],
 };
+
+const SYS_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    unavailable_free: 0,
+    alloc: 0,
+    real: 0,
+});
 
 const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
@@ -78,7 +85,6 @@ const SINGLE_SYS_DEFAULTS = {
     configuration: {
         dns_servers: 0,
         dns_name: false,
-        dns_search: 0,
         ntp_server: false,
         proxy: false,
         remote_syslog: false
@@ -87,6 +93,27 @@ const SINGLE_SYS_DEFAULTS = {
         members: 0
     }
 };
+
+const PARTIAL_BUCKETS_STATS_DEFAULTS = {
+    buckets: 0,
+    objects_in_buckets: 0,
+    unhealthy_buckets: 0,
+    bucket_claims: 0,
+    objects_in_bucket_claims: 0,
+};
+
+const PARTIAL_SYSTEM_STATS_DEFAULTS = {
+    systems: [],
+};
+
+const PARTIAL_SINGLE_SYS_DEFAULTS = {
+    name: '',
+    free_space: 0,
+    total_space: 0,
+    buckets_stats: PARTIAL_BUCKETS_STATS_DEFAULTS,
+};
+
+
 
 //Aggregate bucket configuration and policies
 function _aggregate_buckets_config(system) {
@@ -128,49 +155,46 @@ async function get_systems_stats(req) {
     }
 
     try {
-        sys_stats.systems = await P.all(_.map(system_store.data.systems, system => {
-            let new_req = _.defaults({
+        sys_stats.systems = await P.all(_.map(system_store.data.systems, async system => {
+            const new_req = _.defaults({
                 system: system
             }, req);
-            return system_server.read_system(new_req)
-                .then(res => {
-                    // Means that if we do not have any systems, the version number won't be sent
-                    sys_stats.version = res.version || process.env.CURRENT_VERSION;
-                    const buckets_config = _aggregate_buckets_config(res);
-                    const has_dns_name = system.system_address.some(addr =>
-                        addr.api === 'mgmt' && !net_utils.is_ip(addr.hostnames)
-                    );
 
-                    return _.defaults({
-                        roles: res.roles.length,
-                        tiers: res.tiers.length,
-                        buckets: res.buckets.length,
-                        buckets_config: buckets_config,
-                        objects: res.objects,
-                        allocated_space: res.storage.alloc,
-                        used_space: res.storage.used,
-                        total_space: res.storage.total,
-                        free_space: res.storage.free,
-                        associated_nodes: {
-                            on: res.nodes.online,
-                            off: res.nodes.count - res.nodes.online,
-                        },
-                        owner: res.owner.email,
-                        configuration: {
-                            dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
-                            dns_name: has_dns_name,
-                            dns_search: res.cluster.shards[0].servers[0].search_domains.length,
-                            ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
-                            proxy: !_.isEmpty(res.phone_home_config.proxy_address),
-                            remote_syslog: !_.isEmpty(res.remote_syslog_config),
-                        },
-                        cluster: {
-                            members: res.cluster.shards[0].servers.length
-                        },
-                    }, SINGLE_SYS_DEFAULTS);
-                });
+            const res = await system_server.read_system(new_req);
+            // Means that if we do not have any systems, the version number won't be sent
+            sys_stats.version = res.version || process.env.CURRENT_VERSION;
+            const buckets_config = _aggregate_buckets_config(res);
+            const has_dns_name = system.system_address.some(addr =>
+                addr.api === 'mgmt' && !net_utils.is_ip(addr.hostnames)
+            );
+
+            return _.defaults({
+                roles: res.roles.length,
+                tiers: res.tiers.length,
+                buckets: res.buckets.length,
+                buckets_config: buckets_config,
+                objects: res.objects,
+                allocated_space: res.storage.alloc,
+                used_space: res.storage.used,
+                total_space: res.storage.total,
+                free_space: res.storage.free,
+                associated_nodes: {
+                    on: res.nodes.online,
+                    off: res.nodes.count - res.nodes.online,
+                },
+                owner: res.owner.email,
+                configuration: {
+                    dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
+                    dns_name: has_dns_name,
+                    ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
+                    proxy: !_.isEmpty(res.phone_home_config.proxy_address),
+                    remote_syslog: !_.isEmpty(res.remote_syslog_config),
+                },
+                cluster: {
+                    members: res.cluster.shards[0].servers.length
+                },
+            }, SINGLE_SYS_DEFAULTS);
         }));
-
 
         sys_stats.version_history = await HistoryDataStore.instance().get_system_version_history();
 
@@ -181,6 +205,88 @@ async function get_systems_stats(req) {
         throw err;
     }
 }
+
+
+async function get_partial_systems_stats(req) {
+    const sys_stats = _.cloneDeep(PARTIAL_SYSTEM_STATS_DEFAULTS);
+    try {
+        sys_stats.systems = await P.all(_.map(system_store.data.systems, async system => {
+            const new_req = _.defaults({
+                system: system
+            }, req);
+
+            const { buckets_stats, objects_sys } = await _partial_buckets_info(new_req);
+
+            // nodes - count, online count, allocated/used storage aggregate by pool
+            const nodes_aggregate_pool_with_cloud_no_mongo = await nodes_client.instance()
+                .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false, /*skip_mongo_nodes=*/ true);
+
+            const storage = size_utils.to_bigint_storage(_.defaults({
+                used: objects_sys.size,
+            }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS));
+
+            return _.defaults({
+                name: system.name,
+                total_space: storage.total,
+                free_space: storage.free,
+                buckets_stats
+            }, PARTIAL_SINGLE_SYS_DEFAULTS);
+        }));
+        return sys_stats;
+    } catch (err) {
+        dbg.warn('Error in collecting partial systems stats,',
+            'skipping current sampling point', err.stack || err);
+        throw err;
+    }
+}
+
+
+async function _partial_buckets_info(req) {
+    const buckets_stats = _.cloneDeep(PARTIAL_BUCKETS_STATS_DEFAULTS);
+    const objects_sys = {
+        count: size_utils.BigInteger.zero,
+        size: size_utils.BigInteger.zero,
+    };
+    try {
+        for (const bucket of system_store.data.buckets) {
+            if (String(bucket.system._id) !== String(req.system._id)) return;
+            const new_req = _.defaults({
+                rpc_params: { name: bucket.name, },
+            }, req);
+
+            const bucket_info = await bucket_server.read_bucket(new_req);
+
+            objects_sys.size = objects_sys.size.plus(
+                (bucket_info.storage_stats && bucket_info.storage_stats.objects_size) || 0
+            );
+            objects_sys.count = objects_sys.count.plus(bucket_info.num_objects || 0);
+
+
+            if (bucket_info.namespace) return;
+
+            buckets_stats.buckets += 1;
+            buckets_stats.objects_in_buckets += bucket_info.num_objects;
+
+            if (bucket_info.bucket_claim) {
+                buckets_stats.bucket_claims += 1;
+                buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
+            }
+
+            const OPTIMAL_MODES = [
+                'LOW_CAPACITY',
+                'HIGH_DATA_ACTIVITY',
+                'OPTIMAL',
+            ];
+            if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
+        }
+        return { buckets_stats, objects_sys };
+    } catch (err) {
+        dbg.warn('Error in collecting partial buckets stats,',
+            'skipping current sampling point', err.stack || err);
+        throw err;
+    }
+}
+
 
 var NODES_STATS_DEFAULTS = {
     count: 0,
@@ -196,7 +302,15 @@ const CLOUD_POOL_STATS_DEFAULTS = {
         amazon: 0,
         azure: 0,
         gcp: 0,
+        s3_comp: 0,
         other: 0,
+    },
+    unhealthy_cloud_pool_target: {
+        amazon_unhealthy: 0,
+        azure_unhealthy: 0,
+        gcp_unhealthy: 0,
+        s3_comp_unhealthy: 0,
+        other_unhealthy: 0,
     },
     compatible_auth_type: {
         v2: 0,
@@ -311,41 +425,71 @@ function get_object_usage_stats(req) {
         });
 }
 
-function get_cloud_pool_stats(req) {
-    return P.resolve()
-        .then(() => {
-            var cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
-            //Per each system fill out the needed info
-            _.forEach(system_store.data.pools, pool => {
-                cloud_pool_stats.pool_count += 1;
-                if (pool.cloud_pool_info) {
-                    cloud_pool_stats.cloud_pool_count += 1;
-                    switch (pool.cloud_pool_info.endpoint_type) {
-                        case 'AWS':
-                            cloud_pool_stats.cloud_pool_target.amazon += 1;
-                            break;
-                        case 'AZURE':
-                            cloud_pool_stats.cloud_pool_target.azure += 1;
-                            break;
-                        case 'GOOGLE':
-                            cloud_pool_stats.cloud_pool_target.gcp += 1;
-                            break;
-                        default:
-                            cloud_pool_stats.cloud_pool_target.other += 1;
-                            if (pool.cloud_pool_info.endpoint_type === 'S3_COMPATIBLE') {
-                                if (pool.cloud_pool_info.auth_method === 'AWS_V2') {
-                                    cloud_pool_stats.compatible_auth_type.v2 += 1;
-                                } else {
-                                    cloud_pool_stats.compatible_auth_type.v4 += 1;
-                                }
-                            }
-                            break;
-                    }
-                }
+async function get_cloud_pool_stats(req) {
+    const cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
+    const OPTIMAL_MODES = [
+        'OPTIMAL',
+        'DATA_ACTIVITY',
+        'APPROUCHING_QUOTA',
+        'RISKY_TOLERANCE',
+        'NO_RESOURCES_INTERNAL',
+        'TIER_LOW_CAPACITY',
+        'LOW_CAPACITY',
+    ];
+    //Per each system fill out the needed info
+    for (const pool of system_store.data.pools) {
+        cloud_pool_stats.pool_count += 1;
+        if (pool.cloud_pool_info) {
+            const pool_info = await server_rpc.client.pool.read_pool({ name: pool.name }, {
+                auth_token: req.auth_token
             });
+            cloud_pool_stats.cloud_pool_count += 1;
+            switch (pool.cloud_pool_info.endpoint_type) {
+                case 'AWS':
+                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.cloud_pool_target.amazon += 1;
+                    } else {
+                        cloud_pool_stats.unhealthy_cloud_pool_target.amazon_unhealthy += 1;
+                    }
+                    break;
+                case 'AZURE':
+                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.cloud_pool_target.azure += 1;
+                    } else {
+                        cloud_pool_stats.unhealthy_cloud_pool_target.azure_unhealthy += 1;
+                    }
+                    break;
+                case 'GOOGLE':
+                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.cloud_pool_target.gcp += 1;
+                    } else {
+                        cloud_pool_stats.unhealthy_cloud_pool_target.gcp_unhealthy += 1;
+                    }
+                    break;
+                case 'S3_COMPATIBLE':
+                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.cloud_pool_target.s3_comp += 1;
+                    } else {
+                        cloud_pool_stats.unhealthy_cloud_pool_target.s3_comp_unhealthy += 1;
+                    }
+                    if (pool.cloud_pool_info.auth_method === 'AWS_V2') {
+                        cloud_pool_stats.compatible_auth_type.v2 += 1;
+                    } else {
+                        cloud_pool_stats.compatible_auth_type.v4 += 1;
+                    }
+                    break;
+                default:
+                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.cloud_pool_target.other += 1;
+                    } else {
+                        cloud_pool_stats.unhealthy_cloud_pool_target.other_unhealthy += 1;
+                    }
+                    break;
+            }
+        }
+    }
 
-            return cloud_pool_stats;
-        });
+    return cloud_pool_stats;
 }
 
 function get_tier_stats(req) {
@@ -364,9 +508,7 @@ function get_tier_stats(req) {
         }));
 }
 
-//Collect operations related stats and usage
-function get_all_stats(req) {
-    //var self = this;
+async function get_all_stats(req) {
     var stats_payload = {
         systems_stats: null,
         nodes_stats: null,
@@ -378,102 +520,127 @@ function get_all_stats(req) {
         object_usage_stats: null,
     };
 
-    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
-    return P.fcall(() => {
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Systems');
-            return get_systems_stats(req);
-        })
-        .catch(err => {
-            dbg.warn('Error in collecting systems stats, skipping current stats collection', err.stack, err);
-            throw err;
-        })
-        .then(systems_stats => {
-            stats_payload.systems_stats = systems_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
-            return get_nodes_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting node stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(nodes_stats => {
-            stats_payload.nodes_stats = nodes_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Pools');
-            return get_pool_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting pool stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(pools_stats => {
-            stats_payload.pools_stats = pools_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Pool');
-            return get_cloud_pool_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting cloud pool stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(cloud_pool_stats => {
-            stats_payload.cloud_pool_stats = cloud_pool_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
-            return get_bucket_sizes_stats(req);
-        })
-        .then(bucket_sizes_stats => {
-            stats_payload.bucket_sizes_stats = bucket_sizes_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Object Usage');
-            return get_object_usage_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting node stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(object_usage_stats => {
-            stats_payload.object_usage_stats = object_usage_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
-            return get_tier_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting tier stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(tier_stats => {
-            stats_payload.tier_stats = tier_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
-            return get_ops_stats(req)
-                .catch(err => {
-                    dbg.warn('Error in collecting ops stats, skipping', err.stack, err);
-                    return {};
-                });
-        })
-        .then(ops_stats => {
-            stats_payload.ops_stats = ops_stats;
-            parse_prometheus_metrics(stats_payload);
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
-            return stats_payload;
-        })
-        .catch(err => {
-            dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err.stack);
-            throw err;
-        });
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Systems');
+        stats_payload.systems_stats = await get_systems_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting systems stats, skipping current stats collection', error.stack, error);
+        throw error;
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Pool');
+        stats_payload.cloud_pool_stats = await get_cloud_pool_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting cloud pool stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
+        stats_payload.nodes_stats = await get_nodes_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting node stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Pools');
+        stats_payload.pools_stats = await get_pool_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting pool stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
+        stats_payload.bucket_sizes_stats = get_bucket_sizes_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting bucket sizes stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Object Usage');
+        stats_payload.object_usage_stats = await get_object_usage_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting node stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
+        stats_payload.tier_stats = await get_tier_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting tier stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
+        stats_payload.ops_stats = await get_ops_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting ops stats, skipping', error.stack, error);
+    }
+
+    full_cycle_parse_prometheus_metrics(stats_payload);
+
+    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
+    return stats_payload;
 }
 
 async function get_partial_stats(req) {
     const stats_payload = {
         systems_stats: null,
+        cloud_pool_stats: null,
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
-    stats_payload.systems_stats = await get_systems_stats(req);
 
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Partial System Stats');
+        stats_payload.systems_stats = await get_partial_systems_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting partial systems stats, skipping current stats collection', error.stack, error);
+        throw error;
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Pool');
+        stats_payload.cloud_pool_stats = await get_cloud_pool_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting cloud pool stats, skipping', error.stack, error);
+    }
+
+    partial_cycle_parse_prometheus_metrics(stats_payload);
+
+    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
     return stats_payload;
 }
 
 /*
  * Prometheus Metrics Parsing, POC grade
  */
-function parse_prometheus_metrics(payload) {
+function partial_cycle_parse_prometheus_metrics(payload) {
+    const { cloud_pool_stats, systems_stats } = payload;
+    // TODO: Support multiple systems
+    const { buckets_stats, free_space, total_space, name } = systems_stats.systems[0];
+    const { buckets, objects_in_buckets, unhealthy_buckets, bucket_claims, objects_in_bucket_claims } = buckets_stats;
+    const free_bytes = size_utils.bigint_to_bytes(free_space);
+    const total_bytes = size_utils.bigint_to_bytes(total_space);
+    const capacity = 100 - Math.floor((free_bytes / total_bytes) * 100);
+
+    prom_report.instance().set_cloud_types(cloud_pool_stats);
+    prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
+    prom_report.instance().set_system_name(name);
+    prom_report.instance().set_num_buckets(buckets);
+    prom_report.instance().set_num_objects(objects_in_buckets);
+    prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
+    prom_report.instance().set_num_buckets_claims(bucket_claims);
+    prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);
+    prom_report.instance().set_system_capacity(capacity);
+}
+
+/*
+ * Prometheus Metrics Parsing, POC grade
+ */
+function full_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_cloud_types(payload.cloud_pool_stats);
+    prom_report.instance().set_unhealthy_cloud_types(payload.cloud_pool_stats);
     prom_report.instance().set_object_sizes(payload.bucket_sizes_stats);
 }
 
@@ -661,13 +828,15 @@ async function background_worker() {
     const system = system_store.data.systems[0];
     if (!system) return;
     // Shouldn't be more than but just in case
-    const is_full_cycle = (current_cycle >= FULL_STATISTICS_CYCLE);
+    const is_full_cycle = (current_cycle >= config.central_stats.full_cycle_ratio);
 
     dbg.log(`STATS_AGGREGATOR ${is_full_cycle ? 'full' : 'partial'} cycle started`);
     //Run the system statistics gatheting
 
     try {
         if (is_full_cycle) {
+            // TODO: This should be changed
+            await _perform_partial_cycle();
             await _perform_full_cycle();
             current_cycle = 0;
         } else {
@@ -718,19 +887,13 @@ async function _perform_partial_cycle() {
     const system = system_store.data.systems[0];
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
 
-    const payload = await server_rpc.client.stats.get_partial_stats({}, {
+    await server_rpc.client.stats.get_partial_stats({}, {
         auth_token: auth_server.make_auth_token({
             system_id: system._id,
             role: 'admin',
             account_id: support_account._id
         })
     });
-
-    // TODO: Should split to relevant functions with addition of metrics or logic on info gathered
-    const free_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].free_space);
-    const total_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].total_space);
-    const capacity = 100 - Math.floor((free_bytes / total_bytes) * 100);
-    prom_report.instance().set_system_capacity(capacity);
 }
 
 async function _notify_latest_version() {
@@ -815,6 +978,7 @@ exports.get_pool_stats = get_pool_stats;
 exports.get_cloud_pool_stats = get_cloud_pool_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
+exports.get_partial_systems_stats = get_partial_systems_stats;
 exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;

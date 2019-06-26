@@ -5,14 +5,18 @@ const fs = require('fs');
 const gulp = require('gulp');
 const path = require('path');
 const pathExists = require('path-exists');
-const $ = require('gulp-load-plugins')();
+const gulpRename = require('gulp-rename');
+const gulpReplace = require('gulp-replace');
+const gulpInject = require('gulp-inject-string');
+const gulpContains = require('gulp-contains');
+const gulpIf = require('gulp-if');
 
 function scaffold(src, dest, params) {
     const replaceRegExp = /\[\[(.*?)\]\]/g;
 
     return _streamToPromise(
         gulp.src(`${src}/**/*`)
-            .pipe($.rename(
+            .pipe(gulpRename(
                 path => {
                     path.basename = path.basename.replace(
                         replaceRegExp,
@@ -20,7 +24,7 @@ function scaffold(src, dest, params) {
                     );
                 }
             ))
-            .pipe($.replace(replaceRegExp, (_, m) => params[m] || m))
+            .pipe(gulpReplace(replaceRegExp, (_, m) => params[m] || m))
             .pipe(gulp.dest(dest))
     );
 }
@@ -32,16 +36,16 @@ function inject(src, tag, text, allowDuplicates) {
 
     return _streamToPromise(
         gulp.src(src)
-            .pipe($.contains({
+            .pipe(gulpContains({
                 search: text,
                 onFound: () => {
                     textFound = true;
                     return false;
                 }
             }))
-            .pipe($.if(
+            .pipe(gulpIf(
                 () => allowDuplicates || !textFound,
-                $.injectString.beforeEach(match, text)
+                gulpInject.beforeEach(match, text)
             ))
             .pipe(gulp.dest(dest))
     );
@@ -66,7 +70,6 @@ function listSubDirectiories(base) {
         file => fs.statSync(path.join(base, file)).isDirectory()
     );
 }
-
 
 function _streamToPromise(stream) {
     return new Promise(

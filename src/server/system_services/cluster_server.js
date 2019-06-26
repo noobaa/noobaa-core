@@ -24,7 +24,6 @@ const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const net_utils = require('../../util/net_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const upgrade_server = require('./upgrade_server');
 const cutils = require('../utils/clustering_utils');
@@ -401,7 +400,7 @@ function join_to_cluster(req) {
         )
         .then(verify_res => {
             if (verify_res !== 'OKAY') {
-                throw new Error('Verify join preconditions failed with result', verify_res);
+                throw new Error(`Verify join preconditions failed with result ${verify_res}`);
             }
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
@@ -551,7 +550,7 @@ function update_member_of_cluster(req) {
             req
         })))
         .then(version_check_res => {
-            if (version_check_res.result !== 'OKAY') throw new Error('Verify member version check returned', version_check_res);
+            if (version_check_res.result !== 'OKAY') throw new Error(`Verify member version check returned ${version_check_res}`);
         })
         .then(() => {
             let shard_index = -1;
@@ -816,88 +815,8 @@ async function apply_updated_time_config(req) {
     }
 }
 
-function install_vmtools(req) {
-    dbg.log0('install_vmtools called with', req.rpc_params);
-    const local_info = system_store.get_local_cluster_info(true);
-    var params = req.rpc_params;
-    var target_servers = [];
-    let audit_hostname;
-
-    // Check condition and mark the vmtools installation flag.
-    const mark_install_flag = P.resolve()
-        .then(() => {
-            if (params.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[params.target_secret];
-                if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', params.target_secret, ' was not found');
-                }
-                target_servers.push(cluster_server);
-                audit_hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
-            } else {
-                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
-            }
-
-            if (local_info.is_clusterized && !target_servers.every(server => {
-                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
-                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
-                })) {
-                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
-            }
-
-            let updates = _.map(target_servers, server => ({
-                _id: server._id,
-                vmtools_installed: true,
-            }));
-
-            return system_store.make_changes({
-                update: {
-                    clusters: updates,
-                }
-            });
-        });
-
-    // try to install and dispatch an activity after installation is complete.
-    mark_install_flag
-        .then(() => {
-            dbg.log0('calling install_vmtools for', _.map(target_servers, srv => srv.owner_address));
-            return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.apply_install_vmtools(params, {
-                    address: server_rpc.get_base_address(server.owner_address)
-                });
-            });
-        })
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.vmtools_install',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                server: {
-                    hostname: audit_hostname,
-                    secret: params.target_secret
-                },
-                desc: `VMware tools was succesfully installed`,
-            });
-        })
-        .return();
-
-    // return the success or failure of setting the installation flag.
-    return mark_install_flag
-        .return();
-}
-
-
-function apply_install_vmtools(req) {
-    dbg.log0('Recieved apply_install_vmtools req', req.rpc_params);
-    return os_utils.install_vmtools();
-}
-
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
-    if (dns_servers_config.search_domains && process.env.PLATFORM === 'azure') {
-        console.log(`search domains are not supported in azure. throwing`);
-        throw new RpcError('BAD_REQUEST', 'search domains are not supported in azure');
-    }
     var target_servers = [];
     const local_info = system_store.get_local_cluster_info(true);
     return P.fcall(function() {
@@ -926,9 +845,6 @@ function update_dns_servers(req) {
             if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
                 throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
             }
-            if (dns_servers_config.search_domains && !dns_servers_config.search_domains.every(net_utils.is_fqdn)) {
-                throw new RpcError('MALFORMED_FQDN', 'Malformed dns configuration');
-            }
             if (local_info.is_clusterized && !target_servers.every(server => {
                     let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
                     return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
@@ -937,12 +853,11 @@ function update_dns_servers(req) {
             }
             const config_to_compare = [
                 dns_servers_config.dns_servers || [],
-                dns_servers_config.search_domains || []
             ];
             // don't update servers that already have the dame configuration
             target_servers = target_servers.filter(srv => {
-                const { dns_servers = [], search_domains = [] } = srv;
-                return !_.isEqual(config_to_compare, [dns_servers, search_domains]);
+                const { dns_servers = [] } = srv;
+                return !_.isEqual(config_to_compare, [dns_servers]);
             });
             if (!target_servers.length) {
                 dbg.log0(`DNS changes are the same as current configuration. skipping`);
@@ -950,8 +865,7 @@ function update_dns_servers(req) {
             }
             let updates = _.map(target_servers, server => _.omitBy({
                 _id: server._id,
-                dns_servers: dns_servers_config.dns_servers,
-                search_domains: dns_servers_config.search_domains
+                dns_servers: dns_servers_config.dns_servers
             }, _.isUndefined));
             return system_store.make_changes({
                 update: {
@@ -983,7 +897,7 @@ function update_dns_servers(req) {
 
 function apply_updated_dns_servers(req) {
     return P.resolve()
-        .then(() => os_utils.set_dns_and_search_domains(req.rpc_params.dns_servers, req.rpc_params.search_domains))
+        .then(() => os_utils.set_dns_config(req.rpc_params.dns_servers))
         .return();
 }
 
@@ -1272,14 +1186,13 @@ function read_server_config(req) {
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
         .then(() => {
-            const { dns_servers, search_domains, ntp = {} } = srvconf;
+            const { dns_servers, ntp = {} } = srvconf;
             const { timezone, server } = ntp;
 
             return _get_aws_owner()
                 .then(owner => ({
                     using_dhcp,
                     dns_servers,
-                    search_domains,
                     timezone,
                     ntp_server: server,
                     owner,
@@ -1599,7 +1512,7 @@ function _add_new_server_to_replica_set(params) {
         .then(() => P.join(
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_and_search_domains(),
+            os_utils.get_dns_config(),
             (ntp_server, time_config, dns_config) => {
                 // insert an entry for this server in clusters collection.
                 new_topology._id = system_store.new_system_store_id();
@@ -1747,7 +1660,7 @@ function _attach_server_configuration(cluster_server) {
         return cluster_server;
     }
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(), os_utils.get_dns_and_search_domains())
+            os_utils.get_time_config(), os_utils.get_dns_config())
         .spread(function(ntp_line, time_config, dns_config) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
@@ -1759,10 +1672,6 @@ function _attach_server_configuration(cluster_server) {
 
             if (dns_config.dns_servers.length > 0) {
                 cluster_server.dns_servers = dns_config.dns_servers;
-            }
-
-            if (dns_config.search_domains.length) {
-                cluster_server.search_domains = dns_config.search_domains;
             }
 
             return cluster_server;
@@ -1815,8 +1724,6 @@ exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
 exports.update_time_config = update_time_config;
 exports.apply_updated_time_config = apply_updated_time_config;
-exports.install_vmtools = install_vmtools;
-exports.apply_install_vmtools = apply_install_vmtools;
 exports.update_dns_servers = update_dns_servers;
 exports.apply_updated_dns_servers = apply_updated_dns_servers;
 exports.set_debug_level = set_debug_level;

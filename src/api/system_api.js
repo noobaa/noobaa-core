@@ -507,21 +507,6 @@ module.exports = {
                 ssl_port: {
                     type: 'string'
                 },
-                // TODO: Should be removed by Ohad
-                web_links: {
-                    type: 'object',
-                    properties: {
-                        agent_installer: {
-                            type: 'string',
-                        },
-                        linux_agent_installer: {
-                            type: 'string',
-                        },
-                        s3rest_installer: {
-                            type: 'string',
-                        },
-                    }
-                },
                 maintenance_mode: {
                     type: 'object',
                     required: ['state'],
@@ -650,10 +635,8 @@ module.exports = {
         restriction_enum: {
             type: 'string',
             enum: [
-                "vmtools",
                 "dns_name",
                 "dns_server",
-                "search_domains",
                 "time_config",
                 "attach_server",
                 "peer_to_peer_ports",
@@ -806,12 +789,6 @@ module.exports = {
                         type: 'string'
                     },
                 },
-                search_domains: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    },
-                },
                 debug: {
                     type: 'object',
                     required: ['level'],
@@ -823,9 +800,6 @@ module.exports = {
                             type: 'integer'
                         },
                     },
-                },
-                vmtools_installed: {
-                    type: 'boolean'
                 },
                 ip_collision: {
                     type: 'array',

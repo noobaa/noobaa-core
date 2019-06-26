@@ -138,9 +138,6 @@ module.exports = {
         // to avoid shenanigans of the value returned before/after the action
         'no-plusplus': ['error', { allowForLoopAfterthoughts: true }],
 
-        // use only x|0 for int casting, but avoid other bitwise operators
-        'no-bitwise': ['error', { int32Hint: true }],
-
         'arrow-body-style': ['error', 'as-needed'],
 
         // prefer to use function decleration (function foo() {})
@@ -281,8 +278,6 @@ module.exports = {
 
         // turn off todo/fixme comments - will grep it to a different report
         'no-warning-comments': 'off',
-
-        'no-await-in-loop': 'off',
 
         // the rule object-property-newline is better than object-curly-newline
         'object-property-newline': 'off',

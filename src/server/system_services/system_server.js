@@ -80,7 +80,7 @@ async function _init() {
         try {
             await promise_utils.delay_unblocking(DEFUALT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
-                const [ system ] = system_store.data.systems;
+                const [system] = system_store.data.systems;
 
                 // Register a routing resolver to provide routing tables for incoming
                 // rpc connections.
@@ -92,8 +92,7 @@ async function _init() {
                 // using clustering_utils.check_if_master(), because waiting for system
                 // store inital load does not guarantee that the bg updated and published
                 // the indication on the system store.
-                const is_master =
-                    !cutil.check_if_clusterized() ||
+                const is_master = !cutil.check_if_clusterized() ||
                     (await MongoCtrl.is_master()).ismaster;
 
                 if (is_master) {
@@ -111,7 +110,7 @@ async function _init() {
 }
 
 function _resolve_routing(hint) {
-    const [ system ] = system_store.data.systems;
+    const [system] = system_store.data.systems;
 
     dbg.log0('system_server _resolve_routing', hint, system.system_address);
     return api.new_router_from_address_list(system.system_address, hint);
@@ -312,7 +311,7 @@ async function _get_cluster_info() {
         const [ntp_server, time_config, dns_config] = await Promise.all([
             os_utils.get_ntp(),
             os_utils.get_time_config(),
-            os_utils.get_dns_and_search_domains()
+            os_utils.get_dns_config()
         ]);
 
         if (ntp_server) {
@@ -626,7 +625,6 @@ function read_system(req) {
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,
             ssl_port: process.env.SSL_PORT,
-            web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
             dns_name: dns_name,
@@ -834,33 +832,6 @@ function remove_role(req) {
     });
 }
 
-
-function get_system_web_links(system) {
-    var reply = _.mapValues(system.resources, function(val, key) {
-        if (key === 'toObject' || !_.isString(val) || !val) {
-            return;
-        }
-        var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
-        versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
-        dbg.log1('resource link:', val, versioned_resource);
-        return '/public/' + versioned_resource;
-        // var params = {
-        //     Bucket: S3_SYSTEM_BUCKET,
-        //     Key: '/' + val,
-        //     Expires: 24 * 3600 // 1 day
-        // };
-        // if (aws_s3) {
-        //     return aws_s3.getSignedUrl('getObject', params);
-        // } else {
-        //     // workaround if we didn't setup aws credentials,
-        //     // and just try a plain unsigned url
-        //     return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
-        // }
-    });
-    // remove keys with undefined values
-    return _.omitBy(reply, _.isUndefined);
-}
-
 async function _get_agent_conf_id(req, routing_hint) {
     const { system, rpc_params } = req;
     const pool = rpc_params.pool ?
@@ -878,7 +849,7 @@ async function _get_agent_conf_id(req, routing_hint) {
         use_s3 === conf.use_s3 &&
         _.isEqual(exclude_drives, conf.exclude_drives) &&
         routing_hint === conf.routing_hint
-   );
+    );
 
     if (cfg) {
         dbg.log0(`found existing configuration with the required settings`);
@@ -1021,7 +992,6 @@ function update_phone_home_config(req) {
                 systems: [update]
             }
         }))
-        .then(() => os_utils.set_yum_proxy(req.rpc_params.proxy_address))
         .then(() => server_rpc.client.hosted_agents.stop())
         .then(() => server_rpc.client.hosted_agents.start())
         .then(() => {
@@ -1264,11 +1234,11 @@ async function _ensure_internal_structure(system_id) {
                 role: 'admin',
                 account_id: support_account._id
             })
-         });
+        });
     } catch (err) {
         throw new Error('MONGO POOL CREATION FAILURE:' + err);
     }
- }
+}
 
 // UTILS //////////////////////////////////////////////////////////
 

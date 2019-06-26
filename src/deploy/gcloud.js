@@ -428,7 +428,7 @@ function describe_instances(params, filter) {
                     console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
                     throw error;
                 } else {
-                    console.log('ERROR2:' + JSON.stringify(error) + ' ' + error.stack);
+                    console.log(`ERROR2: ${JSON.stringify(error || {})}  ${error && error.stack}`);
                 }
 
             }

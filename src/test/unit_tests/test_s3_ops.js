@@ -13,6 +13,8 @@ const assert = require('assert');
 
 const P = require('../../util/promise');
 
+const SKIP_TEST = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY;
+
 mocha.describe('s3_ops', function() {
     const AWS_TARGET_BUCKET = 's3-ops-test-bucket';
 
@@ -46,7 +48,7 @@ mocha.describe('s3_ops', function() {
                     region: 'us-east-1',
                     httpOptions: { agent: new http.Agent({ keepAlive: false }) },
                 });
-                console.log('S3 CONFIG', s3.config);
+                coretest.log('S3 CONFIG', s3.config);
             });
     });
 
@@ -77,6 +79,8 @@ mocha.describe('s3_ops', function() {
         mocha.before(async function() {
             if (bucket_type === "regular") {
                 await s3.createBucket({ Bucket: bucket_name }).promise();
+            } else if (SKIP_TEST) {
+                this.skip(); // eslint-disable-line no-invalid-this
             } else {
                 const read_resources = [RESOURCE_NAME];
                 const write_resource = RESOURCE_NAME;
@@ -112,7 +116,7 @@ mocha.describe('s3_ops', function() {
                 CopySource: `/${bucket_name}/${text_file1}`,
             }).promise();
         });
-        mocha.it('should mutli-part copy text-file', async function() {
+        mocha.it('should multi-part copy text-file', async function() {
             // eslint-disable-next-line no-invalid-this
             this.timeout(60000);
             const res1 = await s3.createMultipartUpload({
@@ -170,6 +174,10 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.Contents.length, 0);
         });
         mocha.after(async function() {
+            if (SKIP_TEST) {
+                coretest.log('No AWS credentials found in env. Skipping test');
+                this.skip(); // eslint-disable-line no-invalid-this
+            }
             if (bucket_type === "regular") {
                 await s3.deleteBucket({ Bucket: bucket_name }).promise();
             } else {

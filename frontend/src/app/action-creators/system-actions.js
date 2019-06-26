@@ -35,9 +35,6 @@ import {
     LEAVE_MAINTENANCE_MODE,
     COMPLETE_LEAVE_MAINTENANCE_MODE,
     FAIL_LEAVE_MAINTENANCE_MODE,
-    INSTALL_VM_TOOLS,
-    COMPLETE_INSTALL_VM_TOOLS,
-    FAIL_INSTALL_VM_TOOLS,
     UPDATE_P2P_SETTINGS,
     COMPLETE_UPDATE_P2P_SETTINGS,
     FAIL_UPDATE_P2P_SETTINGS,
@@ -293,21 +290,6 @@ export function completeLeaveMaintenanceMode() {
 export function failLeaveMaintenanceMode(error) {
     return {
         type: FAIL_LEAVE_MAINTENANCE_MODE,
-        payload: { error }
-    };
-}
-
-export function installVMTools() {
-    return { type: INSTALL_VM_TOOLS };
-}
-
-export function completeInstallVMTools() {
-    return { type: COMPLETE_INSTALL_VM_TOOLS };
-}
-
-export function failInstallVMTools(error) {
-    return {
-        type: FAIL_INSTALL_VM_TOOLS,
         payload: { error }
     };
 }

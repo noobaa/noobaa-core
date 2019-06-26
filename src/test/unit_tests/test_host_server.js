@@ -23,7 +23,7 @@ mocha.describe('host_server', function() {
             .then(() => rpc_client.host.list_hosts({}))
             .then(res => {
                 hosts = res.hosts;
-                console.log('length = ', hosts.length, 'HOSTS:', hosts);
+                coretest.log('length = ', hosts.length, 'HOSTS:', hosts);
                 assert(hosts.length >= 2);
             })
             .then(() => rpc_client.host.read_host({

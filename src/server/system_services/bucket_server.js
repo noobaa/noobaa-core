@@ -161,6 +161,11 @@ async function create_bucket(req) {
         };
     }
 
+    if (req.rpc_params.bucket_claim) {
+        // TODO: Should implement validity checks
+        bucket.bucket_claim = req.rpc_params.bucket_claim;
+    }
+
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -1101,7 +1106,8 @@ function get_bucket_info({
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
         tagging: bucket.tagging,
-        encryption: bucket.encryption
+        encryption: bucket.encryption,
+        bucket_claim: bucket.bucket_claim
     };
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
 

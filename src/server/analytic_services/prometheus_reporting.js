@@ -5,8 +5,109 @@ const _ = require('lodash');
 const prom_client = require('prom-client');
 const config = require('../../../config.js');
 
-//POC Only
-//Need to look at alerting as well
+function get_metric_name(name) {
+    return config.PROMETHEUS_PREFIX + name;
+}
+
+const METRIC_RECORDS = Object.freeze([{
+    metric_type: 'Gauge',
+    metric_variable: 'cloud_types',
+    configuration: {
+        name: get_metric_name('cloud_types'),
+        help: 'Cloud Resource Types in the System',
+        labelNames: ['type', 'count']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'unhealthy_cloud_types',
+    configuration: {
+        name: get_metric_name('unhealthy_cloud_types'),
+        help: 'Unhealthy Cloud Resource Types in the System',
+        labelNames: ['type', 'count']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'object_histo',
+    configuration: {
+        name: get_metric_name('object_histo'),
+        help: 'Object Sizes Histogram Across the System',
+        labelNames: ['size', 'avg', 'count']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'cloud_bandwidth',
+    configuration: {
+        name: get_metric_name('cloud_bandwidth'),
+        help: 'Cloud bandwidth usage',
+        labelNames: ['type', 'size']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'cloud_ops',
+    configuration: {
+        name: get_metric_name('cloud_ops'),
+        help: 'Cloud number of operations',
+        labelNames: ['type', 'number']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'system_capacity',
+    configuration: {
+        name: get_metric_name('system_capacity'),
+        help: 'System capacity',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'system_name',
+    configuration: {
+        name: get_metric_name('system_name'),
+        help: 'System name',
+        labelNames: ['name']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_buckets',
+    configuration: {
+        name: get_metric_name('num_buckets'),
+        help: 'Object Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_objects',
+    configuration: {
+        name: get_metric_name('num_objects'),
+        help: 'Objects',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_unhealthy_buckets',
+    configuration: {
+        name: get_metric_name('num_unhealthy_buckets'),
+        help: 'Unhealthy Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_buckets_claims',
+    configuration: {
+        name: get_metric_name('num_buckets_claims'),
+        help: 'Object Bucket Claims',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_objects_buckets_claims',
+    configuration: {
+        name: get_metric_name('num_objects_buckets_claims'),
+        help: 'Objects On Object Bucket Claims',
+    },
+    generate_default_set: true,
+}]);
+
+
 class PrometheusReporting {
     static instance() {
         PrometheusReporting._instance = PrometheusReporting._instance || new PrometheusReporting();
@@ -14,6 +115,12 @@ class PrometheusReporting {
     }
 
     constructor() {
+        METRIC_RECORDS.filter(metric => metric.generate_default_set).forEach(metric => {
+            this[`set_${metric.metric_variable}`] = function(data) {
+                if (!this.enabled()) return;
+                this._metrics[metric.metric_variable].set(data);
+            };
+        });
         this._prom_client = prom_client;
         if (this.enabled()) {
             this.define_metrics();
@@ -30,48 +137,18 @@ class PrometheusReporting {
 
     define_metrics() {
         this._metrics = {};
-        prom_client.collectDefaultMetrics({ prefix: 'noobaa_defaults_' });
+        prom_client.collectDefaultMetrics({ prefix: get_metric_name('defaults_') });
 
-        //POC grade only, need to define actual interesting metrics
         //Currently called from stats_aggregator, md_aggregator and other stats collectors are probebly as interesting to look at
-
-        //This is a gauge type metric, can be incremented/decremented and reset
-        this._metrics.cloud_types = new prom_client.Gauge({
-            name: 'noobaa_cloud_types',
-            help: 'Cloud Resource Types in the System',
-            labelNames: ['type', 'count']
-        });
-
-        this._metrics.object_histo = new prom_client.Gauge({
-            name: 'noobaa_object_histo',
-            help: 'Object Sizes Histogram Across the System',
-            labelNames: ['size', 'avg', 'count']
-        });
-
-        this._metrics.cloud_bandwidth = new prom_client.Gauge({
-            name: 'noobaa_cloud_bandwidth',
-            help: 'Cloud bandwidth usage',
-            labelNames: ['type', 'size']
-        });
-
-        this._metrics.cloud_ops = new prom_client.Gauge({
-            name: 'noobaa_cloud_ops',
-            help: 'Cloud number of operations',
-            labelNames: ['type', 'number']
-        });
-
-        this._metrics.system_capacity = new prom_client.Gauge({
-            name: 'noobaa_system_capacity',
-            help: 'System capacity',
+        METRIC_RECORDS.forEach(metric => {
+            this._metrics[metric.metric_variable] = new prom_client[metric.metric_type](metric.configuration);
         });
     }
 
     export_metrics() {
-        const exported = this._prom_client.register.getSingleMetricAsString('noobaa_cloud_types') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_object_histo') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_cloud_bandwidth') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_system_capacity') + '\n' +
-            this._prom_client.register.getSingleMetricAsString('noobaa_cloud_ops');
+        const exported = _.map(METRIC_RECORDS, metric =>
+                this._prom_client.register.getSingleMetricAsString(metric.configuration.name))
+            .join('\n');
 
         return exported;
     }
@@ -81,7 +158,19 @@ class PrometheusReporting {
         this._metrics.cloud_types.set({ type: 'AWS' }, types.cloud_pool_target.amazon);
         this._metrics.cloud_types.set({ type: 'Azure' }, types.cloud_pool_target.azure);
         this._metrics.cloud_types.set({ type: 'GCP' }, types.cloud_pool_target.gcp);
-        this._metrics.cloud_types.set({ type: 'Other' }, types.cloud_pool_target.other);
+        // TODO: Fill this up when we will know how to recognize
+        // this._metrics.cloud_types.set({ type: 'Ceph' }, types.cloud_pool_target.ceph);
+        this._metrics.cloud_types.set({ type: 'S3_Compatible' }, types.cloud_pool_target.s3_comp);
+    }
+
+    set_unhealthy_cloud_types(types) {
+        if (!this.enabled()) return;
+        this._metrics.unhealthy_cloud_types.set({ type: 'AWS' }, types.unhealthy_cloud_pool_target.amazon_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'Azure' }, types.unhealthy_cloud_pool_target.azure_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'GCP' }, types.unhealthy_cloud_pool_target.gcp_unhealthy);
+        // TODO: Fill this up when we will know how to recognize
+        // this._metrics.unhealthy_cloud_types.set({ type: 'Ceph' }, types.unhealthy_cloud_pool_target.ceph_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'S3_Compatible' }, types.unhealthy_cloud_pool_target.s3_comp_unhealthy);
     }
 
     set_object_sizes(sizes) {
@@ -107,9 +196,9 @@ class PrometheusReporting {
         this._metrics.cloud_ops.set({ type: type + '_read_ops' }, read_num);
     }
 
-    set_system_capacity(capacity_num) {
+    set_system_name(name) {
         if (!this.enabled()) return;
-        this._metrics.system_capacity.set(capacity_num);
+        this._metrics.system_name.set({ name }, 0);
     }
 
     update_cloud_bandwidth(type, write_size, read_size) {

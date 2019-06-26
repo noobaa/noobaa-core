@@ -18,9 +18,9 @@
 
 // declare names that these functions expect to have in scope
 // so that lint tools will not give warnings.
-let emit;
-let prefix;
-let delimiter;
+let emit = (key, value) => value;
+let prefix = '';
+let delimiter = '';
 
 /**
  * @this mongodb doc being mapped
@@ -141,7 +141,7 @@ const func_stats_exports = (function() {
     // the map/reduce/finalize function below and prevent lint errors.
     let step;
     let max_samples;
-    let percentiles;
+    let percentiles = [];
 
     /**
      * @this mongodb doc being mapped

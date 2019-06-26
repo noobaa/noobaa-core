@@ -462,7 +462,7 @@ class NodesMonitor extends EventEmitter {
         const hosts = req.rpc_params.hosts;
         const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
         const description = [];
-        if (!to_pool) throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
+        if (!to_pool) throw new RpcError('BAD_REQUEST', 'No such pool ' + req.rpc_params.pool_id);
         if (to_pool.cloud_pool_info) throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
 
         // get on list of all nodes to migrate
@@ -508,7 +508,7 @@ class NodesMonitor extends EventEmitter {
         const description = [];
 
         if (!to_pool) {
-            throw new RpcError('BAD_REQUEST', 'No such pool ' + to_pool._id);
+            throw new RpcError('BAD_REQUEST', 'No such pool ' + req.rpc_params.pool_id);
         }
         if (to_pool.cloud_pool_info || to_pool.mongo_pool_info) {
             throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
@@ -1148,14 +1148,6 @@ class NodesMonitor extends EventEmitter {
             return;
         }
         return P.resolve()
-            .then(() => {
-                if (item.node.permission_tempering) {
-                    if (!item.connection) return;
-                    return server_rpc.client.agent.fix_storage_permissions(undefined, {
-                        connection: item.connection,
-                    });
-                }
-            })
             .then(() => {
                 this._clear_untrusted(item);
                 return this._update_nodes_store('force');
@@ -3245,7 +3237,7 @@ class NodesMonitor extends EventEmitter {
             by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
             if (item.online) online += 1;
             let has_activity = false;
-            for (const storage_item of item.storage_nodes) {
+            for (const storage_item of item.storage_nodes || []) {
                 if (storage_item.data_activity && !storage_item.data_activity.done) {
                     has_activity = true;
                     const act = storage_item.data_activity;
@@ -3538,9 +3530,9 @@ class NodesMonitor extends EventEmitter {
         const item = this._get_node({
             rpc_address: signal_params.target
         });
-        if (!item) {
-            // TODO do the hockey pocky in the cluster like was in redirector
-        }
+        //if (!item) {
+        // TODO do the hockey pocky in the cluster like was in redirector
+        //}
         return this.client.agent.n2n_signal(signal_params, {
             connection: item.connection,
         });

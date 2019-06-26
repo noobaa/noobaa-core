@@ -1,0 +1,7 @@
+language: bash
+
+services:
+  - docker
+
+script:
+  - make test SUPPRESS_LOGS=true

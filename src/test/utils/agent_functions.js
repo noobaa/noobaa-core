@@ -227,6 +227,17 @@ async function getAgentConfInstallString(server_ip, osType, exclude_drives = [],
     }
 }
 
+async function get_agents_yaml(server_ip, port, pool, rpc_hint = 'EXTERNAL') {
+    const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:${port}`, rpc_hint);
+    const client = rpc.new_client({});
+    await client.create_auth_token(auth_params);
+    const installationString = await client.system.get_node_installation_string({
+        pool: pool,
+        exclude_drives: []
+    });
+    return installationString.KUBERNETES;
+}
+
 async function getAgentConf(server_ip, exclude_drives = [], pool = default_pool) {
     const installationString = await getAgentConfInstallString(server_ip, 'Linux', exclude_drives, pool);
     const agentConfArr = installationString.split(" ");
@@ -252,7 +263,7 @@ async function runAgentCommandViaSsh(agent_server_ip, username, password, agentC
     //becoming root and running the agent command
     console.log(`running agent command on ${agent_server_ip}`);
     const generateOSCommand = agentCommandGeneratorForOS[osType.toUpperCase()];
-    if (!generateOSCommand) throw new Error('Unknown os type: ', osType);
+    if (!generateOSCommand) throw new Error(`Unknown os type: ${osType}`);
     await ssh_functions.ssh_exec(client, generateOSCommand(agentCommand));
 }
 
@@ -547,3 +558,6 @@ exports.stopRandomAgents = stopRandomAgents;
 exports.startOfflineAgents = startOfflineAgents;
 exports.manipulateLocalDisk = manipulateLocalDisk;
 exports.getRandomOsesFromList = getRandomOsesFromList;
+
+// kuberentes functions - TODO: move to a seperate file
+exports.get_agents_yaml = get_agents_yaml;

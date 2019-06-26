@@ -9,6 +9,9 @@ logs/
 metadata_storage/
 noobaa_storage/
 heapdump-*
+.vscode/
+jsconfig.json
+.nyc_output/
 
 ## go ignored files
 /gocode/pkg

@@ -9,7 +9,7 @@
     "covdir": "coverage"
   },
   "scripts": {
-    "preinstall": "npm install node-addon-api nan",
+    "install": "echo install hook override to avoid npm default hook calling node-gyp",
     "---": "------------------------------------------------------------------",
     "build:package": "gulp package_build",
     "build:native": "node-gyp rebuild",

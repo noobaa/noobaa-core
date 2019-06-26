@@ -1,6 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_build_chunks');
+
 const _ = require('lodash');
 const fs = require('fs');
 const AWS = require('aws-sdk');
@@ -19,8 +26,17 @@ const { RPC_BUFFERS } = require('../../rpc');
 
 dotenv.load();
 
+const {
+    mgmt_ip = '127.0.0.1',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+        s3_port = '80',
+} = argv;
+
+
 let TEST_CTX = {
     ip: '127.0.0.1',
+    s3_endpoint: `http://${s3_ip}:${s3_port}/`,
     default_bucket: 'first.bucket',
     object_key: '',
     timeout: 120,
@@ -32,7 +48,7 @@ let TEST_CTX = {
 
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({
-    address: 'ws://' + TEST_CTX.ip + ':' + process.env.PORT
+    address: `ws://${mgmt_ip}:${mgmt_port}`
 });
 let n2n_agent = rpc.register_n2n_agent(client.node.n2n_signal);
 n2n_agent.set_any_rpc_address();
@@ -73,7 +89,7 @@ function upload_random_file(size_mb, bucket_name, extension, content_type) {
         .then(fname => {
             TEST_CTX.object_key = fname;
             var s3bucket = new AWS.S3({
-                endpoint: `http://${TEST_CTX.ip}:80/`,
+                endpoint: TEST_CTX.s3_endpoint,
                 credentials: {
                     accessKeyId: '123',
                     secretAccessKey: 'abc'

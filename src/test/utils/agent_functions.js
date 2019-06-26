@@ -162,7 +162,7 @@ async function createAgents(azf, server_ip, storage, vnet, exclude_drives = [], 
     }
     const agentConf = await getAgentConf(server_ip, exclude_drives);
 
-    const test_nodes_names = await getTestNodes(server_ip, oses, suffix);
+    const test_nodes_names = await getTestNodes(server_ip, suffix);
     // if (isInclude) {
     await P.map(oses, async osname => {
         try {

@@ -9,7 +9,7 @@ const af = require('../utils/agent_functions');
 const dbg = require('../../util/debug_module')(__filename);
 const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
-dbg.set_process_name('data_avilability');
+dbg.set_process_name('data_availability');
 
 //define colors
 const NC = "\x1b[0m";
@@ -201,7 +201,7 @@ async function stopAgentsAndCheckFiles() {
             await s3ops.get_file_check_md5(bucket, file);
             report.success('verify file availability');
         } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED read file`, err);
+            saveErrorAndResume(`${server_ip} FAILED read file ${err}`);
             report.fail('verify file availability');
             failures_in_test = true;
             throw err;

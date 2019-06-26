@@ -417,7 +417,7 @@ async function upload_new_randomizer() {
         file_name = randomFile.filename; /*skip version check*/
     } else {
         console.log('Uploading a new key');
-        file_name = await get_filename();
+        file_name = get_filename();
     }
     let res = {
         is_multi_part,
@@ -622,8 +622,8 @@ async function set_attribute_randomizer() {
     // setting attribute using:
     // putObjectTagging - 50%
     // copyObject - 50%
-    let useCopy = Math.floor(Math.random() * 2) === 0;
-    useCopy = true; //currently doing only copy due to bug #3228
+    // let useCopy = Math.floor(Math.random() * 2) === 0;
+    let useCopy = true; //currently doing only copy due to bug #3228
 
     const randomFile = await get_random_file();
     return {

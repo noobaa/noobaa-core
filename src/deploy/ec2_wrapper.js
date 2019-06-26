@@ -75,7 +75,6 @@ var _ec2_per_region = {};
 
 var _cached_ami_image_id;
 
-var current_s3_target = ''; // eslint-disable-line no-unused-vars
 load_aws_config_env();
 
 
@@ -855,7 +854,6 @@ function load_aws_config_env() {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         region: process.env.AWS_REGION,
     });
-    current_s3_target = 'amazon';
 }
 
 function load_demo_config_env() {
@@ -864,5 +862,4 @@ function load_demo_config_env() {
         secretAccessKey: 'abc',
         Bucket: 'first.bucket'
     });
-    current_s3_target = 'demo';
 }

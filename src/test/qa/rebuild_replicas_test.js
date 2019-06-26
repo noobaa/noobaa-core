@@ -153,7 +153,7 @@ async function uploadAndVerifyFiles(num_agents) {
             await s3ops.get_file_check_md5(bucket, file_name);
         }
     } catch (err) {
-        saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
+        saveErrorAndResume(`${server_ip} FAILED verification uploading and reading ${err}`);
         throw err;
     }
 }
@@ -164,7 +164,7 @@ async function readFiles() {
             await s3ops.get_file_check_md5(bucket, file);
         }
     } catch (err) {
-        saveErrorAndResume(`${server_ip} FAILED read file`, err);
+        saveErrorAndResume(`${server_ip} FAILED read file ${err}`);
         throw err;
     }
 }

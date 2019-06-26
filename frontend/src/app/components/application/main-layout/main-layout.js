@@ -9,12 +9,13 @@ import { realizeUri } from 'utils/browser-utils';
 import { registerForAlerts } from 'actions';
 import * as routes from 'routes';
 import routeMapping from './route-mapping';
-import { get, getMany } from 'rx-extensions';
+import { getMany } from 'rx-extensions';
 import { logo } from 'config';
 import {
     fetchSystemInfo,
     openFinalizeUpgradeModal,
-    openWelcomeModal
+    openWelcomeModal,
+    openSessionExpiredModal
 } from 'action-creators';
 
 const navItems = deepFreeze([
@@ -87,7 +88,10 @@ class MainLayoutViewModel extends Observer {
         this.isUploadButtonVisible = ko.observable(false);
 
         this.observe(
-            state$.pipe(get('location')),
+            state$.pipe(getMany(
+                'location',
+                'session'
+            )),
             this.onLocation
         );
 
@@ -104,7 +108,7 @@ class MainLayoutViewModel extends Observer {
         registerForAlerts();
     }
 
-    onLocation(location) {
+    onLocation([location, session]) {
         const { route, params, query } = location;
         const { system } = params;
         const { panel, area, crumbsGenerator } = routeMapping[route] || {};
@@ -121,6 +125,9 @@ class MainLayoutViewModel extends Observer {
 
         } else if (welcome) {
             action$.next(openWelcomeModal());
+
+        } else if (session && session.expired) {
+            action$.next(openSessionExpiredModal());
         }
 
         action$.next(fetchSystemInfo());

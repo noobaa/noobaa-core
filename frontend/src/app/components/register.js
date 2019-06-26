@@ -21,6 +21,7 @@ import createSystemForm from './login/create-system-form/create-system-form';
 import unsupportedForm from './login/unsupported-form/unsupported-form';
 import changePasswordForm from './login/change-password-form/change-password-form';
 import splashScreen from './login/splash-screen/splash-screen';
+import oauthCallback from './login/oauth-callback/oauth-callback';
 /** INJECT:login.import **/
 
 // -------------------------------
@@ -111,6 +112,7 @@ import createEmptyPoolModal from './modals/create-empty-pool-modal/create-empty-
 import regenerateAccountCredentialsModal from './modals/regenerate-account-credentials-modal/regenerate-account-credentials-modal';
 import editTierDataPlacementModal from './modals/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
 import addTierModal from './modals/add-tier-modal/add-tier-modal';
+import sessionExpiredModal from './modals/session-expired-modal/session-expired-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -390,6 +392,7 @@ export default function register(ko, services) {
         unsupportedForm,
         changePasswordForm,
         splashScreen,
+        oauthCallback,
         /** INJECT:login.list **/
 
         commandsBar,
@@ -471,6 +474,7 @@ export default function register(ko, services) {
         regenerateAccountCredentialsModal,
         editTierDataPlacementModal,
         addTierModal,
+        sessionExpiredModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

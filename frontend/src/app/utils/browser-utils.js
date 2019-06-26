@@ -175,7 +175,7 @@ export function isUri(str, inforceHttp = true) {
         //Strip whitespace
         str.replace(/^\s+|\s+$/, '')
     }`;
-    
+
     //Regex by Diego Perini from: http://mathiasbynens.be/demo/url-regex
     //Modified regex - removed the restrictions for private ip ranges
     const regExp = new RegExp(
@@ -264,4 +264,12 @@ export function readFileAsArrayBuffer(file) {
         reader.onerror = err => reject(err);
         reader.readAsArrayBuffer(file);
     });
+}
+
+export function hasSameOrigin(url) {
+    return new URL(url).origin === window.location.origin;
+}
+
+export function navigateTo(url) {
+    return window.location = url;
 }

@@ -383,10 +383,24 @@ config.PROMETHEUS_ENABLED = true;
 config.PROMETHEUS_PREFIX = 'NooBaa_';
 
 //////////////////////////////
+// OAUTH RELATES            //
+//////////////////////////////
+
+config.OAUTH_AUTHORIZATION_ENDPOINT = '/oauth/authorize';
+config.OAUTH_TOKEN_ENDPOINT = '/oauth/token';
+config.OAUTH_REDIRECT_ENDPOINT = 'fe/oauth/callback';
+config.OAUTH_REQUIRED_SCOPE = 'user:info';
+
+//////////////////////////////
 // KUBERNETES RELATES       //
 //////////////////////////////
 
 config.KUBE_APP_LABEL = 'noobaa';
+config.KUBE_SA_TOKEN_FILE = '/var/run/secrets/kubernetes.io/serviceaccount/token';
+config.KUBE_NAMESPACE_FILE = '/var/run/secrets/kubernetes.io/serviceaccount/namespace';
+config.KUBE_API_ENDPOINTS = {
+    TOKEN_REVIEW: '/apis/authentication.k8s.io/v1/tokenreviews'
+};
 
 //////////////////////////////
 // ACCOUNT PREFERENCES      //

@@ -20,7 +20,8 @@ NUM_AGENTS=3
 PV_SIZE_GB=50
 INSTALL_AGENTS=false
 STORAGE_CLASS=""
-
+NOOBAA_CONFIGMAP_NAME="noobaa-config-map"
+NOOBAA_ACCOUNT_NAME="noobaa-account"
 
 jq --version &> /dev/null
 if [ $? -ne 0 ]; then
@@ -118,15 +119,21 @@ function deploy_noobaa {
         error_and_exit "NooBaa is already deployed in the namespace '${NAMESPACE}'. delete it first or deploy in a different namespace"
     fi
 
-
     PASSWD=$(openssl rand -base64 10)
     echo -e "${GREEN}Creating NooBaa resources in namespace ${NAMESPACE}${NC}"
-    ${KUBECTL} delete secret ${CREDS_SECRET_NAME} &> /dev/null
-    ${KUBECTL} create secret generic ${CREDS_SECRET_NAME} --from-literal=name=${SYS_NAME} --from-literal=email=${EMAIL} --from-literal=password=${PASSWD}
+
+    # Pre apply actions
+    create_cred_secret
+    create_config_map
+
     # apply noobaa_core.yaml in the cluster
     ${KUBECTL} apply -f ${NOOBAA_CORE_YAML}
     echo -e "\n${GREEN}Waiting for external IPs to be allocated for NooBaa services. this might take several minutes${NC}"
     sleep 2
+
+    # Post apply actions
+    get_all_ips
+    set_oauth_redirect_uri
     print_noobaa_info
 
     # if [ "${INSTALL_AGENTS}" == "true" ]; then
@@ -134,7 +141,6 @@ function deploy_noobaa {
     # fi
 
 }
-
 
 function verify_noobaa_deployed {
     #make sure noobaa exist
@@ -179,21 +185,16 @@ function get_all_ips {
 }
 
 function print_noobaa_info {
-
-    verify_noobaa_deployed
-
-    get_all_ips
-
     # if management external ip is not found assume there is no external ip and don't try find S3
     if [ "${MGMT_IP}" == "" ]; then
-        get_access_keys 
+        get_access_keys
         echo -e "\n\n================================================================================"
         echo "Could not identify an external IP to connect from outside the cluster"
         echo "External IP is usually allocated automatically for Kubernetes clusters deployed on public cloud providers"
         echo "You can try again later to see if an external IP was allocated using '${SCRIPT_NAME} info'"
         echo
         echo "Node port based management URL: http://${NODE_PORT_MGMT_FALLBACK}"
-        echo 
+        echo
         echo
         echo "      login email             : ${EMAIL}"
         echo "      login password          : ${PASSWD}"
@@ -208,8 +209,8 @@ function print_noobaa_info {
         echo -e "================================================================================\n"
     else
         S3_IP=$(get_service_external_ip s3)
-        get_access_keys 
-        # if [[ "${NODE_PORT_MGMT_FALLBACK}" == *"mini"* ]]; then  
+        get_access_keys
+        # if [[ "${NODE_PORT_MGMT_FALLBACK}" == *"mini"* ]]; then
         #    get_access_keys ${NODE_PORT_MGMT_FALLBACK}
         # else
         #    get_access_keys ${MGMT_IP}:8080
@@ -235,7 +236,7 @@ function print_noobaa_info {
         echo -e "================================================================================\n"
         echo "Please consider logging in to the management console and changing the initial password"
     fi
-        
+
 }
 
 
@@ -243,6 +244,7 @@ function delete_noobaa {
     echo "Deleting NooBaa resources in namespace ${NAMESPACE}"
     ${KUBECTL} delete secret ${TOKEN_SECRET_NAME}
     ${KUBECTL} delete secret ${CREDS_SECRET_NAME}
+    ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME}
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
     ${KUBECTL} delete pvc datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
@@ -289,7 +291,7 @@ function get_node_port_ip_and_port {
         echo $(minikube ip):${NODE_PORT}
     elif [ "${CLUSTER_NAME}" == "minishift" ]; then
         echo  $(minishift ip):${NODE_PORT}
-    else 
+    else
        echo ${HOST_NAME}:${NODE_PORT}
     fi
 }
@@ -321,7 +323,7 @@ function get_auth_token {
     PASSWD=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.password}' | base64 --decode;printf "\n")
     SYS_NAME=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.name}' | base64 --decode;printf "\n")
     TOKEN=$(${KUBECTL} get secret ${CREDS_SECRET_NAME} -o jsonpath='{.data.token}' | base64 --decode;printf "\n")
-    if [ "${TOKEN}" == "" ]; then 
+    if [ "${TOKEN}" == "" ]; then
         local MAX_RETRIES=50
         local RETRIES=0
         # repeat until access_keys are returned
@@ -378,13 +380,40 @@ function get_access_keys {
     done
 }
 
-case ${COMMAND} in 
+function create_cred_secret {
+    ${KUBECTL} delete secret ${CREDS_SECRET_NAME} &> /dev/null
+    ${KUBECTL} create secret generic ${CREDS_SECRET_NAME} \
+        --from-literal=name=${SYS_NAME} \
+        --from-literal=email=${EMAIL} \
+        --from-literal=password=${PASSWD}
+}
+
+function create_config_map {
+    local OAUTH_SERVICE_HOST=$(${KUBECTL} get route openshift-authentication -n openshift-authentication -o jsonpath='{.spec.host}')
+    ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME} &> /dev/null
+    ${KUBECTL} create configmap ${NOOBAA_CONFIGMAP_NAME} \
+        --from-literal=oauth_service_host=${OAUTH_SERVICE_HOST}
+}
+
+function set_oauth_redirect_uri {
+    local OAUTH_ANNOTATION_KEY=serviceaccounts.openshift.io/oauth-redirecturi.nbconsole
+    local OAUTH_REDIRECT_URI=https://${MGMT_IP}:8443/fe/oauth/callback
+    ${KUBECTL} annotate serviceaccount ${NOOBAA_ACCOUNT_NAME} ${OAUTH_ANNOTATION_KEY}=${OAUTH_REDIRECT_URI}
+}
+
+function get_info {
+    echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
+    verify_noobaa_deployed
+    get_all_ips
+    print_noobaa_info
+}
+
+case ${COMMAND} in
     NONE)       usage;;
     DEPLOY)     deploy_noobaa;;
     DELETE)     delete_noobaa;;
     STORAGE)    install_storage_agents;;
-    INFO)       echo -e "${GREEN}Collecting NooBaa services information. this might take some time${NC}"
-                print_noobaa_info;;
+    INFO)       get_info;;
     *)          usage;;
 esac
 

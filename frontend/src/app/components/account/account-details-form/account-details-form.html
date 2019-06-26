@@ -7,6 +7,7 @@
 
     <div ko.tooltip="button.tooltip">
         <button class="btn"
+            ko.visible="button.isVisible"
             ko.disable="button.isDisabled"
             ko.click="onChangeOrResetPassword"
         >

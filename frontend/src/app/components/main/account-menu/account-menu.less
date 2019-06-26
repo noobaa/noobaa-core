@@ -10,8 +10,8 @@ account-menu {
         height: 60px;
 
         > .user-email {
-            min-width: 100px;
-            max-width: 150px;
+            min-width: 140px;
+            max-width: 140px;
         }
     }
 
@@ -36,13 +36,19 @@ account-menu {
             all: unset;
             box-sizing: border-box;
             width: 100%;
-            padding:  0 @gutter;
-            line-height: 44px;
+            padding:  2/3*@gutter @gutter;
+            vertical-align: middle;
             display: block;
             border: none;
             background: none;
 
-            &:hover {
+            &.disabled {
+                cursor: default;
+                color: rgb(var(--color11));
+                opacity: .5;
+            }
+
+            &:not(.disabled):hover {
                 background-color: rgb(var(--color15));
             }
         }

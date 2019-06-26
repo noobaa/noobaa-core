@@ -8,6 +8,9 @@ import { sessionInfo, serverInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
 import { loadServerInfo } from 'actions';
 import { isUndefined } from 'utils/core-utils';
+import { requestLocation } from 'action-creators';
+import { action$ } from 'state';
+import * as routes from 'routes';
 
 class LoginLayoutViewModel extends BaseViewModel {
     constructor() {
@@ -30,9 +33,18 @@ class LoginLayoutViewModel extends BaseViewModel {
                     if (isUndefined(session)) {
                         return 'splash-screen';
 
-                    } else if (!session) {
-                        return 'signin-form';
+                    } else if (location.pathname === routes.oauthCallback) {
+                        return 'oauth-callback';
 
+                    } else if (!session) {
+                        // Specific params to force login screen (to allow login using local users)
+                        const skipOAuth = new URLSearchParams(location.search).get('skip-oauth');
+                        if (serverInfo().supportOAuth && skipOAuth == null) {
+                            this.signInWithOAuth();
+                            return 'splash-screen';
+                        }
+
+                        return 'signin-form';
                     } else if (session.passwordExpired) {
                         return 'change-password-form';
 
@@ -49,6 +61,12 @@ class LoginLayoutViewModel extends BaseViewModel {
         if (!serverInfo()) {
             loadServerInfo();
         }
+    }
+
+    signInWithOAuth() {
+        const { pathname } = window.location;
+        const url = `/oauth/authorize?return-url=${encodeURIComponent(pathname)}`;
+        action$.next(requestLocation(url));
     }
 }
 

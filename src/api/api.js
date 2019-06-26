@@ -104,6 +104,12 @@ class APIClient {
             });
     }
 
+    async create_k8s_auth(params) {
+        const res = await this.auth.create_k8s_auth(params);
+        this.options.auth_token = res.token;
+        return res;
+    }
+
 }
 
 function new_router_from_base_address(base_address) {
@@ -121,11 +127,11 @@ function new_router_from_base_address(base_address) {
 
 function new_router_from_address_list(address_list, hint) {
     return {
-        default: get_base_address(address_list, hint, 'mgmt').toString(),
-        md: get_base_address(address_list, hint, 'md').toString(),
-        bg: get_base_address(address_list, hint, 'bg').toString(),
-        hosted_agents: get_base_address(address_list, hint, 'hosted_agents').toString(),
-        master: get_base_address(address_list, hint, 'mgmt').toString()
+        default: get_base_address(address_list, { hint, api: 'mgmt' }).toString(),
+        md: get_base_address(address_list, { hint, api: 'md' }).toString(),
+        bg: get_base_address(address_list, { hint, api: 'bg' }).toString(),
+        hosted_agents: get_base_address(address_list, { hint, api: 'hosted_agents' }).toString(),
+        master: get_base_address(address_list, { hint, api: 'mgmt' }).toString()
     };
 }
 

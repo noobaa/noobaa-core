@@ -315,6 +315,13 @@ function should_reject_unauthorized(endpoint, proxy) {
     }
 }
 
+function make_http_request(options, body, body_encoding) {
+    return new Promise((resolve, reject) => {
+        https.request(options, resolve)
+            .on('error', reject)
+            .end(body, body_encoding);
+    });
+}
 
 
 exports.parse_url_query = parse_url_query;
@@ -328,3 +335,4 @@ exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;
 exports.get_unsecured_http_agent = get_unsecured_http_agent;
 exports.should_reject_unauthorized = should_reject_unauthorized;
+exports.make_http_request = make_http_request;

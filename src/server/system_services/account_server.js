@@ -11,9 +11,11 @@ const _ = require('lodash');
 const net = require('net');
 const url = require('url');
 const AWS = require('aws-sdk');
+const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
+const SensetiveString = require('../../util/sensitive_string');
 
 const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
@@ -174,7 +176,30 @@ function create_account(req) {
         });
 }
 
+function create_external_user_account(req) {
+    const {
+        HOST: hostPools = [],
+        CLOUD: cloudResource = [],
+        INTERNAL: internalStorage = []
+    } = _.groupBy(system_store.data.pools, pool => pool.resource_type);
 
+    const default_pool =
+        cloudResource[0] ||
+        hostPools[0] ||
+        internalStorage[0];
+
+    Object.assign(req.rpc_params, {
+        password: new SensetiveString(chance.string({ length: 16 })),
+        must_change_password: false,
+        has_login: true,
+        s3_access: true,
+        allowed_buckets: { full_permission: true },
+        allow_bucket_creation: true,
+        default_pool: default_pool.name
+    });
+
+    return create_account(req);
+}
 
 /**
  *
@@ -1188,6 +1213,7 @@ function _list_connection_usage(account, credentials) {
 
 // EXPORTS
 exports.create_account = create_account;
+exports.create_external_user_account = create_external_user_account;
 exports.read_account = read_account;
 exports.update_account = update_account;
 exports.reset_password = reset_password;

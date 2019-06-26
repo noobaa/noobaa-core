@@ -34,6 +34,13 @@ module.exports = {
                             'should be permitted to delegate such authorization (e.g. admin).',
                         $ref: 'common_api#/definitions/password',
                     },
+                    authorized_by: {
+                        type: 'string',
+                        enum: [
+                            'noobaa',
+                            'oauth'
+                        ]
+                    },
                     system: {
                         type: 'string',
                     },
@@ -50,6 +57,36 @@ module.exports = {
                         doc: 'Number of seconds before the authentication expires',
                     },
                 },
+            },
+            reply: {
+                type: 'object',
+                required: ['token', 'info'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                    info: {
+                        $ref: '#/definitions/auth_info'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
+
+        create_k8s_auth: {
+            doc: 'Authenticate a k8s account using an OAuth grant code and return an access token.',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['grant_code'],
+                properties: {
+                    grant_code: {
+                        type: 'string'
+                    }
+                }
             },
             reply: {
                 type: 'object',
@@ -153,6 +190,13 @@ module.exports = {
                             type: 'string',
                         },
                     }
+                },
+                authorized_by: {
+                    type: 'string',
+                    enum: [
+                        'noobaa',
+                        'k8s'
+                    ]
                 },
                 role: {
                     type: 'string',

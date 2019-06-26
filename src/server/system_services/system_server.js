@@ -891,7 +891,7 @@ function _get_base64_install_conf(address, routing_hint, system, create_node_tok
 async function _get_install_conf(req, hint) {
     const conf_id = await _get_agent_conf_id(req, hint);
     const create_node_token = _get_create_node_token(req.system._id, req.account._id, conf_id);
-    const addr = addr_utils.get_base_address(req.system.system_address, hint);
+    const addr = addr_utils.get_base_address(req.system.system_address, { hint });
     const install_conf = _get_base64_install_conf(addr.toString(), hint, req.system.name, create_node_token);
     return install_conf;
 }

@@ -6,14 +6,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const ip_module = require('ip');
 
-
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const net_utils = require('../../util/net_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const signature_utils = require('../../util/signature_utils');
-
+const server_rpc = require('../server_rpc');
+const SensitiveString = require('../../util/sensitive_string');
+const oauth_utils = require('../../util/oauth_utils');
+const addr_utils = require('../../util/addr_utils');
+const kube_utils = require('../../util/kube_utils');
 
 /**
  *
@@ -130,22 +133,149 @@ function create_auth(req) {
                 }
             }
 
-            let token = make_auth_token({
+            const token = make_auth_token({
                 account_id: target_account._id,
                 system_id: system && system._id,
                 role: role_name,
                 extra: req.rpc_params.extra,
             });
 
-            let info = _get_auth_info(target_account, system, role_name, req.rpc_params.extra);
+            const info = _get_auth_info(
+                target_account,
+                system,
+                'noobaa',
+                role_name,
+                req.rpc_params.extra
+            );
 
-            return {
-                token: token,
-                info: info
-            };
+            return { token, info };
         });
 }
 
+/**
+ *
+ * CREATE_K8S_AUTH
+ *
+ * authenticate a user using a k8s OAuth server then match that
+ * user with a equivalent NooBaa user (or create a new one if one does not exists)
+ * and return an authorized token for that user.
+  *
+ */
+async function create_k8s_auth(req) {
+    const { grant_code } = req.rpc_params;
+
+    // Curretly I have no means to get the system name in the FE witout an email and password.
+    // So i default to the first (and currently only system)
+    let system = system_store.data.systems[0];
+    if (!system || system.deleted) {
+        throw new RpcError('UNAUTHORIZED', 'system not found');
+    }
+
+    const {
+        KUBERNETES_SERVICE_HOST,
+        KUBERNETES_SERVICE_PORT,
+        OAUTH_SERVICE_HOST,
+        DEV_MODE,
+        HTTPS_PORT = 5443
+    } = process.env;
+
+    if (!KUBERNETES_SERVICE_HOST || !KUBERNETES_SERVICE_PORT) {
+        throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is supported only on kubernetes deployments');
+    }
+
+    if (!OAUTH_SERVICE_HOST) {
+        throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is not supported');
+    }
+
+    let redirect_host;
+    if (DEV_MODE === 'true') {
+        redirect_host = `https://localhost:${HTTPS_PORT}`;
+
+    } else {
+        const { system_address } = system;
+        redirect_host = addr_utils.get_base_address(system_address, {
+            hint: 'EXTERNAL',
+            protocol: 'https'
+        }).toString();
+    }
+
+    const sa_token = await kube_utils.read_sa_token(unauthorized_error);
+    const kube_namespace = await kube_utils.read_namespace(unauthorized_error);
+    const oauth_client = `system:serviceaccount:${kube_namespace}:noobaa-account`;
+    const { access_token, expires_in } = await oauth_utils.trade_grant_code_for_access_token(
+        OAUTH_SERVICE_HOST,
+        oauth_client,
+        sa_token,
+        redirect_host,
+        grant_code,
+        unauthorized_error
+    );
+
+    const token_review = await oauth_utils.review_token(
+        KUBERNETES_SERVICE_HOST,
+        KUBERNETES_SERVICE_PORT,
+        sa_token,
+        access_token,
+        unauthorized_error
+    );
+
+    const { username } = token_review.status.user;
+    const user_info = {
+        name: new SensitiveString(username),
+        email: new SensitiveString(username),
+    };
+
+    let account = system_store.get_account_by_email(user_info.email);
+    if (!account) {
+        const owner_token = make_auth_token({
+            account_id: system.owner._id,
+            system_id: system._id,
+            role: 'admin',
+        });
+
+        await server_rpc.client.account.create_external_user_account(
+            user_info,
+            { auth_token: owner_token }
+        );
+        account = system_store.get_account_by_email(user_info.email);
+    }
+
+
+    // For some reason in the case of a new account the account role cannot be found
+    // using system.roles_by_account so I search for it directly on the roles collection.
+    const is_admin = system_store.data.roles.some(r =>
+        String(r.system._id) === String(system._id) &&
+        String(r.account._id) === String(account._id) &&
+        r.role === 'admin'
+    );
+
+    if (!is_admin) {
+        throw new RpcError('UNAUTHORIZED', 'account does not have an admin role');
+    }
+
+    const authorized_by = 'k8s';
+    const token = make_auth_token({
+        account_id: account._id,
+        system_id: system._id,
+        expiry: Math.floor(expires_in * 1000),
+        role: 'admin',
+        authorized_by
+    });
+
+    const info = _get_auth_info(
+        account,
+        system,
+        authorized_by,
+        'admin',
+        req.rpc_params.extra
+    );
+
+    return { token, info };
+}
+
+function unauthorized_error(reason) {
+    return new RpcError('UNAUTHORIZED', reason);
+}
 
 /**
  *
@@ -256,7 +386,13 @@ function read_auth(req) {
         return {};
     }
 
-    return _get_auth_info(req.account, req.system, req.auth.role, req.auth.extra);
+    return _get_auth_info(
+        req.account,
+        req.system,
+        req.auth.authorized_by,
+        req.auth.role,
+        req.auth.extra
+    );
 }
 
 
@@ -285,8 +421,9 @@ function authorize(req) {
 
 
 function _authorize_jwt_token(req) {
+    const { JWT_SECRET } = process.env;
     try {
-        req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+        req.auth = jwt.verify(req.auth_token, JWT_SECRET);
     } catch (err) {
         dbg.error('AUTH JWT VERIFY FAILED', req, err);
         throw new RpcError('UNAUTHORIZED', 'verify auth failed');
@@ -455,11 +592,8 @@ function _prepare_auth_request(req) {
 
 }
 
-function _get_auth_info(account, system, role, extra) {
-    let response = {
-        role: role,
-        extra: extra
-    };
+function _get_auth_info(account, system, authorized_by, role, extra) {
+    const response = { authorized_by, role, extra };
 
     if (account) {
         response.account = _.pick(account, 'name', 'email');
@@ -504,6 +638,7 @@ function has_bucket_permission(bucket, account) {
  */
 function make_auth_token(options) {
     var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
+    auth.authorized_by = options.authorized_by || 'noobaa';
 
     // don't incude keys if value is falsy, to minimize the token size
     auth = _.omitBy(auth, value => !value);
@@ -521,6 +656,7 @@ function make_auth_token(options) {
 // EXPORTS
 exports.create_auth = create_auth;
 exports.read_auth = read_auth;
+exports.create_k8s_auth = create_k8s_auth;
 exports.create_access_key_auth = create_access_key_auth;
 // authorize is exported to be used as an express middleware
 // it reads and prepares the authorized info on the request (req.auth).

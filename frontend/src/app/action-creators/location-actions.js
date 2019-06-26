@@ -23,4 +23,3 @@ export function changeLocation(location) {
         payload: location
     };
 }
-

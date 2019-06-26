@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 
-const root = '/fe';
-
+export const root               = '/fe';
 export const asset              = `${root}/assets/:asset`;
+export const oauthCallback      = `${root}/oauth/callback`;
 export const system             = `${root}/systems/:system`;
 export const buckets            = `${root}/systems/:system/buckets/:tab?`;
 export const bucket             = `${root}/systems/:system/buckets/data-buckets/:bucket/:tab?/:section?`;

@@ -53,18 +53,15 @@ util.inspect.defaultOptions.breakLength = Infinity;
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example rotating file steam usage or console wrapping
-var processType; // eslint-disable-line no-unused-vars
 const rfs = _should_log_to_file() && require("rotating-file-stream");
 var syslog;
 var console_wrapper;
 if (typeof process !== 'undefined' &&
     process.versions &&
     process.versions['atom-shell']) { //atom shell
-    processType = "atom";
     console_wrapper = require('./console_wrapper');
 } else if (global.document) {
     //browser
-    processType = "browser";
 } else {
     // node
 
@@ -83,8 +80,6 @@ if (typeof process !== 'undefined' &&
         syslog = nb_native().syslog;
     }
 
-
-    processType = "node";
     console_wrapper = require('./console_wrapper');
 }
 

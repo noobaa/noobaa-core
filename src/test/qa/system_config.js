@@ -252,7 +252,7 @@ async function set_NTP_And_check() {
         if (new_time < old_time + (2 * 60)) {
             console.log('New time has moved back to correct time', new Date(new_time * 1000), '- as should');
         } else {
-            saveErrorAndResume('New time is more than 2 minutes away from the correct time', new Date(new_time * 1000), '- failure!!!');
+            saveErrorAndResume(`New time is more than 2 minutes away from the correct time ${new Date(new_time * 1000)} - failure!!!`);
             throw new Error('Test NTP Failed');
         }
     } catch (e) {

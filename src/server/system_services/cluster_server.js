@@ -125,7 +125,7 @@ function pre_add_member_to_cluster(req) {
         .then(() => _check_candidate_version(req))
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') {
-                throw new Error('Verify join version check returned', version_check_res);
+                throw new Error(`Verify join version check returned ${version_check_res}`);
             }
         })
         .then(() => server_rpc.client.cluster_internal.verify_join_conditions({

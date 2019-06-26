@@ -123,7 +123,7 @@ async function createBucketWithEnabledSpillover() {
         if (list_buckets.includes(bucket)) {
             console.log('Bucket is successfully added');
         } else {
-            saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list`, list_buckets);
+            saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list ${list_buckets}`);
         }
         const internalpool = await bf.getInternalStoragePool(server_ip);
         await bf.setSpillover(bucket, internalpool);
@@ -148,7 +148,7 @@ async function uploadFiles(dataset_size, files) {
             await s3ops.upload_file_with_md5(bucket, file_name, file_size, parts_num, data_multiplier);
             await P.delay(1 * 1000);
         } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED uploading files `, err);
+            saveErrorAndResume(`${server_ip} FAILED uploading files ${err}`);
             throw err;
         }
     }
@@ -448,7 +448,7 @@ async function check_quota() {
     await bf.setQuotaBucket(bucket, 1, 'GIGABYTE');
     // Start writing and see that we are failing when we get into the quota
     await uploadFiles(1024, pool_files);
-    await wait_no_avilabe_space(bucket);
+    await wait_no_avilabe_space();
     await test_failed_upload(1024);
     for (const file of pool_files) {
         await checkFileInPool(file, healthy_pool);
@@ -465,7 +465,7 @@ async function check_quota_on_spillover() {
     await bf.setQuotaBucket(bucket, quota, 'GIGABYTE');
     // Start writing
     await uploadFiles(uploadSizeMB, pool_files);
-    await wait_no_avilabe_space(bucket);
+    await wait_no_avilabe_space();
     await test_failed_upload(1024);
     for (const file of pool_files) {
         await checkFileInPool(file, healthy_pool);

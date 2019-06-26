@@ -358,15 +358,13 @@ function wait_on_agents_upgrade(ip) {
         });
 }
 
-function calc_md5(path) {
-    var hash = crypto.createHash('md5');
-    var stream = fs.createReadStream(path);
-
-    stream.on('data', function(data) {
-        hash.update(data, 'utf8');
-    });
-
-    stream.on('end', function() {
-        return P.resolve(hash.digest('hex'));
+async function calc_md5(path) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('md5');
+        fs.createReadStream(path)
+            .on('error', reject)
+            .pipe(hash)
+            .on('error', reject)
+            .on('finish', () => resolve(hash.digest('hex')));
     });
 }

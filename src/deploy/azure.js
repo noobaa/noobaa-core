@@ -349,7 +349,7 @@ function _runAgent() {
                     .then(() => console.log(`Finished deleting ${machine}`))
                     .catch(err => console.log('got error on deleteVirtualMachine', err)));
             } else { //Add Agents
-                const agentsPlan = agents_plan_builder(addAgents, (allimages ? 'ALL' : os), prefix, current_vms.length);
+                const agentsPlan = agents_plan_builder(addAgents, (allimages ? 'ALL' : os), prefix);
                 return P.map(agentsPlan, machine => {
                     console.log(`Provisioning ${util.inspect(machine)}`);
                     return P.resolve()

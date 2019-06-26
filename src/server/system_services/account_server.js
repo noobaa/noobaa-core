@@ -355,8 +355,7 @@ function update_account_s3_access(req) {
                     if (req.rpc_params.allowed_buckets.full_permission) {
                         desc_string.push(`permissions were changed to full`);
                     } else {
-                        const new_allowed_buckets = (req.rpc_params.allowed_buckets &&
-                            req.rpc_params.allowed_buckets.permission_list) || [];
+                        const new_allowed_buckets = (req.rpc_params.allowed_buckets.permission_list) || [];
                         added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
                         removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
                     }

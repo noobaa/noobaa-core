@@ -538,9 +538,8 @@ class Agent {
             throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
 
-        if (req.connection.url.protocol !== 'n2n:') {
-            dbg.error('AGENT API auth requires n2n connection',
-                req.connection && req.connection.connid);
+        if (req.connection && req.connection.url && req.connection.url.protocol !== 'n2n:') {
+            dbg.error('AGENT API auth requires n2n connection', req.connection.connid);
             // close the connection but after sending the error response, for supportability of the caller
             setTimeout(() => req.connection.close(), 1000);
             throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');

@@ -174,7 +174,7 @@ async function uploadAndVerifyFiles() {
             await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
             await s3ops.get_file_check_md5(bucket, file_name);
         } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED verification uploading and reading `, err);
+            saveErrorAndResume(`${server_ip} FAILED verification uploading and reading ${err}`);
             failures_in_test = true;
             throw err;
         }
@@ -186,7 +186,7 @@ async function clean_up_dataset() {
     try {
         await s3ops.delete_all_objects_in_bucket(bucket, true);
     } catch (err) {
-        console.error(`Errors during deleting `, err);
+        console.error(`Errors during deleting ${err}`);
     }
 }
 

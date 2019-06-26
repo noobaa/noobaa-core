@@ -336,7 +336,7 @@ async function _test_and_upgrade_in_background(cinfo, upgrade_path, req) {
 
         await Dispatcher.instance().publish_fe_notifications({}, 'change_upgrade_status');
 
-        await _handle_upgrade_stage({ secondary_members, upgrade_path });
+        _handle_upgrade_stage({ secondary_members, upgrade_path });
 
     } catch (err) {
         dbg.error('Got error when running upgrade in background', err);

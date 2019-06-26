@@ -1,6 +1,13 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
+const argv = require('minimist')(process.argv);
+const dbg = require('../../util/debug_module')(__filename);
+if (argv.log_file) {
+    dbg.set_log_to_file(argv.log_file);
+}
+dbg.set_process_name('test_node_failure');
+
 let _ = require('lodash');
 let P = require('../../util/promise');
 let api = require('../../api');
@@ -13,6 +20,14 @@ dotenv.load();
 
 let suffix = uuid().split('-')[0];
 
+const {
+    mgmt_ip = '127.0.0.1',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+} = argv;
+
+
+
 let TEST_CTX = {
     num_of_agents: 10,
     bucket: 'test-bucket-' + suffix,
@@ -24,8 +39,8 @@ let TEST_CTX = {
 };
 
 
-let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
-let client = rpc.new_client({});
+let rpc = api.new_rpc_from_base_address(`ws://${mgmt_ip}:${mgmt_port}`, 'INTERNAL'); //'ws://' + argv.ip + ':8080');
+let client = rpc.new_client();
 
 module.exports = {
     run_test: run_test
@@ -116,14 +131,14 @@ function create_test_bucket() {
             data_placement: 'SPREAD'
         })
         .then(() => client.tiering_policy.create_policy({
-                name: 'tiering-' + TEST_CTX.bucket,
-                tiers: [{
-                    order: 0,
-                    tier: 'tier-' + TEST_CTX.bucket,
-                    spillover: false,
-                    disabled: false
-                }]
-            }))
+            name: 'tiering-' + TEST_CTX.bucket,
+            tiers: [{
+                order: 0,
+                tier: 'tier-' + TEST_CTX.bucket,
+                spillover: false,
+                disabled: false
+            }]
+        }))
         .then(() => client.bucket.create_bucket({
             name: TEST_CTX.bucket,
             tiering: 'tiering-' + TEST_CTX.bucket,
@@ -145,7 +160,7 @@ function upload_file() {
         .then(file => {
             console.log(`uploading file ${file} to bucket ${TEST_CTX.bucket}`);
             TEST_CTX.key = file;
-            return ops.upload_file('127.0.0.1', file, TEST_CTX.bucket, file);
+            return ops.upload_file(s3_ip, file, TEST_CTX.bucket, file);
         });
 }
 

@@ -9,7 +9,8 @@ WORKDIR /noobaa-core/
 #####################################################################
 COPY ./package*.json ./
 RUN source /opt/rh/devtoolset-7/enable && \
-    npm install
+    npm install && \
+    npm prune
 RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
 
 ##############################################################
@@ -33,11 +34,13 @@ RUN source /opt/rh/devtoolset-7/enable && \
 ##############################################################
 COPY ./frontend/package*.json ./frontend/
 RUN cd frontend && \
-    npm install
+    npm install && \
+    npm prune
 COPY ./frontend/gulpfile.js ./frontend/
 COPY ./frontend/bower.json ./frontend/
 RUN cd frontend && \
-    npm run install-deps
+    npm run install-deps && \
+    npm prune
 
 COPY ./frontend/ ./frontend/
 COPY ./images/ ./images/
@@ -45,6 +48,7 @@ COPY ./src/rpc/ ./src/rpc/
 COPY ./src/api/ ./src/api/
 COPY ./src/util/ ./src/util/
 COPY ./config.js ./
+
 RUN source /opt/rh/devtoolset-7/enable && \
     npm run build:fe
 
@@ -75,10 +79,15 @@ ENV TEST_CONTAINER true
 #   Cache: rebuild when we adding/removing requirments
 ##############################################################
 RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
+
+# git python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel -- these are required by ceph tests
 RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y -q rh-mongodb36 && \
+    yum install -y git python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
     yum clean all
 
+
+# install kubectl
 RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
     curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
     chmod +x ./kubectl && \
@@ -110,6 +119,12 @@ RUN export PATH=$PATH:/usr/local/bin && \
 
 COPY --from=base /noobaa-core /noobaa-core
 WORKDIR /noobaa-core/
+
+# get ceph tests and run bootstrap
+RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
+
+# set group as root and copy permissions for tests dir 
+RUN chgrp -R 0 /noobaa-core/src/test && chmod -R g=u /noobaa-core/src/test
 ##############################################################
 # Layers:
 #   Title: Setting some test env variables
@@ -133,4 +148,5 @@ RUN mkdir -p /data/ && \
     echo "AWS_SECRET_ACCESS_KEY=$aws_secret_access_key_arg" >> /data/.env && \
     echo "AZURE_STORAGE_CONNECTION_STRING=$azure_storage_arg" >> /data/.env 
 
+USER 10001:0
 CMD ["./src/test/unit_tests/run_npm_test_on_test_container.sh"]

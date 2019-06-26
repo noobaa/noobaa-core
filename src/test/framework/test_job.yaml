@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: noobaa-test-env
+spec:
+  template:
+    spec:
+      serviceAccount: noobaa-tests-account
+      containers:
+      - name: noobaa-test
+        image: dannyzaken/noobaa-tester:4
+        imagePullPolicy: Always
+        workingDir: /noobaa-core
+        args:
+        - node
+        - ./src/test/framework/test_env_builder_kubernetes.js
+        - --server_image
+        - dannyzaken/noobaa-server:4
+        - --agent_image
+        - dannyzaken/noobaa-agent:4
+        - --namespace_prefix 
+        - sys-test
+        - --tests_list
+        - /noobaa-core/src/test/framework/system_tests_list.js
+        env:
+          - name: CONTAINER_PLATFORM
+            value: KUBERNETES
+      restartPolicy: Never
+  backoffLimit: 0

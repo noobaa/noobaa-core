@@ -126,7 +126,7 @@ spec:
             tcpSocket:
               port: 6001
             timeoutSeconds: 5
-          image: noobaa/noobaa-core:4.0.0
+          image: noobaa/noobaa-core:4.0.1
           imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/

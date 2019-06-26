@@ -526,8 +526,6 @@ async function main() {
         } else {
             await server_ops.clean_ova_and_create_system(server_ip, secret);
             await set_rpc_and_create_auth_token();
-            system_info = await client.system.read_system({});
-            secret = system_info.cluster.shards[0].servers[0].secret;
         }
         await set_DNS_And_check();
         await set_NTP_And_check();

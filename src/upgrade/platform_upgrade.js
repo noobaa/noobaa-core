@@ -391,7 +391,7 @@ async function update_node_version() {
         dbg.warn('UPGRADE: failed getting node versions. abort', err);
         throw err;
     }
-
+    //TODO: remove: we no longer have nvm/node in /build/public (we should probably remove the whole function/file...)
     await exec(`cp -f ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/`);
     dbg.log0('UPGRADE: pre_upgrade: Copied nvm.sh');
     await exec(`chmod 777 ~/.nvm/nvm.sh`);

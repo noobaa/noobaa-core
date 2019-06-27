@@ -1,4 +1,8 @@
+#!/bin/bash
+
+mkdir -p /noobaa-core/src/test/system_tests/
 cd /noobaa-core/src/test/system_tests/
+
 DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"
 # using a fixed version (commit) of ceph tests to avoid sudden changes. 
@@ -10,8 +14,4 @@ if [ ! -d $DIRECTORY ]; then
     cd ${DIRECTORY}
     git checkout ${CEPH_TESTS_VERSION}
     echo "Finished Downloading Ceph S3 Tests"
-    echo "Running Bootstrap..."
-    ./bootstrap
-    touch ./s3tests/tests/__init__.py
-    echo "Finished Running Bootstrap..."
 fi

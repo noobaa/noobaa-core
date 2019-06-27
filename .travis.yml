@@ -1,7 +1,12 @@
+env:
+  - TEST_SUITE=test
+  - TEST_SUITE=server
+  - TEST_SUITE=agent
+
 language: bash
 
 services:
   - docker
 
 script:
-  - make test SUPPRESS_LOGS=true
+  - make ${TEST_SUITE} SUPPRESS_LOGS=true

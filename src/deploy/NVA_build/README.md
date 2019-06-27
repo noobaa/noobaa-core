@@ -84,3 +84,5 @@ noobaa-core/deploy/NVA_build
   3. run on the target machine:
 
      ./src/deploy/NVA_BUILD/upgrade from_file /tmp/noobaa-NVA.tar.gz
+
+     test

@@ -17,30 +17,19 @@
         >
             Version
         </a>
-        <a ko.css.selected="selectedTab.eq('advanced-options')"
-            ko.attr.href="tabHref('advanced-options')"
-        >
-            Advanced Options
-        </a>
     </nav>
 
     <div class="tabs-row">
         <section class="tab"
             ko.css.selected="selectedTab.eq('settings')"
         >
-            <server-time-form class="pad"></server-time-form>
-            <hr />
-<!--             <system-address-form class="pad"></system-address-form>
-            <hr /> -->
-            <server-dns-settings-form class="pad"></server-dns-settings-form>
-            <hr />
-            <proxy-server-form class="pad"></proxy-server-form>
-            <hr />
-            <remote-syslog-form class="pad"></remote-syslog-form>
+            <maintenance-form class="pad"></maintenance-form>
             <hr />
             <server-ssl-form class="pad"
                 params="isCollapsed: sectionToggle('server-ssl')">
             </server-ssl-form>
+<!--             <hr />
+             <p2p-form class="pad"></p2p-form> -->
         </section>
 
         <diagnostics-form class="tab"
@@ -50,13 +39,5 @@
         <version-form class="tab"
             ko.css.selected="selectedTab.eq('version')"
         ></version-form>
-
-        <section class="tab"
-            ko.css.selected="selectedTab.eq('advanced-options')"
-        >
-            <maintenance-form class="pad"></maintenance-form>
-            <hr />
-            <p2p-form class="pad"></p2p-form>
-        </section>
     </div>
 </div>

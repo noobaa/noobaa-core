@@ -16,10 +16,7 @@ const issuesToTabs = deepFreeze({
     version: 'monitoring',
     dnsNameResolution: 'monitoring',
     dnsServers: 'monitoring',
-    proxy: 'monitoring',
     phonehome: 'monitoring',
-    ntp: 'monitoring',
-    remoteSyslog: 'monitoring',
     minRequirements: 'details'
 });
 

@@ -37,15 +37,15 @@ function _getBubblesForDataTypes(buckets) {
     const bubbles = {};
     for (const { statsByDataType } of buckets) {
         for (const [dataType, stats] of Object.entries(statsByDataType)) {
-            let bubble = bubbles[dataType];
-            if (!bubble) {
-                bubble = bubbles[dataType] = {
+            if (!bubbles[dataType]) {
+                bubbles[dataType] = {
                     label: dataType,
                     x: stats.reads,
                     y: stats.writes,
                     r: toBytes(stats.size)
                 };
             } else {
+                const bubble = bubbles[dataType];
                 bubble.x += stats.reads;
                 bubble.y += stats.writes;
                 bubble.r += toBytes(stats.size);

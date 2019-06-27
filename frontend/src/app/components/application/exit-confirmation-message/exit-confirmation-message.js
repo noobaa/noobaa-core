@@ -2,30 +2,22 @@
 
 import template from './exit-confirmation-message.html';
 import ConnectableViewModel from 'components/connectable';
-import { get } from 'utils/core-utils';
 import ko from 'knockout';
 
 class ExitConfirmationMessageViewModel extends ConnectableViewModel {
     showMessage = false;
 
     selectState(state) {
-        const { objectUploads, topology } = state;
+        const { objectUploads } = state;
 
         return [
-            Boolean(objectUploads && objectUploads.stats.uploading),
-            topology && topology.servers
+            Boolean(objectUploads && objectUploads.stats.uploading)
         ];
     }
 
-    mapStateToProps(uploadingObjects, servers = {}) {
-        const uploadingUpgradePackage = Object.values(servers)
-            .some(server => {
-                const pkgState = get(server, ['upgrade', 'package', 'state'], 'NO_PACKAGE');
-                return pkgState === 'UPLOADING';
-            });
-
+    mapStateToProps(uploadingObjects) {
         ko.assignToProps(this, {
-            showMessage: uploadingObjects || uploadingUpgradePackage
+            showMessage: uploadingObjects
         });
     }
 

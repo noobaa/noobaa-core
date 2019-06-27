@@ -3,7 +3,6 @@
 import * as model from 'model';
 import { api } from 'services';
 import config from 'config';
-import * as routes from 'routes';
 import { last, makeArray } from 'utils/core-utils';
 import { sleep, execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, toFormData } from 'utils/browser-utils';
@@ -42,20 +41,11 @@ export function redirectTo(route = model.routeContext().pathname, params = {}, q
     action$.next(requestLocation(uri, true));
 }
 
-export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
-    logAction('reloadTo', { route, params, query });
-
-    // Force full browser refresh
-    window.location.href = realizeUri(
-        route, Object.assign({}, model.routeContext().params, params), query
-    );
-}
-
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
-export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
-    logAction('loadServerInfo', { testPhonehomeConnectvity, phonehomeProxy });
+export async function loadServerInfo(testPhonehomeConnectvity) {
+    logAction('loadServerInfo', { testPhonehomeConnectvity });
 
     const { serverInfo } = model;
     serverInfo(null);
@@ -84,8 +74,7 @@ export async function loadServerInfo(testPhonehomeConnectvity, phonehomeProxy) {
 
     } else {
         const config = await api.cluster_server.read_server_config({
-            test_ph_connectivity: testPhonehomeConnectvity,
-            ph_proxy: phonehomeProxy
+            test_ph_connectivity: testPhonehomeConnectvity
         });
 
         serverInfo({
@@ -321,25 +310,6 @@ export function abortNodeTest() {
             state: 'ABORTING'
         });
     }
-}
-
-export function updateHostname(hostname) {
-    logAction('updateHostname', { hostname });
-
-    api.system.update_hostname({ hostname })
-        // The system changed it's name, reload the page using the new IP/Name
-        .then(
-            () => {
-                const { protocol, port } = window.location;
-                const baseAddress = `${protocol}//${hostname}:${port}`;
-
-                reloadTo(
-                    `${baseAddress}${routes.management}`,
-                    { tab: 'settings' }
-                );
-            }
-        )
-        .done();
 }
 
 // TODO: Notificaitons - remove message

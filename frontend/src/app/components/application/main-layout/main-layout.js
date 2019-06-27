@@ -13,7 +13,6 @@ import { getMany } from 'rx-extensions';
 import { logo } from 'config';
 import {
     fetchSystemInfo,
-    openFinalizeUpgradeModal,
     openWelcomeModal,
     openSessionExpiredModal
 } from 'action-creators';
@@ -119,11 +118,8 @@ class MainLayoutViewModel extends Observer {
         this.area(area);
         this.panel(panel ? `${panel}-panel` : 'empty');
 
-        const { afterupgrade, welcome } = query;
-        if (afterupgrade) {
-            action$.next(openFinalizeUpgradeModal());
-
-        } else if (welcome) {
+        const { welcome } = query;
+        if (welcome) {
             action$.next(openWelcomeModal());
 
         } else if (session && session.expired) {

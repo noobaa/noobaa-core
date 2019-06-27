@@ -421,16 +421,6 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_UPDATE_REMOTE_SYSLOG]: ({ enabled }) => ({
-        message: `Remote syslog has been ${enabled ? 'enabled' : 'disabled'}`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_UPDATE_REMOTE_SYSLOG]: ({ enabled }) => ({
-        message: `${ enabled ? 'Enabling' : 'Disabling'} remote syslog failed`,
-        severity: 'error'
-    }),
-
     [types.CREATE_LAMBDA_FUNC]: ({ codeBufferSize }) => {
         if (codeBufferSize < largeUploadSizeThreshold) {
             return;
@@ -553,36 +543,8 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.UPDATE_PROXY_SERVER_SETTINGS]: () => ({
-        message: 'Applying new proxy server configuration, it may take a few seconds',
-        severity: 'info'
-    }),
-
-    [types.COMPLETE_UPDATE_PROXY_SERVER_SETTINGS]: () => ({
-        message: 'Proxy settings updated successfully',
-        severity: 'success'
-    }),
-
-    [types.FAIL_UPDATE_PROXY_SERVER_SETTINGS]: ({ error }) => {
-        const message = error.rpc_code === 'CONNECTIVITY_TEST_FAILED' ?
-            'External services could not be reached using configured proxy' :
-            'Updating Proxy settings failed';
-
-        return { message, severity: 'error' };
-    },
-
     [types.FAIL_SET_SYSTEM_DEBUG_LEVEL]: ({ level }) => ({
         message: `Setting system debug level to ${level} failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_UPDATE_SERVER_DNS_SETTINGS]: ({ hostname }) => ({
-        message: `${hostname} DNS settings updated successfully`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_UPDATE_SERVER_DNS_SETTINGS]: ({ hostname }) => ({
-        message: `Updating ${hostname} DNS setting failed`,
         severity: 'error'
     }),
 
@@ -593,16 +555,6 @@ const actionToNotification = deepFreeze({
 
     [types.FAIL_UPDATE_SERVER_DETAILS]: ({ hostname }) => ({
         message: `Updating ${hostname} details failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_UPDATE_SERVER_TIME_SETTINGS]: ({ hostname }) => ({
-        message: `${hostname} time settings updated successfully`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_UPDATE_SERVER_TIME_SETTINGS]: ({ hostname }) => ({
-        message: `Updating ${hostname} time settings failed`,
         severity: 'error'
     })
 });

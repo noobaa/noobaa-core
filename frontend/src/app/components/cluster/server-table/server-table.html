@@ -1,12 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
 <section class="row pad card-shadow content-middle">
-    <div class="greedy push-next">
-        <input type="search"
-            placeholder="Filter by name, IP or tag"
-            ko.textInput="ko.pc(filter, onFilterThrottled)"
-        />
-    </div>
+    <h2 class="heading3 greedy push-next">Server Details</h2>
     <div ko.tooltip="attachServerTooltip">
         <button class="btn align-end"
             ko.click="onAttachServerToCluster"
@@ -23,4 +18,13 @@
     sorting: ko.pc(sorting, onSort, $component),
     loading: !dataReady(),
     emptyMessage: 'The current filter does not match any server'
-"></data-table>
+">
+    <tempalte name="usage">
+        <div class="column usage-cell content-middle" ko.tooltip="tooltip">
+            <progress-bar class="push-next-quarter"
+                params="progress: ratio"
+            ></progress-bar>
+            <span class="remark">{{percentage}} Usage</span>
+        </div>
+    </tempalte>
+</data-table>

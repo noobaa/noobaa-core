@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { pick } from 'utils/core-utils';
 import {
     COMPLETE_FETCH_SYSTEM_INFO,
     FETCH_VERSION_RELEASE_NOTES,
@@ -36,9 +35,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         sslPort: Number(payload.ssl_port),
         sslCert: payload.has_ssl_cert ? {} : undefined,
         upgrade: _mapUpgrade(payload),
-        remoteSyslog: _mapRemoteSyslog(payload),
         p2pSettings: _mapP2PSettings(payload),
-        proxyServer: _mapProxyServer(payload),
         phoneHome:_mapPhoneHome(payload),
         debug: _mapDebug(payload, timestamp),
         maintenanceMode: _mapMaintenanceMode(payload, timestamp),
@@ -134,22 +131,14 @@ function onFailCollectSystemDiagnostics(state) {
 // Local util functions
 // ------------------------------
 function _mapUpgrade(payload) {
-    const { last_upgrade, can_upload_upgrade_package } = payload.upgrade;
+    const { last_upgrade } = payload.upgrade;
 
     return {
         lastUpgrade: last_upgrade && {
             time:last_upgrade.timestamp,
             initiator: last_upgrade.last_initiator_email
-        },
-        preconditionFailure: can_upload_upgrade_package
+        }
     };
-}
-
-function _mapRemoteSyslog(payload) {
-    const config = payload.remote_syslog_config;
-    if (!config) return;
-
-    return pick(config, ['protocol', 'address', 'port']);
 }
 
 function _mapP2PSettings(payload) {
@@ -159,19 +148,6 @@ function _mapP2PSettings(payload) {
             start: min || port || 1,
             end: max || port || 1
         }
-    };
-}
-
-function _mapProxyServer(payload) {
-    const { proxy_address } = payload.phone_home_config;
-    if (!proxy_address) {
-        return;
-    }
-
-    const url = new URL(proxy_address);
-    return {
-        endpoint: url.hostname,
-        port: Number(url.port) || 80
     };
 }
 

@@ -286,37 +286,6 @@ export function openTestNodeModal(nodeRpcAddress) {
     };
 }
 
-export function openEditServerDNSSettingsModal(serverSecret) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-server-dns-settings-modal',
-                params: { serverSecret }
-            },
-            options: {
-                title: 'Edit Server DNS Settings',
-                size: 'medium'
-            }
-        }
-    };
-}
-
-export function openEditServerTimeSettingsModal(serverSecret) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-server-time-settings-modal',
-                params: { serverSecret }
-            },
-            options: {
-                title: 'Edit Server Time Settings'
-            }
-        }
-    };
-}
-
 export function openEditAccountS3AccessModal(accountName) {
     return {
         type: OPEN_MODAL,
@@ -360,23 +329,6 @@ export function openAssignHostsModal(targetPool) {
             options: {
                 size: 'auto-height',
                 title: 'Assign Nodes'
-            }
-        }
-    };
-}
-
-export function openUpdateSystemNameModal(name) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'update-system-name-modal',
-                params: { name }
-            },
-            options: {
-                size: 'xsmall',
-                title: 'Updating System Name',
-                severity: 'info'
             }
         }
     };
@@ -627,19 +579,6 @@ export function openWelcomeModal() {
     };
 }
 
-export function openUpgradeSystemModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'upgrade-system-modal',
-            options: {
-                title: 'System Upgrade Preview',
-                size: 'medium'
-            }
-        }
-    };
-}
-
 export function openAttachServerModal() {
     return {
         type: OPEN_MODAL,
@@ -648,89 +587,6 @@ export function openAttachServerModal() {
             options: {
                 title: 'Attach New Server',
                 size: 'medium'
-            }
-        }
-    };
-}
-
-export function openPreUpgradeSystemFailedModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'pre-upgrade-system-failed-modal',
-            options: {
-                severity: 'error',
-                title: 'System Upgrade Failed',
-                size: 'small'
-            }
-        }
-    };
-}
-
-export function openUpgradeSystemFailedModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'upgrade-system-failed-modal',
-            options: {
-                severity: 'error',
-                title: 'System Upgrade Failed',
-                size: 'xsmall'
-            }
-        }
-    };
-}
-
-export function openFinalizeUpgradeModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'finalize-upgrade-modal',
-            options: {
-                size: 'xsmall',
-                backdropClose: false
-            }
-        }
-    };
-}
-
-export function openAfterUpgradeModal(version, user, upgradeInitiator, redirectUrl) {
-    const title = user === upgradeInitiator ?
-        'Upgrade was Successful' :
-        'System was Upgraded by Admin';
-
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'after-upgrade-modal',
-                params: { version, user, upgradeInitiator, redirectUrl }
-            },
-            options: {
-                title: title,
-                size: 'xsmall',
-                severity: 'success',
-                backdropClose: false,
-                closeButton: 'hidden'
-            }
-        }
-    };
-}
-
-export function openAfterUpgradeFailureModal(redirectUrl) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'after-upgrade-failure-modal',
-                params: { redirectUrl }
-            },
-            options: {
-                title: 'System Upgrade Failed',
-                size: 'xsmall',
-                severity: 'error',
-                backdropClose: false,
-                closeButton: 'hidden'
             }
         }
     };
@@ -1026,6 +882,22 @@ export function openSessionExpiredModal() {
                 severity: 'info',
                 closeButton: 'hidden',
                 backdropClose: false
+            }
+        }
+    };
+}
+
+export function openDeployK8SPoolModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'deploy-k8s-pool-modal',
+                params: { }
+            },
+            options: {
+                title: 'Deploy Kubernetes Pool',
+                size: 'medium'
             }
         }
     };

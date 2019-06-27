@@ -106,10 +106,6 @@ class AttachServerModalViewModel extends ConnectableViewModel {
                 errors.address = 'Server hold uploaded files';
                 break;
             }
-            case 'NO_NTP_SET': {
-                errors.address = 'Please configure NTP on the target server before attaching';
-                break;
-            }
 
             case 'CONNECTION_TIMEOUT_ORIGIN': {
                 errors.address = 'Firewall might be blocking master connectivity to new server';

@@ -53,14 +53,6 @@ export default {
                             type: 'string'
                         }
                     }
-                },
-                preconditionFailure:  {
-                    type: 'string',
-                    enum: [
-                        'NOT_ALL_MEMBERS_UP',
-                        'NOT_ENOUGH_SPACE',
-                        'VERSION_MISMATCH'
-                    ]
                 }
             }
         },
@@ -81,25 +73,6 @@ export default {
                     text: {
                         type: 'string'
                     }
-                }
-            }
-        },
-        remoteSyslog: {
-            type: 'object',
-            required: [
-                'protocol',
-                'address',
-                'port'
-            ],
-            properties: {
-                protocol: {
-                    type: 'string'
-                },
-                address: {
-                    type: 'string'
-                },
-                port: {
-                    $ref: '#/def/common/port'
                 }
             }
         },
@@ -134,21 +107,6 @@ export default {
             properties: {
                 reachable: {
                     type: 'boolean'
-                }
-            }
-        },
-        proxyServer: {
-            type: 'object',
-            required: [
-                'endpoint',
-                'port'
-            ],
-            properties: {
-                endpoint: {
-                    type: 'string'
-                },
-                port: {
-                    $ref: '#/def/common/port'
                 }
             }
         },

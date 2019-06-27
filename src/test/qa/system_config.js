@@ -67,8 +67,6 @@ const cases = [
     'set_NTP',
     'set_Proxy',
     'disable_Proxy',
-    'TCP_Remote_Syslog',
-    'UDP_Remote_Syslog',
     'set_maintenance_mode',
     'update_n2n_config_single_port',
     'update_n2n_config_range',
@@ -353,118 +351,6 @@ async function set_Phonehome_and_check() {
     }
 }
 
-async function check_defined_syslog(expected_protocol, rsyslog_port) {
-    const system_info = await client.system.read_system({});
-    const address = system_info.remote_syslog_config.address;
-    const protocol = system_info.remote_syslog_config.protocol;
-    const port = system_info.remote_syslog_config.port;
-    if (address === lg_ip && protocol === expected_protocol && port === rsyslog_port) {
-        console.log(`The defined syslog is ${address}: ${port} - as should`);
-    } else {
-        saveErrorAndResume(`The defined syslog is ${address}: ${port}, expected ${lg_ip}: ${rsyslog_port}`);
-        throw new Error(`Test ${expected_protocol}_Remote_Syslog Failed`);
-    }
-}
-
-async function check_syslog_status(protocol) {
-    console.log('Waiting on Read system to verify Rsyslog status');
-    const base_time = Date.now();
-    let remote_status;
-    while (Date.now() - base_time < 65 * 1000) {
-        try {
-            const system_info = await client.system.read_system({});
-            remote_status = system_info.cluster.shards[0].servers[0].services_status.remote_syslog;
-            if (remote_status) break;
-        } catch (e) {
-            console.log('waiting for read systme, will sleep for 15 seconds');
-            await P.delay(15 * 1000);
-        }
-    }
-    const syslog_status = remote_status.cluster.shards[0].servers[0].services_status.remote_syslog.status;
-    if (syslog_status === 'OPERATIONAL') {
-        console.log('The service monitor see the syslog status as OPERATIONAL - as should');
-    } else {
-        saveErrorAndResume(`The service monitor see the syslog status as ${syslog_status}`);
-        throw new Error(`Test ${protocol}_Remote_Syslog Failed`);
-    }
-}
-
-async function set_remote_syslog_protocol_and_check(protocol, address, port, secret) {
-    console.log(`Setting ${protocol} Remote Syslog`);
-    try {
-        await client.system.configure_remote_syslog({
-            enabled: true,
-            address,
-            protocol,
-            port
-        });
-        await createServerAndWaitForMessage(protocol, port, 60 * 1000, secret);
-        console.log(`Just received ${protocol} rsyslog message - as should`);
-    } catch (e) {
-        console.error(e);
-        saveErrorAndResume(`Didn't receive ${protocol} rsyslog message for 1 minute`);
-        throw new Error(`Test ${protocol}_Remote_Syslog Failed`);
-    }
-}
-
-function createServerAndWaitForMessage(protocol, port, timeout = 0, secret) {
-    return new P((resolve, reject) => {
-        let server = null;
-        if (protocol === 'TCP') {
-            server = net.createServer(c => {
-                c.on('data', resolve);
-                c.on('error', err => {
-                    server.close();
-                    reject(err);
-                });
-                c.on('end', () => reject(new Error('Server ended before message')));
-            });
-
-            server.listen(port);
-        } else if (protocol === 'UDP') {
-            server = dgram.createSocket('udp4');
-            server.on('message', resolve);
-            server.on('error', err => {
-                server.close();
-                reject(err);
-            });
-            server.on('end', () => reject(new Error('Server ended before message')));
-            server.bind(port);
-
-        } else {
-            reject(new Error('Unknown protocol'));
-        }
-
-        if (timeout > 0) {
-            setTimeout(() => {
-                server.close();
-                reject(new Error('Timeout'));
-            }, timeout);
-        }
-
-        // Using it in order to create an event for the rsyslog to send
-        client.cluster_server.update_server_conf({
-                target_secret: secret,
-                location: 'SlothLand'
-            })
-            .catch(console.error);
-    });
-}
-
-async function remote_syslog(protocol, secret) {
-    try {
-        const port = protocol === 'TCP' ? tcp_rsyslog_port : udp_rsyslog_port;
-        console.log(`port: ${port}`);
-        await set_remote_syslog_protocol_and_check(protocol, lg_ip, port, secret);
-        await check_defined_syslog(protocol, port);
-        await check_syslog_status(protocol);
-        await report.success(`${protocol}_Remote_Syslog`);
-    } catch (e) {
-        //failures_in_test = true;  //TODO: fix the fail and remove the remark
-        await report.fail(`${protocol}_Remote_Syslog`);
-    }
-}
-
 async function check_maintenance_mode(expected_mode) {
     const system_info = await client.system.read_system({});
     const is_mode_off = system_info.maintenance_mode.state;
@@ -640,14 +526,10 @@ async function main() {
         } else {
             await server_ops.clean_ova_and_create_system(server_ip, secret);
             await set_rpc_and_create_auth_token();
-            system_info = await client.system.read_system({});
-            secret = system_info.cluster.shards[0].servers[0].secret;
         }
         await set_DNS_And_check();
         await set_NTP_And_check();
         await set_Phonehome_and_check();
-        await remote_syslog('TCP', secret);
-        await remote_syslog('UDP', secret);
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();

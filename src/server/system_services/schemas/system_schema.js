@@ -103,22 +103,6 @@ module.exports = {
             },
         },
 
-        //Remote syslog configuration
-        remote_syslog_config: {
-            type: 'object',
-            properties: {
-                protocol: {
-                    type: 'string'
-                },
-                address: {
-                    type: 'string'
-                },
-                port: {
-                    type: 'number'
-                }
-            }
-        },
-
         bg_workers_info: {
             type: 'object',
             properties: {

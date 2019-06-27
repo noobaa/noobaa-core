@@ -363,7 +363,7 @@ function create_access_key_auth(req) {
     }
 
     var token = make_auth_token({
-        system_id: system && system._id,
+        system_id: system._id,
         account_id: account._id,
         role: 'admin',
         s3_auth: auth_extra,

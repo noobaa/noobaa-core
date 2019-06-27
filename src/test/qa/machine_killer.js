@@ -9,7 +9,6 @@ const argv = require('minimist')(process.argv);
 // var google = require('googleapis');
 
 var AzureFunctions = require('../../deploy/azureFunctions');
-var GcloudFunctions = require('../../deploy/gcloudFunctions');
 
 var vm_prefix = argv.prefix || 'agent-';
 var zone = argv.zone || 'eastus';
@@ -32,11 +31,7 @@ var secret = process.env.APPLICATION_SECRET;
 var subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 
 var funcs = null;
-if (service === 'gcloud') {
-    funcs = new GcloudFunctions(account_email, account_key, project, zone);
-} else {
-    funcs = new AzureFunctions(clientId, domain, secret, subscriptionId, project, zone);
-}
+funcs = new AzureFunctions(clientId, domain, secret, subscriptionId, project, zone);
 
 // var authClient = new google.auth.JWT(
 //     account_email, account_key, null, ['https://www.googleapis.com/auth/compute']);

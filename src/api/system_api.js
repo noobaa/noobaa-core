@@ -324,32 +324,6 @@ module.exports = {
             }
         },
 
-        configure_remote_syslog: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['enabled'],
-                properties: {
-                    enabled: {
-                        type: 'boolean'
-                    },
-                    protocol: {
-                        type: 'string',
-                        enum: ['TCP', 'UDP']
-                    },
-                    address: {
-                        type: 'string'
-                    },
-                    port: {
-                        type: 'number'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         attempt_server_resolve: {
             doc: 'Attempt to resolve a server name + ping',
             method: 'POST',
@@ -540,21 +514,6 @@ module.exports = {
                         },
                     }
                 },
-                remote_syslog_config: {
-                    type: 'object',
-                    properties: {
-                        protocol: {
-                            type: 'string',
-                            enum: ['TCP', 'UDP']
-                        },
-                        address: {
-                            type: 'string'
-                        },
-                        port: {
-                            type: 'number'
-                        }
-                    }
-                },
                 ip_address: {
                     type: 'string'
                 },
@@ -642,7 +601,6 @@ module.exports = {
                 "peer_to_peer_ports",
                 "server_details",
                 "cluster_connectivity_ip",
-                "remote_syslog",
                 "toggle_endpoint_agent"
             ],
         },
@@ -890,9 +848,6 @@ module.exports = {
                 },
                 ntp_server: {
                     $ref: '#/definitions/service_status_enum'
-                },
-                remote_syslog: {
-                    $ref: '#/definitions/service_dated_status'
                 },
                 cluster_communication: {
                     type: 'object',

@@ -282,8 +282,8 @@ class BlockStoreClient {
                     // in case the structure is not as expected throw generic error
                     err = new Error(`Unkown error on _delegate_read_block_s3. statusCode=${res.statusCode} statusMessage=${res.statusMessage}`);
                 } else {
-                    err = new Error(xml_obj.Error.Message[0]);
-                    err.code = xml_obj.Error.Code[0];
+                    err = new Error(xml_obj.Error && xml_obj.Error.Message[0]);
+                    err.code = xml_obj.Error && xml_obj.Error.Code[0];
                 }
                 err.statusCode = res.statusCode;
                 err.raw_error = res.body.toString();

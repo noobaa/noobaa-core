@@ -33,7 +33,6 @@ const EXECUTABLE_MOD_VAL = 511;
 const CONFIGURATION = {
     SETUP_FILENAME: 'noobaa-setup',
     MD5_FILENAME: 'noobaa-setup.md5',
-    UNINSTALL_FILENAME: 'uninstall_noobaa_agent.sh',
     PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
     NUM_UPGRADE_WARNINGS: 18,
@@ -43,9 +42,7 @@ const CONFIGURATION = {
 
 CONFIGURATION.SETUP_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.SETUP_FILENAME);
 CONFIGURATION.MD5_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.MD5_FILENAME);
-CONFIGURATION.UNINSTALL_FILE = CONFIGURATION.PROCESS_DIR + '/' + CONFIGURATION.UNINSTALL_FILENAME;
 CONFIGURATION.INSTALLATION_COMMAND = `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
-CONFIGURATION.UNINSTALL_COMMAND = `setsid ${CONFIGURATION.UNINSTALL_FILE} >> /dev/null`;
 
 process.chdir(path.join(__dirname, '..', '..'));
 CONFIGURATION.BACKUP_DIR = path.join(process.cwd(), `backup`);
@@ -198,11 +195,6 @@ async function main() {
             case 'DUPLICATE':
                 dbg.log0('Duplicate token. calling agent_cli with --duplicate flag');
                 await promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
-                break;
-            case 'UNINSTALL':
-                //TODO: maybe move handling of duplicate\notfound to agent_wrapper instead of calling agent_cli with a flag
-                dbg.log0('Agent to be uninstalled');
-                await promise_utils.exec(CONFIGURATION.UNINSTALL_COMMAND);
                 break;
             case 'NOTFOUND':
                 dbg.log0('Agent not found. calling agent_cli with --notfound flag');

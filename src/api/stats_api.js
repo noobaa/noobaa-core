@@ -250,9 +250,6 @@ module.exports = {
                                     proxy: {
                                         type: 'boolean'
                                     },
-                                    remote_syslog: {
-                                        type: 'boolean'
-                                    },
                                 }
                             }
                         }

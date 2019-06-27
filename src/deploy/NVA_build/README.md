@@ -47,18 +47,6 @@ noobaa-core/deploy/NVA_build
   create_vm is a script which automates this procedure. However, there are currently issues with
   the network after the initial import from the CentOS so it's not functional yet.
 
-- NVA description:
-  Our NVA is a CentOS based machine running the following components: Web Server, STUN/TURN, REST, MongoDB.
-  It does not contain the entire repo, just the extracted package created by the gulp target package_build
-  (for example, the agent code is not there). It does contain all the files needed to run these services, the agent
-  distribution pack and the package.json for dependency installation.
-
-  The services are being run and monitored by the supervisord mechanism (look at /data/noobaa_supervisor.conf for the definitions).
-  A crontab job which runs one a day between 00:00 to 03:00 checks against the NooBaa SaaS web server if the current version
-  installed is the latest one. If not, it receives a reply with a URL to an S3 bucket in which the upgrade package can be found.
-  It then downloads it, unpacks it and restart the services. Currently this is done automatically, in the future we would need to
-  consider giving an offline upgrade and scheduled time frames upgrades options.
-
 * ###UpgradePack_Build Upgrade package building and publishing:
 
   General Flow: SnapCI -> EC2 Building Server -> Upload to S3
@@ -77,10 +65,4 @@ noobaa-core/deploy/NVA_build
   and post (after new code extraction) commands to run during the upgrade flow.
 
 
-  UPGRADE
 
-  1. gulp package_build --on_premise
-  2. scp src/deploy/NVA_build/ and build/public/noobaa-NVA.tar.gz to root@machine:/tmp
-  3. run on the target machine:
-
-     ./src/deploy/NVA_BUILD/upgrade from_file /tmp/noobaa-NVA.tar.gz

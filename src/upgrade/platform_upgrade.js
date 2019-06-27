@@ -699,17 +699,6 @@ async function upgrade_mongodb_schemas(params) {
     let UPGRADE_SCRIPTS = [];
     if (params.should_upgrade_schemas) {
         UPGRADE_SCRIPTS = [
-            { file: 'mongo_upgrade_2_1_3.js', version: [2, 1, 3] },
-            { file: 'mongo_upgrade_2_3_0.js', version: [2, 3, 0] },
-            { file: 'mongo_upgrade_2_3_1.js', version: [2, 3, 1] },
-            { file: 'mongo_upgrade_2_6_0.js', version: [2, 6, 0] },
-            { file: 'mongo_upgrade_2_7_3.js', version: [2, 7, 3] },
-            { file: 'mongo_upgrade_2_8_0.js', version: [2, 8, 0] },
-            { file: 'mongo_upgrade_2_8_2.js', version: [2, 8, 2] },
-            { file: 'mongo_upgrade_2_9_0.js', version: [2, 9, 0] },
-            { file: 'mongo_upgrade_2_10_0.js', version: [2, 10, 0] },
-            { file: 'mongo_upgrade_2_10_1.js', version: [2, 10, 1] },
-            { file: 'mongo_upgrade_2_11_0.js', version: [2, 11, 0] },
             { file: 'mongo_upgrade_mark_completed.js' }
         ];
     } else {

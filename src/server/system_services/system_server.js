@@ -629,7 +629,6 @@ function read_system(req) {
             ip_address: ip_address,
             dns_name: dns_name,
             base_address: base_address.toString(),
-            remote_syslog_config: system.remote_syslog_config,
             phone_home_config: phone_home_config,
             version: pkg.version,
             node_version: process.version,
@@ -1006,47 +1005,6 @@ function update_phone_home_config(req) {
         .return();
 }
 
-function configure_remote_syslog(req) {
-    let params = req.rpc_params;
-    dbg.log0('configure_remote_syslog', params);
-
-    let update = {
-        _id: req.system._id
-    };
-    let desc_line = '';
-    if (params.enabled) {
-        if (!params.protocol || !params.address || !params.port) {
-            throw new RpcError('INVALID_REQUEST', 'Missing protocol, address or port');
-        }
-        desc_line = `remote syslog was directed to: ${params.address}:${params.port}`;
-        update.remote_syslog_config = _.pick(params, 'protocol', 'address', 'port');
-
-    } else {
-        desc_line = 'Disabled remote syslog';
-        update.$unset = {
-            remote_syslog_config: 1
-        };
-    }
-
-    return P.resolve()
-        .then(() => system_store.make_changes({
-            update: {
-                systems: [update]
-            }
-        }))
-        .then(() => os_utils.reload_syslog_configuration(params))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.remote_syslog',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: desc_line,
-            });
-        })
-        .return();
-}
-
 function set_certificate(zip_file) {
     dbg.log0('upload_certificate');
     let key;
@@ -1285,7 +1243,6 @@ exports.verify_phonehome_connectivity = verify_phonehome_connectivity;
 exports.update_phone_home_config = update_phone_home_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
-exports.configure_remote_syslog = configure_remote_syslog;
 exports.set_certificate = set_certificate;
 
 exports.get_node_installation_string = get_node_installation_string;

@@ -87,7 +87,6 @@ const SINGLE_SYS_DEFAULTS = {
         dns_name: false,
         ntp_server: false,
         proxy: false,
-        remote_syslog: false
     },
     cluster: {
         members: 0
@@ -188,7 +187,6 @@ async function get_systems_stats(req) {
                     dns_name: has_dns_name,
                     ntp_server: !_.isEmpty(res.cluster.shards[0].servers[0].ntp_server),
                     proxy: !_.isEmpty(res.phone_home_config.proxy_address),
-                    remote_syslog: !_.isEmpty(res.remote_syslog_config),
                 },
                 cluster: {
                     members: res.cluster.shards[0].servers.length

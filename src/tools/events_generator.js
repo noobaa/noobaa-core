@@ -64,7 +64,6 @@ const EXISTING_AUDIT_LOGS = {
         'dns_address',
         'set_phone_home_proxy_address',
         'dns_servers',
-        'remote_syslog',
         'set_certificate',
         'upload_package',
         'system_upgrade_started',

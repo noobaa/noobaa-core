@@ -1,14 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
 let _ = require('lodash');
 
 const api = require('../../api');
-const request = require('request');
 const ssh = require('./ssh_functions');
 const Report = require('../framework/report');
-const srv_ops = require('../utils/basic_server_ops');
 const P = require('../../util/promise');
 
 let report = new Report();
@@ -186,37 +183,7 @@ async function clean_ova_and_create_system(server_ip, secret) {
     }
 }
 
-//upload upgrade package
-function upload_upgrade_package(server_ip, package_path) {
-    let formData = {
-        upgrade_file: {
-            value: fs.createReadStream(package_path),
-            options: {
-                filename: package_path,
-                contentType: 'application/x-gzip'
-            }
-        }
-    };
-    return P.ninvoke(request, 'post', {
-        url: 'http://' + server_ip + ':8080/upgrade',
-        formData: formData,
-        rejectUnauthorized: false,
-    });
-}
 
-async function upgrade_server(server_ip, upgrade) {
-    console.log('Upgrading server to: ' + upgrade);
-    try {
-        if (upgrade) {
-            await srv_ops.upload_and_upgrade(server_ip, upgrade);
-        }
-        await report.success('upgrade');
-    } catch (err) {
-        await report.fail('upgrade');
-        console.error('Upgrade Failed with error: ', err);
-        throw err;
-    }
-}
 
 
 async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_name) {
@@ -328,8 +295,6 @@ exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
 exports.create_system_and_check = create_system_and_check;
 exports.clean_ova_and_create_system = clean_ova_and_create_system;
-exports.upload_upgrade_package = upload_upgrade_package;
-exports.upgrade_server = upgrade_server;
 exports.init_reporter = init_reporter;
 exports.add_server_to_cluster = add_server_to_cluster;
 exports.remove_swap_on_azure = remove_swap_on_azure;

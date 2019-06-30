@@ -730,31 +730,26 @@ function check_external_connection(req) {
     return P.resolve()
         .then(() => {
             switch (endpoint_type) {
-                case 'AZURE':
-                    {
-                        return check_azure_connection(params);
-                    }
+                case 'AZURE': {
+                    return check_azure_connection(params);
+                }
 
                 case 'AWS':
                 case 'S3_COMPATIBLE':
-                case 'FLASHBLADE':
-                    {
-                        return check_aws_connection(params);
-                    }
+                case 'FLASHBLADE': {
+                    return check_aws_connection(params);
+                }
 
-                case 'NET_STORAGE':
-                    {
-                        return check_net_storage_connection(params);
-                    }
-                case 'GOOGLE':
-                    {
-                        return check_google_connection(params);
-                    }
+                case 'NET_STORAGE': {
+                    return check_net_storage_connection(params);
+                }
+                case 'GOOGLE': {
+                    return check_google_connection(params);
+                }
 
-                default:
-                    {
-                        throw new Error('Unknown endpoint type');
-                    }
+                default: {
+                    throw new Error('Unknown endpoint type');
+                }
             }
         });
 }

@@ -19,6 +19,7 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const bucket_server = require('../system_services/bucket_server');
+const account_server = require('../system_services/account_server');
 const object_server = require('../object_services/object_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
@@ -105,11 +106,29 @@ const PARTIAL_SYSTEM_STATS_DEFAULTS = {
     systems: [],
 };
 
+const PARTIAL_ACCOUNT_IO_STATS = {
+    accounts: [],
+};
+
+const PARTIAL_SINGLE_ACCOUNT_DEFAULTS = {
+    account: '',
+    read_count: 0,
+    write_count: 0,
+    read_write_bytes: 0,
+};
+
 const PARTIAL_SINGLE_SYS_DEFAULTS = {
     name: '',
-    free_space: 0,
-    total_space: 0,
+    capacity: 0,
+    reduction_ratio: 0,
+    savings: 0,
     buckets_stats: PARTIAL_BUCKETS_STATS_DEFAULTS,
+    usage_by_project: {
+        Others: 0,
+    },
+    usage_by_bucket_class: {
+        Others: 0,
+    },
 };
 
 
@@ -204,6 +223,39 @@ async function get_systems_stats(req) {
     }
 }
 
+async function get_partial_accounts_stats(req) {
+    const accounts_stats = _.cloneDeep(PARTIAL_ACCOUNT_IO_STATS);
+    try {
+        // TODO: Either make a large query or per account
+        // In case of large query we also need to set a limit and tirgger listing queries so we won't crash
+        accounts_stats.accounts = await P.all(_.map(system_store.data.accounts, async account => {
+            const new_req = _.defaults({
+                rpc_params: { accounts: [account.email], from: new Date(0), till: new Date() },
+            }, req);
+
+            const account_usage_info = await account_server.get_account_usage(new_req);
+            if (_.isEmpty(account_usage_info)) return;
+
+            const { read_count, write_count } = account_usage_info[0];
+            const read_bytes = size_utils.json_to_bigint(account_usage_info[0].read_bytes || size_utils.BigInteger.zero);
+            const write_bytes = size_utils.json_to_bigint(account_usage_info[0].write_bytes || size_utils.BigInteger.zero);
+            const read_write_bytes = read_bytes.plus(write_bytes).toJSNumber();
+            return _.defaults({
+                account: account.email.unwrap(),
+                read_count,
+                write_count,
+                read_write_bytes,
+            }, PARTIAL_SINGLE_ACCOUNT_DEFAULTS);
+        }));
+        accounts_stats.accounts = _.compact(accounts_stats.accounts);
+        return accounts_stats;
+    } catch (err) {
+        dbg.warn('Error in collecting partial account i/o stats,',
+            'skipping current sampling point', err.stack || err);
+        throw err;
+    }
+}
+
 
 async function get_partial_systems_stats(req) {
     const sys_stats = _.cloneDeep(PARTIAL_SYSTEM_STATS_DEFAULTS);
@@ -213,7 +265,13 @@ async function get_partial_systems_stats(req) {
                 system: system
             }, req);
 
-            const { buckets_stats, objects_sys } = await _partial_buckets_info(new_req);
+            const {
+                buckets_stats,
+                objects_sys,
+                objects_non_namespace_buckets_sys,
+                usage_by_bucket_class,
+                usage_by_project,
+            } = await _partial_buckets_info(new_req);
 
             // nodes - count, online count, allocated/used storage aggregate by pool
             const nodes_aggregate_pool_with_cloud_no_mongo = await nodes_client.instance()
@@ -223,11 +281,24 @@ async function get_partial_systems_stats(req) {
                 used: objects_sys.size,
             }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS));
 
+            const { chunks_capacity, logical_size } = objects_non_namespace_buckets_sys;
+            const chunks = size_utils.bigint_to_bytes(chunks_capacity);
+            const logical = size_utils.bigint_to_bytes(logical_size);
+            const reduction_ratio = (logical / chunks) || 1;
+            const savings = logical_size.minus(chunks_capacity).toJSNumber();
+
+            const free_bytes = size_utils.bigint_to_bytes(storage.free);
+            const total_bytes = size_utils.bigint_to_bytes(storage.total);
+            const capacity = 100 - Math.floor(((free_bytes / total_bytes) || 1) * 100);
+
             return _.defaults({
                 name: system.name,
-                total_space: storage.total,
-                free_space: storage.free,
-                buckets_stats
+                capacity,
+                reduction_ratio,
+                savings,
+                buckets_stats,
+                usage_by_bucket_class,
+                usage_by_project
             }, PARTIAL_SINGLE_SYS_DEFAULTS);
         }));
         return sys_stats;
@@ -242,9 +313,20 @@ async function get_partial_systems_stats(req) {
 async function _partial_buckets_info(req) {
     const buckets_stats = _.cloneDeep(PARTIAL_BUCKETS_STATS_DEFAULTS);
     const objects_sys = {
-        count: size_utils.BigInteger.zero,
         size: size_utils.BigInteger.zero,
+        count: 0,
     };
+    const objects_non_namespace_buckets_sys = {
+        chunks_capacity: size_utils.BigInteger.zero,
+        logical_size: size_utils.BigInteger.zero,
+    };
+    const usage_by_project = {
+        Others: size_utils.BigInteger.zero,
+    };
+    const usage_by_bucket_class = {
+        Others: size_utils.BigInteger.zero,
+    };
+
     try {
         for (const bucket of system_store.data.buckets) {
             if (String(bucket.system._id) !== String(req.system._id)) return;
@@ -255,12 +337,31 @@ async function _partial_buckets_info(req) {
             const bucket_info = await bucket_server.read_bucket(new_req);
 
             objects_sys.size = objects_sys.size.plus(
-                (bucket_info.storage_stats && bucket_info.storage_stats.objects_size) || 0
+                (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
-            objects_sys.count = objects_sys.count.plus(bucket_info.num_objects || 0);
+            objects_sys.count += bucket_info.num_objects || 0;
 
 
             if (bucket_info.namespace) return;
+
+            objects_non_namespace_buckets_sys.chunks_capacity = objects_non_namespace_buckets_sys.chunks_capacity.plus(
+                (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.chunks_capacity)) || 0
+            );
+
+            objects_non_namespace_buckets_sys.logical_size = objects_non_namespace_buckets_sys.logical_size.plus(
+                (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
+            );
+
+            const bucket_project = (bucket_info.bucket_claim && bucket_info.bucket_claim.namespace) || 'Others';
+            const existing_project = usage_by_project[bucket_project] || size_utils.BigInteger.zero;
+            usage_by_project[bucket_project] = existing_project.plus(
+                (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
+            );
+            const bucket_class = (bucket_info.bucket_claim && bucket_info.bucket_claim.policy_type) || 'Others';
+            const existing_bucket_class = usage_by_bucket_class[bucket_class] || size_utils.BigInteger.zero;
+            usage_by_bucket_class[bucket_class] = existing_bucket_class.plus(
+                (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
+            );
 
             buckets_stats.buckets += 1;
             buckets_stats.objects_in_buckets += bucket_info.num_objects;
@@ -275,9 +376,17 @@ async function _partial_buckets_info(req) {
                 'HIGH_DATA_ACTIVITY',
                 'OPTIMAL',
             ];
-            if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
+            if (!!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
         }
-        return { buckets_stats, objects_sys };
+
+        Object.keys(usage_by_bucket_class).forEach(key => {
+            usage_by_bucket_class[key] = usage_by_bucket_class[key].toJSNumber();
+        });
+        Object.keys(usage_by_project).forEach(key => {
+            usage_by_project[key] = usage_by_project[key].toJSNumber();
+        });
+
+        return { buckets_stats, objects_sys, objects_non_namespace_buckets_sys, usage_by_project, usage_by_bucket_class };
     } catch (err) {
         dbg.warn('Error in collecting partial buckets stats,',
             'skipping current sampling point', err.stack || err);
@@ -444,30 +553,26 @@ async function get_cloud_pool_stats(req) {
             cloud_pool_stats.cloud_pool_count += 1;
             switch (pool.cloud_pool_info.endpoint_type) {
                 case 'AWS':
-                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.cloud_pool_target.amazon += 1;
-                    } else {
+                    cloud_pool_stats.cloud_pool_target.amazon += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_cloud_pool_target.amazon_unhealthy += 1;
                     }
                     break;
                 case 'AZURE':
-                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.cloud_pool_target.azure += 1;
-                    } else {
+                    cloud_pool_stats.cloud_pool_target.azure += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_cloud_pool_target.azure_unhealthy += 1;
                     }
                     break;
                 case 'GOOGLE':
-                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.cloud_pool_target.gcp += 1;
-                    } else {
+                    cloud_pool_stats.cloud_pool_target.gcp += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_cloud_pool_target.gcp_unhealthy += 1;
                     }
                     break;
                 case 'S3_COMPATIBLE':
-                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.cloud_pool_target.s3_comp += 1;
-                    } else {
+                    cloud_pool_stats.cloud_pool_target.s3_comp += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_cloud_pool_target.s3_comp_unhealthy += 1;
                     }
                     if (pool.cloud_pool_info.auth_method === 'AWS_V2') {
@@ -477,9 +582,8 @@ async function get_cloud_pool_stats(req) {
                     }
                     break;
                 default:
-                    if (_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.cloud_pool_target.other += 1;
-                    } else {
+                    cloud_pool_stats.cloud_pool_target.other += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_cloud_pool_target.other_unhealthy += 1;
                     }
                     break;
@@ -585,6 +689,7 @@ async function get_partial_stats(req) {
     const stats_payload = {
         systems_stats: null,
         cloud_pool_stats: null,
+        accounts_stats: null,
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
@@ -604,6 +709,13 @@ async function get_partial_stats(req) {
         dbg.warn('Error in collecting cloud pool stats, skipping', error.stack, error);
     }
 
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Partial Account I/O Stats');
+        stats_payload.accounts_stats = await get_partial_accounts_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting partial account i/o stats, skipping', error.stack, error);
+    }
+
     partial_cycle_parse_prometheus_metrics(stats_payload);
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
@@ -614,13 +726,10 @@ async function get_partial_stats(req) {
  * Prometheus Metrics Parsing, POC grade
  */
 function partial_cycle_parse_prometheus_metrics(payload) {
-    const { cloud_pool_stats, systems_stats } = payload;
+    const { cloud_pool_stats, systems_stats, accounts_stats } = payload;
     // TODO: Support multiple systems
-    const { buckets_stats, free_space, total_space, name } = systems_stats.systems[0];
+    const { buckets_stats, capacity, reduction_ratio, savings, name, usage_by_bucket_class, usage_by_project } = systems_stats.systems[0];
     const { buckets, objects_in_buckets, unhealthy_buckets, bucket_claims, objects_in_bucket_claims } = buckets_stats;
-    const free_bytes = size_utils.bigint_to_bytes(free_space);
-    const total_bytes = size_utils.bigint_to_bytes(total_space);
-    const capacity = 100 - Math.floor((free_bytes / total_bytes) * 100);
 
     prom_report.instance().set_cloud_types(cloud_pool_stats);
     prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
@@ -631,6 +740,11 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_num_buckets_claims(bucket_claims);
     prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);
     prom_report.instance().set_system_capacity(capacity);
+    prom_report.instance().set_reduction_ratio(reduction_ratio);
+    prom_report.instance().set_object_savings(savings);
+    prom_report.instance().set_bucket_class_capacity_usage(usage_by_bucket_class);
+    prom_report.instance().set_projects_capacity_usage(usage_by_project);
+    prom_report.instance().set_accounts_io_usage(accounts_stats);
 }
 
 /*
@@ -977,6 +1091,7 @@ exports.get_cloud_pool_stats = get_cloud_pool_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
 exports.get_partial_systems_stats = get_partial_systems_stats;
+exports.get_partial_accounts_stats = get_partial_accounts_stats;
 exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;

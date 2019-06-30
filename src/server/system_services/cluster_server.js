@@ -710,112 +710,6 @@ function redirect_to_cluster_master(req) {
         });
 }
 
-
-function update_time_config(req) {
-    dbg.log0('update_time_config called with', req.rpc_params);
-    const local_info = system_store.get_local_cluster_info(true);
-    var time_config = req.rpc_params;
-    var target_servers = [];
-    let audit_desc = 'Server date and time successfully updated to: ';
-    let audit_hostname;
-    return P.resolve()
-        .then(() => {
-            if (time_config.ntp_server) {
-                return os_utils.verify_ntp_server(time_config.ntp_server)
-                    .catch(err => {
-                        throw new RpcError(`Failed testing NTP ${time_config.ntp_server} with ${err}`);
-                    });
-            }
-            return P.resolve();
-        })
-        .then(() => {
-            if (time_config.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[time_config.target_secret];
-                if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', time_config.target_secret, ' was not found');
-                }
-                target_servers.push(cluster_server);
-                audit_hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
-            } else {
-                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
-            }
-
-            if (!time_config.ntp_server && !time_config.epoch) {
-                throw new RpcError('CONFIG_NOT_FOUND', 'Missing time configuration (ntp_server or epoch)');
-            }
-
-            if (time_config.ntp_server && time_config.epoch) {
-                throw new RpcError('DUAL_CONFIG', 'Dual configuration provided (ntp_server and epoch)');
-            }
-
-            if (local_info.is_clusterized && !target_servers.every(server => {
-                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
-                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
-                })) {
-                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
-            }
-
-            let config_to_update = {
-                timezone: time_config.timezone
-            };
-
-            audit_desc += `Timezone: ${time_config.timezone}`;
-
-            if (time_config.ntp_server) {
-                audit_desc += `, NTP server address: ${time_config.ntp_server}`;
-                config_to_update.server = time_config.ntp_server;
-            }
-
-            if (time_config.epoch) {
-                audit_desc += `, epoch: ${time_config.epoch}`;
-            }
-
-            let updates = _.map(target_servers, server => ({
-                _id: server._id,
-                ntp: config_to_update
-            }));
-
-            return system_store.make_changes({
-                update: {
-                    clusters: updates,
-                }
-            });
-        })
-        .then(() => {
-            dbg.log0('caliing apply_updated_time_config for', _.map(target_servers, srv => srv.owner_address));
-            return P.each(target_servers, function(server) {
-                return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
-                    address: server_rpc.get_base_address(server.owner_address)
-                });
-            });
-        })
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.server_date_time_updated',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                server: {
-                    hostname: audit_hostname,
-                    secret: time_config.target_secret
-                },
-                desc: audit_desc,
-            });
-        })
-        .return();
-}
-
-
-async function apply_updated_time_config(req) {
-    var time_config = req.rpc_params;
-    // in any case update the ntp configuration (either set new ntp or clear if manual time)
-    await os_utils.set_ntp(time_config.ntp_server, time_config.timezone);
-    if (!time_config.ntp_server) {
-        // if ntp server is not defined then set manual time
-        await os_utils.set_manual_time(time_config.epoch, time_config.timezone);
-    }
-}
-
 function update_dns_servers(req) {
     var dns_servers_config = req.rpc_params;
     var target_servers = [];
@@ -1287,12 +1181,6 @@ function _validate_member_request(req) {
                 throw new Error(`Could not reach ${req.rpc_params.address} at port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
                 might be due to a firewall blocking`);
             }
-        })
-        .then(() => os_utils.get_ntp())
-        .then(platform_ntp => {
-            if (!platform_ntp) {
-                throw new Error('Could not add members when NTP is not set');
-            }
         });
 }
 
@@ -1324,12 +1212,7 @@ function _verify_join_preconditons(req) {
                         throw new Error('CONNECTION_TIMEOUT');
                     }
                 })
-                .then(() => os_utils.get_ntp())
-                .then(platform_ntp => {
-                    if (!platform_ntp) {
-                        throw new Error('NO_NTP_SET');
-                    }
-
+                .then(() => {
                     let system = system_store.data.systems[0];
                     if (system) {
                         //Verify we are not already joined to a cluster
@@ -1510,34 +1393,23 @@ function _add_new_server_to_replica_set(params) {
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
         .then(() => _attach_server_configuration(new_topology))
-        .then(() => P.join(
-            os_utils.get_ntp(),
-            os_utils.get_time_config(),
-            os_utils.get_dns_config(),
-            (ntp_server, time_config, dns_config) => {
-                // insert an entry for this server in clusters collection.
-                new_topology._id = system_store.new_system_store_id();
-                // get dns and ntp settings configured in the os
-                if (ntp_server) {
-                    dbg.log0(`_add_new_server_to_replica_set: using existing ntp configuration: ${ntp_server}, ${time_config.timezone}`);
-                    new_topology.ntp = {
-                        timezone: time_config.timezone,
-                        server: ntp_server
-                    };
-                }
-                if (dns_config.dns_servers.length) {
-                    dbg.log0(`_add_new_server_to_replica_set: using existing DNS servers configuration: `, dns_config.dns_servers);
-                    new_topology.dns_servers = dns_config.dns_servers;
-                }
-
-                dbg.log0('inserting topology for new server to clusters collection:', new_topology);
-                return system_store.make_changes({
-                    insert: {
-                        clusters: [new_topology]
-                    }
-                });
+        .then(() => os_utils.get_dns_config())
+        .then(dns_config => {
+            // insert an entry for this server in clusters collection.
+            new_topology._id = system_store.new_system_store_id();
+            // get dns settings configured in the os
+            if (dns_config.dns_servers.length) {
+                dbg.log0(`_add_new_server_to_replica_set: using existing DNS servers configuration: `, dns_config.dns_servers);
+                new_topology.dns_servers = dns_config.dns_servers;
             }
-        ))
+
+            dbg.log0('inserting topology for new server to clusters collection:', new_topology);
+            return system_store.make_changes({
+                insert: {
+                    clusters: [new_topology]
+                }
+            });
+        })
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
             let new_rs_params = {
@@ -1723,8 +1595,6 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.update_time_config = update_time_config;
-exports.apply_updated_time_config = apply_updated_time_config;
 exports.update_dns_servers = update_dns_servers;
 exports.apply_updated_dns_servers = apply_updated_dns_servers;
 exports.set_debug_level = set_debug_level;

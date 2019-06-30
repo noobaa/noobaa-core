@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const ip = require('ip');
 const _ = require('lodash');
 const api = require('../../api');
 const P = require('../../util/promise');
@@ -18,20 +17,15 @@ let rpc;
 let client;
 let failures_in_test = false;
 
-const second_timezone = 'US/Arizona';
-const configured_timezone = 'Asia/Tel_Aviv';
-
 let errors = [];
 
 const {
     server_ip,
     skip_create_system = false,
-    ntp_server = 'time.windows.com',
     primary_dns = '8.8.8.8',
     secondery_dns = '8.8.4.4',
     udp_rsyslog_port = 5001,
     tcp_rsyslog_port = 514,
-    ph_proxy_port = 5003,
     skip_report = false,
     help = false
 } = argv;
@@ -42,12 +36,10 @@ function usage() {
     console.log(`
     --server_ip             -   noobaa server ip.
     --skip_create_system    -   will skip create system
-    --ntp_server            -   ntp server (default: ${ntp_server})
     --primary_dns           -   primary dns ip (default: ${primary_dns})
     --secondery_dns         -   secondery dns ip (default: ${secondery_dns})
     --udp_rsyslog_port      -   udp rsyslog port (default: ${udp_rsyslog_port})
     --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
-    --ph_proxy_port         -   Phone home proxy port (default: ${ph_proxy_port})
     --skip_report           -   will skip sending report to mongo
     --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
@@ -62,8 +54,6 @@ if (help) {
 let report = new Report();
 const cases = [
     'set_DNS',
-    'set_NTP',
-    'set_Proxy',
     'disable_Proxy',
     'set_maintenance_mode',
     'update_n2n_config_single_port',
@@ -77,9 +67,6 @@ function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
 }
-
-const lg_ip = ip.address(); // local ip - for test to run successfully to server and lg need to share same vnet
-const proxy_server = 'http://' + lg_ip + ':3128';
 
 async function set_DNS_And_check() {
     try {
@@ -140,212 +127,6 @@ async function verify_DNS_status() {
     } else {
         saveErrorAndResume(`The service monitor see the dns status as ${dns_status}`);
         throw new Error('Test DNS Failed');
-    }
-}
-
-async function update_NTP({ target_secret, timezone, server, epoch }) {
-    try {
-        console.log(`Setting NTP. timezone ${timezone}, NTP server: ${server}`);
-        await client.cluster_server.update_time_config({
-            target_secret,
-            timezone,
-            ntp_server: server,
-            epoch
-        });
-        await report.success(`set_NTP`);
-    } catch (e) {
-        await report.fail(`set_NTP`);
-        throw new Error('Test NTP Failed');
-    }
-}
-
-async function set_NTP_And_check() {
-    let old_time = 0;
-    try {
-        let system_info = await client.system.read_system({});
-        const target_secret = system_info.cluster.master_secret;
-        await update_NTP({
-            target_secret,
-            timezone: configured_timezone,
-            server: ntp_server
-        });
-        const current_time = await client.cluster_server.read_server_time({
-            target_secret
-        });
-        console.log('Current time is:', new Date(current_time * 1000));
-        old_time = current_time;
-        console.log('Moving time 30 minutes forward');
-        await update_NTP({
-            target_secret,
-            timezone: configured_timezone,
-            epoch: current_time + (30 * 60) // moving 30 minutes forward
-        });
-        let new_time = await client.cluster_server.read_server_time({
-            target_secret
-        });
-        if (new_time >= old_time + (30 * 60)) {
-            console.log('New time moved more then 30 minutes forward', new Date(new_time * 1000), '- as should');
-        } else {
-            saveErrorAndResume('New time moved less then 30 minutes forward' + new Date(new_time * 1000) + '- failure!!!');
-            throw new Error('Test NTP Failed');
-        }
-        console.log('Setting different timezone');
-        await update_NTP({
-            target_secret,
-            timezone: second_timezone,
-            server: ntp_server
-        });
-        let server_config = await client.cluster_server.read_server_config({});
-        let timezone = server_config.timezone;
-        if (timezone === second_timezone) {
-            console.log(`The defined timezone is ${timezone} - as should`);
-        } else {
-            saveErrorAndResume(`The defined timezone is ${timezone}`);
-            throw new Error('Test NTP Failed');
-        }
-        console.log(`Checking connection before setup ntp ${ntp_server}`);
-        await client.system.attempt_server_resolve({
-            server_name: ntp_server
-        });
-        await P.delay(30 * 1000);
-        console.log('Setting NTP', ntp_server);
-        await update_NTP({
-            target_secret,
-            timezone: configured_timezone,
-            server: ntp_server
-        });
-        console.log('Waiting on Read system to verify NTP status');
-        const base_time = Date.now();
-        let ntp_status;
-        while (Date.now() - base_time < 65 * 1000) {
-            try {
-                system_info = await client.system.read_system({});
-                ntp_status = system_info.cluster.shards[0].servers[0].services_status.ntp_server;
-                if (ntp_status) break;
-            } catch (e) {
-                console.log('waiting for read systme, will sleep for 15 seconds');
-                await P.delay(15 * 1000);
-            }
-        }
-        if (ntp_status === 'OPERATIONAL') {
-            console.log('The service monitor see the ntp status as OPERATIONAL - as should');
-        } else {
-            saveErrorAndResume(`The service monitor see the ntp status as ${ntp_status}`);
-            throw new Error('Test NTP Failed');
-        }
-        server_config = await client.cluster_server.read_server_config({});
-        console.log(`after setting ntp cluster config is: ${JSON.stringify(server_config)}`);
-        let ntp = server_config.ntp_server;
-        if (ntp === ntp_server) {
-            console.log(`The defined ntp is ${ntp} - as should`);
-        } else {
-            saveErrorAndResume(`The defined ntp is ${ntp}`);
-            throw new Error('Test NTP Failed');
-        }
-        new_time = await client.cluster_server.read_server_time({
-            target_secret
-        });
-        if (new_time < old_time + (2 * 60)) {
-            console.log('New time has moved back to correct time', new Date(new_time * 1000), '- as should');
-        } else {
-            saveErrorAndResume(`New time is more than 2 minutes away from the correct time ${new Date(new_time * 1000)} - failure!!!`);
-            throw new Error('Test NTP Failed');
-        }
-    } catch (e) {
-        failures_in_test = true;
-        await report.fail(`set_NTP`);
-    }
-}
-
-async function get_Phonehome_proxy_status() {
-    console.log('Waiting on Read system to verify Proxy status');
-    const base_time = Date.now();
-    let proxy_status;
-    while (Date.now() - base_time < 65 * 1000) {
-        try {
-            const system_info = await client.system.read_system({});
-            proxy_status = system_info.cluster.shards[0].servers[0].services_status.phonehome_proxy;
-            if (proxy_status) break;
-        } catch (e) {
-            console.log('waiting for read systme, will sleep for 15 seconds');
-            await P.delay(15 * 1000);
-        }
-    }
-    return proxy_status;
-}
-
-async function set_Proxy_and_check() {
-    try {
-        console.log('Setting Proxy');
-        await client.system.update_phone_home_config({
-            proxy_address: proxy_server
-        });
-        const proxy_status = await get_Phonehome_proxy_status();
-        const defined_proxy = proxy_status.phone_home_config.proxy_address;
-        if (defined_proxy === proxy_server) {
-            console.log(`The defined proxy is ${defined_proxy} - as should`);
-        } else {
-            saveErrorAndResume(`The defined proxy is ${defined_proxy}`);
-            throw new Error('Test Phonehome Failed');
-        }
-        const ph_status = proxy_status.cluster.shards[0].servers[0].services_status.phonehome_proxy;
-        if (ph_status === 'OPERATIONAL') {
-            console.log('The service monitor see the proxy status as OPERATIONAL - as should');
-            await report.success(`set_Proxy`);
-        } else {
-            saveErrorAndResume(`The service monitor see the proxy status as ${ph_status}`);
-            throw new Error('Test Phonehome Failed');
-        }
-    } catch (e) {
-        console.error(e);
-        failures_in_test = true;
-        await report.fail(`set_Proxy`);
-        throw new Error('Test Phonehome Failed');
-    }
-}
-
-async function disable_Proxy_and_check() {
-    try {
-        console.log('Setting disable Proxy');
-        await client.system.update_phone_home_config({ // phone home configuration
-            proxy_address: null
-        });
-        const proxy_status = await get_Phonehome_proxy_status();
-        const proxy_config = proxy_status.phone_home_config;
-        console.log('Phone home config is: ' + JSON.stringify(proxy_config));
-        if (JSON.stringify(proxy_config).includes('proxy_address') === false) {
-            console.log('The defined proxy is no use proxy - as should');
-        } else {
-            saveErrorAndResume(`The defined phone home with disable proxy is ${proxy_config}`);
-            throw new Error('Test Phonehome Failed');
-        }
-        console.log(JSON.stringify(proxy_status.cluster.shards[0].servers[0].services_status));
-        const ph_status = proxy_status.cluster.shards[0].servers[0].services_status.phonehome_server.status;
-        if (ph_status === 'OPERATIONAL') {
-            console.log('The service monitor see the proxy status as OPERATIONAL - as should');
-            await report.success(`disable_Proxy`);
-        } else {
-            saveErrorAndResume(`The service monitor see the proxy after disable status as ${ph_status}`);
-            throw new Error('Test Phonehome Failed');
-        }
-    } catch (e) {
-        failures_in_test = true;
-        await report.fail(`disable_Proxy`);
-    }
-}
-
-async function set_Phonehome_and_check() {
-    try {
-        try {
-            await set_Proxy_and_check();
-        } catch (e) {
-            console.error(e);
-            throw e;
-        }
-        await disable_Proxy_and_check();
-    } catch (e) {
-        console.error(e);
-        failures_in_test = true;
     }
 }
 
@@ -526,8 +307,6 @@ async function main() {
             await set_rpc_and_create_auth_token();
         }
         await set_DNS_And_check();
-        await set_NTP_And_check();
-        await set_Phonehome_and_check();
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();

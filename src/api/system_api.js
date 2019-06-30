@@ -28,9 +28,6 @@ module.exports = {
                     email: { $ref: 'common_api#/definitions/email' },
                     password: { $ref: 'common_api#/definitions/password' },
                     //Optionals: DNS, NTP and NooBaa Domain Name
-                    time_config: {
-                        $ref: 'cluster_internal_api#/definitions/time_config'
-                    },
                     dns_servers: {
                         type: 'array',
                         items: {

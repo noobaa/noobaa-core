@@ -352,71 +352,6 @@ function ss_single(dst) {
     return promise_utils.exec('ss -nap' + file_redirect);
 }
 
-async function set_manual_time(time_epoch, timez) {
-    if (IS_LINUX) {
-        if (IS_DOCKER) {
-            return;
-        }
-        await _set_time_zone(timez);
-        await promise_utils.exec('systemctl disable ntpd.service');
-        await promise_utils.exec('systemctl stop ntpd.service');
-        await promise_utils.exec('date +%s -s @' + time_epoch);
-    } else if (!IS_MAC) { //Bypass for dev environment
-        throw new Error('setting time/date not supported on non-Linux platforms');
-    }
-}
-
-function verify_ntp_server(srv) {
-    return P.resolve()
-        .then(() => {
-            if (IS_LINUX) {
-                return promise_utils.exec(`ntpdate -q ${srv}`)
-                    .then(() => _.noop)
-                    .catch(err => {
-                        dbg.warn(`Failed NTP verification for ${srv}`);
-                        throw err;
-                    });
-            } else {
-                dbg.log0('Not supporting verification of NTP on non-Linux systems');
-            }
-        });
-}
-
-function get_ntp() {
-    if (IS_DOCKER) { //Explicitly returning on docker
-        return P.resolve();
-    } else if (IS_LINUX) {
-        return promise_utils.exec("cat /etc/ntp.conf | grep NooBaa", {
-                ignore_rc: false,
-                return_stdout: true,
-            })
-            .then(res => {
-                let regex_res = (/server (.*) iburst #NooBaa Configured NTP Server/).exec(res);
-                return regex_res ? regex_res[1] : "";
-            });
-    } else if (IS_MAC) { //Bypass for dev environment
-        return P.resolve();
-    }
-    throw new Error('NTP not supported on non-Linux platforms');
-}
-
-async function set_ntp(server, timez) {
-    if (IS_LINUX) {
-        if (IS_DOCKER) {
-            return;
-        }
-        // if server is undefined than clear the ntp server configuration in ntp.conf
-        const new_ntp_server_conf = server ? `server ${server} iburst ` : '';
-        let command = `sed -i 's/.*NooBaa Configured NTP Server.*/${new_ntp_server_conf}#NooBaa Configured NTP Server/' /etc/ntp.conf`;
-        await _set_time_zone(timez);
-        await promise_utils.exec(command);
-        await promise_utils.exec('/sbin/chkconfig ntpd on 2345');
-        await promise_utils.exec('systemctl restart ntpd.service');
-    } else if (!IS_MAC) { //Bypass for dev environment
-        throw new Error('setting NTP not supported on non-Linux platforms');
-    }
-}
-
 function _get_dns_servers_in_forwarders_file() {
     return P.resolve()
         .then(() => {
@@ -575,12 +510,6 @@ function is_folder_permissions_set(current_path) {
                 ', No Other user with permissions:', !found_other_permissions);
             return system_has_full_control && administrators_has_inheritance && !found_other_permissions;
         });
-}
-
-function _set_time_zone(tzone) {
-    // TODO _set_time_zone: Ugly Ugly, change to datectrl on centos7
-    return promise_utils.exec('ln -sf /usr/share/zoneinfo/' +
-        tzone + ' /etc/localtime');
 }
 
 function read_server_secret() {
@@ -948,10 +877,6 @@ exports.top_single = top_single;
 exports.slabtop = slabtop;
 exports.netstat_single = netstat_single;
 exports.ss_single = ss_single;
-exports.set_manual_time = set_manual_time;
-exports.verify_ntp_server = verify_ntp_server;
-exports.set_ntp = set_ntp;
-exports.get_ntp = get_ntp;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
 exports.get_networking_info = get_networking_info;

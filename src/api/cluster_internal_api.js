@@ -205,16 +205,6 @@ module.exports = {
             }
         },
 
-        apply_updated_time_config: {
-            method: 'POST',
-            params: {
-                $ref: '#/definitions/time_config'
-            },
-            auth: {
-                system: false,
-            }
-        },
-
         apply_updated_dns_servers: {
             method: 'POST',
             params: {

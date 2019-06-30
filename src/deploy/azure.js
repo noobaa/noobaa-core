@@ -71,12 +71,11 @@ Usage:
       --server_version            The server base (default: latest)
       --clusterize                If the number of servers > 1, this flag will clusterize all the servers together, default is false
       --nosystem                  Skip system creation, defaults is to create one. If clusterize is turned on, a system will be created
-      --setNTP                    If supplied will set NTP to local IL time and TZ. Default is off
       --upgrade                   will upgrade to the given package immediately after system creation
       \n
       Examples:
-      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --setNTP
-      \t\tWould result in creating 1 new server with the name test1 with a system created and an NTP configured\n
+      \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1
+      \t\tWould result in creating 1 new server with the name test1\n
       \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name test1 --servers 1 --nosystem
       \t\tWould result in creating 1 new server with the name test1 with no system and no NTP configured\n
       \tnode src/deploy/azure.js server --resource nimrodb-group --storage nimrodbstorage --vnet nimrodb-group-vnet --name cluster1 --servers 3 --clusterize
@@ -267,7 +266,6 @@ async function get_version(server_version) {
 async function _runServer() {
     const serverName = argv.name;
     const numServers = argv.servers || 1;
-    const setNTP = Boolean(argv.clusterize || argv.setNTP);
     const upgrade_package = argv.upgrade || undefined;
     let createSystem;
     if (argv.clusterize) {
@@ -293,8 +291,7 @@ async function _runServer() {
             vmSize: argv.vmsize,
             vnet: argv.vnet,
             storage: argv.storage,
-            createSystem: createSystem,
-            updateNTP: setNTP
+            createSystem: createSystem
         };
         if (argv.server_version) {
             createServerParams.imagename = await get_version(argv.server_version);

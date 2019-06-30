@@ -2,9 +2,7 @@
 'use strict';
 
 const ip = require('ip');
-const net = require('net');
 const _ = require('lodash');
-const dgram = require('dgram');
 const api = require('../../api');
 const P = require('../../util/promise');
 const Report = require('../framework/report');

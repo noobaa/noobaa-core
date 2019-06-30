@@ -94,7 +94,7 @@ ENV container docker
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-COPY ./src/deploy/rpm/set_mongo_repo.sh /tmp/
+COPY ./src/deploy/set_mongo_repo.sh /tmp/
 RUN chmod +x /tmp/set_mongo_repo.sh && \
     /bin/bash -xc "/tmp/set_mongo_repo.sh"
 RUN yum install -y -q bash \

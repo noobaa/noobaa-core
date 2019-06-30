@@ -18,10 +18,11 @@ import {
     FAIL_FETCH_CLOUD_RESOURCE_OBJECTS
 } from 'action-types';
 
-export function createHostsPool(name, hosts) {
+
+export function createHostsPool(poolName, nodeCount, nodeVolumeSize, isManaged) {
     return {
         type: CREATE_HOSTS_POOL,
-        payload: { name, hosts }
+        payload: { poolName, nodeCount, nodeVolumeSize, isManaged }
     };
 }
 

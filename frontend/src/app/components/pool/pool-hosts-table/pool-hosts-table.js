@@ -14,8 +14,6 @@ import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import {
     fetchHosts,
-    openAssignHostsModal,
-    openInstallNodesToPoolModal,
     openAssignRegionModal,
     requestLocation,
     dropHostsView
@@ -215,14 +213,6 @@ class PoolHostsTableViewModel extends Observer {
 
         const url = realizeUri(this.baseRoute, {}, { name, state, sortBy, order, page });
         action$.next(requestLocation(url));
-    }
-
-    onAssignNodes() {
-        action$.next(openAssignHostsModal(this.poolName));
-    }
-
-    onInstallNewNodes() {
-        action$.next(openInstallNodesToPoolModal(this.poolName));
     }
 
     onAssignRegion() {

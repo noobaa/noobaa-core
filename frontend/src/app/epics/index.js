@@ -27,7 +27,6 @@ import addExternalConnection from './add-external-connection';
 import deleteExternalConnection from './delete-external-connection';
 import deleteResource from './delete-resource';
 import createHostsPool from './create-hosts-pool';
-import assignHostsToPool from './assign-hosts-to-pool';
 import fetchHosts from './fetch-hosts';
 import collectHostDiagnostics from './collect-host-diagnostics';
 import setHostDebugMode from './set-host-debug-mode';
@@ -174,7 +173,6 @@ const epics = [
     // Resource related epics
     createHostsPool,
     deleteResource,
-    assignHostsToPool,
     createCloudResource,
     fetchCloudResourceObjects,
     assignRegionToResource,

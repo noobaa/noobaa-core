@@ -17,7 +17,7 @@
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src --quiet",
     "ts": "tsc && tslint -p tsconfig.json -c tslint.json",
-    "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
+    "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/test_map_builder.js",
     "mocha:coverage": "nyc --all --include 'src/**/*.js' --exclude 'src/util/mongo_functions.js' --report-dir $npm_package_config_covdir --reporter lcov npm run mocha",
     "test:web": "mocha src/test/web/index.js",
     "test": "npm run lint && npm run mocha:coverage",

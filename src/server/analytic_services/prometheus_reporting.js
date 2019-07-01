@@ -19,6 +19,30 @@ const METRIC_RECORDS = Object.freeze([{
     }
 }, {
     metric_type: 'Gauge',
+    metric_variable: 'projects_capacity_usage',
+    configuration: {
+        name: get_metric_name('projects_capacity_usage'),
+        help: 'Projects Capacity Usage',
+        labelNames: ['project', 'count']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'accounts_io_usage',
+    configuration: {
+        name: get_metric_name('accounts_io_usage'),
+        help: 'Accounts I/O Usage',
+        labelNames: ['account', 'read_count', 'write_count']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'bucket_class_capacity_usage',
+    configuration: {
+        name: get_metric_name('bucket_class_capacity_usage'),
+        help: 'Bucket Class Capacity Usage',
+        labelNames: ['bucket_class', 'count']
+    }
+}, {
+    metric_type: 'Gauge',
     metric_variable: 'unhealthy_cloud_types',
     configuration: {
         name: get_metric_name('unhealthy_cloud_types'),
@@ -105,6 +129,22 @@ const METRIC_RECORDS = Object.freeze([{
         help: 'Objects On Object Bucket Claims',
     },
     generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'reduction_ratio',
+    configuration: {
+        name: get_metric_name('reduction_ratio'),
+        help: 'Object Efficiency Ratio',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'object_savings',
+    configuration: {
+        name: get_metric_name('object_savings'),
+        help: 'Object Savings',
+    },
+    generate_default_set: true,
 }]);
 
 
@@ -171,6 +211,31 @@ class PrometheusReporting {
         // TODO: Fill this up when we will know how to recognize
         // this._metrics.unhealthy_cloud_types.set({ type: 'Ceph' }, types.unhealthy_cloud_pool_target.ceph_unhealthy);
         this._metrics.unhealthy_cloud_types.set({ type: 'S3_Compatible' }, types.unhealthy_cloud_pool_target.s3_comp_unhealthy);
+    }
+
+    set_bucket_class_capacity_usage(usage_info) {
+        if (!this.enabled()) return;
+        this._metrics.bucket_class_capacity_usage.reset();
+        for (let [key, value] of Object.entries(usage_info)) {
+            this._metrics.bucket_class_capacity_usage.set({ bucket_class: key }, value);
+        }
+    }
+
+    set_projects_capacity_usage(usage_info) {
+        if (!this.enabled()) return;
+        this._metrics.projects_capacity_usage.reset();
+        for (let [key, value] of Object.entries(usage_info)) {
+            this._metrics.projects_capacity_usage.set({ project: key }, value);
+        }
+    }
+
+    set_accounts_io_usage(accounts_info) {
+        if (!this.enabled()) return;
+        this._metrics.accounts_io_usage.reset();
+        accounts_info.accounts.forEach(account_info => {
+            const { account, read_count, write_count, read_write_bytes } = account_info;
+            this._metrics.accounts_io_usage.set({ account, read_count, write_count }, read_write_bytes);
+        });
     }
 
     set_object_sizes(sizes) {

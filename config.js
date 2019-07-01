@@ -85,6 +85,7 @@ config.MD_AGGREGATOR_MAX_CYCLES = 2880; // 1 day / 30 seconds
 // This grace is used since we can hold up an ObjectID and not push it inside the DB
 // Which will mean that it will be pushed later on with a previous date
 config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
+config.MD_AGGREGATOR_BATCH = 100;
 
 ///////////////
 // IO CONFIG //

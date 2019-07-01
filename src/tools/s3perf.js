@@ -58,6 +58,9 @@ if (argv.help) {
 } else if (argv.upload) {
     op_func = upload_object;
     op_size = data_size;
+} else if (argv.mb) {
+    op_func = create_bucket;
+    op_size = 0;
 } else {
     print_usage();
 }
@@ -252,6 +255,11 @@ async function upload_object() {
         .promise();
 }
 
+async function create_bucket() {
+    const new_bucket = argv.mb + '-' + Date.now().toString(36);
+    return s3.createBucket({ Bucket: new_bucket }).promise();
+}
+
 function print_usage() {
     console.log(`
 Usage:
@@ -260,6 +268,7 @@ Usage:
   --get <key>            get key name
   --put <key>            put (single) to key (key can be omited
   --upload <key>         upload (multipart) to key (key can be omited
+  --mb <bucket>          creates a new bucket (bucket can be omitted)
 Upload Flags:
   --concur <num>         concurrent operations to run from each process (default is 1)
   --forks <num>          number of forked processes to run (default is 1)

@@ -33,6 +33,16 @@ module.exports = {
             }
         },
 
+        get_partial_accounts_stats: {
+            method: 'GET',
+            reply: {
+                $ref: '#/definitions/partial_accounts_stats'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_nodes_stats: {
             method: 'GET',
             reply: {
@@ -480,13 +490,16 @@ module.exports = {
 
         partial_stats: {
             type: 'object',
-            required: ['systems_stats', 'cloud_pool_stats'],
+            required: ['systems_stats', 'cloud_pool_stats', 'accounts_stats'],
             properties: {
                 systems_stats: {
                     $ref: '#/definitions/partial_systems_stats'
                 },
                 cloud_pool_stats: {
                     $ref: '#/definitions/cloud_pool_stats'
+                },
+                accounts_stats: {
+                    $ref: '#/definitions/partial_accounts_stats'
                 },
             }
         },
@@ -499,19 +512,60 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['name', 'free_space', 'total_space', 'buckets_stats'],
+                        required: ['name', 'capacity', 'reduction_ratio', 'savings', 'buckets_stats', 'usage_by_project', 'usage_by_bucket_class'],
                         properties: {
                             name: {
                                 type: 'string'
                             },
-                            free_space: {
-                                $ref: 'common_api#/definitions/bigint'
+                            capacity: {
+                                type: 'number'
                             },
-                            total_space: {
-                                $ref: 'common_api#/definitions/bigint'
+                            savings: {
+                                type: 'number'
+                            },
+                            reduction_ratio: {
+                                type: 'number'
                             },
                             buckets_stats: {
                                 $ref: '#/definitions/partial_buckets_stats'
+                            },
+                            usage_by_project: {
+                                type: 'object',
+                                additionalProperties: true,
+                                properties: {},
+                            },
+                            usage_by_bucket_class: {
+                                type: 'object',
+                                additionalProperties: true,
+                                properties: {},
+                            },
+                        }
+                    }
+                }
+            }
+        },
+
+        partial_accounts_stats: {
+            type: 'object',
+            required: ['accounts'],
+            properties: {
+                accounts: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['account', 'read_count', 'write_count', 'read_write_bytes'],
+                        properties: {
+                            account: {
+                                type: 'string'
+                            },
+                            read_count: {
+                                type: 'number'
+                            },
+                            write_count: {
+                                type: 'number'
+                            },
+                            read_write_bytes: {
+                                type: 'number'
                             },
                         }
                     }

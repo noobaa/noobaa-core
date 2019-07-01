@@ -496,7 +496,7 @@ function test_setup(bucket_name, pool_names, mirrored, cloud_pool, num_of_nodes_
                     })
                     .then(node_list => {
                         if (!node_list || !node_list.nodes) throw new Error('not enough nodes');
-                        const valid_nodes = node_list.nodes.filter(node => node.mode === 'OPTIMAL');
+                        const valid_nodes = node_list.nodes.filter(node => node.mode === 'OPTIMAL' && node.node_type === 'BLOCK_STORE_FS');
                         if (valid_nodes.length < num_of_nodes_per_pool[pool_name]) {
                             console.log(`list nodes returned ${valid_nodes.length} nodes. required number by ${pool_name} is ${num_of_nodes_per_pool[pool_name]}.`,
                                 node_list.nodes.map(node => ({ name: node.name, mode: node.mode })));

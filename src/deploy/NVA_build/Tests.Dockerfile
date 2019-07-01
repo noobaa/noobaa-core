@@ -52,6 +52,13 @@ COPY ./config.js ./
 RUN source /opt/rh/devtoolset-7/enable && \
     npm run build:fe
 
+RUN yum install -y git && \
+    yum clean all
+
+# get ceph tests and run bootstrap
+COPY ./src/test/system_tests/ceph_s3_tests_deploy.sh /noobaa-core/src/test/system_tests/
+RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
+
 COPY . ./
 
 ##############################################################
@@ -80,10 +87,10 @@ ENV TEST_CONTAINER true
 ##############################################################
 RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
 
-# git python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel -- these are required by ceph tests
+# python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel -- these are required by ceph tests
 RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y -q rh-mongodb36 && \
-    yum install -y git python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
+    yum install -y python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
     yum clean all
 
 
@@ -104,27 +111,28 @@ RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/r
 # docker build from the local repo 
 ##############################################################
 COPY ./.nvmrc ./noobaa-core/.nvmrc
-RUN export PATH=$PATH:/usr/local/bin && \
-    cd /usr/src && \
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash && \
-    export NVM_DIR="/root/.nvm" && \
-    source /root/.nvm/nvm.sh && \
-    NODE_VER=$(cat /noobaa-core/.nvmrc) && \
-    nvm install ${NODE_VER} && \
-    nvm alias default $(nvm current) && \
-    cd ~ && \
-    ln -sf $(which node) /usr/local/bin/node && \
-    ln -sf $(which npm) /usr/local/bin/npm && \
+COPY ./src/deploy/NVA_build/install_nodejs.sh ./
+RUN chmod +x ./install_nodejs.sh && \
+    ./install_nodejs.sh $(cat ./noobaa-core/.nvmrc) && \
     npm config set unsafe-perm true
+
+
+COPY --from=base /noobaa-core/src/test/system_tests/ /noobaa-core/src/test/system_tests/
+RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
+    ./bootstrap && \
+    touch ./s3tests/tests/__init__.py
 
 COPY --from=base /noobaa-core /noobaa-core
 WORKDIR /noobaa-core/
 
-# get ceph tests and run bootstrap
-RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
-
+ENV SPAWN_WRAP_SHIM_ROOT /data
 # set group as root and copy permissions for tests dir 
-RUN chgrp -R 0 /noobaa-core/src/test && chmod -R g=u /noobaa-core/src/test
+RUN chgrp -R 0 /noobaa-core/ && \
+    chmod -R g=u /noobaa-core/ && \
+    mkdir /data && \
+    chgrp -R 0 /data && \
+    chmod -R g=u /data 
+
 ##############################################################
 # Layers:
 #   Title: Setting some test env variables

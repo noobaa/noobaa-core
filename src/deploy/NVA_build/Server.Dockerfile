@@ -2,9 +2,9 @@ FROM noobaa/builder as server_builder
 
 ##############################################################
 # Layers:
-#   Title: installing dependencies (npm install)
+#   Title: Installing dependencies (npm install)
 #   Size: ~ 817 MB
-#   Cache: rebuild when we package.json changes
+#   Cache: Rebuild when we package.json changes
 ##############################################################
 COPY ./package*.json ./
 RUN source /opt/rh/devtoolset-7/enable && \
@@ -14,7 +14,7 @@ RUN source /opt/rh/devtoolset-7/enable && \
 # Layers:
 #   Title: Building the native
 #   Size: ~ 10 MB
-#   Cache: rebuild the native code changes
+#   Cache: Rebuild the native code changes
 ##############################################################
 COPY ./binding.gyp .
 COPY ./src/native ./src/native/
@@ -23,22 +23,9 @@ RUN source /opt/rh/devtoolset-7/enable && \
 
 ##############################################################
 # Layers:
-#   Title: getting the node
-#   Size: ~ 12.4 MB
-#   Cache: rebuild the .nvmrc  is canging
-##############################################################
-COPY ./.nvmrc ./.nvmrc
-RUN mkdir -p build/public/ && \
-    NODEJS_VERSION=v$(cat ./.nvmrc) && \
-    echo "$(date) =====> download node.js tarball ($NODEJS_VERSION) and nvm.sh (latest)" && \
-    wget -P build/public/ https://nodejs.org/dist/${NODEJS_VERSION}/node-${NODEJS_VERSION}-linux-x64.tar.xz && \
-    wget -P build/public/ https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh
-
-##############################################################
-# Layers:
 #   Title: Building the frontend
 #   Size: ~ 268 MB
-#   Cache: rebuild the there is a change in one of 
+#   Cache: Rebuild the there is a change in one of 
 #          the directories that we copy
 ##############################################################
 RUN mkdir -p /noobaa_init_files && \
@@ -67,9 +54,9 @@ RUN if [ "${GIT_COMMIT}" != "" ]; then sed -i 's/^  "version": "\(.*\)",$/  "ver
 
 ##############################################################
 # Layers:
-#   Title: creating the noobaa tar
+#   Title: Creating the noobaa tar
 #   Size: ~ 153 MB
-#   Cache: rebuild when one of the files are changing
+#   Cache: Rebuild when one of the files are changing
 #
 # In order to build this we should run 
 # docker build from the local repo 
@@ -86,7 +73,6 @@ RUN tar \
     .nvmrc \
     src/ \
     frontend/dist/ \
-    build/public/ \
     build/Release/ \
     node_modules/ 
 
@@ -104,11 +90,11 @@ ENV container docker
 
 ##############################################################
 # Layers:
-#   Title: installing dependencies
+#   Title: Installing dependencies
 #   Size: ~ 379 MB
-#   Cache: rebuild when we adding/removing requirments
+#   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-COPY ./src/deploy/rpm/set_mongo_repo.sh /tmp/
+COPY ./src/deploy/set_mongo_repo.sh /tmp/
 RUN chmod +x /tmp/set_mongo_repo.sh && \
     /bin/bash -xc "/tmp/set_mongo_repo.sh"
 RUN yum install -y -q bash \
@@ -146,31 +132,20 @@ RUN yum install -y -q bash \
 
 ##############################################################
 # Layers:
-#   Title: Node.js install with nvm
-#   Size: ~ 58 MB
-#   Cache: rebuild when Node.js version change in .nvmrc
-#
-# In order to build this we should run 
-# docker build from the local repo 
+#   Title: Getting the node 
+#   Size: ~ 110 MB
+#   Cache: Rebuild the .nvmrc is changing
 ##############################################################
-COPY ./.nvmrc ./noobaa-core/.nvmrc
-RUN export PATH=$PATH:/usr/local/bin && \
-    cd /usr/src && \
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.6/install.sh | bash && \
-    export NVM_DIR="/root/.nvm" && \
-    source /root/.nvm/nvm.sh && \
-    NODE_VER=$(cat /noobaa-core/.nvmrc) && \
-    nvm install ${NODE_VER} && \
-    nvm alias default $(nvm current) && \
-    cd ~ && \
-    ln -sf $(which node) /usr/local/bin/node && \
-    ln -sf $(which npm) /usr/local/bin/npm
+COPY ./.nvmrc ./.nvmrc
+COPY ./src/deploy/NVA_build/install_nodejs.sh ./
+RUN chmod +x ./install_nodejs.sh && \
+    ./install_nodejs.sh $(cat .nvmrc)
 
 ##############################################################
 # Layers:
 #   Title: Copying and giving premissions 
 #   Size: ~ 1 MB
-#   Cache: rebuild when we need to add another copy
+#   Cache: Rebuild when we need to add another copy
 #
 # In order to build this we should run 
 # docker build from the local repo 
@@ -203,7 +178,7 @@ RUN mkdir -m 777 /root/node_modules && \
 # Layers:
 #   Title: Copying the tar file from the server_builder
 #   Size: ~ 153 MB
-#   Cache: rebuild when there is a new tar file.
+#   Cache: Rebuild when there is a new tar file.
 ##############################################################
 COPY --from=server_builder /noobaa/noobaa-NVA.tar.gz /tmp/
 
@@ -222,6 +197,6 @@ EXPOSE 26050
 ###############
 # EXEC SETUP #
 ###############
-# run as non root user that belongs to root 
+# Run as non root user that belongs to root 
 USER 10001:0
 CMD ["/usr/bin/supervisord", "start_container"]

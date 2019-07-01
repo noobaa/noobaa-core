@@ -31,6 +31,8 @@ test: tester
 	@echo "\033[1;34mRunning tests.\033[0m"
 	docker run --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" $(TESTSER_TAG) 
 
+tests: test #alias for test
+
 server: builder
 	@echo "\033[1;34mStarting Server docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/Server.Dockerfile -t $(SERVER_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .

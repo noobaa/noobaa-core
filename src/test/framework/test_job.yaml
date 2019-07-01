@@ -1,25 +1,25 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: noobaa-test-env
+  name: TEST_JOB_NAME_PLACEHOLDER
 spec:
   template:
     spec:
       serviceAccount: noobaa-tests-account
       containers:
       - name: noobaa-test
-        image: dannyzaken/noobaa-tester:4
+        image: TESTER_IMAGE_PLACEHOLDER
         imagePullPolicy: Always
         workingDir: /noobaa-core
         args:
         - node
         - ./src/test/framework/test_env_builder_kubernetes.js
         - --server_image
-        - dannyzaken/noobaa-server:4
+        - SERVER_IMAGE_PLACEHOLDER
         - --agent_image
-        - dannyzaken/noobaa-agent:4
+        - AGENT_IMAGE_PLACEHOLDER
         - --namespace_prefix 
-        - sys-test
+        - NAMESPACE_PREFIX_PLACEHOLDER
         - --tests_list
         - /noobaa-core/src/test/framework/system_tests_list.js
         env:

@@ -15,9 +15,9 @@ dbg.set_process_name('spillover');
 
 let errors = [];
 let failures_in_test = false;
-const time_stemp = (Math.floor(Date.now() / 1000));
-const bucket = 'spillover.bucket' + time_stemp;
-const healthy_pool = 'healthy.pool' + time_stemp;
+const time_stamp = (Math.floor(Date.now() / 1000));
+const bucket = 'spillover.bucket' + time_stamp;
+const healthy_pool = 'healthy.pool' + time_stamp;
 
 //defining the required parameters
 const {
@@ -50,7 +50,7 @@ const suffix = 'spillover-' + id;
 function usage() {
     console.log(`
     --location              -   azure location (default: ${location})
-    --bucket                -   bucket to run on (default: spillover.bucket + timestemp)
+    --bucket                -   bucket to run on (default: spillover.bucket + timestamp)
     --resource              -   azure resource group
     --storage               -   azure storage on the resource group
     --vnet                  -   azure vnet on the resource group
@@ -125,8 +125,8 @@ async function createBucketWithEnabledSpillover() {
         } else {
             saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list ${list_buckets}`);
         }
-        const internalpool = await bf.getInternalStoragePool(server_ip);
-        await bf.setSpillover(bucket, internalpool);
+        const internalPool = await bf.getInternalStoragePool(server_ip);
+        await bf.setSpillover(bucket, internalPool);
     } catch (err) {
         saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
         throw err;
@@ -135,13 +135,13 @@ async function createBucketWithEnabledSpillover() {
 
 async function uploadFiles(dataset_size, files) {
     let number_of_files = Math.floor(dataset_size / 1024); //dividing to 1024 will get files in GB
-    if (number_of_files < 1) number_of_files = 1; //making sure we have atlist 1 file.
-    const file_size = Math.floor(dataset_size / number_of_files) + 1; //writing extra MB so we will be sure we reache max capacity.
+    if (number_of_files < 1) number_of_files = 1; //making sure we have at list 1 file.
+    const file_size = Math.floor(dataset_size / number_of_files) + 1; //writing extra MB so we will be sure we reached max capacity.
     const parts_num = Math.floor(file_size / 100);
-    const timeStemp = (Math.floor(Date.now() / 1000));
+    const timeStamp = (Math.floor(Date.now() / 1000));
     console.log(`${YELLOW}Writing ${number_of_files} files with total size: ${dataset_size + number_of_files} MB${NC}`);
     for (let count = 0; count < number_of_files; count++) {
-        const file_name = `file_${count}_${file_size}_${timeStemp}`;
+        const file_name = `file_${count}_${file_size}_${timeStamp}`;
         files.push(file_name);
         console.log(`Uploading ${file_name} with size ${file_size} MB`);
         try {
@@ -157,14 +157,14 @@ async function uploadFiles(dataset_size, files) {
 
 async function test_failed_upload(dataset_size) {
     const file_size = Math.floor(dataset_size);
-    const timeStemp = (Math.floor(Date.now() / 1000));
-    console.log(`Tring to upload ${dataset_size} MB after we have reached the quota`);
-    const file_name = `file_over_${file_size}_${timeStemp}`;
+    const timeStamp = (Math.floor(Date.now() / 1000));
+    console.log(`Trying to upload ${dataset_size} MB after we have reached the quota`);
+    const file_name = `file_over_${file_size}_${timeStamp}`;
     try {
         await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
         report.success('fail ul over quota');
     } catch (error) { //When we get to the quota the writes should start failing
-        console.log('Tring to upload pass the quota failed - as should');
+        console.log('Trying to upload pass the quota failed - as should');
         return;
     }
     report.fail('fail ul over quota');
@@ -184,20 +184,20 @@ async function checkFileInPool(file_name, pool) {
                 key: file_name,
             });
             chunkAvailable = chunks.filter(chunk => chunk.adminfo.health === 'available');
-            const chunkAvailablelength = chunkAvailable.length;
+            const chunkAvailableLength = chunkAvailable.length;
             const partsInPool = chunks.filter(chunk =>
                 chunk.frags[0].blocks[0].adminfo.pool_name.includes(pool)).length;
             const chunkNum = chunks.length;
-            if (chunkAvailablelength === chunkNum) {
-                console.log(`Available chunks: ${chunkAvailablelength}/${chunkNum} for ${file_name}`);
+            if (chunkAvailableLength === chunkNum) {
+                console.log(`Available chunks: ${chunkAvailableLength}/${chunkNum} for ${file_name}`);
             } else {
-                throw new Error(`Chanks for file ${file_name} should all be in ${
-                    pool}, Expected ${chunkNum}, recived ${chunkAvailablelength}`);
+                throw new Error(`Chunks for file ${file_name} should all be in ${
+                    pool}, Expected ${chunkNum}, received ${chunkAvailableLength}`);
             }
             if (partsInPool === chunkNum) {
-                console.log(`All The ${chunkNum} chanks are in ${pool}`);
+                console.log(`All The ${chunkNum} chunks are in ${pool}`);
             } else {
-                throw new Error(`Expected ${chunkNum} parts in ${pool} for file ${file_name}, recived ${partsInPool}`);
+                throw new Error(`Expected ${chunkNum} parts in ${pool} for file ${file_name}, received ${partsInPool}`);
             }
             keep_run = false;
         } catch (e) {
@@ -424,13 +424,13 @@ async function upload_and_check_evacuation() {
     }
 }
 
-async function wait_no_avilabe_space() {
+async function wait_no_available_space() {
     const base_time = Date.now();
-    let is_no_avilable;
+    let is_no_available;
     while (Date.now() - base_time < 360 * 1000) {
         try {
-            is_no_avilable = await bf.checkAvilableSpace(bucket);
-            if (is_no_avilable === 0) {
+            is_no_available = await bf.checkAvilableSpace(bucket);
+            if (is_no_available === 0) {
                 break;
             } else {
                 await P.delay(15 * 1000);
@@ -439,8 +439,8 @@ async function wait_no_avilabe_space() {
             throw new Error(`Something went wrong with checkAvilableSpace`);
         }
     }
-    if (is_no_avilable !== 0) {
-        throw new Error(`Avilable space should have been 0 by now`);
+    if (is_no_available !== 0) {
+        throw new Error(`Available space should have been 0 by now`);
     }
 }
 
@@ -448,7 +448,7 @@ async function check_quota() {
     await bf.setQuotaBucket(bucket, 1, 'GIGABYTE');
     // Start writing and see that we are failing when we get into the quota
     await uploadFiles(1024, pool_files);
-    await wait_no_avilabe_space();
+    await wait_no_available_space();
     await test_failed_upload(1024);
     for (const file of pool_files) {
         await checkFileInPool(file, healthy_pool);
@@ -465,7 +465,7 @@ async function check_quota_on_spillover() {
     await bf.setQuotaBucket(bucket, quota, 'GIGABYTE');
     // Start writing
     await uploadFiles(uploadSizeMB, pool_files);
-    await wait_no_avilabe_space();
+    await wait_no_available_space();
     await test_failed_upload(1024);
     for (const file of pool_files) {
         await checkFileInPool(file, healthy_pool);
@@ -548,7 +548,7 @@ async function main() {
         await disable_spillover_and_check();
 
         /* TODO: 1. change the spillover to cloud
-                 2. repeate the steps above
+                 2. repeat the steps above
          */
         await report.report();
         if (failures_in_test) {

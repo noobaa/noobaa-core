@@ -125,8 +125,14 @@ RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
 COPY --from=base /noobaa-core /noobaa-core
 WORKDIR /noobaa-core/
 
+ENV SPAWN_WRAP_SHIM_ROOT /data
 # set group as root and copy permissions for tests dir 
-RUN chgrp -R 0 /noobaa-core/src/test && chmod -R g=u /noobaa-core/src/test
+RUN chgrp -R 0 /noobaa-core/ && \
+    chmod -R g=u /noobaa-core/ && \
+    mkdir /data && \
+    chgrp -R 0 /data && \
+    chmod -R g=u /data 
+
 ##############################################################
 # Layers:
 #   Title: Setting some test env variables

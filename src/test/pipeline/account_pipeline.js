@@ -64,7 +64,6 @@ async function main() {
                 'create_system'
             ]
         });
-        await server_ops.upgrade_server(TEST_CFG.server_ip, TEST_CFG.upgrade);
         path = set_code_path('latest');
         await run_account_test(path, ['--cycles', 1, '--accounts_number', 2]);
         await server_ops.clean_ova_and_create_system(TEST_CFG.server_ip, TEST_CFG.server_secret);

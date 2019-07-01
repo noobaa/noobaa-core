@@ -417,20 +417,23 @@ function _make_rpc_options(req) {
 function _make_aws_config(req) {
     // TODO: need to change when we start to run funcs outside the
     // cluster (should use a proper hint based on agent location)
-    const ep_host = addr_utils.get_base_address(req.system.system_address).hostname;
-    const ep_port = parseInt(process.env.ENDPOINT_PORT, 10) || 80;
+    const ep_addr = addr_utils.get_base_address(req.system.system_address, {
+        hint: 'INTERNAL',
+        service: 's3',
+        api: 's3',
+        protocol: 'https',
+    });
     const account = system_store.data.get_by_id(req.func.exec_account);
     const account_keys = account.access_keys[0];
     return {
         region: 'us-east-1',
-        endpoint: `http://${ep_host}:${ep_port}`,
+        endpoint: ep_addr.href,
         sslEnabled: false,
         s3ForcePathStyle: true,
         accessKeyId: account_keys.access_key.unwrap(),
         secretAccessKey: account_keys.secret_key.unwrap(),
     };
 }
-
 
 exports.create_func = create_func;
 exports.update_func = update_func;

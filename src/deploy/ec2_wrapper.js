@@ -61,11 +61,6 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
     dotenv.load();
 }
 
-var KEY_PAIR_PARAMS = {
-    KeyName: 'noobaa-demo',
-    PublicKeyMaterial: fs.readFileSync(path.join(__dirname, 'noobaa-demo.pub'))
-};
-
 
 // the heroku app name
 var app_name = '';
@@ -193,6 +188,10 @@ function terminate_instances(region_name, instance_ids) {
  *
  */
 function import_key_pair_to_region(region_name) {
+    const KEY_PAIR_PARAMS = {
+        KeyName: 'noobaa-demo',
+        PublicKeyMaterial: fs.readFileSync(path.join(__dirname, 'noobaa-demo.pub'))
+    };
     return ec2_region_call(region_name, 'importKeyPair', KEY_PAIR_PARAMS)
         .then(function(res) {
             console.log('KeyPair: imported', res.KeyName);
@@ -228,6 +227,10 @@ function print_instances(instances) {
  * @return new instance public IP
  */
 function create_instance_from_ami(ami_name, region, instance_type, name) {
+    const KEY_PAIR_PARAMS = {
+        KeyName: 'noobaa-demo',
+        PublicKeyMaterial: fs.readFileSync(path.join(__dirname, 'noobaa-demo.pub'))
+    };
     return P.fcall(function() {
             return ec2_region_call(region, 'describeImages', {
                     Filters: [{
@@ -570,6 +573,10 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     }
 
 
+    const KEY_PAIR_PARAMS = {
+        KeyName: 'noobaa-demo',
+        PublicKeyMaterial: fs.readFileSync(path.join(__dirname, 'noobaa-demo.pub'))
+    };
 
     return P.fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {

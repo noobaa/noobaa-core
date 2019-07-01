@@ -7,10 +7,10 @@ const { construct_url } = require('./url_utils');
 
 const default_base_port = parseInt(process.env.SSL_PORT, 10) || 5443;
 const api_default_port_offset = {
-     mgmt: 0,
-     md: 1,
-     bg: 2,
-     'hosted_agents': 3
+    mgmt: 0,
+    md: 1,
+    bg: 2,
+    hosted_agents: 3
 };
 
 function format_base_address(hostname = '127.0.0.1', port = default_base_port) {
@@ -20,13 +20,17 @@ function format_base_address(hostname = '127.0.0.1', port = default_base_port) {
 function get_base_address(address_list, options = {}) {
     let {
         hint = 'INTERNAL',
+        service = '',
         api = 'mgmt',
         protocol = 'wss'
     } = options;
 
-    const api_list = address_list.filter(addr => addr.api === api);
-    let default_port = default_base_port + api_default_port_offset[api];
+    const api_list = address_list.filter(addr =>
+        (!service || addr.service === service) &&
+        addr.api === api
+    );
 
+    let default_port = default_base_port + api_default_port_offset[api];
     if (hint === 'EXTERNAL') {
         const extenral_addr = api_list
             .find(addr => addr.kind === 'EXTERNAL' && addr.secure);
@@ -78,5 +82,3 @@ function get_default_ports(base_port = default_base_port) {
 exports.format_base_address = format_base_address;
 exports.get_base_address = get_base_address;
 exports.get_default_ports = get_default_ports;
-
-

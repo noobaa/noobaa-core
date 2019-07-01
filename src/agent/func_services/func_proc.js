@@ -8,6 +8,7 @@ try {
 
     const path = require('path'); // eslint-disable-line global-require
     const AWS = require('aws-sdk'); // eslint-disable-line global-require
+    const https = require('https'); // eslint-disable-line global-require
 
     process.once('message', msg => {
 
@@ -15,6 +16,11 @@ try {
 
         if (msg.AWS_EXECUTION_ENV) process.env.AWS_EXECUTION_ENV = msg.AWS_EXECUTION_ENV;
         if (msg.aws_config) {
+            if (msg.aws_config.endpoint.startsWith('https:')) {
+                msg.aws_config.httpOptions = {
+                    agent: new https.Agent({ rejectUnauthorized: false })
+                };
+            }
             AWS.config.update(msg.aws_config);
         }
 

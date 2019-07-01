@@ -61,7 +61,6 @@ async function main() {
                 'upgrade',
             ]
         });
-        await server_ops.upgrade_server(TEST_CFG.server_ip, TEST_CFG.upgrade);
         path = set_code_path('latest');
         await run_test(path, []);
         process.exit(0);

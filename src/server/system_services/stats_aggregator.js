@@ -377,7 +377,7 @@ async function _partial_buckets_info(req) {
                 'HIGH_DATA_ACTIVITY',
                 'OPTIMAL',
             ];
-            if (!!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
+            if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
         }
 
         Object.keys(usage_by_bucket_class).forEach(key => {

@@ -29,7 +29,7 @@ const tests = [{
 }, {
     name: 'test-build-chunks',
     test: './src/test/system_tests/test_build_chunks.js',
-    num_agents: 6,
+    num_agents: 7,
     server_cpu: '400m',
     server_mem: '400Mi',
     agent_cpu: '250m',

@@ -8,7 +8,6 @@ const request = require('request');
 const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const dotenv = require('../../util/dotenv');
-const os_utils = require('../../util/os_utils');
 const util = require('util');
 dotenv.load();
 
@@ -93,76 +92,16 @@ function upload_file_to_bucket(bucket_name) {
         });
 }
 
-function jump_system_time_by_milli(milli) {
-    const pre_change_time = Date.now();
-    return os_utils.get_time_config()
-        .then(res => client.cluster_server.update_time_config({
-            timezone: res.timezone || '',
-            epoch: Math.round((pre_change_time + milli) / 1000)
-        }))
-        .then(() => control_services('restart', ['all']))
-        .then(() => control_services('stop', ['bg_workers']))
-        .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS));
-}
-
-function init_system_to_ntp() {
-    console.log('init_system_to_ntp started');
-    return P.resolve()
-        .then(() => client.cluster_server.update_time_config({
-                timezone: "Asia/Jerusalem",
-                ntp_server: 'time.windows.com'
-            })
-            .then(() => {
-                console.log('update_time_config updated to ntp');
-            })
-            .catch(err => {
-                console.error('update_time_config to ntp failed', err);
-                throw err;
-            })
-        )
-        .delay(10000)
-        .finally(() => {
-            console.log('shutdown supervisorctl');
-            return promise_utils.exec('supervisorctl shutdown', {
-                ignore_rc: false,
-                return_stdout: false
-            });
-        })
-        .delay(15000)
-        .finally(() => P.resolve()
-            .then(() => {
-                console.log('start supervisord');
-                return promise_utils.exec('supervisord start', {
-                    ignore_rc: false,
-                    return_stdout: false
-                });
-            })
-            .delay(10000)
-            .then(() => {
-                console.log('supervisord started successfully');
-            })
-            .then(() => control_services('restart', ['all']))
-            .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS))
-            .then(function() {
-                console.log('init_system_to_ntp initialized successfully');
-            })
-            .catch(function(err) {
-                console.error('init_system_to_ntp had an error', err);
-                throw err;
-            }));
-}
-
 function prepare_buckets_with_objects() {
-    const FIVE_MINUTES_IN_MILLI = 5 * 60 * 1000;
     const CYCLES_TO_TEST = 2;
     let buckets_used = [];
 
     return promise_utils.loop(CYCLES_TO_TEST, cycle => {
             let current_fkey;
-            const cycle_jump = CYCLES_TO_TEST - cycle;
             const cycle_bucket_name = `slothaggregator${cycle}`;
 
-            return jump_system_time_by_milli(cycle_jump * FIVE_MINUTES_IN_MILLI)
+            //TODO:: used to update system time by milli cycke_jump * FIVE_MINUTES_IN_MILLI
+            return P.resolve()
                 .then(() => create_bucket(cycle_bucket_name))
                 .then(() => upload_file_to_bucket(cycle_bucket_name))
                 .then(fkey => {
@@ -257,8 +196,7 @@ function run_test() {
                 test_buckets,
                 storage_by_bucket
             );
-        })
-        .finally(() => init_system_to_ntp());
+        });
 }
 
 function main() {

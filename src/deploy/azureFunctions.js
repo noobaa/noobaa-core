@@ -29,9 +29,6 @@ const system = {
     password: 'DeMo1'
 };
 
-const NTP = 'time.windows.com';
-const TZ = 'Asia/Jerusalem';
-
 const blobSvc = azure_storage.createBlobService();
 
 class AzureFunctions {
@@ -879,7 +876,6 @@ class AzureFunctions {
             latestRelease = true,
             createSystem = false,
             createPools = [],
-            updateNTP = false,
             allocate_pip = true
         } = params;
         let { imagename } = params;
@@ -935,18 +931,8 @@ class AzureFunctions {
                         })
                         .then(res => {
                             secret = res.cluster.master_secret;
-                            if (updateNTP) {
-                                console.log('System created successfully, setting NTP');
-                                return client.cluster_server.update_time_config({
-                                        target_secret: secret,
-                                        timezone: TZ,
-                                        ntp_server: NTP
-                                    })
-                                    .then(() => rpc.disconnect_all());
-                            } else {
-                                console.log('System created successfully');
-                                return P.resolve();
-                            }
+                            console.log('System created successfully');
+                            return P.resolve();
                         })
                         .then(() => P.map(createPools, pool => client.pool.create_hosts_pool({
                             name: pool,

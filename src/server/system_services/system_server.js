@@ -252,7 +252,6 @@ async function create_system(req) {
         email,
         password,
         must_change_password,
-        time_config,
         dns_servers,
     } = req.rpc_params;
 
@@ -287,7 +286,6 @@ async function create_system(req) {
 
         dbg.log0('create_system: ensuring internal pool structure');
         await _ensure_internal_structure(system_id);
-        await _configure_time_settings(cluster_info, time_config, owner_secret, auth);
         await _configure_dns_servers(dns_servers, owner_secret, auth);
         await _configure_system_address(system_id, account_id);
         await _configure_system_proxy(auth);
@@ -308,19 +306,7 @@ async function create_system(req) {
 async function _get_cluster_info() {
     const cluster_info = await cluster_server.new_cluster_info({ address: "127.0.0.1" });
     if (cluster_info) {
-        const [ntp_server, time_config, dns_config] = await Promise.all([
-            os_utils.get_ntp(),
-            os_utils.get_time_config(),
-            os_utils.get_dns_config()
-        ]);
-
-        if (ntp_server) {
-            dbg.log0(`create_system: ntp server was already configured in first install to ${ntp_server}`);
-            cluster_info.ntp = {
-                timezone: time_config.timezone,
-                server: ntp_server
-            };
-        }
+        const [dns_config] = await Promise.all([os_utils.get_dns_config()]);
 
         if (dns_config.dns_servers.length) {
             dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
@@ -356,21 +342,6 @@ async function _create_owner_account(
         },
     });
     return { auth_token };
-}
-
-async function _configure_time_settings(cluster_info, time_config, owner_secret, auth) {
-    const ntp_configured = Boolean(cluster_info && cluster_info.ntp);
-    if (time_config && (!ntp_configured || time_config.ntp_server)) {
-        time_config.target_secret = owner_secret;
-        try {
-            dbg.log0('create_system: updating time config with:', time_config);
-            await server_rpc.client.cluster_server.update_time_config(time_config, auth);
-        } catch (err) {
-            dbg.error('create_system: Failed updating time config during create system', err);
-        }
-    } else {
-        dbg.log0(`create_system: skipping time configuration. ntp_configured=${ntp_configured}, time_config=`, time_config);
-    }
 }
 
 async function _configure_dns_servers(dns_servers, owner_secret, auth) {

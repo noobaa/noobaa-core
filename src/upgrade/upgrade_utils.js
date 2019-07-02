@@ -16,7 +16,6 @@ const promise_utils = require('../util/promise_utils');
 const phone_home_utils = require('../util/phone_home');
 const argv = require('minimist')(process.argv);
 const mongo_client = require('../util/mongo_client');
-const net_utils = require('../util/net_utils');
 
 const TMP_PATH = '/tmp';
 const EXTRACTION_PATH = `${TMP_PATH}/test`;
@@ -162,36 +161,6 @@ async function do_upgrade(upgrade_file, is_clusterized, err_handler) {
     }
 }
 
-function test_ntp_timeskew(ntp_server, proxy_address) {
-    if (proxy_address && !ntp_server) {
-        // if couldn't get time from ntp server, and there is a proxy configured
-        // and ntp is not configured, then skip the test
-        dbg.log0('system is behind proxy and no local ntp. cannot reach default ntp server (pool.ntp.org) - skipping test');
-        return;
-    }
-    let timeout = 5000;
-    return promise_utils.retry(4, 1000, () => net_utils.get_ntp_time({
-                server: ntp_server,
-                timeout
-            })
-            .catch(err => {
-                // if failed retry with double the timeout. total time is ~75 seconds
-                timeout *= 2;
-                throw err;
-            })
-        )
-        .catch(err => {
-            dbg.error('test_ntp_timeskew failed', err);
-            throw new Error('NTP_COMMUNICATION_ERROR');
-        })
-        .then(date => {
-            const FIFTEEN_MINUTES_IN_MILLISECONDS = 900000;
-            if (date && Math.abs(date.getTime() - Date.now()) > FIFTEEN_MINUTES_IN_MILLISECONDS) {
-                throw new Error('NTP_TIMESKEW_FAILED');
-            }
-        });
-}
-
 function test_major_version_change() {
     const get_version = `tar -zxvOf ${TMP_PATH}/${PACKAGE_FILE_NAME} noobaa-core/package.json | grep version | awk '{print $2}'`;
     const check_exists = `tar -tf ${TMP_PATH}/${PACKAGE_FILE_NAME} | grep noobaa-core/package.json`;
@@ -308,17 +277,14 @@ function pre_upgrade_checkups(params) {
 function extract_new_pre_upgrade_params() {
     return P.resolve()
         .then(() => mongo_client.instance().connect())
-        .then(() => P.join(
-            _get_phone_home_proxy_address(),
-            _get_ntp_address()
-        ).spread((phone_home_proxy_address, ntp_server) => {
+        .then(() => _get_phone_home_proxy_address())
+        .then(phone_home_proxy_address => {
             const params = {
-                ntp_server,
                 phone_home_proxy_address
             };
             dbg.log0('extract_new_pre_upgrade_params: params =', params);
             return params;
-        }))
+        })
         .catch(err => {
             dbg.error('extract_new_pre_upgrade_params had errors', err);
             throw new Error('COULD_NOT_EXTRACT_PARAMS');
@@ -340,17 +306,11 @@ function _get_phone_home_proxy_address() {
         });
 }
 
-function _get_ntp_address() {
-    return P.resolve()
-        .then(() => os_utils.get_ntp());
-}
-
 function new_pre_upgrade_checkups(params) {
     dbg.log0(`running new params checkups`);
     return P.join(
         test_internet_connectivity(params.phone_home_proxy_address),
         // TODO: Check the NTP with consideration to the proxy
-        test_ntp_timeskew(params.ntp_server, params.phone_home_proxy_address),
         test_local_harddrive_memory(),
         test_supervisor_sock()
     );

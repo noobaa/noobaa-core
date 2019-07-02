@@ -65,16 +65,6 @@ module.exports = {
             },
         },
 
-        update_time_config: {
-            method: 'POST',
-            params: {
-                $ref: 'cluster_internal_api#/definitions/time_config'
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         update_dns_servers: {
             method: 'POST',
             params: {

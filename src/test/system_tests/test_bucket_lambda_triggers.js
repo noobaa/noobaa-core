@@ -13,13 +13,13 @@ const api = require('../../api');
 const P = require('../../util/promise');
 const dotenv = require('../../util/dotenv');
 const ops = require('../utils/basic_server_ops');
-const config = require('../../../config.js');
 const path = require('path');
 const rpc = api.new_rpc();
 const zip_utils = require('../../util/zip_utils');
 const assert = require('assert');
 const AWS = require('aws-sdk');
 const fs = require('fs');
+const test_utils = require('./test_utils');
 
 dotenv.load();
 
@@ -35,6 +35,7 @@ const {
 const TIME_FOR_FUNC_TO_RUN = 15000;
 const TIME_FOR_SDK_TO_UPDATE = 60000;
 const NUM_OF_RETRIES = 10;
+const POOL_NAME = 'test-pool';
 
 var client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
@@ -50,7 +51,7 @@ let full_access_user = {
         full_permission: false,
         permission_list: ['bucket1', 'bucket2', 'ns.external.bucket1']
     },
-    default_pool: config.NEW_SYSTEM_POOL_NAME,
+    default_pool: POOL_NAME,
 };
 
 let bucket1_user = {
@@ -63,7 +64,7 @@ let bucket1_user = {
         full_permission: false,
         permission_list: ['bucket1', 'ns.external.bucket1']
     },
-    default_pool: config.NEW_SYSTEM_POOL_NAME,
+    default_pool: POOL_NAME,
 };
 
 const external_connection = {
@@ -76,7 +77,6 @@ const external_connection = {
 };
 
 const ROLE_ARN = 'arn:aws:iam::112233445566:role/lambda-test';
-const POOLS = [config.NEW_SYSTEM_POOL_NAME];
 
 const trigger_based_func_create = {
     FunctionName: 'create_backup_file',
@@ -86,7 +86,7 @@ const trigger_based_func_create = {
     Role: ROLE_ARN,
     MemorySize: 128,
     VpcConfig: {
-        SubnetIds: POOLS
+        SubnetIds: [POOL_NAME]
     },
     Files: [{
         path: 'create_backup_file_func.js',
@@ -102,7 +102,7 @@ const trigger_based_func_delete = {
     Role: ROLE_ARN,
     MemorySize: 128,
     VpcConfig: {
-        SubnetIds: POOLS
+        SubnetIds: [POOL_NAME]
     },
     Files: [{
         path: 'delete_backup_file_func.js',
@@ -118,7 +118,7 @@ const trigger_based_func_read = {
     Role: ROLE_ARN,
     MemorySize: 128,
     VpcConfig: {
-        SubnetIds: POOLS
+        SubnetIds: [POOL_NAME]
     },
     Files: [{
         path: 'create_backup_file_func.js',
@@ -190,6 +190,8 @@ async function setup() {
     let system_info = await client.system.read_system();
     // const internal_resource = system_info.pools.find(item => item.name.indexOf('system-internal') > -1).name;
     if (!argv.no_setup) {
+        await test_utils.create_hosts_pool(client, POOL_NAME, 3);
+
         // Create test buckets.
         await client.bucket.create_bucket({ name: 'bucket1' });
         await client.bucket.create_bucket({ name: 'bucket2' });
@@ -334,6 +336,7 @@ async function run_test() {
         await test_delete_trigger_run(full_access_user, 'file3.dat', b);
         await test_delete_trigger_run(full_access_user, 'sloth_multiple.dat', b, /* multiple */ true);
     }
+
     console.log('test_bucket_lambda_triggers PASSED');
 }
 

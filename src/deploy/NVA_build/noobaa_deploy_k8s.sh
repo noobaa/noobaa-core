@@ -155,25 +155,25 @@ function verify_noobaa_deployed {
 
 
 function install_storage_agents {
-    verify_noobaa_deployed
+    # verify_noobaa_deployed
     echo -e "${GREEN}Deploying noobaa agents for storage. This operation will provision ${NUM_AGENTS} PVs of size ${PV_SIZE_GB} GB${NC}"
     get_all_ips
     get_auth_token
-    # get kubernetes agents yaml
-    AGENTS_YAML=$(curl http://${ACCESS_IP_AND_PORT}/rpc/ -sd '{
-    "api": "system_api",
-    "method": "get_node_installation_string",
-    "params": {},
-    "auth_token": "'${TOKEN}'"
-    }' | jq -r '.reply.KUBERNETES' | sed -e "s:storage\: 30Gi:storage\: ${PV_SIZE_GB}Gi:" -e "s:replicas\: 3:replicas\: ${NUM_AGENTS}:"  )
 
-    if [ "${STORAGE_CLASS}" != "" ]; then
-        AGENTS_YAML=$(echo "${AGENTS_YAML}" | sed -e "s:#storageClassName\::storageClassName\: ${STORAGE_CLASS}:")
-    fi
-
-    TMP_YAML_FILE=$(mktemp)
-    echo "${AGENTS_YAML}" > ${TMP_YAML_FILE}
-    kubectl apply -f ${TMP_YAML_FILE}
+    # create a pool.to manage the storage.
+    $(curl http://${ACCESS_IP_AND_PORT}/rpc/ -sd '{
+        "api": "pool_api",
+        "method": "create_hosts_pool",
+        "params": {
+            "name": pool-"'$(openssl rand -hex 4)'",
+            "is_managed": true,
+            "host_count": '${NUM_AGENTS}',
+            "host_config": {
+                "volume_size": '$((PV_SIZE_GB * (1024 ** 3)))'
+            }
+        },
+        "auth_token": "'${TOKEN}'"
+    }');
 }
 
 function get_all_ips {
@@ -252,10 +252,9 @@ function delete_noobaa {
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
     ${KUBECTL} delete pvc datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
-    ${KUBECTL} delete statefulset noobaa-agent
-    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-0
-    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-1
-    ${KUBECTL} delete pvc noobaastorage-noobaa-agent-2
+    ${KUBECTL} delete pvc mongo-datadir-${NOOBAA_POD_NAME}
+    ${KUBECTL} delete statefulset -l noobaa-module=noobaa-pool-impl # delete noobaa pool's stateful sets
+    ${KUBECTL} delete pvc -l anoobaa-module=noobaa-storage # delete noobaa agents volumes
 }
 
 
@@ -415,16 +414,19 @@ function create_noobaa_secrets {
     ${KUBECTL} delete secret ${NOOBAA_SECRETS_NAME} &> /dev/null
     ${KUBECTL} create secret generic ${NOOBAA_SECRETS_NAME} \
         --from-literal=server_secret=${SERVER_SECRET} \
-        --from-literal=jwt=${JWT_SECRET} 
+        --from-literal=jwt=${JWT_SECRET}
 }
 
 function create_config_map {
+    local AGENT_IMAGE=$(${KUBECTL} apply -f src/deploy/NVA_build/noobaa_core.yaml \
+        --dry-run -o jsonpath='{.items[?(@.kind=="StatefulSet")].spec.template.spec.containers[0].image}')
     local OAUTH_INFO=$(${KUBECTL} get --raw '/.well-known/oauth-authorization-server')
     local OAUTH_AUTHORIZATION_ENDPOINT=$(echo ${OAUTH_INFO} | jq -r '.authorization_endpoint')
     local OAUTH_TOKEN_ENDPOINT=$(echo ${OAUTH_INFO} | jq -r '.token_endpoint')
 
     ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME} &> /dev/null
     ${KUBECTL} create configmap ${NOOBAA_CONFIGMAP_NAME} \
+        --from-literal=noobaa_agent_profile="{\"image\": \"${AGENT_IMAGE}\"}" \
         --from-literal=oauth_authorization_endpoint=${OAUTH_AUTHORIZATION_ENDPOINT} \
         --from-literal=oauth_token_endpoint=${OAUTH_TOKEN_ENDPOINT}
 }

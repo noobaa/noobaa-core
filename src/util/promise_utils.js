@@ -186,7 +186,7 @@ function run_background_worker(worker) {
 /*
  * Run child process spawn wrapped by a promise
  */
-function spawn(command, args, options, ignore_rc, unref, timeout) {
+function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
     return new P((resolve, reject) => {
         options = options || {};
         args = args || [];
@@ -215,12 +215,12 @@ function spawn(command, args, options, ignore_rc, unref, timeout) {
                     ' exited with error ' + error));
             }
         });
-        if (timeout) {
+        if (timeout_ms) {
             setTimeout(() => {
                 const pid = proc.pid;
                 proc.kill();
                 reject(new Error(`Timeout: Execution of ${command + args.join(' ')} took longer than ${timeout} ms. killed process (${pid})`));
-            }, timeout);
+            }, timeout_ms);
         }
         if (unref) proc.unref();
     });
@@ -266,13 +266,13 @@ function fork(command, input_args, opts, ignore_rc) {
 function exec(command, options) {
     const ignore_rc = (options && options.ignore_rc) || false;
     const return_stdout = (options && options.return_stdout) || false;
-    const timeout = (options && options.timeout) || 0;
+    const timeout_ms = (options && options.timeout) || 0;
     const trim_stdout = (options && options.trim_stdout) || false;
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
-            timeout: timeout
+            timeout: timeout_ms
         }, function(error, stdout, stderr) {
             if (!error || ignore_rc) {
                 if (error) {
@@ -294,7 +294,7 @@ function exec(command, options) {
     });
 }
 
-function wait_for_event(emitter, event, timeout) {
+function wait_for_event(emitter, event, timeout_ms) {
     return new P((resolve, reject) => {
         // the first event to fire wins.
         // since we use emitter.once and the promise will not change after settling
@@ -306,8 +306,8 @@ function wait_for_event(emitter, event, timeout) {
         if (event !== 'error') {
             emitter.once('error', err => reject(err || new Error('wait_for_event: error')));
         }
-        if (timeout) {
-            setTimeout(() => reject(new Error(`timedout waiting for event ${event} `)), timeout);
+        if (timeout_ms) {
+            setTimeout(() => reject(new Error(`timedout waiting for event ${event} `)), timeout_ms);
         }
     });
 }
@@ -371,13 +371,47 @@ function map_values(obj, func) {
         .return(new_obj);
 }
 
-function conditional_timeout(cond, timeout, prom) {
+function conditional_timeout(cond, timeout_ms, prom) {
     if (cond) {
-        return prom.timeout(timeout);
+        return prom.timeout(timeout_ms);
     }
     return prom;
 }
 
+/*
+* A timeout util build to work nicely with asyc/await, example:
+* await timeout(async () => { ... }, 2000)
+*/
+function timeout(task, ms) {
+    return P.resolve(task())
+        .timeout(ms);
+}
+
+
+/*
+* Wait until an async condition is met
+*
+* @param async_cond - an async condition function with a boolean return value.
+* @param delay_ms - delay number of milliseconds between invocation of the condition.
+* @param timeout_ms.- A timeout to bail out of the loop, will throw timeout error.
+*/
+async function wait_until(async_cond, delay_ms = 2500, timeout_ms) {
+    if (_.isUndefined(timeout_ms)) {
+        let condition_met = false;
+        while (!condition_met) {
+            condition_met = await async_cond();
+            if (!condition_met) {
+                await P.delay(delay_ms);
+            }
+        }
+
+    } else {
+        return timeout(
+            () => wait_until(async_cond, delay_ms),
+            timeout_ms
+        );
+    }
+}
 
 // EXPORTS
 exports.join = join;
@@ -396,3 +430,5 @@ exports.auto = auto;
 exports.map_values = map_values;
 exports.fork = fork;
 exports.conditional_timeout = conditional_timeout;
+exports.timeout = timeout;
+exports.wait_until = wait_until;

@@ -19,17 +19,17 @@ import {
 } from 'action-types';
 
 
-export function createHostsPool(poolName, nodeCount, nodeVolumeSize, isManaged) {
+export function createHostsPool(name, hostCount, hostVolumeSize, isManaged) {
     return {
         type: CREATE_HOSTS_POOL,
-        payload: { poolName, nodeCount, nodeVolumeSize, isManaged }
+        payload: { name, hostCount, hostVolumeSize, isManaged }
     };
 }
 
-export function completeCreateHostsPool(name) {
+export function completeCreateHostsPool(name, deployYAMLUri, autoDownload) {
     return {
         type: COMPLETE_CREATE_HOSTS_POOL,
-        payload: { name }
+        payload: { name, deployYAMLUri, autoDownload }
     };
 }
 

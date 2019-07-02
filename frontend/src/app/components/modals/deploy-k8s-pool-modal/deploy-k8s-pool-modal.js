@@ -6,12 +6,13 @@ import ko from 'knockout';
 import { isFormValid, getFormValues, isFieldTouched } from 'utils/form-utils';
 import { validateName } from 'utils/validation-utils';
 import { deepFreeze, throttle } from 'utils/core-utils';
-import { unitsInBytes, formatSize } from 'utils/size-utils';
+import { fromSizeAndUnit, unitsInBytes, formatSize } from 'utils/size-utils';
 import { inputThrottle } from 'config';
 import numeral from 'numeral';
 import {
     updateForm,
     touchForm,
+    createHostsPool,
     closeModal
 } from 'action-creators';
 
@@ -150,17 +151,15 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             deployMethod
         } = values;
 
-        const pvSizeInBytes = pvSize * unitsInBytes[pvSizeUnit];
-        if (deployMethod === 'NOOBAA') {
-            console.warn(`Noobaa deployment for a pool named ${poolName} with ${nodeCount} nodes each providing ${formatSize(pvSizeInBytes)}`);
-
-        } else if (deployMethod === 'YAML') {
-            console.warn(`YAML for a pool named ${poolName} with ${nodeCount} nodes each providing ${formatSize(pvSizeInBytes)}`);
-        } else {
-            throw new Error('Unreachable');
-        }
-
-        this.dispatch(closeModal());
+        this.dispatch(
+            closeModal(),
+            createHostsPool(
+                poolName,
+                nodeCount,
+                fromSizeAndUnit(pvSize, pvSizeUnit),
+                deployMethod === 'NOOBAA'
+            )
+        );
     }
 
     onCancel() {

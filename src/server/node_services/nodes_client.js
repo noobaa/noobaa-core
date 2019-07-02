@@ -31,7 +31,6 @@ const NODE_FIELDS_FOR_MAP = Object.freeze([
 class NodesClient {
 
     list_nodes_by_system(system_id) {
-
         return server_rpc.client.node.list_nodes({}, {
                 auth_token: auth_server.make_auth_token({
                     system_id: system_id,
@@ -123,20 +122,6 @@ class NodesClient {
                 })
             })
             .then(res => _.mapValues(_.keyBy(res, 'tier_id'), 'mirrors_storage'));
-    }
-
-
-    migrate_nodes_to_pool(system_id, node_identities, pool_id, account_id) {
-        return server_rpc.client.node.migrate_nodes_to_pool({
-            nodes: node_identities,
-            pool_id: String(pool_id)
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_id,
-                role: 'admin',
-                account_id: account_id
-            })
-        });
     }
 
     collect_agent_diagnostics(node_identity, system_id) {
@@ -310,6 +295,54 @@ class NodesClient {
                 node_allocator.report_error_on_node_alloc(node_id);
             }
         }
+    }
+
+    async list_hosts_by_pool(pool_name, system_id, auth_token) {
+        if (!auth_token) {
+            auth_token = auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            });
+        }
+
+        const res = await server_rpc.client.host.list_hosts({
+            query: {
+                pools: [pool_name]
+            }
+        }, {
+            auth_token
+        });
+        mongo_utils.fix_id_type(res.hosts);
+        return res;
+    }
+
+    async delete_hosts_by_pool(pool_name, system_id, count = Infinity) {
+        const auth_token = auth_server.make_auth_token({
+            system_id: system_id,
+            role: 'admin'
+        });
+
+        const { hosts } = await this.list_hosts_by_pool(pool_name, system_id, auth_token);
+        const promise_list = hosts
+            .sort((host1, host2) => {
+                const host1_seq = Number(host1.name.match(/-(\d+)#/)[1]);
+                const host2_seq = Number(host2.name.match(/-(\d+)#/)[1]);
+                return host1_seq - host2_seq;
+            })
+            .slice(-count)
+            .map(async host => {
+                if (host.mode === 'DELETING') {
+                    return;
+                }
+
+                try {
+                   await server_rpc.client.host.delete_host({ name: host.name }, { auth_token });
+                } catch (err) {
+                    console.error(`delete_hosts_by_pool: could not initiate delete for host ${host.name}, got: ${err.message}`);
+                }
+            });
+
+        await Promise.all(promise_list);
     }
 
     /** @returns {NodesClient} */

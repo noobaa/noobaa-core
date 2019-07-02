@@ -32,10 +32,6 @@ function list_hosts(req) {
     return nodes_server.get_local_monitor().list_hosts(query, options);
 }
 
-function migrate_hosts_to_pool(req) {
-    return nodes_server.get_local_monitor().migrate_hosts_to_pool(req);
-}
-
 function retrust_host(req) {
     return nodes_server.get_local_monitor().retrust_host(req);
 }
@@ -124,5 +120,4 @@ exports.test_host_network = test_host_network;
 exports.set_debug_host = set_debug_host;
 exports.update_host_services = update_host_services;
 exports.list_hosts = list_hosts;
-exports.migrate_hosts_to_pool = migrate_hosts_to_pool;
 exports.diagnose_host = diagnose_host;

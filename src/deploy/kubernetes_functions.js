@@ -66,7 +66,7 @@ class KubernetesFunctions {
         await this.kubectl(`delete namespace ${this.namespace}`, { ignore_namespace: true });
     }
 
-    /**  
+    /**
      * returns an array of all resources in a yaml\json\url
      */
     async read_resources(file_path) {
@@ -80,8 +80,8 @@ class KubernetesFunctions {
         }
     }
 
-    /**  
-     * get an object where the keys are the resource name and the value is the resource as js object. write to yaml file 
+    /**
+     * get an object where the keys are the resource name and the value is the resource as js object. write to yaml file
      */
     async write_resources(file, resources) {
         const file_content = _.map(resources, resource => JSON.stringify(resource)).join('\n');
@@ -129,7 +129,7 @@ class KubernetesFunctions {
             }
         }
 
-        // set env 
+        // set env
         if (envs) {
             statefulset.spec.template.spec.containers[0].env = (statefulset.spec.template.spec.containers[0].env || []).concat(envs);
         }
@@ -169,14 +169,16 @@ class KubernetesFunctions {
         }
     }
 
-
-    async create_noobaa_secrets() {
-        // create a secret containing noobaa_secret and jwt_secret
-        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh`);
-    }
-
-
-    async deploy_server({ image, server_yaml, envs, cpu, mem, pv, pull_always }) {
+    async deploy_server({
+        image,
+        server_yaml,
+        envs = [],
+        cpu,
+        mem,
+        pv,
+        pull_always,
+        agent_profile
+    }) {
         const server_details = {};
         try {
             let resources_file_path = path.join(this.output_dir, `${this.namespace}.server_deployment.${Date.now()}.json`);
@@ -184,9 +186,26 @@ class KubernetesFunctions {
             const resources = await this.read_resources(server_yaml);
             const statefulset = resources.find(res => res.kind === 'StatefulSet');
             const pod_name = `${statefulset.metadata.name}-0`;
+
+            // Fill in mandatory image field in the agent profile if an image for the agents
+            // was not specified directly.
+            if (!agent_profile.image) {
+                agent_profile.image = image || statefulset
+                        .spec
+                        .template
+                        .spec
+                        .containers.find(c => c.name === 'noobaa-server')
+                        .image;
+            }
+            envs.push({
+                name: 'AGENT_PROFILE',
+                value: JSON.stringify(agent_profile)
+            });
+
             this.update_statefulset({ statefulset, image, envs, cpu, mem, pv, pull_always });
             this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
+            await this.create_noobaa_secrets();
 
             await this.create_noobaa_secrets();
             console.log('deploying server resources from file', resources_file_path);
@@ -213,35 +232,6 @@ class KubernetesFunctions {
             throw err;
         }
     }
-
-
-    async deploy_agents({ image, num_agents, agents_yaml, envs, cpu, mem, pv, pull_always }) {
-        if (!num_agents) {
-            return;
-        }
-        try {
-            let resources_file_path = path.join(this.output_dir, `${this.namespace}.agents_deployment.${Date.now()}.json`);
-            // modify resources and write to temp yaml
-            const resources = await this.read_resources(agents_yaml);
-            const statefulset = resources.find(res => res.kind === 'StatefulSet');
-            const statefulset_name = statefulset.metadata.name;
-            this.update_statefulset({ statefulset, image, replicas: num_agents, cpu, mem, envs, pv, pull_always });
-            this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
-            await this.write_resources(resources_file_path, resources);
-
-            console.log('deploying agents resources from file', resources_file_path);
-            await this.kubectl(`apply -f ${resources_file_path}`);
-
-            // wait for all agents to be ready:
-            await P.all(_.times(num_agents).map(i => this.wait_for_pod_ready(`${statefulset_name}-${i}`)));
-
-
-        } catch (err) {
-            console.error('failed to deploy server. error:', err);
-            throw err;
-        }
-    }
-
 
     /**
      * get external ip\dns name for a specific service.
@@ -279,9 +269,6 @@ class KubernetesFunctions {
                 .timeout(timeout);
         }
     }
-
-
-
 
     async wait_for_pod_ready(pod_name, additional_test, options = {}) {
         const delay = 10000;
@@ -325,6 +312,11 @@ class KubernetesFunctions {
         } catch (err) {
             return false;
         }
+    }
+
+    async create_noobaa_secrets() {
+        // create a secret containing noobaa_secret and jwt_secret
+        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh`);
     }
 
 }

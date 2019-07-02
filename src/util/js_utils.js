@@ -148,12 +148,12 @@ class PackedObject {
 }
 
 /**
- * Returns an empty object with lazy custom inspection 
+ * Returns an empty object with lazy custom inspection
  * to avoid creating large strings when not the log print is optional.
- * 
+ *
  * Example:
  * dbg.log2(inspect_lazy(very_deep_object, { depth: null, colors: true }));
- * 
+ *
  */
 function inspect_lazy(obj, ...inspect_args) {
     return {
@@ -161,6 +161,20 @@ function inspect_lazy(obj, ...inspect_args) {
             return util.inspect(obj, ...inspect_args);
         }
     };
+}
+
+/**
+ * Create an array of size 'length' running an initializer for each item
+ * to provide the item's value based on the item's position in the array.
+ * If not item initializer is not provided an array where each item contain
+ * the index of the item will be created.
+  */
+function make_array(length, item_initializer) {
+    if (!_.isFunction(item_initializer)) {
+        item_initializer = _.identity;
+    }
+
+    return Array.from({ length }, (_unused_, i) => item_initializer(i));
 }
 
 exports.self_bind = self_bind;
@@ -173,3 +187,4 @@ exports.default_value = default_value;
 exports.sort_compare_by = sort_compare_by;
 exports.PackedObject = PackedObject;
 exports.inspect_lazy = inspect_lazy;
+exports.make_array = make_array;

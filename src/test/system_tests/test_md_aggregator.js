@@ -61,7 +61,7 @@ function create_bucket(bucket_name) {
     return P.resolve()
         .then(() => client.tier.create_tier({
             name: `${bucket_name}tier`,
-            attached_pools: ['first.pool'],
+            attached_pools: ['first-pool'],
             data_placement: 'SPREAD'
         }))
         .then(() => client.tiering_policy.create_policy({
@@ -159,7 +159,7 @@ function calculate_expected_storage_stats_for_buckets(buckets_array, storage_rea
                     (current_bucket_storage.blocks_size !==
                         storage_read_by_bucket[bucket.bucket_name].blocks_size)
                 ) {
-                    console.error(`${bucket.bucket_name}: calculated - ${util.inspect(current_bucket_storage, false, null, true)} 
+                    console.error(`${bucket.bucket_name}: calculated - ${util.inspect(current_bucket_storage, false, null, true)}
                         expected - ${util.inspect(storage_read_by_bucket[bucket.bucket_name], false, null, true)}`);
                     throw new Error(`Failed for bucket ${bucket.bucket_name}`);
                 }

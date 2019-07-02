@@ -49,6 +49,12 @@ export function fromBigInteger(bi) {
     });
 }
 
+export function fromSizeAndUnit(size, unit) {
+    return fromBigInteger(
+        bigInteger(unitsInBytes[unit]).multiply(size)
+    );
+}
+
 export function mulBigIntegerReal(bi, real){
     const scalar = Math.floor(real);
     const friction = real % 1;
@@ -58,9 +64,9 @@ export function mulBigIntegerReal(bi, real){
     const p2 = Math.round(remainder * friction + (quotient % 1) * Number.MAX_SAFE_INTEGER);
 
     return bigInteger(Number.MAX_SAFE_INTEGER)
-        .mul(p1)
+        .multiply(p1)
         .add(p2)
-        .add(bi.mul(scalar));
+        .add(bi.multiply(scalar));
 }
 
 // This function, if passed a size object, will convert the object to a non exact

@@ -22,7 +22,8 @@ function get_base_address(address_list, options = {}) {
         hint = 'INTERNAL',
         service = '',
         api = 'mgmt',
-        protocol = 'wss'
+        protocol = 'wss',
+        secure = true
     } = options;
 
     const api_list = address_list.filter(addr =>
@@ -32,8 +33,10 @@ function get_base_address(address_list, options = {}) {
 
     let default_port = default_base_port + api_default_port_offset[api];
     if (hint === 'EXTERNAL') {
-        const extenral_addr = api_list
-            .find(addr => addr.kind === 'EXTERNAL' && addr.secure);
+        const extenral_addr = api_list.find(addr =>
+            addr.kind === 'EXTERNAL' &&
+            addr.secure === secure
+        );
 
         if (extenral_addr) {
             const { hostname, port } = extenral_addr;
@@ -44,8 +47,10 @@ function get_base_address(address_list, options = {}) {
     }
 
     if (hint === 'INTERNAL') {
-        const internal_addr = api_list
-            .find(addr => addr.kind === 'INTERNAL' && addr.secure);
+        const internal_addr = api_list.find(addr =>
+            addr.kind === 'INTERNAL' &&
+            addr.secure === secure
+        );
 
         if (internal_addr) {
             const { hostname, port } = internal_addr;

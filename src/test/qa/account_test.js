@@ -142,7 +142,7 @@ function set_account_details(has_login, account_name, email, s3_access) {
         has_login,
         s3_access: TEST_CFG.s3_access,
         allowed_buckets,
-        default_pool: 'first.pool'
+        default_pool: 'first-pool'
     };
 }
 
@@ -199,7 +199,7 @@ async function edit_s3Access(email, s3_access) {
             email,
             s3_access,
             allowed_buckets,
-            default_pool: 'first.pool'
+            default_pool: 'first-pool'
         });
         await report.success('edit_s3Access');
     } catch (err) {
@@ -222,7 +222,7 @@ async function edit_bucket_creation(email, allow_bucket_creation) {
             email,
             s3_access,
             allowed_buckets,
-            default_pool: 'first.pool',
+            default_pool: 'first-pool',
             allow_bucket_creation
         });
         await report.success('edit_bucket_creation');

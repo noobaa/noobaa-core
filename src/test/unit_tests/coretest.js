@@ -41,7 +41,16 @@ const server_rpc = require('../../server/server_rpc');
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
 const account_server = require('../../server/system_services/account_server');
-const core_agent_control = require('./core_agent_control');
+const system_server = require('../../server/system_services/system_server');
+const promise_utils = require('../../util/promise_utils');
+
+// Set the pools server pool conttroller factory to create pools with
+// backed by in process agents.
+const pool_server = require('../../server/system_services/pool_server');
+const pool_ctrls = require('../../server/system_services/pool_controllers');
+pool_server.set_pool_controller_factory((system, pool) =>
+    new pool_ctrls.InProcessAgentsPoolController(system.name, pool.name)
+);
 
 let base_address;
 let http_address;
@@ -58,6 +67,16 @@ const rpc_client = server_rpc.rpc.new_client({
 const SYSTEM = CORETEST;
 const EMAIL = `${CORETEST}@noobaa.com`;
 const PASSWORD = CORETEST;
+const POOL_LIST = [
+    {
+        name: 'pool-with-10-hosts',
+        host_count: 10
+    },
+    {
+        name: 'pool-with-1-host',
+        host_count: 1
+    }
+];
 
 function new_rpc_client() {
     return server_rpc.rpc.new_client(rpc_client.options);
@@ -145,10 +164,10 @@ function setup({ incomplete_rpc_coverage } = {}) {
 
         // the http/ws port is used by the agents
         const http_port = http_server.address().port;
-        base_address = `ws://127.0.0.1:${http_port}`;
-        http_address = `http://127.0.0.1:${http_port}`;
-
         const https_port = https_server.address().port;
+
+        base_address = `wss://127.0.0.1:${https_port}`;
+        http_address = `http://127.0.0.1:${http_port}`;
         https_address = `https://127.0.0.1:${https_port}`;
 
         // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
@@ -156,7 +175,6 @@ function setup({ incomplete_rpc_coverage } = {}) {
         node_server.get_local_monitor().n2n_rpc.router.default = base_address;
         node_server.get_local_monitor().n2n_rpc.router.master = base_address;
         await announce(`base_address ${base_address}`);
-
         await announce('create_system()');
         const { token } = await rpc_client.system.create_system({
             name: SYSTEM,
@@ -164,13 +182,11 @@ function setup({ incomplete_rpc_coverage } = {}) {
             password: PASSWORD,
         });
         rpc_client.options.auth_token = token;
-        await rpc_client.pool.create_hosts_pool({
-            name: config.NEW_SYSTEM_POOL_NAME,
-        });
-        await attach_pool_to_bucket(SYSTEM, 'first.bucket', config.NEW_SYSTEM_POOL_NAME);
-        await announce('init_test_nodes()');
-        await P.delay(3000);
-        await init_test_nodes(rpc_client, SYSTEM, 10);
+        await overwrite_system_address(SYSTEM);
+        await announce('init_test_pools()');
+        await init_test_pools(rpc_client, SYSTEM);
+        await attach_pool_to_bucket(SYSTEM, 'first.bucket', POOL_LIST[0].name);
+        await set_pool_as_default_resource(SYSTEM, POOL_LIST[0].name);
         await announce(`coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
     });
 
@@ -195,8 +211,8 @@ function setup({ incomplete_rpc_coverage } = {}) {
                 }
             }
         }
-        await announce('clear_test_nodes()');
-        await clear_test_nodes();
+        await announce('clear_test_pools()');
+        await clear_test_pools();
         await P.delay(1000);
         await announce('rpc set_disconnected_state()');
         server_rpc.rpc.set_disconnected_state(true);
@@ -224,27 +240,115 @@ function log(...args) {
     console.log(...args);
 }
 
-// create some test agents named 0, 1, 2, ..., count
-async function init_test_nodes(client, system, count) {
-    await node_server.start_monitor();
-    const { token } = await client.auth.create_auth({
-        role: 'create_node',
-        system: system
+async function overwrite_system_address(system_name) {
+    // Waiting for system server to fully initialize to ensure
+    // that this overwrite will not be undone when the system server
+    // discover system addresses during it's init phase.
+   console.log('Waiting for system server to initalize');
+    await promise_utils.wait_until(
+        () => system_server.is_initialized(),
+        1000,
+        2 * 60 * 1000
+    );
+
+    console.log('Overriding system, address with:', base_address);
+    const system = system_store.data.systems
+        .find(sys => sys.name === system_name);
+
+    // Add the base address as external address to allow
+    // the pool server to pass it to the created agents.
+    const { hostname, port, protocol } = new URL(base_address);
+    const system_address = [{
+        service: 'noobaa-mgmt',
+        port: Number(port),
+        api: 'mgmt',
+        secure: protocol === 'wss:',
+        kind: 'EXTERNAL',
+        hostname
+    }];
+
+    await system_store.make_changes({
+        update: {
+            systems: [{
+                _id: system._id,
+                $set: { system_address }
+            }]
+        }
     });
-    const create_node_token = token;
-    core_agent_control.use_local_agents(base_address, create_node_token);
-    core_agent_control.create_agent(count);
-    await core_agent_control.start_all_agents();
-    console.log(`created ${count} agents`);
+}
+
+async function init_test_pools(client, system_name) {
+    console.log('Creating pools:', POOL_LIST);
+
+    await node_server.start_monitor();
+
+    // Create pools.
+    await Promise.all(POOL_LIST.map(pool_info =>
+        rpc_client.pool.create_hosts_pool({
+            name: pool_info.name,
+            host_count: pool_info.host_count,
+            is_managed: true,
+        })
+    ));
+
+    // Wait until all pools have hosts in optimal state.
+    await promise_utils.wait_until(async () => {
+        const { hosts } = await rpc_client.host.list_hosts({
+            query: {
+                pools: POOL_LIST.map(pool_info => pool_info.name),
+                mode: ['OPTIMAL'],
+            }
+        });
+
+        const optimal_hosts_by_Pool = _.countBy(hosts, host => host.pool);
+        return POOL_LIST.every(pool =>
+            pool.host_count === (optimal_hosts_by_Pool[pool.name] || 0)
+        );
+    }, 2500, 5 * 60 * 1000);
+
+
     await node_server.sync_monitor_to_store();
     await P.delay(2000);
     await node_server.sync_monitor_to_store();
 }
 
-// delete all test agents and nodes
-async function clear_test_nodes() {
-    console.log('CLEANING AGENTS');
-    await core_agent_control.cleanup_agents();
+// delete all test pools (including hosts and agents)
+async function clear_test_pools() {
+    console.log('CLEANING POOLS');
+
+    // Remove all connections between buckets and pools.
+    await Promise.all(
+        system_store.data.tiers.map(tier =>
+            rpc_client.tier.update_tier({
+                name: tier.name,
+                data_placement: 'MIRROR', // Must be sent in order to apply attached_pools
+                attached_pools: []
+            })
+        )
+    );
+
+    // Prevent accounts from preventing pool deletions (by using a pool as default resource)
+    // by disabling s3 access for all accounts.
+    const { accounts } = await rpc_client.account.list_accounts({});
+    await Promise.all(accounts.map(account =>
+        rpc_client.account.update_account_s3_access({
+            email: account.email,
+            s3_access: false
+        })
+    ));
+
+    // Delete all pools (will stop all agents managed by the pool)
+    await Promise.all(POOL_LIST.map(pool =>
+        rpc_client.pool.delete_pool({ name: pool.name })
+    ));
+
+    console.log('Waiting until all pools are deleted (including hosts)');
+    await promise_utils.wait_until(async () => {
+        const { pools } = await rpc_client.system.read_system({});
+        const existing_pools = new Set(pools.map(pool => pool.name));
+        return POOL_LIST.every(pool => !existing_pools.has(pool.name));
+    }, 2500, 5 * 60 * 1000);
+
     console.log('STOP MONITOR');
     await node_server.stop_monitor('force_close_n2n');
 }
@@ -302,6 +406,23 @@ function attach_pool_to_bucket(system_name, bucket_name, pool_name) {
         }
     };
     return system_store.make_changes(change);
+}
+
+function set_pool_as_default_resource(system, pool_name) {
+    const pool_id = system_store.data.pools
+        .find(pool => pool.name === pool_name)
+        ._id;
+    const account_ids = system_store.data.accounts
+        .map(account => account._id);
+
+    return system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: { $in: account_ids },
+                default_pool: pool_id
+            }]
+        }
+    });
 }
 
 function describe_mapper_test_case({ name, bucket_name_prefix }, func) {
@@ -457,6 +578,7 @@ exports.no_setup = _.noop;
 exports.log = log;
 exports.SYSTEM = SYSTEM;
 exports.EMAIL = EMAIL;
+exports.POOL_LIST = POOL_LIST;
 exports.PASSWORD = PASSWORD;
 exports.rpc_client = rpc_client;
 exports.new_rpc_client = new_rpc_client;

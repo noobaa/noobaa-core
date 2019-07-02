@@ -138,7 +138,7 @@ function _mapBlockStorage(block) {
         in_cloud_pool,
         in_mongo_pool,
         pool_name,
-        node_name
+        host_name
     } = block.adminfo;
 
     if (in_mongo_pool) {
@@ -153,7 +153,7 @@ function _mapBlockStorage(block) {
         return {
             kind: 'HOSTS',
             pool: pool_name,
-            host: node_name
+            host: host_name
         };
     }
 }

@@ -22,6 +22,7 @@ metadata:
   name: noobaa-agent
   labels:
     app: noobaa
+    noobaa-module: noobaa-pool-impl
 spec:
   selector:
     matchLabels:
@@ -46,7 +47,6 @@ spec:
             tcpSocket:
               port: 6001
             timeoutSeconds: 5
-          image: noobaa/noobaa-core:AGENT_IMAGE_VERSION
           imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -88,6 +88,7 @@ spec:
         name: noobaastorage
         labels:
           app: noobaa
+          noobaa-module: noobaa-storage
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:

@@ -207,7 +207,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
 
     function verify_read_mappings(key, size) {
         const total_frags = 1;
-        const replicas = 3;
+        const replicas = 1;
         return rpc_client.object.read_object_mapping_admin({ bucket, key })
             .then(({ chunks }) => {
                 let pos = 0;

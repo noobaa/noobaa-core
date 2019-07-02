@@ -12,13 +12,18 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
+const addr_utils = require('../../util/addr_utils');
+const promise_utils = require('../../util/promise_utils');
 const server_rpc = require('../server_rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../../util/cloud_utils');
+const auth_server = require('../common_services/auth_server');
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
+const KeysSemaphore = require('../../util/keys_semaphore');
+const pool_ctrls = require('./pool_controllers');
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -45,6 +50,82 @@ const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
 
+// These semaphore are used to serialize the underlaying aspects of
+// pool scaling and deletions.
+const pool_scaling_sem = new KeysSemaphore(1);
+
+// hold the factory function that create the pool controllers for the system pools.
+let create_pool_controller = default_create_pool_controller;
+
+// This code should fix and pending changes to hosts pools in the case
+// that the server process was stopped unexpectedly.
+async function _init() {
+    await promise_utils.wait_until(() =>
+        system_store.is_finished_initial_load,
+    );
+
+    const system = system_store.data.systems[0];
+    if (system) {
+        return;
+    }
+
+    for (const pool of system_store.data.pools) {
+        if (!pool.hosts_pool_info) {
+            continue;
+        }
+
+        // We do not wait on the lock intentionally, we want to lock all pools synchronously.
+        // eslint-disable-next-line no-loop-func
+        pool_scaling_sem.surround_key(pool.name, async () => {
+            const configured_host_count = pool.hosts_pool_info.host_count;
+            const actual_host_count = await get_host_count(pool, system);
+            if (actual_host_count === configured_host_count) {
+                return;
+            }
+
+            dbg.log0(`_init: pool ${
+                    pool.name
+                } is configured to have ${
+                    configured_host_count
+                } hosts but ${
+                    actual_host_count
+                } hosts were found, scaling to fix.
+            `);
+
+            const pool_ctrl = create_pool_controller(system, pool);
+            if (configured_host_count > actual_host_count) {
+                await pool_ctrl.scale(configured_host_count);
+                await wait_for_host_count_to_stabilize(system, pool, configured_host_count);
+
+            } else if (configured_host_count < actual_host_count) {
+                const delete_count = actual_host_count - configured_host_count;
+                await nodes_client.instance().delete_hosts_by_pool(pool.name, system._id, delete_count);
+                await wait_for_host_count_to_stabilize(system, pool, configured_host_count);
+                await pool_ctrl.scale(configured_host_count);
+            }
+        });
+    }
+}
+
+function default_create_pool_controller(system, pool) {
+    return pool.hosts_pool_info.is_managed ?
+        new pool_ctrls.ManagedStatefulSetPoolController(system.name, pool.name) :
+        new pool_ctrls.UnmanagedStatefulSetPoolController(system.name, pool.name);
+}
+
+function set_pool_controller_factory(pool_controller_factory) {
+    if (pool_controller_factory === null) {
+        create_pool_controller = default_create_pool_controller;
+
+    } else if (_.isFunction(pool_controller_factory)) {
+        create_pool_controller = pool_controller_factory;
+
+    } else {
+        throw new TypeError('Invalid pool_controller_factory, must be a function or null');
+    }
+
+}
+
 function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     let now = Date.now();
     return {
@@ -70,57 +151,107 @@ function new_namespace_resource_defaults(name, system_id, account_id, connection
     };
 }
 
-function create_nodes_pool(req) {
-    var name = req.rpc_params.name;
-    var nodes = req.rpc_params.nodes;
-    // if (name !== config.NEW_SYSTEM_POOL_NAME && nodes.length < config.NODES_MIN_COUNT) {
-    //     throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
-    //         config.NODES_MIN_COUNT + ' nodes');
-    // }
-    var pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
-    dbg.log0('Creating new pool', pool);
+async function create_hosts_pool(req) {
+    const { system, rpc_params, account } = req;
+    const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    pool.hosts_pool_info = _.cloneDeep(
+        _.pick(rpc_params, [
+            'is_managed',
+            'host_count',
+            'host_config'
+        ])
+    );
 
-    return system_store.make_changes({
-            insert: {
-                pools: [pool]
-            }
-        })
-        .then(() => nodes_client.instance().migrate_nodes_to_pool(req.system._id, nodes,
-            pool._id, req.account && req.account._id))
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'resource.create',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                pool: pool._id,
-                desc: `${name} was created by ${req.account && req.account.email.unwrap()}`,
-            });
-            return res;
+    dbg.log0('create_hosts_pool: Creating new pool', pool);
+    await system_store.make_changes({
+        insert: {
+            pools: [pool],
+        },
+        update: updates_if_first_resource(req, pool)
+    });
+
+    Dispatcher.instance().activity({
+        event: 'resource.create',
+        level: 'info',
+        system: system._id,
+        actor: account._id,
+        pool: pool._id,
+        desc: `${rpc_params.name} was created by ${account.email.unwrap()}`,
+    });
+
+    try {
+        const { hosts_pool_info } = pool;
+        const routing_hint = hosts_pool_info.is_managed ? 'EXTERNAL' : 'INTERNAL';
+        const agent_install_string = await get_agent_install_conf(system, pool, account, routing_hint);
+        const agent_profile = Object.assign(
+            JSON.parse(process.env.AGENT_PROFILE || '{}'),
+            hosts_pool_info.host_config
+        );
+
+        // Ask the pool controller to create backing agents for the pool
+        const pool_ctrl = create_pool_controller(system, pool);
+        const res = await pool_ctrl.create(
+            hosts_pool_info.host_count,
+            agent_install_string,
+            agent_profile
+        );
+
+        // Lock farther scaling/delete operations until the pool stabilizes.
+        pool_scaling_sem.surround_key(pool.name, async () => {
+            await wait_for_host_count_to_stabilize(system, pool, hosts_pool_info.host_count);
         });
+
+        return res;
+
+
+    } catch (err) {
+        console.error(`create_hosts_pool: Could not deploy underlaying agents, got: ${err.message}`);
+        throw err;
+    }
 }
 
-function create_hosts_pool(req) {
-    const { rpc_params, auth_token } = req;
-    const { name, hosts } = rpc_params;
+async function get_agent_install_conf(system, pool, account, routing_hint) {
+    let cfg = system_store.data.agent_configs
+        .find(conf => conf.pool === pool._id);
+    if (!cfg) {
+        // create new configuration with the required settings
+        dbg.log0(`creating new installation string for pool: ${pool.name} (${pool.id})`);
+        const conf_id = system_store.new_system_store_id();
+        cfg = {
+            _id: conf_id,
+            name: String(conf_id),
+            system: system._id,
+            pool: pool._id,
+            exclude_drives: [],
+            use_storage: true,
+            use_s3: true,
+            routing_hint
+        };
 
-    // if (name !== config.NEW_SYSTEM_POOL_NAME && hosts.length < 1) {
-    //     throw new RpcError('NOT ENOUGH HOSTS', 'cant create a pool with less than ' +
-    //         1 + ' node');
-    // }
-
-    const pool = new_pool_defaults(name, req.system._id, 'HOSTS', 'BLOCK_STORE_FS');
-    const pool_id = String(pool._id);
-    dbg.log0('Creating new pool', pool);
-
-    return P.resolve()
-        .then(() => system_store.make_changes({
+        await system_store.make_changes({
             insert: {
-                pools: [pool]
-            },
-            update: updates_if_first_resource(req, pool)
-        }))
-        .then(() => hosts && server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token }));
+                agent_configs: [cfg]
+            }
+        });
+    }
+
+    // Creating a new create_auth_token for conf_id
+    const create_node_token = auth_server.make_auth_token({
+        system_id: system._id,
+        account_id: account._id,
+        role: 'create_node',
+        extra: { agent_config_id: cfg._id }
+    });
+
+    const addr = addr_utils.get_base_address(system.system_address, { hint: routing_hint });
+    const install_string = JSON.stringify({
+        address: addr.toString(),
+        routing_hint,
+        system: system.name,
+        create_node_token,
+        root_path: './noobaa_storage/'
+    });
+    return Buffer.from(install_string).toString('base64');
 }
 
 function updates_if_first_resource(req, pool) {
@@ -279,20 +410,6 @@ function create_mongo_pool(req) {
     // })
 }
 
-function list_pool_nodes(req) {
-    var pool = find_pool_by_name(req);
-    return P.resolve()
-        .then(() => nodes_client.instance().list_nodes_by_pool(pool.name, req.system._id))
-        .then(res => ({
-            name: pool.name,
-            nodes: _.map(res.nodes, node => {
-                const reply = _.pick(node, '_id', 'name', 'peer_id', 'rpc_address');
-                reply.id = String(reply._id);
-                return _.omit(reply, '_id');
-            })
-        }));
-}
-
 function read_pool(req) {
     var pool = find_pool_by_name(req);
     return P.resolve()
@@ -306,12 +423,64 @@ function read_namespace_resource(req) {
         .then(() => get_namespace_resource_info(namespace_resource));
 }
 
-function delete_pool(req) {
-    var pool = find_pool_by_name(req);
-    if (_is_regular_pool(pool)) {
-        return _delete_nodes_pool(req.system, pool, req.account);
+async function scale_hosts_pool(req) {
+    const pool = find_pool_by_name(req);
+    if (!pool.hosts_pool_info) {
+        throw new RpcError('INVALID_POOL_TYPE', `pool ${pool.name} is not a hosts pool`);
+    }
+
+    const { host_count } = req.rpc_params;
+    const configured_host_count = pool.hosts_pool_info.host_count;
+    if (host_count === configured_host_count) {
+        // Nothing to do.
+        return;
+    }
+
+    if (configured_host_count === 0) {
+        throw new RpcError('INVALID_POOL_STATE', `pool ${pool.name} is being deleted`);
+    }
+
+    // Update the host pool info.
+    dbg.log0(`scale_hosts_pool: updating ${pool.name} host count from ${configured_host_count} to ${host_count}`);
+    await system_store.make_changes({
+        update: {
+            pools: [{
+                _id: pool._id,
+                'hosts_pool_info.host_count': host_count
+            }]
+        }
+    });
+
+    // We should not wait for the sem before returning.
+    if (host_count > configured_host_count) {
+        pool_scaling_sem.surround_key(pool.name, async () => {
+            // Scale up (add more storage agents)
+            const pool_ctrl = create_pool_controller(req.system, pool);
+            await pool_ctrl.scale(host_count);
+            await wait_for_host_count_to_stabilize(req.system, pool, host_count);
+        });
+
     } else {
-        return _delete_resource_pool(req, pool, req.account);
+        pool_scaling_sem.surround_key(pool.name, async () => {
+            // Scale down (delete hosts)
+            const delete_count = configured_host_count - host_count;
+            dbg.log0(`scale_host_pool: deleting ${delete_count} hosts`);
+            await nodes_client.instance().delete_hosts_by_pool(pool.name, req.system._id, delete_count);
+            await wait_for_host_count_to_stabilize(req.system, pool, host_count);
+
+            // No need to wait scale just cleanup the underlaying agents after the node deletion.
+            const pool_ctrl = create_pool_controller(req.system, pool);
+            await pool_ctrl.scale(host_count);
+        });
+    }
+}
+
+function delete_pool(req) {
+    const pool = find_pool_by_name(req);
+    if (pool.hosts_pool_info) {
+        return delete_hosts_pool(req, pool);
+    } else {
+        return delete_resource_pool(req, pool);
     }
 }
 
@@ -333,37 +502,54 @@ function delete_namespace_resource(req) {
         .return();
 }
 
+async function delete_hosts_pool(req, pool) {
+    dbg.log0('delete_hosts_pool: deleting hosts pool', pool.name);
 
-function _delete_nodes_pool(system, pool, account) {
-    dbg.log0('Deleting pool', pool.name);
-    return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool.name], system._id))
-        .then(nodes_aggregate_pool => {
-            var reason = check_pool_deletion(pool, nodes_aggregate_pool);
-            if (reason) {
-                throw new RpcError(reason, 'Cannot delete pool');
+    const reason = check_pool_deletion(pool);
+    if (reason) {
+        throw new RpcError(reason, 'Cannot delete pool');
+    }
+
+    const { host_count } = pool.hosts_pool_info;
+    if (host_count > 0) {
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    'hosts_pool_info.host_count': 0
+                }]
             }
-            return system_store.make_changes({
-                remove: {
-                    pools: [pool._id]
-                }
-            });
-        })
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'resource.delete',
-                level: 'info',
-                system: system._id,
-                actor: account && account._id,
-                pool: pool._id,
-                desc: `${pool.name} was deleted by ${account && account.email.unwrap()}`,
-            });
-            return res;
-        })
-        .return();
+        });
+    }
+
+    pool_scaling_sem.surround_key(pool.name, async () => {
+        if (host_count > 0) {
+            await nodes_client.instance()
+                .delete_hosts_by_pool(pool.name, req.system._id);
+        }
+        await wait_for_host_count_to_stabilize(req.system, pool, 0);
+
+        dbg.log0(`delete_hosts_pool: removing pool ${pool.name} from the database`);
+        await system_store.make_changes({
+             remove: {
+                 pools: [pool._id]
+             }
+        });
+
+        Dispatcher.instance().activity({
+            event: 'resource.delete',
+            level: 'info',
+            system: req.system._id,
+            pool: pool._id,
+            desc: `${pool.name} was emptyed and deleted`,
+        });
+
+        const pool_ctrl = create_pool_controller(req.system, pool);
+        await pool_ctrl.delete();
+    });
 }
 
-function _delete_resource_pool(req, pool, account) {
+function delete_resource_pool(req, pool) {
     dbg.log0('Deleting resource pool', pool.name);
     var pool_name = pool.name;
     return P.resolve()
@@ -408,6 +594,7 @@ function _delete_resource_pool(req, pool, account) {
 
         })
         .then(() => {
+            const { account } = req;
             if (pool.resource_type === 'CLOUD') {
                 Dispatcher.instance().activity({
                     event: 'resource.cloud_delete',
@@ -421,26 +608,6 @@ function _delete_resource_pool(req, pool, account) {
         })
         .return();
 }
-
-
-function assign_nodes_to_pool(req) {
-    dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
-    var pool = find_pool_by_name(req);
-    return nodes_client.instance().migrate_nodes_to_pool(req.system._id, req.rpc_params.nodes,
-        pool._id, req.account && req.account._id);
-}
-
-
-function assign_hosts_to_pool(req) {
-    const { auth_token, rpc_params } = req;
-    const { hosts, name } = rpc_params;
-    dbg.log0('Adding hosts to pool', name, 'hosts:', hosts);
-
-    const pool = find_pool_by_name(req);
-    const pool_id = String(pool._id);
-    return server_rpc.client.host.migrate_hosts_to_pool({ pool_id, hosts }, { auth_token });
-}
-
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
@@ -682,7 +849,7 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.storage_nodes = _.defaults({}, p_nodes.storage_nodes, POOL_NODES_INFO_DEFAULTS);
         info.s3_nodes = _.defaults({}, p_nodes.s3_nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
-        info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
+        info.undeletable = check_pool_deletion(pool);
         info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {}, p_hosts.nodes.s3_by_mode || {});
     }
 
@@ -787,15 +954,7 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
         'OPTIMAL';
 }
 
-function check_pool_deletion(pool, nodes_aggregate_pool) {
-    // Check if there are nodes till associated to this pool
-    const nodes_count = _.get(nodes_aggregate_pool, [
-        'groups', String(pool._id), 'nodes', 'count'
-    ], 0);
-    if (nodes_count) {
-        return 'NOT_EMPTY';
-    }
-
+function check_pool_deletion(pool) {
     //Verify pool is not used by any bucket/tier
     if (has_associated_buckets_int(pool)) {
         return 'IN_USE';
@@ -849,33 +1008,45 @@ function _is_mongo_pool(pool) {
     return Boolean(pool.mongo_pool_info);
 }
 
-function _is_regular_pool(pool) {
-    return !(Boolean(pool.mongo_pool_info) || Boolean(pool.cloud_pool_info));
-}
-
 function get_internal_mongo_pool(system) {
     return system.pools_by_name[`${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`];
 }
 
+async function get_host_count(pool, system) {
+    const hosts_aggregate = await nodes_client.instance()
+        .aggregate_hosts_by_pool([pool.name], system._id);
+    return _.get(
+        hosts_aggregate,
+        ['groups', String(pool._id), 'nodes', 'count'],
+        0
+    );
+}
+
+async function wait_for_host_count_to_stabilize(system, pool, host_count) {
+    return promise_utils.wait_until(async () => {
+        const acutal_host_count = await get_host_count(pool, system);
+        return acutal_host_count === host_count;
+    });
+}
+
 // EXPORTS
+exports._init = _init;
+exports.set_pool_controller_factory = set_pool_controller_factory;
 exports.get_internal_mongo_pool = get_internal_mongo_pool;
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
 exports.read_namespace_resource = read_namespace_resource;
 exports.get_namespace_resource_info = get_namespace_resource_info;
-exports.create_nodes_pool = create_nodes_pool;
 exports.create_hosts_pool = create_hosts_pool;
 exports.create_cloud_pool = create_cloud_pool;
 exports.create_namespace_resource = create_namespace_resource;
 exports.create_mongo_pool = create_mongo_pool;
-exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;
 exports.delete_namespace_resource = delete_namespace_resource;
-exports.assign_hosts_to_pool = assign_hosts_to_pool;
-exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;
 exports.get_cloud_services_stats = get_cloud_services_stats;
 exports.get_namespace_resource_extended_info = get_namespace_resource_extended_info;
 exports.assign_pool_to_region = assign_pool_to_region;
+exports.scale_hosts_pool = scale_hosts_pool;

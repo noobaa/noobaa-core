@@ -12,8 +12,8 @@ dbg.set_process_name('test_ceph_s3');
 
 const _ = require('lodash');
 const P = require('../../util/promise');
-const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
+const test_utils = require('./test_utils');
 
 require('../../util/dotenv').load();
 
@@ -37,17 +37,15 @@ let auth_params = {
     system: 'demo'
 };
 
-const ceph_user_email = 'ceph.alt@noobaa.com';
-const ceph_user = 'cephalt';
-
-let CEPH_TEST = {
+const CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
     s3_test_dir: 's3-tests/',
     ceph_config: 'ceph_s3_config.conf',
     ceph_deploy: 'ceph_s3_tests_deploy.sh',
-    new_account: {
-        name: ceph_user,
-        email: ceph_user_email,
+    pool: 'test-pool',
+    new_account_params: {
+        name: 'cephalt',
+        email: 'ceph.alt@noobaa.com',
         password: 'ceph',
         has_login: true,
         allowed_buckets: {
@@ -55,8 +53,7 @@ let CEPH_TEST = {
             permission_list: []
         },
         s3_access: true,
-        default_pool: config.NEW_SYSTEM_POOL_NAME
-    },
+    }
 };
 
 let stats = {
@@ -326,19 +323,44 @@ module.exports = {
 };
 
 async function ceph_test_setup() {
-    try {
-        console.info(`Updating ${CEPH_TEST.ceph_config} with host = ${s3_ip}...`);
-        // update config with the s3 endpoint
-        const conf_file = `${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
-        const conf_file_content = (await fs.readFileAsync(conf_file)).toString();
-        const new_conf_file_content = conf_file_content.replace(/host = localhost/g, `host = ${s3_ip}`);
-        await fs.writeFileAsync(conf_file, new_conf_file_content);
-        console.log('conf file updated');
-    } catch (err) {
-        console.error('Failed Setup Of Ceph Tests', err, err.stack);
-        throw new Error('Failed Setup Of Ceph Tests');
-    }
+    console.info(`Updating ${CEPH_TEST.ceph_config} with host = ${s3_ip}...`);
+    // update config with the s3 endpoint
+    const conf_file = `${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
+    const conf_file_content = (await fs.readFileAsync(conf_file)).toString();
+    const new_conf_file_content = conf_file_content.replace(/host = localhost/g, `host = ${s3_ip}`);
+    await fs.writeFileAsync(conf_file, new_conf_file_content);
+    console.log('conf file updated');
+
+    await test_utils.create_hosts_pool(client, CEPH_TEST.pool, 3);
+    await client.account.create_account({
+        ...CEPH_TEST.new_account_params,
+        default_pool: CEPH_TEST.pool
+    });
+    const system = await client.system.read_system();
+    const ceph_account = system.accounts.find(account =>
+        account.email.unwrap() === CEPH_TEST.new_account_params.email
+    );
+
+    console.info('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
+    const { access_key, secret_key } = ceph_account.access_keys[0];
+    await promise_utils.exec(`echo access_key = ${access_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await promise_utils.exec(`echo secret_key = ${secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 }
+
+// async function deploy_ceph() {
+//     console.info('Starting Deployment Of Ceph Tests...');
+//     let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} ${os.platform() === 'darwin' ? 'mac' : ''} > /tmp/ceph_deploy.log`;
+//     try {
+//         let res = await promise_utils.exec(command, {
+//             ignore_rc: false,
+//             return_stdout: true
+//         });
+//         console.info(res);
+//     } catch (err) {
+//         console.error('Failed Deployment Of Ceph Tests', err, err.stack);
+//         throw new Error('Failed Deployment Of Ceph Tests');
+//     }
+// }
 
 async function run_single_test(test) {
     let ceph_args = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
@@ -415,24 +437,7 @@ async function run_test() {
         throw new Error('Failed setup ceph tests');
     }
 
-    let system_info = await client.system.read_system();
-    let ceph_account = system_info.accounts.find(
-        account => account.email.unwrap() === ceph_user_email
-    );
-    if (ceph_account) {
-        CEPH_TEST.new_account.access_keys = ceph_account.access_keys;
-    } else {
-        await client.account.create_account(CEPH_TEST.new_account);
-        system_info = await client.system.read_system();
-        CEPH_TEST.new_account.access_keys = system_info.accounts.find(
-            account => account.email.unwrap() === ceph_user_email
-        ).access_keys;
-    }
-
-    console.info('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
-    await promise_utils.exec(`echo access_key = ${CEPH_TEST.new_account.access_keys[0].access_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await promise_utils.exec(`echo secret_key = ${CEPH_TEST.new_account.access_keys[0].secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    try {
+   try {
         await run_all_tests();
     } catch (err) {
         console.error('Failed running ceph tests', err);

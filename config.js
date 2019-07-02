@@ -16,12 +16,10 @@ config.NODES_MIN_COUNT = 3;
 config.NODES_PER_CLOUD_POOL = 1;
 config.NODES_PER_MONGO_POOL = 1;
 // in kubernetes use reserve oof 1GB instead of 10GB
-config.NODES_FREE_SPACE_RESERVE = process.env.CONTAINER_PLATFORM === 'KUBERNETES' ?
-    1 * 1024 * 1024 * 1024 :
-    10 * 1024 * 1024 * 1024;
+config.NODES_FREE_SPACE_RESERVE = 1 * (1024 ** 3);
 
 // don't use agents with less than reserve + 5 GB
-config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * 1024 * 1024 * 1024);
+config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (1024 ** 3))
 
 config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
@@ -73,7 +71,7 @@ config.DEDUP_ENABLED = true;
 
 // Date was chosen as default NooBaa epoch date 2015
 config.NOOBAA_EPOCH = 1430006400000;
-config.NEW_SYSTEM_POOL_NAME = 'first.pool';
+config.NEW_SYSTEM_POOL_NAME = 'first-pool';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 
@@ -213,7 +211,7 @@ config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
 
 // ERASURE CODES
 config.CHUNK_CODER_EC_DATA_FRAGS = 4;
-config.CHUNK_CODER_REPLICAS = 3;
+config.CHUNK_CODER_REPLICAS = 1;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;

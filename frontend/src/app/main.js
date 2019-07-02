@@ -21,20 +21,7 @@ import installStateSideEffects from 'state-side-effects';
 import installSupportability from 'supportability.js';
 import config from 'config';
 import { deepAssign, noop } from 'utils/core-utils';
-import {
-    recognizeBrowser,
-    downloadFile,
-    reloadBrowser,
-    httpRequest,
-    httpWaitForResponse,
-    createBroadcastChannel,
-    getDocumentMetaTag,
-    getWindowName,
-    hasSameOrigin,
-    navigateTo
-} from 'utils/browser-utils';
-
-
+import * as browser from 'utils/browser-utils';
 
 function configureKnockout(ko) {
     const injectedServices = {
@@ -64,18 +51,6 @@ function configureKnockout(ko) {
 }
 
 function registerSideEffects(action$, state$) {
-    const borwser = {
-        reload: reloadBrowser,
-        downloadFile: downloadFile,
-        httpRequest: httpRequest,
-        httpWaitForResponse: httpWaitForResponse,
-        createBroadcastChannel: createBroadcastChannel,
-        getDocumentMetaTag: getDocumentMetaTag,
-        getWindowName: getWindowName,
-        hasSameOrigin: hasSameOrigin,
-        navigateTo: navigateTo
-    };
-
     const injectedServices = {
         random: Math.random,
         getTime: Date.now,
@@ -85,7 +60,7 @@ function registerSideEffects(action$, state$) {
         AWS: AWS,
         api: api,
         router: page,
-        browser: borwser,
+        browser: browser,
         bufferStore: bufferStore
     };
 
@@ -134,7 +109,7 @@ async function main() {
     // Bind the ui to the
     ko.applyBindings(null, document.querySelector('app'));
 
-    action$.next(setupEnv(recognizeBrowser()));
+    action$.next(setupEnv(browser.recognizeBrowser()));
     action$.next(restoreSession());
 }
 

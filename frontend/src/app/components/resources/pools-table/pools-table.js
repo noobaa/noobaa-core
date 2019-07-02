@@ -290,8 +290,8 @@ class PoolsTableViewModel extends ConnectableViewModel {
             );
 
             const emptyMessage =
-                (poolList.length === 0 && 'There are no existing nodes pool in the system') ||
-                (filteredPools.length === 0 && 'The current filter does not match any nodes pool') ||
+                (poolList.length === 0 && 'There are no existing node pools in the system') ||
+                (filteredPools.length === 0 && 'The current filter does not match any node pools') ||
                 '';
 
 

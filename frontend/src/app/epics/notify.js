@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze, ensureArray, isDefined } from 'utils/core-utils';
-import { getHostDisplayName, getHostServiceDisplayName } from 'utils/host-utils';
+import { deepFreeze, ensureArray } from 'utils/core-utils';
+import { getHostDisplayName } from 'utils/host-utils';
 import { getServerDisplayName } from 'utils/cluster-utils';
 import { unitsInBytes } from 'utils/size-utils';
 import { showNotification } from 'action-creators';
@@ -109,61 +109,13 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
-    [types.COMPLETE_ASSIGN_HOSTS_TO_POOL]: ({ pool, hosts }) => ({
-        message: `${hosts.length} nodes has been assigend to pool ${pool}`,
+    [types.COMPLETE_SCALE_HOSTS_POOL]: ({ poolName }) => ({
+        message: `Pool ${poolName} updated successfully`,
         severity: 'success'
     }),
 
-    [types.FAIL_ASSIGN_HOSTS_TO_POOL]: ({ pool }) => ({
-        message: `Assinging nodes to pool ${pool} failed`,
-        severity: 'error'
-    }),
-
-    [types.COMPLETE_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
-        return Object.entries(services)
-            .filter(pair => {
-                const [ /* service */, state ] = pair;
-                return isDefined(state);
-            })
-            .map(pair => {
-                const [ service, state ] = pair;
-                const hostname = getHostDisplayName(host);
-                const serviceName = getHostServiceDisplayName(service).toLowerCase();
-                const action = state ? 'enabled' : 'disabled';
-
-                return {
-                    message: `${hostname} ${serviceName} service ${action} successfully`,
-                    severity: 'success'
-                };
-            });
-    },
-
-    [types.FAIL_TOGGLE_HOST_SERVICES]: ({ host, services }) => {
-        return Object.entries(services)
-            .filter(pair => {
-                const [ /* service */, state ] = pair;
-                return isDefined(state);
-            })
-            .map(pair => {
-                const [ service, state ] = pair;
-                const hostname = getHostDisplayName(host);
-                const serviceName = getHostServiceDisplayName(service).toLowerCase();
-                const action = state ? 'enabling' : 'disabling';
-
-                return {
-                    message: `${action} ${hostname} ${serviceName} service failed`,
-                    severity: 'error'
-                };
-            });
-    },
-
-    [types.COMPLETE_TOGGLE_HOST_NODES]: ({ host }) => ({
-        message: `${getHostDisplayName(host)} storage drives updated successfully`,
-        severity: 'success'
-    }),
-
-    [types.FAIL_TOGGLE_HOST_NODES]: ({ host }) => ({
-        message: `Updating ${getHostDisplayName(host)} storage drives failed`,
+    [types.FAIL_SCALE_HOSTS_POOL]: ({ poolName }) => ({
+        message: `Pool ${poolName} update failed`,
         severity: 'error'
     }),
 
@@ -340,16 +292,6 @@ const actionToNotification = deepFreeze({
             severity: 'error'
         };
     },
-
-    [types.COMPLETE_DELETE_HOST]: () => ({
-        message: 'Node deletion process has started, The node will be removed once all stored data is secured',
-        severity: 'info'
-    }),
-
-    [types.FAIL_DELETE_HOST]: ({ host }) => ({
-        message: `Node ${host} deletion failed`,
-        severity: 'error'
-    }),
 
     [types.COMPLETE_UPDATE_SERVER_ADDRESS]: ({ secret, hostname }) => ({
         message: `${getServerDisplayName({ secret, hostname })} cluster connectivity IP updated successfully`,

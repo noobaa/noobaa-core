@@ -16,9 +16,22 @@
         "></dropdown>
     </div>
 
-    <button class="btn push-next-half" ko.click="onAssignRegion">
-        Assign Region
-    </button>
+    <div class="push-next" ko.tooltip="actionsTooltip">
+        <button class="btn" ko.disable="areActionsDisabled"
+            ko.click="onAssignRegion"
+        >
+            Assign Region
+        </button>
+    </div>
+
+    <div ko.tooltip="actionsTooltip">
+        <button class="btn"
+            ko.disable="areActionsDisabled"
+            ko.click="onEditPoolConfig"
+        >
+            Edit Pool Configuration
+        </button>
+    </div>
 </div>
 
 <data-table class="greedy" params="

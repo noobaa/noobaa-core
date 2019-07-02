@@ -11,21 +11,12 @@ import {
     SET_HOST_DEBUG_MODE,
     COMPLETE_SET_HOST_DEBUG_MODE,
     FAIL_SET_HOST_DEBUG_MODE,
-    TOGGLE_HOST_SERVICES,
-    COMPLETE_TOGGLE_HOST_SERVICES,
-    FAIL_TOGGLE_HOST_SERVICES,
-    TOGGLE_HOST_NODES,
-    COMPLETE_TOGGLE_HOST_NODES,
-    FAIL_TOGGLE_HOST_NODES,
     FETCH_HOST_OBJECTS,
     COMPLETE_FETCH_HOST_OBJECTS,
     FAIL_FETCH_HOST_OBJECTS,
     RETRUST_HOST,
     COMPLETE_RETRUST_HOST,
     FAIL_RETRUST_HOST,
-    DELETE_HOST,
-    COMPLETE_DELETE_HOST,
-    FAIL_DELETE_HOST,
     REMOVE_HOST
 } from 'action-types';
 
@@ -100,48 +91,6 @@ export function failSetHostDebugMode(host, on, error) {
     };
 }
 
-export function toggleHostServices(host, services) {
-    return {
-        type: TOGGLE_HOST_SERVICES,
-        payload: { host, services }
-    };
-}
-
-export function completeToggleHostServices(host, services) {
-    return {
-        type: COMPLETE_TOGGLE_HOST_SERVICES,
-        payload: { host, services }
-    };
-}
-
-export function failToggleHostServices(host, services, error) {
-    return {
-        type: FAIL_TOGGLE_HOST_SERVICES,
-        payload: { host, services, error }
-    };
-}
-
-export function toggleHostNodes(host, nodes) {
-    return {
-        type: TOGGLE_HOST_NODES,
-        payload: { host, nodes }
-    };
-}
-
-export function completeToggleHostNodes(host) {
-    return {
-        type: COMPLETE_TOGGLE_HOST_NODES,
-        payload: { host }
-    };
-}
-
-export function failToggleHostNodes(host, error) {
-    return {
-        type: FAIL_TOGGLE_HOST_NODES,
-        payload: { host, error }
-    };
-}
-
 
 export function fetchHostObjects(host, skip, limit) {
     return {
@@ -187,27 +136,6 @@ export function completeRetrustHost(host) {
 export function failRetrustHost(host, error) {
     return {
         type: FAIL_RETRUST_HOST,
-        payload: { host, error }
-    };
-}
-
-export function deleteHost(host) {
-    return {
-        type: DELETE_HOST,
-        payload: { host }
-    };
-}
-
-export function completeDeleteHost(host) {
-    return {
-        type: COMPLETE_DELETE_HOST,
-        payload: { host }
-    };
-}
-
-export function failDeleteHost(host, error) {
-    return {
-        type: FAIL_DELETE_HOST,
         payload: { host, error }
     };
 }

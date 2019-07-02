@@ -10,14 +10,6 @@
             >
                 Set As Trusted
             </button>
-            <working-button params="
-                click: () => onDeleteNode(),
-                disabled: !hostLoaded(),
-                working: isDeleteButtonWorking,
-                workingLabel: 'Deleting'
-            ">
-                Delete Node
-            </working-button>
         </div>
         <property-sheet class="pad deamon-info" params="
             properties: daemonInfo,

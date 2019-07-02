@@ -32,7 +32,6 @@
                 <radio-group params="
                     options: portOptions,
                     selected: $form.rangeType,
-                    disabled: configDisabled
                 "></radio-group>
             </editor>
 
@@ -42,7 +41,6 @@
                     min="1"
                     ko.value="$form.rangeStart"
                     ko.validationCss="$form.rangeStart",
-                    ko.disable="configDisabled"
                 />
                 <validation-message params="field: $form.rangeStart"></validation-message>
             </editor>
@@ -54,14 +52,12 @@
                         min="1"
                         ko.value="$form.rangeStart"
                         ko.validationCss="$form.rangeStart"
-                        ko.disable="configDisabled"
                     />
                     <span class="push-both"> - </span>
                     <input type="number"
                         ko.value="$form.rangeEnd"
                         ko.attr.min="minRangeEnd"
                         ko.validationCss="$form.rangeEnd"
-                        ko.disable="configDisabled"
                     />
                 </div>
                 <validation-message params="field: $form.rangeStart"></validation-message>
@@ -108,16 +104,11 @@
                 </ul>
             </div>
 
-            <div class="align-start push-prev"
-                ko.tooltip="updateButtonTooltip"
+            <button class="btn align-start push-prev"
+                ko.shakeOnClick="!$form.isValid()"
             >
-                <button class="btn"
-                    ko.disable="configDisabled"
-                    ko.shakeOnClick="!$form.isValid()"
-                ">
-                    Update
-                </button>
-            </div>
+                Update
+            </button>
         </managed-form>
     </div>
 </section>

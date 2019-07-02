@@ -14,10 +14,34 @@ const hostsPoolModeToStateIcon = deepFreeze({
         css: 'warning',
         name: 'working'
     },
+    INITIALIZING: {
+        tooltip: 'Initialzing',
+        css: 'warning',
+        name: 'working'
+    },
+    DELETING: {
+        tooltip: 'Deleting',
+        css: 'warning',
+        name: 'working'
+    },
     HAS_NO_NODES: {
         tooltip: 'Pool is empty',
         css: 'error',
         name: 'problem'
+    },
+    SCALING: pool => {
+        const { configuredHostCount, hostCount } = pool;
+        const tooltip = `Scaling ${
+            configuredHostCount > hostCount ? 'up' : 'down'
+        } to ${
+            configuredHostCount
+        } nodes`;
+
+        return {
+            tooltip,
+            css: 'warning',
+            name: 'working'
+        };
     },
     ALL_NODES_OFFLINE: {
         tooltip: 'All nodes are offline',

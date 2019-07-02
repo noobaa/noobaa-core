@@ -254,7 +254,7 @@ function delete_noobaa {
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc mongo-datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete statefulset -l noobaa-module=noobaa-pool-impl # delete noobaa pool's stateful sets
-    ${KUBECTL} delete pvc -l anoobaa-module=noobaa-storage # delete noobaa agents volumes
+    ${KUBECTL} delete pvc -l noobaa-module=noobaa-storage # delete noobaa agents volumes
 }
 
 
@@ -418,7 +418,7 @@ function create_noobaa_secrets {
 }
 
 function create_config_map {
-    local AGENT_IMAGE=$(${KUBECTL} apply -f src/deploy/NVA_build/noobaa_core.yaml \
+    local AGENT_IMAGE=$(${KUBECTL} apply -f ${NOOBAA_CORE_YAML} \
         --dry-run -o jsonpath='{.items[?(@.kind=="StatefulSet")].spec.template.spec.containers[0].image}')
     local OAUTH_INFO=$(${KUBECTL} get --raw '/.well-known/oauth-authorization-server')
     local OAUTH_AUTHORIZATION_ENDPOINT=$(echo ${OAUTH_INFO} | jq -r '.authorization_endpoint')

@@ -103,30 +103,30 @@ RUN yum install -y -q bash \
     tcpdump-14:4.9.2 \
     cronie-1.4.11 \
     initscripts-9.49.46 \
-    lsof-4.87 \
+    lsof \
     net-tools-2.0 \
     openssh-server-7.4p1 \
     rng-tools-6.3.1 \
     rsyslog-8.24.0 \
-    strace-4.12 \
+    strace \
     sudo-1.8.23 \
-    wget-1.14 \
+    wget \
     dialog-1.2 \
     expect-5.45 \
     iperf3-3.1.7 \
     iptables-services-1.4.21 \
-    curl-7.29.0 \
+    curl \
     ntp-4.2.6p5 \
     nc \
     vim \
     less \
     bash-completion \
     python-setuptools-0.9.8 \
-    mongodb-org-3.6.3 \
-    mongodb-org-server-3.6.3 \
-    mongodb-org-shell-3.6.3 \
-    mongodb-org-mongos-3.6.3 \
-    mongodb-org-tools-3.6.3 && \
+    mongodb-org-3.6.8 \
+    mongodb-org-server-3.6.8 \
+    mongodb-org-shell-3.6.8 \
+    mongodb-org-mongos-3.6.8 \
+    mongodb-org-tools-3.6.8 && \
     yum clean all
 
 

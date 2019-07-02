@@ -790,7 +790,7 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
     );
     const json = JSON.parse(text);
     const services = json.items.filter(service =>
-        service.metadata.labels.app === app
+        _.get(service, 'metadata.labels.app') === app
     );
 
     const list = _.flatMap(services, service_info => {

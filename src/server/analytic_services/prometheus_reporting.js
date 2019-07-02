@@ -59,19 +59,27 @@ const METRIC_RECORDS = Object.freeze([{
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'cloud_bandwidth',
+    metric_variable: 'providers_bandwidth',
     configuration: {
-        name: get_metric_name('cloud_bandwidth'),
-        help: 'Cloud bandwidth usage',
+        name: get_metric_name('providers_bandwidth'),
+        help: 'Providers bandwidth usage',
         labelNames: ['type', 'size']
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'cloud_ops',
+    metric_variable: 'providers_ops',
     configuration: {
-        name: get_metric_name('cloud_ops'),
-        help: 'Cloud number of operations',
+        name: get_metric_name('providers_ops'),
+        help: 'Providers number of operations',
         labelNames: ['type', 'number']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'providers_physical_logical',
+    configuration: {
+        name: get_metric_name('providers_physical_logical'),
+        help: 'Providers Physical And Logical Stats',
+        labelNames: ['type', 'logical_size', 'physical_size']
     }
 }, {
     metric_type: 'Gauge',
@@ -83,11 +91,11 @@ const METRIC_RECORDS = Object.freeze([{
     generate_default_set: true,
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'system_name',
+    metric_variable: 'system_info',
     configuration: {
-        name: get_metric_name('system_name'),
-        help: 'System name',
-        labelNames: ['name']
+        name: get_metric_name('system_info'),
+        help: 'System info',
+        labelNames: ['system_name']
     }
 }, {
     metric_type: 'Gauge',
@@ -111,6 +119,30 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('num_unhealthy_buckets'),
         help: 'Unhealthy Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_unhealthy_pools',
+    configuration: {
+        name: get_metric_name('num_unhealthy_pools'),
+        help: 'Unhealthy Resource Pools',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_pools',
+    configuration: {
+        name: get_metric_name('num_pools'),
+        help: 'Resource Pools',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_unhealthy_bucket_claims',
+    configuration: {
+        name: get_metric_name('num_unhealthy_bucket_claims'),
+        help: 'Unhealthy Bucket Claims',
     },
     generate_default_set: true,
 }, {
@@ -143,8 +175,8 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('object_savings'),
         help: 'Object Savings',
+        labelNames: ['logical_size', 'physical_size'],
     },
-    generate_default_set: true,
 }]);
 
 
@@ -249,33 +281,48 @@ class PrometheusReporting {
         }
     }
 
-    set_cloud_bandwidth(type, write_size, read_size) {
+    set_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.cloud_bandwidth.set({ type: type + '_write_size' }, write_size);
-        this._metrics.cloud_bandwidth.set({ type: type + '_read_size' }, read_size);
+        this._metrics.providers_bandwidth.set({ type: type + '_write_size' }, write_size);
+        this._metrics.providers_bandwidth.set({ type: type + '_read_size' }, read_size);
     }
 
-    set_cloud_ops(type, write_num, read_num) {
+    set_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.cloud_ops.set({ type: type + '_write_ops' }, write_num);
-        this._metrics.cloud_ops.set({ type: type + '_read_ops' }, read_num);
+        this._metrics.providers_ops.set({ type: type + '_write_ops' }, write_num);
+        this._metrics.providers_ops.set({ type: type + '_read_ops' }, read_num);
     }
 
-    set_system_name(name) {
+    set_object_savings(savings) {
         if (!this.enabled()) return;
-        this._metrics.system_name.set({ name }, 0);
+        const { logical_size, physical_size } = savings;
+        this._metrics.object_savings.set({ logical_size, physical_size }, logical_size - physical_size);
     }
 
-    update_cloud_bandwidth(type, write_size, read_size) {
+    set_providers_physical_logical(providers_stats) {
         if (!this.enabled()) return;
-        this._metrics.cloud_bandwidth.inc({ type: type + '_write_size' }, write_size, new Date());
-        this._metrics.cloud_bandwidth.inc({ type: type + '_read_size' }, read_size, new Date());
+        this._metrics.providers_physical_logical.reset();
+        for (let [type, value] of Object.entries(providers_stats)) {
+            const { logical_size, physical_size } = value;
+            this._metrics.providers_physical_logical.set({ type, physical_size, logical_size }, Date.now());
+        }
     }
 
-    update_cloud_ops(type, write_num, read_num) {
+    set_system_info(info) {
         if (!this.enabled()) return;
-        this._metrics.cloud_ops.inc({ type: type + '_write_ops' }, write_num, new Date());
-        this._metrics.cloud_ops.inc({ type: type + '_read_ops' }, read_num, new Date());
+        this._metrics.system_info.set({ system_name: info.name }, 0);
+    }
+
+    update_providers_bandwidth(type, write_size, read_size) {
+        if (!this.enabled()) return;
+        this._metrics.providers_bandwidth.inc({ type: type + '_write_size' }, write_size, new Date());
+        this._metrics.providers_bandwidth.inc({ type: type + '_read_size' }, read_size, new Date());
+    }
+
+    update_providers_ops(type, write_num, read_num) {
+        if (!this.enabled()) return;
+        this._metrics.providers_ops.inc({ type: type + '_write_ops' }, write_num, new Date());
+        this._metrics.providers_ops.inc({ type: type + '_read_ops' }, read_num, new Date());
     }
 }
 

@@ -43,6 +43,16 @@ module.exports = {
             }
         },
 
+        get_partial_providers_stats: {
+            method: 'GET',
+            reply: {
+                $ref: '#/definitions/partial_providers_stats'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_nodes_stats: {
             method: 'GET',
             reply: {
@@ -337,9 +347,12 @@ module.exports = {
 
         cloud_pool_stats: {
             type: 'object',
-            required: ['pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target'],
+            required: ['pool_count', 'unhealthy_pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target'],
             properties: {
                 pool_count: {
+                    type: 'integer'
+                },
+                unhealthy_pool_count: {
                     type: 'integer'
                 },
                 cloud_pool_count: {
@@ -501,6 +514,9 @@ module.exports = {
                 accounts_stats: {
                     $ref: '#/definitions/partial_accounts_stats'
                 },
+                providers_stats: {
+                    $ref: '#/definitions/partial_providers_stats'
+                },
             }
         },
 
@@ -521,7 +537,16 @@ module.exports = {
                                 type: 'number'
                             },
                             savings: {
-                                type: 'number'
+                                type: 'object',
+                                required: ['logical_size', 'physical_size'],
+                                properties: {
+                                    logical_size: {
+                                        type: 'number'
+                                    },
+                                    physical_size: {
+                                        type: 'number'
+                                    }
+                                }
                             },
                             reduction_ratio: {
                                 type: 'number'
@@ -529,20 +554,46 @@ module.exports = {
                             buckets_stats: {
                                 $ref: '#/definitions/partial_buckets_stats'
                             },
+                            // TODO: Fix the regex for the projects name
                             usage_by_project: {
                                 type: 'object',
-                                additionalProperties: true,
-                                properties: {},
+                                patternProperties: {
+                                    '^[a-zA-Z0-9_]+$': {
+                                        type: 'number',
+                                    }
+                                },
                             },
+                            // TODO: Fix the regex for the bucket classes
                             usage_by_bucket_class: {
                                 type: 'object',
-                                additionalProperties: true,
-                                properties: {},
+                                patternProperties: {
+                                    '^[a-zA-Z0-9_]+$': {
+                                        type: 'number',
+                                    }
+                                },
                             },
                         }
                     }
                 }
             }
+        },
+
+        partial_providers_stats: {
+            type: 'object',
+            patternProperties: {
+                '^[a-zA-Z0-9_]+$': {
+                    type: 'object',
+                    required: ['logical_size', 'physical_size'],
+                    properties: {
+                        logical_size: {
+                            type: 'number'
+                        },
+                        physical_size: {
+                            type: 'number'
+                        },
+                    }
+                }
+            },
         },
 
         partial_accounts_stats: {
@@ -573,15 +624,17 @@ module.exports = {
             }
         },
 
+
         partial_buckets_stats: {
             type: 'object',
-            required: ['buckets', 'objects_in_buckets', 'unhealthy_buckets', 'bucket_claims', 'objects_in_bucket_claims'],
+            required: ['buckets', 'objects_in_buckets', 'unhealthy_buckets', 'bucket_claims', 'objects_in_bucket_claims', 'unhealthy_bucket_claims'],
             properties: {
                 buckets: { type: 'integer' },
                 objects_in_buckets: { type: 'integer' },
                 unhealthy_buckets: { type: 'integer' },
                 bucket_claims: { type: 'integer' },
                 objects_in_bucket_claims: { type: 'integer' },
+                unhealthy_bucket_claims: { type: 'integer' },
             }
         },
     },

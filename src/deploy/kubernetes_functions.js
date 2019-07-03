@@ -103,6 +103,9 @@ class KubernetesFunctions {
         if (image) {
             // modify image of the statefulset
             statefulset.spec.template.spec.containers[0].image = image;
+            if (statefulset.spec.template.spec.initContainers) {
+                statefulset.spec.template.spec.initContainers[0].image = image;
+            }
         }
 
         if (pull_always) {
@@ -111,11 +114,19 @@ class KubernetesFunctions {
         }
 
         if (cpu) {
-            statefulset.spec.template.spec.containers[0].resources.requests.cpu = cpu;
+            for (const container of statefulset.spec.template.spec.containers) {
+                if (_.get(container, 'resources.requests')) {
+                    container.resources.requests.cpu = cpu;
+                }
+            }
         }
 
         if (mem) {
-            statefulset.spec.template.spec.containers[0].resources.requests.memory = mem;
+            for (const container of statefulset.spec.template.spec.containers) {
+                if (_.get(container, 'resources.requests')) {
+                    container.resources.requests.memory = mem;
+                }
+            }
         }
 
         // set env 
@@ -127,11 +138,19 @@ class KubernetesFunctions {
             statefulset.spec.replicas = replicas;
         }
 
+
         if (!pv) {
             //remove persistent volume claim and mounts from the statefulset
-            statefulset.spec.template.spec.containers[0].volumeMounts = null;
             statefulset.spec.volumeClaimTemplates = null;
 
+            // get all mounts of all containers
+            const mounts = _.flatMap(statefulset.spec.template.spec.containers, container => {
+                if (!container.volumeMounts) return [];
+                return container.volumeMounts.map(mount => mount.name);
+            });
+
+            // use emptyDir volumes instead of PV
+            statefulset.spec.template.spec.volumes = mounts.map(mount => ({ name: mount, emptyDir: {} }));
         }
     }
 

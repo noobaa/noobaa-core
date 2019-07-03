@@ -77,7 +77,7 @@ RUN chgrp 0 /etc/passwd && chmod -R g=u /etc/passwd
 COPY --from=base /usr/local/bin/node /bin/
 COPY --from=base /noobaa/build/Release/kube_pv_chown ./bin/
 RUN chown root:root ./bin/kube_pv_chown && \
-    chmod 755 ./bin/kube_pv_chown && \
+    chmod 750 ./bin/kube_pv_chown && \
     chmod u+s ./bin/kube_pv_chown
 
 ##############################################################

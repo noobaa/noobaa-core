@@ -44,7 +44,7 @@ echo "Deploying test account and role"
 kubectl -n noobaa-tests apply -f ./test_account.yaml
 
 echo "Running test job ${TEST_RUN_NAME}"
-sed -e "s~IMAGE_PLACEHOLDER~${IMAGE}~" \
+sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
 -e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME}~" \

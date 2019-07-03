@@ -11,6 +11,7 @@ RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
+KUBE_PV_CHOWN="/noobaa_init_files/kube_pv_chown"
 
 update_services_autostart() {
   local programs=(webserver bg_workers hosted_agents s3rver)
@@ -86,45 +87,11 @@ fix_non_root_user() {
 extract_noobaa_in_docker() {
   local tar="noobaa-NVA.tar.gz"
   local noobaa_core_path="/root/node_modules/noobaa-core/"
-  if [ "${container}" == "docker" ] && [ ! -d ${noobaa_core_path} ] ; then
+  if [ ! -d ${noobaa_core_path} ] ; then
     cd /root/node_modules
     tar -xzf /tmp/noobaa-NVA.tar.gz
     cd ~
-    rm -rf /tmp/${tar}
   fi
-}
-
-run_kube_pv_chown() {
-  local parameter=${1}
-  # change ownership and permissions of /data and /log. 
-  # assuming that uid is not changed between reboots.
-  local path="/root/node_modules/noobaa-core/build/Release/"
-  if [ "${container}" == "docker" ] ; then
-      path="/noobaa_init_files/"
-  fi
-  ${path}/kube_pv_chown ${parameter}
-}
-
-run_init_scripts() {
-  local script
-  local scripts=(fix_server_plat.sh fix_mongo_ssl.sh)
-  local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
-  ############## run init scripts
-  run_kube_pv_chown server
-  cd ${path}
-  for script in ${scripts[@]} ; do
-    ${debug} ./${script}
-    if [ $? -ne 0 ] ; then
-      #Providing an env variable with the name "LOOP_ON_FAIL=true" 
-      #will trigger the condition below.
-      while [ "${LOOP_ON_FAIL}" == "true" ]
-      do
-        echo "$(date) Failed to run ${script}"
-        sleep 10
-      done
-    fi
-  done
-  cd - > /dev/null
 }
 
 run_agent_container() {
@@ -152,13 +119,58 @@ run_agent_container() {
   done
 }
 
+prepare_server_pvs() {
+  # change ownership and permissions of /data and /log. 
+  ${KUBE_PV_CHOWN} server
+  # when running in kubernetes\openshift we mount PV under /data and /log
+  # ensure existence of folders such as mongo, supervisor, etc.
+  mkdir -p /log/supervisor
+}
+
+prepare_mongo_pv() {
+  mkdir -p /mongo_data/mongo/cluster/shard1
+  # change ownership and permissions of mongo db path 
+  ${KUBE_PV_CHOWN} mongo
+}
+
+fix_server_plat() {
+NOOBAASEC="/data/noobaa_sec"
+CORE_DIR="/root/node_modules/noobaa-core"
+
+# If not sec file, fix it
+if [ ! -f ${NOOBAASEC} ]; then
+  if [ ! -f /data/noobaa_supervisor.conf ]; then
+    # Setup Repos
+    sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
+    # in a container set the endpoint\ssl ports to 6001\6443 since we are not running as root
+    echo "ENDPOINT_PORT=6001" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+    echo "ENDPOINT_SSL_PORT=6443" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env &>> /data/mylog
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /data &>> /data/mylog
+  fi
+
+  sec=$(uuidgen | cut -f 1 -d'-')
+  echo ${sec} | tee -a ${NOOBAASEC}
+  #dev/null to avoid output with user name
+  #verify JWT_SECRET exists in .env, if not create it
+  if ! grep -q JWT_SECRET /data/.env; then &> /dev/null
+    jwt=$(cat /data/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
+    echo  "JWT_SECRET=${jwt}" >> /data/.env
+  fi
+fi
+
+}
+
 init_noobaa_server() {
   fix_non_root_user
   extract_noobaa_in_docker
-  run_init_scripts
+  prepare_server_pvs
+  fix_server_plat
 
+  #commented out handle_unmanaged_upgrade since upgrade flow is depndent on mongo shell that was removed
+  ###TODO: restore handle_unmanaged_upgrade once the upgrade script does not rely on mongo shell
   #check if unmamnaged upgrade is required
-  handle_unmanaged_upgrade
+  # handle_unmanaged_upgrade
 }
 
 init_noobaa_agent() {
@@ -166,15 +178,24 @@ init_noobaa_agent() {
   extract_noobaa_in_docker
   
   mkdir -p /noobaa_storage
-  run_kube_pv_chown agent
+  ${KUBE_PV_CHOWN} agent
 
   cd /root/node_modules/noobaa-core/
   run_agent_container
 }
 
+
+# init phase
+init_pod() {
+  prepare_mongo_pv
+}
+
 if [ "${RUN_INIT}" == "agent" ]
 then
   init_noobaa_agent
+elif [ "${RUN_INIT}" == "init_mongo" ]
+then
+  init_pod
 else
   init_noobaa_server
 fi

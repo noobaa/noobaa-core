@@ -15,9 +15,9 @@ export default function(action$, { api }) {
                 ownerEmail,
                 password,
                 systemName,
-                dnsName,
+                dnsName
                 //dnsServers, //Should be introduced back after Issue #2469
-                timeConfig
+                //timeConfig
             } = action.payload;
 
             try {
@@ -25,9 +25,9 @@ export default function(action$, { api }) {
                     name: systemName,
                     email: ownerEmail,
                     password: password,
-                    dns_name: dnsName,
+                    dns_name: dnsName
                     //dns_servers: dnsServers, //Should be introduced back after Issue #2469
-                    time_config: timeConfig
+                    //time_config: timeConfig
                 });
 
                 return completeCreateSystem(systemName, ownerEmail, token, defaultTheme);

@@ -430,10 +430,6 @@ function read_system(req) {
             .return(true)
             .catch(() => false),
 
-        aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
-            _.map(system.tiers_by_name, tier => String(tier._id)),
-            system._id),
-
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
         deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket => bucket_server.can_delete_bucket(system, bucket))),
@@ -463,7 +459,6 @@ function read_system(req) {
         obj_count_per_bucket,
         accounts,
         has_ssl_cert,
-        aggregate_data_free_by_tier,
         deletable_buckets,
         rs_status,
         funcs,
@@ -535,6 +530,7 @@ function read_system(req) {
 
         const base_address = addr_utils.get_base_address(system.system_address);
         const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
+        const tiering_status_by_tier = {};
 
         return {
             name: system.name,
@@ -548,15 +544,16 @@ function read_system(req) {
             }),
             buckets: _.map(system.buckets_by_name,
                 bucket => {
+                    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+                    Object.assign(tiering_status_by_tier, tiering_pools_status);
                     const func_configs = funcs.map(func => func.config);
                     let b = bucket_server.get_bucket_info({
                         bucket,
                         nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                         hosts_aggregate_pool,
-                        aggregate_data_free_by_tier,
                         num_of_objects: obj_count_per_bucket[bucket._id] || 0,
                         func_configs,
-                        bucket_stats: stats_by_bucket[bucket.name]
+                        bucket_stats: stats_by_bucket[bucket.name],
                     });
                     const bucket_name = bucket.name.unwrap();
                     if (deletable_buckets[bucket_name]) {
@@ -572,7 +569,7 @@ function read_system(req) {
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud_and_mongo,
-                    aggregate_data_free_by_tier[String(tier._id)])),
+                    tiering_status_by_tier[String(tier._id)])),
             accounts: accounts,
             functions: funcs,
             storage: size_utils.to_bigint_storage(_.defaults({
@@ -713,7 +710,7 @@ function log_frontend_stack_trace(req) {
  *
  */
 function list_systems(req) {
-    console.log('List systems:', req.account);
+    console.log('List systems:', _.pick(req.account, 'name', '_id'));
     if (!req.account) {
         if (!req.system) {
             throw new RpcError('FORBIDDEN',

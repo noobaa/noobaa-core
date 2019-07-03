@@ -68,6 +68,33 @@ const SYS_STORAGE_DEFAULTS = Object.freeze({
     real: 0,
 });
 
+const PROVIDER_STATS = {
+    'AWS': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+    'AZURE': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+    'S3_COMPATIBLE': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+    'GOOGLE': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+    'KUBERNETES': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+    'OTHERS': {
+        logical_size: 0,
+        physical_size: 0,
+    },
+};
+
 const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
     buckets: 0,
@@ -100,6 +127,7 @@ const PARTIAL_BUCKETS_STATS_DEFAULTS = {
     unhealthy_buckets: 0,
     bucket_claims: 0,
     objects_in_bucket_claims: 0,
+    unhealthy_bucket_claims: 0,
 };
 
 const PARTIAL_SYSTEM_STATS_DEFAULTS = {
@@ -121,7 +149,10 @@ const PARTIAL_SINGLE_SYS_DEFAULTS = {
     name: '',
     capacity: 0,
     reduction_ratio: 0,
-    savings: 0,
+    savings: {
+        logical_size: 0,
+        physical_size: 0,
+    },
     buckets_stats: PARTIAL_BUCKETS_STATS_DEFAULTS,
     usage_by_project: {
         Others: 0,
@@ -258,6 +289,51 @@ async function get_partial_accounts_stats(req) {
 }
 
 
+async function get_partial_providers_stats(req) {
+    const provider_stats = _.cloneDeep(PROVIDER_STATS);
+    const supported_cloud_types = [
+        'AWS',
+        'AZURE',
+        'S3_COMPATIBLE',
+        'GOOGLE',
+    ];
+    try {
+        for (const bucket of system_store.data.buckets) {
+            if (!bucket.storage_stats) continue;
+            const { pools, objects_size } = bucket.storage_stats;
+            const types_mapped = new Map();
+            for (let [key, value] of Object.entries(pools)) {
+                const pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(key));
+                // TODO: Handle deleted pools
+                if (!pool) continue;
+                let type = 'KUBERNETES';
+                if (pool.cloud_pool_info) {
+                    type = (supported_cloud_types.includes(pool.cloud_pool_info.endpoint_type)) ?
+                        pool.cloud_pool_info.endpoint_type : 'OTHERS';
+                }
+                provider_stats[type].logical_size =
+                    size_utils.json_to_bigint(provider_stats[type].logical_size)
+                    .plus(size_utils.json_to_bigint(objects_size))
+                    .toJSNumber();
+                if (!types_mapped.has(type)) {
+                    provider_stats[type].physical_size =
+                        size_utils.json_to_bigint(provider_stats[type].physical_size)
+                        .plus(size_utils.json_to_bigint(value.blocks_size))
+                        .toJSNumber();
+                }
+                // Marking that we shouldn't add logical_size more than once for this type
+                types_mapped.set(type, 1);
+            }
+        }
+        return provider_stats;
+    } catch (err) {
+        dbg.warn('Error in collecting partial providers stats,',
+            'skipping current sampling point', err.stack || err);
+        throw err;
+    }
+}
+
+
 async function get_partial_systems_stats(req) {
     const sys_stats = _.cloneDeep(PARTIAL_SYSTEM_STATS_DEFAULTS);
     try {
@@ -286,8 +362,10 @@ async function get_partial_systems_stats(req) {
             const chunks = size_utils.bigint_to_bytes(chunks_capacity);
             const logical = size_utils.bigint_to_bytes(logical_size);
             const reduction_ratio = (logical / chunks) || 1;
-            const savings = logical_size.minus(chunks_capacity).toJSNumber();
-
+            const savings = {
+                logical_size: logical_size.toJSNumber(),
+                physical_size: chunks_capacity.toJSNumber(),
+            };
             const free_bytes = size_utils.bigint_to_bytes(storage.free);
             const total_bytes = size_utils.bigint_to_bytes(storage.total);
             const capacity = 100 - Math.floor(((free_bytes / total_bytes) || 1) * 100);
@@ -364,20 +442,22 @@ async function _partial_buckets_info(req) {
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
 
-            buckets_stats.buckets += 1;
-            buckets_stats.objects_in_buckets += bucket_info.num_objects;
-
-            if (bucket_info.bucket_claim) {
-                buckets_stats.bucket_claims += 1;
-                buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
-            }
-
             const OPTIMAL_MODES = [
                 'LOW_CAPACITY',
                 'HIGH_DATA_ACTIVITY',
                 'OPTIMAL',
             ];
-            if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
+
+            if (bucket_info.bucket_claim) {
+                buckets_stats.bucket_claims += 1;
+                buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
+                if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_bucket_claims += 1;
+            } else {
+                buckets_stats.buckets += 1;
+                buckets_stats.objects_in_buckets += bucket_info.num_objects;
+                if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
+            }
+
         }
 
         Object.keys(usage_by_bucket_class).forEach(key => {
@@ -405,6 +485,7 @@ var NODES_STATS_DEFAULTS = {
 
 const CLOUD_POOL_STATS_DEFAULTS = {
     pool_count: 0,
+    unhealthy_pool_count: 0,
     cloud_pool_count: 0,
     cloud_pool_target: {
         amazon: 0,
@@ -546,11 +627,17 @@ async function get_cloud_pool_stats(req) {
     ];
     //Per each system fill out the needed info
     for (const pool of system_store.data.pools) {
+        const pool_info = await server_rpc.client.pool.read_pool({ name: pool.name }, {
+            auth_token: req.auth_token
+        });
+
         cloud_pool_stats.pool_count += 1;
+
+        if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
+            cloud_pool_stats.unhealthy_pool_count += 1;
+        }
+
         if (pool.cloud_pool_info) {
-            const pool_info = await server_rpc.client.pool.read_pool({ name: pool.name }, {
-                auth_token: req.auth_token
-            });
             cloud_pool_stats.cloud_pool_count += 1;
             switch (pool.cloud_pool_info.endpoint_type) {
                 case 'AWS':
@@ -691,6 +778,7 @@ async function get_partial_stats(req) {
         systems_stats: null,
         cloud_pool_stats: null,
         accounts_stats: null,
+        providers_stats: null,
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
@@ -717,6 +805,13 @@ async function get_partial_stats(req) {
         dbg.warn('Error in collecting partial account i/o stats, skipping', error.stack, error);
     }
 
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Partial Providers Stats');
+        stats_payload.providers_stats = await get_partial_providers_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting partial providers stats, skipping', error.stack, error);
+    }
+
     partial_cycle_parse_prometheus_metrics(stats_payload);
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
@@ -727,17 +822,37 @@ async function get_partial_stats(req) {
  * Prometheus Metrics Parsing, POC grade
  */
 function partial_cycle_parse_prometheus_metrics(payload) {
-    const { cloud_pool_stats, systems_stats, accounts_stats } = payload;
+    const { cloud_pool_stats, systems_stats, accounts_stats, providers_stats } = payload;
     // TODO: Support multiple systems
-    const { buckets_stats, capacity, reduction_ratio, savings, name, usage_by_bucket_class, usage_by_project } = systems_stats.systems[0];
-    const { buckets, objects_in_buckets, unhealthy_buckets, bucket_claims, objects_in_bucket_claims } = buckets_stats;
+    const {
+        buckets_stats,
+        capacity,
+        reduction_ratio,
+        savings,
+        name,
+        usage_by_bucket_class,
+        usage_by_project,
+    } = systems_stats.systems[0];
+    const {
+        buckets,
+        objects_in_buckets,
+        unhealthy_buckets,
+        bucket_claims,
+        objects_in_bucket_claims,
+        unhealthy_bucket_claims,
+    } = buckets_stats;
+    const { unhealthy_pool_count, pool_count } = cloud_pool_stats;
 
+    prom_report.instance().set_providers_physical_logical(providers_stats);
     prom_report.instance().set_cloud_types(cloud_pool_stats);
+    prom_report.instance().set_num_unhealthy_pools(unhealthy_pool_count);
+    prom_report.instance().set_num_pools(pool_count);
     prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
-    prom_report.instance().set_system_name(name);
+    prom_report.instance().set_system_info({ name });
     prom_report.instance().set_num_buckets(buckets);
     prom_report.instance().set_num_objects(objects_in_buckets);
     prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
+    prom_report.instance().set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
     prom_report.instance().set_num_buckets_claims(bucket_claims);
     prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);
     prom_report.instance().set_system_capacity(capacity);
@@ -1093,6 +1208,7 @@ exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
 exports.get_partial_systems_stats = get_partial_systems_stats;
 exports.get_partial_accounts_stats = get_partial_accounts_stats;
+exports.get_partial_providers_stats = get_partial_providers_stats;
 exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;

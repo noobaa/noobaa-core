@@ -260,11 +260,17 @@ class NodesMonitor extends EventEmitter {
 
         // initialize nodes stats in prometheus
         if (config.PROMETHEUS_ENABLED && system_store.data.systems[0]) {
-            let nodes_stats = await this._get_nodes_stats_by_cloud_service(system_store.data.systems[0]._id, 0, Date.now());
+            let nodes_stats = await this._get_nodes_stats_by_service(
+                system_store.data.systems[0]._id,
+                0,
+                Date.now(),
+                /* include_kubernetes */
+                true
+            );
             nodes_stats.forEach(stats => {
                 dbg.log0(`resetting stats in prometheus:`, stats);
-                prom_report.instance().set_cloud_ops(stats.service, stats.write_count, stats.read_count);
-                prom_report.instance().set_cloud_bandwidth(stats.service, stats.write_bytes, stats.read_bytes);
+                prom_report.instance().set_providers_ops(stats.service, stats.write_count, stats.read_count);
+                prom_report.instance().set_providers_bandwidth(stats.service, stats.write_bytes, stats.read_bytes);
             });
         }
 
@@ -1061,17 +1067,16 @@ class NodesMonitor extends EventEmitter {
                     case 'AUTH_FAILED':
                         alert = `Authentication failed for cloud resource ${pool.name}`;
                         break;
-                    case 'STORAGE_NOT_EXIST':
-                        {
-                            const storage_container = item.node.node_type === 'BLOCK_STORE_S3' ? 'S3 bucket' : 'Azure container';
-                            alert = `The target ${storage_container} does not exist for cloud resource ${pool.name}`;
-                        }
-                        break;
-                    case 'OFFLINE':
-                        alert = `Cloud resource ${pool.name} is offline`;
-                        break;
-                    default:
-                        break;
+                    case 'STORAGE_NOT_EXIST': {
+                        const storage_container = item.node.node_type === 'BLOCK_STORE_S3' ? 'S3 bucket' : 'Azure container';
+                        alert = `The target ${storage_container} does not exist for cloud resource ${pool.name}`;
+                    }
+                    break;
+                case 'OFFLINE':
+                    alert = `Cloud resource ${pool.name} is offline`;
+                    break;
+                default:
+                    break;
                 }
 
                 if (alert) {
@@ -1223,10 +1228,16 @@ class NodesMonitor extends EventEmitter {
             });
 
             //update prometheus metrics
-            if (config.PROMETHEUS_ENABLED && this._is_cloud_node(item)) {
-                const endpoint_type = _.get(system_store.data.get_by_id(item.node.pool), 'cloud_pool_info.endpoint_type') || 'OTHER';
-                prom_report.instance().update_cloud_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
-                prom_report.instance().update_cloud_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+            if (config.PROMETHEUS_ENABLED) {
+                if (this._is_cloud_node(item)) {
+                    const endpoint_type = _.get(system_store.data.get_by_id(item.node.pool), 'cloud_pool_info.endpoint_type') || 'OTHER';
+                    prom_report.instance().update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
+                    prom_report.instance().update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+                } else if (this._is_kubernetes_node(item)) {
+                    const endpoint_type = 'KUBERNETES';
+                    prom_report.instance().update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
+                    prom_report.instance().update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+                }
             }
 
         }
@@ -1489,12 +1500,12 @@ class NodesMonitor extends EventEmitter {
         // TODO: should add custom virtual hosts to the list.
         const system = system_store.data.get_by_id(item.node.system);
         const virtual_hosts = _.uniq(system.system_address
-            .filter(addr =>
-                addr.service === 's3' && // Only s3 service addresses
-                addr.api === 's3' && // which serve the s3 api
-                !net.isIP(addr.hostname) // and are not ips
-            )
-            .map(addr => addr.hostname))
+                .filter(addr =>
+                    addr.service === 's3' && // Only s3 service addresses
+                    addr.api === 's3' && // which serve the s3 api
+                    !net.isIP(addr.hostname) // and are not ips
+                )
+                .map(addr => addr.hostname))
             .sort();
 
         if (_.isEqual(item.virtual_hosts, virtual_hosts)) {
@@ -3047,7 +3058,7 @@ class NodesMonitor extends EventEmitter {
         return _.keyBy(nodes_stats, stat => String(stat._id));
     }
 
-    async _get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {
+    async _get_nodes_stats_by_service(system_id, start_date, end_date, include_kubernetes) {
         const all_nodes_stats = await this.get_nodes_stats(system_id, start_date, end_date);
         const grouped_stats = _.omit(_.groupBy(all_nodes_stats, stat => {
             const item = this._map_node_id.get(String(stat._id));
@@ -3060,8 +3071,9 @@ class NodesMonitor extends EventEmitter {
                 // handle deleted pools later
                 return 'DELETED';
             }
-            const endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type');
-            return endpoint_type || 'OTHER';
+            let endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type') || 'OTHER';
+            if (include_kubernetes && this._is_kubernetes_node(item)) endpoint_type = 'KUBERNETES';
+            return endpoint_type;
         }), 'OTHER');
 
         const deleted_stats = grouped_stats.DELETED || [];
@@ -3075,11 +3087,11 @@ class NodesMonitor extends EventEmitter {
                 pool = deleted_pool && deleted_pool.record;
             }
             if (!pool) continue;
-            const endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type') || 'OTHER';
+            let endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type') || 'OTHER';
+            if (include_kubernetes && this._is_kubernetes_node({ node })) endpoint_type = 'KUBERNETES';
             grouped_stats[endpoint_type] = grouped_stats[endpoint_type] || [];
             grouped_stats[endpoint_type].push(stat);
         }
-
 
         const ret = _.map(_.omit(grouped_stats, 'DELETED'), (stats, service) => {
             const reduced_stats = stats.reduce((prev, current) => ({
@@ -3099,8 +3111,15 @@ class NodesMonitor extends EventEmitter {
         return ret;
     }
 
+
     async get_nodes_stats_by_cloud_service(req) {
-        return this._get_nodes_stats_by_cloud_service(req.system._id, req.rpc_params.start_date, req.rpc_params.end_date);
+        return this._get_nodes_stats_by_service(
+            req.system._id,
+            req.rpc_params.start_date,
+            req.rpc_params.end_date,
+            /* include_kubernetes */
+            false
+        );
     }
 
 
@@ -3855,6 +3874,14 @@ class NodesMonitor extends EventEmitter {
             'BLOCK_STORE_GOOGLE'
         ];
         return cloud_node_types.includes(item.node.node_type);
+    }
+
+    _is_kubernetes_node(item) {
+        const kubernetes_node_types = [
+            'BLOCK_STORE_MONGO',
+            'BLOCK_STORE_FS',
+        ];
+        return kubernetes_node_types.includes(item.node.node_type);
     }
 }
 

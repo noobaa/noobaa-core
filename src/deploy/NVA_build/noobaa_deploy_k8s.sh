@@ -123,6 +123,7 @@ function deploy_noobaa {
     echo -e "${GREEN}Creating NooBaa resources in namespace ${NAMESPACE}${NC}"
 
     # Pre apply actions
+    create_cluster_bindings
     create_cred_secret
     create_config_map
 
@@ -245,6 +246,7 @@ function delete_noobaa {
     ${KUBECTL} delete secret ${TOKEN_SECRET_NAME}
     ${KUBECTL} delete secret ${CREDS_SECRET_NAME}
     ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME}
+    ${KUBECTL} delete clusterrolebinding noobaa-auth-delegator
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
     ${KUBECTL} delete pvc datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
@@ -380,6 +382,22 @@ function get_access_keys {
     done
 }
 
+function create_cluster_bindings {
+    ${KUBECTL} apply -f <(echo "
+kind: ClusterRoleBinding
+metadata:
+  name: noobaa-auth-delegator
+subjects:
+  - kind: ServiceAccount
+    namespae: ${NAMESPACE}
+    name: noobaa-account
+roleRef:
+  kind: ClusterRole
+  name: system:auth-delegator
+  apiGroup: rbac.authorization.k8s.io
+    ")
+}
+
 function create_cred_secret {
     ${KUBECTL} delete secret ${CREDS_SECRET_NAME} &> /dev/null
     ${KUBECTL} create secret generic ${CREDS_SECRET_NAME} \
@@ -389,10 +407,14 @@ function create_cred_secret {
 }
 
 function create_config_map {
-    local OAUTH_SERVICE_HOST=$(${KUBECTL} get route openshift-authentication -n openshift-authentication -o jsonpath='{.spec.host}')
+    local OAUTH_INFO=$(${KUBECTL} get --raw '/.well-known/oauth-authorization-server')
+    local OAUTH_AUTHORIZATION_ENDPOINT=$(echo ${OAUTH_INFO} | jq -r '.authorization_endpoint')
+    local OAUTH_TOKEN_ENDPOINT=$(echo ${OAUTH_INFO} | jq -r '.token_endpoint')
+
     ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME} &> /dev/null
     ${KUBECTL} create configmap ${NOOBAA_CONFIGMAP_NAME} \
-        --from-literal=oauth_service_host=${OAUTH_SERVICE_HOST}
+        --from-literal=oauth_authorization_endpoint=${OAUTH_AUTHORIZATION_ENDPOINT} \
+        --from-literal=oauth_token_endpoint=${OAUTH_TOKEN_ENDPOINT}
 }
 
 function set_oauth_redirect_uri {

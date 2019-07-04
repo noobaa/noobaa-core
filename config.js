@@ -387,8 +387,6 @@ config.PROMETHEUS_PREFIX = 'NooBaa_';
 // OAUTH RELATES            //
 //////////////////////////////
 
-config.OAUTH_AUTHORIZATION_ENDPOINT = '/oauth/authorize';
-config.OAUTH_TOKEN_ENDPOINT = '/oauth/token';
 config.OAUTH_REDIRECT_ENDPOINT = 'fe/oauth/callback';
 config.OAUTH_REQUIRED_SCOPE = 'user:info';
 

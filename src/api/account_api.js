@@ -84,8 +84,8 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'email'],
                 properties: {
-                   name: { $ref: 'common_api#/definitions/account_name' },
-                   email: { $ref: 'common_api#/definitions/email' }
+                    name: { $ref: 'common_api#/definitions/account_name' },
+                    email: { $ref: 'common_api#/definitions/email' }
                 }
             },
             reply: {
@@ -318,6 +318,25 @@ module.exports = {
                         $ref: 'common_api#/definitions/endpoint_type'
                     }
 
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        edit_external_connection_credentials: {
+            doc: 'Edit a connection in authorized account\'s connections cache',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'identity', 'secret'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    identity: { $ref: 'common_api#/definitions/access_key' },
+                    secret: { $ref: 'common_api#/definitions/secret_key' },
                 }
             },
             auth: {

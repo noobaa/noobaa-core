@@ -1,23 +1,34 @@
 GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
 NAME_POSTFIX?="$(shell docker ps -a | wc -l | xargs)"
+BUILDER_TAG?="noobaa-builder"
 TESTER_TAG?="noobaa-tester"
-SERVER_TAG?="noobaa-server"
+NOOBAA_TAG?="noobaa"
+NOOBAA_BASE_TAG?="noobaa-base"
 SUPPRESS_LOGS?=""
 export
 
-all: builder tester noobaa
+all: tester noobaa
 	@echo "\033[1;34mAll done.\033[0m"
 
 builder:
 	@echo "\033[1;34mStarting Builder docker build.\033[0m"
 ifeq ($(SUPPRESS_LOGS), true)
-	docker build -f src/deploy/NVA_build/builder.Dockerfile --no-cache -t noobaa/builder . 1> /dev/null
+	docker build -f src/deploy/NVA_build/builder.Dockerfile --no-cache -t $(BUILDER_TAG) . 1> /dev/null
 else
-	docker build -f src/deploy/NVA_build/builder.Dockerfile -t noobaa/builder .
+	docker build -f src/deploy/NVA_build/builder.Dockerfile -t $(BUILDER_TAG) .
 endif
 	@echo "\033[1;34mBuilder done.\033[0m"
 
-tester: builder
+base: builder
+	@echo "\033[1;34mStarting Base docker build.\033[0m"
+ifeq ($(SUPPRESS_LOGS), true)
+	docker build -f src/deploy/NVA_build/Base.Dockerfile --no-cache -t $(NOOBAA_BASE_TAG) . 1> /dev/null
+else
+	docker build -f src/deploy/NVA_build/Base.Dockerfile -t $(NOOBAA_BASE_TAG) .
+endif
+	@echo "\033[1;34mBuilder done.\033[0m"
+
+tester: base
 	@echo "\033[1;34mStarting Tester docker build.\033[0m"
 ifeq ($(SUPPRESS_LOGS), true)
 	docker build -f src/deploy/NVA_build/Tests.Dockerfile --no-cache -t $(TESTER_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) . 1> /dev/null
@@ -32,10 +43,10 @@ test: tester
 
 tests: test #alias for test
 
-noobaa: builder
-	@echo "\033[1;34mStarting Server docker build.\033[0m"
-	docker build -f src/deploy/NVA_build/Server.Dockerfile -t $(SERVER_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .
-	@echo "\033[1;34mServer done.\033[0m"
+noobaa: base
+	@echo "\033[1;34mStarting NooBaa docker build.\033[0m"
+	docker build -f src/deploy/NVA_build/NooBaa.Dockerfile -t $(NOOBAA_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .
+	@echo "\033[1;34mNooBaa done.\033[0m"
 
 clean:
 	@echo Stopping and Deleting containers

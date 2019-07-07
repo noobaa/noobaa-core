@@ -19,8 +19,7 @@ dbg.set_process_name('test_env_builder_k8s');
 const {
     context,
     output_dir = os.tmpdir(),
-    server_image,
-    agent_image,
+    image,
     noobaa_core_yaml = "src/deploy/NVA_build/noobaa_core.yaml",
     tests_list,
     single_test,
@@ -68,7 +67,7 @@ function print_usage() {
 
 
 /**
- * retruns array of env vars passed in argv, in the format [{name, value}]
+ * returns array of env vars passed in argv, in the format [{name, value}]
  */
 function get_env_vars() {
     // if env is not an array make it an array
@@ -96,9 +95,9 @@ async function build_env(kf, params) {
         num_agents = 0,
     } = params;
     try {
-        console.log(`deploying noobaa server image ${server_image} in namespace ${kf.namespace}`);
+        console.log(`deploying noobaa server image ${image} in namespace ${kf.namespace}`);
         const server_details = await kf.deploy_server({
-            image: server_image,
+            image,
             server_yaml: noobaa_core_yaml,
             envs: get_env_vars(),
             cpu: server_cpu,
@@ -124,7 +123,7 @@ async function build_env(kf, params) {
         const agents_yaml_path = path.join(output_dir, 'agents.yaml');
         await fs.writeFileSync(agents_yaml_path, agents_yaml);
         await kf.deploy_agents({
-            image: agent_image,
+            image,
             num_agents,
             agents_yaml: agents_yaml_path,
             envs: get_env_vars(),
@@ -191,7 +190,7 @@ async function run_single_test_env(params) {
 
         if (command) {
             try {
-                console.log(`executing commad on server pod: ${command}`);
+                console.log(`executing command on server pod: ${command}`);
                 await kf.kubectl(`exec ${pod_name} -- ${command}`);
             } catch (err) {
                 console.error(`failed running command on pod ${pod_name}. command: ${command}. error:`, err);

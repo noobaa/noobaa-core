@@ -14,10 +14,8 @@ spec:
         args:
         - node
         - ./src/test/framework/test_env_builder_kubernetes.js
-        - --server_image
-        - SERVER_IMAGE_PLACEHOLDER
-        - --agent_image
-        - AGENT_IMAGE_PLACEHOLDER
+        - --image
+        - IMAGE_PLACEHOLDER
         - --namespace_prefix 
         - NAMESPACE_PREFIX_PLACEHOLDER
         - --tests_list

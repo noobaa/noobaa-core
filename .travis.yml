@@ -1,7 +1,6 @@
 env:
   - TEST_SUITE=test
-  - TEST_SUITE=server
-  - TEST_SUITE=agent
+  - TEST_SUITE=noobaa
 
 language: bash
 

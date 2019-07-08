@@ -246,7 +246,7 @@ function delete_noobaa {
     ${KUBECTL} delete secret ${TOKEN_SECRET_NAME}
     ${KUBECTL} delete secret ${CREDS_SECRET_NAME}
     ${KUBECTL} delete configmap ${NOOBAA_CONFIGMAP_NAME}
-    ${KUBECTL} delete clusterrolebinding noobaa-auth-delegator
+    ${KUBECTL} delete clusterrolebinding noobaa-auth-delegator-${NAMESPACE}
     ${KUBECTL} delete -f ${NOOBAA_CORE_YAML}
     ${KUBECTL} delete pvc datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
@@ -384,12 +384,13 @@ function get_access_keys {
 
 function create_cluster_bindings {
     ${KUBECTL} apply -f <(echo "
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: noobaa-auth-delegator
+  name: noobaa-auth-delegator-${NAMESPACE}
 subjects:
   - kind: ServiceAccount
-    namespae: ${NAMESPACE}
+    namespace: ${NAMESPACE}
     name: noobaa-account
 roleRef:
   kind: ClusterRole

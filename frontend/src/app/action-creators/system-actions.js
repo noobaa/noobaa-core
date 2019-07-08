@@ -63,6 +63,7 @@ export function completeCreateSystem(systemName, ownerEmail, token, uiTheme) {
             user: ownerEmail,
             system: systemName,
             passwordExpired: false,
+            authorizedBy: 'noobaa',
             persistent: false,
             uiTheme
         }

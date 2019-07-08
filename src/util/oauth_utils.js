@@ -11,14 +11,14 @@ function _default_error_factory(message) {
 }
 
 async function trade_grant_code_for_access_token(
-    oauth_service,
+    token_endpoint_addr,
     client_id,
     client_secret,
     redirect_host,
     grant_code,
     make_error = _default_error_factory
 ) {
-    const token_endpoint = new URL(config.OAUTH_TOKEN_ENDPOINT, `https://${oauth_service}`);
+    const token_endpoint = new URL(token_endpoint_addr);
     const redirect_uri = new URL(config.OAUTH_REDIRECT_ENDPOINT, redirect_host);
     let response;
 

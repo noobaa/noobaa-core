@@ -7,6 +7,7 @@ then
   set -x
 fi
 
+RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
@@ -94,13 +95,14 @@ extract_noobaa_in_docker() {
 }
 
 run_kube_pv_chown() {
+  local parameter=${1}
   # change ownership and permissions of /data and /log. 
   # assuming that uid is not changed between reboots.
   local path="/root/node_modules/noobaa-core/build/Release/"
   if [ "${container}" == "docker" ] ; then
       path="/noobaa_init_files/"
   fi
-  ${path}/kube_pv_chown server
+  ${path}/kube_pv_chown ${parameter}
 }
 
 run_init_scripts() {
@@ -108,7 +110,7 @@ run_init_scripts() {
   local scripts=(fix_server_plat.sh fix_mongo_ssl.sh)
   local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
   ############## run init scripts
-  run_kube_pv_chown
+  run_kube_pv_chown server
   cd ${path}
   for script in ${scripts[@]} ; do
     ${debug} ./${script}
@@ -125,6 +127,31 @@ run_init_scripts() {
   cd - > /dev/null
 }
 
+run_agent_container() {
+  AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
+  if [ -z ${AGENT_CONFIG} ]
+  then
+    echo "AGENT_CONFIG is required ENV variable. AGENT_CONFIG is missing. Exit"
+    exit 1
+  else
+    echo "Got base64 agent_conf: ${AGENT_CONFIG}"
+    if [ ! -f $AGENT_CONF_FILE ]; then
+      openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
+    fi
+    echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
+  fi
+  node ./src/agent/agent_cli
+  # Providing an env variable with the name "LOOP_ON_FAIL=true" 
+  # will trigger the condition below.
+  # Currently we will loop on any exit of the agent_cli 
+  # regurdless to the exit code
+  while [ "${LOOP_ON_FAIL}" == "true" ] 
+  do
+    echo "$(date) Failed to run agent_cli" 
+    sleep 10
+  done
+}
+
 init_noobaa_server() {
   fix_non_root_user
   extract_noobaa_in_docker
@@ -134,4 +161,20 @@ init_noobaa_server() {
   handle_unmanaged_upgrade
 }
 
-init_noobaa_server
+init_noobaa_agent() {
+  fix_non_root_user
+  extract_noobaa_in_docker
+  
+  mkdir -p /noobaa_storage
+  run_kube_pv_chown agent
+
+  cd /root/node_modules/noobaa-core/
+  run_agent_container
+}
+
+if [ "${RUN_INIT}" == "agent" ]
+then
+  init_noobaa_agent
+else
+  init_noobaa_server
+fi

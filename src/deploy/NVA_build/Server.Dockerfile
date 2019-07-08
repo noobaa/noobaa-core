@@ -199,4 +199,6 @@ EXPOSE 26050
 ###############
 # Run as non root user that belongs to root 
 USER 10001:0
+# We are using CMD and not ENDPOINT so 
+# we can override it when we use this image as agent. 
 CMD ["/usr/bin/supervisord", "start_container"]

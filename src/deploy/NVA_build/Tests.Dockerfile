@@ -41,14 +41,6 @@ RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
     yum clean all
 
-
-# install kubectl
-RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
-    chmod +x ./kubectl && \
-    mv ./kubectl /usr/local/bin/kubectl
-
-
 ##############################################################
 # Layers:
 #   Title: Node.js install with nvm
@@ -64,6 +56,7 @@ RUN chmod +x ./install_nodejs.sh && \
     ./install_nodejs.sh $(cat ./noobaa-core/.nvmrc) && \
     npm config set unsafe-perm true
 
+COPY --from=base /kubectl /usr/local/bin/kubectl
 COPY --from=base /noobaa/src/test/system_tests/ /noobaa-core/src/test/system_tests/
 RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
     ./bootstrap && \

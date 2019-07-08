@@ -50,17 +50,6 @@ function install_supervisor {
     deploy_log "setup_supervisors done"
 }
 
-function install_kubectl {
-    if [ "${container}" == "docker" ] && [ "${ID}" != "rhel" ]; then
-        deploy_log "install_kubectl start"
-        stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl
-        chmod +x ./kubectl
-        mv ./kubectl /usr/local/bin/kubectl
-        deploy_log "install_kubectl done"
-    fi
-}
-
 function setup_bashrc {
 	deploy_log "setup_bashrc start"
 
@@ -136,7 +125,6 @@ function setup_non_root_user() {
 deploy_log "Starting setup platform"
 set -e
 install_supervisor
-install_kubectl
 setup_bashrc
 fix_file_descriptor_limits
 remove_rsyslog_listen_conf

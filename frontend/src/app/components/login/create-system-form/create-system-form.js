@@ -99,8 +99,7 @@ class CreateSystemFormViewModel extends BaseViewModel {
 
             const timeConfig = {
                 timezone: serverConfig.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-                ntp_server: serverConfig.ntp_server,
-                epoch: !serverConfig.ntp_server ? moment().unix() : undefined
+                epoch: moment().unix()
             };
 
             this.creatingSystem(true);

@@ -56,7 +56,6 @@ RUN yum install -y -q bash \
     strace \
     wget \
     curl \
-    ntp-4.2.6p5 \
     nc \
     vim \
     less \

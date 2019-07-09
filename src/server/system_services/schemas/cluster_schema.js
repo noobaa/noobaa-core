@@ -73,17 +73,9 @@ module.exports = {
             },
         },
 
-        //NTP configuration
-        ntp: {
-            type: 'object',
-            properties: {
-                server: {
-                    type: 'string'
-                },
-                timezone: {
-                    type: 'string'
-                },
-            }
+        //timezone configuration
+        timezone: {
+            type: 'string'
         },
 
         dns_servers: {
@@ -289,10 +281,6 @@ module.exports = {
                     }
                 },
                 dns_name: {
-                    type: 'string',
-                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                },
-                ntp_status: {
                     type: 'string',
                     enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                 },

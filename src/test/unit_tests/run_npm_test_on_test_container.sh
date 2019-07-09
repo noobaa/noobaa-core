@@ -1,18 +1,16 @@
 #!/bin/bash
 
 function cleanup() {
-    local rc
-    local pid=$1
-    if [ -z ${2} ]
-    then
-        rc=0
-    else
-        rc=$2
+    
+    if [ -n ${PID} ]; then
+        echo "$(date) exiting mongod"
+        kill -2 ${PID}
     fi
-    echo "$(date) exiting mongod"
-    kill -2 ${pid}
-    echo "$(date) return code was: ${rc}"
-    exit ${rc}
+    echo "$(date) return code was: ${RC}"
+    if [ -z ${RC} ]; then
+        exit 0
+    fi
+    exit ${RC}
 }
 
 function start_mongo() {
@@ -29,4 +27,5 @@ start_mongo
 command="node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js"
 echo "$(date) running ${command}"
 ${command}
-cleanup ${PID} ${?}
+RC=${?}
+cleanup

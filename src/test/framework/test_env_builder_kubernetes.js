@@ -96,10 +96,14 @@ async function build_env(kf, params) {
     } = params;
     try {
         console.log(`deploying noobaa server image ${image} in namespace ${kf.namespace}`);
+        const envs = get_env_vars() || [];
+        envs.push({ name: 'CREATE_SYS_NAME', value: 'demo' });
+        envs.push({ name: 'CREATE_SYS_EMAIL', value: 'demo@noobaa.com' });
+        envs.push({ name: 'CREATE_SYS_PASSWD', value: 'DeMo1' });
         const server_details = await kf.deploy_server({
             image,
             server_yaml: noobaa_core_yaml,
-            envs: get_env_vars(),
+            envs,
             cpu: server_cpu,
             mem: server_mem,
             pv,
@@ -113,29 +117,34 @@ async function build_env(kf, params) {
         // create system 
         const { address: mgmt_address, ports: mgmt_ports } = server_details.services.mgmt;
         const { address: s3_address, ports: s3_ports } = server_details.services.s3;
-        await server_functions.create_system(mgmt_address, mgmt_ports['mgmt-https']);
+        console.log('wating for system to be ready');
+        await server_functions.wait_for_system_ready(mgmt_address, mgmt_ports['mgmt-https'], 'wss');
 
         const pool_name = 'first.pool';
         console.log(`creating new pool '${pool_name}'`);
         await server_functions.create_pool(mgmt_address, mgmt_ports['mgmt-https'], pool_name);
-        console.log(`deploying ${num_agents} agents in ${pool_name}`);
-        const agents_yaml = await agent_functions.get_agents_yaml(mgmt_address, mgmt_ports['mgmt-https'], pool_name, IS_IN_POD ? 'INTERNAL' : 'EXTERNAL');
-        const agents_yaml_path = path.join(output_dir, 'agents.yaml');
-        await fs.writeFileSync(agents_yaml_path, agents_yaml);
-        await kf.deploy_agents({
-            image,
-            num_agents,
-            agents_yaml: agents_yaml_path,
-            envs: get_env_vars(),
-            cpu: agent_cpu,
-            mem: agent_mem,
-            pv,
-            pull_always
-        });
 
-        console.log(`waiting for ${num_agents} agents to be in optimal state`);
-        await wait_for_agents_optimal(mgmt_address, mgmt_ports['mgmt-https'], num_agents);
-        console.log(`all agents are in optimal state`);
+        if (num_agents) {
+            console.log(`deploying ${num_agents} agents in ${pool_name}`);
+            const agents_yaml = await agent_functions.get_agents_yaml(mgmt_address, mgmt_ports['mgmt-https'], pool_name, IS_IN_POD ? 'INTERNAL' : 'EXTERNAL');
+            const agents_yaml_path = path.join(output_dir, 'agents.yaml');
+            await fs.writeFileSync(agents_yaml_path, agents_yaml);
+            await kf.deploy_agents({
+                image,
+                num_agents,
+                agents_yaml: agents_yaml_path,
+                envs: get_env_vars(),
+                cpu: agent_cpu,
+                mem: agent_mem,
+                pv,
+                pull_always
+            });
+            console.log(`waiting for ${num_agents} agents to be in optimal state`);
+            await wait_for_agents_optimal(mgmt_address, mgmt_ports['mgmt-https'], num_agents);
+            console.log(`all agents are in optimal state`);
+        } else {
+            console.log('no agents are deployed for this env');
+        }
 
         // return services access information to pass to test
         return {

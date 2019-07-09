@@ -94,27 +94,11 @@ ENV container docker
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-COPY ./src/deploy/set_mongo_repo.sh /tmp/
-RUN chmod +x /tmp/set_mongo_repo.sh && \
-    /bin/bash -xc "/tmp/set_mongo_repo.sh"
 RUN yum install -y -q bash \
-    bind-utils-32:9.9.4 \
-    bind-32:9.9.4 \
-    tcpdump-14:4.9.2 \
-    cronie-1.4.11 \
-    initscripts-9.49.46 \
     lsof-4.87 \
-    net-tools-2.0 \
-    openssh-server-7.4p1 \
-    rng-tools-6.3.1 \
     rsyslog-8.24.0 \
     strace-4.12 \
-    sudo-1.8.23 \
     wget-1.14 \
-    dialog-1.2 \
-    expect-5.45 \
-    iperf3-3.1.7 \
-    iptables-services-1.4.21 \
     curl-7.29.0 \
     ntp-4.2.6p5 \
     nc \
@@ -122,11 +106,6 @@ RUN yum install -y -q bash \
     less \
     bash-completion \
     python-setuptools-0.9.8 \
-    mongodb-org-3.6.3 \
-    mongodb-org-server-3.6.3 \
-    mongodb-org-shell-3.6.3 \
-    mongodb-org-mongos-3.6.3 \
-    mongodb-org-tools-3.6.3 && \
     yum clean all
 
 
@@ -171,7 +150,7 @@ RUN chmod 775 /noobaa_init_files && \
 COPY --from=server_builder ./noobaa_init_files/kube_pv_chown /noobaa_init_files
 RUN mkdir -m 777 /root/node_modules && \
     chown root:root /noobaa_init_files/kube_pv_chown && \
-    chmod 755 /noobaa_init_files/kube_pv_chown && \
+    chmod 750 /noobaa_init_files/kube_pv_chown && \
     chmod u+s /noobaa_init_files/kube_pv_chown
 
 ##############################################################

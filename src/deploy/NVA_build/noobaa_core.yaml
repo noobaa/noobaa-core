@@ -134,8 +134,8 @@ spec:
               cpu: "500m"
               memory: "1Gi"
             limits:
-              cpu: "4"
-              memory: "8Gi"
+              cpu: "2"
+              memory: "4Gi"
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -186,8 +186,30 @@ spec:
             # replacing the empty value with any value will set the cotainer to dbg mode
             - name: container_dbg
               value: ""
+        - name: mongodb
+          image: centos/mongodb-36-centos7
+          imagePullPolicy: IfNotPresent
+          command: ['/bin/bash', '-c', '/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip 127.0.0.1 --dbpath /data/mongo/cluster/shard1']
+          resources:
+            # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "8Gi"
+          volumeMounts:
+            - mountPath: /data
+              name: mongo-datadir
+      initContainers:
+        - name: init-mongo
+          image: noobaa/noobaa-core:4.0.2
+          # command: ['/noobaa_init_files/kube_pv_chown', 'server']
+          command: ['/noobaa_init_files/noobaa_init.sh', 'init_mongo']
+          volumeMounts:
+            - mountPath: /mongo_data
+              name: mongo-datadir
       serviceAccountName: noobaa-account
-
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between
@@ -204,6 +226,15 @@ spec:
             storage: 10Gi
     - metadata:
         name: datadir
+        labels:
+          app: noobaa
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+    - metadata:
+        name: mongo-datadir
         labels:
           app: noobaa
       spec:

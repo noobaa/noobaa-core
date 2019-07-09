@@ -144,21 +144,7 @@ async function create_system(server_ip, port, protocol) {
             name: 'demo',
             password: 'DeMo1'
         });
-        let has_account;
-        const base_time = Date.now();
-        while (Date.now() - base_time < 120 * 1000) {
-            try {
-                const account_stat = await client.account.accounts_status({});
-                has_account = account_stat.has_accounts;
-                if (has_account) break;
-            } catch (e) {
-                console.warn(`Waiting for the default account to be in status true`);
-                await P.delay(5 * 1000);
-            }
-        }
-        if (!has_account) {
-            throw new Error(`Couldn't create system. no account`);
-        }
+        await wait_for_system_ready(server_ip, port, protocol);
     } catch (err) {
         throw new Error(`Couldn't create system ${err}`);
     }
@@ -184,6 +170,31 @@ async function clean_ova_and_create_system(server_ip, secret) {
 }
 
 
+// use account status as indication for system ready after create system
+async function wait_for_system_ready(server_ip, port, protocol, timeout = 120000) {
+    let has_account;
+    const base_time = Date.now();
+    while (Date.now() - base_time < timeout) {
+        try {
+            const rpc = api.new_rpc_from_base_address(`${protocol}://${server_ip}:${port}`, 'EXTERNAL');
+            const client = rpc.new_client({});
+            const auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            await client.create_auth_token(auth_params);
+            const account_stat = await client.account.accounts_status({});
+            has_account = account_stat.has_accounts;
+            if (has_account) break;
+        } catch (e) {
+            await P.delay(5 * 1000);
+        }
+    }
+    if (!has_account) {
+        throw new Error(`Couldn't create system. no account`);
+    }
+}
 
 
 async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_name) {
@@ -302,3 +313,4 @@ exports.clean_pre_upgrade_leftovers = clean_pre_upgrade_leftovers;
 exports.create_system = create_system;
 exports.create_pool = create_pool;
 exports.get_num_optimal_agents = get_num_optimal_agents;
+exports.wait_for_system_ready = wait_for_system_ready;

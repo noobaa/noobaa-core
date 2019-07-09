@@ -1,52 +1,7 @@
-FROM noobaa/builder as server_builder
+FROM noobaa-base as server_builder
 
-##############################################################
-# Layers:
-#   Title: Installing dependencies (npm install)
-#   Size: ~ 817 MB
-#   Cache: Rebuild when we package.json changes
-##############################################################
-COPY ./package*.json ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm install
-
-##############################################################
-# Layers:
-#   Title: Building the native
-#   Size: ~ 10 MB
-#   Cache: Rebuild the native code changes
-##############################################################
-COPY ./binding.gyp .
-COPY ./src/native ./src/native/
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:native
-
-##############################################################
-# Layers:
-#   Title: Building the frontend
-#   Size: ~ 268 MB
-#   Cache: Rebuild the there is a change in one of 
-#          the directories that we copy
-##############################################################
 RUN mkdir -p /noobaa_init_files && \
     cp -p ./build/Release/kube_pv_chown /noobaa_init_files
-
-COPY ./frontend/package*.json ./frontend/
-RUN cd frontend && \
-    npm install
-COPY ./frontend/gulpfile.js ./frontend/
-COPY ./frontend/bower.json ./frontend/
-RUN cd frontend && \
-    npm run install-deps
-
-COPY ./frontend/ ./frontend/
-COPY ./images/ ./images/
-COPY ./src/rpc/ ./src/rpc/
-COPY ./src/api/ ./src/api/
-COPY ./src/util/ ./src/util/
-COPY ./config.js ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:fe
 
 COPY . ./
 ARG GIT_COMMIT 
@@ -95,11 +50,12 @@ ENV container docker
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 RUN yum install -y -q bash \
-    lsof-4.87 \
+    lsof \
+    openssl \
     rsyslog-8.24.0 \
-    strace-4.12 \
-    wget-1.14 \
-    curl-7.29.0 \
+    strace \
+    wget \
+    curl \
     ntp-4.2.6p5 \
     nc \
     vim \
@@ -107,7 +63,6 @@ RUN yum install -y -q bash \
     bash-completion \
     python-setuptools-0.9.8 \
     yum clean all
-
 
 ##############################################################
 # Layers:
@@ -147,6 +102,7 @@ RUN chmod 775 /noobaa_init_files && \
     chgrp -R 0 /noobaa_init_files/ && \
     chmod -R g=u /noobaa_init_files/
 
+COPY --from=server_builder /kubectl /usr/local/bin/kubectl
 COPY --from=server_builder ./noobaa_init_files/kube_pv_chown /noobaa_init_files
 RUN mkdir -m 777 /root/node_modules && \
     chown root:root /noobaa_init_files/kube_pv_chown && \

@@ -1,63 +1,11 @@
-FROM noobaa/builder as base
-WORKDIR /noobaa-core/
-
-#####################################################################
-# Layers:
-#   Title: npm install (using package.json)
-#   Size: ~ 825 MB
-#   Cache: rebuild when ther is new package.json or package-lock.json
-#####################################################################
-COPY ./package*.json ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm install && \
-    npm prune
-RUN echo 'PATH=$PATH:./node_modules/.bin' >> ~/.bashrc
-
-##############################################################
-# Layers:
-#   Title: Building the native code
-#   Size: ~ 10 MB
-#   Cache: rebuild when Node.js there a change in the native 
-#          directory or in the binding.gyp
-##############################################################
-COPY ./binding.gyp .
-COPY ./src/native ./src/native/
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:native
-
-##############################################################
-# Layers:
-#   Title: Copying the code and Building the frontend
-#   Size: ~ 18 MB
-#   Cache: rebuild when changing any file 
-#          which is not excluded by .dockerignore 
-##############################################################
-COPY ./frontend/package*.json ./frontend/
-RUN cd frontend && \
-    npm install && \
-    npm prune
-COPY ./frontend/gulpfile.js ./frontend/
-COPY ./frontend/bower.json ./frontend/
-RUN cd frontend && \
-    npm run install-deps && \
-    npm prune
-
-COPY ./frontend/ ./frontend/
-COPY ./images/ ./images/
-COPY ./src/rpc/ ./src/rpc/
-COPY ./src/api/ ./src/api/
-COPY ./src/util/ ./src/util/
-COPY ./config.js ./
-
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:fe
+FROM noobaa-base as base
 
 RUN yum install -y git && \
     yum clean all
 
 # get ceph tests and run bootstrap
-COPY ./src/test/system_tests/ceph_s3_tests_deploy.sh /noobaa-core/src/test/system_tests/
-RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
+COPY ./src/test/system_tests/ceph_s3_tests_deploy.sh /noobaa/src/test/system_tests/
+RUN /noobaa/src/test/system_tests/ceph_s3_tests_deploy.sh noobaa
 
 COPY . ./
 
@@ -93,14 +41,6 @@ RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
     yum clean all
 
-
-# install kubectl
-RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
-    chmod +x ./kubectl && \
-    mv ./kubectl /usr/local/bin/kubectl
-
-
 ##############################################################
 # Layers:
 #   Title: Node.js install with nvm
@@ -116,13 +56,13 @@ RUN chmod +x ./install_nodejs.sh && \
     ./install_nodejs.sh $(cat ./noobaa-core/.nvmrc) && \
     npm config set unsafe-perm true
 
-
-COPY --from=base /noobaa-core/src/test/system_tests/ /noobaa-core/src/test/system_tests/
+COPY --from=base /kubectl /usr/local/bin/kubectl
+COPY --from=base /noobaa/src/test/system_tests/ /noobaa-core/src/test/system_tests/
 RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
     ./bootstrap && \
     touch ./s3tests/tests/__init__.py
 
-COPY --from=base /noobaa-core /noobaa-core
+COPY --from=base /noobaa /noobaa-core
 WORKDIR /noobaa-core/
 
 ENV SPAWN_WRAP_SHIM_ROOT /data

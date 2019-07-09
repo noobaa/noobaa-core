@@ -284,6 +284,14 @@ async function create_system(req) {
             changes.insert.pools[0]._id
         );
 
+        const { token: operator_token } = await server_rpc.client.account.create_account({
+            name,
+            email: config.OPERATOR_ACCOUNT_EMAIL,
+            has_login: false,
+            s3_access: false,
+            roles: ['operator', 'admin']
+        }, auth);
+
         dbg.log0('create_system: ensuring internal pool structure');
         await _ensure_internal_structure(system_id);
         await _configure_dns_servers(dns_servers, owner_secret, auth);
@@ -295,7 +303,7 @@ async function create_system(req) {
         await server_rpc.client.stats.send_stats(null, auth);
 
         dbg.log0('create_system: system created Successfully!');
-        return { token: auth.auth_token };
+        return { token: auth.auth_token, operator_token };
 
     } catch (err) {
         dbg.error('create_system: got error during create_system', err);

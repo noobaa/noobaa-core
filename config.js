@@ -417,3 +417,9 @@ try {
     if (err.code !== 'MODULE_NOT_FOUND') throw err;
     console.log('NO LOCAL CONFIG');
 }
+
+//////////////////////////////
+// OPERATOR RELATED         //
+//////////////////////////////
+
+config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';

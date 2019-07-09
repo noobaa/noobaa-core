@@ -52,6 +52,9 @@ module.exports = {
                 properties: {
                     token: {
                         type: 'string'
+                    },
+                    operator_token: {
+                        type: 'string'
                     }
                 }
             },
@@ -625,7 +628,7 @@ module.exports = {
 
 
         role_enum: {
-            enum: ['admin', 'user', 'viewer'],
+            enum: ['admin', 'user', 'viewer', 'operator'],
             type: 'string',
         },
 

@@ -42,6 +42,13 @@ module.exports = {
                     allow_bucket_creation: {
                         type: 'boolean'
                     },
+                    roles: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                            enum: ['admin', 'user', 'viewer', 'operator']
+                        }
+                    },
                     //Special handling for the first account created with create_system
                     new_system_parameters: {
                         type: 'object',
@@ -84,8 +91,8 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'email'],
                 properties: {
-                   name: { $ref: 'common_api#/definitions/account_name' },
-                   email: { $ref: 'common_api#/definitions/email' }
+                    name: { $ref: 'common_api#/definitions/account_name' },
+                    email: { $ref: 'common_api#/definitions/email' }
                 }
             },
             reply: {
@@ -562,7 +569,7 @@ module.exports = {
                                 type: 'array',
                                 items: {
                                     type: 'string',
-                                    enum: ['admin', 'user', 'viewer']
+                                    enum: ['admin', 'user', 'viewer', 'operator']
                                 }
                             }
                         }

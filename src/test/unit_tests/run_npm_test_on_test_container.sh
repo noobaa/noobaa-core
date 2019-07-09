@@ -26,7 +26,7 @@ function start_mongo() {
 trap cleanup 1 2
 
 start_mongo
-command="npm test"
+command="node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js"
 echo "$(date) running ${command}"
 ${command}
 cleanup ${PID} ${?}

@@ -57,6 +57,9 @@ function create_account(req) {
         has_login: req.rpc_params.has_login,
         access_keys: undefined,
     };
+
+    const { roles: account_roles = ['admin'] } = req.rpc_params;
+
     validate_create_account_params(req);
 
     if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
@@ -141,15 +144,17 @@ function create_account(req) {
                 desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
             });
 
+            const roles = account_roles.map(role => ({
+                _id: system_store.new_system_store_id(),
+                account: account._id,
+                system: sys_id,
+                role
+            }));
+
             return system_store.make_changes({
                 insert: {
                     accounts: [account],
-                    roles: [{
-                        _id: system_store.new_system_store_id(),
-                        account: account._id,
-                        system: sys_id,
-                        role: 'admin',
-                    }]
+                    roles
                 }
             });
         })
@@ -607,12 +612,13 @@ function list_accounts(req) {
         accounts = system_store.data.accounts;
     } else if (req.account) {
         // list system accounts - system admin can see all the system accounts
-        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
-            throw new RpcError('UNAUTHORIZED', 'Must be system admin');
+        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin') &&
+            !_.includes(req.account.roles_by_system[req.system._id], 'operator')) {
+            throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
         }
 
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
-            (roles && roles.length ? account_id : null)
+            (roles && roles.length && !_.includes(roles, 'operator') ? account_id : null)
         );
 
         accounts = _.compact(

@@ -473,7 +473,7 @@ function join_to_cluster(req) {
         //.then(() => _attach_server_configuration({}))
         //.then((res_params) => _update_cluster_info(res_params))
         .then(function() {
-            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
+            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', {
@@ -589,7 +589,7 @@ function update_member_of_cluster(req) {
         .then(() => _update_cluster_info(topology))
         .then(() => {
             topology = cutil.get_topology();
-            var topology_to_send = _.omit(topology, 'dns_servers', 'ntp');
+            var topology_to_send = _.omit(topology, 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             // Mongo servers are up, update entire cluster with the new topology
             // Notice that we send additional parameters which will be used for the changed server
@@ -1081,15 +1081,13 @@ function read_server_config(req) {
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
         .then(() => {
-            const { dns_servers, ntp = {} } = srvconf;
-            const { timezone, server } = ntp;
+            const { dns_servers, timezone } = srvconf;
 
             return _get_aws_owner()
                 .then(owner => ({
                     using_dhcp,
                     dns_servers,
                     timezone,
-                    ntp_server: server,
                     owner,
                 }));
         });
@@ -1525,30 +1523,9 @@ function _get_aws_owner() {
 }
 
 
-function _attach_server_configuration(cluster_server) {
-    if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
-        cluster_server.ntp = {
-            timezone: os_utils.get_time_config().timezone
-        };
-        return cluster_server;
-    }
-    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(), os_utils.get_dns_config())
-        .spread(function(ntp_line, time_config, dns_config) {
-            cluster_server.ntp = {
-                timezone: time_config.timezone
-            };
-            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
-                cluster_server.ntp.server = ntp_line.split(' ')[1];
-                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
-            }
-
-            if (dns_config.dns_servers.length > 0) {
-                cluster_server.dns_servers = dns_config.dns_servers;
-            }
-
-            return cluster_server;
-        });
+async function _attach_server_configuration(cluster_server) {
+    cluster_server.timezone = (await os_utils.get_time_config()).timezone;
+    return cluster_server;
 }
 
 function check_cluster_status() {

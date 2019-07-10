@@ -156,9 +156,6 @@ module.exports = {
                 type: 'object',
                 required: ['using_dhcp'],
                 properties: {
-                    ntp_server: {
-                        type: 'string'
-                    },
                     timezone: {
                         type: 'string'
                     },

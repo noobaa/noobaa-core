@@ -12,7 +12,6 @@ const path = require('path');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
-const os_utils = require('./os_utils');
 const fs_utils = require('./fs_utils');
 
 const TMP_WORK_DIR = get_tmp_workdir();
@@ -38,12 +37,6 @@ function collect_basic_diagnostics(limit_logs_size) {
                 TMP_WORK_DIR
             )
         )
-        .then(() => os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
-            .catch(err => //netstat fails, soft trying ss instead
-                P.fcall(() => os_utils.ss_single(TMP_WORK_DIR + '/ss.out'))
-                .catch(err2 => {
-                    throw err;
-                })))
         .then(() => 'ok')
         .catch(err => {
             console.error('Error in collecting basic diagnostics', err);

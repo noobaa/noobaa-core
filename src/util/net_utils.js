@@ -5,7 +5,6 @@ const _ = require('lodash');
 const url = require('url');
 const net = require('net');
 const dns = require('dns');
-const dgram = require('dgram');
 const request = require('request');
 const net_ping = require('net-ping');
 const ip_module = require('ip');
@@ -87,64 +86,6 @@ function ip_to_long(ip) {
     return ip_module.toLong(unwrap_ipv6(ip));
 }
 
-function get_ntp_time({ server = 'pool.ntp.org', port = 123, timeout = 60000 } = {}) {
-    return new P((resolve, reject) => {
-            server = server || "pool.ntp.org";
-            port = port || 123;
-
-            let udp_client = dgram.createSocket("udp4");
-            let data = Buffer.alloc(48, 0);
-            // RFC 2030
-            data[0] = 0x1B;
-
-
-            let had_error = false;
-
-            function handle_error(err) {
-                if (!had_error) {
-                    had_error = true;
-                    udp_client.close();
-                    return reject(err);
-                }
-            }
-
-            udp_client.on('error', handle_error);
-
-            udp_client.once('message', function(msg) {
-                udp_client.close();
-
-                // Offset to get to the "Transmit Timestamp" field (time at which the reply
-                // departed the server for the client, in 64-bit timestamp format."
-                let offset_transmit_time = 40;
-                let intpart = 0;
-                let fractpart = 0;
-
-                // get seconds
-                for (let i = 0; i <= 3; i++) {
-                    intpart = (256 * intpart) + msg[offset_transmit_time + i];
-                }
-
-                // get seconds fraction
-                for (let i = 4; i <= 7; i++) {
-                    fractpart = (256 * fractpart) + msg[offset_transmit_time + i];
-                }
-
-                let milliseconds = (intpart * 1000) + (fractpart * 1000 / 0x100000000);
-
-                // **UTC** time
-                let date = new Date("Jan 01 1900 GMT");
-                date.setUTCMilliseconds(date.getUTCMilliseconds() + milliseconds);
-
-                resolve(date);
-            });
-
-            udp_client.send(data, 0, data.length, port, server, function(err) {
-                if (err) return handle_error(err);
-            });
-        })
-        .timeout(timeout);
-}
-
 async function retrieve_public_ip() {
     try {
         const res = await P.fromCallback(callback =>
@@ -169,5 +110,4 @@ exports.is_ip = is_ip;
 exports.is_fqdn = is_fqdn;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_to_long = ip_to_long;
-exports.get_ntp_time = get_ntp_time;
 exports.retrieve_public_ip = retrieve_public_ip;

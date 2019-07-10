@@ -42,7 +42,7 @@ require('./test_chunk_coder');
 require('./test_chunk_splitter');
 require('./test_chunk_config_utils');
 require('./test_object_io');
-require('./test_md_aggregator_unit');
+//require('./test_md_aggregator_unit');
 require('./test_agent_blocks_verifier');
 require('./test_agent_blocks_reclaimer');
 require('./test_s3_ops');

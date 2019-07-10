@@ -33,10 +33,10 @@ const CHUNK_SPLIT_CONFIGS = [
 ];
 const FRAG_SPECS = [
     { data_frags: 1, parity_frags: 0, parity_type: undefined, },
-    { data_frags: 2, parity_frags: 2, parity_type: 'isa-c1', },
-    { data_frags: 4, parity_frags: 2, parity_type: 'isa-c1', },
-    { data_frags: 6, parity_frags: 2, parity_type: 'isa-c1', },
-    { data_frags: 8, parity_frags: 4, parity_type: 'isa-c1', },
+    //{ data_frags: 2, parity_frags: 2, parity_type: 'isa-c1', },
+    //{ data_frags: 4, parity_frags: 2, parity_type: 'isa-c1', },
+    //{ data_frags: 6, parity_frags: 2, parity_type: 'isa-c1', },
+    //{ data_frags: 8, parity_frags: 4, parity_type: 'isa-c1', },
 ];
 const DIGEST_TYPES = [
     'sha384',

@@ -9,6 +9,7 @@ export
 
 all: tester noobaa
 	@echo "\033[1;34mAll done.\033[0m"
+.PHONY: all
 
 builder:
 	@echo "\033[1;34mStarting Builder docker build.\033[0m"
@@ -18,6 +19,7 @@ else
 	docker build -f src/deploy/NVA_build/builder.Dockerfile -t $(BUILDER_TAG) .
 endif
 	@echo "\033[1;34mBuilder done.\033[0m"
+.PHONY: builder
 
 base: builder
 	@echo "\033[1;34mStarting Base docker build.\033[0m"
@@ -27,6 +29,7 @@ else
 	docker build -f src/deploy/NVA_build/Base.Dockerfile -t $(NOOBAA_BASE_TAG) .
 endif
 	@echo "\033[1;34mBuilder done.\033[0m"
+.PHONY: base
 
 tester: base
 	@echo "\033[1;34mStarting Tester docker build.\033[0m"
@@ -36,20 +39,24 @@ else
 	docker build -f src/deploy/NVA_build/Tests.Dockerfile -t $(TESTER_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .
 endif
 	@echo "\033[1;34mTester done.\033[0m"
+.PHONY: tester
 
 test: tester
 	@echo "\033[1;34mRunning tests.\033[0m"
 	docker run --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" $(TESTER_TAG) 
+.PHONY: test
 
 tests: test #alias for test
+.PHONY: tests
 
 noobaa: base
 	@echo "\033[1;34mStarting NooBaa docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/NooBaa.Dockerfile -t $(NOOBAA_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .
 	@echo "\033[1;34mNooBaa done.\033[0m"
+.PHONY: noobaa
 
 clean:
 	@echo Stopping and Deleting containers
 	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs docker stop
 	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs docker rm
-
+.PHONY: clean

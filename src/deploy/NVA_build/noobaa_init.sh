@@ -128,9 +128,14 @@ prepare_server_pvs() {
 }
 
 prepare_mongo_pv() {
-  mkdir -p /mongo_data/mongo/cluster/shard1
+  local dir="/mongo_data/mongo/cluster/shard1"
+
   # change ownership and permissions of mongo db path 
   ${KUBE_PV_CHOWN} mongo
+
+  mkdir -p ${dir}
+  chgrp -R 0 ${dir} 
+  chmod -R g=u ${dir}
 }
 
 fix_server_plat() {

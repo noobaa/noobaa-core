@@ -304,9 +304,6 @@ module.exports = {
                 timezone: {
                     type: 'string'
                 },
-                ntp_server: {
-                    type: 'string'
-                },
                 epoch: {
                     type: 'number'
                 },

@@ -732,9 +732,6 @@ module.exports = {
                 location: {
                     type: 'string'
                 },
-                ntp_server: {
-                    type: 'string'
-                },
                 time_epoch: {
                     idate: true
                 },
@@ -844,9 +841,6 @@ module.exports = {
                     $ref: '#/definitions/service_dated_status'
                 },
                 phonehome_proxy: {
-                    $ref: '#/definitions/service_status_enum'
-                },
-                ntp_server: {
                     $ref: '#/definitions/service_status_enum'
                 },
                 cluster_communication: {

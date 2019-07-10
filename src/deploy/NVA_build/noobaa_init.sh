@@ -134,8 +134,8 @@ prepare_mongo_pv() {
   ${KUBE_PV_CHOWN} mongo
 
   mkdir -p ${dir}
-  chgrp -R 0 ${dir} 
-  chmod -R g=u ${dir}
+  chgrp 0 ${dir} 
+  chmod g=u ${dir}
 }
 
 fix_server_plat() {

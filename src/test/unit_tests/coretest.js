@@ -308,9 +308,9 @@ function describe_mapper_test_case({ name, bucket_name_prefix }, func) {
     const REPLICAS_FULL = [1, 2, 3, 6];
 
     const EC_BASIC = [
-        '1+0',
-        '4+2',
-        '8+2',
+        //'1+0',
+        //'4+2',
+        //'8+2',
     ].map(parse_ec);
 
     const EC_FULL = [

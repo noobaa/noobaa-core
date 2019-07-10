@@ -105,6 +105,8 @@ metadata:
     app: noobaa
     noobaa-module: noobaa-server
 spec:
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       noobaa-module: noobaa-server

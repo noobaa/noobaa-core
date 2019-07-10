@@ -37,9 +37,6 @@ module.exports = {
                     dns_name: {
                         type: 'string'
                     },
-                    proxy_address: {
-                        type: 'string'
-                    },
                     // require password change on first login
                     must_change_password: {
                         type: 'boolean'
@@ -281,49 +278,6 @@ module.exports = {
             }
         },
 
-        verify_phonehome_connectivity: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['proxy_address'],
-                properties: {
-                    proxy_address: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'string'
-                        }]
-                    }
-                }
-            },
-            reply: {
-                type: 'boolean'
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
-        update_phone_home_config: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['proxy_address'],
-                properties: {
-                    proxy_address: {
-                        anyOf: [{
-                            type: 'null'
-                        }, {
-                            type: 'string'
-                        }]
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         attempt_server_resolve: {
             doc: 'Attempt to resolve a server name + ping',
             method: 'POST',
@@ -499,13 +453,6 @@ module.exports = {
                 phone_home_config: {
                     type: 'object',
                     properties: {
-                        proxy_address: {
-                            anyOf: [{
-                                type: 'null'
-                            }, {
-                                type: 'string'
-                            }]
-                        },
                         upgraded_cap_notification: {
                             type: 'boolean'
                         },
@@ -839,9 +786,6 @@ module.exports = {
                 },
                 phonehome_server: {
                     $ref: '#/definitions/service_dated_status'
-                },
-                phonehome_proxy: {
-                    $ref: '#/definitions/service_status_enum'
                 },
                 cluster_communication: {
                     type: 'object',

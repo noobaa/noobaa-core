@@ -204,7 +204,7 @@ async function run_worker_loop() {
             }
         }
     } catch (err) {
-        console.error('WORKER', cluster.worker.process.pid, 'ERROR', err.stack || err);
+        console.error('WORKER', process.pid, 'ERROR', err.stack || err);
         process.exit();
     }
 }

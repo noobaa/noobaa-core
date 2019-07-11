@@ -412,7 +412,8 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
 // load a local config file that overwrites some of the config
 try {
     // eslint-disable-next-line global-require
-    require('./config-local');
+    const local_config = require('./config-local');
+    Object.assign(config, local_config);
 } catch (err) {
     if (err.code !== 'MODULE_NOT_FOUND') throw err;
     console.log('NO LOCAL CONFIG');

@@ -44,14 +44,16 @@ mocha.describe('node_allocator', function() {
                 rpc_client.node.allocate_nodes({ pool_id: String(pool._id), fields: NODE_FIELDS_FOR_MAP }),
                 rpc_client.node.list_nodes({
                     query: {
-                        pools: [pool.name]
+                        pools: [pool.name],
+                        writable: true
                     }
                 })
             ))
             .spread((allocation, pool_nodes) => {
                 assert(allocation.latency_groups.length === config.NODE_ALLOCATOR_NUM_CLUSTERS, 'KMEANS did not divide to correct K number of groups');
                 assert(_.every(allocation.latency_groups, group => group.nodes.length), 'KMEANS groups should have nodes');
-                assert(_.reduce(allocation.latency_groups, (sum, group) => sum + group.nodes.length, 0) === pool_nodes.total_count, 'KMEANS groups should have all nodes');
+                const total_nodes_list = _.reduce(allocation.latency_groups, (sum, group) => sum + group.nodes.length, 0);
+                assert(total_nodes_list === pool_nodes.total_count, `KMEANS groups should have all nodes, ${total_nodes_list} !== ${pool_nodes.total_count}`);
             });
 
     });

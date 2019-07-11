@@ -5,6 +5,18 @@ TESTER_TAG?="noobaa-tester"
 NOOBAA_TAG?="noobaa"
 NOOBAA_BASE_TAG?="noobaa-base"
 SUPPRESS_LOGS?=""
+NO_CACHE?=""
+
+REDIRECT_STDOUT=
+ifeq ($(SUPPRESS_LOGS), true)
+	REDIRECT_STDOUT=1> /dev/null
+endif
+
+CACHE_FLAG=
+ifeq ($(NO_CACHE), true)
+	CACHE_FLAG="--no-cache"
+endif
+
 export
 
 all: tester noobaa
@@ -13,31 +25,22 @@ all: tester noobaa
 
 builder:
 	@echo "\033[1;34mStarting Builder docker build.\033[0m"
-ifeq ($(SUPPRESS_LOGS), true)
-	docker build -f src/deploy/NVA_build/builder.Dockerfile --no-cache -t $(BUILDER_TAG) . 1> /dev/null
-else
-	docker build -f src/deploy/NVA_build/builder.Dockerfile -t $(BUILDER_TAG) .
-endif
+	docker build -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) -t noobaa-builder . $(REDIRECT_STDOUT)
+	docker tag noobaa-builder $(BUILDER_TAG)
 	@echo "\033[1;34mBuilder done.\033[0m"
 .PHONY: builder
 
 base: builder
 	@echo "\033[1;34mStarting Base docker build.\033[0m"
-ifeq ($(SUPPRESS_LOGS), true)
-	docker build -f src/deploy/NVA_build/Base.Dockerfile --no-cache -t $(NOOBAA_BASE_TAG) . 1> /dev/null
-else
-	docker build -f src/deploy/NVA_build/Base.Dockerfile -t $(NOOBAA_BASE_TAG) .
-endif
+	docker build -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	docker tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "\033[1;34mBase done.\033[0m"
 .PHONY: base
 
 tester: base noobaa
 	@echo "\033[1;34mStarting Tester docker build.\033[0m"
-ifeq ($(SUPPRESS_LOGS), true)
-	docker build -f src/deploy/NVA_build/Tests.Dockerfile --no-cache -t $(TESTER_TAG) . 1> /dev/null
-else
-	docker build -f src/deploy/NVA_build/Tests.Dockerfile -t $(TESTER_TAG) .
-endif
+	docker build -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
+	docker tag noobaa-tester $(TESTER_TAG)
 	@echo "\033[1;34mTester done.\033[0m"
 .PHONY: tester
 
@@ -51,7 +54,8 @@ tests: test #alias for test
 
 noobaa: base
 	@echo "\033[1;34mStarting NooBaa docker build.\033[0m"
-	docker build -f src/deploy/NVA_build/NooBaa.Dockerfile -t $(NOOBAA_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) .
+	docker build -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	docker tag noobaa $(NOOBAA_TAG)
 	@echo "\033[1;34mNooBaa done.\033[0m"
 .PHONY: noobaa
 

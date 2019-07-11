@@ -4,92 +4,75 @@
 const _ = require('lodash');
 const api = require('../../api');
 const dbg = require('../../util/debug_module')(__filename);
-const ops = require('../utils/basic_server_ops');
 const argv = require('minimist')(process.argv);
-const blobops = require('../utils/blobops');
+
+if (process.env.SUPPRESS_LOGS) {
+    dbg.set_level(-5, 'core');
+}
 
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 
 const TEST_CTX = {
     client: null,
-    bucketfunc: null,
-    cloudfunc: null,
     aws_connection: null,
     azure_connection: null,
     compatible_v2: null,
     compatible_v4: null,
+    s3_endpoint: '',
+    s3_endpoint_https: '',
+    mgmt_endpoint: '',
+    bucket_mirror: 'ec.no.quota',
+    bucket_spread: 'replica.with.quota',
+    ns_bucket: 'ns.over.azure.aws'
 };
 
-function show_usage() {
-    dbg.original_console();
-    console.info(`
-sanity_build_test.js
-Basic sanity test to be run as part of smoke testing. Configures the system, upgrades it and perform 2 simple I/O flows
-Usage:
-    --help                      Show this usage
-    --upgrade_pack <path>       Path to upgrade package
-    --target_ip <ip>            IP of server to test
-    \n
-    Examples:
-    \tnode src/test/system_tests/sanity_build_test.js --upgrade_pack ~/Downloads/noobaa-NVA-2.8.0-ede90e8.tar.gz --target_ip 52.151.33.226
-`);
-}
-
-function stop() {
-    process.exit(3);
-}
-
 async function main() {
-    if (argv.help) {
-        show_usage();
-        process.exit(0);
+    console.warn('NBNB:: ', process.env.TEST);
+    if (_.isUndefined(argv.mgmt_ip) || _.isUndefined(argv.mgmt_port)) {
+        console.error('Missing mgmt paramters');
+        process.exit(5);
     }
 
-    if (_.isUndefined(argv.upgrade_pack)) {
-        console.error('Missing upgrade_pack paramter!');
-        show_usage();
-        stop();
+    if (_.isUndefined(argv.s3_ip) || _.isUndefined(argv.s3_port)) {
+        console.error('Missing s3 endpoint paramters');
+        process.exit(5);
     }
 
-    if (_.isUndefined(argv.target_ip)) {
-        console.error('Missing target_ip paramter!');
-        show_usage();
-        stop();
+    if (_.isUndefined(process.env.AWS_ACCESS) || _.isUndefined(process.env.AWS_SECRET)) {
+        console.error('Missing env credentials');
+        process.exit(5);
     }
 
-    await run_test(argv.target_ip, argv.upgrade_pack, false);
+    TEST_CTX.s3_endpoint = `http://${argv.s3_ip}:${argv.s3_port}`;
+    TEST_CTX.s3_endpoint_https = `https://${argv.s3_ip}:${argv.s3_port_https}`;
+    TEST_CTX.mgmt_endpoint = `ws://${argv.mgmt_ip}:${argv.mgmt_port}`;
+
+    dbg.log0('Running Sanity Build Test');
+    await run_test();
     console.log('Finished Sanity Build Test Successfully');
     process.exit(0);
 }
 
-async function run_configuration_test(target_ip, mng_port) {
+async function run_test() {
+    await init_test();
+
     try {
-        await init_test(target_ip, mng_port);
         await create_configuration();
-    } catch (err) {
-        dbg.error('failed configuration test', err);
-        throw err;
+    } catch (error) {
+        console.warn('Configuration testing failure, caught', error);
+        process.exit(1);
     }
-}
-
-async function run_test(target_ip, upgrade_pack, dont_verify_version, skip_configuration) {
-    await init_test(target_ip);
 
     try {
-        if (!skip_configuration) {
-            await create_configuration();
-        }
+        await test_data();
     } catch (error) {
-        console.warn('Caught', error);
-        stop();
+        console.warn('Data testing failure, caught', error);
+        process.exit(1);
     }
-
-    await upgrade_and_test(target_ip, upgrade_pack, dont_verify_version);
-    await TEST_CTX.client.system.read_system();
 }
 
-async function init_test(target_ip, mng_port = '8080') {
+async function init_test() {
     const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
@@ -97,21 +80,22 @@ async function init_test(target_ip, mng_port = '8080') {
     };
     TEST_CTX._rpc = api.new_rpc();
     TEST_CTX.client = TEST_CTX._rpc.new_client({
-        address: 'ws://' + target_ip + ':' + mng_port
+        address: TEST_CTX.mgmt_endpoint
     });
     await TEST_CTX.client.create_auth_token(auth_params);
 
     TEST_CTX.bucketfunc = new BucketFunctions(TEST_CTX.client);
     TEST_CTX.cloudfunc = new CloudFunction(TEST_CTX.client);
 
-    TEST_CTX.aws_connection = TEST_CTX.cloudfunc.getAWSConnection();
+    TEST_CTX.aws_connection = TEST_CTX.cloudfunc.getAWSConnection(process.env.AWS_ACCESS, process.env.AWS_SECRET);
     TEST_CTX.aws_connection.name = `${TEST_CTX.aws_connection.name}12`;
-    TEST_CTX.azure_connection = blobops.AzureDefaultConnection;
+    TEST_CTX.azure_connection =
+        TEST_CTX.cloudfunc.getAzureConnection(process.env.AZURE_ID, process.env.AZURE_SECRET, process.env.AZURE_ENDPOINT);
     TEST_CTX.azure_connection.name = `${TEST_CTX.azure_connection.name}24`;
     TEST_CTX.compatible_v2 = {
         name: 'compatible_V2',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: `http://${target_ip}`,
+        endpoint: `${TEST_CTX.s3_endpoint}`,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V2'
@@ -129,7 +113,9 @@ async function init_test(target_ip, mng_port = '8080') {
 
 //Create configuration on the server to test while upgrading
 async function create_configuration() {
-    TEST_CTX._rpc.disable_validation(); //Ugly hack, for now live with it
+
+    //TODO:: verify _configure_system_address::os_utils.discover_k8s_services()
+
     //create resources and bucket
     await _create_resources_and_buckets();
 
@@ -140,59 +126,11 @@ async function create_configuration() {
     await _create_lambda();
 
     await TEST_CTX.client.system.read_system();
-    TEST_CTX._rpc.enable_validation();
 }
 
-async function upgrade_and_test(target_ip, upgrade_pack, dont_verify_version) {
-    ops.disable_rpc_validation();
-    console.info('Basic sanity test started, Upgrading MD server at', target_ip);
-    try {
-        await ops.upload_and_upgrade(target_ip, upgrade_pack, dont_verify_version);
-    } catch (error) {
-        console.warn('Upgrading failed with', error, error.stack);
-        stop();
-
-    }
-
-    console.info('Upgrade successful, waiting on agents to upgrade');
-    try {
-        await ops.wait_on_agents_upgrade(target_ip);
-    } catch (error) {
-        console.warn('Agents failed to upgrade', error, error.stack);
-        stop();
-    }
-
-    console.info('Agents upgraded successfuly, generating 1MB file');
-    let path = await ops.generate_random_file(1);
-    console.info('Verifying ul/dl of 1MB file', path);
-    try {
-        await ops.verify_upload_download(target_ip, path);
-    } catch (error) {
-        console.warn('Verifying ul/dl 1MB file failed with', error, error.stack);
-        stop();
-    }
-
-    console.info('ul/dl 1MB file successful, generating 20MB file');
-    path = await ops.generate_random_file(20);
-    console.info('Verifying ul/dl of 20MB file', path);
-    try {
-        await ops.verify_upload_download(target_ip, path);
-    } catch (error) {
-        console.warn('Verifying ul/dl 20MB file failed with', error, error.stack);
-        stop();
-    }
-
-    console.info('ul/dl 20MB file successful, verifying agent download');
-    try {
-        await ops.get_agent_setup(target_ip);
-    } catch (error) {
-        console.warn('Verifying agent download failed with', error, error.stack);
-        stop();
-    }
-}
 
 async function _create_resources_and_buckets() {
-    console.info('Creating various resources and buckets');
+    console.info('Creating Cloud Connections (AWS, Azure, Compatible V2/V4');
     //Create all supported connections
     await TEST_CTX.cloudfunc.createConnection(TEST_CTX.aws_connection, 'AWS');
     await TEST_CTX.cloudfunc.createConnection(TEST_CTX.azure_connection, 'Azure');
@@ -201,26 +139,32 @@ async function _create_resources_and_buckets() {
     //TODO: Add await TEST_CTX.cloudfunc.createConnection(TEST_CTX.gcloud_connection, 'GCP');
 
     //Create Cloud Resources
+    console.info('Creating Cloud Resources (AWS, Azure');
     await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.aws_connection.name, 'AWS-Resource', 'QA-Bucket');
     await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.azure_connection.name, 'AZURE-Resource', 'container3');
 
     //Create Compatible V2 and V4 buckets on the same system & then cloud resources on them
+    console.info('Creating Cloud Resources (Compatibles V2/V4)');
     await TEST_CTX.bucketfunc.createBucket('compatible.v2');
     await TEST_CTX.bucketfunc.createBucket('compatible.v4');
     await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.compatible_v2.name, 'COMP-S3-V2-Resource', 'compatible.v2');
     await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.compatible_v4.name, 'COMP-S3-V4-Resource', 'compatible.v4');
 
     //Create bucket with various RP & Placement
-    let buck1 = await TEST_CTX.bucketfunc.createBucket('ec.no.quota');
-    let buck2 = await TEST_CTX.bucketfunc.createBucket('replica.with.quota');
+    console.info('Creating Buckets');
+    let buck1 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_mirror);
+    let buck2 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_spread);
 
-    await TEST_CTX.bucketfunc.changeTierSetting('ec.no.quota', 4, 2); //EC 4+2
+    console.info('Updating Tier to EC & Mirror');
+    await TEST_CTX.bucketfunc.changeTierSetting(TEST_CTX.bucket_mirror, 4, 2); //EC 4+2 
     await TEST_CTX.client.tier.update_tier({
         name: buck1.tiering.tiers[0].tier,
         attached_pools: ['AWS-Resource', 'COMP-S3-V2-Resource'],
         data_placement: 'MIRROR'
     });
-    await TEST_CTX.bucketfunc.setQuotaBucket('replica.with.quota', 2, 'TERABYTE');
+
+    console.info('Setting Bucket Quota and Updating to Replica & Spread');
+    await TEST_CTX.bucketfunc.setQuotaBucket(TEST_CTX.bucket_spread, 2, 'TERABYTE');
     await TEST_CTX.client.tier.update_tier({
         name: buck2.tiering.tiers[0].tier,
         attached_pools: ['AZURE-Resource', 'COMP-S3-V4-Resource'],
@@ -228,18 +172,18 @@ async function _create_resources_and_buckets() {
     });
 
     //Create namespace resources
+    console.info('Creating NS Resources');
     await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.aws_connection.name, 'NSAWS', 'qa-aws-bucket');
     await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.azure_connection.name, 'NSAzure', 'container2');
 
     //Create namespace bucket
-    await TEST_CTX.bucketfunc.createNamespaceBucket('ns.over.azure.aws', 'NSAWS');
-    await TEST_CTX.bucketfunc.updateNamesapceBucket('ns.over.azure.aws', ['NSAWS', 'NSAzure'], 'NSAzure');
-
-    //Spillover configuration is already applied on first.bucket, no need to add one
+    console.info('Creating NS Buckets');
+    await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'NSAWS');
+    await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, ['NSAWS', 'NSAzure'], 'NSAzure');
 }
 
 async function _create_accounts() {
-    console.info('Creating various accounts');
+    console.info('Creating Various Accounts Configurations');
     //no login with s3 access
     const ac1 = {
         name: 'ac_nologin_hasaccess',
@@ -311,7 +255,7 @@ async function _create_accounts() {
 }
 
 async function _create_lambda() {
-    console.info('Creating various functions and triggers');
+    console.info('Creating Functions and Triggers');
     //Create func
     const code_buffer = Buffer.from([80, 75, 3, 4, 10, 0, 0, 0, 8, 0, 217, 98, 219, 76, 166, 14, 198, 22, 88, 0, 0, 0, 119, 0, 0, 0, 7, 0,
         0, 0, 109, 97, 105, 110, 46, 106, 115, 75, 43, 205, 75, 46, 201, 204, 207, 83, 200, 77, 204, 204, 211, 208, 84, 168, 230, 82, 80,
@@ -344,9 +288,16 @@ async function _create_lambda() {
     });
 }
 
+async function test_data() {
+
+    //test against mirror & ec -> TEST_CTX.bucket_mirror
+    //test against spread * replica -> TEST_CTX.bucket_spread
+    //test against NS -> TEST_CTX.ns_bucket
+
+}
+
 if (require.main === module) {
     main();
 }
 
 exports.run_test = run_test;
-exports.run_configuration_test = run_configuration_test;

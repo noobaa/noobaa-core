@@ -44,34 +44,6 @@ const app = express();
 
 dbg.set_process_name('WebServer');
 
-// hacky fix for issue #2812 - check if JWT_SECRET and MONGO_SSL_USER are missing
-// in .env but exists in environment variables. if so write it to .env
-let env_obj = dotenv.parse();
-if (!env_obj.JWT_SECRET) {
-    dbg.warn('JWT_SECRET is missing in .env file.');
-    if (process.env.JWT_SECRET) {
-        dbg.warn('JWT_SECRET found in process.env, writing to .env file. JWT_SECRET =', process.env.JWT_SECRET);
-        dotenv.set({
-            key: 'JWT_SECRET',
-            value: process.env.JWT_SECRET
-        });
-    } else {
-        dbg.error('JWT_SECRET is missing from .env and from process.env - users and agents will not be able to connect!!!!');
-    }
-}
-if (!env_obj.MONGO_SSL_USER) {
-    dbg.warn('MONGO_SSL_USER is missing in .env file.');
-    if (process.env.MONGO_SSL_USER) {
-        dbg.warn('MONGO_SSL_USER found in process.env, writing to .env file. MONGO_SSL_USER =', process.env.MONGO_SSL_USER);
-        dotenv.set({
-            key: 'MONGO_SSL_USER',
-            value: process.env.MONGO_SSL_USER
-        });
-    } else {
-        dbg.error('MONGO_SSL_USER is missing from .env and process.env - server will not be able to join or form a cluster');
-    }
-}
-
 
 mongo_client.instance().connect();
 

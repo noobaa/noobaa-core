@@ -5,7 +5,6 @@ const _ = require('lodash');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const uuid = require('uuid/v4');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
@@ -459,36 +458,15 @@ function is_folder_permissions_set(current_path) {
 }
 
 function read_server_secret() {
-    const secret_path = (IS_LINUX) ?
-        config.CLUSTERING_PATHS.SECRET_FILE :
-        config.CLUSTERING_PATHS.DARWIN_SECRET_FILE;
-    if (IS_LINUX && !IS_TEST_CONTAINER) {
-        return fs.readFileAsync(secret_path)
-            .then(function(data) {
-                var sec = data.toString();
-                return sec.trim();
-            })
-            .catch(err => {
-                throw new Error('Failed reading secret with ' + err);
-            });
-    } else if (IS_MAC || IS_TEST_CONTAINER) {
-        return fs.readFileAsync(secret_path)
-            .then(function(data) {
-                return data.toString().trim();
-            })
-            .catch(err => {
-                //For Darwin only, if file does not exist, create it
-                //In linux its created as part of the server build process or in an upgrade
-                if (err.code === 'ENOENT') {
-                    var id = uuid().substring(0, 8);
-                    return fs.writeFileAsync(secret_path, id)
-                        .then(() => id);
-                } else {
-                    throw new Error('Failed reading secret with ' + err);
-                }
-            });
-    } else { //Windows
-        return uuid().substring(0, 8);
+    if (process.env.SERVER_SECRET) {
+        return process.env.SERVER_SECRET;
+    } else {
+        // in kubernets we must have SERVER_SECRET loaded from a kubernetes secret
+        if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kuberentes');
+        }
+        // for all non kubernets platforms (docker, local, etc.) return a dummy secret
+        return '12345678';
     }
 }
 

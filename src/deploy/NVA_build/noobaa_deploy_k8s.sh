@@ -10,6 +10,7 @@ SYS_NAME=noobaa
 NAMESPACE=$(kubectl config get-contexts | grep "\*" | awk '{print $5}')
 NOOBAA_CORE_YAML=https://raw.githubusercontent.com/noobaa/noobaa-core/4.0/src/deploy/NVA_build/noobaa_core.yaml
 CREDS_SECRET_NAME=noobaa-create-sys-creds
+NOOBAA_SECRETS_NAME=noobaa-secrets
 ACCESS_KEY=""
 SECRET_KEY=""
 COMMAND=NONE
@@ -124,6 +125,7 @@ function deploy_noobaa {
 
     # Pre apply actions
     create_cluster_bindings
+    create_noobaa_secrets
     create_cred_secret
     create_config_map
 
@@ -405,6 +407,15 @@ function create_cred_secret {
         --from-literal=name=${SYS_NAME} \
         --from-literal=email=${EMAIL} \
         --from-literal=password=${PASSWD}
+}
+
+function create_noobaa_secrets {
+    local SERVER_SECRET=$(openssl rand -hex 4)
+    local JWT_SECRET=$(openssl rand -base64 20 | openssl sha512 -hmac | cut -c10-44)
+    ${KUBECTL} delete secret ${NOOBAA_SECRETS_NAME} &> /dev/null
+    ${KUBECTL} create secret generic ${NOOBAA_SECRETS_NAME} \
+        --from-literal=server_secret=${SERVER_SECRET} \
+        --from-literal=jwt=${JWT_SECRET} 
 }
 
 function create_config_map {

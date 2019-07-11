@@ -345,8 +345,6 @@ config.MONGO_DEFAULTS = {
 };
 
 config.CLUSTERING_PATHS = {
-    SECRET_FILE: '/data/noobaa_sec',
-    DARWIN_SECRET_FILE: '/Users/Shared/noobaa_sec',
     SUPER_FILE: '/data/noobaa_supervisor.conf',
 };
 

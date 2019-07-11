@@ -14,7 +14,6 @@ const pkg = require('../../../package.json');
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config.js');
-const dotenv = require('../../util/dotenv');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
@@ -209,7 +208,7 @@ function add_member_to_cluster_invoke(req, my_address) {
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
-                jwt_secret: process.env.JWT_SECRET,
+                // jwt_secret: process.env.JWT_SECRET,
                 new_hostname: req.rpc_params.new_hostname,
                 ssl_certs: { root_ca, server_cert, client_cert }
             }, {
@@ -406,11 +405,11 @@ function join_to_cluster(req) {
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
             // update jwt secret in dotenv
-            dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
-            dotenv.set({
-                key: 'JWT_SECRET',
-                value: req.rpc_params.jwt_secret
-            });
+            // dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
+            // dotenv.set({
+            //     key: 'JWT_SECRET',
+            //     value: req.rpc_params.jwt_secret
+            // });
             //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
             //different ReplicaSet Chains)
             //Easy path -> don't support it, make admin detach and re-attach as new role,

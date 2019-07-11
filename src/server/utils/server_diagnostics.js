@@ -53,14 +53,6 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected client_noobaa.log files successfully'))
                 .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp /data/.env ' + TMP_WORK_DIR + '/env', {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected .env successfully'))
-                .catch(err => diag_log('collecting .env failed with error: ' + err)),
-
                 () => os_utils.top_single(TMP_WORK_DIR + '/top.out')
                 .then(() => diag_log('collected top.out successfully'))
                 .catch(err => diag_log('collecting top.out failed with error: ' + err)),
@@ -68,14 +60,6 @@ function collect_server_diagnostics(req) {
                 () => os_utils.slabtop(TMP_WORK_DIR + '/slabtop.out')
                 .then(() => diag_log('collected slabtop.out successfully'))
                 .catch(err => diag_log('collecting slabtop.out failed with error: ' + err)),
-
-                () => promise_utils.exec('cp -fp /data/noobaa* ' + TMP_WORK_DIR, {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected /data/noobaa files successfully'))
-                .catch(err => diag_log('collecting /data/noobaa files failed with error: ' + err)),
 
                 () => promise_utils.exec(`cp -fpR /log/nbfedump ${TMP_WORK_DIR}`, {
                     ignore_rc: false,

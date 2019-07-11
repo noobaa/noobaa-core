@@ -26,7 +26,6 @@ const MDStore = require('../object_services/md_store').MDStore;
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
-const ph_utils = require('../../util/phone_home');
 const { RpcError } = require('../../rpc');
 const ssl_utils = require('../../util/ssl_utils');
 const nb_native = require('../../util/nb_native');
@@ -296,7 +295,6 @@ async function create_system(req) {
         await _ensure_internal_structure(system_id);
         await _configure_dns_servers(dns_servers, owner_secret, auth);
         await _configure_system_address(system_id, account_id);
-        await _configure_system_proxy(auth);
         await _init_system(system_id);
 
         dbg.log0(`create_system: sending first stats to phone home`);
@@ -396,18 +394,6 @@ async function _configure_system_address(system_id, account_id) {
     //         desc: `System addresss was set to `,
     //     });
     // }
-}
-
-async function _configure_system_proxy(auth) {
-    if (process.env.PH_PROXY) {
-        try {
-            const proxy_address = process.env.PH_PROXY;
-            dbg.log0(`create_system: updating proxy address to ${proxy_address}`);
-            await server_rpc.client.system.update_phone_home_config({ proxy_address }, auth);
-        } catch (err) {
-            dbg.error('create_system: Failed updating phone home config during create system', err);
-        }
-    }
 }
 
 /**
@@ -525,9 +511,6 @@ function read_system(req) {
         }
 
         let phone_home_config = {};
-        if (system.phone_home_proxy_address) {
-            phone_home_config.proxy_address = system.phone_home_proxy_address;
-        }
         if (system.freemium_cap.phone_home_unable_comm) {
             phone_home_config.phone_home_unable_comm = true;
         }
@@ -925,65 +908,6 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-async function verify_phonehome_connectivity(req) {
-    const { proxy_address: proxy } = req.rpc_params;
-    const options = proxy ? { proxy } : undefined;
-    const res = await ph_utils.verify_connection_to_phonehome(options);
-    return Boolean(res === 'CONNECTED');
-}
-
-// phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
-function update_phone_home_config(req) {
-    dbg.log0('update_phone_home_config', req.rpc_params);
-
-    const previous_value = system_store.data.systems[0].phone_home_proxy_address;
-    let desc_line = `Proxy address was `;
-    desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
-    desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
-
-    let update = {
-        _id: req.system._id
-    };
-    if (req.rpc_params.proxy_address === null) {
-        update.$unset = {
-            phone_home_proxy_address: 1
-        };
-    } else {
-        update.phone_home_proxy_address = req.rpc_params.proxy_address;
-    }
-
-    dbg.log0(`testing internet connectivity using proxy ${req.rpc_params.proxy_address}`);
-    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.proxy_address })
-        .then(res => {
-            if (res === 'CONNECTED') {
-                dbg.log0('connectivity test passed. configuring proxy address:', desc_line);
-            } else {
-                dbg.error(`Failed connectivity test using proxy ${req.rpc_params.proxy_address}. test result: ${res}`);
-                if (req.rpc_params.proxy_address) {
-                    throw new RpcError('CONNECTIVITY_TEST_FAILED', `Failed connectivity test using proxy ${req.rpc_params.proxy_address}`);
-                }
-                dbg.warn('No connectivity without proxy! removing proxy settings anyway');
-            }
-        })
-        .then(() => system_store.make_changes({
-            update: {
-                systems: [update]
-            }
-        }))
-        .then(() => server_rpc.client.hosted_agents.stop())
-        .then(() => server_rpc.client.hosted_agents.start())
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.set_phone_home_proxy_address',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: desc_line,
-            });
-        })
-        .return();
-}
-
 function set_certificate(zip_file) {
     dbg.log0('upload_certificate');
     let key;
@@ -1218,8 +1142,6 @@ exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
-exports.verify_phonehome_connectivity = verify_phonehome_connectivity;
-exports.update_phone_home_config = update_phone_home_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.set_certificate = set_certificate;

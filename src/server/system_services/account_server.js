@@ -9,7 +9,6 @@ const P = require('../../util/promise');
 
 const _ = require('lodash');
 const net = require('net');
-const url = require('url');
 const AWS = require('aws-sdk');
 const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
@@ -722,9 +721,6 @@ function check_external_connection(req) {
     dbg.log0('check_external_connection:', req.rpc_params);
     const { endpoint_type } = req.rpc_params;
     const params = req.rpc_params;
-    const system = req.system;
-    const proxy = system.phone_home_proxy_address;
-    params.proxy = proxy;
     const account = req.account;
 
     const connection = req.rpc_params.name && _.find(account.sync_credentials_cache, sync_conn =>
@@ -778,7 +774,6 @@ function check_azure_connection(params) {
         .then(() => P.resolve()
             .then(() => {
                 let blob = azure_storage.createBlobService(conn_str);
-                blob.setProxy(params.proxy ? url.parse(params.proxy) : null);
                 return blob;
             })
             .catch(err => {
@@ -875,7 +870,7 @@ function check_aws_connection(params) {
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
-            agent: http_utils.get_unsecured_http_agent(params.endpoint, params.proxy)
+            agent: http_utils.get_unsecured_http_agent(params.endpoint)
         }
     });
 

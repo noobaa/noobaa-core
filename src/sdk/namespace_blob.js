@@ -5,7 +5,6 @@ const _ = require('lodash');
 const util = require('util');
 const stream = require('stream');
 const crypto = require('crypto');
-const url = require('url');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -23,12 +22,11 @@ const MAP_BLOCK_LIST_TYPE = Object.freeze({
 
 class NamespaceBlob {
 
-    constructor({ namespace_resource_id, rpc_client, connection_string, container, proxy }) {
+    constructor({ namespace_resource_id, rpc_client, connection_string, container }) {
         this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
         this.blob = azure_storage.createBlobService(connection_string);
-        this.blob.setProxy(this.proxy ? url.parse(this.proxy) : null);
         this.rpc_client = rpc_client;
     }
 

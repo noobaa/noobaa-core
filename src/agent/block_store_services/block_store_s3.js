@@ -20,7 +20,6 @@ class BlockStoreS3 extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.cloud_info = options.cloud_info;
-        this.proxy = options.proxy;
         this.base_path = options.cloud_path;
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
@@ -33,15 +32,11 @@ class BlockStoreS3 extends BlockStoreBase {
         const endpoint = this.cloud_info.endpoint;
         // upload copy to s3 cloud storage.
         if (cloud_utils.is_aws_endpoint(endpoint)) {
-            const httpOptions = this.proxy ? {
-                agent: http_utils.get_unsecured_http_agent(endpoint, this.proxy)
-            } : undefined;
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
                 accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
                 secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 s3ForcePathStyle: true,
-                httpOptions,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 region: DEFAULT_REGION
             });
@@ -58,7 +53,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(endpoint, this.proxy)
+                    agent: http_utils.get_unsecured_http_agent(endpoint)
                 }
             });
         }
@@ -144,7 +139,6 @@ class BlockStoreS3 extends BlockStoreBase {
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 },
                 read_params: params,
-                proxy: this.proxy
             };
         }
 
@@ -154,7 +148,6 @@ class BlockStoreS3 extends BlockStoreBase {
             disable_delegation: this.disable_delegation,
             disable_metadata: this.disable_metadata,
             signed_url: this.s3cloud.getSignedUrl('getObject', params),
-            proxy: this.proxy
         };
     }
 
@@ -191,7 +184,6 @@ class BlockStoreS3 extends BlockStoreBase {
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 },
                 write_params: params,
-                proxy: this.proxy
             };
         }
 
@@ -202,7 +194,6 @@ class BlockStoreS3 extends BlockStoreBase {
             disable_metadata: this.disable_metadata,
             usage,
             signed_url,
-            proxy: this.proxy
         };
     }
 

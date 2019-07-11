@@ -345,7 +345,6 @@ function _get_func_code_stream(req, func_code) {
                     url: func_code.url,
                     method: 'GET',
                     encoding: null, // get a buffer
-                    proxy: req.system.phone_home_proxy_address,
                 })
                 .once('response', res => {
 

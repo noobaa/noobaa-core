@@ -18,7 +18,6 @@ class BlockStoreGoogle extends BlockStoreBase {
         dbg.log0(`creating new BlockStoreGoogle with base_path ${options.cloud_path}`);
         super(options);
         this.cloud_info = options.cloud_info;
-        this.proxy = options.proxy;
         this.base_path = options.cloud_path;
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';

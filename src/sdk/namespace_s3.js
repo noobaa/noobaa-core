@@ -17,7 +17,6 @@ class NamespaceS3 {
     constructor({ namespace_resource_id, rpc_client, s3_params }) {
         this.namespace_resource_id = namespace_resource_id;
         this.access_key = s3_params.accessKeyId;
-        this.proxy = s3_params.proxy;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
         this.bucket = this.s3.config.params.Bucket;

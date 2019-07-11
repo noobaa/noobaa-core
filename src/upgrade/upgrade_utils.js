@@ -15,7 +15,6 @@ const config = require('../../config');
 const promise_utils = require('../util/promise_utils');
 const phone_home_utils = require('../util/phone_home');
 const argv = require('minimist')(process.argv);
-const mongo_client = require('../util/mongo_client');
 
 const TMP_PATH = '/tmp';
 const EXTRACTION_PATH = `${TMP_PATH}/test`;
@@ -200,12 +199,9 @@ function test_major_version_change() {
         });
 }
 
-function test_internet_connectivity(phone_home_proxy_address) {
-    const options = _.isEmpty(phone_home_proxy_address) ? undefined : {
-        proxy: phone_home_proxy_address
-    };
+function test_internet_connectivity() {
     return P.resolve()
-        .then(() => phone_home_utils.verify_connection_to_phonehome(options))
+        .then(() => phone_home_utils.verify_connection_to_phonehome())
         .catch(err => {
             dbg.error('test_internet_connectivity failed', err);
             throw new Error('INTERNET_CONNECTIVITY');
@@ -256,8 +252,7 @@ function test_package_extraction() {
 function new_pre_upgrade() {
     dbg.log0(`starting new_pre_upgrade `);
     return P.resolve()
-        .then(() => extract_new_pre_upgrade_params())
-        .then(params => new_pre_upgrade_checkups(params))
+        .then(() => new_pre_upgrade_checkups())
         //.then(() => packages_upgrade())
         .timeout(20 * 60 * 1000, 'PACKAGE_INSTALLATION_TIMEOUT');
 }
@@ -274,42 +269,11 @@ function pre_upgrade_checkups(params) {
         });
 }
 
-function extract_new_pre_upgrade_params() {
-    return P.resolve()
-        .then(() => mongo_client.instance().connect())
-        .then(() => _get_phone_home_proxy_address())
-        .then(phone_home_proxy_address => {
-            const params = {
-                phone_home_proxy_address
-            };
-            dbg.log0('extract_new_pre_upgrade_params: params =', params);
-            return params;
-        })
-        .catch(err => {
-            dbg.error('extract_new_pre_upgrade_params had errors', err);
-            throw new Error('COULD_NOT_EXTRACT_PARAMS');
-        });
-}
 
-function _get_phone_home_proxy_address() {
-    const query = {
-        deleted: null
-    };
-    const reply = {
-        phone_home_proxy_address: true
-    };
-    return P.resolve()
-        .then(() => mongo_client.instance().collection('systems').findOne(query, reply))
-        .then(response => {
-            if (!response) throw new Error('CANNOT_UPGRADE_WITHOUT_SYSTEM');
-            return response.phone_home_proxy_address;
-        });
-}
-
-function new_pre_upgrade_checkups(params) {
+function new_pre_upgrade_checkups() {
     dbg.log0(`running new params checkups`);
     return P.join(
-        test_internet_connectivity(params.phone_home_proxy_address),
+        test_internet_connectivity(),
         // TODO: Check the NTP with consideration to the proxy
         test_local_harddrive_memory(),
         test_supervisor_sock()

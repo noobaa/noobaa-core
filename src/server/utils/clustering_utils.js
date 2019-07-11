@@ -206,7 +206,6 @@ function get_cluster_info(rs_status) {
                 dns_servers: status.dns_status,
                 dns_name_resolution: status.dns_name,
                 phonehome_server: status.ph_status,
-                phonehome_proxy: status.proxy_status,
                 cluster_communication: {
                     test_completed: status.cluster_status !== 'UNKNOWN',
                     results: status.cluster_status === 'UNKNOWN' ? undefined : status.cluster_status

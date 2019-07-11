@@ -2,7 +2,6 @@
 'use strict';
 
 const request = require('request');
-const url = require('url');
 const xml2js = require('xml2js');
 const AWS = require('aws-sdk');
 const _ = require('lodash');
@@ -60,10 +59,9 @@ class BlockStoreClient {
                 throw err;
             })
             .then(delegation_info => {
-                const { host, container, block_key, blob_sas, metadata, usage, proxy } = delegation_info;
+                const { host, container, block_key, blob_sas, metadata, usage } = delegation_info;
                 // create a shared blob service using the blob_sas (shared access signature)
                 const shared_blob_svc = azure_storage.createBlobServiceWithSas(host, blob_sas);
-                shared_blob_svc.setProxy(proxy ? url.parse(proxy) : null);
                 return P.fromCallback(callback => shared_blob_svc.createBlockBlobFromText(container,
                         block_key,
                         data, { metadata },
@@ -87,10 +85,9 @@ class BlockStoreClient {
                 if (delegation_info.cached_data) {
                     return delegation_info.cached_data;
                 }
-                const { host, container, block_key, blob_sas, proxy } = delegation_info;
+                const { host, container, block_key, blob_sas } = delegation_info;
                 // use the signed access to read from azure
                 const shared_blob_svc = azure_storage.createBlobServiceWithSas(host, blob_sas);
-                shared_blob_svc.setProxy(proxy ? url.parse(proxy) : null);
                 return P.fromCallback(callback => shared_blob_svc.getBlobToStream(container, block_key, writable, {
                             disableContentMD5Validation: true
                         },
@@ -134,7 +131,6 @@ class BlockStoreClient {
                     // disable_metadata,
                     s3_params,
                     write_params,
-                    proxy
                 } = await rpc_client.block_store.delegate_write_block({ block_md, data_length: data.length }, options);
 
                 try {
@@ -144,7 +140,7 @@ class BlockStoreClient {
                         }
                         dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
                             _.omit(s3_params, 'secretAccessKey'));
-                        s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint, proxy) },
+                        s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
                             _.isUndefined);
                         const s3 = new AWS.S3(s3_params);
                         write_params.Body = data;
@@ -155,11 +151,8 @@ class BlockStoreClient {
                             method: 'PUT',
                             followAllRedirects: true,
                             body: data,
-                            rejectUnauthorized: http_utils.should_reject_unauthorized(signed_url, proxy)
+                            rejectUnauthorized: http_utils.should_reject_unauthorized(signed_url)
                         };
-                        if (proxy) {
-                            req_options.proxy = proxy;
-                        }
 
                         const res = await P.fromCallback(callback => request(req_options, callback));
 
@@ -192,7 +185,6 @@ class BlockStoreClient {
                     s3_params,
                     read_params,
                     signed_url,
-                    proxy
                 } = delegation_info;
 
                 if (cached_data) {
@@ -210,7 +202,7 @@ class BlockStoreClient {
                         dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
                             _.omit(s3_params, 'secretAccessKey'));
 
-                        s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint, proxy) },
+                        s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
                             _.isUndefined);
                         const s3 = new AWS.S3(s3_params);
 
@@ -228,12 +220,8 @@ class BlockStoreClient {
                             method: 'GET',
                             encoding: null, // get a Buffer
                             followAllRedirects: true,
-                            rejectUnauthorized: http_utils.should_reject_unauthorized(signed_url, proxy)
+                            rejectUnauthorized: http_utils.should_reject_unauthorized(signed_url)
                         };
-
-                        if (proxy) {
-                            req_options.proxy = proxy;
-                        }
 
                         const [res, body] = await new Promise((resolve, reject) =>
                             request(req_options, (err, res1, body1) => (err ? reject(err) : resolve([res1, body1])))

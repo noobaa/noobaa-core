@@ -118,11 +118,11 @@ class ObjectSDK {
 
     _setup_merge_namespace(bucket) {
         let rr = _.cloneDeep(bucket.namespace.read_resources);
-        let wr = this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, bucket.namespace.write_resource));
+        let wr = this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
         if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.endpoint_type)) {
             const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource));
             wr = new NamespaceMultipart(
-                this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, bucket.namespace.write_resource)),
+                this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                 this.namespace_nb);
             rr.splice(wr_index, 1, {
                 endpoint_type: 'MULTIPART',
@@ -135,7 +135,7 @@ class ObjectSDK {
                 write_resource: wr,
                 read_resources: _.map(rr, ns_info => (
                     ns_info.endpoint_type === 'MULTIPART' ? ns_info.ns :
-                    this._setup_single_namespace(_.extend({ proxy: bucket.proxy }, ns_info))
+                    this._setup_single_namespace(_.extend({}, ns_info))
                 ))
             },
             active_triggers: bucket.active_triggers
@@ -143,7 +143,6 @@ class ObjectSDK {
     }
 
     _setup_single_namespace(ns_info) {
-        console.log(`ns_info.proxy = ${ns_info.proxy}`);
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
                 return new NamespaceNB(ns_info.target_bucket);
@@ -154,8 +153,8 @@ class ObjectSDK {
         if (ns_info.endpoint_type === 'AWS' ||
             ns_info.endpoint_type === 'S3_COMPATIBLE' ||
             ns_info.endpoint_type === 'FLASHBLADE') {
-            const httpOptions = (ns_info.endpoint_type === 'AWS' && !ns_info.proxy) ? undefined : {
-                agent: http_utils.get_unsecured_http_agent(ns_info.endpoint, ns_info.proxy)
+            const httpOptions = (ns_info.endpoint_type === 'AWS') ? undefined : {
+                agent: http_utils.get_unsecured_http_agent(ns_info.endpoint)
             };
             return new NamespaceS3({
                 namespace_resource_id: ns_info.id,
@@ -178,8 +177,7 @@ class ObjectSDK {
                 namespace_resource_id: ns_info.id,
                 rpc_client: this.rpc_client,
                 container: ns_info.target_bucket,
-                connection_string: cloud_utils.get_azure_connection_string(ns_info),
-                proxy: ns_info.proxy
+                connection_string: cloud_utils.get_azure_connection_string(ns_info)
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

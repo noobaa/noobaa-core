@@ -288,10 +288,6 @@ module.exports = {
                     type: 'string',
                     enum: ['FAULTY']
                 },
-                proxy_status: {
-                    type: 'string',
-                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                },
                 cluster_status: {
                     anyOf: [{
                         type: 'string',

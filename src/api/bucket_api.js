@@ -924,9 +924,6 @@ module.exports = {
                         }
                     },
                 },
-                proxy: {
-                    type: 'string'
-                },
                 active_triggers: {
                     type: 'array',
                     items: {

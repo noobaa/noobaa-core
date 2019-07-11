@@ -10,7 +10,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
-const net_utils = require('../../util/net_utils');
 const ssl_utils = require('../../util/ssl_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
@@ -67,7 +66,6 @@ async function run_monitors() {
 
     await _verify_server_certificate();
     await _check_dns_and_phonehome();
-    await _check_proxy_configuration();
     await _check_internal_ips();
     await _check_disk_space();
 
@@ -114,10 +112,7 @@ function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
 
 function _check_dns_and_phonehome() {
     dbg.log2('_check_dns_and_phonehome');
-    const options = _.isEmpty(system_store.data.systems[0].phone_home_proxy_address) ? undefined : {
-        proxy: system_store.data.systems[0].phone_home_proxy_address
-    };
-    return phone_home_utils.verify_connection_to_phonehome(options)
+    return phone_home_utils.verify_connection_to_phonehome()
         .then(res => {
             switch (res) {
                 case "CONNECTED":
@@ -204,23 +199,6 @@ function _check_for_duplicate_ips() {
         });
 }
 
-function _check_proxy_configuration() {
-    dbg.log2('_check_proxy_configuration');
-    let system = system_store.data.systems[0];
-    if (_.isEmpty(system.phone_home_proxy_address)) return;
-    return net_utils.ping(system.phone_home_proxy_address)
-        .then(() => {
-            monitoring_status.proxy_status = "OPERATIONAL";
-        })
-        .catch(err => {
-            monitoring_status.proxy_status = "UNREACHABLE";
-            Dispatcher.instance().alert('MAJOR',
-                system_store.data.systems[0]._id,
-                `Proxy server ${system.phone_home_proxy_address} could not be reached, check Proxy configuration or connectivity`,
-                Dispatcher.rules.once_daily);
-            dbg.warn('Error when trying to check proxy status.', err.stack || err);
-        });
-}
 
 function _check_internal_ips() {
     dbg.log2('_check_internal_ips');

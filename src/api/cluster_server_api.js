@@ -139,17 +139,6 @@ module.exports = {
                     test_ph_connectivity: {
                         type: 'boolean'
                     },
-                    ph_proxy: {
-                        type: 'object',
-                        properties: {
-                            address: {
-                                type: 'string'
-                            },
-                            port: {
-                                type: 'number'
-                            }
-                        }
-                    }
                 }
             },
             reply: {
@@ -167,17 +156,6 @@ module.exports = {
                     },
                     using_dhcp: {
                         type: 'boolean'
-                    },
-                    used_proxy: {
-                        type: 'object',
-                        properties: {
-                            address: {
-                                type: 'string'
-                            },
-                            port: {
-                                type: 'number'
-                            }
-                        }
                     },
                     owner: {
                         type: 'object',

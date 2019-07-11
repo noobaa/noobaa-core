@@ -9,6 +9,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const size_utils = require('../../util/size_utils');
 const SystemStore = require('../system_services/system_store');
+const system_utils = require('../utils/system_utils');
 
 // TODO: This method is based on a single system
 async function background_worker() {
@@ -28,6 +29,8 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
         dbg.log0('System did not finish initial load');
         return;
     }
+    const system = system_store.data.systems[0];
+    if (!system || system_utils.system_in_maintenance(system._id)) return;
 
     let has_more = true;
     let update_range = true;
@@ -35,7 +38,7 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
 
     while (has_more) {
         if (update_range) range = await find_next_range({ target_now, system_store });
-        const changes = await range_md_aggregator({ md_store, system_store, range });
+        const changes = range && await range_md_aggregator({ md_store, system_store, range });
         if (changes) {
             const update = _.omit(changes, 'more_updates');
             await system_store.make_changes({ update });

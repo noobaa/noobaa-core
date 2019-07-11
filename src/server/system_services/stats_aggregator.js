@@ -113,7 +113,6 @@ const SINGLE_SYS_DEFAULTS = {
     configuration: {
         dns_servers: 0,
         dns_name: false,
-        proxy: false,
     },
     cluster: {
         members: 0
@@ -235,7 +234,6 @@ async function get_systems_stats(req) {
                 configuration: {
                     dns_servers: res.cluster.shards[0].servers[0].dns_servers.length,
                     dns_name: has_dns_name,
-                    proxy: !_.isEmpty(res.phone_home_config.proxy_address),
                 },
                 cluster: {
                     members: res.cluster.shards[0].servers.length
@@ -924,14 +922,6 @@ function send_stats_payload(payload) {
         json: true,
         gzip: true,
     };
-
-    // TODO: Support Self Signed HTTPS Proxy
-    // The problem is that we don't support self signed proxies, because somehow
-    // The strictSSL value is only valid for the target and not for the Proxy
-    // Check that once again sine it is a guess (did not investigate much)
-    if (system.phone_home_proxy_address) {
-        options.proxy = system.phone_home_proxy_address;
-    }
 
     dbg.log0('Phone Home Sending Post Request To Server:', options);
     return P.fromCallback(callback => request(options, callback), {

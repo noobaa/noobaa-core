@@ -46,7 +46,7 @@ function install_supervisor {
     # Add NooBaa services configuration to supervisor
     deploy_log "setup_supervisors adding noobaa config to supervisord"
     echo "[include]" >> /etc/supervisord.conf
-    echo "files = /data/noobaa_supervisor.conf" >> /etc/supervisord.conf
+    echo "files = /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf" >> /etc/supervisord.conf
     deploy_log "setup_supervisors done"
 }
 
@@ -55,7 +55,7 @@ function setup_bashrc {
 
     echo "export LC_ALL=C" >> ~/.bashrc
     echo "export TERM=xterm" >> ~/.bashrc
-    echo "export PATH=$PATH:/usr/local/bin:/data/bin" >> ~/.bashrc
+    echo "export PATH=$PATH:/usr/local/bin" >> ~/.bashrc
     echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
     echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
     echo "alias ll='ls -lha'" >> ~/.bashrc

@@ -42,6 +42,10 @@ RUN tar \
 FROM centos:7
 
 ENV container docker
+ENV PORT 8080
+ENV SSL_PORT 8443
+ENV ENDPOINT_PORT 6001
+ENV ENDPOINT_SSL_PORT 6443
 
 ##############################################################
 # Layers:

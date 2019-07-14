@@ -43,7 +43,6 @@ main(int argc, char* argv[])
     }
 
     if (deployment_type == "server") {
-        change_path_permissions("/data", uid);
         change_path_permissions("/log", uid);
     } else if (deployment_type == "mongo") {
         change_path_permissions("/mongo_data", uid);

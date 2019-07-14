@@ -148,8 +148,6 @@ spec:
             - containerPort: 8446
             - containerPort: 60100
           volumeMounts:
-            - mountPath: /data
-              name: datadir
             - mountPath: /log
               name: logdir
           env:
@@ -173,6 +171,16 @@ spec:
                   name: noobaa-create-sys-creds
                   key: password
                   optional: true
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: noobaa-secrets
+                  key: jwt
+            - name: SERVER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: noobaa-secrets
+                  key: server_secret
             - name: OAUTH_AUTHORIZATION_ENDPOINT
               valueFrom:
                 configMapKeyRef:
@@ -226,15 +234,6 @@ spec:
         resources:
           requests:
             storage: 10Gi
-    - metadata:
-        name: datadir
-        labels:
-          app: noobaa
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 5Gi
     - metadata:
         name: mongo-datadir
         labels:

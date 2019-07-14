@@ -138,39 +138,10 @@ prepare_mongo_pv() {
   chmod g=u ${dir}
 }
 
-fix_server_plat() {
-NOOBAASEC="/data/noobaa_sec"
-CORE_DIR="/root/node_modules/noobaa-core"
-
-# If not sec file, fix it
-if [ ! -f ${NOOBAASEC} ]; then
-  if [ ! -f /data/noobaa_supervisor.conf ]; then
-    # Setup Repos
-    sed -i -e "\$aPLATFORM=docker" ${CORE_DIR}/src/deploy/NVA_build/env.orig
-    # in a container set the endpoint\ssl ports to 6001\6443 since we are not running as root
-    echo "ENDPOINT_PORT=6001" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
-    echo "ENDPOINT_SSL_PORT=6443" >> ${CORE_DIR}/src/deploy/NVA_build/env.orig
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig /data/.env &>> /data/mylog
-    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /data &>> /data/mylog
-  fi
-
-  sec=$(uuidgen | cut -f 1 -d'-')
-  echo ${sec} | tee -a ${NOOBAASEC}
-  #dev/null to avoid output with user name
-  #verify JWT_SECRET exists in .env, if not create it
-  if ! grep -q JWT_SECRET /data/.env; then &> /dev/null
-    jwt=$(cat /data/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
-    echo  "JWT_SECRET=${jwt}" >> /data/.env
-  fi
-fi
-
-}
-
 init_noobaa_server() {
   fix_non_root_user
   extract_noobaa_in_docker
   prepare_server_pvs
-  fix_server_plat
 
   #commented out handle_unmanaged_upgrade since upgrade flow is depndent on mongo shell that was removed
   ###TODO: restore handle_unmanaged_upgrade once the upgrade script does not rely on mongo shell

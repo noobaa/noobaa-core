@@ -18,6 +18,9 @@ const oauth_utils = require('../../util/oauth_utils');
 const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
 
+
+const JWT_SECRET = get_jwt_secret();
+
 /**
  *
  * CREATE_AUTH
@@ -159,7 +162,7 @@ function create_auth(req) {
  * authenticate a user using a k8s OAuth server then match that
  * user with a equivalent NooBaa user (or create a new one if one does not exists)
  * and return an authorized token for that user.
-  *
+ *
  */
 async function create_k8s_auth(req) {
     const { grant_code } = req.rpc_params;
@@ -234,8 +237,7 @@ async function create_k8s_auth(req) {
         });
 
         await server_rpc.client.account.create_external_user_account(
-            user_info,
-            { auth_token: owner_token }
+            user_info, { auth_token: owner_token }
         );
         account = system_store.get_account_by_email(user_info.email);
     }
@@ -421,7 +423,6 @@ function authorize(req) {
 
 
 function _authorize_jwt_token(req) {
-    const { JWT_SECRET } = process.env;
     try {
         req.auth = jwt.verify(req.auth_token, JWT_SECRET);
     } catch (err) {
@@ -649,7 +650,22 @@ function make_auth_token(options) {
         jwt_options.expiresIn = options.expiry;
     }
     // create and return the signed token
-    return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
+    return jwt.sign(auth, JWT_SECRET, jwt_options);
+}
+
+
+
+function get_jwt_secret() {
+    if (process.env.JWT_SECRET) {
+        return process.env.JWT_SECRET;
+    } else {
+        // in kubernets we must have JWT_SECRET loaded from a kubernetes secret
+        if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+            throw new Error('JWT_SECRET env variable not found. it must exist when running in kuberentes');
+        }
+        // for all non kubernets platforms (docker, local, etc.) return a dummy secret
+        return 'abcdefgh';
+    }
 }
 
 

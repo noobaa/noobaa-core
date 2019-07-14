@@ -522,12 +522,15 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['name', 'capacity', 'reduction_ratio', 'savings', 'buckets_stats', 'usage_by_project', 'usage_by_bucket_class'],
+                        required: ['name', 'capacity', 'reduction_ratio', 'savings', 'total_usage', 'buckets_stats', 'usage_by_project', 'usage_by_bucket_class'],
                         properties: {
                             name: {
                                 type: 'string'
                             },
                             capacity: {
+                                type: 'number'
+                            },
+                            total_usage: {
                                 type: 'number'
                             },
                             savings: {
@@ -592,7 +595,7 @@ module.exports = {
 
         partial_accounts_stats: {
             type: 'object',
-            required: ['accounts'],
+            required: ['accounts', 'accounts_num'],
             properties: {
                 accounts: {
                     type: 'array',
@@ -614,7 +617,10 @@ module.exports = {
                             },
                         }
                     }
-                }
+                },
+                accounts_num: {
+                    type: 'number',
+                },
             }
         },
 

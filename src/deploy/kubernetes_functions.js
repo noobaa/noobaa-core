@@ -170,6 +170,12 @@ class KubernetesFunctions {
     }
 
 
+    async create_noobaa_secrets() {
+        // create a secret containing noobaa_secret and jwt_secret
+        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh`);
+    }
+
+
     async deploy_server({ image, server_yaml, envs, cpu, mem, pv, pull_always }) {
         const server_details = {};
         try {
@@ -182,6 +188,7 @@ class KubernetesFunctions {
             this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
 
+            await this.create_noobaa_secrets();
             console.log('deploying server resources from file', resources_file_path);
             await this.kubectl(`apply -f ${resources_file_path}`);
 

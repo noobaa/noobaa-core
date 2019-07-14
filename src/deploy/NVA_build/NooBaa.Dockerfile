@@ -61,10 +61,9 @@ RUN yum install -y -q bash \
     wget \
     curl \
     nc \
-    vim \
     less \
     bash-completion \
-    python-setuptools-0.9.8 \
+    python-setuptools-0.9.8 && \
     yum clean all
 
 ##############################################################

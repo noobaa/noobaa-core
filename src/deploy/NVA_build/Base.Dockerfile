@@ -8,7 +8,8 @@ FROM noobaa-builder
 ######################################################################
 COPY ./package*.json ./
 RUN source /opt/rh/devtoolset-7/enable && \
-    npm install 
+    npm install --production && \
+    npm cache clean --force
 
 ##############################################################
 # Layers:

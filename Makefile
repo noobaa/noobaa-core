@@ -31,7 +31,7 @@ endif
 	@echo "\033[1;34mBuilder done.\033[0m"
 .PHONY: base
 
-tester: base
+tester: base noobaa
 	@echo "\033[1;34mStarting Tester docker build.\033[0m"
 ifeq ($(SUPPRESS_LOGS), true)
 	docker build -f src/deploy/NVA_build/Tests.Dockerfile --no-cache -t $(TESTER_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) . 1> /dev/null

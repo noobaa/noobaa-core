@@ -2,7 +2,6 @@
 'use strict';
 
 const fs = require('fs');
-const os = require('os');
 const moment = require('moment');
 
 const _ = require('lodash');
@@ -14,7 +13,6 @@ const ssl_utils = require('../../util/ssl_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
-const promise_utils = require('../../util/promise_utils');
 const phone_home_utils = require('../../util/phone_home');
 const config_file_store = require('../system_services/config_file_store').instance();
 const clustering_utils = require('../utils/clustering_utils.js');
@@ -23,7 +21,6 @@ const dotenv = require('../../util/dotenv');
 
 let server_conf = {};
 let monitoring_status = {};
-let ip_collision = [];
 
 if (!process.env.PLATFORM) {
     console.log('loading .env file...');
@@ -54,24 +51,18 @@ async function run() {
 
     dbg.log0('SERVER_MONITOR: END. status:', monitoring_status);
     return {
-        services: monitoring_status,
-        ip_collision
+        services: monitoring_status
     };
 }
 
 async function run_monitors() {
     const { CONTAINER_PLATFORM } = process.env;
-    const os_type = os.type();
     const is_master = clustering_utils.check_if_master();
 
     await _verify_server_certificate();
     await _check_dns_and_phonehome();
     await _check_internal_ips();
     await _check_disk_space();
-
-    if (os_type === 'Linux') {
-        await _check_for_duplicate_ips();
-    }
 
     // Address auto detection should only run on master machine.
     if (is_master) {
@@ -167,38 +158,6 @@ function _check_dns_and_phonehome() {
         })
         .catch(err => dbg.warn('Error when trying to check dns and phonehome status.', err.stack || err));
 }
-
-function _check_for_duplicate_ips() {
-    dbg.log2('check_for_duplicate_ips');
-    if (os.type() !== 'Linux') return;
-    const nics = _.toPairs(_.omit(os.networkInterfaces(), 'lo'));
-    const collisions = [];
-    return P.map(nics, nic => {
-            const inter_name = nic[0];
-            const nic_info = nic[1];
-            return P.map(nic_info, ip => {
-                if (ip.family === 'IPv4') {
-                    return promise_utils.exec(`arping -D -I ${inter_name} -c 2 ${ip.address}`, {
-                            ignore_rc: false,
-                            return_stdout: true
-                        })
-                        .then(result => dbg.log2(`No duplicate address was found for ip ${ip.address} of interface ${inter_name}`, 'result:', result))
-                        .catch(() => {
-                            collisions.push(ip.address);
-                            Dispatcher.instance().alert('CRIT',
-                                system_store.data.systems[0]._id,
-                                `Duplicate address was found! IP: ${ip.address} ,Interface: ${inter_name}, Server: ${server_conf.heartbeat.health.os_info.hostname}
-                            ,please fix this issue as soon as possible`, Dispatcher.rules.once_daily);
-                            dbg.error(`Duplicate address was found for ip ${ip.address} of interface ${inter_name}`);
-                        });
-                }
-            });
-        })
-        .then(() => {
-            ip_collision = collisions;
-        });
-}
-
 
 function _check_internal_ips() {
     dbg.log2('_check_internal_ips');

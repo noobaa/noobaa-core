@@ -197,7 +197,6 @@ function get_cluster_info(rs_status) {
             timezone: cinfo.timezone,
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch,
-            ip_collision: cinfo.ip_collision
         };
 
         const status = cinfo.services_status;

@@ -59,7 +59,7 @@ function _mapServer(serverState, update, masterSecret, timestamp) {
         secret: update.secret,
         mode: update.status,
         version: update.version,
-        addresses: _mapAddresss(update),
+        addresses: _mapAddresses(update),
         timezone: update.timezone,
         locationTag: update.location,
         storage: mapApiStorage(update.storage),
@@ -74,11 +74,9 @@ function _mapServer(serverState, update, masterSecret, timestamp) {
     };
 }
 
-function _mapAddresss(update) {
-    const { addresses, ip_collision = [] } = update;
-    return addresses.map(addr => ({
-        ip: addr,
-        collision: ip_collision.includes(addr)
+function _mapAddresses(update) {
+    return update.addresses.map(addr => ({
+        ip: addr
     }));
 }
 

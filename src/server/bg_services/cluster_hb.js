@@ -100,7 +100,6 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     .then(status => {
                         if (status) {
                             update.services_status = status.services;
-                            update.ip_collision = status.ip_collision;
                         }
                         return system_store.make_changes({
                             update: {

@@ -254,12 +254,6 @@ module.exports = {
                 },
             }
         },
-        ip_collision: {
-            type: 'array',
-            items: {
-                type: 'string'
-            }
-        },
         services_status: {
             type: 'object',
             required: ['ph_status'],

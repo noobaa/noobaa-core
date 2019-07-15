@@ -193,7 +193,7 @@ spec:
                   name: noobaa-config-map
                   key: oauth_token_endpoint
                   optional: true
-            # replacing the empty value with any value will set the cotainer to dbg mode
+            # replacing the empty value with any value will set the container to dbg mode
             - name: container_dbg
               value: ""
         - name: mongodb

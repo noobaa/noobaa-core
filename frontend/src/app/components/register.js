@@ -41,7 +41,6 @@ import maintenanceSticky from './stickies/maintenance-sticky/maintenance-sticky'
 import phoneHomeConnectivitySticky from './stickies/phone-home-connectivity-sticky/phone-home-connectivity-sticky';
 import clusterAvailabilitySticky from './stickies/cluster-availability-sticky/cluster-availability-sticky';
 import preferedBrowsersSticky from './stickies/prefered-browsers-sticky/prefered-browsers-sticky';
-import ipCollisionSticky from './stickies/ip-collision-sticky/ip-collision-sticky';
 /** INJECT:stickies.import **/
 
 // -------------------------------
@@ -392,7 +391,6 @@ export default function register(ko, services) {
         phoneHomeConnectivitySticky,
         clusterAvailabilitySticky,
         preferedBrowsersSticky,
-        ipCollisionSticky,
         /** INJECT:stickies.list **/
 
         installNodesModal,

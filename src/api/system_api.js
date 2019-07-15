@@ -703,12 +703,6 @@ module.exports = {
                         },
                     },
                 },
-                ip_collision: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    }
-                },
                 services_status: {
                     $ref: '#/definitions/services_status'
                 },

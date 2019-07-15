@@ -805,18 +805,18 @@ class NodesMonitor extends EventEmitter {
 
         const id_collision = this._map_node_id.get(node_id);
         if (id_collision && id_collision !== item) {
-            dbg.error('NODE ID COLLISSION', node_id, item, id_collision);
-            throw new Error('NODE ID COLLISSION ' + node_id);
+            dbg.error('NODE ID COLLISION', node_id, item, id_collision);
+            throw new Error('NODE ID COLLISION ' + node_id);
         }
         const peer_id_collision = this._map_peer_id.get(peer_id);
         if (peer_id_collision && peer_id_collision !== item) {
-            dbg.error('NODE PEER ID COLLISSION', peer_id, item, peer_id_collision);
-            throw new Error('NODE PEER ID COLLISSION ' + peer_id);
+            dbg.error('NODE PEER ID COLLISION', peer_id, item, peer_id_collision);
+            throw new Error('NODE PEER ID COLLISION ' + peer_id);
         }
         const name_collision = this._map_node_name.get(name);
         if (name_collision && name_collision !== item) {
-            dbg.error('NODE NAME COLLISSION', name, item, name_collision);
-            throw new Error('NODE NAME COLLISSION ' + name);
+            dbg.error('NODE NAME COLLISION', name, item, name_collision);
+            throw new Error('NODE NAME COLLISION ' + name);
         }
 
         this._map_node_id.set(node_id, item);

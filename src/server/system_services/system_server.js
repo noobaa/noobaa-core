@@ -72,12 +72,12 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
 
 // called on rpc server init
 async function _init() {
-    const DEFUALT_DELAY = 5000;
+    const DEFAULT_DELAY = 5000;
     let update_done = false;
 
     while (!update_done) {
         try {
-            await promise_utils.delay_unblocking(DEFUALT_DELAY);
+            await promise_utils.delay_unblocking(DEFAULT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
                 const [system] = system_store.data.systems;
 
@@ -251,11 +251,9 @@ async function create_system(req) {
         email,
         password,
         must_change_password,
-        dns_servers,
     } = req.rpc_params;
 
     try {
-        const owner_secret = system_store.get_server_secret();
         const account_id = system_store.new_system_store_id();
         const changes = new_system_changes(name, account_id);
         const system_id = changes.insert.systems[0]._id;
@@ -293,7 +291,6 @@ async function create_system(req) {
 
         dbg.log0('create_system: ensuring internal pool structure');
         await _ensure_internal_structure(system_id);
-        await _configure_dns_servers(dns_servers, owner_secret, auth);
         await _configure_system_address(system_id, account_id);
         await _init_system(system_id);
 
@@ -350,20 +347,6 @@ async function _create_owner_account(
     return { auth_token };
 }
 
-async function _configure_dns_servers(dns_servers, owner_secret, auth) {
-    if (!_.isEmpty(dns_servers)) {
-        dbg.log0(`create_system: updating dns servers:`, dns_servers);
-        try {
-            await server_rpc.client.cluster_server.update_dns_servers({
-                target_secret: owner_secret,
-                dns_servers
-            }, auth);
-        } catch (err) {
-            dbg.error('create_system: Failed updating dns server during create system', err);
-        }
-    }
-}
-
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
         await os_utils.discover_k8s_services() :
@@ -391,7 +374,7 @@ async function _configure_system_address(system_id, account_id) {
     //         level: 'info',
     //         system: system_id,
     //         actor: account_id,
-    //         desc: `System addresss was set to `,
+    //         desc: `System addresses was set to `,
     //     });
     // }
 }
@@ -643,7 +626,7 @@ function set_maintenance_mode(req) {
         'dbg.maintenance_mode' : 'dbg.maintenance_mode_stopped';
     if (req.rpc_params.duration) {
         const d = moment.duration(req.rpc_params.duration, 'minutes');
-        audit_desc = `Maintanance mode activated for ${[
+        audit_desc = `Maintenance mode activated for ${[
             `${d.hours()} hour${d.hours() === 1 ? '' : 's'}`,
             `${d.minutes()} min${d.minutes() === 1 ? '' : 's'}`,
         ].join(' and ')}`;
@@ -988,7 +971,7 @@ function attempt_server_resolve(req) {
     let result;
     //If already in IP form, no need for resolving
     if (net.isIP(req.rpc_params.server_name)) {
-        dbg.log2('attempt_server_resolve recieved an IP form', req.rpc_params.server_name);
+        dbg.log2('attempt_server_resolve received an IP form', req.rpc_params.server_name);
         return P.resolve({ valid: true });
     }
 

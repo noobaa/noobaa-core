@@ -205,16 +205,6 @@ module.exports = {
             }
         },
 
-        apply_updated_dns_servers: {
-            method: 'POST',
-            params: {
-                $ref: '#/definitions/dns_servers_config'
-            },
-            auth: {
-                system: false,
-            }
-        },
-
         apply_set_debug_level: {
             method: 'POST',
             params: {
@@ -309,21 +299,5 @@ module.exports = {
                 },
             },
         },
-
-        dns_servers_config: {
-            type: 'object',
-            required: ['dns_servers'],
-            properties: {
-                target_secret: {
-                    type: 'string'
-                },
-                dns_servers: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    },
-                },
-            },
-        }
     },
 };

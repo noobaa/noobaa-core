@@ -65,16 +65,6 @@ module.exports = {
             },
         },
 
-        update_dns_servers: {
-            method: 'POST',
-            params: {
-                $ref: 'cluster_internal_api#/definitions/dns_servers_config'
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         set_debug_level: {
             method: 'POST',
             params: {

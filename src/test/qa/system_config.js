@@ -22,22 +22,16 @@ let errors = [];
 const {
     server_ip,
     skip_create_system = false,
-    primary_dns = '8.8.8.8',
-    secondery_dns = '8.8.4.4',
     udp_rsyslog_port = 5001,
     tcp_rsyslog_port = 514,
     skip_report = false,
     help = false
 } = argv;
 
-let configured_dns = [primary_dns, secondery_dns];
-
 function usage() {
     console.log(`
     --server_ip             -   noobaa server ip.
     --skip_create_system    -   will skip create system
-    --primary_dns           -   primary dns ip (default: ${primary_dns})
-    --secondery_dns         -   secondery dns ip (default: ${secondery_dns})
     --udp_rsyslog_port      -   udp rsyslog port (default: ${udp_rsyslog_port})
     --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
     --skip_report           -   will skip sending report to mongo
@@ -53,7 +47,6 @@ if (help) {
 
 let report = new Report();
 const cases = [
-    'set_DNS',
     'disable_Proxy',
     'set_maintenance_mode',
     'update_n2n_config_single_port',
@@ -66,68 +59,6 @@ report.init_reporter({ suite: test_name, conf: {}, mongo_report: true, cases: ca
 function saveErrorAndResume(message) {
     console.error(message);
     errors.push(message);
-}
-
-async function set_DNS_And_check() {
-    try {
-        console.log('Setting DNS', configured_dns);
-        await client.cluster_server.update_dns_servers({
-            dns_servers: configured_dns
-        });
-        console.log(`Sleeping for 30 sec`);
-        await P.delay(30 * 1000);
-        await verify_DNS_settings();
-        await verify_DNS_status();
-        await report.success(`set_DNS`);
-    } catch (e) {
-        failures_in_test = true;
-        await report.fail(`set_DNS`);
-    }
-}
-
-async function verify_DNS_settings() {
-    console.log('Waiting on Read system to verify DNS settings');
-    let dns;
-    for (let retries = 5; retries >= 0; --retries) {
-        try {
-            const server_config = await client.cluster_server.read_server_config({});
-            console.log('Read server ready !!!!', server_config);
-            dns = server_config.dns_servers;
-            break;
-        } catch (e) {
-            console.log(`waiting for read server config, will retry extra ${retries} times`);
-            await P.delay(15 * 1000);
-        }
-    }
-    if (_.isEqual(dns, configured_dns)) {
-        console.log(`The defined dns is ${dns} - as should`);
-    } else {
-        saveErrorAndResume(`The defined dns is ${dns}`);
-        throw new Error('Test DNS Failed');
-    }
-}
-
-async function verify_DNS_status() {
-    console.log('Waiting on Read system to verify DNS status');
-    const base_time = Date.now();
-    let dns_status;
-    while (Date.now() - base_time < 65 * 1000) {
-        try {
-            const system_info = await client.system.read_system({});
-            dns_status = system_info.cluster.shards[0].servers[0].services_status.dns_servers;
-            if (dns_status) break;
-        } catch (e) {
-            console.log('waiting for read systme, will sleep for 15 seconds');
-            await P.delay(15 * 1000);
-        }
-    }
-
-    if (dns_status === 'OPERATIONAL') {
-        console.log('The service monitor see the dns status as OPERATIONAL - as should');
-    } else {
-        saveErrorAndResume(`The service monitor see the dns status as ${dns_status}`);
-        throw new Error('Test DNS Failed');
-    }
 }
 
 async function check_maintenance_mode(expected_mode) {
@@ -306,7 +237,6 @@ async function main() {
             await server_ops.clean_ova_and_create_system(server_ip, secret);
             await set_rpc_and_create_auth_token();
         }
-        await set_DNS_And_check();
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();

@@ -709,93 +709,6 @@ function redirect_to_cluster_master(req) {
         });
 }
 
-function update_dns_servers(req) {
-    var dns_servers_config = req.rpc_params;
-    var target_servers = [];
-    const local_info = system_store.get_local_cluster_info(true);
-    return P.fcall(function() {
-            if (dns_servers_config.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
-                if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
-                        dns_servers_config.target_secret, ' was not found');
-                }
-                target_servers.push(cluster_server);
-            } else {
-                let current;
-                _.each(system_store.data.clusters, cluster => {
-                    //Run current last since we restart the server, we want to make sure
-                    //all other server were dispatched to
-                    if (system_store.get_server_secret() === cluster.owner_secret) {
-                        current = cluster;
-                    } else {
-                        target_servers.push(cluster);
-                    }
-                });
-                if (current) {
-                    target_servers.push(current);
-                }
-            }
-            if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
-                throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
-            }
-            if (local_info.is_clusterized && !target_servers.every(server => {
-                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
-                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
-                })) {
-                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
-            }
-            const config_to_compare = [
-                dns_servers_config.dns_servers || [],
-            ];
-            // don't update servers that already have the dame configuration
-            target_servers = target_servers.filter(srv => {
-                const { dns_servers = [] } = srv;
-                return !_.isEqual(config_to_compare, [dns_servers]);
-            });
-            if (!target_servers.length) {
-                dbg.log0(`DNS changes are the same as current configuration. skipping`);
-                throw new Error('NO_CHANGE');
-            }
-            let updates = _.map(target_servers, server => _.omitBy({
-                _id: server._id,
-                dns_servers: dns_servers_config.dns_servers
-            }, _.isUndefined));
-            return system_store.make_changes({
-                update: {
-                    clusters: updates,
-                }
-            });
-        })
-        .then(() => P.each(target_servers, function(server) {
-            return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                address: server_rpc.get_base_address(server.owner_address)
-            });
-        }))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_servers',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: _.isEmpty(dns_servers_config.dns_servers) ?
-                    `DNS servers cleared` : `DNS servers set to: ${dns_servers_config.dns_servers.join(', ')}`
-            });
-        })
-        .catch(err => {
-            if (err.message !== 'NO_CHANGE') throw err;
-        })
-        .return();
-}
-
-
-function apply_updated_dns_servers(req) {
-    return P.resolve()
-        .then(() => os_utils.set_dns_config(req.rpc_params.dns_servers))
-        .return();
-}
-
-
 function set_debug_level(req) {
     dbg.log0('Recieved set_debug_level req', req.rpc_params);
     var debug_params = req.rpc_params;
@@ -1571,8 +1484,6 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.update_dns_servers = update_dns_servers;
-exports.apply_updated_dns_servers = apply_updated_dns_servers;
 exports.set_debug_level = set_debug_level;
 exports.apply_set_debug_level = apply_set_debug_level;
 exports.diagnose_system = diagnose_system;

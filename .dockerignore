@@ -12,6 +12,7 @@ heapdump-*
 .vscode/
 jsconfig.json
 .nyc_output/
+*Dockerfile
 
 ## go ignored files
 /gocode/pkg

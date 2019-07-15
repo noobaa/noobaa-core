@@ -23,6 +23,8 @@ function start_mongo() {
     PID=$!
 }
 
+PATH=$PATH:/noobaa-core/node_modules/.bin
+
 trap cleanup 1 2
 
 start_mongo

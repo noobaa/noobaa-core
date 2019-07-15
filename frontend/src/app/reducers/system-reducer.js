@@ -133,10 +133,11 @@ function onFailCollectSystemDiagnostics(state) {
 function _mapUpgrade(payload) {
     const { last_upgrade } = payload.upgrade;
 
+    // DZDZ - hardcoded initiator - not relevant anymore
     return {
         lastUpgrade: last_upgrade && {
             time:last_upgrade.timestamp,
-            initiator: last_upgrade.last_initiator_email
+            initiator: 'operator@noobaa.io'
         }
     };
 }

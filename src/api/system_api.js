@@ -502,14 +502,9 @@ module.exports = {
                             properties: {
                                 timestamp: {
                                     idate: true
-                                },
-                                last_initiator_email: { $ref: 'common_api#/definitions/email' },
+                                }
                             }
-                        },
-                        can_upload_upgrade_package: {
-                            type: 'string',
-                            enum: ['NOT_ALL_MEMBERS_UP', 'NOT_ENOUGH_SPACE', 'VERSION_MISMATCH']
-                        },
+                        }
                     },
                 },
                 cluster: {

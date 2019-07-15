@@ -172,6 +172,11 @@ function new_system_defaults(name, owner_account_id) {
             phone_home_upgraded: false,
             phone_home_notified: false,
             cap_terabytes: 20
+        },
+        current_version: pkg.version,
+        upgrade_history: {
+            successful_upgrades: [],
+            last_failure: undefined
         }
     };
     return system;
@@ -504,9 +509,8 @@ function read_system(req) {
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
 
-        let last_upgrade = system.last_upgrade && {
-            timestamp: system.last_upgrade.timestamp,
-            last_initiator_email: system.last_upgrade.initiator
+        let last_upgrade = system.upgrade_history.successful_upgrades[0] && {
+            timestamp: system.upgrade_history.successful_upgrades[0].timestamp
         };
 
         const stats_by_bucket = _.keyBy(buckets_stats, stats => _.get(system_store.data.get_by_id(stats._id), 'name'));
@@ -578,10 +582,7 @@ function read_system(req) {
             system_cap: system_cap,
             has_ssl_cert: has_ssl_cert,
             cluster: cluster_info,
-            upgrade: {
-                last_upgrade: last_upgrade,
-                can_upload_upgrade_package: _get_upgrade_availability_status(cluster_info)
-            },
+            upgrade: { last_upgrade },
             defaults: {
                 tiers: {
                     data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
@@ -593,20 +594,6 @@ function read_system(req) {
             platform_restrictions: restrict[process.env.PLATFORM || 'dev'] // dev will be default for now
         };
     });
-}
-
-function _get_upgrade_availability_status(cluster_info) {
-    // fill cluster information if we have a cluster.
-    const servers = _.flatMap(cluster_info.shards, shard => shard.servers);
-    const not_all_member_up = servers.some(server => server.status !== 'CONNECTED'); // Must be connected
-    const not_enough_space = servers.some(server => server.storage.free < config.MIN_MEMORY_FOR_UPGRADE); // Must have at least 300MB free
-    const version_mismatch = servers.some(server => server.version !== servers[0].version); // Must be of the same version.
-    return (
-        (not_all_member_up && 'NOT_ALL_MEMBERS_UP') ||
-        (not_enough_space && 'NOT_ENOUGH_SPACE') ||
-        (version_mismatch && 'VERSION_MISMATCH') ||
-        undefined
-    );
 }
 
 function update_system(req) {

@@ -13,6 +13,13 @@ start() {
         path="/noobaa_init_files/"
     fi
     ${path}/noobaa_init.sh
+    # abort pod start if noobaa_init fails
+    rc=$?
+    if [ ${rc} -ne 0 ]; then
+        echo "noobaa_init failed with exit code ${rc}. aborting"
+        exit ${rc}
+    fi
+
 
     if [ ! -x "$SUPERVISORD" ]; then
         echo "$SUPERVISORD is not executable."

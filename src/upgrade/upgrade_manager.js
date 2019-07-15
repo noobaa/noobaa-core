@@ -1,312 +1,186 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
+
 const argv = require('minimist')(process.argv);
+const _ = require('lodash');
+const pkg = require('../../package.json');
+const fs = require('fs');
+const path = require('path');
 
-const promise_utils = require('../util/promise_utils');
-const mongo_client = require('../util/mongo_client');
 const system_store = require('../server/system_services/system_store').get_instance({ standalone: true });
-const dbg = require('../util/debug_module')(__filename);
-const supervisor = require('../server/utils/supervisor_ctrl');
-const platform_upgrade = require('./platform_upgrade');
-const dotenv = require('../util/dotenv');
+const dbg = require('../util/debug_module')('UPGRADE');
+const mongo_client = require('../util/mongo_client');
 
-const REQUIRED_MONGODB_VERSION = '3.6.3';
+function parse_ver(ver) {
+    const stripped_ver = ver.split('-')[0];
+    return stripped_ver.split('.').map(i => Number.parseInt(i, 10));
+}
 
-dbg.set_process_name('UpgradeManager');
+const { upgrade_scripts_dir } = argv;
 
-class UpgradeManager {
 
-    constructor(options) {
-        this.cluster = options.cluster;
-        this.old_version = options.old_version;
-        this.unmanaged_upgrade = options.unmanaged_upgrade;
+// compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
+function version_compare(ver1, ver2) {
+    const ver1_arr = parse_ver(ver1);
+    const ver2_arr = parse_ver(ver2);
+    const max_length = Math.max(ver1_arr.length, ver2_arr.length);
+    for (let i = 0; i < max_length; ++i) {
+        const comp1 = ver1_arr[i] || 0;
+        const comp2 = ver2_arr[i] || 0;
+        const diff = comp1 - comp2;
+        // if version component is not the same, return the difference
+        if (diff) return diff;
     }
-
-    async init() {
-        await this.init_upgrade_info();
-
-        // define the upgrade stages order.
-        // upgrade stages will run one by one serially by run_upgrade_stages
-        this.UPGRADE_STAGES = Object.freeze([{
-                // stop services
-                name: 'START_UPGRADE',
-                func: () => this.start_upgrade_stage(),
-                should_run_unmanaged: false
-            }, {
-                name: 'COPY_NEW_CODE',
-                func: () => this.copy_new_code_stage(),
-                rollback_on_error: true,
-                should_run_unmanaged: false
-            }, {
-                // from this stage forward rollback is not trivial since we are changing platform components, services,
-                // DB version (possibly) and DB schemas. 
-                // TODO: better handling of failures in this stage. currently just log and set to DB.
-                name: 'UPGRADE_PLATFORM',
-                func: () => this.upgrade_platform_stage(),
-                should_run_unmanaged: false
-            },
-            // currently upgrade is being run serially on all cluster members so running
-            // UPDATE_SERVICES and UPGRADE_MONGODB_VER does not need synchronization here.
-            // TODO: we can and should run the upgrade stages in parallel up to this point
-            // and only sync the next 2 stages to run serially.
-            {
-                name: 'UPDATE_SERVICES',
-                func: () => this.update_services_stage(),
-                should_run_unmanaged: true
-            }, {
-                name: 'UPGRADE_MONGODB_VER',
-                func: () => this.upgrade_mongodb_version_stage(),
-                should_run_unmanaged: false
-            }, {
-                name: 'UPGRADE_MONGODB_SCHEMAS',
-                func: () => this.upgrade_mongodb_schemas_stage(),
-                should_run_unmanaged: true
-            }, {
-                name: 'UPDATE_DATA_VERSION',
-                func: () => this.update_data_version(),
-                should_run_unmanaged: true
-            }, {
-                name: 'UPGRADE_AGENTS',
-                func: () => this.upgrade_agents(),
-                ignore_errors: true,
-                should_run_unmanaged: true
-            }, {
-                name: 'CLEANUP',
-                func: () => this.cleanup_stage(),
-                ignore_errors: true,
-                should_run_unmanaged: false
-            },
-        ]);
-    }
-
-    // get the last stored upgrade stage and other information
-    async init_upgrade_info() {
-        this.upgrade_info = await platform_upgrade.get_upgrade_info();
-        if (!this.upgrade_info) {
-            dbg.log0('did not find a previously stored upgrade_info. initializing from DB');
-            let server = system_store.get_local_cluster_info();
-            const upgrade_info = server.upgrade;
-            dbg.log0('UPGRADE: upgrade info in db:', upgrade_info);
-            this.upgrade_info = {
-                stage: 'START_UPGRADE',
-                ip: server.owner_address,
-                should_upgrade_schemas: upgrade_info.mongo_upgrade
-            };
-            dbg.log0('initialized upgrade_');
-        }
-        dbg.log0('upgrade info:', this.upgrade_info);
-    }
+    return 0;
+}
 
 
-    async end_upgrade(params = {}) {
 
-        dbg.log0('UPGRADE: ending upgrade process. removing upgrade_manager from supervisor.conf');
-        try {
-            if (!params.aborted) {
-                await this.update_db({ 'upgrade.stage': 'UPGRADE_COMPLETED', 'upgrade.status': 'COMPLETED' });
-            }
-        } catch (err) {
-            dbg.error('UPGRADE: failed updating DB with UPGRADE_COMPLETED');
-        }
-        dbg.log0('UPGRADE: setting services to autostart');
-
-        const srv_to_stop = await platform_upgrade.stopped_services_during_upgrade();
-        await supervisor.update_services_autostart(srv_to_stop, true);
-        await supervisor.apply_changes();
-
-        await platform_upgrade.start_services();
-
-        dbg.log0('UPGRADE: removing upgrade_manager from supervisor config');
-        await supervisor.remove_program('upgrade_manager');
-        dbg.log0('UPGRADE: applying supervisor conf changes. upgrade manager should exit now');
-        await supervisor.apply_changes();
-
-    }
-
-    async abort_upgrade(params) {
-        try {
-            dbg.error('UPGRADE FAILED ¯\\_(ツ)_/¯');
-            dbg.error('aborting upgrade with params', params);
-            const update = {
-                'upgrade.status': 'UPGRADE_FAILED',
-                'upgrade.error': params.error,
-                'upgrade.stage': 'UPGRADE_ABORTED'
-            };
-            try {
-                await this.update_db(update);
-            } catch (err) {
-                dbg.error('UPGRADE: failed updating DB with', update);
-            }
-
-            if (params.rollback) {
-                dbg.warn('UPGRADE: restoring previous version');
-                try {
-                    await platform_upgrade.restore_old_version();
-                } catch (err) {
-                    dbg.error(`UPGRADE: failed restoring back to old version ${this.old_version}`);
-                }
-            }
-        } catch (err) {
-            dbg.error('UPGRADE: got error while aborting upgrade', err);
-        }
-
-        await this.end_upgrade({ aborted: true });
-    }
-
-    async get_mongo_db_version() {
-        try {
-            const res = await promise_utils.exec(`mongod --version | head -n 1`, {
-                return_stdout: true
-            });
-            if (!res.startsWith('db version v')) {
-                throw new Error(`unexpected version output. got ${res}`);
-            }
-            return res.replace('db version v', '');
-        } catch (err) {
-            dbg.error(`got error when trying to get mongodb version`, err);
-            throw err;
-        }
-    }
-
-    async update_db(updates) {
-
-        let server = system_store.get_local_cluster_info(); //Update path in DB
-        const update = {
-            clusters: [{
-                _id: server._id,
-                $set: updates
-            }]
-        };
-        dbg.log0('UPGRADE: updating upgrade in db', updates);
-        await system_store.make_changes_with_retries({ update }, {
-            max_retries: 60,
-            delay: 5000
-        });
-    }
-
-    async set_upgrade_info(stage) {
-        this.upgrade_info.stage = stage;
-        await platform_upgrade.set_upgrade_info(this.upgrade_info);
-    }
-
-    async start_upgrade_stage() {
-        await platform_upgrade.stop_services();
-        await platform_upgrade.platform_upgrade_init();
-    }
-
-    async copy_new_code_stage() {
-        await platform_upgrade.copy_new_code();
-    }
-
-    async upgrade_platform_stage() {
-        await platform_upgrade.run_platform_upgrade_steps(this.old_version);
-    }
-
-    async update_services_stage() {
-        await platform_upgrade.update_services(this.old_version);
-    }
-
-    async upgrade_mongodb_version_stage() {
-        const mongo_version = await this.get_mongo_db_version();
-        this.upgrade_mongodb = platform_upgrade.version_compare(mongo_version, REQUIRED_MONGODB_VERSION) < 0;
-        dbg.log0(`UPGRADE: current mongodb version is ${mongo_version}, required mongodb version is ${REQUIRED_MONGODB_VERSION}`,
-            this.upgrade_mongodb ? 'upgrading to required version' : 'upgrade is not required');
-        await platform_upgrade.upgrade_mongodb_version({
-            should_upgrade_mongodb: this.upgrade_mongodb,
-            required_mongodb_version: REQUIRED_MONGODB_VERSION,
-            is_cluster: this.cluster,
-            ip: this.owner_address
-        });
-    }
-
-    async upgrade_mongodb_schemas_stage() {
-        const [major, minor] = REQUIRED_MONGODB_VERSION.split('.');
-        const feature_version = [major, minor].join('.');
-        await platform_upgrade.upgrade_mongodb_schemas({
-            is_cluster: this.cluster,
-            should_upgrade_schemas: this.upgrade_info.should_upgrade_schemas,
-            mongodb_upgraded: this.upgrade_mongodb,
-            feature_version,
-            old_version: this.old_version,
-            ip: this.upgrade_info.ip
-        });
-    }
-
-    async update_data_version() {
-        await platform_upgrade.update_data_version();
-    }
-
-    async upgrade_agents() {
-        await platform_upgrade.upgrade_agents();
-    }
-
-    async cleanup_stage() {
-        await platform_upgrade.after_upgrade_cleanup();
-    }
-
-    async run_upgrade_stages() {
-        // Run upgrade stage by stage. each stage marks the next stage in DB
-        for (let i = 0; i < this.UPGRADE_STAGES.length; ++i) {
-            const stage = this.UPGRADE_STAGES[i];
-            if (this.upgrade_info.stage === stage.name) {
-                try {
-                    if (!this.unmanaged_upgrade || stage.should_run_unmanaged) {
-                        dbg.log0(`UPGRADE: running upgrade stage - ${stage.name}`);
-                        await stage.func();
-                        dbg.log0(`UPGRADE: succesfully completed upgrade stage - ${stage.name}`);
-                    } else {
-                        dbg.log0(`UPGRADE: skipping stage in unmanaged upgrade - ${stage.name}`);
-                    }
-                    if (i < this.UPGRADE_STAGES.length - 1) {
-                        // if we are not in the last stage - advance to next stage
-                        const next_stage = this.UPGRADE_STAGES[i + 1].name;
-                        await this.set_upgrade_info(next_stage);
-                    }
-                } catch (err) {
-                    dbg.error(`UPGRADE: got error on upgrade stage - ${stage.name}`, err);
-                    if (stage.ignore_errors) {
-                        dbg.warn(`UPGRADE: ignoring error for stage ${stage.name}`);
-                    } else {
-                        dbg.error(`UPGRADE: ABORT UPGRADE on stage ${stage.name}`);
-                        await this.abort_upgrade({
-                            error: err.message,
-                            rollback: stage.rollback_on_error
-                        });
-                        throw err;
-                    }
-                }
-            }
-        }
-    }
-
-    async do_upgrade() {
-        dbg.log0('UPGRADE: waiting for system_store to load');
-        await promise_utils.wait_for_event(system_store, 'load');
-        dbg.log0('UPGRADE: system_store loaded. starting do_upgrade flow');
-
-        await this.init();
-        await this.run_upgrade_stages();
-
-        dbg.log0('UPGRADE: upgrade completed successfully :)');
-        await this.end_upgrade();
+async function init() {
+    try {
+        dbg.log0('waiting for system_store to load');
+        await mongo_client.instance().connect();
+        await system_store.load();
+        dbg.log0('system store loaded');
+    } catch (err) {
+        dbg.error('failed to load system store!!', err);
+        throw err;
     }
 }
 
 
-async function main() {
-    await platform_upgrade.build_dotenv();
-    dotenv.load();
-    mongo_client.instance().connect();
-    system_store.load();
-    dbg.log0('UPGRADE: Started upgrade manager with arguments:', argv);
-    const upgrade_manager = new UpgradeManager({
-        cluster: argv.cluster_str === 'cluster',
-        old_version: argv.old_version,
-        unmanaged_upgrade: argv.unmanaged === 'true',
+function should_upgrade(server_version, container_version) {
+    if (!server_version) {
+        dbg.log('system does not exist. no need for an upgrade');
+        return false;
+    }
+    const ver_comparison = version_compare(container_version, server_version);
+    if (ver_comparison === 0) {
+        if (server_version !== container_version) {
+            dbg.warn(`the container and server appear to be the same version but different builds. (container: ${container_version}), (server: ${server_version})`);
+            dbg.warn(`upgrade is not supported for different builds of the same version!!`);
+        }
+        dbg.log0('the versions of the container and the server match. no need to upgrade');
+        return false;
+    } else if (ver_comparison < 0) {
+        // container version is older than the server version - can't downgrade
+        dbg.error(`the container version (${container_version}) appear to be older than the current server version (${server_version}). cannot downgrade`);
+        throw new Error('attempt to run old container version with newer server version');
+    } else {
+        dbg.log0(`container version is ${container_version} and server version is ${server_version}. will upgrade`);
+        return true;
+    }
+}
+
+
+// load all scripts that should be run according to the given versions
+async function load_required_scripts(server_version, container_version) {
+    // expecting scripts directories to be in a semver format. e.g. ./upgrade_scripts/5.0.1
+    const newer_versions = fs.readdirSync(upgrade_scripts_dir)
+        .filter(ver => // get all dirs for versions newer than server_version
+            version_compare(ver, server_version) > 0 &&
+            version_compare(ver, container_version) < 0)
+        .sort(version_compare);
+    dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${server_version}):`, newer_versions);
+    // get all scripts under new_versions
+    let upgrade_scripts = await _.flatMap(newer_versions, ver => {
+        const full_path = path.join(upgrade_scripts_dir, ver);
+        const scripts = fs.readdirSync(full_path);
+        return scripts.map(script => path.join(full_path, script));
     });
 
-    await upgrade_manager.do_upgrade();
+    // TODO: we might want to filter out scripts that have run in a previous run of upgrade(e.g. in case of a crash)
+    // for now assume that any upgrade script can be rerun safely
+
+    // for each script load the js file. expecting the export to return an object in the format
+    // {
+    //      description: 'what this upgrade script does'
+    //      run: run_func,
+    // }
+    return upgrade_scripts.map(script => ({
+        ...require(script), // eslint-disable-line global-require
+        file: script
+    }));
+}
+
+
+async function run_upgrade() {
+    try {
+        await init();
+    } catch (error) {
+        dbg.error('failed to init upgrade process!!');
+        process.exit(1);
+    }
+
+    let exit_code = 0;
+    const container_version = pkg.version;
+    let server_version = _.get(system_store, 'data.systems.0.current_version');
+    let current_version = server_version;
+    if (should_upgrade(server_version, container_version)) {
+        const this_upgrade = {
+            timestamp: Date.now(),
+            completed_scripts: [],
+            from_version: server_version,
+            to_version: container_version
+        };
+        let upgrade_history = system_store.data.systems[0].upgrade_history;
+        try {
+            const upgrade_scripts = await load_required_scripts(server_version, container_version);
+            for (const script of upgrade_scripts) {
+                dbg.log0(`running upgrade script ${script.file}: ${script.description}`);
+                try {
+                    await script.run({ dbg, mongo_client, system_store });
+                    this_upgrade.completed_scripts.push(script.file);
+                } catch (err) {
+                    dbg.log0(`failed running upgrade script ${script.file}`, err);
+                    this_upgrade.error = err.stack;
+                    throw err;
+                }
+            }
+            upgrade_history.successful_upgrades = [this_upgrade, ...upgrade_history.successful_upgrades];
+            current_version = container_version;
+        } catch (err) {
+            dbg.error('upgrade manager failed!!!', err);
+            exit_code = 1;
+            if (upgrade_history) {
+                upgrade_history.last_failure = this_upgrade;
+                upgrade_history.last_failure.error = err.stack;
+            }
+        }
+        // update upgrade_history
+        try {
+            await system_store.make_changes_with_retries({
+                update: {
+                    systems: [{
+                        _id: system_store.data.systems[0]._id,
+                        $set: { upgrade_history, current_version }
+                    }]
+                }
+            }, { max_retries: 10, delay: 30000 });
+        } catch (error) {
+            dbg.error('failed to update system_store with upgrade information');
+            exit_code = 1;
+        }
+    }
+    return exit_code;
+}
+
+async function main() {
+    if (!upgrade_scripts_dir) {
+        dbg.error('--upgrade_scripts_dir argument must be provided');
+        process.exit(1);
+    }
+    dbg.log0('upgrade manager started..');
+    let exit_code = 0;
+    try {
+        exit_code = await run_upgrade();
+        dbg.log0('upgrade completed successfully!');
+    } catch (err) {
+        dbg.error('upgrade failed!!', err);
+        exit_code = 1;
+    }
+    process.exit(exit_code);
 }
 
 if (require.main === module) {

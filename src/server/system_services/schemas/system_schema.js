@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const SensitiveString = require('../../../util/sensitive_string');
-
 module.exports = {
     id: 'system_schema',
     type: 'object',
@@ -156,17 +154,65 @@ module.exports = {
             }
         },
 
-        //Last upgrade information
-        last_upgrade: {
+
+        current_version: {
+            type: 'string'
+        },
+
+        //history of past upgrades
+        upgrade_history: {
             type: 'object',
             properties: {
-                timestamp: {
-                    idate: true
+                successful_upgrades: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            timestamp: {
+                                idate: true
+                            },
+                            from_version: {
+                                type: 'string'
+                            },
+                            to_version: {
+                                type: 'string'
+                            },
+                            // upgrade scripts that were run during the upgrade process
+                            completed_scripts: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+
                 },
-                initiator: {
-                    wrapper: SensitiveString
+                last_failure: {
+                    type: 'object',
+                    properties: {
+                        timestamp: {
+                            idate: true
+                        },
+                        from_version: {
+                            type: 'string'
+                        },
+                        to_version: {
+                            type: 'string'
+                        },
+                        // upgrade scripts that were run during the upgrade process
+                        completed_scripts: {
+                            type: 'array',
+                            items: {
+                                type: 'string'
+                            }
+                        },
+                        error: {
+                            type: 'string'
+                        }
+                    }
                 }
-            }
+            },
         }
     }
 };

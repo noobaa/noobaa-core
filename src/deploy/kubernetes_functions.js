@@ -257,7 +257,7 @@ class KubernetesFunctions {
         } else if (this.node_ip) {
             return { address: this.node_ip, port: ports };
         } else {
-            console.log('waiting for exeternal ips to be allocated. may take some time..');
+            console.log('waiting for external ips to be allocated. may take some time..');
             // 20 minutes timeout by default
             return P.resolve()
                 .then(async () => {

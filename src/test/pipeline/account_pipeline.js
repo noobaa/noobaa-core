@@ -60,13 +60,12 @@ async function main() {
             suite_name: 'accounts',
             cases: [
                 'upgrade',
-                'clean_ova',
                 'create_system'
             ]
         });
         path = set_code_path('latest');
         await run_account_test(path, ['--cycles', 1, '--accounts_number', 2]);
-        await server_ops.clean_ova_and_create_system(TEST_CFG.server_ip, TEST_CFG.server_secret);
+        //TODO: restart the env
         await run_account_test(path, []);
         process.exit(0);
     } catch (e) {

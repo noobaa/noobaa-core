@@ -44,26 +44,6 @@ async function enable_noobaa_login(server_ip, secret) {
     await ssh.ssh_stick(client_ssh);
 }
 
-//will run clean_ova and reboot the server
-async function clean_ova(server_ip, secret) {
-    try {
-        const client_ssh = await ssh.ssh_connect({
-            host: server_ip,
-            //  port: 22,
-            username: 'noobaaroot',
-            password: secret,
-            keepaliveInterval: 5000,
-        });
-        await ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
-        await ssh.ssh_exec(client_ssh, 'sudo reboot -fn', true);
-        await client_ssh.end();
-        await report.success('clean_ova');
-    } catch (e) {
-        await report.fail('clean_ova');
-        throw new Error(`clean_ova failed: ${e}`);
-    }
-}
-
 async function remove_swap_on_azure(server_ip, secret) {
     try {
         const client_ssh = await ssh.ssh_connect({
@@ -150,28 +130,8 @@ async function create_system(server_ip, port, protocol) {
     }
 }
 
-
-async function clean_ova_and_create_system(server_ip, secret) {
-    try {
-        await clean_ova(server_ip, secret);
-    } catch (e) {
-        throw new Error('clean_ova::' + e);
-    }
-    try {
-        await wait_server_reconnect(server_ip);
-    } catch (e) {
-        throw new Error('wait_server_reconnect::' + e);
-    }
-    try {
-        await create_system_and_check(server_ip);
-    } catch (e) {
-        throw new Error('create_system_and_check::' + e);
-    }
-}
-
-
 // use account status as indication for system ready after create system
-async function wait_for_system_ready(server_ip, port, protocol, timeout = 120000) {
+async function wait_for_system_ready(server_ip, port, protocol, timeout = 600 * 1000) {
     let has_account;
     const base_time = Date.now();
     while (Date.now() - base_time < timeout) {
@@ -302,10 +262,8 @@ async function get_num_optimal_agents(server_ip, port) {
 }
 
 exports.enable_noobaa_login = enable_noobaa_login;
-exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
 exports.create_system_and_check = create_system_and_check;
-exports.clean_ova_and_create_system = clean_ova_and_create_system;
 exports.init_reporter = init_reporter;
 exports.add_server_to_cluster = add_server_to_cluster;
 exports.remove_swap_on_azure = remove_swap_on_azure;

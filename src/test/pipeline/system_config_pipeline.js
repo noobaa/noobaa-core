@@ -42,7 +42,7 @@ async function main() {
     console.log(`running ${js_script} flow in the pipeline`);
     try {
         let path = set_code_path(TEST_CFG.version);
-        const flags = ['--skip_create_system'];
+        const flags = [];
         try {
             if (TEST_CFG.version !== 'latest') {
                 flags.push('--skip_report');

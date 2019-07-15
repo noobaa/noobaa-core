@@ -28,7 +28,7 @@ ifeq ($(SUPPRESS_LOGS), true)
 else
 	docker build -f src/deploy/NVA_build/Base.Dockerfile -t $(NOOBAA_BASE_TAG) .
 endif
-	@echo "\033[1;34mBuilder done.\033[0m"
+	@echo "\033[1;34mBase done.\033[0m"
 .PHONY: base
 
 tester: base noobaa

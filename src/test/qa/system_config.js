@@ -20,20 +20,16 @@ let failures_in_test = false;
 let errors = [];
 
 const {
-    server_ip,
-    skip_create_system = false,
-    udp_rsyslog_port = 5001,
-    tcp_rsyslog_port = 514,
+    mgmt_ip,
+    mgmt_port_https,
     skip_report = false,
     help = false
 } = argv;
 
 function usage() {
     console.log(`
-    --server_ip             -   noobaa server ip.
-    --skip_create_system    -   will skip create system
-    --udp_rsyslog_port      -   udp rsyslog port (default: ${udp_rsyslog_port})
-    --tcp_rsyslog_port      -   tcp rsyslog port (default: ${tcp_rsyslog_port})
+    --mgmt_ip               -   noobaa server management ip.
+    --mgmt_port_https       -   noobaa server management https port
     --skip_report           -   will skip sending report to mongo
     --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
@@ -47,7 +43,6 @@ if (help) {
 
 let report = new Report();
 const cases = [
-    'disable_Proxy',
     'set_maintenance_mode',
     'update_n2n_config_single_port',
     'update_n2n_config_range',
@@ -202,7 +197,7 @@ async function set_diagnose_system_and_check() {
 }
 
 async function set_rpc_and_create_auth_token() {
-    rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
+    rpc = api.new_rpc_from_base_address('wss://' + mgmt_ip + ':' + mgmt_port_https, 'EXTERNAL');
     client = rpc.new_client({});
     let auth_params = {
         email: 'demo@noobaa.com',
@@ -218,25 +213,15 @@ async function main() {
             report.pause();
         }
         await set_rpc_and_create_auth_token();
-        let system_info = await client.system.read_system({});
-        let secret = system_info.cluster.shards[0].servers[0].secret;
-        console.log('Secret is ' + secret);
         rpc.disconnect_all();
 
         server_ops.init_reporter({
             suite_name: 'system_config',
             cases: [
-                'clean_ova',
                 'create_system'
             ]
         });
 
-        if (skip_create_system) {
-            console.log(`Skipping clean ova and create system`);
-        } else {
-            await server_ops.clean_ova_and_create_system(server_ip, secret);
-            await set_rpc_and_create_auth_token();
-        }
         await set_maintenance_mode_and_check();
         await update_n2n_config_and_check();
         await set_debug_level_and_check();

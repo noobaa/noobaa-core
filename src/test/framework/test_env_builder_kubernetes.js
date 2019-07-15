@@ -117,7 +117,7 @@ async function build_env(kf, params) {
         // create system 
         const { address: mgmt_address, ports: mgmt_ports } = server_details.services.mgmt;
         const { address: s3_address, ports: s3_ports } = server_details.services.s3;
-        console.log('wating for system to be ready');
+        console.log('waiting for system to be ready');
         await server_functions.wait_for_system_ready(mgmt_address, mgmt_ports['mgmt-https'], 'wss');
 
         const pool_name = 'first.pool';

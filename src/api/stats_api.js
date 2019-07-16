@@ -264,12 +264,6 @@ module.exports = {
                                     dns_search: {
                                         type: 'integer'
                                     },
-                                    ntp_server: {
-                                        type: 'boolean'
-                                    },
-                                    proxy: {
-                                        type: 'boolean'
-                                    },
                                 }
                             }
                         }

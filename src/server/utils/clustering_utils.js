@@ -194,11 +194,9 @@ function get_cluster_info(rs_status) {
                 level: cinfo.debug_level,
                 time_left: debug_time
             }, _.isUndefined),
-            ntp_server: cinfo.ntp && cinfo.ntp.server,
-            timezone: cinfo.ntp && cinfo.ntp.timezone,
+            timezone: cinfo.timezone,
             dns_servers: cinfo.dns_servers || [],
             time_epoch: time_epoch,
-            ip_collision: cinfo.ip_collision
         };
 
         const status = cinfo.services_status;
@@ -207,8 +205,6 @@ function get_cluster_info(rs_status) {
                 dns_servers: status.dns_status,
                 dns_name_resolution: status.dns_name,
                 phonehome_server: status.ph_status,
-                phonehome_proxy: status.proxy_status,
-                ntp_server: status.ntp_status,
                 cluster_communication: {
                     test_completed: status.cluster_status !== 'UNKNOWN',
                     results: status.cluster_status === 'UNKNOWN' ? undefined : status.cluster_status

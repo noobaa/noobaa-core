@@ -19,8 +19,7 @@ dbg.set_process_name('test_env_builder_k8s');
 const {
     context,
     output_dir = os.tmpdir(),
-    server_image,
-    agent_image,
+    image,
     noobaa_core_yaml = "src/deploy/NVA_build/noobaa_core.yaml",
     tests_list,
     single_test,
@@ -68,7 +67,7 @@ function print_usage() {
 
 
 /**
- * retruns array of env vars passed in argv, in the format [{name, value}]
+ * returns array of env vars passed in argv, in the format [{name, value}]
  */
 function get_env_vars() {
     // if env is not an array make it an array
@@ -96,11 +95,15 @@ async function build_env(kf, params) {
         num_agents = 0,
     } = params;
     try {
-        console.log(`deploying noobaa server image ${server_image} in namespace ${kf.namespace}`);
+        console.log(`deploying noobaa server image ${image} in namespace ${kf.namespace}`);
+        const envs = get_env_vars() || [];
+        envs.push({ name: 'CREATE_SYS_NAME', value: 'demo' });
+        envs.push({ name: 'CREATE_SYS_EMAIL', value: 'demo@noobaa.com' });
+        envs.push({ name: 'CREATE_SYS_PASSWD', value: 'DeMo1' });
         const server_details = await kf.deploy_server({
-            image: server_image,
+            image,
             server_yaml: noobaa_core_yaml,
-            envs: get_env_vars(),
+            envs,
             cpu: server_cpu,
             mem: server_mem,
             pv,
@@ -114,29 +117,34 @@ async function build_env(kf, params) {
         // create system 
         const { address: mgmt_address, ports: mgmt_ports } = server_details.services.mgmt;
         const { address: s3_address, ports: s3_ports } = server_details.services.s3;
-        await server_functions.create_system(mgmt_address, mgmt_ports['mgmt-https']);
+        console.log('waiting for system to be ready');
+        await server_functions.wait_for_system_ready(mgmt_address, mgmt_ports['mgmt-https'], 'wss');
 
         const pool_name = 'first.pool';
         console.log(`creating new pool '${pool_name}'`);
         await server_functions.create_pool(mgmt_address, mgmt_ports['mgmt-https'], pool_name);
-        console.log(`deploying ${num_agents} agents in ${pool_name}`);
-        const agents_yaml = await agent_functions.get_agents_yaml(mgmt_address, mgmt_ports['mgmt-https'], pool_name, IS_IN_POD ? 'INTERNAL' : 'EXTERNAL');
-        const agents_yaml_path = path.join(output_dir, 'agents.yaml');
-        await fs.writeFileSync(agents_yaml_path, agents_yaml);
-        await kf.deploy_agents({
-            image: agent_image,
-            num_agents,
-            agents_yaml: agents_yaml_path,
-            envs: get_env_vars(),
-            cpu: agent_cpu,
-            mem: agent_mem,
-            pv,
-            pull_always
-        });
 
-        console.log(`waiting for ${num_agents} agents to be in optimal state`);
-        await wait_for_agents_optimal(mgmt_address, mgmt_ports['mgmt-https'], num_agents);
-        console.log(`all agents are in optimal state`);
+        if (num_agents) {
+            console.log(`deploying ${num_agents} agents in ${pool_name}`);
+            const agents_yaml = await agent_functions.get_agents_yaml(mgmt_address, mgmt_ports['mgmt-https'], pool_name, IS_IN_POD ? 'INTERNAL' : 'EXTERNAL');
+            const agents_yaml_path = path.join(output_dir, 'agents.yaml');
+            await fs.writeFileSync(agents_yaml_path, agents_yaml);
+            await kf.deploy_agents({
+                image,
+                num_agents,
+                agents_yaml: agents_yaml_path,
+                envs: get_env_vars(),
+                cpu: agent_cpu,
+                mem: agent_mem,
+                pv,
+                pull_always
+            });
+            console.log(`waiting for ${num_agents} agents to be in optimal state`);
+            await wait_for_agents_optimal(mgmt_address, mgmt_ports['mgmt-https'], num_agents);
+            console.log(`all agents are in optimal state`);
+        } else {
+            console.log('no agents are deployed for this env');
+        }
 
         // return services access information to pass to test
         return {
@@ -191,7 +199,7 @@ async function run_single_test_env(params) {
 
         if (command) {
             try {
-                console.log(`executing commad on server pod: ${command}`);
+                console.log(`executing command on server pod: ${command}`);
                 await kf.kubectl(`exec ${pod_name} -- ${command}`);
             } catch (err) {
                 console.error(`failed running command on pod ${pod_name}. command: ${command}. error:`, err);

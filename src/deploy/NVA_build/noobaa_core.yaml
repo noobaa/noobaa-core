@@ -32,12 +32,6 @@ rules:
     verbs:
       - get
       - list
-  - apiGroups:
-    - authentication.k8s.io
-    resources:
-    - tokenreviews
-    verbs:
-    - create
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -111,6 +105,8 @@ metadata:
     app: noobaa
     noobaa-module: noobaa-server
 spec:
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       noobaa-module: noobaa-server
@@ -140,8 +136,8 @@ spec:
               cpu: "500m"
               memory: "1Gi"
             limits:
-              cpu: "4"
-              memory: "8Gi"
+              cpu: "2"
+              memory: "4Gi"
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -152,8 +148,6 @@ spec:
             - containerPort: 8446
             - containerPort: 60100
           volumeMounts:
-            - mountPath: /data
-              name: datadir
             - mountPath: /log
               name: logdir
           env:
@@ -177,17 +171,55 @@ spec:
                   name: noobaa-create-sys-creds
                   key: password
                   optional: true
-            - name: OAUTH_SERVICE_HOST
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: noobaa-secrets
+                  key: jwt
+            - name: SERVER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: noobaa-secrets
+                  key: server_secret
+            - name: OAUTH_AUTHORIZATION_ENDPOINT
               valueFrom:
                 configMapKeyRef:
                   name: noobaa-config-map
-                  key: oauth_service_host
+                  key: oauth_authorization_endpoint
                   optional: true
-            # replacing the empty value with any value will set the cotainer to dbg mode
+            - name: OAUTH_TOKEN_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: noobaa-config-map
+                  key: oauth_token_endpoint
+                  optional: true
+            # replacing the empty value with any value will set the container to dbg mode
             - name: container_dbg
               value: ""
+        - name: mongodb
+          image: centos/mongodb-36-centos7
+          imagePullPolicy: IfNotPresent
+          command: ['/bin/bash', '-c', '/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip 127.0.0.1 --dbpath /data/mongo/cluster/shard1']
+          resources:
+            # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "8Gi"
+          volumeMounts:
+            - mountPath: /data
+              name: mongo-datadir
+      initContainers:
+        - name: init-mongo
+          image: noobaa/noobaa-core:4.0.2
+          # command: ['/noobaa_init_files/kube_pv_chown', 'server']
+          command: ['/noobaa_init_files/noobaa_init.sh', 'init_mongo']
+          volumeMounts:
+            - mountPath: /mongo_data
+              name: mongo-datadir
       serviceAccountName: noobaa-account
-
   volumeClaimTemplates:
     # this will provision a dynamic persistent volume (volume is automatically provisioned by a provisioner)
     # in minikube it is provisioned as hostPath volume under hosts /tmp which is not persistent between
@@ -203,7 +235,7 @@ spec:
           requests:
             storage: 10Gi
     - metadata:
-        name: datadir
+        name: mongo-datadir
         labels:
           app: noobaa
       spec:

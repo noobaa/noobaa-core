@@ -103,6 +103,9 @@ class KubernetesFunctions {
         if (image) {
             // modify image of the statefulset
             statefulset.spec.template.spec.containers[0].image = image;
+            if (statefulset.spec.template.spec.initContainers) {
+                statefulset.spec.template.spec.initContainers[0].image = image;
+            }
         }
 
         if (pull_always) {
@@ -111,11 +114,19 @@ class KubernetesFunctions {
         }
 
         if (cpu) {
-            statefulset.spec.template.spec.containers[0].resources.requests.cpu = cpu;
+            for (const container of statefulset.spec.template.spec.containers) {
+                if (_.get(container, 'resources.requests')) {
+                    container.resources.requests.cpu = cpu;
+                }
+            }
         }
 
         if (mem) {
-            statefulset.spec.template.spec.containers[0].resources.requests.memory = mem;
+            for (const container of statefulset.spec.template.spec.containers) {
+                if (_.get(container, 'resources.requests')) {
+                    container.resources.requests.memory = mem;
+                }
+            }
         }
 
         // set env 
@@ -127,11 +138,19 @@ class KubernetesFunctions {
             statefulset.spec.replicas = replicas;
         }
 
+
         if (!pv) {
             //remove persistent volume claim and mounts from the statefulset
-            statefulset.spec.template.spec.containers[0].volumeMounts = null;
             statefulset.spec.volumeClaimTemplates = null;
 
+            // get all mounts of all containers
+            const mounts = _.flatMap(statefulset.spec.template.spec.containers, container => {
+                if (!container.volumeMounts) return [];
+                return container.volumeMounts.map(mount => mount.name);
+            });
+
+            // use emptyDir volumes instead of PV
+            statefulset.spec.template.spec.volumes = mounts.map(mount => ({ name: mount, emptyDir: {} }));
         }
     }
 
@@ -151,6 +170,12 @@ class KubernetesFunctions {
     }
 
 
+    async create_noobaa_secrets() {
+        // create a secret containing noobaa_secret and jwt_secret
+        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh`);
+    }
+
+
     async deploy_server({ image, server_yaml, envs, cpu, mem, pv, pull_always }) {
         const server_details = {};
         try {
@@ -163,6 +188,7 @@ class KubernetesFunctions {
             this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
 
+            await this.create_noobaa_secrets();
             console.log('deploying server resources from file', resources_file_path);
             await this.kubectl(`apply -f ${resources_file_path}`);
 
@@ -231,7 +257,7 @@ class KubernetesFunctions {
         } else if (this.node_ip) {
             return { address: this.node_ip, port: ports };
         } else {
-            console.log('waiting for exeternal ips to be allocated. may take some time..');
+            console.log('waiting for external ips to be allocated. may take some time..');
             // 20 minutes timeout by default
             return P.resolve()
                 .then(async () => {

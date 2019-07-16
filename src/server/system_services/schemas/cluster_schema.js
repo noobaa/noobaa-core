@@ -73,17 +73,9 @@ module.exports = {
             },
         },
 
-        //NTP configuration
-        ntp: {
-            type: 'object',
-            properties: {
-                server: {
-                    type: 'string'
-                },
-                timezone: {
-                    type: 'string'
-                },
-            }
+        //timezone configuration
+        timezone: {
+            type: 'string'
         },
 
         dns_servers: {
@@ -262,12 +254,6 @@ module.exports = {
                 },
             }
         },
-        ip_collision: {
-            type: 'array',
-            items: {
-                type: 'string'
-            }
-        },
         services_status: {
             type: 'object',
             required: ['ph_status'],
@@ -292,17 +278,9 @@ module.exports = {
                     type: 'string',
                     enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                 },
-                ntp_status: {
-                    type: 'string',
-                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
-                },
                 internet_connectivity: {
                     type: 'string',
                     enum: ['FAULTY']
-                },
-                proxy_status: {
-                    type: 'string',
-                    enum: ['UNKNOWN', 'FAULTY', 'UNREACHABLE', 'OPERATIONAL']
                 },
                 cluster_status: {
                     anyOf: [{

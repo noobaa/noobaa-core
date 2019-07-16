@@ -20,7 +20,7 @@ class VersionFormViewModel extends ConnectableViewModel {
         },
         {
             label: 'Automatic Upgrade',
-            value: 'Upgraded with OpenShift Container Storage'
+            value: 'Upgraded via the operator'
         },
         {
             label: 'Version Information',

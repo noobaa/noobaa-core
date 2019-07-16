@@ -5,7 +5,6 @@ const _ = require('lodash');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const uuid = require('uuid/v4');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
@@ -92,13 +91,6 @@ function _calculate_free_mem(count_mongo_reserved_as_free) {
                 .then(cached_mem_in_kb => {
                     res += (cached_mem_in_kb * KB_TO_BYTE);
                 }))
-            // get mongod cached mem
-            .then(() => count_mongo_reserved_as_free &&
-                _exec_and_extract_num('ps -elf | grep mongod | grep -v grep', 'root')
-                .then(pid => pid && _exec_and_extract_num(`cat /proc/${pid}/status | grep VmRSS`, 'VmRSS:')
-                    .then(mongo_cached_mem => {
-                        res += (mongo_cached_mem * KB_TO_BYTE);
-                    })))
             .return(res);
     }
     return res;
@@ -336,22 +328,6 @@ function slabtop(dst) {
     }
 }
 
-function netstat_single(dst) {
-    var file_redirect = dst ? ' &> ' + dst : '';
-    if (IS_MAC) {
-        return promise_utils.exec('netstat -na' + file_redirect);
-    } else if (IS_LINUX) {
-        return promise_utils.exec('netstat -nap' + file_redirect);
-    } else {
-        throw new Error('netstat_single ' + os.type + ' not supported');
-    }
-}
-
-function ss_single(dst) {
-    var file_redirect = dst ? ' &> ' + dst : '';
-    return promise_utils.exec('ss -nap' + file_redirect);
-}
-
 function _get_dns_servers_in_forwarders_file() {
     return P.resolve()
         .then(() => {
@@ -400,49 +376,18 @@ function get_time_config() {
         timezone: '',
         status: false
     };
-
-    if (IS_LINUX) {
-        return promise_utils.exec('/usr/bin/ntpstat | head -1', {
-                ignore_rc: false,
-                return_stdout: true,
-            })
-            .then(res => {
-                if (res.indexOf('synchronized to') !== -1) {
-                    reply.status = true;
-                }
-                return promise_utils.exec('ls -l /etc/localtime', {
-                    ignore_rc: false,
-                    return_stdout: true,
-                });
-            })
-            .then(tzone => {
-                if (tzone && !tzone.split('>')[1]) {
-                    reply.srv_time = moment().format();
-                    reply.timezone = '';
-                } else {
-                    var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
-                    reply.srv_time = moment().tz(symlink)
-                        .format();
-                    reply.timezone = symlink;
-                }
-                return reply;
-            });
-    } else if (IS_MAC || IS_TEST_CONTAINER) {
-        reply.status = true;
-        return promise_utils.exec('ls -l /etc/localtime', {
-                ignore_rc: false,
-                return_stdout: true,
-            })
-            .then(tzone => {
-                var symlink = tzone.split('>')[1].split('/zoneinfo/')[1].trim();
-                reply.srv_time = moment().tz(symlink)
-                    .format();
-                reply.timezone = symlink;
-                return reply;
-            });
-    } else {
-        throw new Error('Getting time config only supported on linux based platforms');
-    }
+    reply.status = true;
+    return promise_utils.exec('ls -l /etc/localtime', {
+            ignore_rc: false,
+            return_stdout: true,
+        })
+        .then(tzone => {
+            var symlink = tzone.split('>')[1].split('/zoneinfo/')[1].trim();
+            reply.srv_time = moment().tz(symlink)
+                .format();
+            reply.timezone = symlink;
+            return reply;
+        });
 }
 
 function get_local_ipv4_ips() {
@@ -513,36 +458,15 @@ function is_folder_permissions_set(current_path) {
 }
 
 function read_server_secret() {
-    const secret_path = (IS_LINUX) ?
-        config.CLUSTERING_PATHS.SECRET_FILE :
-        config.CLUSTERING_PATHS.DARWIN_SECRET_FILE;
-    if (IS_LINUX && !IS_TEST_CONTAINER) {
-        return fs.readFileAsync(secret_path)
-            .then(function(data) {
-                var sec = data.toString();
-                return sec.trim();
-            })
-            .catch(err => {
-                throw new Error('Failed reading secret with ' + err);
-            });
-    } else if (IS_MAC || IS_TEST_CONTAINER) {
-        return fs.readFileAsync(secret_path)
-            .then(function(data) {
-                return data.toString().trim();
-            })
-            .catch(err => {
-                //For Darwin only, if file does not exist, create it
-                //In linux its created as part of the server build process or in an upgrade
-                if (err.code === 'ENOENT') {
-                    var id = uuid().substring(0, 8);
-                    return fs.writeFileAsync(secret_path, id)
-                        .then(() => id);
-                } else {
-                    throw new Error('Failed reading secret with ' + err);
-                }
-            });
-    } else { //Windows
-        return uuid().substring(0, 8);
+    if (process.env.SERVER_SECRET) {
+        return process.env.SERVER_SECRET;
+    } else {
+        // in kubernets we must have SERVER_SECRET loaded from a kubernetes secret
+        if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kuberentes');
+        }
+        // for all non kubernets platforms (docker, local, etc.) return a dummy secret
+        return '12345678';
     }
 }
 
@@ -875,8 +799,6 @@ exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;
 exports.top_single = top_single;
 exports.slabtop = slabtop;
-exports.netstat_single = netstat_single;
-exports.ss_single = ss_single;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
 exports.get_networking_info = get_networking_info;

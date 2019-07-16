@@ -81,10 +81,6 @@ module.exports = {
                 type: 'string'
             }
         },
-        phone_home_proxy_address: {
-            type: 'string'
-        },
-
         freemium_cap: {
             type: 'object',
             properties: {

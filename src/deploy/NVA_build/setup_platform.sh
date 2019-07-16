@@ -46,42 +46,8 @@ function install_supervisor {
     # Add NooBaa services configuration to supervisor
     deploy_log "setup_supervisors adding noobaa config to supervisord"
     echo "[include]" >> /etc/supervisord.conf
-    echo "files = /data/noobaa_supervisor.conf" >> /etc/supervisord.conf
+    echo "files = /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_supervisor.conf" >> /etc/supervisord.conf
     deploy_log "setup_supervisors done"
-}
-
-function setup_mongo {
-    deploy_log "setup_mongo start"
-
-    mkdir -p /data/mongo/cluster/shard1
-    # TODO: remove this as we probebly do not need this if we are not running as root
-    #       When not running as root we are not running as mongod user
-    local mongo_desire_name="mongod"
-    local mongo_user=$(cat /etc/passwd | grep mongo |awk -F ":" '{print $1}')
-    local mongo_group=$(cat /etc/group | grep mongo |awk -F ":" '{print $1}')
-    if [ ${mongo_user} != ${mongo_desire_name} ]
-    then
-        usermod -l ${mongo_desire_name} ${mongo_user}
-    fi
-    if [ ${mongo_group} != ${mongo_desire_name} ]
-    then
-        groupmod -n ${mongo_desire_name} ${mongo_group}
-    fi
-    
-    chown -R mongod:mongod /data/mongo/
-
-    deploy_log "setup_mongo done"
-}
-
-function install_kubectl {
-    if [ "${container}" == "docker" ] && [ "${ID}" != "rhel" ]; then
-        deploy_log "install_kubectl start"
-        stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl
-        chmod +x ./kubectl
-        sudo mv ./kubectl /usr/local/bin/kubectl
-        deploy_log "install_kubectl done"
-    fi
 }
 
 function setup_bashrc {
@@ -89,7 +55,7 @@ function setup_bashrc {
 
     echo "export LC_ALL=C" >> ~/.bashrc
     echo "export TERM=xterm" >> ~/.bashrc
-    echo "export PATH=$PATH:/usr/local/bin:/data/bin" >> ~/.bashrc
+    echo "export PATH=$PATH:/usr/local/bin" >> ~/.bashrc
     echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
     echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
     echo "alias ll='ls -lha'" >> ~/.bashrc
@@ -159,8 +125,6 @@ function setup_non_root_user() {
 deploy_log "Starting setup platform"
 set -e
 install_supervisor
-setup_mongo
-install_kubectl
 setup_bashrc
 fix_file_descriptor_limits
 remove_rsyslog_listen_conf

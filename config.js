@@ -345,8 +345,6 @@ config.MONGO_DEFAULTS = {
 };
 
 config.CLUSTERING_PATHS = {
-    SECRET_FILE: '/data/noobaa_sec',
-    DARWIN_SECRET_FILE: '/Users/Shared/noobaa_sec',
     SUPER_FILE: '/data/noobaa_supervisor.conf',
 };
 
@@ -387,8 +385,6 @@ config.PROMETHEUS_PREFIX = 'NooBaa_';
 // OAUTH RELATES            //
 //////////////////////////////
 
-config.OAUTH_AUTHORIZATION_ENDPOINT = '/oauth/authorize';
-config.OAUTH_TOKEN_ENDPOINT = '/oauth/token';
 config.OAUTH_REDIRECT_ENDPOINT = 'fe/oauth/callback';
 config.OAUTH_REQUIRED_SCOPE = 'user:info';
 
@@ -414,8 +410,15 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
 // load a local config file that overwrites some of the config
 try {
     // eslint-disable-next-line global-require
-    require('./config-local');
+    const local_config = require('./config-local');
+    Object.assign(config, local_config);
 } catch (err) {
     if (err.code !== 'MODULE_NOT_FOUND') throw err;
     console.log('NO LOCAL CONFIG');
 }
+
+//////////////////////////////
+// OPERATOR RELATED         //
+//////////////////////////////
+
+config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';

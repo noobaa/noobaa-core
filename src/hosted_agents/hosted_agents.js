@@ -166,7 +166,6 @@ class HostedAgents {
         };
         const agent_params = {
             address: addr_utils.format_base_address(),
-            proxy: system.phone_home_proxy_address,
             node_name,
             host_id,
             storage_path,

@@ -18,8 +18,8 @@ change_path_permissions(const char* path, long uid)
         cout << "Error:got error when changing ownership of " << path << " Error: " << strerror(errno) << endl;
         exit(1);
     }
-    // change mode to 755
-    res = chmod(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    // change mode to 770
+    res = chmod(path, S_IRWXU | S_IRWXG);
     if (res != 0) {
         cout << "Error: got error when changing mode of " << path << " Error: " << strerror(errno) << endl;
         exit(1);
@@ -43,7 +43,9 @@ main(int argc, char* argv[])
     }
 
     if (deployment_type == "server") {
-        change_path_permissions("/data", uid);
+        change_path_permissions("/log", uid);
+    } else if (deployment_type == "mongo") {
+        change_path_permissions("/mongo_data", uid);
         change_path_permissions("/log", uid);
     } else if (deployment_type == "agent") {
         change_path_permissions("/noobaa_storage", uid);

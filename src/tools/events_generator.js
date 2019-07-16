@@ -62,7 +62,6 @@ const EXISTING_AUDIT_LOGS = {
     'conf': ['create_system',
         'server_date_time_updated',
         'dns_address',
-        'set_phone_home_proxy_address',
         'dns_servers',
         'set_certificate',
         'upload_package',

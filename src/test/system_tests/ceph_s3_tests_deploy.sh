@@ -1,7 +1,14 @@
 #!/bin/bash
 
-mkdir -p /noobaa-core/src/test/system_tests/
-cd /noobaa-core/src/test/system_tests/
+if [ -z ${1} ]
+then
+    NOOBAA_DIR="noobaa-core"
+else 
+    NOOBAA_DIR=${1}
+fi
+
+mkdir -p /${NOOBAA_DIR}/src/test/system_tests/
+cd /${NOOBAA_DIR}/src/test/system_tests/
 
 DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"

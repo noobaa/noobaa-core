@@ -16,7 +16,6 @@ const cutil = require('../utils/clustering_utils');
 const TMP_WORK_DIR = '/tmp/diag';
 const DIAG_LOG_FILE = TMP_WORK_DIR + '/diagnostics_collection.log';
 const LONG_EXEC_TIMEOUT = 60 * 1000;
-const SHORT_EXEC_TIMEOUT = 5 * 1000;
 
 //TODO: Add temp collection dir as param
 function collect_server_diagnostics(req) {
@@ -54,14 +53,6 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected client_noobaa.log files successfully'))
                 .catch(err => diag_log('collecting client_noobaa.log failed with error: ' + err)),
 
-                () => promise_utils.exec('cp -fp /data/.env ' + TMP_WORK_DIR + '/env', {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected .env successfully'))
-                .catch(err => diag_log('collecting .env failed with error: ' + err)),
-
                 () => os_utils.top_single(TMP_WORK_DIR + '/top.out')
                 .then(() => diag_log('collected top.out successfully'))
                 .catch(err => diag_log('collecting top.out failed with error: ' + err)),
@@ -69,14 +60,6 @@ function collect_server_diagnostics(req) {
                 () => os_utils.slabtop(TMP_WORK_DIR + '/slabtop.out')
                 .then(() => diag_log('collected slabtop.out successfully'))
                 .catch(err => diag_log('collecting slabtop.out failed with error: ' + err)),
-
-                () => promise_utils.exec('cp -fp /etc/noobaa* ' + TMP_WORK_DIR, {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected /etc/noobaa files successfully'))
-                .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
                 () => promise_utils.exec(`cp -fpR /log/nbfedump ${TMP_WORK_DIR}`, {
                     ignore_rc: false,
@@ -111,18 +94,6 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected /var/log/messages files successfully'))
                 .catch(err => diag_log('collecting /etc/noobaa files failed with error: ' + err)),
 
-                () => promise_utils.exec('dmesg &> ' + TMP_WORK_DIR + '/dmesg.out', {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected dmesg successfully'))
-                .catch(err => diag_log('collecting dmesg failed with error: ' + err)),
-
-                () => collect_ntp_diagnostics()
-                .then(() => diag_log('collected ntp diagnostics successfully'))
-                .catch(err => diag_log('collect_ntp_diagnostics failed with error: ' + err)),
-
                 () => promise_utils.exec('df -h &> ' + TMP_WORK_DIR + '/df.out', {
                     ignore_rc: false,
                     return_stdout: false,
@@ -130,14 +101,6 @@ function collect_server_diagnostics(req) {
                 })
                 .then(() => diag_log('collected df.out successfully'))
                 .catch(err => diag_log('collecting df.out failed with error: ' + err)),
-
-                () => promise_utils.exec('cp -fp /tmp/noobaa_wizard.log ' + TMP_WORK_DIR + '/noobaa_wizard.log', {
-                    ignore_rc: false,
-                    return_stdout: false,
-                    timeout: LONG_EXEC_TIMEOUT
-                })
-                .then(() => diag_log('collected noobaa_wizard.log successfully'))
-                .catch(err => diag_log('collecting noobaa_wizard.log failed with error: ' + err)),
 
                 () => collect_statistics(req)
                 .then(() => diag_log('collected statistics successfully'))
@@ -147,13 +110,6 @@ function collect_server_diagnostics(req) {
                 .then(dump => fs.writeFileAsync(path.join(TMP_WORK_DIR, 'mongo_db_system_collections_dump.json'), JSON.stringify(dump, null, 2)))
                 .then(() => diag_log('finished get_system_collections_dump successfully'))
                 .catch(err => diag_log('get_system_collections_dump failed with error: ' + err)),
-
-                () => promise_utils.exec('rndc dumpdb -cache')
-                .then(() => promise_utils.exec(`cp -fp /var/named/data/* ${TMP_WORK_DIR}`))
-                .then(() => promise_utils.exec(`cp -fp /etc/noobaa_configured_dns.conf ${TMP_WORK_DIR}`))
-                .then(() => promise_utils.exec(`cp -fp /etc/named.conf ${TMP_WORK_DIR}`))
-                .then(() => diag_log('finished getting named information successfully'))
-                .catch(err => diag_log('getting named (dns cache) diagnostics failed with error: ' + err)),
 
                 () => server_rpc.client.host.list_hosts({
                     adminfo: true
@@ -183,79 +139,6 @@ function pack_diagnostics(dst, work_dir) {
 
 function write_agent_diag_file(data) {
     return base_diagnostics.write_agent_diag_file(data);
-}
-
-function collect_ntp_diagnostics() {
-    if (process.platform !== 'linux') {
-        console.log('Skipping ntp diagnostics collection on non linux server');
-        return P.resolve();
-    }
-    let ntp_diag = TMP_WORK_DIR + '/ntp.diag';
-    return promise_utils.exec('echo "### NTP diagnostics ###" >' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        })
-        .then(() => promise_utils.exec('echo "\ncontent of /etc/ntp.conf:" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('cat /etc/ntp.conf &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('echo "\n\n" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('ls -l /etc/localtime &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('echo "\n\nntpstat:" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('ntpstat &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('echo "\n\ndate:" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('date &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('echo "\n\nntpdate:" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('ntpdate &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('echo "\n\nntptime:" &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }))
-        .then(() => promise_utils.exec('ntptime &>>' + ntp_diag, {
-            ignore_rc: false,
-            return_stdout: false,
-            timeout: SHORT_EXEC_TIMEOUT
-        }));
 }
 
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)

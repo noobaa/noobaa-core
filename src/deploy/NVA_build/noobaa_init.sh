@@ -7,9 +7,11 @@ then
   set -x
 fi
 
+RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
+KUBE_PV_CHOWN="/noobaa_init_files/kube_pv_chown"
 
 update_services_autostart() {
   local programs=(webserver bg_workers hosted_agents s3rver)
@@ -85,53 +87,91 @@ fix_non_root_user() {
 extract_noobaa_in_docker() {
   local tar="noobaa-NVA.tar.gz"
   local noobaa_core_path="/root/node_modules/noobaa-core/"
-  if [ "${container}" == "docker" ] && [ ! -d ${noobaa_core_path} ] ; then
+  if [ ! -d ${noobaa_core_path} ] ; then
     cd /root/node_modules
     tar -xzf /tmp/noobaa-NVA.tar.gz
     cd ~
-    rm -rf /tmp/${tar}
   fi
 }
 
-run_kube_pv_chown() {
-  # change ownership and permissions of /data and /log. 
-  # assuming that uid is not changed between reboots.
-  local path="/root/node_modules/noobaa-core/build/Release/"
-  if [ "${container}" == "docker" ] ; then
-      path="/noobaa_init_files/"
-  fi
-  ${path}/kube_pv_chown server
-}
-
-run_init_scripts() {
-  local script
-  local scripts=(fix_server_plat.sh fix_mongo_ssl.sh)
-  local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
-  ############## run init scripts
-  run_kube_pv_chown
-  cd ${path}
-  for script in ${scripts[@]} ; do
-    ${debug} ./${script}
-    if [ $? -ne 0 ] ; then
-      #Providing an env variable with the name "LOOP_ON_FAIL=true" 
-      #will trigger the condition below.
-      while [ "${LOOP_ON_FAIL}" == "true" ]
-      do
-        echo "$(date) Failed to run ${script}"
-        sleep 10
-      done
+run_agent_container() {
+  AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
+  if [ -z ${AGENT_CONFIG} ]
+  then
+    echo "AGENT_CONFIG is required ENV variable. AGENT_CONFIG is missing. Exit"
+    exit 1
+  else
+    echo "Got base64 agent_conf: ${AGENT_CONFIG}"
+    if [ ! -f $AGENT_CONF_FILE ]; then
+      openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
     fi
+    echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
+  fi
+  node ./src/agent/agent_cli
+  # Providing an env variable with the name "LOOP_ON_FAIL=true" 
+  # will trigger the condition below.
+  # Currently we will loop on any exit of the agent_cli 
+  # regurdless to the exit code
+  while [ "${LOOP_ON_FAIL}" == "true" ] 
+  do
+    echo "$(date) Failed to run agent_cli" 
+    sleep 10
   done
-  cd - > /dev/null
+}
+
+prepare_server_pvs() {
+  # change ownership and permissions of /data and /log. 
+  ${KUBE_PV_CHOWN} server
+  # when running in kubernetes\openshift we mount PV under /data and /log
+  # ensure existence of folders such as mongo, supervisor, etc.
+  mkdir -p /log/supervisor
+}
+
+prepare_mongo_pv() {
+  local dir="/mongo_data/mongo/cluster/shard1"
+
+  # change ownership and permissions of mongo db path 
+  ${KUBE_PV_CHOWN} mongo
+
+  mkdir -p ${dir}
+  chgrp 0 ${dir} 
+  chmod g=u ${dir}
 }
 
 init_noobaa_server() {
   fix_non_root_user
   extract_noobaa_in_docker
-  run_init_scripts
+  prepare_server_pvs
 
+  #commented out handle_unmanaged_upgrade since upgrade flow is depndent on mongo shell that was removed
+  ###TODO: restore handle_unmanaged_upgrade once the upgrade script does not rely on mongo shell
   #check if unmamnaged upgrade is required
-  handle_unmanaged_upgrade
+  # handle_unmanaged_upgrade
 }
 
-init_noobaa_server
+init_noobaa_agent() {
+  fix_non_root_user
+  extract_noobaa_in_docker
+  
+  mkdir -p /noobaa_storage
+  ${KUBE_PV_CHOWN} agent
+
+  cd /root/node_modules/noobaa-core/
+  run_agent_container
+}
+
+
+# init phase
+init_pod() {
+  prepare_mongo_pv
+}
+
+if [ "${RUN_INIT}" == "agent" ]
+then
+  init_noobaa_agent
+elif [ "${RUN_INIT}" == "init_mongo" ]
+then
+  init_pod
+else
+  init_noobaa_server
+fi

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 SCRIPT_NAME=$(basename $0)
 
 function usage(){
@@ -10,23 +9,18 @@ function usage(){
     echo -e "\nRun NooBaa system tests job"
     echo "Parameters:"
     echo "--name            -   The name of the test run. will be prefixed to all namespaces created by the test job"
-    echo "--server_image    -   The server image to test"
-    echo "--agent_image     -   The agent image to use. Agent and server versions must be the same"
+    echo "--image           -   The image to test"
     echo "--tester_image    -   The tester image to use"
     echo "-h --help         -   Will show this help"
     exit 0
 }
-
-
 
 while true
 do
     case ${1} in
         --name)         TEST_RUN_NAME=${2}
                         shift 2;;
-        --server_image) SERVER_IMAGE=${2}
-                        shift 2;;
-        --agent_image)  AGENT_IMAGE=${2}
+        --image)        IMAGE=${2}
                         shift 2;;
         --tester_image) TESTER_IMAGE=${2}
                         shift 2;;
@@ -39,13 +33,9 @@ do
     fi
 done
 
-
-
-if [ "${TEST_RUN_NAME}" == "" ] || [ "${SERVER_IMAGE}" == "" ]|| [ "${AGENT_IMAGE}" == "" ] || [ "${TESTER_IMAGE}" == "" ]; then
+if [ -z "${TEST_RUN_NAME}" ] || [ -z "${IMAGE}" ] || [ -z "${TESTER_IMAGE}" ] ; then
     usage
 fi
-
-
 
 echo "Creating namespace noobaa-tests"
 kubectl create namespace noobaa-tests 
@@ -54,8 +44,7 @@ echo "Deploying test account and role"
 kubectl -n noobaa-tests apply -f ./test_account.yaml
 
 echo "Running test job ${TEST_RUN_NAME}"
-sed -e "s~SERVER_IMAGE_PLACEHOLDER~${SERVER_IMAGE}~" \
--e "s~AGENT_IMAGE_PLACEHOLDER~${AGENT_IMAGE}~" \
+sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
 -e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME}~" \

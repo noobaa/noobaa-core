@@ -1,4 +1,4 @@
-FROM noobaa/builder as code
+FROM noobaa-builder as code
 
 #TODO: get the code from git not from the local 
 COPY . ./

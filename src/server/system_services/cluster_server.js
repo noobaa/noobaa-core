@@ -14,7 +14,6 @@ const pkg = require('../../../package.json');
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config.js');
-const dotenv = require('../../util/dotenv');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
@@ -209,7 +208,7 @@ function add_member_to_cluster_invoke(req, my_address) {
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location,
-                jwt_secret: process.env.JWT_SECRET,
+                // jwt_secret: process.env.JWT_SECRET,
                 new_hostname: req.rpc_params.new_hostname,
                 ssl_certs: { root_ca, server_cert, client_cert }
             }, {
@@ -406,11 +405,11 @@ function join_to_cluster(req) {
             req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
             req.rpc_params.topology.owner_address = req.rpc_params.ip;
             // update jwt secret in dotenv
-            dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
-            dotenv.set({
-                key: 'JWT_SECRET',
-                value: req.rpc_params.jwt_secret
-            });
+            // dbg.log0('updating JWT_SECRET in .env:', req.rpc_params.jwt_secret);
+            // dotenv.set({
+            //     key: 'JWT_SECRET',
+            //     value: req.rpc_params.jwt_secret
+            // });
             //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
             //different ReplicaSet Chains)
             //Easy path -> don't support it, make admin detach and re-attach as new role,
@@ -473,7 +472,7 @@ function join_to_cluster(req) {
         //.then(() => _attach_server_configuration({}))
         //.then((res_params) => _update_cluster_info(res_params))
         .then(function() {
-            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
+            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', {
@@ -589,7 +588,7 @@ function update_member_of_cluster(req) {
         .then(() => _update_cluster_info(topology))
         .then(() => {
             topology = cutil.get_topology();
-            var topology_to_send = _.omit(topology, 'dns_servers', 'ntp');
+            var topology_to_send = _.omit(topology, 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             // Mongo servers are up, update entire cluster with the new topology
             // Notice that we send additional parameters which will be used for the changed server
@@ -709,93 +708,6 @@ function redirect_to_cluster_master(req) {
             }
         });
 }
-
-function update_dns_servers(req) {
-    var dns_servers_config = req.rpc_params;
-    var target_servers = [];
-    const local_info = system_store.get_local_cluster_info(true);
-    return P.fcall(function() {
-            if (dns_servers_config.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
-                if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
-                        dns_servers_config.target_secret, ' was not found');
-                }
-                target_servers.push(cluster_server);
-            } else {
-                let current;
-                _.each(system_store.data.clusters, cluster => {
-                    //Run current last since we restart the server, we want to make sure
-                    //all other server were dispatched to
-                    if (system_store.get_server_secret() === cluster.owner_secret) {
-                        current = cluster;
-                    } else {
-                        target_servers.push(cluster);
-                    }
-                });
-                if (current) {
-                    target_servers.push(current);
-                }
-            }
-            if (!dns_servers_config.dns_servers.every(net.isIPv4)) {
-                throw new RpcError('MALFORMED_IP', 'Malformed dns configuration');
-            }
-            if (local_info.is_clusterized && !target_servers.every(server => {
-                    let server_status = _.find(local_info.heartbeat.health.mongo_rs_status.members, { name: server.owner_address + ':27000' });
-                    return server_status && (server_status.stateStr === 'PRIMARY' || server_status.stateStr === 'SECONDARY');
-                })) {
-                throw new RpcError('OFFLINE_SERVER', 'Server is disconnected');
-            }
-            const config_to_compare = [
-                dns_servers_config.dns_servers || [],
-            ];
-            // don't update servers that already have the dame configuration
-            target_servers = target_servers.filter(srv => {
-                const { dns_servers = [] } = srv;
-                return !_.isEqual(config_to_compare, [dns_servers]);
-            });
-            if (!target_servers.length) {
-                dbg.log0(`DNS changes are the same as current configuration. skipping`);
-                throw new Error('NO_CHANGE');
-            }
-            let updates = _.map(target_servers, server => _.omitBy({
-                _id: server._id,
-                dns_servers: dns_servers_config.dns_servers
-            }, _.isUndefined));
-            return system_store.make_changes({
-                update: {
-                    clusters: updates,
-                }
-            });
-        })
-        .then(() => P.each(target_servers, function(server) {
-            return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                address: server_rpc.get_base_address(server.owner_address)
-            });
-        }))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_servers',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: _.isEmpty(dns_servers_config.dns_servers) ?
-                    `DNS servers cleared` : `DNS servers set to: ${dns_servers_config.dns_servers.join(', ')}`
-            });
-        })
-        .catch(err => {
-            if (err.message !== 'NO_CHANGE') throw err;
-        })
-        .return();
-}
-
-
-function apply_updated_dns_servers(req) {
-    return P.resolve()
-        .then(() => os_utils.set_dns_config(req.rpc_params.dns_servers))
-        .return();
-}
-
 
 function set_debug_level(req) {
     dbg.log0('Recieved set_debug_level req', req.rpc_params);
@@ -1081,15 +993,13 @@ function read_server_config(req) {
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
         .then(() => {
-            const { dns_servers, ntp = {} } = srvconf;
-            const { timezone, server } = ntp;
+            const { dns_servers, timezone } = srvconf;
 
             return _get_aws_owner()
                 .then(owner => ({
                     using_dhcp,
                     dns_servers,
                     timezone,
-                    ntp_server: server,
                     owner,
                 }));
         });
@@ -1525,30 +1435,9 @@ function _get_aws_owner() {
 }
 
 
-function _attach_server_configuration(cluster_server) {
-    if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
-        cluster_server.ntp = {
-            timezone: os_utils.get_time_config().timezone
-        };
-        return cluster_server;
-    }
-    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(), os_utils.get_dns_config())
-        .spread(function(ntp_line, time_config, dns_config) {
-            cluster_server.ntp = {
-                timezone: time_config.timezone
-            };
-            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
-                cluster_server.ntp.server = ntp_line.split(' ')[1];
-                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
-            }
-
-            if (dns_config.dns_servers.length > 0) {
-                cluster_server.dns_servers = dns_config.dns_servers;
-            }
-
-            return cluster_server;
-        });
+async function _attach_server_configuration(cluster_server) {
+    cluster_server.timezone = (await os_utils.get_time_config()).timezone;
+    return cluster_server;
 }
 
 function check_cluster_status() {
@@ -1595,8 +1484,6 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.update_dns_servers = update_dns_servers;
-exports.apply_updated_dns_servers = apply_updated_dns_servers;
 exports.set_debug_level = set_debug_level;
 exports.apply_set_debug_level = apply_set_debug_level;
 exports.diagnose_system = diagnose_system;

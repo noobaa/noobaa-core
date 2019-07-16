@@ -65,16 +65,6 @@ module.exports = {
             },
         },
 
-        update_dns_servers: {
-            method: 'POST',
-            params: {
-                $ref: 'cluster_internal_api#/definitions/dns_servers_config'
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         set_debug_level: {
             method: 'POST',
             params: {
@@ -139,26 +129,12 @@ module.exports = {
                     test_ph_connectivity: {
                         type: 'boolean'
                     },
-                    ph_proxy: {
-                        type: 'object',
-                        properties: {
-                            address: {
-                                type: 'string'
-                            },
-                            port: {
-                                type: 'number'
-                            }
-                        }
-                    }
                 }
             },
             reply: {
                 type: 'object',
                 required: ['using_dhcp'],
                 properties: {
-                    ntp_server: {
-                        type: 'string'
-                    },
                     timezone: {
                         type: 'string'
                     },
@@ -170,17 +146,6 @@ module.exports = {
                     },
                     using_dhcp: {
                         type: 'boolean'
-                    },
-                    used_proxy: {
-                        type: 'object',
-                        properties: {
-                            address: {
-                                type: 'string'
-                            },
-                            port: {
-                                type: 'number'
-                            }
-                        }
                     },
                     owner: {
                         type: 'object',

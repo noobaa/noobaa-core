@@ -44,34 +44,6 @@ const app = express();
 
 dbg.set_process_name('WebServer');
 
-// hacky fix for issue #2812 - check if JWT_SECRET and MONGO_SSL_USER are missing
-// in .env but exists in environment variables. if so write it to .env
-let env_obj = dotenv.parse();
-if (!env_obj.JWT_SECRET) {
-    dbg.warn('JWT_SECRET is missing in .env file.');
-    if (process.env.JWT_SECRET) {
-        dbg.warn('JWT_SECRET found in process.env, writing to .env file. JWT_SECRET =', process.env.JWT_SECRET);
-        dotenv.set({
-            key: 'JWT_SECRET',
-            value: process.env.JWT_SECRET
-        });
-    } else {
-        dbg.error('JWT_SECRET is missing from .env and from process.env - users and agents will not be able to connect!!!!');
-    }
-}
-if (!env_obj.MONGO_SSL_USER) {
-    dbg.warn('MONGO_SSL_USER is missing in .env file.');
-    if (process.env.MONGO_SSL_USER) {
-        dbg.warn('MONGO_SSL_USER found in process.env, writing to .env file. MONGO_SSL_USER =', process.env.MONGO_SSL_USER);
-        dotenv.set({
-            key: 'MONGO_SSL_USER',
-            value: process.env.MONGO_SSL_USER
-        });
-    } else {
-        dbg.error('MONGO_SSL_USER is missing from .env and process.env - server will not be able to join or form a cluster');
-    }
-}
-
 
 mongo_client.instance().connect();
 
@@ -444,7 +416,7 @@ app.get('/oauth/authorize', async (req, res) => {
     const {
         KUBERNETES_SERVICE_HOST,
         KUBERNETES_SERVICE_PORT,
-        OAUTH_SERVICE_HOST,
+        OAUTH_AUTHORIZATION_ENDPOINT
     } = process.env;
 
     if (!KUBERNETES_SERVICE_HOST || !KUBERNETES_SERVICE_PORT) {
@@ -454,7 +426,7 @@ app.get('/oauth/authorize', async (req, res) => {
         return;
     }
 
-    if (!OAUTH_SERVICE_HOST) {
+    if (!OAUTH_AUTHORIZATION_ENDPOINT) {
         dbg.warn('/oauth/authorize: oauth support was not configured for this system');
         res.status(500);
         res.end();
@@ -477,7 +449,7 @@ app.get('/oauth/authorize', async (req, res) => {
     const client_id = `system:serviceaccount:${k8s_namespace}:noobaa-account`;
     const redirect_uri = new URL(config.OAUTH_REDIRECT_ENDPOINT, redirect_host);
     const return_url = new URL(req.url, 'http://dummy').searchParams.get('return-url');
-    const authorization_endpoint = new URL(config.OAUTH_AUTHORIZATION_ENDPOINT, `https://${OAUTH_SERVICE_HOST}`);
+    const authorization_endpoint = new URL(OAUTH_AUTHORIZATION_ENDPOINT);
     authorization_endpoint.searchParams.set('client_id', client_id);
     authorization_endpoint.searchParams.set('response_type', 'code');
     authorization_endpoint.searchParams.set('scope', config.OAUTH_REQUIRED_SCOPE);

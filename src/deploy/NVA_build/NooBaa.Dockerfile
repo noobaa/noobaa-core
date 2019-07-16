@@ -1,52 +1,7 @@
-FROM noobaa/builder as server_builder
+FROM noobaa-base as server_builder
 
-##############################################################
-# Layers:
-#   Title: Installing dependencies (npm install)
-#   Size: ~ 817 MB
-#   Cache: Rebuild when we package.json changes
-##############################################################
-COPY ./package*.json ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm install
-
-##############################################################
-# Layers:
-#   Title: Building the native
-#   Size: ~ 10 MB
-#   Cache: Rebuild the native code changes
-##############################################################
-COPY ./binding.gyp .
-COPY ./src/native ./src/native/
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:native
-
-##############################################################
-# Layers:
-#   Title: Building the frontend
-#   Size: ~ 268 MB
-#   Cache: Rebuild the there is a change in one of 
-#          the directories that we copy
-##############################################################
 RUN mkdir -p /noobaa_init_files && \
     cp -p ./build/Release/kube_pv_chown /noobaa_init_files
-
-COPY ./frontend/package*.json ./frontend/
-RUN cd frontend && \
-    npm install
-COPY ./frontend/gulpfile.js ./frontend/
-COPY ./frontend/bower.json ./frontend/
-RUN cd frontend && \
-    npm run install-deps
-
-COPY ./frontend/ ./frontend/
-COPY ./images/ ./images/
-COPY ./src/rpc/ ./src/rpc/
-COPY ./src/api/ ./src/api/
-COPY ./src/util/ ./src/util/
-COPY ./config.js ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:fe
 
 COPY . ./
 ARG GIT_COMMIT 
@@ -87,6 +42,10 @@ RUN tar \
 FROM centos:7
 
 ENV container docker
+ENV PORT 8080
+ENV SSL_PORT 8443
+ENV ENDPOINT_PORT 6001
+ENV ENDPOINT_SSL_PORT 6443
 
 ##############################################################
 # Layers:
@@ -94,41 +53,18 @@ ENV container docker
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-COPY ./src/deploy/set_mongo_repo.sh /tmp/
-RUN chmod +x /tmp/set_mongo_repo.sh && \
-    /bin/bash -xc "/tmp/set_mongo_repo.sh"
 RUN yum install -y -q bash \
-    bind-utils-32:9.9.4 \
-    bind-32:9.9.4 \
-    tcpdump-14:4.9.2 \
-    cronie-1.4.11 \
-    initscripts-9.49.46 \
-    lsof-4.87 \
-    net-tools-2.0 \
-    openssh-server-7.4p1 \
-    rng-tools-6.3.1 \
+    lsof \
+    openssl \
     rsyslog-8.24.0 \
-    strace-4.12 \
-    sudo-1.8.23 \
-    wget-1.14 \
-    dialog-1.2 \
-    expect-5.45 \
-    iperf3-3.1.7 \
-    iptables-services-1.4.21 \
-    curl-7.29.0 \
-    ntp-4.2.6p5 \
+    strace \
+    wget \
+    curl \
     nc \
-    vim \
     less \
     bash-completion \
-    python-setuptools-0.9.8 \
-    mongodb-org-3.6.3 \
-    mongodb-org-server-3.6.3 \
-    mongodb-org-shell-3.6.3 \
-    mongodb-org-mongos-3.6.3 \
-    mongodb-org-tools-3.6.3 && \
+    python-setuptools-0.9.8 && \
     yum clean all
-
 
 ##############################################################
 # Layers:
@@ -168,10 +104,11 @@ RUN chmod 775 /noobaa_init_files && \
     chgrp -R 0 /noobaa_init_files/ && \
     chmod -R g=u /noobaa_init_files/
 
+COPY --from=server_builder /kubectl /usr/local/bin/kubectl
 COPY --from=server_builder ./noobaa_init_files/kube_pv_chown /noobaa_init_files
 RUN mkdir -m 777 /root/node_modules && \
     chown root:root /noobaa_init_files/kube_pv_chown && \
-    chmod 755 /noobaa_init_files/kube_pv_chown && \
+    chmod 750 /noobaa_init_files/kube_pv_chown && \
     chmod u+s /noobaa_init_files/kube_pv_chown
 
 ##############################################################
@@ -199,4 +136,6 @@ EXPOSE 26050
 ###############
 # Run as non root user that belongs to root 
 USER 10001:0
+# We are using CMD and not ENDPOINT so 
+# we can override it when we use this image as agent. 
 CMD ["/usr/bin/supervisord", "start_container"]

@@ -6,7 +6,6 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
 const fs = require('fs');
-const url = require('url');
 const GoogleStorage = require('../../util/google_storage_wrap');
 
 const P = require('../../util/promise');
@@ -295,14 +294,11 @@ function read_bucket(req) {
         });
     });
     pools = _.compact(pools);
-
     let pool_names = pools.map(pool => pool.name);
     return P.props({
             bucket,
             nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
-            aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
-                bucket.tiering.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id),
             num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
             func_configs: get_bucket_func_configs(req, bucket),
             unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
@@ -316,7 +312,6 @@ async function read_bucket_sdk_info(req) {
 
     const reply = {
         name: bucket.name,
-        proxy: system.phone_home_proxy_address,
         active_triggers: _.map(
             _.filter(bucket.lambda_triggers, 'enabled'),
             trigger => _.pick(trigger, trigger_properties)
@@ -841,8 +836,6 @@ function get_bucket_lifecycle_configuration_rules(req) {
  */
 function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
-    const system = req.system;
-    const proxy = system.phone_home_proxy_address;
     return P.fcall(function() {
             var connection = cloud_utils.find_cloud_connection(
                 req.account,
@@ -850,7 +843,6 @@ function get_cloud_buckets(req) {
             );
             if (connection.endpoint_type === 'AZURE') {
                 let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
-                blob_svc.setProxy(proxy ? url.parse(proxy) : null);
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
@@ -907,7 +899,7 @@ function get_cloud_buckets(req) {
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
                     httpOptions: {
-                        agent: http_utils.get_unsecured_http_agent(connection.endpoint, proxy)
+                        agent: http_utils.get_unsecured_http_agent(connection.endpoint)
                     }
                 });
                 return P.ninvoke(s3, "listBuckets")
@@ -1074,14 +1066,13 @@ function get_bucket_info({
     bucket,
     nodes_aggregate_pool,
     hosts_aggregate_pool,
-    aggregate_data_free_by_tier,
     num_of_objects,
     func_configs,
-    bucket_stats
+    bucket_stats,
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering = tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
-        nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier);
+        nodes_aggregate_pool, hosts_aggregate_pool);
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {

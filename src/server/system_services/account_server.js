@@ -9,7 +9,6 @@ const P = require('../../util/promise');
 
 const _ = require('lodash');
 const net = require('net');
-const url = require('url');
 const AWS = require('aws-sdk');
 const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
@@ -58,6 +57,9 @@ function create_account(req) {
         has_login: req.rpc_params.has_login,
         access_keys: undefined,
     };
+
+    const { roles: account_roles = ['admin'] } = req.rpc_params;
+
     validate_create_account_params(req);
 
     if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
@@ -142,15 +144,17 @@ function create_account(req) {
                 desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
             });
 
+            const roles = account_roles.map(role => ({
+                _id: system_store.new_system_store_id(),
+                account: account._id,
+                system: sys_id,
+                role
+            }));
+
             return system_store.make_changes({
                 insert: {
                     accounts: [account],
-                    roles: [{
-                        _id: system_store.new_system_store_id(),
-                        account: account._id,
-                        system: sys_id,
-                        role: 'admin',
-                    }]
+                    roles
                 }
             });
         })
@@ -608,12 +612,13 @@ function list_accounts(req) {
         accounts = system_store.data.accounts;
     } else if (req.account) {
         // list system accounts - system admin can see all the system accounts
-        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
-            throw new RpcError('UNAUTHORIZED', 'Must be system admin');
+        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin') &&
+            !_.includes(req.account.roles_by_system[req.system._id], 'operator')) {
+            throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
         }
 
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
-            (roles && roles.length ? account_id : null)
+            (roles && roles.length && !_.includes(roles, 'operator') ? account_id : null)
         );
 
         accounts = _.compact(
@@ -790,9 +795,6 @@ function check_external_connection(req) {
     dbg.log0('check_external_connection:', req.rpc_params);
     const { endpoint_type } = req.rpc_params;
     const params = req.rpc_params;
-    const system = req.system;
-    const proxy = system.phone_home_proxy_address;
-    params.proxy = proxy;
     const account = req.account;
 
     const connection = req.rpc_params.name && _.find(account.sync_credentials_cache, sync_conn =>
@@ -872,7 +874,6 @@ function check_azure_connection(params) {
         .then(() => P.resolve()
             .then(() => {
                 let blob = azure_storage.createBlobService(conn_str);
-                blob.setProxy(params.proxy ? url.parse(params.proxy) : null);
                 return blob;
             })
             .catch(err => {
@@ -969,7 +970,7 @@ function check_aws_connection(params) {
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
-            agent: http_utils.get_unsecured_http_agent(params.endpoint, params.proxy)
+            agent: http_utils.get_unsecured_http_agent(params.endpoint)
         }
     });
 

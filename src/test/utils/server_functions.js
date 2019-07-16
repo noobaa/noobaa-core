@@ -44,26 +44,6 @@ async function enable_noobaa_login(server_ip, secret) {
     await ssh.ssh_stick(client_ssh);
 }
 
-//will run clean_ova and reboot the server
-async function clean_ova(server_ip, secret) {
-    try {
-        const client_ssh = await ssh.ssh_connect({
-            host: server_ip,
-            //  port: 22,
-            username: 'noobaaroot',
-            password: secret,
-            keepaliveInterval: 5000,
-        });
-        await ssh.ssh_exec(client_ssh, 'sudo /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh -a -d');
-        await ssh.ssh_exec(client_ssh, 'sudo reboot -fn', true);
-        await client_ssh.end();
-        await report.success('clean_ova');
-    } catch (e) {
-        await report.fail('clean_ova');
-        throw new Error(`clean_ova failed: ${e}`);
-    }
-}
-
 async function remove_swap_on_azure(server_ip, secret) {
     try {
         const client_ssh = await ssh.ssh_connect({
@@ -144,46 +124,37 @@ async function create_system(server_ip, port, protocol) {
             name: 'demo',
             password: 'DeMo1'
         });
-        let has_account;
-        const base_time = Date.now();
-        while (Date.now() - base_time < 120 * 1000) {
-            try {
-                const account_stat = await client.account.accounts_status({});
-                has_account = account_stat.has_accounts;
-                if (has_account) break;
-            } catch (e) {
-                console.warn(`Waiting for the default account to be in status true`);
-                await P.delay(5 * 1000);
-            }
-        }
-        if (!has_account) {
-            throw new Error(`Couldn't create system. no account`);
-        }
+        await wait_for_system_ready(server_ip, port, protocol);
     } catch (err) {
         throw new Error(`Couldn't create system ${err}`);
     }
 }
 
-
-async function clean_ova_and_create_system(server_ip, secret) {
-    try {
-        await clean_ova(server_ip, secret);
-    } catch (e) {
-        throw new Error('clean_ova::' + e);
+// use account status as indication for system ready after create system
+async function wait_for_system_ready(server_ip, port, protocol, timeout = 600 * 1000) {
+    let has_account;
+    const base_time = Date.now();
+    while (Date.now() - base_time < timeout) {
+        try {
+            const rpc = api.new_rpc_from_base_address(`${protocol}://${server_ip}:${port}`, 'EXTERNAL');
+            const client = rpc.new_client({});
+            const auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo1',
+                system: 'demo'
+            };
+            await client.create_auth_token(auth_params);
+            const account_stat = await client.account.accounts_status({});
+            has_account = account_stat.has_accounts;
+            if (has_account) break;
+        } catch (e) {
+            await P.delay(5 * 1000);
+        }
     }
-    try {
-        await wait_server_reconnect(server_ip);
-    } catch (e) {
-        throw new Error('wait_server_reconnect::' + e);
-    }
-    try {
-        await create_system_and_check(server_ip);
-    } catch (e) {
-        throw new Error('create_system_and_check::' + e);
+    if (!has_account) {
+        throw new Error(`Couldn't create system. no account`);
     }
 }
-
-
 
 
 async function add_server_to_cluster(master_ip, slave_ip, slave_secret, slave_name) {
@@ -291,10 +262,8 @@ async function get_num_optimal_agents(server_ip, port) {
 }
 
 exports.enable_noobaa_login = enable_noobaa_login;
-exports.clean_ova = clean_ova;
 exports.wait_server_reconnect = wait_server_reconnect;
 exports.create_system_and_check = create_system_and_check;
-exports.clean_ova_and_create_system = clean_ova_and_create_system;
 exports.init_reporter = init_reporter;
 exports.add_server_to_cluster = add_server_to_cluster;
 exports.remove_swap_on_azure = remove_swap_on_azure;
@@ -302,3 +271,4 @@ exports.clean_pre_upgrade_leftovers = clean_pre_upgrade_leftovers;
 exports.create_system = create_system;
 exports.create_pool = create_pool;
 exports.get_num_optimal_agents = get_num_optimal_agents;
+exports.wait_for_system_ready = wait_for_system_ready;

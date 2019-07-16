@@ -43,15 +43,11 @@ const server = {
             items: {
                 type: 'object',
                 required: [
-                    'ip',
-                    'collision'
+                    'ip'
                 ],
                 properties: {
                     ip: {
                         type: 'string'
-                    },
-                    collision: {
-                        type: 'boolean'
                     }
                 }
             }

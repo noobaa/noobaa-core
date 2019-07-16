@@ -554,6 +554,19 @@ function get_associated_buckets_int(pool) {
     });
 }
 
+function has_associated_buckets_int(pool) {
+    const associated_bucket = _.find(pool.system.buckets_by_name, function(bucket) {
+        return _.find(bucket.tiering.tiers, function(tier_and_order) {
+            return _.find(tier_and_order.tier.mirrors, function(mirror) {
+                return _.find(mirror.spread_pools, function(spread_pool) {
+                    return String(pool._id) === String(spread_pool._id);
+                });
+            });
+        });
+    });
+    return Boolean(associated_bucket);
+}
+
 function get_associated_accounts(pool) {
     return system_store.data.accounts
         .filter(account => (!account.is_support &&
@@ -784,8 +797,7 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
     }
 
     //Verify pool is not used by any bucket/tier
-    var buckets = get_associated_buckets_int(pool);
-    if (buckets.length) {
+    if (has_associated_buckets_int(pool)) {
         return 'IN_USE';
     }
 
@@ -800,8 +812,7 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
 function check_resrouce_pool_deletion(pool) {
 
     //Verify pool is not used by any bucket/tier
-    var buckets = get_associated_buckets_int(pool);
-    if (buckets.length) {
+    if (has_associated_buckets_int(pool)) {
         return 'IN_USE';
     }
 

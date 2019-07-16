@@ -104,7 +104,7 @@ function read_tier(req) {
             nodes_client.instance().aggregate_data_free_by_tier([String(tier._id)], req.system._id)
         )
         .spread(function(nodes_aggregate_pool, available_to_upload) {
-            return get_tier_info(tier, nodes_aggregate_pool, available_to_upload[String(tier._id)]);
+            return get_tier_info(tier, nodes_aggregate_pool, { mirror_storage: available_to_upload[String(tier._id)] });
         });
 }
 
@@ -381,15 +381,12 @@ function read_policy(req) {
     return P.join(
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_hosts_by_pool(pool_names, req.system._id),
-            nodes_client.instance().aggregate_data_free_by_tier(
-                policy.tiers.map(tiers_object => String(tiers_object.tier._id)), req.system._id)
         )
-        .spread(function(nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier) {
+        .spread(function(nodes_aggregate_pool, hosts_aggregate_pool) {
             return get_tiering_policy_info(policy,
                 node_allocator.get_tiering_status(policy),
                 nodes_aggregate_pool,
-                hosts_aggregate_pool,
-                aggregate_data_free_by_tier);
+                hosts_aggregate_pool);
         });
 }
 
@@ -520,7 +517,7 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
     return info;
 }
 
-function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier) {
+function get_tier_info(tier, nodes_aggregate_pool, tiering_tier_status) {
     const mirrors_storage = [];
     let attached_pools = [];
     const mirror_groups = [];
@@ -571,7 +568,7 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
         });
 
     const data = _.pick(_.defaults(
-        size_utils.reduce_storage(size_utils.reduce_minimum, aggregate_data_free_for_tier), {
+        size_utils.reduce_storage(size_utils.reduce_minimum, tiering_tier_status && tiering_tier_status.mirrors_storage), {
             free: 0,
         }), 'free');
 
@@ -587,17 +584,17 @@ function get_tier_info(tier, nodes_aggregate_pool, aggregate_data_free_for_tier)
 }
 
 function get_tiering_policy_info(tiering_policy, tiering_pools_status,
-    nodes_aggregate_pool, hosts_aggregate_pool, aggregate_data_free_by_tier) {
+    nodes_aggregate_pool, hosts_aggregate_pool) {
     const info = _.pick(tiering_policy, 'name');
     const tiers_storage = nodes_aggregate_pool ? [] : null;
-    const tiers_data = aggregate_data_free_by_tier ? [] : null;
+    const tiers_data = tiering_pools_status ? [] : null;
     info.tiers = _.map(tiering_policy.tiers, t => {
         let mode;
         if (tiers_storage) {
             const extra_info = get_tier_extra_info(t.tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool);
             const tier_info = get_tier_info(t.tier,
                 nodes_aggregate_pool,
-                aggregate_data_free_by_tier[String(t.tier._id)]);
+                tiering_pools_status[String(t.tier._id)]);
             tiers_storage.push(tier_info.storage);
             tiers_data.push(tier_info.data);
             mode = calc_tier_policy_status(t.tier, tier_info, extra_info);

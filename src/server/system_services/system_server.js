@@ -26,7 +26,6 @@ const MDStore = require('../object_services/md_store').MDStore;
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
-const ph_utils = require('../../util/phone_home');
 const { RpcError } = require('../../rpc');
 const ssl_utils = require('../../util/ssl_utils');
 const nb_native = require('../../util/nb_native');
@@ -73,12 +72,12 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
 
 // called on rpc server init
 async function _init() {
-    const DEFUALT_DELAY = 5000;
+    const DEFAULT_DELAY = 5000;
     let update_done = false;
 
     while (!update_done) {
         try {
-            await promise_utils.delay_unblocking(DEFUALT_DELAY);
+            await promise_utils.delay_unblocking(DEFAULT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
                 const [system] = system_store.data.systems;
 
@@ -252,11 +251,9 @@ async function create_system(req) {
         email,
         password,
         must_change_password,
-        dns_servers,
     } = req.rpc_params;
 
     try {
-        const owner_secret = system_store.get_server_secret();
         const account_id = system_store.new_system_store_id();
         const changes = new_system_changes(name, account_id);
         const system_id = changes.insert.systems[0]._id;
@@ -284,18 +281,24 @@ async function create_system(req) {
             changes.insert.pools[0]._id
         );
 
+        const { token: operator_token } = await server_rpc.client.account.create_account({
+            name,
+            email: config.OPERATOR_ACCOUNT_EMAIL,
+            has_login: false,
+            s3_access: false,
+            roles: ['operator', 'admin']
+        }, auth);
+
         dbg.log0('create_system: ensuring internal pool structure');
         await _ensure_internal_structure(system_id);
-        await _configure_dns_servers(dns_servers, owner_secret, auth);
         await _configure_system_address(system_id, account_id);
-        await _configure_system_proxy(auth);
         await _init_system(system_id);
 
         dbg.log0(`create_system: sending first stats to phone home`);
         await server_rpc.client.stats.send_stats(null, auth);
 
         dbg.log0('create_system: system created Successfully!');
-        return { token: auth.auth_token };
+        return { token: auth.auth_token, operator_token };
 
     } catch (err) {
         dbg.error('create_system: got error during create_system', err);
@@ -344,20 +347,6 @@ async function _create_owner_account(
     return { auth_token };
 }
 
-async function _configure_dns_servers(dns_servers, owner_secret, auth) {
-    if (!_.isEmpty(dns_servers)) {
-        dbg.log0(`create_system: updating dns servers:`, dns_servers);
-        try {
-            await server_rpc.client.cluster_server.update_dns_servers({
-                target_secret: owner_secret,
-                dns_servers
-            }, auth);
-        } catch (err) {
-            dbg.error('create_system: Failed updating dns server during create system', err);
-        }
-    }
-}
-
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
         await os_utils.discover_k8s_services() :
@@ -385,21 +374,9 @@ async function _configure_system_address(system_id, account_id) {
     //         level: 'info',
     //         system: system_id,
     //         actor: account_id,
-    //         desc: `System addresss was set to `,
+    //         desc: `System addresses was set to `,
     //     });
     // }
-}
-
-async function _configure_system_proxy(auth) {
-    if (process.env.PH_PROXY) {
-        try {
-            const proxy_address = process.env.PH_PROXY;
-            dbg.log0(`create_system: updating proxy address to ${proxy_address}`);
-            await server_rpc.client.system.update_phone_home_config({ proxy_address }, auth);
-        } catch (err) {
-            dbg.error('create_system: Failed updating phone home config during create system', err);
-        }
-    }
 }
 
 /**
@@ -436,10 +413,6 @@ function read_system(req) {
             .return(true)
             .catch(() => false),
 
-        aggregate_data_free_by_tier: nodes_client.instance().aggregate_data_free_by_tier(
-            _.map(system.tiers_by_name, tier => String(tier._id)),
-            system._id),
-
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
         deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket => bucket_server.can_delete_bucket(system, bucket))),
@@ -469,7 +442,6 @@ function read_system(req) {
         obj_count_per_bucket,
         accounts,
         has_ssl_cert,
-        aggregate_data_free_by_tier,
         deletable_buckets,
         rs_status,
         funcs,
@@ -517,9 +489,6 @@ function read_system(req) {
         }
 
         let phone_home_config = {};
-        if (system.phone_home_proxy_address) {
-            phone_home_config.proxy_address = system.phone_home_proxy_address;
-        }
         if (system.freemium_cap.phone_home_unable_comm) {
             phone_home_config.phone_home_unable_comm = true;
         }
@@ -544,6 +513,7 @@ function read_system(req) {
 
         const base_address = addr_utils.get_base_address(system.system_address);
         const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
+        const tiering_status_by_tier = {};
 
         return {
             name: system.name,
@@ -557,15 +527,16 @@ function read_system(req) {
             }),
             buckets: _.map(system.buckets_by_name,
                 bucket => {
+                    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+                    Object.assign(tiering_status_by_tier, tiering_pools_status);
                     const func_configs = funcs.map(func => func.config);
                     let b = bucket_server.get_bucket_info({
                         bucket,
                         nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                         hosts_aggregate_pool,
-                        aggregate_data_free_by_tier,
                         num_of_objects: obj_count_per_bucket[bucket._id] || 0,
                         func_configs,
-                        bucket_stats: stats_by_bucket[bucket.name]
+                        bucket_stats: stats_by_bucket[bucket.name],
                     });
                     const bucket_name = bucket.name.unwrap();
                     if (deletable_buckets[bucket_name]) {
@@ -581,7 +552,7 @@ function read_system(req) {
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier,
                     nodes_aggregate_pool_with_cloud_and_mongo,
-                    aggregate_data_free_by_tier[String(tier._id)])),
+                    tiering_status_by_tier[String(tier._id)])),
             accounts: accounts,
             functions: funcs,
             storage: size_utils.to_bigint_storage(_.defaults({
@@ -655,7 +626,7 @@ function set_maintenance_mode(req) {
         'dbg.maintenance_mode' : 'dbg.maintenance_mode_stopped';
     if (req.rpc_params.duration) {
         const d = moment.duration(req.rpc_params.duration, 'minutes');
-        audit_desc = `Maintanance mode activated for ${[
+        audit_desc = `Maintenance mode activated for ${[
             `${d.hours()} hour${d.hours() === 1 ? '' : 's'}`,
             `${d.minutes()} min${d.minutes() === 1 ? '' : 's'}`,
         ].join(' and ')}`;
@@ -722,7 +693,7 @@ function log_frontend_stack_trace(req) {
  *
  */
 function list_systems(req) {
-    console.log('List systems:', req.account);
+    console.log('List systems:', _.pick(req.account, 'name', '_id'));
     if (!req.account) {
         if (!req.system) {
             throw new RpcError('FORBIDDEN',
@@ -917,65 +888,6 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-async function verify_phonehome_connectivity(req) {
-    const { proxy_address: proxy } = req.rpc_params;
-    const options = proxy ? { proxy } : undefined;
-    const res = await ph_utils.verify_connection_to_phonehome(options);
-    return Boolean(res === 'CONNECTED');
-}
-
-// phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
-function update_phone_home_config(req) {
-    dbg.log0('update_phone_home_config', req.rpc_params);
-
-    const previous_value = system_store.data.systems[0].phone_home_proxy_address;
-    let desc_line = `Proxy address was `;
-    desc_line += req.rpc_params.proxy_address ? `set to ${req.rpc_params.proxy_address}. ` : `cleared. `;
-    desc_line += previous_value ? `Was previously set to ${previous_value}` : `Was not previously set`;
-
-    let update = {
-        _id: req.system._id
-    };
-    if (req.rpc_params.proxy_address === null) {
-        update.$unset = {
-            phone_home_proxy_address: 1
-        };
-    } else {
-        update.phone_home_proxy_address = req.rpc_params.proxy_address;
-    }
-
-    dbg.log0(`testing internet connectivity using proxy ${req.rpc_params.proxy_address}`);
-    return ph_utils.verify_connection_to_phonehome({ proxy: req.rpc_params.proxy_address })
-        .then(res => {
-            if (res === 'CONNECTED') {
-                dbg.log0('connectivity test passed. configuring proxy address:', desc_line);
-            } else {
-                dbg.error(`Failed connectivity test using proxy ${req.rpc_params.proxy_address}. test result: ${res}`);
-                if (req.rpc_params.proxy_address) {
-                    throw new RpcError('CONNECTIVITY_TEST_FAILED', `Failed connectivity test using proxy ${req.rpc_params.proxy_address}`);
-                }
-                dbg.warn('No connectivity without proxy! removing proxy settings anyway');
-            }
-        })
-        .then(() => system_store.make_changes({
-            update: {
-                systems: [update]
-            }
-        }))
-        .then(() => server_rpc.client.hosted_agents.stop())
-        .then(() => server_rpc.client.hosted_agents.start())
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'conf.set_phone_home_proxy_address',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                desc: desc_line,
-            });
-        })
-        .return();
-}
-
 function set_certificate(zip_file) {
     dbg.log0('upload_certificate');
     let key;
@@ -1059,7 +971,7 @@ function attempt_server_resolve(req) {
     let result;
     //If already in IP form, no need for resolving
     if (net.isIP(req.rpc_params.server_name)) {
-        dbg.log2('attempt_server_resolve recieved an IP form', req.rpc_params.server_name);
+        dbg.log2('attempt_server_resolve received an IP form', req.rpc_params.server_name);
         return P.resolve({ valid: true });
     }
 
@@ -1210,8 +1122,6 @@ exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
-exports.verify_phonehome_connectivity = verify_phonehome_connectivity;
-exports.update_phone_home_config = update_phone_home_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.set_certificate = set_certificate;

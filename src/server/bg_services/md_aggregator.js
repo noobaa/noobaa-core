@@ -32,18 +32,49 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
     const system = system_store.data.systems[0];
     if (!system || system_utils.system_in_maintenance(system._id)) return;
 
+    const global_last_update = system.global_last_update;
+
     let has_more = true;
     let update_range = true;
     let range = {};
 
+    const md_local_store = {
+        data: {
+            buckets: _.clone(system_store.data.buckets),
+            pools: _.clone(system_store.data.pools),
+        }
+    };
+
     while (has_more) {
-        if (update_range) range = await find_next_range({ target_now, system_store });
-        const changes = range && await range_md_aggregator({ md_store, system_store, range });
+        if (update_range) {
+            range = await find_next_range({
+                target_now,
+                system_store: md_local_store,
+                global_last_update,
+                original_system_store: system_store,
+            });
+        }
+        const changes = range && await range_md_aggregator({
+            md_store,
+            system_store: md_local_store,
+            range,
+            global_last_update
+        });
         if (changes) {
             const update = _.omit(changes, 'more_updates');
             await system_store.make_changes({ update });
-            await P.delay(delay);
             update_range = !changes.more_updates;
+            if (update_range) {
+                await system_store.make_changes({
+                    update: {
+                        systems: [{
+                            _id: system._id,
+                            global_last_update: range.till_time,
+                        }]
+                    }
+                });
+            }
+            await P.delay(delay);
         } else {
             has_more = false;
         }
@@ -56,13 +87,15 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
 function find_minimal_range({
     target_now,
     system_store,
+    global_last_update
 }) {
     let from_time = target_now;
     let till_time = target_now;
     let should_reset_all = false;
 
     _.forEach(system_store.data.buckets, bucket => {
-        const last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const last_update = global_last_update > bucket_last_update ? global_last_update : bucket_last_update;
         if (last_update > target_now) {
             dbg.error('find_next_range: time skew detected for bucket', bucket.name,
                 'last_update', last_update,
@@ -78,7 +111,8 @@ function find_minimal_range({
         }
     });
     _.forEach(system_store.data.pools, pool => {
-        const last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const pool_last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const last_update = global_last_update > pool_last_update ? global_last_update : pool_last_update;
         if (last_update > target_now) {
             dbg.error('find_next_range: time skew detected for pool', pool.name,
                 'last_update', last_update,
@@ -100,25 +134,32 @@ function find_minimal_range({
 function find_next_range({
     target_now,
     system_store,
+    global_last_update,
+    original_system_store,
 }) {
     let { from_time, till_time, should_reset_all } = find_minimal_range({
         target_now,
         system_store,
+        global_last_update
     });
+
     // printing the range and the buckets/pools relative info
     dbg.log0('find_next_range:',
         'from_time', from_time,
         'till_time*', till_time - from_time,
-        'target_now*', target_now - from_time
+        'target_now*', target_now - from_time,
+        'global_last_update', global_last_update,
     );
     _.forEach(system_store.data.buckets, bucket => {
-        const last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const last_update = bucket_last_update > global_last_update ? bucket_last_update : global_last_update;
         dbg.log1('find_next_range: bucket', bucket.name,
             'last_update*', last_update - from_time
         );
     });
     _.forEach(system_store.data.pools, pool => {
-        const last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const pool_last_update = _.get(pool, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+        const last_update = pool_last_update > global_last_update ? pool_last_update : global_last_update;
         dbg.log1('find_next_range: pool', pool.name,
             'last_update*', last_update - from_time
         );
@@ -132,8 +173,12 @@ function find_next_range({
         );
         // Assigning NOOBAA_EPOCH so we will gather all data again till the new time
         // This means that we will be eventually consistent
-        return system_store.make_changes({
+        return original_system_store.make_changes({
             update: {
+                systems: [{
+                    _id: original_system_store.data.systems[0]._id,
+                    global_last_update: config.NOOBAA_EPOCH,
+                }],
                 buckets: _.map(system_store.data.buckets, bucket => ({
                     _id: bucket._id,
                     storage_stats: {
@@ -193,8 +238,8 @@ function range_md_aggregator({
     const till_time = range.till_time;
     let more_updates = false;
 
-    const filtered_buckets = _.filter(system_store.data.buckets, bucket => bucket.storage_stats.last_update === from_time);
-    const filtered_pools = _.filter(system_store.data.pools, pool => pool.storage_stats.last_update === from_time);
+    const filtered_buckets = _.filter(system_store.data.buckets, bucket => bucket.storage_stats.last_update <= from_time);
+    const filtered_pools = _.filter(system_store.data.pools, pool => pool.storage_stats.last_update <= from_time);
     if (filtered_buckets.length > config.MD_AGGREGATOR_BATCH || filtered_pools.length > config.MD_AGGREGATOR_BATCH) {
         more_updates = true;
     }
@@ -228,6 +273,7 @@ function range_md_aggregator({
             );
 
             const buckets_updates = _.map(buckets, bucket => {
+                let dont_change_last_update = false;
                 const new_storage_stats = calculate_new_bucket({
                     bucket,
                     existing_chunks_aggregate,
@@ -237,30 +283,41 @@ function range_md_aggregator({
                     existing_blocks_aggregate,
                     deleted_blocks_aggregate
                 });
+                if (_.isEqual(_.omit(bucket.storage_stats, 'last_update'), new_storage_stats)) {
+                    dont_change_last_update = true;
+                }
                 new_storage_stats.last_update = till_time;
+                bucket.storage_stats = new_storage_stats;
                 return {
                     _id: bucket._id,
                     storage_stats: new_storage_stats,
+                    dont_change_last_update
                 };
             });
 
             const pools_updates = _.map(pools, pool => {
+                let dont_change_last_update = false;
                 const new_storage_stats = calculate_new_pool({
                     pool,
                     existing_blocks_aggregate,
                     deleted_blocks_aggregate
                 });
+                if (_.isEqual(_.omit(pool.storage_stats, 'last_update'), new_storage_stats)) {
+                    dont_change_last_update = true;
+                }
                 new_storage_stats.last_update = till_time;
+                pool.storage_stats = new_storage_stats;
                 return {
                     _id: pool._id,
                     storage_stats: new_storage_stats,
+                    dont_change_last_update,
                 };
             });
 
             return {
                 buckets: buckets_updates,
                 pools: pools_updates,
-                more_updates
+                more_updates,
             };
         });
 }

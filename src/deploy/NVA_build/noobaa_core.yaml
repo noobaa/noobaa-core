@@ -213,7 +213,7 @@ spec:
               name: mongo-datadir
       initContainers:
         - name: init-mongo
-          image: noobaa/noobaa-core:4.0.2
+          image: noobaa/noobaa-core:5.0.0
           # command: ['/noobaa_init_files/kube_pv_chown', 'server']
           command: ['/noobaa_init_files/noobaa_init.sh', 'init_mongo']
           volumeMounts:

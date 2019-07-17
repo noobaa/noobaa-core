@@ -63,7 +63,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_bandwidth'),
         help: 'Providers bandwidth usage',
-        labelNames: ['type', 'size']
+        labelNames: ['type', 'io_size', 'size']
     }
 }, {
     metric_type: 'Gauge',
@@ -71,7 +71,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_ops'),
         help: 'Providers number of operations',
-        labelNames: ['type', 'number']
+        labelNames: ['type', 'io_ops', 'number']
     }
 }, {
     metric_type: 'Gauge',
@@ -103,6 +103,22 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('num_buckets'),
         help: 'Object Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'total_usage',
+    configuration: {
+        name: get_metric_name('total_usage'),
+        help: 'Total Usage',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'accounts_num',
+    configuration: {
+        name: get_metric_name('accounts_num'),
+        help: 'Accounts Number',
     },
     generate_default_set: true,
 }, {
@@ -177,6 +193,22 @@ const METRIC_RECORDS = Object.freeze([{
         help: 'Object Savings',
         labelNames: ['logical_size', 'physical_size'],
     },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'rebuild_progress',
+    configuration: {
+        name: get_metric_name('rebuild_progress'),
+        help: 'Rebuild Progress',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'rebuild_time',
+    configuration: {
+        name: get_metric_name('rebuild_time'),
+        help: 'Rebuild Time',
+    },
+    generate_default_set: true,
 }]);
 
 
@@ -283,14 +315,14 @@ class PrometheusReporting {
 
     set_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.set({ type: type + '_write_size' }, write_size);
-        this._metrics.providers_bandwidth.set({ type: type + '_read_size' }, read_size);
+        this._metrics.providers_bandwidth.set({ type: type, io_size: 'write_size' }, write_size);
+        this._metrics.providers_bandwidth.set({ type: type, io_size: 'read_size' }, read_size);
     }
 
     set_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.set({ type: type + '_write_ops' }, write_num);
-        this._metrics.providers_ops.set({ type: type + '_read_ops' }, read_num);
+        this._metrics.providers_ops.set({ type: type, io_ops: 'write_ops' }, write_num);
+        this._metrics.providers_ops.set({ type: type, io_ops: 'read_ops' }, read_num);
     }
 
     set_object_savings(savings) {
@@ -315,14 +347,14 @@ class PrometheusReporting {
 
     update_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.inc({ type: type + '_write_size' }, write_size, new Date());
-        this._metrics.providers_bandwidth.inc({ type: type + '_read_size' }, read_size, new Date());
+        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'write_size' }, write_size, new Date());
+        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'read_size' }, read_size, new Date());
     }
 
     update_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.inc({ type: type + '_write_ops' }, write_num, new Date());
-        this._metrics.providers_ops.inc({ type: type + '_read_ops' }, read_num, new Date());
+        this._metrics.providers_ops.inc({ type: type, io_ops: 'write_ops' }, write_num, new Date());
+        this._metrics.providers_ops.inc({ type: type, io_ops: 'read_ops' }, read_num, new Date());
     }
 }
 

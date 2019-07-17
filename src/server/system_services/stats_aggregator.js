@@ -134,6 +134,7 @@ const PARTIAL_SYSTEM_STATS_DEFAULTS = {
 
 const PARTIAL_ACCOUNT_IO_STATS = {
     accounts: [],
+    accounts_num: 0,
 };
 
 const PARTIAL_SINGLE_ACCOUNT_DEFAULTS = {
@@ -256,7 +257,9 @@ async function get_partial_accounts_stats(req) {
     try {
         // TODO: Either make a large query or per account
         // In case of large query we also need to set a limit and tirgger listing queries so we won't crash
-        accounts_stats.accounts = await P.all(_.map(system_store.data.accounts, async account => {
+        accounts_stats.accounts = await P.all(_.compact(_.map(system_store.data.accounts, async account => {
+            if (account.is_support) return;
+            accounts_stats.accounts_num += 1;
             const new_req = _.defaults({
                 rpc_params: { accounts: [account.email], from: new Date(0), till: new Date() },
             }, req);
@@ -274,7 +277,7 @@ async function get_partial_accounts_stats(req) {
                 write_count,
                 read_write_bytes,
             }, PARTIAL_SINGLE_ACCOUNT_DEFAULTS);
-        }));
+        })));
         accounts_stats.accounts = _.compact(accounts_stats.accounts);
         return accounts_stats;
     } catch (err) {
@@ -364,6 +367,7 @@ async function get_partial_systems_stats(req) {
             };
             const free_bytes = size_utils.bigint_to_bytes(storage.free);
             const total_bytes = size_utils.bigint_to_bytes(storage.total);
+            const total_usage = size_utils.bigint_to_bytes(storage.used);
             const capacity = 100 - Math.floor(((free_bytes / total_bytes) || 1) * 100);
 
             return _.defaults({
@@ -371,6 +375,7 @@ async function get_partial_systems_stats(req) {
                 capacity,
                 reduction_ratio,
                 savings,
+                total_usage,
                 buckets_stats,
                 usage_by_bucket_class,
                 usage_by_project
@@ -819,6 +824,7 @@ async function get_partial_stats(req) {
  */
 function partial_cycle_parse_prometheus_metrics(payload) {
     const { cloud_pool_stats, systems_stats, accounts_stats, providers_stats } = payload;
+    const { accounts_num } = accounts_stats;
     // TODO: Support multiple systems
     const {
         buckets_stats,
@@ -828,6 +834,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         name,
         usage_by_bucket_class,
         usage_by_project,
+        total_usage,
     } = systems_stats.systems[0];
     const {
         buckets,
@@ -857,6 +864,11 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_bucket_class_capacity_usage(usage_by_bucket_class);
     prom_report.instance().set_projects_capacity_usage(usage_by_project);
     prom_report.instance().set_accounts_io_usage(accounts_stats);
+    prom_report.instance().set_accounts_num(accounts_num);
+    prom_report.instance().set_total_usage(total_usage);
+    // TODO: Currently mock data, update with the relevant values.
+    prom_report.instance().set_rebuild_progress(100);
+    prom_report.instance().set_rebuild_time(0);
 }
 
 /*

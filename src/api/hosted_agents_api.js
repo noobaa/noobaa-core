@@ -88,6 +88,28 @@ module.exports = {
             }
         },
 
+        update_credentials: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['pool_ids', 'credentials'],
+                properties: {
+                    pool_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    },
+                    credentials: {
+                        $ref: 'common_api#/definitions/access_keys',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         remove_agent: {
             method: 'POST',
             params: {

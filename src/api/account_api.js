@@ -332,6 +332,25 @@ module.exports = {
             }
         },
 
+        edit_external_connection_credentials: {
+            doc: 'Edit a connection in authorized account\'s connections cache',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'identity', 'secret'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    identity: { $ref: 'common_api#/definitions/access_key' },
+                    secret: { $ref: 'common_api#/definitions/secret_key' },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         check_external_connection: {
             method: 'GET',
             params: {

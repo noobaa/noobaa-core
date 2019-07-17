@@ -111,6 +111,7 @@ class Agent {
                 };
             } else if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
+                this.cloud_path = params.cloud_path;
                 block_store_options.cloud_info = params.cloud_info;
                 block_store_options.cloud_path = params.cloud_path;
                 if (params.cloud_info.endpoint_type === 'AWS' ||
@@ -256,6 +257,48 @@ class Agent {
             // reset the n2n config to close any open ports
             this.n2n_agent.disconnect();
         }
+    }
+
+    async update_credentials(access_keys) {
+        if (!this.cloud_info) return;
+        this.cloud_info.access_keys = access_keys;
+        const block_store_options = {
+            node_name: this.node_name,
+            rpc_client: this.client,
+            storage_limit: this.storage_limit,
+            proxy: this.proxy,
+            cloud_info: this.cloud_info,
+            cloud_path: this.cloud_path,
+        };
+
+        if (this.node_type === 'BLOCK_STORE_S3') {
+            this.block_store = new BlockStoreS3(block_store_options);
+        } else if (this.node_type === 'BLOCK_STORE_AZURE') {
+            const connection_string = cloud_utils.get_azure_connection_string({
+                endpoint: block_store_options.cloud_info.endpoint,
+                access_key: this.cloud_info.access_keys.access_key.unwrap(),
+                secret_key: this.cloud_info.access_keys.secret_key.unwrap(),
+            });
+            block_store_options.cloud_info.azure = {
+                connection_string: connection_string,
+                container: this.cloud_info.target_bucket
+            };
+            this.block_store = new BlockStoreAzure(block_store_options);
+        } else if (this.node_type === 'BLOCK_STORE_GOOGLE') {
+            const { project_id, private_key, client_email } = JSON.parse(this.cloud_info.access_keys.secret_key.unwrap());
+            block_store_options.cloud_info.google = { project_id, private_key, client_email };
+            this.block_store = new BlockStoreGoogle(block_store_options);
+        }
+
+        this.rpc.replace_service(
+            this.rpc.schema.block_store_api,
+            this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            }
+        );
+
+        await this.block_store.init();
     }
 
     sample_stats() {

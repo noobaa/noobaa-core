@@ -95,6 +95,42 @@ class RPC extends EventEmitter {
         }
     }
 
+    replace_service(api, server, options) {
+        options = options || {};
+
+        dbg.log0('RPC replace_service', api.id);
+
+        _.each(api.methods, (method_api, method_name) => {
+            const srv = api.id + '.' + method_name;
+            assert(this._services[srv],
+                'RPC replace_service: service is not registered ' + srv);
+            const func = server[method_name] ||
+                (options.allow_missing_methods && (() => P.reject({
+                    data: 'RPC replace_service:' +
+                        ' missing method implementation - ' +
+                        method_api.fullname
+                })));
+            assert.strictEqual(typeof(func), 'function',
+                'RPC replace_service: server method should be a function - ' +
+                method_api.fullname + '. Is of type ' + typeof(func));
+
+            this._services[srv] = {
+                api: api,
+                server: server,
+                options: options,
+                method_api: method_api,
+                server_func: (...args) => func.apply(server, args)
+            };
+        });
+
+
+        //Service was registered, call _init (if exists)
+        if (server._init) {
+            dbg.log2('RPC replace_service: calling _init() for', api.id);
+            server._init();
+        }
+    }
+
     /**
      *
      * is_service_registered

@@ -260,6 +260,18 @@ class HostedAgents {
                 delete this._started_agents[node_name];
             });
     }
+
+    update_agents_credentials({ pool_ids, access_keys }) {
+        for (const pid of pool_ids) {
+            const node_name = 'noobaa-internal-agent-' + pid;
+            if (!this._started_agents[node_name]) {
+                dbg.error(`update_agents_credentials agent ${node_name} does not exist`);
+                continue;
+            }
+            const agent = this._started_agents[node_name].agent;
+            agent.update_credentials(access_keys);
+        }
+    }
 }
 
 
@@ -269,6 +281,15 @@ function create_pool_agent(req) {
         ._start_pool_agent(req.system.pools_by_name[req.params.pool_name]);
 }
 
+
+async function update_credentials(req) {
+    const { pool_ids, credentials } = req.rpc_params;
+    try {
+        await HostedAgents.instance().update_agents_credentials({ pool_ids, access_keys: credentials });
+    } catch (error) {
+        dbg.error('update_credentials had failed', error);
+    }
+}
 
 
 function remove_pool_agent(req) {
@@ -340,6 +361,7 @@ function _get_pool_and_path_for_token(token_pool) {
 
 // EXPORTS
 exports.create_pool_agent = create_pool_agent;
+exports.update_credentials = update_credentials;
 exports.remove_pool_agent = remove_pool_agent;
 exports.start = req => HostedAgents.instance().start();
 exports.stop = req => HostedAgents.instance().stop();

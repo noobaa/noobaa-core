@@ -15,6 +15,7 @@ const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
 const SensetiveString = require('../../util/sensitive_string');
+const server_rpc = require('../server_rpc');
 
 const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
@@ -717,6 +718,79 @@ async function add_external_connection(req) {
     });
 }
 
+async function edit_external_connection_credentials(req) {
+    const { name, identity, secret } = req.rpc_params;
+    const { account } = req;
+    const connection_to_edit = cloud_utils.find_cloud_connection(account, name);
+    const { endpoint_type, cp_code, auth_method, endpoint } = connection_to_edit;
+    const new_connection = _.cloneDeep(connection_to_edit);
+    const check_connection = {
+        name,
+        identity,
+        secret,
+        endpoint_type,
+        cp_code,
+        auth_method,
+        endpoint,
+    };
+    try {
+        const reply = await _check_external_connection(check_connection);
+        // TODO: Maybe handle differently
+        if (reply.status !== 'SUCCESS') {
+            throw new RpcError('CREDENTIALS_INVALID', `Credentials are not valid ${name}`);
+        }
+    } catch (error) {
+        // TODO: Maybe handle differently
+        dbg.error('_check_external_connection had error', error);
+        throw new RpcError('CREDENTIALS_INVALID', `Credentials are not valid ${name}`);
+    }
+    new_connection.access_key = identity;
+    new_connection.secret_key = secret;
+
+    const account_updates = {
+        _id: req.account._id,
+        sync_credentials_cache: _.filter(account.sync_credentials_cache,
+            connection => (connection.name !== name))
+    };
+
+    account_updates.sync_credentials_cache.push(new_connection);
+
+    const make_changes = {
+        update: {
+            accounts: [account_updates]
+        }
+    };
+
+    const connected_pools = _.filter(system_store.data.pools, pool => (
+        pool.cloud_pool_info &&
+        pool.cloud_pool_info.endpoint === connection_to_edit.endpoint &&
+        pool.cloud_pool_info.access_keys.account_id._id === account._id &&
+        pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_edit.access_key
+    ));
+
+    const pools_updates = _.map(connected_pools, pool => ({
+        _id: pool._id,
+        'cloud_pool_info.access_keys.access_key': identity,
+        'cloud_pool_info.access_keys.secret_key': secret,
+    }));
+    const update_pools = !_.isEmpty(pools_updates);
+    if (update_pools) make_changes.update.pools = pools_updates;
+
+    await system_store.make_changes(make_changes);
+
+    if (update_pools) {
+        await server_rpc.client.hosted_agents.update_credentials({
+            credentials: {
+                access_key: identity.unwrap(),
+                secret_key: secret.unwrap(),
+            },
+            pool_ids: connected_pools.map(pool => String(pool._id)),
+        }, {
+            auth_token: req.auth_token
+        });
+    }
+}
+
 function check_external_connection(req) {
     dbg.log0('check_external_connection:', req.rpc_params);
     const { endpoint_type } = req.rpc_params;
@@ -754,6 +828,32 @@ function check_external_connection(req) {
                 }
             }
         });
+}
+
+async function _check_external_connection(connection) {
+    const { endpoint_type } = connection;
+    switch (endpoint_type) {
+        case 'AZURE': {
+            return check_azure_connection(connection);
+        }
+
+        case 'AWS':
+        case 'S3_COMPATIBLE':
+        case 'FLASHBLADE': {
+            return check_aws_connection(connection);
+        }
+
+        case 'NET_STORAGE': {
+            return check_net_storage_connection(connection);
+        }
+        case 'GOOGLE': {
+            return check_google_connection(connection);
+        }
+
+        default: {
+            throw new Error('Unknown endpoint type');
+        }
+    }
 }
 
 function check_azure_connection(params) {
@@ -939,8 +1039,8 @@ function delete_external_connection(req) {
     if (_.find(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
-            pool.cloud_pool_info.account_id === account._id &&
-            pool.cloud_pool_info.access_key === connection_to_delete.access_key
+            pool.cloud_pool_info.access_keys.account_id._id === account._id &&
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
         ))) {
         throw new Error('Cannot delete connection as it is being used for a cloud pool');
     }
@@ -1219,6 +1319,7 @@ exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;
 exports.get_system_roles = get_system_roles;
 exports.add_external_connection = add_external_connection;
+exports.edit_external_connection_credentials = edit_external_connection_credentials;
 exports.check_external_connection = check_external_connection;
 exports.delete_external_connection = delete_external_connection;
 exports.get_account_info = get_account_info;

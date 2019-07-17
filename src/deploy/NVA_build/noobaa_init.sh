@@ -40,38 +40,20 @@ update_services_autostart() {
   mv ${NOOBAA_SUPERVISOR}.tmp ${NOOBAA_SUPERVISOR}
 }
 
-handle_unmanaged_upgrade() {
-    #Container specific logic
-    if grep -q PLATFORM=docker /data/.env; then
-        code_version=$(grep version ${NOOBAA_PACKAGE_PATH} | awk -F'["|"]' '{print $4}')
-        if [ ! -f ${NOOBAA_DATA_VERSION} ]; then 
-            #New system, update data version file
-            echo ${code_version} > ${NOOBAA_DATA_VERSION}
-        else
-            data_version=$(cat ${NOOBAA_DATA_VERSION})
-            #verify if we need to start an un-managed upgrade
-            if [ "${code_version}" != "${data_version}" ]; then
-                logger -p local0.warn -t Superd "Code version ${code_version} differs from data version ${data_version}, initiating unmanaged upgrade"
-
-                #code version differs from data version, need to initiate un-managed upgrade
-                update_services_autostart
-                cat >> ${NOOBAA_SUPERVISOR} << EOF
-
-[program:upgrade_manager]
-stopsignal=KILL
-priority=1
-autostart=true
-directory=/root/node_modules/noobaa-core/
-stdout_logfile=/dev/fd/1
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/fd/1
-stderr_logfile_maxbytes=0
-command=/usr/local/bin/node src/upgrade/upgrade_manager.js --old_version ${data_version} --unmanaged true
-#endprogram
-EOF
-            fi
-        fi
-    fi
+## upgrade flow if version is changed
+handle_server_upgrade() {
+  cd /root/node_modules/noobaa-core/
+  # env UPGRADE_SCRIPTS_DIR can be used to override the default directory that holds upgrade scripts
+  if [ -z ${UPGRADE_SCRIPTS_DIR} ]
+  then
+    UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
+  fi
+  /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
+  rc=$?
+  if [ ${rc} -ne 0 ]; then
+    echo "upgrade_manager failed with exit code ${rc}"
+    exit ${rc}
+  fi
 }
 
 fix_non_root_user() {
@@ -143,10 +125,7 @@ init_noobaa_server() {
   extract_noobaa_in_docker
   prepare_server_pvs
 
-  #commented out handle_unmanaged_upgrade since upgrade flow is depndent on mongo shell that was removed
-  ###TODO: restore handle_unmanaged_upgrade once the upgrade script does not rely on mongo shell
-  #check if unmamnaged upgrade is required
-  # handle_unmanaged_upgrade
+  handle_server_upgrade
 }
 
 init_noobaa_agent() {

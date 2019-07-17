@@ -57,7 +57,9 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             objects_size: 0,
             objects_count: 0,
             objects_hist: [],
-            last_update: now - (2 * config.MD_GRACE_IN_MILLISECONDS)
+            // new buckets creation date will be rounded down to config.MD_AGGREGATOR_INTERVAL (30 seconds)
+            last_update: (Math.floor(now / config.MD_AGGREGATOR_INTERVAL) * config.MD_AGGREGATOR_INTERVAL) -
+                (2 * config.MD_GRACE_IN_MILLISECONDS),
         },
         lambda_triggers: [],
         versioning: 'DISABLED'
@@ -1102,9 +1104,12 @@ function get_bucket_info({
     };
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
 
+    const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+    const system_last_update = _.get(bucket, 'system.global.last_update') || config.NOOBAA_EPOCH;
+    const last_update = Math.max(system_last_update, bucket_last_update);
     info.usage_by_pool = {
         pools: {},
-        last_update: _.get(bucket, 'storage_stats.last_update')
+        last_update,
     };
 
     info.usage_by_pool.pools = [];
@@ -1255,6 +1260,10 @@ function _calc_metrics({
     const bucket_total = bucket_free.plus(bucket_used)
         .plus(bucket_used_other);
 
+    const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+    const system_last_update = _.get(bucket, 'system.global_last_update') || config.NOOBAA_EPOCH;
+    const last_update = Math.max(system_last_update, bucket_last_update);
+
     info.storage = {
         values: size_utils.to_bigint_storage({
             used: bucket_used,
@@ -1262,7 +1271,7 @@ function _calc_metrics({
             total: bucket_total,
             free: bucket_free,
         }),
-        last_update: _.get(bucket, 'storage_stats.last_update')
+        last_update
     };
 
     const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
@@ -1291,7 +1300,7 @@ function _calc_metrics({
         size_reduced: bucket_chunks_capacity,
         free: actual_free,
         available_for_upload,
-        last_update: _.get(bucket, 'storage_stats.last_update')
+        last_update,
     });
 
     return {

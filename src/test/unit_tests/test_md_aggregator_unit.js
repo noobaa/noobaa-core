@@ -17,10 +17,97 @@ const config = require('../../../config.js');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const md_aggregator = require('../../server/bg_services/md_aggregator.js');
 
+function make_test_system_store(last_update, md_store) {
+
+    const systems = _.times(1, i => ({
+        _id: md_store.make_md_id(),
+        name: `system${i}`,
+        owner: md_store.make_md_id(),
+    }));
+
+    const buckets = _.times(10, i => ({
+        _id: md_store.make_md_id(),
+        name: `bucket${i}`,
+        storage_stats: {
+            last_update,
+            chunks_capacity: 0,
+            blocks_size: 0,
+            pools: {},
+            objects_size: 0,
+            objects_count: 0,
+            objects_hist: [],
+        },
+    }));
+
+    const pools = _.times(10, i => ({
+        _id: md_store.make_md_id(),
+        name: `pool${i}`,
+        storage_stats: {
+            last_update,
+            blocks_size: 0,
+        }
+    }));
+
+    const system_store = {
+        is_finished_initial_load: true,
+        data: {
+            buckets,
+            pools,
+            systems,
+        },
+        changes_list: [],
+        debug: true,
+        find_system_by_id(id) {
+            return _.find(this.data.systems, system => String(system._id) === String(id));
+        },
+        find_bucket_by_id(id) {
+            return _.find(this.data.buckets, bucket => String(bucket._id) === String(id));
+        },
+        find_pool_by_id(id) {
+            return _.find(this.data.pools, pool => String(pool._id) === String(id));
+        },
+        make_changes(changes) {
+            this.changes_list.push(changes);
+            if (this.debug) {
+                coretest.log('system store changes #',
+                    this.changes_list.length,
+                    util.inspect(changes, true, null, true)
+                );
+            }
+            if (changes.update.systems) {
+                changes.update.systems.forEach(updates => {
+                    const system = this.find_system_by_id(updates._id);
+                    _.forEach(updates, (val, key) => {
+                        if (key !== '_id') _.set(system, key, val);
+                    });
+                });
+            }
+            if (changes.update.buckets) {
+                changes.update.buckets.forEach(updates => {
+                    const bucket = this.find_bucket_by_id(updates._id);
+                    _.forEach(updates, (val, key) => {
+                        if (key !== '_id') _.set(bucket, key, val);
+                    });
+                });
+            }
+            if (changes.update.pools) {
+                changes.update.pools.forEach(updates => {
+                    const pool = this.find_pool_by_id(updates._id);
+                    _.forEach(updates, (val, key) => {
+                        if (key !== '_id') _.set(pool, key, val);
+                    });
+                });
+            }
+            return P.resolve();
+        },
+    };
+
+    return system_store;
+}
+
 mocha.describe('md_aggregator', function() {
 
     const md_store = new MDStore(`_test_md_store_${Date.now().toString(36)}`);
-    const system_id = md_store.make_md_id();
 
     mocha.describe('calculations', function() {
 
@@ -214,9 +301,10 @@ mocha.describe('md_aggregator', function() {
             self.timeout(30000);
             const last_update = Date.now();
             const target_now = last_update + CYCLE;
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
             const block_id1 = md_store.make_md_id_from_time(last_update + sub_cycle());
             coretest.log('block 1 addtion date', block_id1.getTimestamp().getTime());
+            const system_id = system_store.data.systems[0]._id;
 
             return P.resolve()
                 .then(() => md_store.insert_blocks([{
@@ -243,7 +331,7 @@ mocha.describe('md_aggregator', function() {
                 }))
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
                 .then(() => {
-                    assert.strictEqual(system_store.changes_list.length, 1);
+                    assert.strictEqual(system_store.changes_list.length, 2);
                     const changes = system_store.changes_list[0];
                     assert.strictEqual(changes.update.buckets.length, system_store.data.buckets.length);
                     assert.strictEqual(changes.update.pools.length, system_store.data.pools.length);
@@ -263,18 +351,19 @@ mocha.describe('md_aggregator', function() {
             self.timeout(30000);
             const last_update = Date.now();
             const target_now = last_update + (2 * CYCLE);
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
             const block_id1 = md_store.make_md_id_from_time(last_update + sub_cycle());
             const block_id2 = md_store.make_md_id_from_time(last_update + sub_cycle());
             const bucket = system_store.data.buckets[0];
             const pool = system_store.data.pools[0];
             coretest.log('block 1 addtion date', block_id1.getTimestamp().getTime());
             coretest.log('block 2 addtion date', block_id2.getTimestamp().getTime());
+            const system_id = system_store.data.systems[0]._id;
 
             return P.resolve()
                 .then(() => md_store.insert_blocks([
-                    make_block(block_id1, 120, bucket, pool),
-                    make_block(block_id2, 350, bucket, pool),
+                    make_block(block_id1, 120, bucket, pool, system_id),
+                    make_block(block_id2, 350, bucket, pool, system_id),
                 ]))
                 .then(() => md_store.insert_chunks([{
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -294,7 +383,7 @@ mocha.describe('md_aggregator', function() {
                 }))
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
                 .then(() => {
-                    assert.strictEqual(system_store.changes_list.length, 2);
+                    assert.strictEqual(system_store.changes_list.length, 4);
                     const changes0 = system_store.changes_list[0];
                     assert.strictEqual(changes0.update.buckets.length, system_store.data.buckets.length);
                     assert.strictEqual(changes0.update.pools.length, system_store.data.pools.length);
@@ -306,7 +395,7 @@ mocha.describe('md_aggregator', function() {
                     changes0.update.pools.forEach(item => {
                         assert.strictEqual(item.storage_stats.last_update, last_update + CYCLE);
                     });
-                    const changes1 = system_store.changes_list[1];
+                    const changes1 = system_store.changes_list[2];
                     assert.strictEqual(changes1.update.buckets[0].storage_stats.blocks_size, 120);
                     assert.strictEqual(changes1.update.pools[0].storage_stats.blocks_size, 120);
                     changes1.update.buckets.forEach(item => {
@@ -323,17 +412,18 @@ mocha.describe('md_aggregator', function() {
             self.timeout(30000);
             const last_update = Date.now();
             const target_now = last_update + (2 * CYCLE);
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
             const bucket = system_store.data.buckets[0];
             const pool = system_store.data.pools[0];
             const blocks_to_delete = [];
+            const system_id = system_store.data.systems[0]._id;
 
             return P.resolve()
                 .then(() => {
                     const blocks = [];
                     for (let i = 0; i < 1024; ++i) { // 1 PB
                         const block_id = md_store.make_md_id_from_time(last_update + sub_cycle());
-                        blocks.push(make_block(block_id, 1024 * 1024 * 1024 * 1024, bucket, pool));
+                        blocks.push(make_block(block_id, 1024 * 1024 * 1024 * 1024, bucket, pool, system_id));
                         if (i % 2) blocks_to_delete.push(block_id);
                     }
                     return md_store.insert_blocks(blocks);
@@ -356,7 +446,7 @@ mocha.describe('md_aggregator', function() {
                 }))
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
                 .then(() => {
-                    assert.strictEqual(system_store.changes_list.length, 2);
+                    assert.strictEqual(system_store.changes_list.length, 4);
                     const changes0 = system_store.changes_list[0];
                     assert.strictEqual(changes0.update.buckets.length, system_store.data.buckets.length);
                     assert.strictEqual(changes0.update.pools.length, system_store.data.pools.length);
@@ -368,7 +458,7 @@ mocha.describe('md_aggregator', function() {
                     changes0.update.pools.forEach(item => {
                         assert.strictEqual(item.storage_stats.last_update, last_update + CYCLE);
                     });
-                    const changes1 = system_store.changes_list[1];
+                    const changes1 = system_store.changes_list[2];
                     assert.deepEqual(changes1.update.buckets[0].storage_stats.blocks_size, Math.pow(2, 49));
                     assert.deepEqual(changes1.update.pools[0].storage_stats.blocks_size, Math.pow(2, 49));
                     changes1.update.buckets.forEach(item => {
@@ -385,10 +475,11 @@ mocha.describe('md_aggregator', function() {
             const self = this; // eslint-disable-line no-invalid-this
             self.timeout(30000);
             const last_update = Date.now();
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
             const num_ranges = system_store.data.buckets.length;
             const range = CYCLE / 2;
             const target_now = last_update + (num_ranges * range);
+            const system_id = system_store.data.systems[0]._id;
 
             return P.resolve()
                 .then(() => md_store.insert_blocks(_.times(num_ranges, i => {
@@ -398,7 +489,7 @@ mocha.describe('md_aggregator', function() {
                     bucket.storage_stats.last_update = current_cycle;
                     pool.storage_stats.last_update = current_cycle;
                     const block_id = md_store.make_md_id_from_time(current_cycle + (sub_cycle() / 2));
-                    return make_block(block_id, 666, bucket, pool);
+                    return make_block(block_id, 666, bucket, pool, system_id);
                 })))
                 .then(() => md_store.insert_chunks([{
                     _id: md_store.make_md_id_from_time(last_update + sub_cycle()),
@@ -415,18 +506,20 @@ mocha.describe('md_aggregator', function() {
                 }))
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
                 .then(() => {
-                    assert.strictEqual(system_store.changes_list.length, num_ranges);
+                    assert.strictEqual(system_store.changes_list.length, num_ranges * 2);
                     system_store.changes_list.forEach((changes, i) => {
-                        assert.strictEqual(changes.update.buckets.length, i + 1);
-                        assert.strictEqual(changes.update.pools.length, i + 1);
-                        assert.strictEqual(changes.update.buckets[0].storage_stats.blocks_size, 666);
-                        assert.strictEqual(changes.update.pools[0].storage_stats.blocks_size, 666);
-                        changes.update.buckets.forEach(item => {
-                            assert.strictEqual(item.storage_stats.last_update, last_update + ((i + 1) * range));
-                        });
-                        changes.update.pools.forEach(item => {
-                            assert.strictEqual(item.storage_stats.last_update, last_update + ((i + 1) * range));
-                        });
+                        if (!changes.update.systems) {
+                            assert.strictEqual(changes.update.buckets.length, (i / 2) + 1);
+                            assert.strictEqual(changes.update.pools.length, (i / 2) + 1);
+                            assert.strictEqual(changes.update.buckets[0].storage_stats.blocks_size, 666);
+                            assert.strictEqual(changes.update.pools[0].storage_stats.blocks_size, 666);
+                            changes.update.buckets.forEach(item => {
+                                assert.strictEqual(item.storage_stats.last_update, last_update + (((i / 2) + 1) * range));
+                            });
+                            changes.update.pools.forEach(item => {
+                                assert.strictEqual(item.storage_stats.last_update, last_update + (((i / 2) + 1) * range));
+                            });
+                        }
                     });
                 });
         });
@@ -436,7 +529,7 @@ mocha.describe('md_aggregator', function() {
             self.timeout(30000);
             const last_update = Date.now();
             const target_now = last_update - 1;
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
 
             return P.resolve()
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
@@ -465,91 +558,25 @@ mocha.describe('md_aggregator', function() {
             const num_splits = 13;
             const last_update = Date.now();
             const target_now = last_update + (num_splits * CYCLE);
-            const system_store = make_test_system_store(last_update);
+            const system_store = make_test_system_store(last_update, md_store);
             system_store.debug = false;
 
             return P.resolve()
                 .then(() => md_aggregator.run_md_aggregator(md_store, system_store, target_now, 0))
                 .then(() => {
-                    assert.strictEqual(system_store.changes_list.length, num_splits);
+                    assert.strictEqual(system_store.changes_list.length, num_splits * 2);
                     system_store.changes_list.forEach((changes, i) => {
-                        assert.strictEqual(changes.update.buckets.length, system_store.data.buckets.length);
-                        assert.strictEqual(changes.update.pools.length, system_store.data.pools.length);
+                        if (!changes.update.systems) {
+                            assert.strictEqual(changes.update.buckets.length, system_store.data.buckets.length);
+                            assert.strictEqual(changes.update.pools.length, system_store.data.pools.length);
+                        }
                     });
                 });
         });
 
     });
 
-
-    function make_test_system_store(last_update) {
-
-        const buckets = _.times(10, i => ({
-            _id: md_store.make_md_id(),
-            name: `bucket${i}`,
-            storage_stats: {
-                last_update,
-                chunks_capacity: 0,
-                blocks_size: 0,
-                pools: {},
-                objects_size: 0,
-                objects_count: 0,
-                objects_hist: [],
-            },
-        }));
-
-        const pools = _.times(10, i => ({
-            _id: md_store.make_md_id(),
-            name: `pool${i}`,
-            storage_stats: {
-                last_update,
-                blocks_size: 0,
-            }
-        }));
-
-        const system_store = {
-            is_finished_initial_load: true,
-            data: {
-                buckets,
-                pools,
-            },
-            changes_list: [],
-            debug: true,
-            find_bucket_by_id(id) {
-                return _.find(this.data.buckets, bucket => String(bucket._id) === String(id));
-            },
-            find_pool_by_id(id) {
-                return _.find(this.data.pools, pool => String(pool._id) === String(id));
-            },
-            make_changes(changes) {
-                this.changes_list.push(changes);
-                if (this.debug) {
-                    coretest.log('system store changes #',
-                        this.changes_list.length,
-                        util.inspect(changes, true, null, true)
-                    );
-                }
-                changes.update.buckets.forEach(updates => {
-                    const bucket = this.find_bucket_by_id(updates._id);
-                    _.forEach(updates, (val, key) => {
-                        if (key !== '_id') _.set(bucket, key, val);
-                    });
-                });
-                changes.update.pools.forEach(updates => {
-                    const pool = this.find_pool_by_id(updates._id);
-                    _.forEach(updates, (val, key) => {
-                        if (key !== '_id') _.set(pool, key, val);
-                    });
-                });
-                return P.resolve();
-            },
-        };
-
-        return system_store;
-    }
-
-
-    function make_block(block_id, size, bucket, pool) {
+    function make_block(block_id, size, bucket, pool, system_id) {
         return {
             _id: block_id,
             system: system_id,

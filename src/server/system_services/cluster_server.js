@@ -24,7 +24,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
-const upgrade_server = require('./upgrade_server');
 const cutils = require('../utils/clustering_utils');
 
 let add_member_in_process = false;
@@ -73,9 +72,6 @@ function new_cluster_info(params) {
                     }],
                 }],
                 config_servers: [],
-                upgrade: {
-                    status: 'COMPLETED',
-                },
             };
             return cluster;
         })
@@ -1501,4 +1497,3 @@ exports.set_hostname_internal = set_hostname_internal;
 exports.get_version = get_version;
 exports.get_secret = get_secret;
 exports.update_member_of_cluster = update_member_of_cluster;
-exports.upgrade_cluster = upgrade_server.upgrade_cluster;

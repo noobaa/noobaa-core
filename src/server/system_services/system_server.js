@@ -453,16 +453,6 @@ function read_system(req) {
         buckets_stats
     }) => {
         const cluster_info = cutil.get_cluster_info(rs_status);
-        for (const shard of cluster_info.shards) {
-            for (const server of shard.servers) {
-                const error = {
-                    message: server.upgrade.error,
-                    report_info: server.upgrade.report_info
-                };
-                server.upgrade.error = error;
-                delete server.upgrade.report_info;
-            }
-        }
         const objects_sys = {
             count: size_utils.BigInteger.zero,
             size: size_utils.BigInteger.zero,

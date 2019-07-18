@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const SensitiveString = require('../../../util/sensitive_string');
-
 module.exports = {
     id: 'cluster_schema',
     type: 'object',
@@ -91,64 +89,6 @@ module.exports = {
 
         debug_mode: {
             idate: true
-        },
-
-        //Upgrade proccess
-        upgrade: {
-            type: 'object',
-            properties: {
-                path: {
-                    type: 'string'
-                },
-                mongo_upgrade: {
-                    type: 'boolean'
-                },
-                status: {
-                    type: 'string',
-                    enum: [
-                        'PENDING',
-                        'FAILED',
-                        'CAN_UPGRADE',
-                        'UPGRADING',
-                        'COMPLETED',
-                        'PRE_UPGRADE_PENDING',
-                        'PRE_UPGRADE_READY',
-                        'UPGRADE_FAILED'
-                    ]
-                },
-                stage: {
-                    type: 'string',
-                    enum: [
-                        'COPY_NEW_CODE',
-                        'DB_READY',
-                        'UPGRADE_ABORTED',
-                        'UPGRADE_PLATFORM',
-                        'UPGRADE_MONGODB_VER',
-                        'UPGRADE_MONGODB_SCHEMAS',
-                        'UPDATE_SERVICES',
-                        'CLEANUP',
-                        'UPGRADE_COMPLETED',
-                    ]
-                },
-                error: {
-                    type: 'string'
-                },
-                report_info: {
-                    type: 'string'
-                },
-                initiator_email: {
-                    wrapper: SensitiveString,
-                },
-                tested_date: {
-                    idate: true
-                },
-                staged_package: {
-                    type: 'string'
-                },
-                package_uploaded: {
-                    idate: true
-                }
-            },
         },
 
         heartbeat: {

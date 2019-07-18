@@ -34,7 +34,6 @@ const SupervisorCtl = require('./utils/supervisor_ctrl');
 const cutil = require('./utils/clustering_utils');
 const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
-const auth_server = require('./common_services/auth_server');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 
@@ -65,8 +64,6 @@ const https_port = process.env.SSL_PORT || 5443;
 process.env.PORT = http_port;
 process.env.SSL_PORT = https_port;
 
-let webserver_started = 0;
-
 system_store.once('load', async () => {
     await account_server.ensure_support_account();
     if (process.env.CREATE_SYS_NAME && process.env.CREATE_SYS_EMAIL &&
@@ -94,10 +91,6 @@ async function start_web_server() {
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);
-
-        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
-        webserver_started = Date.now();
-
     } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
@@ -188,97 +181,6 @@ app.post('/upload_certificate',
     }
 );
 
-app.post('/upload_package', function(req, res, next) {
-        if (!system_store.is_finished_initial_load) res.status(503).end();
-        const system = system_store.data.systems[0];
-        if (!system) {
-            dbg.log0(`/upload_package without system returning error`);
-            res.status(503).end();
-        }
-
-        const curr_server = system_store.get_local_cluster_info();
-        dbg.log0('/upload_package returning', system);
-        const NOT_ALLOW_TO_UPLOAD_IN_MODES = [
-            'PENDING',
-            'UPGRADING',
-            'PRE_UPGRADE_PENDING',
-            'PRE_UPGRADE_READY'
-        ];
-        if (_.includes(NOT_ALLOW_TO_UPLOAD_IN_MODES, curr_server.upgrade.status)) {
-            res.status(503).end();
-        }
-        next();
-    },
-    multer({
-        storage: multer.diskStorage({
-            destination: function(req, file, cb) {
-                cb(null, '/tmp');
-            },
-            filename: function(req, file, cb) {
-                dbg.log0('UPGRADE upload', file);
-                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
-            }
-        })
-    })
-    .single('upgrade_file'),
-    function(req, res) {
-        var upgrade_file = req.file;
-        server_rpc.client.upgrade.member_pre_upgrade({
-            filepath: upgrade_file.path,
-            mongo_upgrade: false,
-            stage: 'UPLOAD_STAGE'
-        }); //Async
-        res.end('<html><head></head>Upgrade file uploaded successfully');
-    });
-
-app.post('/upgrade', function(req, res, next) {
-        if (!system_store.is_finished_initial_load) res.status(503).end();
-        const system = system_store.data.systems[0];
-        if (!system) {
-            dbg.log0(`/upgrade without system returning error`);
-            res.status(503).end();
-        }
-
-        const can_upload = cutil.can_upload_package_in_cluster();
-        dbg.log0('/upgrade returning', system, can_upload);
-
-        if (!can_upload) {
-            res.status(503).end();
-        }
-        req.system = system;
-        next();
-    },
-    function(req, res, next) {
-        server_rpc.client.upgrade.reset_upgrade_package_status({}, {
-            address: 'http://127.0.0.1:' + http_port,
-            auth_token: auth_server.make_auth_token({
-                system_id: req.system._id,
-                role: 'admin',
-                account_id: req.system.owner._id,
-            })
-        });
-        next();
-    },
-    multer({
-        storage: multer.diskStorage({
-            destination: function(req, file, cb) {
-                cb(null, '/tmp');
-            },
-            filename: function(req, file, cb) {
-                dbg.log0('UPGRADE upload', file);
-                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
-            }
-        })
-    })
-    .single('upgrade_file'),
-    function(req, res) {
-        var upgrade_file = req.file;
-        server_rpc.client.upgrade.cluster_pre_upgrade({
-            filepath: upgrade_file.path,
-        }); //Async
-        res.end('<html><head></head>Upgrade file uploaded successfully');
-    });
-
 
 if (prom_reports.instance().enabled()) {
     app.get('/metrics', function(req, res) {
@@ -353,62 +255,17 @@ app.get('/get_log_level', function(req, res) {
     });
 });
 
-function getVersion(route) {
-    return P.resolve()
-        .then(() => {
-            const registered = server_rpc.is_service_registered('system_api.read_system');
-            let started;
-            if (system_store.data.systems.length === 0 || cutil.check_if_clusterized()) {
-                // if no system or not clusterized then no need to wait
-                started = true;
-            } else {
-                // if in a cluster then after upgrade the user should be redirected to the new master
-                // give the new master 10 seconds to start completely before ending the upgrade
-                const WEBSERVER_START_TIME = 10 * 1000;
-                started = webserver_started && (Date.now() - webserver_started) > WEBSERVER_START_TIME;
-            }
-
-            return (server_rpc.client.upgrade.get_upgrade_status())
-                .then(status => {
-                    if (started && registered && !status.in_process && system_store.is_finished_initial_load) {
-                        const system = system_store.data.systems[0];
-                        if (!system) {
-                            dbg.log0(`${route} without system returning ${pkg.version}, service registered and upgrade is not in progress`);
-                            return {
-                                status: 200,
-                                version: pkg.version,
-                            };
-                        }
-                        return server_rpc.client.system.read_system({}, {
-                                address: 'ws://127.0.0.1:' + http_port,
-                                auth_token: auth_server.make_auth_token({
-                                    system_id: system._id,
-                                    role: 'admin',
-                                    account_id: system.owner._id,
-                                })
-                            })
-                            .then(sys => {
-                                dbg.log0(`${route} returning ${pkg.version}, service registered and upgrade is not in progress`);
-                                return {
-                                    status: 200,
-                                    version: pkg.version
-                                };
-                            })
-                            .catch(err => {
-                                dbg.log0(`${route} caught ${err} on read system, returning 503`);
-                                return { status: 503 };
-                            });
-                    } else {
-                        dbg.log0(`${route} returning 404, started(${started}), service_registered(${registered})`,
-                            `, status.in_process(${status.in_process}), system_store.is_finished_initial_load(${system_store.is_finished_initial_load})`);
-                        return { status: 404 };
-                    }
-                })
-                .catch(err => {
-                    dbg.error(`got error when checking upgrade status. returning 503`, err);
-                    return { status: 503 };
-                });
-        });
+async function getVersion(route) {
+    const registered = server_rpc.is_service_registered('system_api.read_system');
+    if (registered && system_store.is_finished_initial_load) {
+        return {
+            status: 200,
+            version: pkg.version
+        };
+    } else {
+        dbg.log0(`${route} returning 404, service_registered(${registered}), system_store loaded(${system_store.is_finished_initial_load})`);
+        return { status: 404 };
+    }
 }
 
 // An oauth authorize endpoint that forwards to the OAuth authorization server.

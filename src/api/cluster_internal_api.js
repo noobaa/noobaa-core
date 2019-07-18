@@ -272,15 +272,6 @@ module.exports = {
             }
         },
 
-        // used for backward compatability with basic_server_ops upgrade during tests
-        // TODO: remove after we don't use versions with upgrade in cluster_server
-        upgrade_cluster: {
-            method: 'POST',
-            auth: {
-                system: 'admin',
-            }
-        },
-
     },
 
     definitions: {

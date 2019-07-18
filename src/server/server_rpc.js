@@ -85,8 +85,6 @@ class ServerRpc {
             require('./system_services/cluster_server'), options);
         rpc.register_service(schema.cluster_internal_api,
             require('./system_services/cluster_server'), options);
-        rpc.register_service(schema.upgrade_api,
-            require('./system_services/upgrade_server'), options);
         rpc.register_service(schema.stats_api,
             require('./system_services/stats_aggregator'), options);
         rpc.register_service(schema.events_api,

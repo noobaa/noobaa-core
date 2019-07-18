@@ -189,7 +189,6 @@ function get_cluster_info(rs_status) {
             storage: storage,
             cpus: cpus,
             location: location,
-            upgrade: _.omit(cinfo.upgrade, 'stage_changed_date'),
             debug: _.omitBy({
                 level: cinfo.debug_level,
                 time_left: debug_time
@@ -286,41 +285,7 @@ function get_potential_masters() {
     return masters;
 }
 
-function get_member_upgrade_status(ip) {
-    dbg.log0('UPGRADE:', 'get upgrade status for ip', ip);
-    let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
-    dbg.log0('UPGRADE:', 'found server:', server_entry);
-    if (!server_entry || !server_entry.upgrade) return 'NOT_READY';
-    return server_entry.upgrade.status;
-}
 
-function get_member_upgrade_stage(ip) {
-    dbg.log0('UPGRADE:', 'get upgrade stage for ip', ip);
-    let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
-    dbg.log0('UPGRADE:', 'found server:', server_entry);
-    if (!server_entry || !server_entry.upgrade) return;
-    return server_entry.upgrade.stage;
-}
-
-function can_upload_package_in_cluster() {
-    const NOT_ALLOW_TO_UPLOAD_IN_MODES = [
-        'PENDING',
-        'UPGRADING',
-        'PRE_UPGRADE_PENDING',
-        'PRE_UPGRADE_READY'
-    ];
-    if (_.some(system_store.data.clusters, server => _.includes(NOT_ALLOW_TO_UPLOAD_IN_MODES, server.status))) {
-        return false;
-    }
-
-    return true;
-}
-
-
-function get_local_upgrade_path() {
-    let local_info = system_store.get_local_cluster_info();
-    return local_info && local_info.upgrade;
-}
 
 function send_master_update(is_master, master_address) {
     let system = system_store.data.systems[0];
@@ -381,12 +346,8 @@ exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
-exports.get_member_upgrade_status = get_member_upgrade_status;
 exports.get_potential_masters = get_potential_masters;
 exports.send_master_update = send_master_update;
 exports.get_min_requirements = get_min_requirements;
-exports.get_local_upgrade_path = get_local_upgrade_path;
-exports.get_member_upgrade_stage = get_member_upgrade_stage;
-exports.can_upload_package_in_cluster = can_upload_package_in_cluster;
 exports.check_if_clusterized = check_if_clusterized;
 exports.check_if_master = check_if_master;

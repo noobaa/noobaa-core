@@ -11,7 +11,6 @@ const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const config = require('../../../config.js');
 const string_utils = require('../../util/string_utils');
-const promise_utils = require('../../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 
@@ -42,7 +41,6 @@ class BlockStoreFs extends BlockStoreBase {
         return P.map(dir_list, dir => fs_utils.create_path(dir), {
                 concurrency: 10
             })
-            .then(() => this._upgrade_to_blocks_tree())
             .then(() => fs.statAsync(this.usage_path)
                 .catch(ignore_not_found)
             )
@@ -261,98 +259,6 @@ class BlockStoreFs extends BlockStoreBase {
     _get_block_other_path(file) {
         let block_dir = this._get_block_internal_dir('other');
         return path.join(this.blocks_path_root, block_dir, file);
-    }
-
-    _upgrade_to_blocks_tree() {
-        return fs.statAsync(this.old_blocks_path)
-            .catch(err => {
-                // when it doesn't exist it means we don't need to upgrade
-                // on any other error, we ignore as we don't really expect
-                // any error we have anything to do about it
-                if (err.code !== 'ENOENT') {
-                    dbg.log0('_upgrade_to_blocks_tree:',
-                        'Old blocks dir failed to stat, ignoring',
-                        this.old_blocks_path, err);
-                }
-            })
-            .then(stat => {
-                if (!stat) return;
-                if (stat.size > 64 * 1024 * 1024) {
-                    dbg.warn('_upgrade_to_blocks_tree:',
-                        'Old blocks dir is huge and might crash the process',
-                        'spawning upgrade_agent_to_blocks_tree.py to the rescue',
-                        this.old_blocks_path, stat);
-                    // spawning the python script to iterativly move
-                    // the large blocks to blocks tree.
-                    // the output of the script will be redirected to our stdout
-                    // though this will not be logged through our debug module,
-                    // but still collected in diagnostics.
-                    return promise_utils.spawn('python', [
-                        'src/agent/upgrade_agent_to_blocks_tree.py',
-                        '--wet',
-                        this.root_path
-                    ]);
-                }
-                if (stat.size > 8 * 1024 * 1024) {
-                    dbg.warn('_upgrade_to_blocks_tree:',
-                        'Old blocks dir is pretty big and might take longer to read',
-                        this.old_blocks_path, stat);
-                }
-                return this._move_to_blocks_tree();
-            });
-    }
-
-    _move_to_blocks_tree() {
-        let num_move_errors = 0;
-        dbg.log0('_upgrade_to_blocks_tree: reading', this.old_blocks_path);
-        return fs.readdirAsync(this.old_blocks_path)
-            .then(files => {
-                dbg.log2('found', files.length, 'files to move. files:', files);
-                return P.map(files, file => {
-                    let file_split = file.split('.');
-                    let new_path = this._get_block_other_path(file);
-                    if (file_split.length === 2) {
-                        let block_id = file_split[0];
-                        let suffix = file_split[1];
-                        if (suffix === 'data') {
-                            new_path = this._get_block_data_path(block_id);
-                        } else if (suffix === 'meta') {
-                            new_path = this._get_block_meta_path(block_id);
-                        }
-                    }
-                    let old_path = path.join(this.old_blocks_path, file);
-                    return fs.renameAsync(old_path, new_path)
-                        .catch(err => {
-                            // we log the error here and count, but do not throw
-                            // to try and move all the rest of the files.
-                            num_move_errors += 1;
-                            dbg.error('_upgrade_to_blocks_tree:',
-                                'failed moving', old_path, '->', new_path, err);
-                        });
-                }, {
-                    // limit the number of promises to use for moving blocks
-                    // - set arbitrarily for now
-                    concurrency: 10
-                });
-            })
-            .then(() => fs.rmdirAsync(this.old_blocks_path))
-            .then(() => {
-                // since we also successfuly deleted the old blocks dir
-                // it must mean there are no leftovers in anycase.
-                // so even if we counted num_move_errors, it might have been
-                // due to parallel operations with another process,
-                // so we ignore it.
-                if (num_move_errors) {
-                    dbg.log0('_upgrade_to_blocks_tree: finished', this.old_blocks_path,
-                        'eventhough we had num_move_errors', num_move_errors);
-                }
-                dbg.log0('_upgrade_to_blocks_tree: done', this.old_blocks_path);
-            })
-            .catch(err => {
-                dbg.error('_upgrade_to_blocks_tree: failed',
-                    this.old_blocks_path, 'num_move_errors', num_move_errors,
-                    err.stack || err);
-            });
     }
 
 }

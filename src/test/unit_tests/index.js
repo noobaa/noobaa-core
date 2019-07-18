@@ -52,7 +52,7 @@ require('./test_nb_native_b64');
 require('./test_node_allocator');
 require('./test_bucket_chunks_builder');
 require('./test_mirror_writer');
-// require('./test_tiering_upload');
+require('./test_tiering_upload');
 
 // SERVERS
 require('./test_agent');

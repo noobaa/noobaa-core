@@ -52,6 +52,9 @@ class MapBuilder {
 
         await builder_lock.surround_keys(_.map(this.chunk_ids, String), async () => {
 
+            if (this.move_to_tier) {
+                await MDStore.instance().update_chunks_by_ids(this.chunk_ids, { tier: this.move_to_tier._id });
+            }
             // we run the build twice. first time to perform all allocation, second time to perform deletions
             await this.run_build(this.chunk_ids);
 

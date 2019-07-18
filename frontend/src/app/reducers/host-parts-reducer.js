@@ -82,15 +82,13 @@ function onFailFetchHostObjects(state, { payload }) {
 
 function onFetchCloudResourceObjects(state, { payload }) {
     return onFetchHostObjects(
-        state,
-        { payload: _resourceQueryToHostQuery(payload) }
+        state, { payload: _resourceQueryToHostQuery(payload) }
     );
 }
 
 function onCompleteFetchCloudResourceObjects(state, { payload }) {
     return onCompleteFetchHostObjects(
-        state,
-        {
+        state, {
             payload: {
                 query: _resourceQueryToHostQuery(payload.query),
                 response: payload.response
@@ -101,8 +99,7 @@ function onCompleteFetchCloudResourceObjects(state, { payload }) {
 
 function onFailCloudResourceObjects(state, { payload }) {
     return onFailFetchHostObjects(
-        state,
-        {
+        state, {
             payload: {
                 query: _resourceQueryToHostQuery(payload.query),
                 error: payload.error

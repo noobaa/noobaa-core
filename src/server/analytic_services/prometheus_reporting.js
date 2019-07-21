@@ -95,7 +95,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('system_info'),
         help: 'System info',
-        labelNames: ['system_name']
+        labelNames: ['system_name', 'system_address']
     }
 }, {
     metric_type: 'Gauge',
@@ -342,7 +342,7 @@ class PrometheusReporting {
 
     set_system_info(info) {
         if (!this.enabled()) return;
-        this._metrics.system_info.set({ system_name: info.name }, 0);
+        this._metrics.system_info.set({ system_name: info.name, system_address: info.address }, 0);
     }
 
     update_providers_bandwidth(type, write_size, read_size) {

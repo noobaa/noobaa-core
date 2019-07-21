@@ -212,7 +212,11 @@ module.exports = {
                         }
                     }
                 }
-            },
-        }
+            }
+        },
+
+        global_last_update: {
+            idate: true
+        },
     }
 };

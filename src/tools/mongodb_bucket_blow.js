@@ -12,6 +12,7 @@
 let system_id = db.systems.findOne()._id;
 let pool_id = db.pools.findOne({ resource_type: { $ne: "INTERNAL" } })._id;
 let ccc = db.chunk_configs.findOne()._id;
+let now = Date.now();
 
 for (let j = 0; j < 5; ++j) {
     let array_of_tiers = [];
@@ -31,6 +32,7 @@ for (let j = 0; j < 5; ++j) {
                 _id: new ObjectId(),
                 spread_pools: [pool_id],
             }],
+            last_update: now,
         });
         array_of_policies.push({
             _id: policy_id,
@@ -45,7 +47,8 @@ for (let j = 0; j < 5; ++j) {
             chunk_split_config: {
                 avg_chunk: 4194304,
                 delta_chunk: 1048576
-            }
+            },
+            last_update: now
         });
         array_of_buckets.push({
             _id: bucket_id,
@@ -64,7 +67,8 @@ for (let j = 0; j < 5; ++j) {
                 last_update: Date.now() - (2 * 90000)
             },
             lambda_triggers: [],
-            versioning: "DISABLED"
+            versioning: "DISABLED",
+            last_update: now,
         });
     }
     db.tiers.insert(array_of_tiers);

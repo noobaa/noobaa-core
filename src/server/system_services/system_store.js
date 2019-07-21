@@ -27,6 +27,7 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_client = require('../../util/mongo_client');
+const config = require('../../../config');
 const { RpcError } = require('../../rpc');
 
 const COLLECTIONS = [{
@@ -410,6 +411,7 @@ class SystemStore extends EventEmitter {
         super();
         // // TODO: This is currently used as a cache, maybe will be moved in the future
         // this.valid_for_alloc_by_tier = {};
+        this.last_update_time = config.NOOBAA_EPOCH;
         this.is_standalone = options.standalone;
         this.is_cluster_master = false;
         this.is_finished_initial_load = false;
@@ -438,6 +440,11 @@ class SystemStore extends EventEmitter {
             .catch(_.noop);
     }
 
+    clean_system_store() {
+        this.old_db_data = undefined;
+        this.last_update_time = config.NOOBAA_EPOCH;
+    }
+
     async refresh() {
         let load_time = 0;
         if (this.data) {
@@ -463,7 +470,7 @@ class SystemStore extends EventEmitter {
                 let new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
-                await this._read_data_from_db(new_data);
+                await this._read_new_data_from_db(new_data);
                 const secret = await os_utils.read_server_secret();
                 this._server_secret = secret;
                 dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
@@ -471,10 +478,11 @@ class SystemStore extends EventEmitter {
                 dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
                     depth: 4
                 }));
+                this.old_db_data = this.old_db_data ? this._update_data_from_new(this.old_db_data, new_data) : new_data;
+                this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
-                new_data.rebuild();
+                this.data.rebuild();
                 dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
-                this.data = new_data;
                 this.emit('load');
                 this.is_finished_initial_load = true;
                 return this.data;
@@ -483,6 +491,15 @@ class SystemStore extends EventEmitter {
                 throw err;
             }
         });
+    }
+
+    _update_data_from_new(data, new_data) {
+        COLLECTIONS.forEach(col => {
+            const old_data = data[col.name];
+            const res = _.unionBy(new_data[col.name], old_data, doc => doc._id.toString());
+            new_data[col.name] = res.filter(doc => !doc.deleted);
+        });
+        return new_data;
     }
 
 
@@ -521,6 +538,32 @@ class SystemStore extends EventEmitter {
                     target[col.name] = res;
                 })
             ));
+    }
+
+    _read_new_data_from_db(target) {
+        const now = Date.now();
+        let newly_updated_query = {
+            last_update: {
+                $gte: this.last_update_time,
+            }
+        };
+        return mongo_client.instance().connect()
+            .then(() => P.map(COLLECTIONS,
+                col => mongo_client.instance().collection(col.name)
+                .find(newly_updated_query, {
+                    projection: { last_update: 0 }
+                })
+                .toArray()
+                .then(res => {
+                    for (const item of res) {
+                        this._check_schema(col, item, 'warn');
+                    }
+                    target[col.name] = res;
+                })
+            ))
+            .then(() => {
+                this.last_update_time = now;
+            });
     }
 
     _check_schema(col, item, warn) {
@@ -610,7 +653,8 @@ class SystemStore extends EventEmitter {
      */
     async make_changes(changes) {
         const bulk_per_collection = {};
-        const now = new Date();
+        const now = Date.now();
+        let any_news = false;
         dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
             depth: 5
         }));
@@ -636,6 +680,8 @@ class SystemStore extends EventEmitter {
             _.each(list, item => {
                 this._check_schema(col, item);
                 data.check_indexes(col, item);
+                item.last_update = now;
+                any_news = true;
                 get_bulk(name).insert(item);
             });
         });
@@ -643,7 +689,8 @@ class SystemStore extends EventEmitter {
             const col = get_collection(name);
             _.each(list, item => {
                 data.check_indexes(col, item);
-                let updates = _.omit(item, '_id', '$find');
+                let dont_change_last_update = Boolean(item.dont_change_last_update);
+                let updates = _.omit(item, '_id', '$find', 'dont_change_last_update');
                 let finds = item.$find || _.pick(item, '_id');
                 if (_.isEmpty(updates)) return;
                 let keys = _.keys(updates);
@@ -671,6 +718,11 @@ class SystemStore extends EventEmitter {
                 // if (updates.$set) {
                 //     this._check_schema(col, updates.$set, 'warn');
                 // }
+                if (!dont_change_last_update) {
+                    if (!updates.$set) updates.$set = {};
+                    updates.$set.last_update = now;
+                    any_news = true;
+                }
                 get_bulk(name)
                     .find(finds)
                     .updateOne(updates);
@@ -679,13 +731,15 @@ class SystemStore extends EventEmitter {
         _.each(changes.remove, (list, name) => {
             get_collection(name);
             _.each(list, id => {
+                any_news = true;
                 get_bulk(name)
                     .find({
                         _id: id
                     })
                     .updateOne({
                         $set: {
-                            deleted: now
+                            deleted: now,
+                            last_update: now,
                         }
                     });
             });
@@ -707,15 +761,17 @@ class SystemStore extends EventEmitter {
             bulk => bulk.length && bulk.execute({ j: true })
         ));
 
-        if (this.is_standalone) {
-            await this.load();
-        } else {
-            // notify all the cluster (including myself) to reload
-            await server_rpc.client.redirector.publish_to_cluster({
-                method_api: 'server_inter_process_api',
-                method_name: 'load_system_store',
-                target: ''
-            });
+        if (any_news) {
+            if (this.is_standalone) {
+                await this.load();
+            } else {
+                // notify all the cluster (including myself) to reload
+                await server_rpc.client.redirector.publish_to_cluster({
+                    method_api: 'server_inter_process_api',
+                    method_name: 'load_system_store',
+                    target: ''
+                });
+            }
         }
     }
 

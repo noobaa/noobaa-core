@@ -63,7 +63,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_bandwidth'),
         help: 'Providers bandwidth usage',
-        labelNames: ['type', 'io_size', 'size']
+        labelNames: ['type', 'write_size', 'read_size']
     }
 }, {
     metric_type: 'Gauge',
@@ -71,7 +71,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_ops'),
         help: 'Providers number of operations',
-        labelNames: ['type', 'io_ops', 'number']
+        labelNames: ['type', 'write_num', 'read_num']
     }
 }, {
     metric_type: 'Gauge',
@@ -315,14 +315,14 @@ class PrometheusReporting {
 
     set_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.set({ type: type, io_size: 'write_size' }, write_size);
-        this._metrics.providers_bandwidth.set({ type: type, io_size: 'read_size' }, read_size);
+        this._metrics.providers_bandwidth.reset();
+        this._metrics.providers_bandwidth.set({ type: type, write_size, read_size }, Date.now());
     }
 
     set_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.set({ type: type, io_ops: 'write_ops' }, write_num);
-        this._metrics.providers_ops.set({ type: type, io_ops: 'read_ops' }, read_num);
+        this._metrics.providers_ops.reset();
+        this._metrics.providers_ops.set({ type: type, write_num, read_num }, Date.now());
     }
 
     set_object_savings(savings) {
@@ -347,14 +347,36 @@ class PrometheusReporting {
 
     update_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'write_size' }, write_size, new Date());
-        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'read_size' }, read_size, new Date());
+        const { hashMap } = this._metrics.providers_bandwidth;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        if (record) {
+            const { labels } = record;
+            const updated_labels = {
+                type,
+                write_size: (labels.write_size || 0) + (write_size || 0),
+                read_size: (labels.read_size || 0) + (read_size || 0),
+            };
+            this._metrics.providers_bandwidth.reset();
+            this._metrics.providers_bandwidth.set(updated_labels, Date.now());
+        }
     }
 
     update_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.inc({ type: type, io_ops: 'write_ops' }, write_num, new Date());
-        this._metrics.providers_ops.inc({ type: type, io_ops: 'read_ops' }, read_num, new Date());
+        const { hashMap } = this._metrics.providers_ops;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        if (record) {
+            const { labels } = record;
+            const updated_labels = {
+                type,
+                write_num: (labels.write_num || 0) + (write_num || 0),
+                read_num: (labels.read_num || 0) + (read_num || 0),
+            };
+            this._metrics.providers_ops.reset();
+            this._metrics.providers_ops.set(updated_labels, Date.now());
+        }
     }
 }
 

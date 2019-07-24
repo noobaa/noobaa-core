@@ -19,7 +19,7 @@ spec:
         - --namespace_prefix 
         - NAMESPACE_PREFIX_PLACEHOLDER
         - --tests_list
-        - /noobaa-core/src/test/framework/system_tests_list.js
+        - TESTS_LIST_PLACEHOLDER
         env:
           - name: CONTAINER_PLATFORM
             value: KUBERNETES

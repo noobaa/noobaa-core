@@ -33,7 +33,6 @@ if (debug) {
     dbg.set_level(-1, 'core');
 }
 
-
 const deleted_namespaces = [];
 
 function print_usage() {
@@ -143,6 +142,17 @@ async function build_env(kf, params) {
 
 }
 
+function get_flags(flags_obj) {
+    const flags_arr = [];
+    if (flags_obj !== undefined) {
+        for (const flag of Object.keys(flags_obj)) {
+            flags_arr.push('--' + flag);
+            flags_arr.push(String(flags_obj[flag]));
+        }
+    }
+    return flags_arr;
+}
+
 async function run_single_test_env(params) {
     const {
         namespace,
@@ -151,6 +161,7 @@ async function run_single_test_env(params) {
         name,
         clean,
         await_clean,
+        flags,
     } = params;
 
     const test_name = name || path.basename(test);
@@ -188,14 +199,16 @@ async function run_single_test_env(params) {
         if (test && !test_failed) {
             const log_file = path.join(output_dir, `${test_name}.log`);
             console.log(`running test ${test_name}. test log: ${log_file}`);
-            //pass as args all test_env args with addition of services info
+            const additional_flags = get_flags(flags);
+            //pass as args all test_env args with addition of services info 
             const args = [...process.argv, '--mgmt_ip', mgmt_ip,
                 '--mgmt_port', mgmt_port,
                 '--mgmt_port_https', mgmt_port_https,
                 '--s3_ip', s3_ip,
                 '--s3_port', s3_port,
                 '--s3_port_https', s3_port_https,
-                '--log_file', log_file
+                '--log_file', log_file,
+                ...additional_flags
             ];
             await promise_utils.fork(test, args);
             console.log(`test ${test_name} passed`);

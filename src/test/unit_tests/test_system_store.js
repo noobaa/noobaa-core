@@ -9,9 +9,8 @@ const _ = require('lodash');
 const mongo_client = require('../../util/mongo_client');
 coretest.setup();
 
-// const _ = require('lodash');
 const mocha = require('mocha');
-// const assert = require('assert');
+const assert = require('assert');
 
 const system_store = require('../../server/system_services/system_store').get_instance();
 
@@ -29,14 +28,17 @@ function _get_wiredtiger_log_diff(a, b) {
 mocha.describe('system_store', function() {
 
     // eslint-disable-next-line no-undef
-    after(function() {
+    afterEach(function() {
         // hacky - all the added systems were failing some of the next tests
         // remove all dummy systems
         coretest.log('cleaning test systems:');
-        return mongo_client.instance().collection('systems').remove({
+        return mongo_client.instance().collection('systems').deleteMany({
             name: {
                 $nin: ['demo', 'coretest']
             }
+        }).then(() => {
+            system_store.clean_system_store();
+            return system_store.load();
         });
     });
 
@@ -97,6 +99,89 @@ mocha.describe('system_store', function() {
                 coretest.log('Parallel make_changes: WiredTiger Log Diff', log_diff);
             });
     });
+
+    mocha.it('Check make_changes updates new created systems', function() {
+        const LOOP_CYCLES = 10;
+        let first_data_store;
+        return system_store.load()
+            .then(data1 => {
+                first_data_store = _.cloneDeep(data1);
+                console.log('first_data_store', first_data_store.systems.length);
+                return promise_utils.loop(LOOP_CYCLES, cycle => system_store.make_changes({
+                    insert: {
+                        systems: [{
+                            _id: system_store.new_system_store_id(),
+                            name: `JenTheMajesticSlothSystemStoreLoop2-${cycle}`,
+                            owner: system_store.new_system_store_id()
+                        }]
+                    }
+                }));
+            })
+            .then(() => system_store.load())
+            .then(data2 => {
+                console.log('new_data_store', data2.systems.length);
+                assert.deepStrictEqual(first_data_store.systems.length + LOOP_CYCLES, data2.systems.length);
+            });
+    });
+
+    mocha.it('Check make_changes returns no diff when not changing last_update', function() {
+        const system_id = system_store.new_system_store_id();
+        const orig_name = `JenTheMajesticSlothSystemStoreLoop3`;
+        return system_store.load()
+            .then(() => system_store.make_changes({
+                insert: {
+                    systems: [{
+                        _id: system_id,
+                        name: orig_name,
+                        owner: system_store.new_system_store_id(),
+                    }]
+                }
+            }))
+            .then(() => system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: system_id,
+                        name: 'new_name',
+                        dont_change_last_update: true
+                    }]
+                }
+            }))
+            .then(() => system_store.load())
+            .then(data2 => {
+                console.log('new_data_store', data2.systems.length);
+                assert.strictEqual(data2.systems[0].name, orig_name);
+            });
+    });
+
+    mocha.it('Check make_changes returns diff when changing last_update', function() {
+        const system_id = system_store.new_system_store_id();
+        const orig_name = `JenTheMajesticSlothSystemStoreLoop3`;
+        return system_store.load()
+            .then(() => system_store.make_changes({
+                insert: {
+                    systems: [{
+                        _id: system_id,
+                        name: orig_name,
+                        owner: system_store.new_system_store_id(),
+                    }]
+                }
+            }))
+            .then(() => system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: system_id,
+                        name: 'new_name',
+                        dont_change_last_update: false
+                    }]
+                }
+            }))
+            .then(() => system_store.load())
+            .then(data2 => {
+                console.log('new_data_store', data2.systems.length);
+                assert.strictEqual(data2.systems[0].name, 'new_name');
+            });
+    });
+
 
     // TODO continue test_system_store ...
 

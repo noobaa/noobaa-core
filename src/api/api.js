@@ -29,7 +29,6 @@ api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_server_api'));
 api_schema.register_api(require('./cluster_internal_api'));
-api_schema.register_api(require('./upgrade_api'));
 api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
 api_schema.register_api(require('./frontend_notifications_api'));
@@ -64,7 +63,6 @@ class APIClient {
         this.pool = undefined;
         this.cluster_server = undefined;
         this.cluster_internal = undefined;
-        this.upgrade = undefined;
         this.server_inter_process = undefined;
         this.hosted_agents = undefined;
         this.frontend_notifications = undefined;

@@ -31,6 +31,7 @@ const prom_report = require('../analytic_services/prometheus_reporting').Prometh
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
+const addr_utils = require('../../util/addr_utils');
 
 
 const ops_aggregation = {};
@@ -146,6 +147,7 @@ const PARTIAL_SINGLE_ACCOUNT_DEFAULTS = {
 
 const PARTIAL_SINGLE_SYS_DEFAULTS = {
     name: '',
+    address: '',
     capacity: 0,
     reduction_ratio: 0,
     savings: {
@@ -370,8 +372,16 @@ async function get_partial_systems_stats(req) {
             const total_usage = size_utils.bigint_to_bytes(storage.used);
             const capacity = 100 - Math.floor(((free_bytes / total_bytes) || 1) * 100);
 
+            const { system_address } = system;
+            const https_port = process.env.SSL_PORT || 5443;
+            const address = DEV_MODE ? `https://localhost:${https_port}` : addr_utils.get_base_address(system_address, {
+                hint: 'EXTERNAL',
+                protocol: 'https'
+            }).toString();
+
             return _.defaults({
                 name: system.name,
+                address,
                 capacity,
                 reduction_ratio,
                 savings,
@@ -832,6 +842,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         reduction_ratio,
         savings,
         name,
+        address,
         usage_by_bucket_class,
         usage_by_project,
         total_usage,
@@ -851,7 +862,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_num_unhealthy_pools(unhealthy_pool_count);
     prom_report.instance().set_num_pools(pool_count);
     prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
-    prom_report.instance().set_system_info({ name });
+    prom_report.instance().set_system_info({ name, address });
     prom_report.instance().set_num_buckets(buckets);
     prom_report.instance().set_num_objects(objects_in_buckets);
     prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);

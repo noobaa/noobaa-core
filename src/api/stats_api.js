@@ -522,9 +522,22 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['name', 'capacity', 'reduction_ratio', 'savings', 'total_usage', 'buckets_stats', 'usage_by_project', 'usage_by_bucket_class'],
+                        required: [
+                            'name',
+                            'address',
+                            'capacity',
+                            'reduction_ratio',
+                            'savings',
+                            'total_usage',
+                            'buckets_stats',
+                            'usage_by_project',
+                            'usage_by_bucket_class',
+                        ],
                         properties: {
                             name: {
+                                type: 'string'
+                            },
+                            address: {
                                 type: 'string'
                             },
                             capacity: {

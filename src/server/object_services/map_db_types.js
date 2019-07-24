@@ -67,7 +67,7 @@ class ChunkDB {
     /** @returns {nb.ChunkConfig} */
     get chunk_config() { return system_store.data.get_by_id(this.chunk_db.chunk_config); }
 
-
+    /** @returns {FragDB[]} */
     get frags() {
         if (!this.__frags) this.__frags = this.chunk_db.frags.map(frag_db => new_frag_db(frag_db, this));
         return this.__frags;

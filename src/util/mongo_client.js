@@ -180,7 +180,15 @@ class MongoClient extends EventEmitter {
             .then(() => col.db_indexes && P.map(col.db_indexes,
                 index => db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options))
                 .then(res => dbg.log0('_init_collection: created index', col.name, res))
-            ))
+                .catch(err => {
+                    if (err.codeName === 'IndexOptionsConflict') {
+                        return db.collection(col.name).dropIndex(index.fields)
+                            .then(() => db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options)))
+                            .then(res => dbg.log0('_init_collection: re-created index with new options', col.name, res));
+                    } else {
+                        throw err;
+                    }
+                })))
             .catch(err => {
                 dbg.error('_init_collection: FAILED', col.name, err);
                 throw err;

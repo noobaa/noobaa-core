@@ -15,7 +15,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('cloud_types'),
         help: 'Cloud Resource Types in the System',
-        labelNames: ['type', 'count']
+        labelNames: ['type']
     }
 }, {
     metric_type: 'Gauge',
@@ -23,7 +23,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('projects_capacity_usage'),
         help: 'Projects Capacity Usage',
-        labelNames: ['project', 'count']
+        labelNames: ['project']
     }
 }, {
     metric_type: 'Gauge',
@@ -39,7 +39,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('bucket_class_capacity_usage'),
         help: 'Bucket Class Capacity Usage',
-        labelNames: ['bucket_class', 'count']
+        labelNames: ['bucket_class']
     }
 }, {
     metric_type: 'Gauge',
@@ -47,7 +47,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('unhealthy_cloud_types'),
         help: 'Unhealthy Cloud Resource Types in the System',
-        labelNames: ['type', 'count']
+        labelNames: ['type']
     }
 }, {
     metric_type: 'Gauge',
@@ -55,7 +55,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('object_histo'),
         help: 'Object Sizes Histogram Across the System',
-        labelNames: ['size', 'avg', 'count']
+        labelNames: ['size', 'avg']
     }
 }, {
     metric_type: 'Gauge',
@@ -63,7 +63,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_bandwidth'),
         help: 'Providers bandwidth usage',
-        labelNames: ['type', 'io_size', 'size']
+        labelNames: ['type', 'write_size', 'read_size']
     }
 }, {
     metric_type: 'Gauge',
@@ -71,7 +71,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('providers_ops'),
         help: 'Providers number of operations',
-        labelNames: ['type', 'io_ops', 'number']
+        labelNames: ['type', 'write_num', 'read_num']
     }
 }, {
     metric_type: 'Gauge',
@@ -95,7 +95,7 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('system_info'),
         help: 'System info',
-        labelNames: ['system_name']
+        labelNames: ['system_name', 'system_address']
     }
 }, {
     metric_type: 'Gauge',
@@ -280,16 +280,16 @@ class PrometheusReporting {
     set_bucket_class_capacity_usage(usage_info) {
         if (!this.enabled()) return;
         this._metrics.bucket_class_capacity_usage.reset();
-        for (let [key, value] of Object.entries(usage_info)) {
-            this._metrics.bucket_class_capacity_usage.set({ bucket_class: key }, value);
+        for (let [bucket_class, value] of Object.entries(usage_info)) {
+            this._metrics.bucket_class_capacity_usage.set({ bucket_class }, value);
         }
     }
 
     set_projects_capacity_usage(usage_info) {
         if (!this.enabled()) return;
         this._metrics.projects_capacity_usage.reset();
-        for (let [key, value] of Object.entries(usage_info)) {
-            this._metrics.projects_capacity_usage.set({ project: key }, value);
+        for (let [project, value] of Object.entries(usage_info)) {
+            this._metrics.projects_capacity_usage.set({ project }, value);
         }
     }
 
@@ -315,18 +315,25 @@ class PrometheusReporting {
 
     set_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.set({ type: type, io_size: 'write_size' }, write_size);
-        this._metrics.providers_bandwidth.set({ type: type, io_size: 'read_size' }, read_size);
+        const { hashMap } = this._metrics.providers_bandwidth;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        if (record) delete this._metrics.providers_bandwidth.hashMap[hashKey];
+        this._metrics.providers_bandwidth.set({ type, write_size, read_size }, Date.now());
     }
 
     set_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.set({ type: type, io_ops: 'write_ops' }, write_num);
-        this._metrics.providers_ops.set({ type: type, io_ops: 'read_ops' }, read_num);
+        const { hashMap } = this._metrics.providers_ops;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        if (record) delete this._metrics.providers_ops.hashMap[hashKey];
+        this._metrics.providers_ops.set({ type, write_num, read_num }, Date.now());
     }
 
     set_object_savings(savings) {
         if (!this.enabled()) return;
+        this._metrics.object_savings.reset();
         const { logical_size, physical_size } = savings;
         this._metrics.object_savings.set({ logical_size, physical_size }, logical_size - physical_size);
     }
@@ -342,19 +349,46 @@ class PrometheusReporting {
 
     set_system_info(info) {
         if (!this.enabled()) return;
-        this._metrics.system_info.set({ system_name: info.name }, 0);
+        this._metrics.system_info.reset();
+        this._metrics.system_info.set({ system_name: info.name, system_address: info.address }, Date.now());
     }
 
     update_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'write_size' }, write_size, new Date());
-        this._metrics.providers_bandwidth.inc({ type: type, io_size: 'read_size' }, read_size, new Date());
+        const { hashMap } = this._metrics.providers_bandwidth;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        let updated_labels = {
+            type,
+            write_size: (write_size || 0),
+            read_size: (read_size || 0),
+        };
+        if (record) {
+            const { labels } = record;
+            updated_labels.write_size += (labels.write_size || 0);
+            updated_labels.read_size += (labels.read_size || 0);
+            delete this._metrics.providers_bandwidth.hashMap[hashKey];
+        }
+        this._metrics.providers_bandwidth.set(updated_labels, Date.now());
     }
 
     update_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        this._metrics.providers_ops.inc({ type: type, io_ops: 'write_ops' }, write_num, new Date());
-        this._metrics.providers_ops.inc({ type: type, io_ops: 'read_ops' }, read_num, new Date());
+        const { hashMap } = this._metrics.providers_ops;
+        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
+        const record = hashMap[hashKey];
+        let updated_labels = {
+            type,
+            write_num: (write_num || 0),
+            read_num: (read_num || 0),
+        };
+        if (record) {
+            const { labels } = record;
+            updated_labels.write_num += (labels.write_num || 0);
+            updated_labels.read_num += (labels.read_num || 0);
+            delete this._metrics.providers_ops.hashMap[hashKey];
+        }
+        this._metrics.providers_ops.set(updated_labels, Date.now());
     }
 }
 

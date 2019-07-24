@@ -77,8 +77,18 @@ function should_upgrade(server_version, container_version) {
 // load all scripts that should be run according to the given versions
 async function load_required_scripts(server_version, container_version) {
     // expecting scripts directories to be in a semver format. e.g. ./upgrade_scripts/5.0.1
-    const newer_versions = fs.readdirSync(upgrade_scripts_dir)
-        .filter(ver => // get all dirs for versions newer than server_version
+    let upgrade_dir_content = [];
+    try {
+        upgrade_dir_content = fs.readdirSync(upgrade_scripts_dir);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            dbg.warn(`upgrade scripts directory "${upgrade_scripts_dir}" was not found. treating it as empty`);
+        } else {
+            throw err;
+        }
+    }
+    // get all dirs for versions newer than server_version
+    const newer_versions = upgrade_dir_content.filter(ver =>
             version_compare(ver, server_version) > 0 &&
             version_compare(ver, container_version) < 0)
         .sort(version_compare);

@@ -14,10 +14,10 @@ RUN yum install -y -q wget unzip which vim centos-release-scl && \
     yum clean all
 RUN source /opt/rh/devtoolset-7/enable && \
     version="1.3.0" && \
-    wget -q http://www.tortall.net/projects/yasm/releases/yasm-${version}.tar.gz && \
+    wget -q -O yasm-1.3.0.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \
     tar -xf yasm-${version}.tar.gz && \
     pushd yasm-${version} && \
-    ./configure && \
+    ./autogen.sh && \
     make && \
     make install && \
     popd && \

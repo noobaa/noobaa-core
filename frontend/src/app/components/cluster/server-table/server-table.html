@@ -19,12 +19,12 @@
     loading: !dataReady(),
     emptyMessage: 'The current filter does not match any server'
 ">
-    <tempalte name="usage">
+    <template name="usage">
         <div class="column usage-cell content-middle" ko.tooltip="tooltip">
             <progress-bar class="push-next-quarter"
                 params="progress: ratio"
             ></progress-bar>
             <span class="remark">{{percentage}} Usage</span>
         </div>
-    </tempalte>
+    </template>
 </data-table>

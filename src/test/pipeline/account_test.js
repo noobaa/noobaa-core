@@ -18,7 +18,10 @@ let errors = [];
 let failures_in_test = false;
 
 const TEST_CFG_DEFAULTS = {
-    server_ip: '127.0.0.1',
+    mgmt_ip: '',
+    mgmt_port_https: '',
+    s3_ip: '',
+    s3_port: '',
     name: 'account',
     bucket: 'first.bucket',
     emailSuffix: '@email.email',
@@ -48,7 +51,10 @@ let report = new Report();
 
 function usage() {
     console.log(`
-    --server_ip         -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
+    --mgmt_ip           -   noobaa management ip.
+    --mgmt_port_https   -   noobaa server management https port
+    --s3_ip             -   noobaa s3 ip
+    --s3_port           -   noobaa s3 port
     --name              -   account prefix (default: ${TEST_CFG_DEFAULTS.name})
     --bucket            -   bucket name (default: ${TEST_CFG_DEFAULTS.bucket})
     --emailSuffix       -   The email suffix (default: ${TEST_CFG_DEFAULTS.emailSuffix})
@@ -73,7 +79,7 @@ const cases = [
     'restrict_ip_access',
     'reset_password'
 ];
-report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases});
+report.init_reporter({ suite: test_name, conf: TEST_CFG, mongo_report: true, cases: cases });
 
 function saveErrorAndResume(message) {
     console.error(message);
@@ -244,8 +250,8 @@ async function check_bucket_creation_permissions(email) {
         throw new Error(`Account ${email} did not changed to disabled`);
     } else {
         try {
-            const s3ops = new S3OPS({ ip: TEST_CFG.server_ip });
-            await s3ops.create_bucket('shouldfail');
+            const s3ops = new S3OPS({ ip: TEST_CFG.s3_ip, port: TEST_CFG.s3_port });
+            await s3ops.create_bucket('shouldFail');
             throw new Error(`Create bucket should have failed`);
         } catch (e) {
             console.log(`Creating bucket failed, as should`);
@@ -271,7 +277,12 @@ async function restrict_ip_access(email, ips) {
 
 async function verify_s3_access(email, bucket) {
     const keys = await get_s3_account_access(email);
-    const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+    const s3ops = new S3OPS({
+        ip: TEST_CFG.s3_ip,
+        port: TEST_CFG.s3_port,
+        access_key: keys.accessKeyId,
+        secret_key: keys.secretAccessKey
+    });
     const buckets = await s3ops.get_list_buckets();
     if (buckets.includes(bucket)) {
         console.log(`Created account has access to s3 bucket ${bucket}`);
@@ -284,7 +295,12 @@ async function verify_s3_access(email, bucket) {
 async function verify_s3_no_access(email) {
     try {
         const keys = await get_s3_account_access(email);
-        const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+        const s3ops = new S3OPS({
+            ip: TEST_CFG.s3_ip,
+            port: TEST_CFG.s3_port,
+            access_key: keys.accessKeyId,
+            secret_key: keys.secretAccessKey
+        });
         await s3ops.get_list_buckets();
     } catch (err) {
         if (err.code === 'AccessDenied') {
@@ -297,7 +313,7 @@ async function verify_s3_no_access(email) {
 }
 
 async function login_user(email) {
-    rpc = api.new_rpc_from_base_address('wss://' + TEST_CFG.server_ip + ':8443', 'EXTERNAL');
+    rpc = api.new_rpc_from_base_address(`wss://${TEST_CFG.mgmt_ip}:${TEST_CFG.mgmt_port_https}`, 'EXTERNAL');
     client = rpc.new_client({});
     let auth_params = {
         email,
@@ -306,15 +322,15 @@ async function login_user(email) {
     };
     const auth_token = await client.create_auth_token(auth_params);
     if (auth_token.token !== null && auth_token.token !== '') {
-        console.log('Account ', email, 'has access to server');
+        console.log(`Account ${email} has access to server`);
     } else {
-        saveErrorAndResume('Account can\'t auth');
+        saveErrorAndResume(`Account can't auth`);
         failures_in_test = true;
     }
 }
 
 async function reset_password(email) {
-    console.log('Resetting password for account ' + email);
+    console.log(`Resetting password for account ${email}`);
     try {
         await login_user('demo@noobaa.com');
         await client.account.reset_password({
@@ -326,7 +342,7 @@ async function reset_password(email) {
         await report.success('reset_password');
     } catch (err) {
         report.fail('reset_password');
-        console.error('Resetting password Failed with error: ', err);
+        console.error(`Resetting password Failed with error: ${err}`);
         throw err;
     }
     await rpc.disconnect_all();
@@ -335,9 +351,9 @@ async function reset_password(email) {
 async function verify_account_in_system(email, isPresent) {
     const emails = await get_accounts_emails();
     if (emails.includes(email) === isPresent) {
-        console.log('System contains ', isPresent, 'account');
+        console.log(`System contains ${isPresent} account`);
     } else {
-        saveErrorAndResume('Created account doesn\'t contain on system');
+        saveErrorAndResume(`Created account doesn't contain on system`);
         failures_in_test = true;
     }
 }
@@ -352,12 +368,17 @@ async function disable_s3_Access_and_check(email) {
         saveErrorAndResume(`S3 access wasn't changed to false after edit`);
         failures_in_test = true;
     }
-    const s3ops = new S3OPS({ ip: TEST_CFG.server_ip, access_key: keys.accessKeyId, secret_key: keys.secretAccessKey });
+    const s3ops = new S3OPS({
+        ip: TEST_CFG.s3_ip,
+        port: TEST_CFG.s3_port,
+        access_key: keys.accessKeyId,
+        secret_key: keys.secretAccessKey
+    });
     const buckets = await s3ops.get_list_buckets();
     if (buckets.length === 0) {
         console.log(`Account doesn't have access to buckets after changing access - as should`);
     } else {
-        saveErrorAndResume('After switch off s3 access account still has access to ' + buckets);
+        saveErrorAndResume(`After switch off s3 access account still has access to ${buckets}`);
         failures_in_test = true;
     }
     await edit_s3Access(email, true);
@@ -430,6 +451,9 @@ async function main() {
     if (TEST_CFG.skip_report) {
         report.pause();
     }
+    console.log(`${YELLOW}Running test with ${
+        TEST_CFG.cycles} cycles and ${
+        TEST_CFG.accounts_number} accounts${NC}`);
     for (let cycle = 1; cycle <= TEST_CFG.cycles; cycle++) {
         console.log(`${YELLOW}Starting cycle ${cycle}${NC}`);
         try {

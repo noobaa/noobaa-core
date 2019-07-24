@@ -99,7 +99,7 @@ async function build_env(kf, params) {
 
         const agent_profile = {
             image: image,
-            use_persistent_stroage: Boolean(pv),
+            use_persistent_storage: Boolean(pv),
             cpu: agent_cpu,
             memory: agent_mem
         };

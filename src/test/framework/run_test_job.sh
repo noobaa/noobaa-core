@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SCRIPT_NAME=$(basename $0)
+TESTS_LIST="/noobaa-core/src/test/framework/system_tests_list.js"
 
 function usage(){
     set +x
@@ -11,6 +12,7 @@ function usage(){
     echo "--name            -   The name of the test run. will be prefixed to all namespaces created by the test job"
     echo "--image           -   The image to test"
     echo "--tester_image    -   The tester image to use"
+    echo "--tests_list      -   The test list (.js)"
     echo "-h --help         -   Will show this help"
     exit 0
 }
@@ -23,6 +25,8 @@ do
         --image)        IMAGE=${2}
                         shift 2;;
         --tester_image) TESTER_IMAGE=${2}
+                        shift 2;;
+        --tests_list)   TESTS_LIST=${2}
                         shift 2;;
         -h|--help)	    usage;;
         *)              usage;;
@@ -48,5 +52,6 @@ sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
 -e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME}~" \
+-e "s~TESTS_LIST_PLACEHOLDER~${TESTS_LIST}~" \
 ./test_job.yaml \
 | kubectl -n noobaa-tests apply -f -

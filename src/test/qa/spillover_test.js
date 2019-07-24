@@ -4,28 +4,28 @@
 const api = require('../../api');
 const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
-const af = require('../utils/agent_functions');
-const argv = require('minimist')(process.argv);
-const dbg = require('../../util/debug_module')(__filename);
 const Report = require('../framework/report');
-const AzureFunctions = require('../../deploy/azureFunctions');
-const { BucketFunctions } = require('../utils/bucket_functions');
+const argv = require('minimist')(process.argv);
+const test_utils = require('../system_tests/test_utils');
+const dbg = require('../../util/debug_module')(__filename);
 const { CloudFunction } = require('../utils/cloud_functions');
+const { BucketFunctions } = require('../utils/bucket_functions');
+
 dbg.set_process_name('spillover');
 
 let errors = [];
 let failures_in_test = false;
+const POOL_NAME = "first.pool";
 const time_stamp = (Math.floor(Date.now() / 1000));
 const bucket = 'spillover.bucket' + time_stamp;
 const healthy_pool = 'healthy.pool' + time_stamp;
 
 //defining the required parameters
 const {
-    server_ip,
-    location = 'westus2',
-    resource,
-    storage,
-    vnet,
+    mgmt_ip,
+    mgmt_port_https,
+    s3_ip,
+    s3_port,
     id = 0,
     agents_number = 3,
     failed_agents_number = 1,
@@ -33,7 +33,7 @@ const {
 } = argv;
 
 
-const s3ops = new S3OPS({ ip: server_ip });
+const s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
 //define colors
 const NC = "\x1b[0m";
 // const RED = "\x1b[31m";
@@ -41,25 +41,22 @@ const YELLOW = "\x1b[33;1m";
 
 let pool_files = [];
 let over_files = [];
-const clientId = process.env.CLIENT_ID;
-const domain = process.env.DOMAIN;
-const secret = process.env.APPLICATION_SECRET;
-const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
 const suffix = 'spillover-' + id;
 
 function usage() {
-    console.log(`
-    --location              -   azure location (default: ${location})
-    --bucket                -   bucket to run on (default: spillover.bucket + timestamp)
-    --resource              -   azure resource group
-    --storage               -   azure storage on the resource group
-    --vnet                  -   azure vnet on the resource group
-    --agents_number         -   number of agents to add (default: ${agents_number})
-    --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
-    --id                    -   an id that is attached to the agents name
-    --server_ip             -   noobaa server ip.
-    --help                  -   show this help.
-    `);
+    throw new Error(`fix the help`);
+    // console.log(`
+    // --location              -   azure location (default: ${location})
+    // --bucket                -   bucket to run on (default: spillover.bucket + timestamp)
+    // --resource              -   azure resource group
+    // --storage               -   azure storage on the resource group
+    // --vnet                  -   azure vnet on the resource group
+    // --agents_number         -   number of agents to add (default: ${agents_number})
+    // --failed_agents_number  -   number of agents to fail (default: ${failed_agents_number})
+    // --id                    -   an id that is attached to the agents name
+    // --server_ip             -   noobaa server ip.
+    // --help                  -   show this help.
+    // `);
 }
 
 if (help) {
@@ -67,22 +64,18 @@ if (help) {
     process.exit(1);
 }
 
-console.log(`resource: ${resource}, storage: ${storage}, vnet: ${vnet}`);
-
-const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
+const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
 let report = new Report();
-let bf = new BucketFunctions(client, report);
+const bucket_functions = new BucketFunctions(client, report);
 const cf = new CloudFunction(client, report);
-const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
+
 report.init_reporter({
     suite: 'spillover_test',
     conf: { agents_number: agents_number, failed_agents_number: failed_agents_number },
     mongo_report: true
 });
-
-let osesSet = af.supported_oses();
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -123,10 +116,10 @@ async function createBucketWithEnabledSpillover() {
         if (list_buckets.includes(bucket)) {
             console.log('Bucket is successfully added');
         } else {
-            saveErrorAndResume(`Created bucket ${server_ip} bucket is not returns on list ${list_buckets}`);
+            saveErrorAndResume(`Created bucket ${mgmt_ip} bucket is not returns on list ${list_buckets}`);
         }
-        const internalPool = await bf.getInternalStoragePool(server_ip);
-        await bf.setSpillover(bucket, internalPool);
+        const internalPool = await bucket_functions.getInternalStoragePool();
+        await bucket_functions.setSpillover(bucket, internalPool);
     } catch (err) {
         saveErrorAndResume('Failed creating bucket with enable spillover ' + err);
         throw err;
@@ -148,7 +141,7 @@ async function uploadFiles(dataset_size, files) {
             await s3ops.upload_file_with_md5(bucket, file_name, file_size, parts_num, data_multiplier);
             await P.delay(1 * 1000);
         } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED uploading files ${err}`);
+            saveErrorAndResume(`${mgmt_ip} FAILED uploading files ${err}`);
             throw err;
         }
     }
@@ -262,7 +255,6 @@ async function clean_env() {
     await P.delay(10 * 1000);
     await assignNodesToPool('first-pool');
     await cf.deletePool(healthy_pool);
-    await af.clean_agents(azf, server_ip, suffix);
 }
 
 async function set_rpc_and_create_auth_token() {
@@ -281,7 +273,7 @@ async function check_internal_spillover_without_agents() {
     try {
         await createBucketWithEnabledSpillover();
         report.success('create bucket with spillover');
-        await bf.checkIsSpilloverHasStatus(bucket, true);
+        await bucket_functions.checkIsSpilloverHasStatus(bucket, true);
     } catch (e) {
         report.fail('create bucket with spillover');
         throw new Error(`Failed to write on internal spillover: ${e}`);
@@ -316,7 +308,7 @@ async function check_file_evacuation(file, pool) {
 async function add_agents_and_check_evacuation() {
     try {
         //Add pool with resources to the bucket and see that all the files are moving from the internal storage to the pool (pullback)
-        await af.createRandomAgents(azf, server_ip, storage, vnet, agents_number, suffix, osesSet);
+        await test_utils.create_hosts_pool(client, POOL_NAME, agents_number);
         report.success('creating agents');
     } catch (e) {
         report.fail('creating agents');
@@ -324,7 +316,7 @@ async function add_agents_and_check_evacuation() {
     }
     try {
         await createHealthyPool();
-        await bf.editBucketDataPlacement(healthy_pool, bucket, 'SPREAD');
+        await bucket_functions.editBucketDataPlacement(healthy_pool, bucket, 'SPREAD');
         await check_file_evacuation('spillover_file', healthy_pool);
         report.success('spillback');
     } catch (e) {
@@ -430,14 +422,14 @@ async function wait_no_available_space() {
     let is_no_available;
     while (Date.now() - base_time < 360 * 1000) {
         try {
-            is_no_available = await bf.checkAvilableSpace(bucket);
+            is_no_available = await bucket_functions.checkAvailableSpace(bucket);
             if (is_no_available === 0) {
                 break;
             } else {
                 await P.delay(15 * 1000);
             }
         } catch (e) {
-            throw new Error(`Something went wrong with checkAvilableSpace`);
+            throw new Error(`Something went wrong with checkAvailableSpace`);
         }
     }
     if (is_no_available !== 0) {
@@ -446,7 +438,7 @@ async function wait_no_available_space() {
 }
 
 async function check_quota() {
-    await bf.setQuotaBucket(bucket, 1, 'GIGABYTE');
+    await bucket_functions.setQuotaBucket(bucket, 1, 'GIGABYTE');
     // Start writing and see that we are failing when we get into the quota
     await uploadFiles(1024, pool_files);
     await wait_no_available_space();
@@ -457,13 +449,13 @@ async function check_quota() {
 }
 
 async function check_quota_on_spillover() {
-    const available_space = await bf.checkFreeSpace(bucket);
+    const available_space = await bucket_functions.checkFreeSpace(bucket);
     const available_space_GB = Math.floor(available_space / 1024 / 1024 / 1024);
     const quota = available_space_GB + 1;
     const uploadSizeMB = Math.floor(available_space / 1024 / 1024);
     // Setting the quota so it will be on the spillover
     console.log(`Setting quota to ${quota} GB, larger the the available space (${uploadSizeMB / 1024} GB)`);
-    await bf.setQuotaBucket(bucket, quota, 'GIGABYTE');
+    await bucket_functions.setQuotaBucket(bucket, quota, 'GIGABYTE');
     // Start writing
     await uploadFiles(uploadSizeMB, pool_files);
     await wait_no_available_space();
@@ -476,7 +468,7 @@ async function check_quota_on_spillover() {
 async function disable_spillover_and_check() {
     for (let count = 0; count < 5; count++) {
         //Fill bucket
-        const free_space = await bf.checkFreeSpace(bucket);
+        const free_space = await bucket_functions.checkFreeSpace(bucket);
         if (free_space !== 0) {
             const uploadSizeMB = Math.floor(free_space / 1024 / 1024);
             await uploadFiles(uploadSizeMB, pool_files);
@@ -488,7 +480,7 @@ async function disable_spillover_and_check() {
             await uploadFiles(1024, over_files);
         }
         //Disable spillover
-        await bf.setSpillover(bucket, null);
+        await bucket_functions.setSpillover(bucket, null);
         try {
             await test_failed_upload(1024);
             report.success('fail on no space and no spillover');
@@ -512,7 +504,7 @@ async function disable_spillover_and_check() {
 }
 
 async function disable_quota_and_check() {
-    await bf.disableQuotaBucket(server_ip, bucket);
+    await bucket_functions.disableQuotaBucket(bucket);
     await P.delay(10 * 1000); //delay to get pool cool down
     //Continue to write and see that the writes pass
     await uploadFiles(500, over_files);
@@ -527,16 +519,7 @@ async function disable_quota_and_check() {
     }
 }
 
-/*async function set_cloud_spillover() {
-    const AWSDefaultConnection = cf.getAWSConnection();
-    await cf.createConnection(AWSDefaultConnection, 'AWS');
-    await cf.createCloudPool(AWSDefaultConnection.name, "qa-bucket", "QA-Bucket");
-    await bf.setSpillover(bucket, "qa-bucket");
-}*/
-
 async function main() {
-    await azf.authenticate();
-    await af.clean_agents(azf, server_ip, suffix);
     await set_rpc_and_create_auth_token();
     try {
         await check_internal_spillover_without_agents();

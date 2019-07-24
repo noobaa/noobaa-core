@@ -69,7 +69,7 @@ function patch_resource(resource_type, resource_name, patch) {
     return exec_kubectl(`patch ${resource_type} ${resource_name} -p='${JSON.stringify(patch)}'`, 'json');
 }
 
-function delete_reosurce(resource_type, resource_name) {
+function delete_resource(resource_type, resource_name) {
     return exec_kubectl(`delete ${resource_type} ${resource_name}`, 'name');
 }
 
@@ -86,5 +86,5 @@ exports.apply_conf = apply_conf;
 exports.list_resources = list_resources;
 exports.get_resource = get_resource;
 exports.patch_resource = patch_resource;
-exports.delete_reosurce = delete_reosurce;
+exports.delete_resource = delete_resource;
 exports.wait_for_delete = wait_for_delete;

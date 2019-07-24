@@ -5,68 +5,51 @@ const api = require('../../api');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const af = require('../utils/agent_functions');
+const test_utils = require('../system_tests/test_utils');
 const dbg = require('../../util/debug_module')(__filename);
-const AzureFunctions = require('../../deploy/azureFunctions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 
 const test_name = 'reclaim';
 dbg.set_process_name(test_name);
 
-//define colors
-const NC = "\x1b[0m";
-const YELLOW = "\x1b[33;1m";
-
-const suffixName = test_name;
-const domain = process.env.DOMAIN;
-const clientId = process.env.CLIENT_ID;
-const secret = process.env.APPLICATION_SECRET;
-const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-
 let files = [];
 let errors = [];
 let current_size = 0;
+const POOL_NAME = "first.pool";
 
 const {
-    location = 'westus2',
-        resource,
-        storage,
-        vnet,
-        //failed_agents_number = 1,
-        server_ip,
-        dataset_size = 100, //MB
-        max_size = 250, //MB
-        min_size = 50, //MB
-        id = 0,
-        // use_existing_env = true
+    mgmt_ip,
+    mgmt_port_https,
+    s3_ip,
+    s3_port,
+    agent_number,
+    dataset_size = 100, //MB
+    max_size = 250, //MB
+    min_size = 50, //MB
 } = argv;
 
-const s3ops = new S3OPS({ ip: server_ip });
+const s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
 
 function usage() {
     console.log(`
-    --location              -   azure location (default: ${location})
-    --resource              -   azure resource group
-    --storage               -   azure storage on the resource group
-    --vnet                  -   azure vnet on the resource group
-    --server_ip             -   noobaa server ip.
+    --mgmt_ip               -   noobaa management ip.
+    --mgmt_port_https       -   noobaa server management https port
+    --s3_ip                 -   noobaa s3 ip
+    --s3_port               -   noobaa s3 port
+    --agent_number          -   number of agents to create (default: ${agent_number})
     --dataset_size          -   size uploading data for checking rebuild
     --max_size              -   max size of uploading files
     --min_size              -   min size of uploading files
-    --id                    -   an id that is attached to the agents name
-    --use_existing_env      -   Using existing agents and skipping agent deletion
     --help                  -   show this help.
     `);
 }
-
-const suffix = suffixName + '-' + id;
 
 if (argv.help) {
     usage();
     process.exit(1);
 }
 
-const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
+const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
 let report = new Report();
@@ -84,9 +67,7 @@ report.init_reporter({
     cases: cases
 });
 
-let bf = new BucketFunctions(client);
-
-const osesLinuxSet = af.supported_oses();
+let bucket_functions = new BucketFunctions(client);
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -124,7 +105,7 @@ async function uploadAndVerifyFiles(bucket) {
             await s3ops.put_file_with_md5(bucket, file_name, file_size, data_multiplier);
             await s3ops.get_file_check_md5(bucket, file_name);
         } catch (err) {
-            saveErrorAndResume(`${server_ip} FAILED verification uploading and reading ${err}`);
+            saveErrorAndResume(`${mgmt_ip} FAILED verification uploading and reading ${err}`);
             throw err;
         }
     }
@@ -142,26 +123,6 @@ function set_fileSize() {
     return rand_size;
 }
 
-async function createReclaimPool(reclaim_pool, agentSuffix) {
-    let list = [];
-    const host_list = await client.host.list_hosts({});
-    const hosts = host_list.hosts;
-    for (const host of hosts) {
-        if ((host.mode === 'OPTIMAL') && (host.name.includes(agentSuffix))) {
-            list.push(host.name);
-        }
-    }
-    console.log('Creating pool with online agents: ' + list);
-    try {
-        await client.pool.create_hosts_pool({
-            name: reclaim_pool,
-            hosts: list
-        });
-    } catch (error) {
-        saveErrorAndResume('Failed create pool ' + reclaim_pool + error);
-    }
-}
-
 async function cleanupBucket(bucket) {
     try {
         console.log('running clean up files from bucket ' + bucket);
@@ -171,38 +132,22 @@ async function cleanupBucket(bucket) {
     }
 }
 
-console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
-const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
-
-async function reclaimCycle(oses, prefix) {
-    let agentSuffix = prefix + suffix;
-    let reclaim_pool = prefix + 'reclaim.pool' + (Math.floor(Date.now() / 1000));
-    let bucket = prefix + 'reclaim.bucket' + (Math.floor(Date.now() / 1000));
+async function reclaimCycle(agents_num) {
+    const reclaim_pool = 'reclaim.pool' + (Math.floor(Date.now() / 1000));
+    const bucket = 'reclaim.bucket' + (Math.floor(Date.now() / 1000));
     try {
-        const agents = await af.createRandomAgents(azf, server_ip, storage, vnet, oses.length, agentSuffix, oses);
-        const agentList = Array.from(agents.keys());
-        await bf.createBucket(bucket);
-        await createReclaimPool(reclaim_pool, agentSuffix);
+        await test_utils.create_hosts_pool(client, POOL_NAME, agents_num);
+        await bucket_functions.createBucket(bucket);
         try {
-            await bf.editBucketDataPlacement(reclaim_pool, bucket, 'SPREAD');
+            await bucket_functions.editBucketDataPlacement(reclaim_pool, bucket, 'SPREAD');
             report.success('edit placement policy');
         } catch (err) {
             report.fail('edit placement policy');
         }
         await uploadAndVerifyFiles(bucket);
-        const stoppedAgent = await af.stopRandomAgents(azf, server_ip, 1, agentSuffix, agentList); //stop one agent
+        //TODO: stop one agent
         await cleanupBucket(bucket);
-        await af.startOfflineAgents(azf, server_ip, stoppedAgent);
-
-        /*
-        TODO:: wait, until when ?
-        const agent_blocks = await af.countNoobaaBlocks(stoppedAgent);
-        if (agent_blocks) {
-            report.fail('reclaimed blocks');
-        } else {
-            report.success('reclaimed blocks');
-        }
-        */
+        //TODO: start the agent again.
     } catch (err) {
         report.fail('reclaimed blocks');
         throw new Error(`reclaimCycle failed: ${err}`);
@@ -218,12 +163,10 @@ async function set_rpc_and_create_auth_token() {
     return client.create_auth_token(auth_params);
 }
 
-async function run_main() {
+async function main() {
     try {
-        await azf.authenticate();
         await set_rpc_and_create_auth_token();
-        await reclaimCycle(osesLinuxSet, 'linux');
-        await af.clean_agents(azf, server_ip, suffix);
+        await reclaimCycle(agent_number);
         console.log('reclaim test was successful!');
         await report.report();
         process.exit(0);
@@ -234,4 +177,4 @@ async function run_main() {
     }
 }
 
-run_main();
+main();

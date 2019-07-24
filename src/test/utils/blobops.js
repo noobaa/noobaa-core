@@ -5,18 +5,25 @@ const P = require('../../util/promise');
 const azure_storage = require('../../util/azure_storage_wrap');
 const RandStream = require('../../util/rand_stream');
 
+
+const {
+    AZURE_STORAGE_ACCOUNT_NAME,
+    AZURE_STORAGE_ACCOUNT_KEY
+} = process.env;
+
 const AzureDefaultConnection = {
     name: 'AZUREConnection',
-    endpoint: "https://jenkinspipeline7.blob.core.windows.net",
+    endpoint: `https://${AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
     endpoint_type: "AZURE",
-    identity: "jenkinspipeline7",
-    secret: "Zva2tNcZzdrzvn4Nhci+g0slAso2mRi3vklPEgvKJ4cWBaNIjnjcLdYLZAzyczKlFmYqZPlzuUq8EN9XDfr+gw=="
+    identity: AZURE_STORAGE_ACCOUNT_NAME,
+    secret: AZURE_STORAGE_ACCOUNT_KEY
 };
 
 const blobService = azure_storage.createBlobService(
     AzureDefaultConnection.identity,
     AzureDefaultConnection.secret,
-    AzureDefaultConnection.endpoint);
+    AzureDefaultConnection.endpoint
+);
 
 async function uploadRandomFileDirectlyToAzure(container, file_name, size, err_handler) {
     const message = `Uploading random file ${file_name} to azure container ${container}`;
@@ -37,7 +44,7 @@ async function uploadRandomFileDirectlyToAzure(container, file_name, size, err_h
 }
 
 async function getPropertyBlob(container, file_name, err_handler) {
-    const message = `Getting md5 for ${file_name} directly from azure container ${container}`;
+    const message = `Getting md5 for ${file_name} directly from azure container: ${container}`;
     console.log(message);
     try {
         const blobProperties = await P.fromCallback(callback => blobService.getBlobProperties(container, file_name, callback));

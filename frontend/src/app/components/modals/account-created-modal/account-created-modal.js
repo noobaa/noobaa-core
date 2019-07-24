@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './account-created-modal.html';
-import accountDetailsMessageTempalte from './account-details-message.html';
+import accountDetailsMessageTemplate from './account-details-message.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { closeModal } from 'action-creators';
@@ -23,7 +23,7 @@ class AccountCreatedModalViewModel extends ConnectableViewModel {
     mapStateToProps(account, password, endpoint, sslPort) {
         const { name, hasLoginAccess, hasS3Access, accessKeys } = account;
         const message = ko.renderToString(
-            accountDetailsMessageTempalte,
+            accountDetailsMessageTemplate,
             {
                 serverAddress: `https://${endpoint}:${sslPort}`,
                 username: hasLoginAccess ? name : '',

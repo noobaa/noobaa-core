@@ -206,8 +206,6 @@ class KubernetesFunctions {
             this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
             await this.create_noobaa_secrets();
-
-            await this.create_noobaa_secrets();
             console.log('deploying server resources from file', resources_file_path);
             await this.kubectl(`apply -f ${resources_file_path}`);
 

@@ -13,8 +13,8 @@ const promise_utils = require('../../util/promise_utils');
 
 require('../../util/dotenv').load();
 
-const port = process.env.ENDPOINT_PORT || 80;
-const ssl_port = process.env.ENDPOINT_SSL_PORT || 443;
+// const port = process.env.ENDPOINT_PORT || 80;
+// const ssl_port = process.env.ENDPOINT_SSL_PORT || 443;
 
 const verify_md5_map = new Map();
 
@@ -22,6 +22,8 @@ class S3OPS {
 
     constructor({
         ip = '127.0.0.1',
+        port = '80',
+        ssl_port = '443',
         access_key = '123',
         secret_key = 'abc',
         use_https = true,
@@ -45,8 +47,8 @@ class S3OPS {
             secretAccessKey: secret_key,
             s3ForcePathStyle: true,
             sslEnabled: false,
-            // when using sigv4 we need to disable body sigining to allow sending streams as body,
-            // in addition disabling body sigining requires working with https
+            // when using sigv4 we need to disable body signing to allow sending streams as body,
+            // in addition disabling body signing requires working with https
             s3DisableBodySigning: true,
             signatureVersion: sig_ver,
             httpOptions: use_https ? {
@@ -137,7 +139,7 @@ class S3OPS {
                 versionid: versionid ? versionid : undefined,
                 target_stream: pass_through,
             }),
-            // This will fail if the part size is less then 5MB, then we need to do putObject insted of upload.
+            // This will fail if the part size is less then 5MB, then we need to do putObject instead of upload.
             this._multipart_upload_internal(bucket, destination, pass_through, part_size)
         ]);
     }
@@ -288,8 +290,8 @@ class S3OPS {
         }
     }
 
-    get_list_files(bucket, prefix, param = { supress_logs: false, maxKeys: 1000, version: false }) {
-        const supress_logs = param.supress_logs;
+    get_list_files(bucket, prefix, param = { suppress_logs: false, maxKeys: 1000, version: false }) {
+        const suppress_logs = param.suppress_logs;
         const MaxKeys = param.maxKeys;
         let ops = 'listObjects';
         let params = {
@@ -311,13 +313,13 @@ class S3OPS {
                     list = res.Contents;
                 }
                 if (list.length === 0) {
-                    if (!supress_logs) {
+                    if (!suppress_logs) {
                         console.warn('No files with prefix in bucket');
                     }
                 } else {
                     list.forEach(file => {
                         listFiles.push(_.omitBy(_.pick(file, ['Key', 'VersionId']), !_.isUndefined));
-                        if (!supress_logs) {
+                        if (!suppress_logs) {
                             console.log('files key is: ' + file.Key);
                         }
                     });
@@ -470,7 +472,7 @@ class S3OPS {
         console.log(`cleaning all files from ${bucket} in ${this.ip}`);
         promise_utils.pwhile(
             () => run_list,
-            () => this.get_list_files(bucket, '', { maxKeys: 1000, version: is_versioning, supress_logs: true })
+            () => this.get_list_files(bucket, '', { maxKeys: 1000, version: is_versioning, suppress_logs: true })
             .then(list => {
                 console.log(`Partial list_files.length is ${list.length}`);
                 if (list.length < 1000) {
@@ -642,7 +644,7 @@ class S3OPS {
                     console.warn('No uploads for bucket ', bucket);
                     throw new Error('No upload for buckets' + bucket);
                 } else {
-                    //TODO:: What happends if find does not find anything
+                    //TODO:: What happens if find does not find anything
                     dataObject = list.find(content => content.Key === object_name);
                     if (!dataObject) throw new Error('Object key wasn\'t found');
                     console.log(`Object ${dataObject.Key} UploadId is: ${dataObject.UploadId}`);
@@ -667,7 +669,7 @@ class S3OPS {
                 if (list.length === 0) {
                     console.warn('No buckets ');
                 } else {
-                    //TODO:: What happends if find does not find anything
+                    //TODO:: What happens if find does not find anything
                     dataBucket = list.find(buckets => buckets.Name === bucket);
                     console.log('Bucket data info is ', JSON.stringify(dataBucket));
                     uploadBucketId = dataBucket.Owner.ID;

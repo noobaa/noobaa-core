@@ -18,9 +18,30 @@ dbg.set_process_name(test_name);
 
 require('../../util/dotenv').load();
 
+const {
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    AZURE_STORAGE_ACCOUNT_NAME,
+    AZURE_STORAGE_ACCOUNT_KEY
+} = process.env;
+
+const cloud_list = [];
+
+if (AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY) {
+    cloud_list.push('AWS');
+}
+
+if (AZURE_STORAGE_ACCOUNT_KEY && AZURE_STORAGE_ACCOUNT_NAME) {
+    cloud_list.push('AZURE');
+}
+
+if (cloud_list.length === 0) {
+    console.warn(`Missing cloud credentials, Exiting.`);
+    process.exit(0);
+}
+
 let errors = [];
 let failures_in_test = false;
-const cloud_list = ['AWS', 'AZURE'];
 
 //define colors
 // const YELLOW = "\x1b[33;1m";
@@ -34,16 +55,22 @@ const files_cloud = {
 
 //defining the required parameters
 const {
-    server_ip,
+    mgmt_ip,
+    mgmt_port_https,
+    s3_ip,
+    s3_port,
     skip_clean = false,
     help = false
 } = argv;
 
 function usage() {
     console.log(`
-    --server_ip     -   noobaa server ip.
-    --skip_clean    -   skipping cleaning env
-    --help          -   show this help.
+    --mgmt_ip           -   noobaa management ip.
+    --mgmt_port_https   -   noobaa server management https port
+    --s3_ip             -   noobaa s3 ip
+    --s3_port           -   noobaa s3 port
+    --skip_clean        -   skipping cleaning env
+    --help              -   show this help.
     `);
 }
 
@@ -52,7 +79,7 @@ if (help) {
     process.exit(1);
 }
 
-const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
+const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
 let report = new Report();
@@ -62,33 +89,33 @@ const cases = [
     'read via namespace AZURE',
     'verify list files AWS',
     'verify list files AZURE',
-    'create ns bucket AWS',
-    'create ns bucket AZURE',
-    'update ns bucket w resource',
-    'ul via noobaa to ns AWS',
-    'ul via noobaa to ns AZURE',
-    'delete via ns AWS',
-    'delete via ns AZURE',
+    'create namespace bucket AWS',
+    'create namespace bucket AZURE',
+    'update namespace bucket w resource',
+    'upload via noobaa to namespace AWS',
+    'upload via noobaa to namespace AZURE',
+    'delete via namespace AWS',
+    'delete via namespace AZURE',
     'verify md5 via list on AWS',
     'verify md5 via list on AZURE',
     'create external connection AWS',
     'create external connection AZURE',
-    'create ns resource AWS',
-    'create ns resource AZURE',
-    'delete ns resource AWS',
-    'delete ns resource AZURE',
+    'create namespace resource AWS',
+    'create namespace resource AZURE',
+    'delete namespace resource AWS',
+    'delete namespace resource AZURE',
     'delete connection AWS',
     'delete connection AZURE',
-    'delete ns bucket',
+    'delete namespace bucket',
 ];
 report.init_reporter({ suite: test_name, conf: { aws: true, azure: true }, mongo_report: true, cases: cases });
 
 let cf = new CloudFunction(client);
-let bf = new BucketFunctions(client);
+const bucket_functions = new BucketFunctions(client);
 
 const AWSDefaultConnection = cf.getAWSConnection();
 
-const s3ops = new S3OPS({ ip: server_ip });
+const s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
 const s3opsAWS = new S3OPS({
     ip: 's3.amazonaws.com',
     access_key: AWSDefaultConnection.identity,
@@ -139,12 +166,6 @@ const unit_mapping = {
     }
 };
 
-// function saveErrorAndResume(message, err) {
-//     console.error(message, err);
-//     errors.push(`${message} ${err}`);
-//     failures_in_test = true;
-// }
-
 function throwError(message, err) {
     console.error(message, err);
     throw err;
@@ -175,10 +196,13 @@ async function compereMD5betweenCloudAndNooBaa(type, bucket, noobaa_bucket, file
     const noobaaProperties = await getPropertiesFromS3Bucket(s3ops, noobaa_bucket, file_name);
     const noobaaMD5 = noobaaProperties.md5;
     if (cloudMD5 === noobaaMD5) {
-        console.log(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} and the cloud md5 is: ${cloudProperties} for file ${file_name}`);
+        console.log(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${
+            noobaaMD5} and the cloud md5 is: ${JSON.stringify(cloudProperties)} for file ${file_name}`);
     } else {
-        console.warn(`file: ${file_name} size is ${cloudProperties.size} on ${type} and ${noobaaProperties.size} on noobaa`);
-        throw new Error(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${noobaaMD5} instead of ${cloudProperties} for file ${file_name}`);
+        console.warn(`file: ${file_name} size is ${cloudProperties.size} on ${
+            type} and ${noobaaProperties.size} on noobaa`);
+        throw new Error(`Noobaa bucket (${noobaa_bucket}) contains the md5 ${
+            noobaaMD5} instead of ${cloudProperties} for file ${file_name}`);
     }
 }
 
@@ -214,7 +238,7 @@ async function upload_directly_to_cloud(type) {
 }
 
 async function isFilesAvailableInNooBaaBucket(gateway, files, type) {
-    console.log('Checking uploaded files ' + files + ' in noobaa s3 server bucket ' + gateway);
+    console.log(`Checking uploaded files ${files} in noobaa s3 server bucket ${gateway}`);
     const list_files = await s3ops.get_list_files(gateway);
     const keys = list_files.map(key => key.Key);
     let report_fail = false;
@@ -241,13 +265,13 @@ async function uploadFileToNoobaaS3(bucket, file_name) {
     }
 }
 
-async function deleteNamesapaceBucket(bucket) {
+async function _delete_namesapace_bucket(bucket) {
     console.log('Deleting namespace bucket ' + bucket);
     try {
-        await bf.deleteBucket(bucket);
-        report.success('delete ns bucket');
+        await bucket_functions.deleteBucket(bucket);
+        report.success('delete namespace bucket');
     } catch (err) {
-        report.fail('delete ns bucket');
+        report.fail('delete namespace bucket');
         throw new Error(`Failed to delete namespace bucket with error ${err}`);
     }
 }
@@ -261,7 +285,7 @@ async function set_rpc_and_create_auth_token() {
     return client.create_auth_token(auth_params);
 }
 
-async function create_resource(type) {
+async function _create_resource(type) {
     try {
         //create connection
         await cf.createConnection(connections_mapping[type], type);
@@ -274,20 +298,20 @@ async function create_resource(type) {
         // create namespace resource
         await cf.createNamespaceResource(connections_mapping[type].name,
             namespace_mapping[type].namespace, namespace_mapping[type].bucket2);
-        report.success(`create ns resource ${type}`);
+        report.success(`create namespace resource ${type}`);
     } catch (e) {
-        report.fail(`create ns resource ${type}`);
+        report.fail(`create namespace resource ${type}`);
         throw new Error(e);
     }
 }
 
-async function upload_via_cloud_check_via_noobaa(type) {
+async function _upload_via_cloud_check_via_noobaa(type) {
     try {
         //create a namespace bucket
-        await bf.createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
-        report.success(`create ns bucket ${type}`);
+        await bucket_functions.createNamespaceBucket(namespace_mapping[type].gateway, namespace_mapping[type].namespace);
+        report.success(`create namespace bucket ${type}`);
     } catch (e) {
-        report.fail(`create ns bucket ${type}`);
+        report.fail(`create namespace bucket ${type}`);
         throw new Error(e);
     }
     //upload dataset
@@ -317,9 +341,9 @@ async function upload_via_noobaa({ type, file_name, bucket }) {
     files_cloud[`files_${type}`].push(file_name);
     try {
         await uploadFileToNoobaaS3(bucket, file_name);
-        report.success(`ul via noobaa to ns ${type}`);
+        report.success(`upload via noobaa to namespace ${type}`);
     } catch (e) {
-        report.fail(`ul via noobaa to ns ${type}`);
+        report.fail(`upload via noobaa to namespace ${type}`);
         throw new Error(`Failed to upload files into ${type}: ${e}`);
     }
     return file_name;
@@ -348,7 +372,7 @@ async function check_via_cloud(type, file_name) {
     return true;
 }
 
-async function upload_via_noobaa_check_via_cloud({ type, file_name, bucket }) {
+async function _upload_via_noobaa_check_via_cloud({ type, file_name, bucket }) {
     //Try to upload a file to noobaa s3 server, verify it was uploaded to the Azure container
     const uploaded_file_name = await upload_via_noobaa({ type, file_name, bucket });
     await check_via_cloud(type, uploaded_file_name);
@@ -358,10 +382,10 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
     let should_fail;
     const run_on_clouds = _.clone(clouds);
     try {
-        await bf.updateNamesapceBucket(name, read_resources, write_resource);
-        report.success('update ns bucket w resource');
+        await bucket_functions.updateNamesapceBucket(name, read_resources, write_resource);
+        report.success('update namespace bucket w resource');
     } catch (e) {
-        report.fail('update ns bucket w resource');
+        report.fail('update namespace bucket w resource');
         throw new Error(e);
     }
     await P.delay(30 * 1000);
@@ -402,13 +426,13 @@ async function add_and_remove_resources(clouds) {
     const run_on_clouds = _.clone(clouds);
     const read_resources = [namespace_mapping.AWS.namespace];
     try {
-        await bf.createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
-        report.success('create ns bucket AWS');
+        await bucket_functions.createNamespaceBucket(noobaa_bucket_name, read_resources[0]);
+        report.success('create namespace bucket AWS');
     } catch (e) {
-        report.fail('create ns bucket AWS');
+        report.fail('create namespace bucket AWS');
         throw new Error(e);
     }
-    await upload_via_noobaa_check_via_cloud({ type: 'AWS', bucket: noobaa_bucket_name });
+    await _upload_via_noobaa_check_via_cloud({ type: 'AWS', bucket: noobaa_bucket_name });
     read_resources.push(namespace_mapping.AZURE.namespace);
     for (let cycle = 0; cycle < run_on_clouds.length; cycle++) {
         await update_read_write_and_check(run_on_clouds, noobaa_bucket_name, read_resources, namespace_mapping[run_on_clouds[0]].namespace);
@@ -421,30 +445,30 @@ async function add_and_remove_resources(clouds) {
     return noobaa_bucket_name;
 }
 
-async function clean_namespace_bucket(bucket, type) {
+async function _clean_namespace_bucket(bucket, type) {
     const list_files = await s3ops.get_list_files(bucket);
     const keys = list_files.map(key => key.Key);
     if (keys) {
         for (const file of keys) {
             try {
-                report.success(`delete via ns ${type}`);
+                report.success(`delete via namespace ${type}`);
                 await s3ops.delete_file(bucket, file);
             } catch (e) {
-                report.fail(`delete via ns ${type}`);
+                report.fail(`delete via namespace ${type}`);
                 console.error(`${RED}TODO: REMOVE THIS TRY CATCH, IT IS TEMP OVERRIDE FOR BUG #4832${NC}`);
             }
         }
     }
-    await deleteNamesapaceBucket(bucket);
+    await _delete_namesapace_bucket(bucket);
 }
 
 async function clean_env(clouds) {
     for (const type of clouds) {
         try {
             await cf.deleteNamespaceResource(namespace_mapping[type].namespace);
-            report.success(`delete ns resource ${type}`);
+            report.success(`delete namespace resource ${type}`);
         } catch (err) {
-            report.fail(`delete ns resource ${type}`);
+            report.fail(`delete namespace resource ${type}`);
         }
         try {
             await cf.deleteConnection(connections_mapping[type].name);
@@ -460,14 +484,14 @@ async function main(clouds) {
     try {
         await set_rpc_and_create_auth_token();
         for (const type of clouds) {
-            await create_resource(type);
-            await upload_via_cloud_check_via_noobaa(type);
-            await upload_via_noobaa_check_via_cloud({ type, file: 'file_azure_15KB' });
-            await clean_namespace_bucket(namespace_mapping[type].gateway, type);
+            await _create_resource(type);
+            await _upload_via_cloud_check_via_noobaa(type);
+            await _upload_via_noobaa_check_via_cloud({ type, file: 'file_azure_15KB' });
+            await _clean_namespace_bucket(namespace_mapping[type].gateway, type);
         }
         const bucket = await add_and_remove_resources(clouds);
         if (!skip_clean) {
-            await clean_namespace_bucket(bucket, 'AWS');
+            await _clean_namespace_bucket(bucket, 'AWS');
             await clean_env(clouds);
         }
         await report.report();

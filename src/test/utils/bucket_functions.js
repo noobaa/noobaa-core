@@ -7,11 +7,11 @@ class BucketFunctions {
         this._client = client;
     }
 
-    async listBuckets(server_ip) {
+    async listBuckets() {
         try {
             await this._client.bucket.list_buckets();
         } catch (err) {
-            console.log(`${server_ip} FAILED to get bucket list`, err);
+            console.log(`FAILED to get bucket list`, err);
             throw err;
         }
     }
@@ -79,7 +79,7 @@ class BucketFunctions {
         }
     }
 
-    async disableQuotaBucket(server_ip, bucket_name) {
+    async disableQuotaBucket(bucket_name) {
         console.log('Disabling quota bucket');
         try {
             await this._client.bucket.update_bucket({
@@ -87,7 +87,7 @@ class BucketFunctions {
                 quota: null
             });
         } catch (err) {
-            console.log(`${server_ip} FAILED disable quota bucket `, err);
+            console.log(`FAILED disable quota bucket `, err);
             throw err;
         }
     }
@@ -107,17 +107,17 @@ class BucketFunctions {
         }
     }
 
-    async checkAvilableSpace(bucket_name) {
-        console.log('Checking avilable space in bucket ' + bucket_name);
+    async checkAvailableSpace(bucket_name) {
+        console.log('Checking available space in bucket ' + bucket_name);
         try {
             const system_info = await this._client.system.read_system({});
             const buckets = system_info.buckets;
             const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            const avilable_space = buckets[indexBucket].data.available_for_upload;
-            console.log(`Avilable space in bucket ${bucket_name} is ${avilable_space / 1024 / 1024} MB`);
-            return avilable_space;
+            const available_space = buckets[indexBucket].data.available_for_upload;
+            console.log(`Available space in bucket ${bucket_name} is ${available_space / 1024 / 1024} MB`);
+            return available_space;
         } catch (err) {
-            console.log(`FAILED to check avilable space in bucket`, err);
+            console.log(`FAILED to check available space in bucket`, err);
             throw err;
         }
     }

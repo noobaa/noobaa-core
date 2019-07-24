@@ -341,7 +341,7 @@ module.exports = {
 
         cloud_pool_stats: {
             type: 'object',
-            required: ['pool_count', 'unhealthy_pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target'],
+            required: ['pool_count', 'unhealthy_pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target', 'resources'],
             properties: {
                 pool_count: {
                     type: 'integer'
@@ -384,6 +384,21 @@ module.exports = {
                         },
                     }
                 },
+                resources: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['resource_name', 'is_healthy'],
+                        properties: {
+                            resource_name: {
+                                type: 'string'
+                            },
+                            is_healthy: {
+                                type: 'boolean'
+                            }
+                        }
+                    }
+                }
             }
         },
 
@@ -640,9 +655,30 @@ module.exports = {
 
         partial_buckets_stats: {
             type: 'object',
-            required: ['buckets', 'objects_in_buckets', 'unhealthy_buckets', 'bucket_claims', 'objects_in_bucket_claims', 'unhealthy_bucket_claims'],
+            required: ['buckets', 'buckets_num', 'objects_in_buckets', 'unhealthy_buckets', 'bucket_claims', 'objects_in_bucket_claims', 'unhealthy_bucket_claims'],
             properties: {
-                buckets: { type: 'integer' },
+                buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['bucket_name', 'quota_precent', 'capacity_precent', 'is_healthy'],
+                        properties: {
+                            bucket_name: {
+                                type: 'string'
+                            },
+                            quota_precent: {
+                                type: 'number'
+                            },
+                            capacity_precent: {
+                                type: 'number'
+                            },
+                            is_healthy: {
+                                type: 'boolean'
+                            },
+                        }
+                    }
+                },
+                buckets_num: { type: 'integer' },
                 objects_in_buckets: { type: 'integer' },
                 unhealthy_buckets: { type: 'integer' },
                 bucket_claims: { type: 'integer' },

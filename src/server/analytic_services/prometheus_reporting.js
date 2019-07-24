@@ -209,6 +209,38 @@ const METRIC_RECORDS = Object.freeze([{
         help: 'Rebuild Time',
     },
     generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'bucket_healthy',
+    configuration: {
+        name: get_metric_name('bucket_status'),
+        help: 'Bucket Health',
+        labelNames: ['bucket_name'],
+    },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'bucket_capacity_precent',
+    configuration: {
+        name: get_metric_name('bucket_capacity'),
+        help: 'Bucket Capacity Precent',
+        labelNames: ['bucket_name'],
+    },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'bucket_quota_precent',
+    configuration: {
+        name: get_metric_name('bucket_quota'),
+        help: 'Bucket Quota Precent',
+        labelNames: ['bucket_name'],
+    },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'resource_healthy',
+    configuration: {
+        name: get_metric_name('resource_status'),
+        help: 'Resource Health',
+        labelNames: ['resource_name'],
+    },
 }]);
 
 
@@ -351,6 +383,26 @@ class PrometheusReporting {
         if (!this.enabled()) return;
         this._metrics.system_info.reset();
         this._metrics.system_info.set({ system_name: info.name, system_address: info.address }, Date.now());
+    }
+
+    set_bucket_status(buckets_info) {
+        if (!this.enabled()) return;
+        this._metrics.bucket_healthy.reset();
+        this._metrics.bucket_quota_precent.reset();
+        this._metrics.bucket_capacity_precent.reset();
+        buckets_info.forEach(bucket_info => {
+            this._metrics.bucket_healthy.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
+            this._metrics.bucket_quota_precent.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
+            this._metrics.bucket_capacity_precent.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
+        });
+    }
+
+    set_resource_status(resources_info) {
+        if (!this.enabled()) return;
+        this._metrics.resource_healthy.reset();
+        resources_info.forEach(resource_info => {
+            this._metrics.resource_healthy.set({ resource_name: resource_info.resource_name }, Number(resource_info.is_healthy));
+        });
     }
 
     update_providers_bandwidth(type, write_size, read_size) {

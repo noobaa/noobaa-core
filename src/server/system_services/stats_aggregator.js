@@ -32,6 +32,7 @@ const HistoryDataStore = require('../analytic_services/history_data_store').Hist
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
+const system_utils = require('../utils/system_utils');
 
 
 const ops_aggregation = {};
@@ -121,7 +122,8 @@ const SINGLE_SYS_DEFAULTS = {
 };
 
 const PARTIAL_BUCKETS_STATS_DEFAULTS = {
-    buckets: 0,
+    buckets: [],
+    buckets_num: 0,
     objects_in_buckets: 0,
     unhealthy_buckets: 0,
     bucket_claims: 0,
@@ -388,7 +390,7 @@ async function get_partial_systems_stats(req) {
                 total_usage,
                 buckets_stats,
                 usage_by_bucket_class,
-                usage_by_project
+                usage_by_project,
             }, PARTIAL_SINGLE_SYS_DEFAULTS);
         }));
         return sys_stats;
@@ -459,16 +461,25 @@ async function _partial_buckets_info(req) {
                 'OPTIMAL',
             ];
 
+            const storage = bucket_info.storage.values;
             if (bucket_info.bucket_claim) {
                 buckets_stats.bucket_claims += 1;
                 buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
                 if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_bucket_claims += 1;
             } else {
-                buckets_stats.buckets += 1;
+                buckets_stats.buckets_num += 1;
                 buckets_stats.objects_in_buckets += bucket_info.num_objects;
                 if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
             }
 
+            const storage_used = size_utils.json_to_bigint(storage.used).plus(size_utils.json_to_bigint(storage.used_other));
+            buckets_stats.buckets.push({
+                bucket_name: bucket_info.name.unwrap(),
+                quota_precent: system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota),
+                capacity_precent: size_utils.bigint_to_json(storage_used.multiply(100)
+                    .divide(size_utils.json_to_bigint(storage.total))),
+                is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
+            });
         }
 
         Object.keys(usage_by_bucket_class).forEach(key => {
@@ -515,7 +526,8 @@ const CLOUD_POOL_STATS_DEFAULTS = {
     compatible_auth_type: {
         v2: 0,
         v4: 0,
-    }
+    },
+    resources: []
 };
 
 //Collect nodes related stats and usage
@@ -688,6 +700,11 @@ async function get_cloud_pool_stats(req) {
                     break;
             }
         }
+
+        cloud_pool_stats.resources.push({
+            resource_name: pool_info.name,
+            is_healthy: _.includes(OPTIMAL_MODES, pool_info.mode),
+        });
     }
 
     return cloud_pool_stats;
@@ -849,13 +866,14 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     } = systems_stats.systems[0];
     const {
         buckets,
+        buckets_num,
         objects_in_buckets,
         unhealthy_buckets,
         bucket_claims,
         objects_in_bucket_claims,
         unhealthy_bucket_claims,
     } = buckets_stats;
-    const { unhealthy_pool_count, pool_count } = cloud_pool_stats;
+    const { unhealthy_pool_count, pool_count, resources } = cloud_pool_stats;
 
     prom_report.instance().set_providers_physical_logical(providers_stats);
     prom_report.instance().set_cloud_types(cloud_pool_stats);
@@ -863,7 +881,9 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_num_pools(pool_count);
     prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
     prom_report.instance().set_system_info({ name, address });
-    prom_report.instance().set_num_buckets(buckets);
+    prom_report.instance().set_num_buckets(buckets_num);
+    prom_report.instance().set_bucket_status(buckets);
+    prom_report.instance().set_resource_status(resources);
     prom_report.instance().set_num_objects(objects_in_buckets);
     prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
     prom_report.instance().set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);

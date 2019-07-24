@@ -1,9 +1,0 @@
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nb-storage-class
-provisioner: "noobaa.io/bucket"
-parameters:
-  secretName: noobaa-conn-info
-  # secretNamespace: default
-reclaimPolicy: Delete

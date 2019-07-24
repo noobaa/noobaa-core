@@ -20,7 +20,6 @@
   "exclude": [
     "build",
     "frontend",
-    "gocode",
     "images",
     "logs",
     "metadata_storage",

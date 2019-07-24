@@ -1,7 +1,0 @@
-apiVersion: noobaa.com/v1alpha1
-kind: Noobaa
-metadata:
-  name: example-noobaa
-spec:
-  # Add fields here
-  size: 3

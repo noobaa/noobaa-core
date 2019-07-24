@@ -21,7 +21,7 @@ endif
 	@echo "\033[1;34mBuilder done.\033[0m"
 .PHONY: builder
 
-base: builder
+base:
 	@echo "\033[1;34mStarting Base docker build.\033[0m"
 ifeq ($(SUPPRESS_LOGS), true)
 	docker build -f src/deploy/NVA_build/Base.Dockerfile --no-cache -t $(NOOBAA_BASE_TAG) . 1> /dev/null

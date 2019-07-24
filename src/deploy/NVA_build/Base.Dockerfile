@@ -1,4 +1,4 @@
-FROM noobaa-builder
+FROM liranmauda/noobaa-builder
 
 ######################################################################
 # Layers:

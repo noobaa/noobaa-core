@@ -3783,7 +3783,7 @@ class NodesMonitor extends EventEmitter {
         return (
             item.node.is_cloud_node ||
             this._is_cloud_node(item) ||
-            item.node.node_type === 'BLOCK_STORE_FS' ||
+            item.node.node_type === 'BLOCK_STORE_FS'
         );
     }
 }

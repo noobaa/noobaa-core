@@ -369,7 +369,7 @@ mocha.describe('system_servers', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         await rpc_client.debug.set_debug_level({
             module: 'rpc',
-            level: 0
+            level: coretest.get_dbg_level()
         });
     });
 

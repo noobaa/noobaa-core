@@ -35,7 +35,7 @@ mocha.describe('host_server', function() {
             }))
             .then(() => rpc_client.host.set_debug_host({
                 name: hosts[0].name,
-                level: 0,
+                level: coretest.get_dbg_level(),
             }))
             .then(() => rpc_client.host.update_host_services({
                 name: hosts[0].name,

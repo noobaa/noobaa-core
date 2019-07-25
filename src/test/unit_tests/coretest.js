@@ -30,11 +30,11 @@ const assert = require('assert');
 
 const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
-if (process.env.SUPPRESS_LOGS) {
-    dbg.set_level(-5, 'core');
-} else if (argv.verbose) {
-    dbg.set_level(5, 'core');
-}
+const dbg_level =
+    (process.env.SUPPRESS_LOGS && -5) ||
+    (argv.verbose && 5) ||
+    0;
+dbg.set_level(dbg_level, 'core');
 
 const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
@@ -573,6 +573,10 @@ function _describe_mapper_test_case(test_case, func) {
     });
 }
 
+function get_dbg_level() {
+    return dbg_level;
+}
+
 exports.setup = setup;
 exports.no_setup = _.noop;
 exports.log = log;
@@ -585,3 +589,4 @@ exports.new_rpc_client = new_rpc_client;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
 exports.describe_mapper_test_case = describe_mapper_test_case;
+exports.get_dbg_level = get_dbg_level;

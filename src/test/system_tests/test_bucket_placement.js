@@ -12,6 +12,8 @@ var basic_server_ops = require('../utils/basic_server_ops');
 var P = require('../../util/promise');
 var api = require('../../api');
 var _ = require('lodash');
+const test_utils = require('./test_utils');
+
 var dotenv = require('../../util/dotenv');
 dotenv.load();
 
@@ -37,19 +39,13 @@ module.exports = {
 };
 
 // Does the Auth and returns the nodes in the system
-async function get_hosts_auth() {
+async function create_auth() {
     var auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
     };
-    await client.create_auth_token(auth_params);
-    return client.host.list_hosts({
-        query: {
-            mode: ['OPTIMAL'],
-            pools: ['first.pool']
-        }
-    });
+    return client.create_auth_token(auth_params);
 }
 
 async function run_test() {
@@ -81,23 +77,12 @@ async function upload_random_file() {
 
 async function perform_placement_tests() {
     console.log('Testing Placement');
-    // Used in order to get the nodes of the system
-    var sys_hosts;
-    // Used in order to get the key of the file
 
-
-    sys_hosts = await get_hosts_auth();
-    if (sys_hosts.total_count < 6) {
-        return P.reject("Not Enough Nodes For 2 Pools");
-    }
-    await client.pool.create_hosts_pool({
-        name: "pool1",
-        hosts: sys_hosts.hosts.map(host => host.name).slice(0, 3)
-    });
-    await client.pool.create_hosts_pool({
-        name: "pool2",
-        hosts: sys_hosts.hosts.map(host => host.name).slice(3, 6)
-    });
+    await create_auth();
+    await Promise.all([
+        test_utils.create_hosts_pool(client, 'pool1', 3),
+        test_utils.create_hosts_pool(client, 'pool2', 3)
+    ]);
     await client.tier.create_tier({
         name: 'tier1',
         attached_pools: ['pool1', 'pool2'],

@@ -29,7 +29,7 @@ db.tiers.update({
             _id: new ObjectId(),
             spread_pools: [
                 db.pools.find({
-                    name: 'first.pool'
+                    name: 'first-pool'
                 })[0]._id
             ]
         }]
@@ -37,7 +37,7 @@ db.tiers.update({
 });
 db.pools.remove({
     name: {
-        $nin: ['first.pool', /system-internal-storage-pool.*/]
+        $nin: ['first-pool', /system-internal-storage-pool.*/]
     }
 });
 db.tiers.remove({
@@ -116,7 +116,7 @@ db.pools.updateMany({}, {
     }
 });
 
-// We assign all of the nodes to the first.pool, because we've removed all of the pools
+// We assign all of the nodes to the first-pool, because we've removed all of the pools
 db.nodes.update({
     pool: {
         $nin: [db.pools.find({
@@ -128,7 +128,7 @@ db.nodes.update({
 }, {
     $set: {
         pool: db.pools.find({
-            name: 'first.pool'
+            name: 'first-pool'
         })[0]._id
     },
     $unset: {

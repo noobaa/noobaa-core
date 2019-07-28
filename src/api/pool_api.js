@@ -12,34 +12,39 @@ module.exports = {
     id: 'pool_api',
 
     methods: {
-        create_nodes_pool: {
-            doc: 'Create Pool',
-            method: 'POST',
-            params: {
-                $ref: '#/definitions/pool_definition'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         create_hosts_pool: {
-            doc: 'Create Hosts Pool',
+            doc: 'Create kubernetes base hosts pool',
             method: 'POST',
             params: {
                 type: 'object',
+                required: [
+                    'name',
+                    'is_managed',
+                    'host_count'
+                ],
                 properties: {
                     name: {
                         type: 'string'
                     },
-                    hosts: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
+                    is_managed: {
+                        type: 'boolean'
+                    },
+                    host_count: {
+                        type: 'integer',
+                        minimum: 1
+                    },
+                    host_config: {
+                        type: 'object',
+                        properties: {
+                            volume_size: {
+                                $ref: 'common_api#/definitions/bigint'
+                            }
                         }
                     }
                 }
-
+            },
+            reply: {
+                type: 'string'
             },
             auth: {
                 system: 'admin'
@@ -103,26 +108,6 @@ module.exports = {
                         type: 'string',
                     }
                 }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        list_pool_nodes: {
-            doc: 'List Pool Nodes',
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                $ref: '#/definitions/pool_definition'
             },
             auth: {
                 system: 'admin'
@@ -196,52 +181,6 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        assign_nodes_to_pool: {
-            doc: 'Add nodes to Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            $ref: 'node_api#/definitions/node_identity'
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        assign_hosts_to_pool: {
-            doc: 'Add nodes to Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    hosts: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    }
                 }
             },
             auth: {
@@ -379,11 +318,30 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        scale_hosts_pool: {
+            doc: 'Change the pool\'s underlaying host count',
+            method: 'POST',
+             params: {
+                type: 'object',
+                required: ['name', 'host_count'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    host_count: {
+                        type: 'integer'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 
     definitions: {
-
         pool_definition: {
             type: 'object',
             required: ['name', 'nodes'],

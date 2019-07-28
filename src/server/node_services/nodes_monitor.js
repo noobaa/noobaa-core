@@ -463,93 +463,6 @@ class NodesMonitor extends EventEmitter {
         return this._delete_node(item);
     }
 
-    migrate_hosts_to_pool(req) {
-        this._throw_if_not_started_and_loaded();
-        const hosts = req.rpc_params.hosts;
-        const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
-        const description = [];
-        if (!to_pool) throw new RpcError('BAD_REQUEST', 'No such pool ' + req.rpc_params.pool_id);
-        if (to_pool.cloud_pool_info) throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
-
-        // get on list of all nodes to migrate
-        const hosts_info = [];
-        const items = _.flatMap(hosts, name => {
-            const host_items = this._get_host_nodes_by_name(name);
-            if (host_items.some(item => item.node.is_cloud_node)) throw new RpcError('BAD_REQUEST', 'migrating cloud node is not allowed');
-            if (host_items.length === 0) return [];
-            const from_pool = system_store.data.get_by_id(host_items[0].node.pool);
-            hosts_info.push({
-                name,
-                from_pool: (String(from_pool) === String(to_pool._id)) ? '' : from_pool.name
-            });
-            return host_items;
-        });
-
-        return this._migrate_items_to_pool(items, to_pool)
-            .then(() => {
-                description.push(`${hosts_info.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email.unwrap()}`);
-                _.each(hosts_info, host => {
-                    const { name, from_pool } = host;
-                    dbg.log0('migrate_hosts_to_pool:', name,
-                        'from', from_pool, 'to', to_pool.name);
-                    if (from_pool) {
-                        description.push(`${name} was assigned from ${from_pool} to ${to_pool.name}`);
-                    }
-                });
-                Dispatcher.instance().activity({
-                    event: 'resource.assign_nodes',
-                    level: 'info',
-                    system: req.system._id,
-                    actor: req.account && req.account._id,
-                    pool: to_pool._id,
-                    desc: description.join('\n'),
-                });
-            });
-    }
-
-    migrate_nodes_to_pool(req) {
-        this._throw_if_not_started_and_loaded();
-        const nodes_identities = req.rpc_params.nodes;
-        const to_pool = system_store.data.get_by_id(req.rpc_params.pool_id);
-        const description = [];
-
-        if (!to_pool) {
-            throw new RpcError('BAD_REQUEST', 'No such pool ' + req.rpc_params.pool_id);
-        }
-        if (to_pool.cloud_pool_info || to_pool.mongo_pool_info) {
-            throw new RpcError('BAD_REQUEST', 'migrating to cloud pool is not allowed');
-        }
-
-        const items = _.map(nodes_identities, node_identity => {
-            const item = this._get_node(node_identity, 'allow_offline');
-            if (item.node.is_cloud_node || item.node.is_mongo_node) {
-                throw new RpcError('BAD_REQUEST', 'migrating cloud/mongo node is not allowed');
-            }
-            return item;
-        });
-
-        return this._migrate_items_to_pool(items, to_pool)
-            .then(() => {
-                description.push(`${items.length} Nodes were assigned to ${to_pool.name} successfully by ${req.account && req.account.email.unwrap()}`);
-                _.each(items, item => {
-                    const from_pool = system_store.data.get_by_id(item.node.pool);
-                    dbg.log0('migrate_nodes_to_pool:', item.node.name,
-                        'from', from_pool.name, 'to', to_pool.name);
-                    if (String(item.node.pool) !== String(to_pool._id)) {
-                        description.push(`${item.node.name} was assigned from ${from_pool.name} to ${to_pool.name}`);
-                    }
-                });
-                Dispatcher.instance().activity({
-                    event: 'resource.assign_nodes',
-                    level: 'info',
-                    system: req.system._id,
-                    actor: req.account && req.account._id,
-                    pool: to_pool._id,
-                    desc: description.join('\n'),
-                });
-            });
-    }
-
     decommission_node(req) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
@@ -1380,7 +1293,8 @@ class NodesMonitor extends EventEmitter {
 
     _uninstall_deleting_node(item) {
         if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
-        if (item.node.is_cloud_node && item.ready_to_uninstall) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
+        if (item.ready_to_uninstall && this._should_skip_uninstall(item)) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
+
         if (!item.ready_to_uninstall) return;
         if (item.node.deleted) return;
         if (item.ready_to_be_deleted) return;
@@ -1416,25 +1330,6 @@ class NodesMonitor extends EventEmitter {
             .finally(() => {
                 first_item.uninstalling = false;
             });
-
-    }
-
-    async _migrate_items_to_pool(items, pool) {
-        // now we update all nodes to the new pool
-        _.each(items, item => {
-            if (String(item.node.pool) !== String(pool._id)) {
-                if (item.node.node_type === 'BLOCK_STORE_FS') {
-                    item.node.migrating_to_pool = Date.now();
-                }
-                item.node.pool = pool._id;
-                item.suggested_pool = ''; // reset previous suggestion
-            }
-            this._set_need_update.add(item);
-            this._update_status(item);
-        });
-        await this._update_nodes_store('force');
-        // we hurry the next run schedule in case it's not close, and prefer to do full update sooner
-        return this._schedule_next_run(3000);
     }
 
     _update_node_service(item) {
@@ -3882,6 +3777,14 @@ class NodesMonitor extends EventEmitter {
             'BLOCK_STORE_FS',
         ];
         return kubernetes_node_types.includes(item.node.node_type);
+    }
+
+    _should_skip_uninstall(item) {
+        return (
+            item.node.is_cloud_node ||
+            this._is_cloud_node(item) ||
+            item.node.node_type === 'BLOCK_STORE_FS'
+        );
     }
 }
 

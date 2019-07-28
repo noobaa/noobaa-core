@@ -20,35 +20,6 @@ export function closeModal(count = 1) {
     };
 }
 
-export function openInstallNodesModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'install-nodes-modal',
-            options: {
-                title: 'Install Nodes',
-                size: 'medium'
-            }
-        }
-    };
-}
-
-export function openInstallNodesToPoolModal(targetPool) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'install-nodes-to-pool-modal',
-                params: { targetPool }
-            },
-            options: {
-                title: 'Install Nodes to Pool',
-                size: 'medium'
-            }
-        }
-    };
-}
-
 export function openAddCloudResourceModal() {
     return {
         type: OPEN_MODAL,
@@ -318,22 +289,6 @@ export function openEditServerDetailsModal(serverSecret) {
     };
 }
 
-export function openAssignHostsModal(targetPool) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'assign-hosts-modal',
-                params: { targetPool }
-            },
-            options: {
-                size: 'auto-height',
-                title: 'Assign Nodes'
-            }
-        }
-    };
-}
-
 export function openCreateAccountModal() {
     return {
         type: OPEN_MODAL,
@@ -391,19 +346,6 @@ export function openSetAccountIpRestrictionsModal(accountName) {
             },
             options: {
                 title: 'Set IP Restrictions'
-            }
-        }
-    };
-}
-
-export function openCreatePoolModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'create-pool-modal',
-            options: {
-                size: 'small',
-                title: 'Create Pool Resource'
             }
         }
     };
@@ -887,7 +829,7 @@ export function openSessionExpiredModal() {
     };
 }
 
-export function openDeployK8SPoolModal() {
+export function openDeployK8sPoolModal() {
     return {
         type: OPEN_MODAL,
         payload: {

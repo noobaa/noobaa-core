@@ -8,17 +8,17 @@ if (argv.log_file) {
 }
 dbg.set_process_name('test_bucket_access');
 
-var api = require('../../api');
-var P = require('../../util/promise');
-var dotenv = require('../../util/dotenv');
-var ops = require('../utils/basic_server_ops');
-var config = require('../../../config.js');
-var rpc = api.new_rpc();
+const api = require('../../api');
+const P = require('../../util/promise');
+const dotenv = require('../../util/dotenv');
+const ops = require('../utils/basic_server_ops');
+const rpc = api.new_rpc();
+const test_utils = require('./test_utils');
 
-var assert = require('assert');
-var AWS = require('aws-sdk');
-var fs = require('fs');
-var uuid = require('uuid/v4');
+const assert = require('assert');
+const AWS = require('aws-sdk');
+const fs = require('fs');
+const uuid = require('uuid/v4');
 
 
 dotenv.load();
@@ -34,7 +34,7 @@ const {
 
 
 const target_s3_endpoint = `http://${s3_ip}:${s3_port}`;
-
+const POOL_NAME = 'test-pool';
 
 var client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
@@ -50,7 +50,7 @@ let full_access_user = {
         full_permission: false,
         permission_list: ['bucket1', 'bucket2']
     },
-    default_pool: config.NEW_SYSTEM_POOL_NAME,
+    default_pool: POOL_NAME
 };
 
 let bucket1_user = {
@@ -63,7 +63,7 @@ let bucket1_user = {
         full_permission: false,
         permission_list: ['bucket1']
     },
-    default_pool: config.NEW_SYSTEM_POOL_NAME,
+    default_pool: POOL_NAME
 };
 
 let no_access_user = {
@@ -107,6 +107,8 @@ function setup() {
 
     let account;
     return P.resolve()
+        // Create a default pool for the users.
+        .then(() => test_utils.create_hosts_pool(client, POOL_NAME, 3))
         // Create test buckets.
         .then(() => client.bucket.create_bucket({ name: 'bucket1' }))
         .then(() => client.bucket.create_bucket({ name: 'bucket2' }))

@@ -137,6 +137,10 @@ function is_email_address(str) {
     return !str || regExp.test(str);
 }
 
+function escape_reg_exp(str) {
+    return str.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
 exports.ALPHA_NUMERIC_CHARSET = ALPHA_NUMERIC_CHARSET;
 exports.crypto_random_string = crypto_random_string;
 exports.left_pad_zeros = left_pad_zeros;
@@ -144,3 +148,4 @@ exports.levenshtein_distance = levenshtein_distance;
 exports.rolling_hash = rolling_hash;
 exports.equal_case_insensitive = equal_case_insensitive;
 exports.is_email_address = is_email_address;
+exports.escape_reg_exp = escape_reg_exp;

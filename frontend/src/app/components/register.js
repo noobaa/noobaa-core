@@ -46,8 +46,6 @@ import preferedBrowsersSticky from './stickies/prefered-browsers-sticky/prefered
 // -------------------------------
 // Modal components
 // -------------------------------
-import installNodesModal from './modals/install-nodes-modal/install-nodes-modal';
-import installNodesToPoolModal from './modals/install-nodes-to-pool-modal/install-nodes-to-pool-modal';
 import welcomeModal from './modals/welcome-modal/welcome-modal';
 import addCloudResourceModal from './modals/add-cloud-resource-modal/add-cloud-resource-modal';
 import addCloudConnectionModal from './modals/add-cloud-connection-modal/add-cloud-connection-modal';
@@ -60,12 +58,10 @@ import objectPreviewModal from './modals/object-preview-modal/object-preview-mod
 import testNodeModal from './modals/test-node-modal/test-node-modal';
 import editAccountS3AccessModal from './modals/edit-account-s3-access-modal/edit-account-s3-access-modal';
 import editServerDetailsModal from './modals/edit-server-details-modal/edit-server-details-modal';
-import assignHostsModal from './modals/assign-hosts-modal/assign-hosts-modal';
 import createAccountModal from './modals/create-account-modal/create-account-modal';
 import accountCreatedModal from './modals/account-created-modal/account-created-modal';
 import editBucketQuotaModal from './modals/edit-bucket-quota-modal/edit-bucket-quota-modal';
 import setAccountIpRestrictionsModal from './modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal';
-import createPoolModal from './modals/create-pool-modal/create-pool-modal';
 import editHostStorageDrivesModal from './modals/edit-host-storage-drives-modal/edit-host-storage-drives-modal';
 import disableHostEndpointWarningModal from './modals/disable-host-endpoint-warning-modal/disable-host-endpoint-warning-modal';
 import disableHostStorageWarningModal from './modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal';
@@ -393,8 +389,6 @@ export default function register(ko, services) {
         preferedBrowsersSticky,
         /** INJECT:stickies.list **/
 
-        installNodesModal,
-        installNodesToPoolModal,
         welcomeModal,
         addCloudResourceModal,
         addCloudConnectionModal,
@@ -407,12 +401,10 @@ export default function register(ko, services) {
         testNodeModal,
         editAccountS3AccessModal,
         editServerDetailsModal,
-        assignHostsModal,
         createAccountModal,
         accountCreatedModal,
         editBucketQuotaModal,
         setAccountIpRestrictionsModal,
-        createPoolModal,
         editHostStorageDrivesModal,
         disableHostEndpointWarningModal,
         disableHostStorageWarningModal,

@@ -110,7 +110,7 @@ function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
 
     const canonical_str = v4.canonicalString();
     const string_to_sign = v4.stringToSign(xamzdate);
-    console.log('_string_to_sign_v4',
+    dbg.log0('_string_to_sign_v4',
         'method', aws_request.method,
         'pathname', aws_request.pathname(),
         'search', aws_request.search(),
@@ -165,7 +165,7 @@ function _string_to_sign_s3(req) {
     const s3 = new AWS.Signers.S3(aws_request);
     aws_request.headers['presigned-expires'] = req.query.Expires || req.headers.date;
     const string_to_sign = s3.stringToSign();
-    console.log('_string_to_sign_s3',
+    dbg.log0('_string_to_sign_s3',
         'method', aws_request.method,
         'pathname', aws_request.pathname(),
         'search', aws_request.search(),

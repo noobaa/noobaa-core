@@ -33,8 +33,8 @@ mocha.describe('tiering upload', function() {
     const TIERING_POLICY = 'tiering-upload-policy';
     const TIER0 = 'tiering-upload-tier0';
     const TIER1 = 'tiering-upload-tier1';
-    const POOL0 = 'tiering-upload-pool0';
-    const POOL1 = config.NEW_SYSTEM_POOL_NAME;
+    const POOL0 = coretest.pools.find(pool => pool.host_count === 1).name;
+    const POOL1 = coretest.pools.find(pool => pool.host_count === 10).name;
     const KEY = 'key';
     let key_counter = 1;
     let agent0;

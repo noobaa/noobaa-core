@@ -147,30 +147,6 @@ module.exports = {
             }
         },
 
-
-        migrate_hosts_to_pool: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['hosts', 'pool_id'],
-                properties: {
-                    hosts: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
-                    pool_id: {
-                        type: 'string'
-                    },
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-
         get_test_hosts: {
             method: 'GET',
             params: {

@@ -38,7 +38,7 @@ mocha.describe('node_server', function() {
                 node: {
                     name: nodes[0].name
                 },
-                level: 0,
+                level: coretest.get_dbg_level(),
             }))
             .then(() => rpc_client.node.decommission_node({
                 name: nodes[0].name
@@ -51,7 +51,7 @@ mocha.describe('node_server', function() {
             }))
             .then(() => {
                 const params = {
-                    level: 0,
+                    level: coretest.get_dbg_level(),
                 };
                 // rpc_client.rpc.schema.agent_api.methods.set_debug_node.;
                 return rpc_client.node.n2n_proxy({

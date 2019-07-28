@@ -137,7 +137,30 @@ module.exports = {
                     type: 'boolean'
                 },
             }
+        },
+        hosts_pool_info: {
+            type: 'object',
+            required: [
+                'is_managed',
+                'host_count'
+            ],
+            properties: {
+                is_managed: {
+                    type: 'boolean'
+                },
+                host_count: {
+                    type: 'integer',
+                    minimum: 0
+                },
+                host_config: {
+                    type: 'object',
+                    properties: {
+                        volume_size: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    }
+                }
+            }
         }
-
     }
 };

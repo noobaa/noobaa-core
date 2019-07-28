@@ -4,12 +4,14 @@ import { deepFreeze } from 'utils/core-utils';
 import { map } from 'rxjs/operators';
 import {
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
-    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS
+    COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
+    COMPLETE_CREATE_HOSTS_POOL
 } from 'action-types';
 
 const actionToUriAccessor = deepFreeze({
     [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri,
-    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: payload => payload.packageUri
+    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: payload => payload.packageUri,
+    [COMPLETE_CREATE_HOSTS_POOL]: payload => payload.autoDownload ? payload.deployYAMLUri : ''
 });
 
 export default function(action$, { browser }) {

@@ -13,13 +13,14 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const zip_utils = require('../../util/zip_utils');
+const promise_utils = require('../../util/promise_utils');
 const config = require('../../../config');
 
 mocha.describe('system_servers', function() {
 
-    const { rpc_client, SYSTEM, EMAIL, PASSWORD } = coretest;
+    const { rpc_client, SYSTEM, EMAIL, PASSWORD, POOL_LIST } = coretest;
+    const DEFAULT_POOL_NAME = POOL_LIST[0].name;
     const PREFIX = 'system-servers';
-    const POOL = `${PREFIX}-pool`;
     const TIER = `${PREFIX}-tier`;
     const TIERING_POLICY = `${PREFIX}-tiering-policy`;
     const BUCKET = `${PREFIX}-bucket`;
@@ -28,8 +29,6 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
-    let nodes_list;
-
     ///////////////
     //  ACCOUNT  //
     ///////////////
@@ -60,7 +59,7 @@ mocha.describe('system_servers', function() {
                 full_permission: false,
                 permission_list: []
             },
-            default_pool: config.NEW_SYSTEM_POOL_NAME
+            default_pool: DEFAULT_POOL_NAME
         });
         await rpc_client.system.read_system();
         await rpc_client.system.add_role({
@@ -130,30 +129,29 @@ mocha.describe('system_servers', function() {
     ////////////
 
     mocha.it('pool works', async function() {
-        this.timeout(90000); // eslint-disable-line no-invalid-this
-        const list_nodes = await rpc_client.node.list_nodes({});
-        nodes_list = list_nodes.nodes;
-        coretest.log('nodes_list', _.map(nodes_list, 'name'));
-        await assert(nodes_list.length >= 6, `${nodes_list.length} >= 6`);
-        await rpc_client.pool.create_nodes_pool({
-            name: POOL,
-            nodes: _.map(nodes_list.slice(0, 3),
-                node => _.pick(node, 'name')),
+        this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this
+        const pool_name = 'test-pool';
+        await rpc_client.pool.create_hosts_pool({
+            is_managed: true,
+            name: pool_name,
+            host_count: 1
         });
-        await rpc_client.pool.read_pool({ name: POOL });
-        await rpc_client.pool.assign_nodes_to_pool({
-            name: POOL,
-            nodes: _.map(nodes_list.slice(3, 6),
-                node => _.pick(node, 'name')),
+        await rpc_client.pool.scale_hosts_pool({
+            name: pool_name,
+            host_count: 3
         });
-        await rpc_client.pool.assign_nodes_to_pool({
-            name: config.NEW_SYSTEM_POOL_NAME,
-            nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
-                node => _.pick(node, 'name')),
+        await rpc_client.pool.scale_hosts_pool({
+            name: pool_name,
+            host_count: 2
         });
         await rpc_client.system.read_system();
-        await rpc_client.pool.list_pool_nodes({ name: POOL });
-        await rpc_client.pool.get_associated_buckets({ name: POOL });
+        await rpc_client.pool.delete_pool({ name: pool_name });
+
+        // Need to wait or the test will not finish.
+        await promise_utils.wait_until(async () => {
+            const system = await rpc_client.system.read_system();
+            return !system.pools.find(pool => pool.name === pool_name);
+        }, 2500, 10 * 60 * 1000);
     });
 
     ////////////
@@ -164,7 +162,7 @@ mocha.describe('system_servers', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         await rpc_client.tier.create_tier({
             name: TIER,
-            attached_pools: [POOL],
+            attached_pools: [DEFAULT_POOL_NAME],
             data_placement: 'SPREAD',
         });
         await rpc_client.tier.read_tier({
@@ -371,7 +369,7 @@ mocha.describe('system_servers', function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         await rpc_client.debug.set_debug_level({
             module: 'rpc',
-            level: 0
+            level: coretest.get_dbg_level()
         });
     });
 
@@ -396,13 +394,7 @@ mocha.describe('system_servers', function() {
         } catch (err) {
             if (err.rpc_code !== 'NO_SUCH_TIER') throw err;
         }
-        await rpc_client.pool.assign_nodes_to_pool({
-            name: config.NEW_SYSTEM_POOL_NAME,
-            nodes: _.map(nodes_list, node => _.pick(node, 'name')),
-        });
-        await rpc_client.pool.delete_pool({ name: POOL });
         await rpc_client.system.read_system();
-        // .then(() => coretest.clear_test_nodes())
         // .then(() => rpc_client.system.delete_system());
     });
 });

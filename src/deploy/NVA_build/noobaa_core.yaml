@@ -29,9 +29,14 @@ rules:
       - "" # "" indicates the core API group
     resources:
       - services
+      - pods
+      - persistentvolumeclaims
     verbs:
       - get
       - list
+      - watch
+      - patch
+      - delete
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -181,6 +186,12 @@ spec:
                 secretKeyRef:
                   name: noobaa-secrets
                   key: server_secret
+            - name: AGENT_PROFILE
+              valueFrom:
+                configMapKeyRef:
+                  name: noobaa-config-map
+                  key: noobaa_agent_profile
+                  optional: true
             - name: OAUTH_AUTHORIZATION_ENDPOINT
               valueFrom:
                 configMapKeyRef:

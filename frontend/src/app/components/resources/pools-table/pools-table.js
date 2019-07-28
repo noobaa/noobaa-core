@@ -2,7 +2,7 @@
 
 import template from './pools-table.html';
 import ConnectableViewModel from 'components/connectable';
-import { requestLocation, openCreatePoolModal, deleteResource } from 'action-creators';
+import { requestLocation, openDeployK8sPoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
@@ -290,8 +290,8 @@ class PoolsTableViewModel extends ConnectableViewModel {
             );
 
             const emptyMessage =
-                (poolList.length === 0 && 'There are no existing nodes pool in the system') ||
-                (filteredPools.length === 0 && 'The current filter does not match any nodes pool') ||
+                (poolList.length === 0 && 'There are no existing node pools in the system') ||
+                (filteredPools.length === 0 && 'The current filter does not match any node pools') ||
                 '';
 
 
@@ -346,8 +346,8 @@ class PoolsTableViewModel extends ConnectableViewModel {
         this._query({ selectedForDelete });
     }
 
-    onCreatePool() {
-        this.dispatch(openCreatePoolModal());
+    onDeplyK8sPool() {
+        this.dispatch(openDeployK8sPoolModal());
     }
 
     onDeletePool(poolName) {

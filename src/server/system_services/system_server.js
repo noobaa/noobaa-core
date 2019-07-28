@@ -13,7 +13,6 @@ const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
 const util = require('util');
-const chance = require('chance')();
 
 const api = require('../../api');
 const P = require('../../util/promise');
@@ -51,7 +50,6 @@ const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const addr_utils = require('../../util/addr_utils');
-const string_utils = require('../../util/string_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -71,6 +69,7 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
 });
 
 // called on rpc server init
+let _is_initialized = false;
 async function _init() {
     const DEFAULT_DELAY = 5000;
     let update_done = false;
@@ -106,6 +105,12 @@ async function _init() {
             dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
         }
     }
+
+    _is_initialized = true;
+}
+
+function is_initialized() {
+    return _is_initialized;
 }
 
 function _resolve_routing(hint) {
@@ -750,84 +755,6 @@ function remove_role(req) {
     });
 }
 
-async function _get_agent_conf_id(req, routing_hint) {
-    const { system, rpc_params } = req;
-    const pool = rpc_params.pool ?
-        system.pools_by_name[rpc_params.pool] :
-        system_store.get_account_by_email(system.owner.email).default_pool;
-    const exclude_drives = rpc_params.exclude_drives ? rpc_params.exclude_drives.sort() : [];
-    const use_storage = rpc_params.roles ? rpc_params.roles.indexOf('STORAGE') > -1 : true;
-    const use_s3 = rpc_params.roles ? rpc_params.roles.indexOf('S3') > -1 : false;
-    const roles = rpc_params.roles || ['STORAGE'];
-
-    // try to find an existing configuration with the same settings
-    const cfg = system_store.data.agent_configs.find(conf =>
-        pool._id === conf.pool._id &&
-        use_storage === conf.use_storage &&
-        use_s3 === conf.use_s3 &&
-        _.isEqual(exclude_drives, conf.exclude_drives) &&
-        routing_hint === conf.routing_hint
-    );
-
-    if (cfg) {
-        dbg.log0(`found existing configuration with the required settings`);
-        return cfg._id;
-
-    } else {
-        // create new configuration with the required settings
-        dbg.log0(`creating new installation string for pool_id:${pool._id} exclude_drives:${exclude_drives} roles:${roles}`);
-        const conf_id = system_store.new_system_store_id();
-        const random_suffix = chance.string({
-            length: 4,
-            pool: string_utils.ALPHA_NUMERIC_CHARSET
-        });
-        await system_store.make_changes({
-            insert: {
-                agent_configs: [{
-                    _id: conf_id,
-                    // Fixes the issue of generating more then one name on the same second.
-                    name: `config-${Date.now()}-${random_suffix}`,
-                    system: system._id,
-                    pool: pool._id,
-                    exclude_drives,
-                    use_storage,
-                    use_s3,
-                    routing_hint
-                }]
-            }
-        });
-        return conf_id;
-    }
-}
-
-function _get_base64_install_conf(address, routing_hint, system, create_node_token) {
-    const root_path = './noobaa_storage/';
-    const install_conf = JSON.stringify({ address, routing_hint, system, create_node_token, root_path });
-    return Buffer.from(install_conf).toString('base64');
-}
-
-async function _get_install_conf(req, hint) {
-    const conf_id = await _get_agent_conf_id(req, hint);
-    const create_node_token = _get_create_node_token(req.system._id, req.account._id, conf_id);
-    const addr = addr_utils.get_base_address(req.system.system_address, { hint });
-    const install_conf = _get_base64_install_conf(addr.toString(), hint, req.system.name, create_node_token);
-    return install_conf;
-}
-
-async function get_node_installation_string(req) {
-    const [
-        kubernetes_yaml,
-        install_conf
-    ] = await Promise.all([
-        fs.readFileAsync(path.resolve(__dirname, '../../deploy/NVA_build/noobaa_agent.yaml'), 'utf8'),
-        _get_install_conf(req, 'INTERNAL')
-    ]);
-
-    return {
-        KUBERNETES: kubernetes_yaml.replace("AGENT_CONFIG_VALUE", install_conf).replace("AGENT_IMAGE_VERSION", pkg.version)
-    };
-}
-
 async function set_last_stats_report_time(req) {
     var updates = {};
     updates._id = req.system._id;
@@ -927,21 +854,6 @@ function save_config_file(filename, data) {
     return P.resolve()
         .then(() => config_file_store.insert({ filename, data }))
         .then(() => fs_utils.replace_file(filename, data));
-}
-
-function _get_create_node_token(system_id, account_id, agent_config_id) {
-    dbg.log0('creating new create_auth_token for conf_id', agent_config_id);
-    let auth_parmas = {
-        system_id,
-        account_id,
-        role: 'create_node',
-        extra: {
-            agent_config_id
-        }
-    };
-    let token = auth_server.make_auth_token(auth_parmas);
-    dbg.log0(`created create_node_token: ${token}`);
-    return token;
 }
 
 function attempt_server_resolve(req) {
@@ -1079,6 +991,7 @@ function find_account_by_email(req) {
 
 // EXPORTS
 exports._init = _init;
+exports.is_initialized = is_initialized;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 
@@ -1102,5 +1015,3 @@ exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.set_certificate = set_certificate;
-
-exports.get_node_installation_string = get_node_installation_string;

@@ -116,7 +116,7 @@ async function get_files_in_array() {
 }
 
 async function createBucketWithEnabledSpillover() {
-    console.log('Creating bucket ' + bucket + ' with default pool first.pool');
+    console.log('Creating bucket ' + bucket + ' with default pool first-pool');
     try {
         await s3ops.create_bucket(bucket);
         const list_buckets = await s3ops.get_list_buckets();
@@ -244,10 +244,11 @@ async function assignNodesToPool(pool) {
             }
         }
         console.log('Assigning online agents: ' + listAgents + ' to pool ' + pool);
-        await client.pool.assign_hosts_to_pool({
-            name: pool,
-            hosts: listAgents
-        });
+        // This API does not exists anymore
+        // await client.pool.assign_hosts_to_pool({
+        //     name: pool,
+        //     hosts: listAgents
+        // });
     } catch (error) {
         saveErrorAndResume('Failed assigning nodes to pool ' + pool + error);
     }
@@ -259,7 +260,7 @@ async function clean_env() {
     await P.delay(10 * 1000);
     await s3ops.delete_bucket(bucket);
     await P.delay(10 * 1000);
-    await assignNodesToPool('first.pool');
+    await assignNodesToPool('first-pool');
     await cf.deletePool(healthy_pool);
     await af.clean_agents(azf, server_ip, suffix);
 }

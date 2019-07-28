@@ -2,12 +2,10 @@
 'use strict';
 
 const os = require('os');
-const fs = require('fs');
 const path = require('path');
-const { KubernetesFunctions, IS_IN_POD } = require('../../deploy/kubernetes_functions');
+const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
 const argv = require('minimist')(process.argv);
 const server_functions = require('../utils/server_functions');
-const agent_functions = require('../utils/agent_functions');
 const promise_utils = require('../../util/promise_utils');
 const P = require('../../util/promise');
 const Semaphore = require('../../util/semaphore');
@@ -49,7 +47,6 @@ function print_usage() {
       --context                 -   The name of the kubeconfig context to use (default to current context)
       --node_ip                 -   Pass a node ip to access pods using nodePort
       --noobaa_core_yaml        -   Set the NooBaa core yaml
-      --num_agents              -   Change the number of agents from the agent yaml default 
       --agent_cpu               -   Amount of cpu to request for agent pods
       --agent_mem               -   Amount of memory to request for agent pods
       --server_cpu              -   Amount of cpu to request for server pod
@@ -92,7 +89,6 @@ async function build_env(kf, params) {
         agent_mem,
         pv,
         pull_always,
-        num_agents = 0,
     } = params;
     try {
         console.log(`deploying noobaa server image ${image} in namespace ${kf.namespace}`);
@@ -100,6 +96,14 @@ async function build_env(kf, params) {
         envs.push({ name: 'CREATE_SYS_NAME', value: 'demo' });
         envs.push({ name: 'CREATE_SYS_EMAIL', value: 'demo@noobaa.com' });
         envs.push({ name: 'CREATE_SYS_PASSWD', value: 'DeMo1' });
+
+        const agent_profile = {
+            image: image,
+            use_persistent_stroage: Boolean(pv),
+            cpu: agent_cpu,
+            memory: agent_mem
+        };
+
         const server_details = await kf.deploy_server({
             image,
             server_yaml: noobaa_core_yaml,
@@ -107,44 +111,19 @@ async function build_env(kf, params) {
             cpu: server_cpu,
             mem: server_mem,
             pv,
-            pull_always
+            pull_always,
+            agent_profile
         });
         console.log(`noobaa server deployed:`);
         console.log(`\tmanagement address: ${server_details.services.mgmt.address} ports:`, server_details.services.mgmt.ports);
         console.log(`\ts3 server address : ${server_details.services.s3.address} ports:`, server_details.services.s3.ports);
 
         // TODO: rewrite server_functions and agent_functions used here in a more clean and generic way.
-        // create system 
+        // create system
         const { address: mgmt_address, ports: mgmt_ports } = server_details.services.mgmt;
         const { address: s3_address, ports: s3_ports } = server_details.services.s3;
         console.log('waiting for system to be ready');
         await server_functions.wait_for_system_ready(mgmt_address, mgmt_ports['mgmt-https'], 'wss');
-
-        const pool_name = 'first.pool';
-        console.log(`creating new pool '${pool_name}'`);
-        await server_functions.create_pool(mgmt_address, mgmt_ports['mgmt-https'], pool_name);
-
-        if (num_agents) {
-            console.log(`deploying ${num_agents} agents in ${pool_name}`);
-            const agents_yaml = await agent_functions.get_agents_yaml(mgmt_address, mgmt_ports['mgmt-https'], pool_name, IS_IN_POD ? 'INTERNAL' : 'EXTERNAL');
-            const agents_yaml_path = path.join(output_dir, 'agents.yaml');
-            await fs.writeFileSync(agents_yaml_path, agents_yaml);
-            await kf.deploy_agents({
-                image,
-                num_agents,
-                agents_yaml: agents_yaml_path,
-                envs: get_env_vars(),
-                cpu: agent_cpu,
-                mem: agent_mem,
-                pv,
-                pull_always
-            });
-            console.log(`waiting for ${num_agents} agents to be in optimal state`);
-            await wait_for_agents_optimal(mgmt_address, mgmt_ports['mgmt-https'], num_agents);
-            console.log(`all agents are in optimal state`);
-        } else {
-            console.log('no agents are deployed for this env');
-        }
 
         // return services access information to pass to test
         return {
@@ -209,7 +188,7 @@ async function run_single_test_env(params) {
         if (test && !test_failed) {
             const log_file = path.join(output_dir, `${test_name}.log`);
             console.log(`running test ${test_name}. test log: ${log_file}`);
-            //pass as args all test_env args with addition of services info 
+            //pass as args all test_env args with addition of services info
             const args = [...process.argv, '--mgmt_ip', mgmt_ip,
                 '--mgmt_port', mgmt_port,
                 '--mgmt_port_https', mgmt_port_https,
@@ -278,23 +257,16 @@ async function run_multiple_test_envs(params) {
     }
     console.log('===========================================================================');
 
-
     const any_failure = tests.some(test => !test.passed);
     if (any_failure) {
         throw new Error('Test run failed');
     }
-
-
-
-
 }
 
 async function run_test_concurrently(concurrency, tests, namespace_prefix, params) {
     const sem = new Semaphore(concurrency);
-    // run in parallel with limit on the number of pods (num_agents + 1)
     await P.all(tests.map(async test => {
-        const num_pods = (test.num_agents || 0) + 1;
-        await sem.surround_count(num_pods, () => run_test(namespace_prefix, test, params));
+        await sem.surround_count(1, () => run_test(namespace_prefix, test, params));
     }));
 }
 
@@ -360,23 +332,9 @@ async function main() {
     }
 
     process.exit(exit_code);
-
-
-
 }
 
-async function wait_for_agents_optimal(server_ip, server_port, expected_num_optimal, timeout) {
-    // default timeout of 5 minutes
-    timeout = timeout || 5 * 60000;
-    await P.resolve()
-        .then(async () => {
-            while (await server_functions.get_num_optimal_agents(server_ip, server_port) !== expected_num_optimal) {
-                await P.delay(5000);
-            }
-        })
-        .timeout(timeout);
 
-}
 
 if (require.main === module) {
     main();

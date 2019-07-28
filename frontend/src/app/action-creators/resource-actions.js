@@ -18,17 +18,18 @@ import {
     FAIL_FETCH_CLOUD_RESOURCE_OBJECTS
 } from 'action-types';
 
-export function createHostsPool(name, hosts) {
+
+export function createHostsPool(name, hostCount, hostVolumeSize, isManaged) {
     return {
         type: CREATE_HOSTS_POOL,
-        payload: { name, hosts }
+        payload: { name, hostCount, hostVolumeSize, isManaged }
     };
 }
 
-export function completeCreateHostsPool(name) {
+export function completeCreateHostsPool(name, deployYAMLUri, autoDownload) {
     return {
         type: COMPLETE_CREATE_HOSTS_POOL,
-        payload: { name }
+        payload: { name, deployYAMLUri, autoDownload }
     };
 }
 

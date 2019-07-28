@@ -225,43 +225,6 @@ module.exports = {
             }
         },
 
-        get_node_installation_string: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                properties: {
-                    exclude_drives: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
-                    roles: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                            enum: ['STORAGE', 'S3']
-                        }
-                    },
-                    pool: {
-                        type: 'string'
-                    }
-
-                }
-            },
-            reply: {
-                type: 'object',
-                properties: {
-                    KUBERNETES: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         update_n2n_config: {
             method: 'POST',
             params: {

@@ -133,7 +133,7 @@ async function create_configuration() {
     //create resources and bucket
     await _create_resources_and_buckets();
 
-    //Create various accounts 
+    //Create various accounts
     await _create_accounts();
 
     //Create lambda funcs
@@ -214,7 +214,7 @@ async function _create_resources_and_buckets() {
     let buck1 = await TEST_CTX.bucketfunc.createBucket('ec.no.quota');
     let buck2 = await TEST_CTX.bucketfunc.createBucket('replica.with.quota');
 
-    await TEST_CTX.bucketfunc.changeTierSetting('ec.no.quota', 4, 2); //EC 4+2 
+    await TEST_CTX.bucketfunc.changeTierSetting('ec.no.quota', 4, 2); //EC 4+2
     await TEST_CTX.client.tier.update_tier({
         name: buck1.tiering.tiers[0].tier,
         attached_pools: ['AWS-Resource', 'COMP-S3-V2-Resource'],
@@ -246,7 +246,7 @@ async function _create_accounts() {
         email: 'ac_nologin_hasaccess',
         has_login: false,
         s3_access: true,
-        default_pool: 'first.pool',
+        default_pool: 'first-pool',
         allowed_buckets: {
             full_permission: false,
             permission_list: [
@@ -263,7 +263,7 @@ async function _create_accounts() {
         password: "9v8MQq2Q",
         must_change_password: true,
         s3_access: true,
-        default_pool: "first.pool",
+        default_pool: "first-pool",
         allowed_buckets: {
             full_permission: false,
             permission_list: ['first.bucket', 'ec.no.quota', 'replica.with.quota']
@@ -278,7 +278,7 @@ async function _create_accounts() {
         password: "c1QiXLlJ",
         must_change_password: false,
         s3_access: true,
-        default_pool: "first.pool",
+        default_pool: "first-pool",
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: false
     };
@@ -290,7 +290,7 @@ async function _create_accounts() {
         password: "c1QiGkl2",
         must_change_password: false,
         s3_access: true,
-        default_pool: "first.pool",
+        default_pool: "first-pool",
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };

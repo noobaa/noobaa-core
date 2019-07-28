@@ -404,28 +404,6 @@ module.exports = {
             }
         },
 
-        migrate_nodes_to_pool: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['nodes', 'pool_id'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            $ref: '#/definitions/node_identity'
-                        }
-                    },
-                    pool_id: {
-                        type: 'string'
-                    },
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         aggregate_data_free_by_tier: {
             method: 'GET',
             params: {

@@ -211,10 +211,14 @@ async function getAgentConfInstallString(server_ip, osType, exclude_drives = [],
     const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
-    const installationString = await client.system.get_node_installation_string({
-        pool: pool,
-        exclude_drives
-    });
+
+    // This API does not exists anymore
+    // const installationString = await client.system.get_node_installation_string({
+    //     pool: pool,
+    //     exclude_drives
+    // });
+
+    const installationString = {};
     if (osType === 'Linux') {
         return installationString.LINUX;
     } else if (osType === 'Windows') {
@@ -231,10 +235,14 @@ async function get_agents_yaml(server_ip, port, pool, rpc_hint = 'EXTERNAL') {
     const rpc = api.new_rpc_from_base_address(`wss://${server_ip}:${port}`, rpc_hint);
     const client = rpc.new_client({});
     await client.create_auth_token(auth_params);
-    const installationString = await client.system.get_node_installation_string({
-        pool: pool,
-        exclude_drives: []
-    });
+
+    // This API does not exists anymore
+    // const installationString = await client.system.get_node_installation_string({
+    //     pool: pool,
+    //     exclude_drives: []
+    // });
+
+    const installationString = {};
     return installationString.KUBERNETES;
 }
 
@@ -388,7 +396,9 @@ async function deleteAgents(server_ip, suffix = '') {
     await P.map(list_hosts.hosts, async host => {
         if (host.name.includes(suffix)) {
             console.log('deleting', host.name);
-            await client.host.delete_host({ name: host.name });
+
+            // This API does not exist anymore
+            // await client.host.delete_host({ name: host.name });
         } else {
             console.log('skipping', host.name);
         }

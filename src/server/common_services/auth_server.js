@@ -533,7 +533,8 @@ function _prepare_auth_request(req) {
         // check that auth contains valid system role or the account is support
         if (!ignore_missing_system) {
             if (!(req.account && req.account.is_support) &&
-                !_.includes(options.system, req.auth.role)) {
+                !_.includes(options.system, req.auth.role) &&
+                req.auth.role !== 'operator') {
                 dbg.warn('role not allowed in system', options, req.auth, req.account, req.system);
                 throw new RpcError('UNAUTHORIZED', 'role not allowed in system');
             }

@@ -32,7 +32,11 @@ class ResourceAssociatedAccountListViewModel extends ConnectableViewModel {
         .ofType(AccountRowViewModel);
 
     selectAccounts = memoize((names, accounts) => {
-        return accounts && names.map(name => accounts[name]);
+        return (
+            accounts &&
+            names &&
+            names.map(name => accounts[name])
+        );
     });
 
     selectState(state, params) {

@@ -10,13 +10,12 @@ import * as routes from 'routes';
 import { requestLocation, updateP2PSettings } from 'action-creators';
 
 const sectionName = 'p2p';
-const notAllowedTooltip = 'Edit P2P Ports in a container environment will be available in the following versions of NooBaa';
 const portOptions = [
     { label: 'Single Port', value: 'SINGLE' },
     { label: 'Port Range', value: 'RANGE' }
 ];
 
-class P2PFormViewModel2 extends ConnectableViewModel {
+class P2PFormViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     portOptions = portOptions;
     dataReady = ko.observable();
@@ -25,24 +24,18 @@ class P2PFormViewModel2 extends ConnectableViewModel {
     toggleUri = '';
     summary = ko.observable();
     minRangeEnd = ko.observable();
-    configDisabled = ko.observable();
-    updateButtonTooltip = {
-        align: 'start',
-        text: ko.observable()
-    };
     fields = ko.observable();
 
     selectState(state) {
-        const { system, forms, location, platform } = state;
+        const { system, forms, location } = state;
         return [
             system && system.p2pSettings,
             location,
-            forms[this.formName],
-            platform && platform.featureFlags.p2pSettingsChange
+            forms[this.formName]
         ];
     }
 
-    mapStateToProps(p2pSettings, location, form, allowP2PSettingsChange) {
+    mapStateToProps(p2pSettings, location, form) {
         if (!p2pSettings) {
             ko.assignToProps(this, {
                 dataReady: false,
@@ -68,10 +61,6 @@ class P2PFormViewModel2 extends ConnectableViewModel {
                 summary,
                 isDirtyMarkerVisible: form ? isFormDirty(form) : false,
                 minRangeEnd: Math.max(rangeStart + 1, 1),
-                configDisabled: !allowP2PSettingsChange,
-                updateButtonTooltip: {
-                    text: allowP2PSettingsChange ? '' : notAllowedTooltip
-                },
                 fields: !form ?
                     { rangeType, rangeStart, rangeEnd } :
                     undefined
@@ -114,6 +103,6 @@ class P2PFormViewModel2 extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: P2PFormViewModel2,
+    viewModel: P2PFormViewModel,
     template: template
 };

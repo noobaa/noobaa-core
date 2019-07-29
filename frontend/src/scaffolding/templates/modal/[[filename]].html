@@ -10,17 +10,19 @@
     onValidateSubmit: onValidateSubmit,
     onSubmit: onSubmit
 ">
-    <div class="row align-end">
-        <button class="link alt-colors push-next"
-            ko.click="onCancel"
-        >
-            Cancel
-        </button>
-        <button class="btn"
-            ko.shakeOnClick="!$form.isValid()"
-        >
-            [[action]]
-        </button>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button class="link alt-colors push-next"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                [[action]]
+            </button>
+        </div>
     </div>
 </managed-form>
 

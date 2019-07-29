@@ -8,10 +8,12 @@ export default {
             'name',
             'creationTime',
             'mode',
+            'isManaged',
             'activities',
             'associatedAccounts',
             'hostCount',
             'hostsByMode',
+            'configuredHostCount',
             'storageNodeCount',
             'storageNodesByMode',
             'endpointNodeCount',
@@ -29,7 +31,10 @@ export default {
                 type: 'string',
                 enum: [
                     'BEING_CREATED',
+                    'INITIALIZING',
+                    'DELETING',
                     'HAS_NO_NODES',
+                    'SCALING',
                     'ALL_NODES_OFFLINE',
                     'NO_CAPACITY',
                     'ALL_HOSTS_IN_PROCESS',
@@ -45,9 +50,11 @@ export default {
                     'IO_ERRORS',
                     'STORAGE_NOT_EXIST',
                     'AUTH_FAILED',
-                    'INITIALIZING',
                     'OPTIMAL'
                 ]
+            },
+            isManaged: {
+                type: 'boolean'
             },
             activities: {
                 type: 'object',
@@ -108,6 +115,9 @@ export default {
                     type: 'integer'
                 }
             },
+            configuredHostCount: {
+                type:' integer'
+            },
             storageNodeCount: {
                 type: 'integer'
             },
@@ -138,8 +148,20 @@ export default {
                     'SYSTEM_ENTITY',
                     'NOT_EMPTY',
                     'IN_USE',
-                    'DEFAULT_RESOURCE'
+                    'DEFAULT_RESOURCE',
+                    'BEING_DELETED'
                 ]
+            },
+            hostConfig: {
+                type: 'object',
+                required: [
+                    'volumeSize'
+                ],
+                properties: {
+                    volumeSize: {
+                        $ref: '#/def/common/size'
+                    }
+                }
             }
         }
     }

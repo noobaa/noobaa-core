@@ -27,11 +27,10 @@ import addExternalConnection from './add-external-connection';
 import deleteExternalConnection from './delete-external-connection';
 import deleteResource from './delete-resource';
 import createHostsPool from './create-hosts-pool';
+import scaleHostsPool from './scale-hosts-pool';
 import fetchHosts from './fetch-hosts';
 import collectHostDiagnostics from './collect-host-diagnostics';
 import setHostDebugMode from './set-host-debug-mode';
-import toggleHostServices from './toggle-host-services';
-import toggleHostNodes from './toggle-host-nodes';
 import downloadFile from './download-file';
 import fetchHostObjects from './fetch-host-objects';
 import tryDeleteAccount from './try-delete-account';
@@ -55,7 +54,6 @@ import fetchObject from './fetch-object';
 import deleteObject from './delete-object';
 import fetchObjectParts from './fetch-object-parts';
 import fetchSystemStorageHistory from './fetch-system-storage-history';
-import deleteHost from './delete-host';
 import fetchVersionReleaseNotes from './fetch-version-release-notes';
 import updateServerAddress from './update-server-address';
 import updateBucketS3Access from './update-bucket-s3-access';
@@ -172,6 +170,7 @@ const epics = [
 
     // Resource related epics
     createHostsPool,
+    scaleHostsPool,
     deleteResource,
     createCloudResource,
     fetchCloudResourceObjects,
@@ -182,10 +181,7 @@ const epics = [
     fetchHostObjects,
     collectHostDiagnostics,
     setHostDebugMode,
-    toggleHostServices,
-    toggleHostNodes,
     retrustHost,
-    deleteHost,
 
     // Namespace related epics
     createNamespaceResource,

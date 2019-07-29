@@ -426,7 +426,13 @@ module.exports = {
 
         pool_extended_info: {
             type: 'object',
-            required: ['name', 'storage', 'associated_accounts', 'resource_type'],
+            required: [
+                'name',
+                'storage',
+                'associated_accounts',
+                'resource_type',
+                'is_managed'
+            ],
             properties: {
                 name: {
                     type: 'string'
@@ -443,6 +449,9 @@ module.exports = {
                 hosts: {
                     type: 'object',
                     properties: {
+                        configured_count: {
+                            type: 'integer'
+                        },
                         count: {
                             type: 'integer',
                         },
@@ -531,6 +540,14 @@ module.exports = {
                     additionalProperties: true,
                     properties: {},
                 },
+                host_info: {
+                    type: 'object',
+                    properties: {
+                        volume_size: {
+                            $ref: 'common_api#/definitions/bigint'
+                        }
+                    }
+                },
                 pool_node_type: {
                     $ref: 'common_api#/definitions/node_type'
                 },
@@ -546,6 +563,9 @@ module.exports = {
                 },
                 region: {
                     type: 'string'
+                },
+                is_managed: {
+                    type: 'boolean'
                 },
                 create_time: {
                     idate: true
@@ -584,7 +604,10 @@ module.exports = {
             type: 'string',
             enum: [
                 'HAS_NO_NODES',
+                'INITIALIZING',
+                'DELETING',
                 'ALL_NODES_OFFLINE',
+                'SCALING',
                 'NO_CAPACITY',
                 'ALL_HOSTS_IN_PROCESS',
                 'MOST_NODES_ISSUES',
@@ -599,7 +622,6 @@ module.exports = {
                 'IO_ERRORS',
                 'STORAGE_NOT_EXIST',
                 'AUTH_FAILED',
-                'INITIALIZING',
                 'OPTIMAL'
             ]
         }

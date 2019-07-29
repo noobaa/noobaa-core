@@ -117,9 +117,9 @@ class ManagedStatefulSetPoolController extends PoolController {
         }
     }
 
-     async delete() {
-         this.scale(0);
-     }
+    async delete() {
+        this.scale(0);
+    }
 
     async _list_pods() {
         const escaped_statefulset_name = string_utils.escape_reg_exp(this._statefulset_name);

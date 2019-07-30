@@ -295,8 +295,10 @@ async function create_system(req) {
             name,
             email: config.OPERATOR_ACCOUNT_EMAIL,
             has_login: false,
-            s3_access: false,
-            roles: ['operator', 'admin']
+            s3_access: true,
+            allow_bucket_creation: true,
+            allowed_buckets: { full_permission: true },
+            roles: ['operator']
         }, auth);
 
         dbg.log0('create_system: ensuring internal pool structure');

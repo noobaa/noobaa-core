@@ -45,7 +45,7 @@ const check_connection_timeout = 15 * 1000;
  * CREATE_ACCOUNT
  *
  */
-function create_account(req) {
+async function create_account(req) {
     const account = {
         _id: (
             req.rpc_params.new_system_parameters ?
@@ -76,107 +76,101 @@ function create_account(req) {
         system_store.parse_system_store_id(req.rpc_params.new_system_parameters.new_system_id) :
         req.system._id;
 
-    return P.resolve()
-        .then(() => {
-            if (req.rpc_params.has_login) {
-                account.password = req.rpc_params.password;
-                return bcrypt_password(account.password.unwrap())
-                    .then(password_hash => {
-                        account.password = password_hash;
-                    });
+    if (req.rpc_params.has_login) {
+        account.password = req.rpc_params.password;
+        const password_hash = await bcrypt_password(account.password.unwrap());
+        account.password = password_hash;
+    }
+
+    if (req.rpc_params.s3_access) {
+        if (req.rpc_params.new_system_parameters) {
+            account.default_pool = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_pool);
+
+            const { full_permission, permission_list } = req.rpc_params.new_system_parameters.allowed_buckets;
+            if (full_permission) {
+                account.allowed_buckets = {
+                    full_permission: true,
+                };
+            } else {
+                account.allowed_buckets = {
+                    full_permission: false,
+                    permission_list: _.map(
+                        permission_list,
+                        bucket_name => req.system.buckets_by_name[bucket_name.unwrap()]._id
+                    ),
+                };
             }
-        })
-        .then(() => {
-            if (req.rpc_params.s3_access) {
-                if (req.rpc_params.new_system_parameters) {
-                    account.default_pool = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_pool);
 
-                    const { full_permission, permission_list } = req.rpc_params.new_system_parameters.allowed_buckets;
-                    if (full_permission) {
-                        account.allowed_buckets = {
-                            full_permission: true,
-                        };
-                    } else {
-                        account.allowed_buckets = {
-                            full_permission: false,
-                            permission_list: _.map(
-                                permission_list,
-                                bucket_name => req.system.buckets_by_name[bucket_name.unwrap()]._id
-                            ),
-                        };
-                    }
+            account.allow_bucket_creation = true;
 
-                    account.allow_bucket_creation = true;
+        } else {
+            account.default_pool = req.rpc_params.default_pool ?
+                req.system.pools_by_name[req.rpc_params.default_pool]._id :
+                Object.values(req.system.pools_by_name)[0]._id; // only pool is internal
 
+            if (req.rpc_params.allowed_buckets) {
+                const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
+                if (full_permission) {
+                    account.allowed_buckets = {
+                        full_permission: true
+                    };
                 } else {
-                    account.default_pool = req.rpc_params.default_pool ?
-                        req.system.pools_by_name[req.rpc_params.default_pool]._id :
-                        Object.values(req.system.pools_by_name)[0]._id; // only pool is internal
-
-                    if (req.rpc_params.allowed_buckets) {
-                        const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
-                        if (full_permission) {
-                            account.allowed_buckets = {
-                                full_permission: true
-                            };
-                        } else {
-                            account.allowed_buckets = {
-                                full_permission: false,
-                                permission_list: _.map(
-                                    permission_list,
-                                    bucket => req.system.buckets_by_name[bucket.unwrap()]._id
-                                )
-                            };
-                        }
-                    }
-
-                    account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
-                        true : req.rpc_params.allow_bucket_creation;
+                    account.allowed_buckets = {
+                        full_permission: false,
+                        permission_list: _.map(
+                            permission_list,
+                            bucket => req.system.buckets_by_name[bucket.unwrap()]._id
+                        )
+                    };
                 }
             }
 
-            Dispatcher.instance().activity({
-                event: 'account.create',
-                level: 'info',
-                system: (req.system && req.system._id) || sys_id,
-                actor: req.account && req.account._id,
-                account: account._id,
-                desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
-            });
+            account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
+                true : req.rpc_params.allow_bucket_creation;
+        }
+    }
 
-            const roles = account_roles.map(role => ({
-                _id: system_store.new_system_store_id(),
-                account: account._id,
-                system: sys_id,
-                role
-            }));
+    Dispatcher.instance().activity({
+        event: 'account.create',
+        level: 'info',
+        system: (req.system && req.system._id) || sys_id,
+        actor: req.account && req.account._id,
+        account: account._id,
+        desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
+    });
 
-            return system_store.make_changes({
-                insert: {
-                    accounts: [account],
-                    roles
-                }
-            });
-        })
-        .then(function() {
-            var created_account = system_store.data.get_by_id(account._id);
-            var auth = {
-                account_id: created_account._id
-            };
-            // since we created the first system for this account
-            // we expect just one system, but use _.each to get it from the map
-            var current_system = (req.system && req.system._id) || sys_id;
-            _.each(created_account.roles_by_system, (roles, system_id) => {
-                //we cannot assume only one system.
-                if (current_system.toString() === system_id) {
-                    auth.system_id = system_id;
-                    auth.role = roles[0];
-                }
-            });
-            return {
-                token: auth_server.make_auth_token(auth),
-            };
-        });
+    const roles = account_roles.map(role => ({
+        _id: system_store.new_system_store_id(),
+        account: account._id,
+        system: sys_id,
+        role
+    }));
+
+    await system_store.make_changes({
+        insert: {
+            accounts: [account],
+            roles
+        }
+    });
+
+    var created_account = system_store.data.get_by_id(account._id);
+    var auth = {
+        account_id: created_account._id
+    };
+    // since we created the first system for this account
+    // we expect just one system, but use _.each to get it from the map
+    var current_system = (req.system && req.system._id) || sys_id;
+    _.each(created_account.roles_by_system, (sys_roles, system_id) => {
+        //we cannot assume only one system.
+        if (current_system.toString() === system_id) {
+            auth.system_id = system_id;
+            auth.role = sys_roles[0];
+        }
+    });
+    return {
+        token: auth_server.make_auth_token(auth),
+        access_keys: account.access_keys
+    };
 }
 
 function create_external_user_account(req) {

@@ -1,5 +1,6 @@
 #ifndef WIN32
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <stdlib.h>
 #include <string>
@@ -13,18 +14,24 @@ change_path_permissions(const char* path, long uid)
 {
     cout << "setting permissions of " << path << " for user " << uid << endl;
     // change ownership
-    int res = chown(path, uid, 0);
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        cout << "Error:got error when openning " << path << " Error: " << strerror(errno) << endl;
+        exit(1);
+    }
+    int res = fchown(fd, uid, 0);
     if (res != 0) {
         cout << "Error:got error when changing ownership of " << path << " Error: " << strerror(errno) << endl;
         exit(1);
     }
     // change mode to 770
-    res = chmod(path, S_IRWXU | S_IRWXG);
+    res = fchmod(fd, S_IRWXU | S_IRWXG);
     if (res != 0) {
         cout << "Error: got error when changing mode of " << path << " Error: " << strerror(errno) << endl;
         exit(1);
     }
     cout << "changed permissions of " << path << " succesfully" << endl;
+    close(fd);
     return 0;
 }
 

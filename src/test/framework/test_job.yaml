@@ -19,9 +19,33 @@ spec:
         - --namespace_prefix 
         - NAMESPACE_PREFIX_PLACEHOLDER
         - --tests_list
-        - /noobaa-core/src/test/framework/system_tests_list.js
+        - TESTS_LIST_PLACEHOLDER
         env:
           - name: CONTAINER_PLATFORM
             value: KUBERNETES
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: cloud-credentials
+                key: AWS_ACCESS_KEY_ID
+                optional: true
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloud-credentials
+                key: AWS_SECRET_ACCESS_KEY
+                optional: true
+          - name: AZURE_STORAGE_ACCOUNT_NAME
+            valueFrom:
+              secretKeyRef:
+                name: cloud-credentials
+                key: AZURE_STORAGE_ACCOUNT_NAME
+                optional: true
+          - name: AZURE_STORAGE_ACCOUNT_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloud-credentials
+                key: AZURE_STORAGE_ACCOUNT_KEY
+                optional: true
       restartPolicy: Never
   backoffLimit: 0

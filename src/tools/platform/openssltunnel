@@ -1,8 +1,0 @@
-#!/usr/bin/expect -f
-
-set password [lindex $argv 0];
-spawn sudo node src/tools/tcp_tunnel.js --ssl
-expect "assword"
-send "$password\r"
-spawn echo tcp tunnel is running. run 'ps -ef' to check
-interact

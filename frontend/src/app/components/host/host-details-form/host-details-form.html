@@ -15,14 +15,14 @@
             properties: daemonInfo,
             loading: !hostLoaded()
         ">
-            <tempalte name="protocol">
+            <template name="protocol">
                 <div ko.if="$data">
                     {{text}}
                     <span class="warning" ko.visible="warning">
                         (Not optimized for performance)
                     </span>
                 </div>
-            </tempalte>
+            </template>
 
             <template name="portRange">
                 <!-- ko if: $data -->

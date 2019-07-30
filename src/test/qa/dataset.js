@@ -23,7 +23,8 @@ module.exports = {
 };
 
 const TEST_CFG_DEFAULTS = {
-    server_ip: '127.0.0.1', // local run on noobaa server
+    s3_ip: '',
+    s3_port: '',
     bucket: 'first.bucket', // default bucket
     part_num_low: 2, // minimum 2 part - up to 100MB
     part_num_high: 10, // maximum 10 parts - down to 5MB - s3 minimum
@@ -77,7 +78,7 @@ if (argv.help) {
 
 let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
 let TEST_STATE = { ...TEST_STATE_INITIAL };
-const s3ops = new S3OPS({ ip: TEST_CFG.server_ip });
+const s3ops = new S3OPS({ ip: TEST_CFG.s3_ip, port: TEST_CFG.s3_port });
 update_dataset_sizes();
 
 let report = new Report();
@@ -203,7 +204,8 @@ populate_random_selection();
 
 function usage() {
     console.log(`
-    --server_ip             -   azure location (default: ${TEST_CFG_DEFAULTS.server_ip})
+    --s3_ip                 -   noobaa s3 ip
+    --s3_port               -   noobaa s3 port
     --bucket                -   bucket to run on (default: ${TEST_CFG_DEFAULTS.bucket})
     --part_num_low          -   min part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_low})
     --part_num_high         -   max part number in multipart (default: ${TEST_CFG_DEFAULTS.part_num_high}) 

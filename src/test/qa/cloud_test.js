@@ -1,63 +1,71 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const api = require('../../api');
 const blobops = require('../utils/blobops');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const ops = require('../utils/basic_server_ops');
 const dbg = require('../../util/debug_module')(__filename);
-const AzureFunctions = require('../../deploy/azureFunctions');
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
+const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
+const test_utils = require('../system_tests/test_utils');
 const test_name = 'cloud_test';
 dbg.set_process_name(test_name);
 
 let bf_compatible;
 let cf_compatible;
+const POOL_NAME = "first.pool";
 const server = [];
-const cloud_list = ['AWS', 'AZURE', 'COMPATIBLE'];
+
+const {
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
+    AZURE_STORAGE_ACCOUNT_NAME,
+    AZURE_STORAGE_ACCOUNT_KEY
+} = process.env;
+
+const cloud_list = ['COMPATIBLE'];
+
+if (AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY) {
+    cloud_list.push('AWS');
+}
+
+if (AZURE_STORAGE_ACCOUNT_KEY && AZURE_STORAGE_ACCOUNT_NAME) {
+    cloud_list.push('AZURE');
+}
+
+if (cloud_list.length === 0) {
+    console.warn(`Missing cloud credentials, Exiting.`);
+    process.exit(0);
+}
 
 //defining the required parameters
 const {
-    server_ip,
-    location = 'westus2',
-    resource,
-    storage,
-    vnet,
-    id = 0,
-    upgrade,
+    mgmt_ip,
+    mgmt_port_https,
+    s3_ip,
+    s3_port,
     name = 'compatible',
     compatible_ip,
+    compatible_name = `noobaa-server-1`,
+    compatible_port,
     compatible_password,
 } = argv;
 
-//define colors
-const NC = "\x1b[0m";
-// const RED = "\x1b[31m";
-const YELLOW = "\x1b[33;1m";
-
-const clientId = process.env.CLIENT_ID;
-const domain = process.env.DOMAIN;
-const secret = process.env.APPLICATION_SECRET;
-const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-const suffix = name + id;
-
-server.name = suffix;
+server.name = `noobaa-server-0`;
 
 function usage() {
     console.log(`
-    --server_ip             -   noobaa server ip.
-    --location              -   azure location (default: ${location})
-    --resource              -   azure resource group
-    --storage               -   azure storage on the resource group
-    --vnet                  -   azure vnet on the resource group
-    --id                    -   an id that is attached to the agents name
+    --mgmt_ip               -   noobaa management ip.
+    --mgmt_port_https       -   noobaa server management https port
+    --s3_ip                 -   noobaa s3 ip
+    --s3_port               -   noobaa s3 port
     --name                  -   compatible s3 server name (default: ${name})
-    --upgrade               -   location of the file for upgrade
     --compatible_ip         -   use an already installed compatible s3 (by ip)
+    --compatible_port       -   use an already installed compatible s3 port
+    --compatible_name       -   use an already installed compatible noobaa name
     --compatible_password   -   the compatible s3 password
     --help                  -   show this help.
     `);
@@ -71,16 +79,14 @@ if (argv.help) {
 // we require this here so --help will not call datasets help.
 const dataset = require('./dataset.js');
 
-console.log(`${YELLOW}resource: ${resource}, storage: ${storage}, vnet: ${vnet}${NC}`);
-
-const rpc = api.new_rpc_from_base_address('wss://' + server_ip + ':8443', 'EXTERNAL');
+const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-const server_s3ops = new S3OPS({ ip: server_ip });
+const server_s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
 const report = new Report();
-const bf = new BucketFunctions(client);
+const bucket_functions = new BucketFunctions(client);
+const kf = new KubernetesFunctions({});
 const cf = new CloudFunction(client);
-const azf = new AzureFunctions(clientId, domain, secret, subscriptionId, resource, location);
 
 const conf = {
     aws: true,
@@ -101,7 +107,10 @@ let connections_mapping = {
 };
 
 const dataset_params = {
-    server_ip,
+    mgmt_ip,
+    mgmt_port_https,
+    s3_ip,
+    s3_port,
     bucket: 'first.bucket',
     part_num_low: 2,
     part_num_high: 10,
@@ -160,27 +169,12 @@ async function create_noobaa_for_compatible() {
     try {
         if (compatible_ip) {
             server.ip = compatible_ip;
-            server.name = await azf.getMachineByIp(compatible_ip);
+            server.name = compatible_name;
             server.secret = compatible_password;
-            server.s3ops = new S3OPS({ ip: compatible_ip, system_verify_name: server.name });
+            server.s3ops = new S3OPS({ ip: compatible_ip, port: compatible_port, system_verify_name: server.name });
             console.log(server);
         } else {
-            const new_secret = await azf.createServer({
-                serverName: server.name,
-                vnet,
-                storage,
-                ipType: 'Static',
-                createSystem: true
-            });
-            console.log(`${YELLOW}${server.name} secret is: ${new_secret}${NC}`);
-            server.secret = new_secret;
-            const ip = await azf.getIpAddress(server.name + '_pip');
-            console.log(`${YELLOW}${server.name} and ip is: ${ip}${NC}`);
-            server.ip = ip;
-            server.s3ops = new S3OPS({ ip, system_verify_name: server.name });
-        }
-        if (!_.isUndefined(upgrade)) {
-            await ops.upload_and_upgrade(server.ip, upgrade);
+            await kf.deploy_server({ cpu: '400m', mem: '400Mi', });
         }
     } catch (err) {
         console.log(err);
@@ -188,11 +182,13 @@ async function create_noobaa_for_compatible() {
     }
 
     try {
-        server.internal_ip = await azf.getPrivateIpAddress(`${server.name}_nic`, `${server.name}_ip`);
-        connections_mapping.COMPATIBLE.endpoint = 'https://' + server.internal_ip;
-        const rpc2 = api.new_rpc_from_base_address('wss://' + server.ip + ':8443', 'EXTERNAL');
+        const { address: s3_addr } = await kf.get_service_address('s3');
+        const { address: mgmt_addr, ports: mgmt_ports } = await kf.get_service_address('noobaa-mgmt', 'mgmt-https');
+        connections_mapping.COMPATIBLE.endpoint = `https://${s3_addr}`;
+        const rpc2 = api.new_rpc_from_base_address(`wss://${mgmt_addr}:${mgmt_ports}`, 'EXTERNAL');
         const client2 = rpc2.new_client({});
         await set_rpc_and_create_auth_token(client2);
+        await test_utils.create_hosts_pool(client2, POOL_NAME, 3);
         bf_compatible = new BucketFunctions(client2);
         cf_compatible = new CloudFunction(client2);
     } catch (err) {
@@ -232,9 +228,9 @@ async function prepareCompatibleCloudPoolsEnv(type, version) {
             // if (version === 4 && protocol === 'http') {
             //     console.log(`noobaa compatible v4 with http is not working.`);
             // } else {
-            connections_mapping.COMPATIBLE.auth_method = 'AWS_V' + version;
-            connections_mapping.COMPATIBLE.endpoint = protocol + '://' + server.internal_ip;
-            connections_mapping.COMPATIBLE.name = 'COMPATIBLEConnection' + version + protocol;
+            connections_mapping.COMPATIBLE.auth_method = `AWS_V${version}`;
+            connections_mapping.COMPATIBLE.endpoint = `${protocol}://${server.internal_ip}`;
+            connections_mapping.COMPATIBLE.name = `COMPATIBLEConnection${version}${protocol}`;
             connections_names.push(connections_mapping.COMPATIBLE.name);
             await cf.createConnection(connections_mapping[type], type);
             const target_bucket = `noobaa-cloud-test-${protocol}${version}`;
@@ -245,9 +241,9 @@ async function prepareCompatibleCloudPoolsEnv(type, version) {
             await bf_compatible.editBucketDataPlacement(cloudPoolForCompatible, target_bucket, 'SPREAD');
             await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, target_bucket);
             const bucket = cloud_pool_name.toLowerCase();
-            await bf.createBucket(bucket);
+            await bucket_functions.createBucket(bucket);
             bucket_names.push(bucket);
-            await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
+            await bucket_functions.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
             report.success(`create compatible ${version} ${protocol} resource`.toLowerCase());
             // }
         } catch (err) {
@@ -268,10 +264,10 @@ async function createCloudPools(type) {
             await cf.createCloudPool(connections_mapping[type].name, cloud_pool_name, "noobaa-cloud-test");
             cloud_pools.push(cloud_pool_name);
             const bucket = cloud_pool_name.toLowerCase();
-            await bf.createBucket(bucket);
+            await bucket_functions.createBucket(bucket);
             bucket_names.push(bucket);
             report.success(`create ${type} resource`.toLowerCase());
-            await bf.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
+            await bucket_functions.editBucketDataPlacement(cloud_pool_name, bucket, 'SPREAD');
             report.success(`create ${type} resource`.toLowerCase());
         } catch (err) {
             console.error(err);
@@ -281,7 +277,7 @@ async function createCloudPools(type) {
     }
 }
 
-async function clean_env() {
+async function _clean_env() {
     for (const bucket_name of bucket_names) {
         try {
             await clean_cloud_bucket(server_s3ops, bucket_name);
@@ -290,7 +286,7 @@ async function clean_env() {
             report.fail(`delete all file from resource ${bucket_name.slice(0, bucket_name.lastIndexOf('-'))}`.toLowerCase());
             throw err;
         }
-        await bf.deleteBucket(bucket_name);
+        await bucket_functions.deleteBucket(bucket_name);
     }
     bucket_names = [];
     for (const cloud_pool of cloud_pools) {
@@ -314,7 +310,7 @@ async function clean_env() {
     remote_bucket_names = [];
 }
 
-async function run_dataset() {
+async function _run_dataset() {
     for (const bucket_name of bucket_names) {
         dataset_params.bucket = bucket_name;
         console.log(dataset_params);
@@ -334,17 +330,16 @@ async function run_dataset() {
 
 async function main() {
     try {
-        await azf.authenticate();
         await create_noobaa_for_compatible();
         await set_rpc_and_create_auth_token(client);
         for (const type of cloud_list) {
             await createCloudPools(type);
         }
-        await run_dataset();
-        await clean_env();
+        await _run_dataset();
+        await _clean_env();
         await prepareCompatibleCloudPoolsEnv("COMPATIBLE", 4);
-        await run_dataset();
-        await clean_env();
+        await _run_dataset();
+        await _clean_env();
         console.log('cloud tests were successful!');
         await report.report();
         process.exit(0);

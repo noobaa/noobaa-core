@@ -9,8 +9,6 @@ const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
 
 
-
-
 const IS_IN_POD = process.env.CONTAINER_PLATFORM === 'KUBERNETES';
 
 class KubernetesFunctions {
@@ -29,7 +27,6 @@ class KubernetesFunctions {
             this.namespace = namespace;
         }
     }
-
 
     async init() {
         if (!this.namespace) {
@@ -88,8 +85,6 @@ class KubernetesFunctions {
         await fs.writeFileAsync(file, file_content);
     }
 
-
-
     async kubectl_get(resource, name) {
         const stdout = await this.kubectl(`get ${resource} ${name} -o json`);
         try {
@@ -138,7 +133,6 @@ class KubernetesFunctions {
             statefulset.spec.replicas = replicas;
         }
 
-
         if (!pv) {
             //remove persistent volume claim and mounts from the statefulset
             statefulset.spec.volumeClaimTemplates = null;
@@ -153,7 +147,6 @@ class KubernetesFunctions {
             statefulset.spec.template.spec.volumes = mounts.map(mount => ({ name: mount, emptyDir: {} }));
         }
     }
-
 
     /**
      * if running inside a pod there is no need for LB service (external ip)
@@ -191,11 +184,11 @@ class KubernetesFunctions {
             // was not specified directly.
             if (!agent_profile.image) {
                 agent_profile.image = image || statefulset
-                        .spec
-                        .template
-                        .spec
-                        .containers.find(c => c.name === 'noobaa-server')
-                        .image;
+                    .spec
+                    .template
+                    .spec
+                    .containers.find(c => c.name === 'noobaa-server')
+                    .image;
             }
             envs.push({
                 name: 'AGENT_PROFILE',
@@ -205,8 +198,6 @@ class KubernetesFunctions {
             this.update_statefulset({ statefulset, image, envs, cpu, mem, pv, pull_always });
             this.convert_lb_to_node_port(resources.filter(res => res.kind === 'Service'));
             await this.write_resources(resources_file_path, resources);
-            await this.create_noobaa_secrets();
-
             await this.create_noobaa_secrets();
             console.log('deploying server resources from file', resources_file_path);
             await this.kubectl(`apply -f ${resources_file_path}`);

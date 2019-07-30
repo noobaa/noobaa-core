@@ -3,7 +3,7 @@
 
 const tests = [
     // This test was commented out because of the need to re-evaluate if
-    // the test is still relevant in k8s environments (Currenlty it will not run).
+    // the test is still relevant in k8s environments (Currently it will not run).
     // {
     //     name: 'test-node-failure',
     //     test: './src/test/system_tests/test_node_failure.js',
@@ -29,9 +29,9 @@ const tests = [
         agent_mem: '150Mi',
         pv: true
     },
-    // This test was commented out because of we need a relaible and fast way
-    // to take down an agent on a statefulset pod (the current decomisison action
-    // results in a test that will always successed).
+    // This test was commented out because of we need a reliable and fast way
+    // to take down an agent on a statefulset pod (the current decommission action
+    // results in a test that will always succeed).
     //
     // {
     //     name: 'test-build-chunks',

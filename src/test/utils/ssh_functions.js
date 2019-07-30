@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
 const ssh2 = require('ssh2');
 const P = require('../../util/promise');
 
@@ -12,14 +11,6 @@ function ssh_connect(options) {
         .once('ready', () => resolve(client))
         .once('error', reject)
         .connect(options));
-}
-
-//will disconnect the ssh session
-function ssh_disconnect(client) {
-    return new P((resolve, reject) => client
-        .once('ready', resolve)
-        .once('error', reject)
-        .on('end', resolve));
 }
 
 //will execute command via ssh
@@ -44,40 +35,5 @@ function ssh_exec(client, command, ignore_rc = false) {
         }));
 }
 
-//will do ssh stick which will relese the need to enter password for each ssh session
-function ssh_stick(client) {
-    const command = `
-    sudo mkdir -p /home/noobaa/.ssh
-    sudo su -c "echo '${fs.readFileSync(process.env.HOME + '/.ssh/id_rsa.pub', 'utf8')}' >> /home/noobaa/.ssh/authorized_keys"
-    sudo chmod 700 /home/noobaa/.ssh
-    sudo chmod 600 /home/noobaa/.ssh/authorized_keys
-    sudo chown -R noobaa:noobaa /home/noobaa/.ssh
-    `;
-    return ssh_exec(client, command);
-}
-
-function add_alias_ip(ip, alias_ip, password) {
-    let ssh_client;
-    console.log(`creating ssh connection to ${ip}, password: ${password}`);
-    return ssh_connect({
-            host: ip,
-            username: 'noobaaroot',
-            password,
-            keepaliveInterval: 5000,
-        })
-        .then(client => {
-            ssh_client = client;
-            console.log(`setting ${alias_ip} as ${ip}`);
-            return ssh_exec(ssh_client, `sudo bash -c "iptables -t nat -A OUTPUT -d ${alias_ip}  -j DNAT --to-destination ${ip}"`);
-        })
-        .then(() => {
-            console.log(`running service iptables save`);
-            return ssh_exec(ssh_client, `sudo bash -c "service iptables save"`);
-        });
-}
-
 exports.ssh_connect = ssh_connect;
-exports.ssh_disconnect = ssh_disconnect;
 exports.ssh_exec = ssh_exec;
-exports.ssh_stick = ssh_stick;
-exports.add_alias_ip = add_alias_ip;

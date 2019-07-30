@@ -88,7 +88,7 @@ class ManagedStatefulSetPoolController extends PoolController {
         if (host_count > 0) {
             await kube_utils.patch_resource('StatefulSet', _statefulset_name, { spec: { replicas: host_count } });
         } else {
-            await kube_utils.delete_reosurce('StatefulSet', _statefulset_name);
+            await kube_utils.delete_resource('StatefulSet', _statefulset_name);
         }
 
         if (delta < 0) {
@@ -111,7 +111,7 @@ class ManagedStatefulSetPoolController extends PoolController {
                     // Delete the pvc claimed by the pod.
                     const pvc_name = `noobaastorage-${pod_name}`;
                     dbg.log0(`ManagedStatefulSetPoolController::scale: deleting pvc ${pvc_name}`);
-                    return kube_utils.delete_reosurce('pvc', pvc_name);
+                    return kube_utils.delete_resource('pvc', pvc_name);
                 })
            );
         }
@@ -132,7 +132,7 @@ class ManagedStatefulSetPoolController extends PoolController {
 // ----------------------------------------------
 // An noop implantation of AgentPoolController
 // should be used in environments where noobaa
-// have no controll over the underlaying storage
+// have no control over the underlying storage
 // ----------------------------------------------
 class UnmanagedStatefulSetPoolController extends PoolController {
     constructor(system_name, pool_name) {
@@ -162,7 +162,7 @@ class UnmanagedStatefulSetPoolController extends PoolController {
 }
 
 // ----------------------------------------------
-// A implamntation which start in process agents.
+// A implantation which start in process agents.
 // Used mainly in unit_tests.
 // ----------------------------------------------
 
@@ -194,7 +194,7 @@ class InProcessAgentsPoolController extends PoolController {
             agents.push(...new_agents);
 
         } else if (diff < 0) {
-            dbg.log0(`InProcessAgentsPoolController::scale: stoping ${agents.length - host_count} agents for deleted hosts of pool ${this.pool_name}`);
+            dbg.log0(`InProcessAgentsPoolController::scale: stopping ${agents.length - host_count} agents for deleted hosts of pool ${this.pool_name}`);
             const agents_to_stop = agents.splice(diff);
             for (const agent of agents_to_stop) {
                 agent.stop('force_close_n2n');
@@ -268,21 +268,21 @@ async function _get_k8s_conf(params) {
     const agent_container = template.spec.containers
         .find(container => container.name === 'noobaa-agent');
     if (!agent_container) {
-        throw new Error('Invalid agent tempalte: missing container named noobaa-agent');
+        throw new Error('Invalid agent template: missing container named noobaa-agent');
     }
 
     // Find/Create the agent conf env variable definition;
     const agent_conf_var = agent_container.env
         .find(env => env.name === 'AGENT_CONFIG');
     if (!agent_conf_var) {
-        throw new Error('Invalid agent tempalte: missing env variable definition named AGENT_CONFIG');
+        throw new Error('Invalid agent template: missing env variable definition named AGENT_CONFIG');
     }
 
-    // Find the valume claim tempalte.
+    // Find the volume claim template.
     const volume_claim_template = statefulset.spec.volumeClaimTemplates
         .find(vct => vct.metadata.name === 'noobaastorage');
     if (!volume_claim_template) {
-        throw new Error('Invalid agent tempalte: missing volume claim template named noobaastorage');
+        throw new Error('Invalid agent template: missing volume claim template named noobaastorage');
     }
 
     // Update the template the given configuration.
@@ -299,8 +299,8 @@ async function _get_k8s_conf(params) {
         agent_container.resources.requests.memory = params.memory;
     }
 
-    const { use_persistent_stroage = true } = params;
-    if (use_persistent_stroage) {
+    const { use_persistent_storage = true } = params;
+    if (use_persistent_storage) {
         if (!_.isUndefined(params.volume_size)) {
             volume_claim_template.spec.resources.requests.storage = params.volume_size;
         }

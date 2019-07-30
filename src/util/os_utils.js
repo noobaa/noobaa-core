@@ -126,7 +126,7 @@ function get_raw_storage() {
     if (IS_LINUX_VM) {
         return P.fromCallback(callback => blockutils.getBlockInfo({}, callback))
             .then(res => _.find(res, function(disk) {
-                let expected_name = 'sda';
+                let expected_name;
                 switch (process.env.PLATFORM) {
                     case 'alyun':
                         expected_name = 'vda';
@@ -461,11 +461,11 @@ function read_server_secret() {
     if (process.env.SERVER_SECRET) {
         return process.env.SERVER_SECRET;
     } else {
-        // in kubernets we must have SERVER_SECRET loaded from a kubernetes secret
+        // in kubernetes we must have SERVER_SECRET loaded from a kubernetes secret
         if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
             throw new Error('SERVER_SECRET env variable not found. it must exist when running in kuberentes');
         }
-        // for all non kubernets platforms (docker, local, etc.) return a dummy secret
+        // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
         return '12345678';
     }
 }

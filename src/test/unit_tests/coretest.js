@@ -67,8 +67,7 @@ const rpc_client = server_rpc.rpc.new_client({
 const SYSTEM = CORETEST;
 const EMAIL = `${CORETEST}@noobaa.com`;
 const PASSWORD = CORETEST;
-const POOL_LIST = [
-    {
+const POOL_LIST = [{
         name: 'pool-with-10-hosts',
         host_count: 10
     },
@@ -244,7 +243,7 @@ async function overwrite_system_address(system_name) {
     // Waiting for system server to fully initialize to ensure
     // that this overwrite will not be undone when the system server
     // discover system addresses during it's init phase.
-   console.log('Waiting for system server to initalize');
+    console.log('Waiting for system server to initalize');
     await promise_utils.wait_until(
         () => system_server.is_initialized(),
         1000,
@@ -330,6 +329,8 @@ async function clear_test_pools() {
     // Prevent accounts from preventing pool deletions (by using a pool as default resource)
     // by disabling s3 access for all accounts.
     const { accounts } = await rpc_client.account.list_accounts({});
+    // add entry for operator account
+    accounts.push({ email: config.OPERATOR_ACCOUNT_EMAIL });
     await Promise.all(accounts.map(account =>
         rpc_client.account.update_account_s3_access({
             email: account.email,

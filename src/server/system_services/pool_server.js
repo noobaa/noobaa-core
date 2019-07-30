@@ -170,17 +170,25 @@ async function create_hosts_pool(req) {
         update: updates_if_first_resource(req, pool)
     });
 
+    const { hosts_pool_info } = pool;
     Dispatcher.instance().activity({
         event: 'resource.create',
         level: 'info',
         system: system._id,
         actor: account._id,
         pool: pool._id,
-        desc: `${rpc_params.name} was created by ${account.email.unwrap()}`,
+        desc: `A ${
+            hosts_pool_info.is_managed ? 'managed' : 'unmanaged'
+        } pool ${
+            rpc_params.name
+        } with ${
+            hosts_pool_info.host_count
+        } nodes was created by ${
+            account.email.unwrap()
+        }`,
     });
 
     try {
-        const { hosts_pool_info } = pool;
         const routing_hint = hosts_pool_info.is_managed ? 'EXTERNAL' : 'INTERNAL';
         const agent_install_string = await get_agent_install_conf(system, pool, account, routing_hint);
         const agent_profile = Object.assign(
@@ -451,8 +459,28 @@ async function scale_hosts_pool(req) {
         }
     });
 
+    const host_count_diff = host_count - configured_host_count;
+    Dispatcher.instance().activity({
+        event: 'resource.scale',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account._id,
+        pool: pool._id,
+        desc: `Pool ${
+            pool.name
+        } was scaled ${
+            host_count_diff > 0 ? 'up' : 'down'
+        } from ${
+            configured_host_count
+        } to ${
+            host_count
+        } by  ${
+            req.account.email.unwrap()
+        }`,
+    });
+
     // We should not wait for the sem before returning.
-    if (host_count > configured_host_count) {
+    if (host_count_diff > 0) {
         pool_scaling_sem.surround_key(pool.name, async () => {
             // Scale up (add more storage agents)
             const pool_ctrl = create_pool_controller(req.system, pool);
@@ -463,9 +491,8 @@ async function scale_hosts_pool(req) {
     } else {
         pool_scaling_sem.surround_key(pool.name, async () => {
             // Scale down (delete hosts)
-            const delete_count = configured_host_count - host_count;
-            dbg.log0(`scale_host_pool: deleting ${delete_count} hosts`);
-            await nodes_client.instance().delete_hosts_by_pool(pool.name, req.system._id, delete_count);
+            dbg.log0(`scale_host_pool: deleting ${-host_count_diff} hosts`);
+            await nodes_client.instance().delete_hosts_by_pool(pool.name, req.system._id, -host_count_diff);
             await wait_for_host_count_to_stabilize(req.system, pool, host_count);
 
             // No need to wait scale just cleanup the underlaying agents after the node deletion.

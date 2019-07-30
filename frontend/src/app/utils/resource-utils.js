@@ -59,32 +59,32 @@ const hostsPoolModeToStateIcon = deepFreeze({
         name: 'working'
     },
     MOST_NODES_ISSUES: {
-        tooltip: 'More than 90% of drives and endpoints have issues',
+        tooltip: 'More than 90% of nodes have issues',
         css: 'error',
         name: 'problem'
     },
     MANY_NODES_ISSUES: {
-        tooltip: 'More than 50% of drives and endpoints have issues',
+        tooltip: 'More than 50% of nodes have issues',
         css: 'warning',
         name: 'problem'
     },
     MOST_STORAGE_ISSUES: {
-        tooltip: 'More than 90% of storage drives have issues',
+        tooltip: 'More than 90% of nodes have storage issues',
         css: 'error',
         name: 'problem'
     },
     MANY_STORAGE_ISSUES: {
-        tooltip: 'More than 50% of storage drives have issues',
+        tooltip: 'More than 50% of nodes have storage issues',
         css: 'warning',
         name: 'problem'
     },
     MOST_S3_ISSUES: {
-        tooltip: 'More than 90% of S3 endpoints have issues',
+        tooltip: 'More than 90% of nodes have S3 endpoint issues',
         css: 'error',
         name: 'problem'
     },
     MANY_S3_ISSUES: {
-        tooltip: 'More than 50% of S3 endpoints have issues',
+        tooltip: 'More than 50% of nodes have S3 endpoint issues',
         css: 'warning',
         name: 'problem'
     },

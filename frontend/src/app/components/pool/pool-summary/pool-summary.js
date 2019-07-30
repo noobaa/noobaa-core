@@ -12,12 +12,11 @@ import { getActivityName, getActivityListTooltip } from 'utils/host-utils';
 import moment from 'moment';
 
 function _mapStateAndStatus(pool) {
-    const { hostCount, storageNodeCount, region } = pool;
+    const { hostCount, region } = pool;
 
     return {
         state: getHostPoolStateIcon(pool),
         hostCount: numeral(hostCount).format('0,0'),
-        driveCount: numeral(storageNodeCount).format('0,0'),
         region: region || unassignedRegionText
     };
 }
@@ -37,7 +36,7 @@ function _mapFirstActivity(pool) {
     const { hostCount, list } = pool.activities;
     if (list.length > 0) {
         const { kind, nodeCount, progress, eta } = list[0] || {};
-        const activityText = `${getActivityName(kind)} ${stringifyAmount('drive', nodeCount)}`;
+        const activityText = `${getActivityName(kind)} ${stringifyAmount('node', nodeCount)}`;
         const etaText =  isNumber(eta) ? moment(eta).fromNow() : 'calculating...';
         return {
             hasActivities: true,
@@ -80,7 +79,6 @@ class PoolSummaryViewModel extends ConnectableViewModel {
     // State observables.
     state = ko.observable({});
     hostCount = ko.observable();
-    driveCount = ko.observable();
     region = ko.observable();
 
     // Capacity observables.
@@ -95,13 +93,13 @@ class PoolSummaryViewModel extends ConnectableViewModel {
             label: 'Available',
             color: 'rgb(var(--color09))',
             value: this.availableCapacity,
-            tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated node'
+            tooltip: 'The total aggregated storage from installed nodes in this pool, does not include any offline or deactivated nodes'
         },
         {
-            label: 'Unavailable Capacity',
+            label: 'Unavailable',
             color: 'rgb(var(--color14))',
             value: this.unavailableCapacity,
-            tooltip: 'The total aggregated storage from offline nodes or excluded drives in this pool'
+            tooltip: 'The total aggregated storage from offline nodes in this pool'
         },
         {
             label: 'NooBaa Usage',

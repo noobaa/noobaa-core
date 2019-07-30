@@ -62,17 +62,12 @@ import createAccountModal from './modals/create-account-modal/create-account-mod
 import accountCreatedModal from './modals/account-created-modal/account-created-modal';
 import editBucketQuotaModal from './modals/edit-bucket-quota-modal/edit-bucket-quota-modal';
 import setAccountIpRestrictionsModal from './modals/set-account-ip-restrictions-modal/set-account-ip-restrictions-modal';
-import editHostStorageDrivesModal from './modals/edit-host-storage-drives-modal/edit-host-storage-drives-modal';
-import disableHostEndpointWarningModal from './modals/disable-host-endpoint-warning-modal/disable-host-endpoint-warning-modal';
-import disableHostStorageWarningModal from './modals/disable-host-storage-warning-modal/disable-host-storage-warning-modal';
-import disableHostLastServiceWarningModal from './modals/disable-host-last-service-warning-modal/disable-host-last-service-warning-modal';
 import connectAppModal from './modals/connect-app-modal/connect-app-modal';
 import createNamespaceResourceModal from './modals/create-namespace-resource-modal/create-namespace-resource-modal';
 import createNamespaceBucketModal from './modals/create-namespace-bucket-modal/create-namespace-bucket-modal';
 import editNamespaceBucketDataPlacementModal from './modals/edit-namespace-bucket-data-placement-modal/edit-namespace-bucket-data-placement-modal';
 import emptyDataPlacementWarningModal from './modals/empty-data-placement-warning-modal/empty-data-placement-warning-modal';
 import setNodeAsTrustedModal from './modals/set-node-as-trusted-modal/set-node-as-trusted-modal';
-import confirmDeleteHostModal from './modals/confirm-delete-host-modal/confirm-delete-host-modal';
 import editBucketDataResiliencyModal from './modals/edit-bucket-data-resiliency-modal/edit-bucket-data-resiliency-modal';
 import riskyBucketDataResiliencyWarningModal from './modals/risky-bucket-data-resiliency-warning-modal/risky-bucket-data-resiliency-warning-modal';
 import changeClusterConnectivityIpModal from './modals/change-cluster-connectivity-ip-modal/change-cluster-connectivity-ip-modal';
@@ -93,12 +88,13 @@ import editFuncCodeModal from './modals/edit-func-code-modal/edit-func-code-moda
 import bucketPlacementSummaryModal from './modals/bucket-placement-summary-modal/bucket-placement-summary-modal';
 import keepUsingInternalStorageModal from './modals/keep-using-internal-storage-modal/keep-using-internal-storage-modal';
 import addResourcesModal from './modals/add-resources-modal/add-resources-modal';
-import createEmptyPoolModal from './modals/create-empty-pool-modal/create-empty-pool-modal';
 import regenerateAccountCredentialsModal from './modals/regenerate-account-credentials-modal/regenerate-account-credentials-modal';
 import editTierDataPlacementModal from './modals/edit-tier-data-placement-modal/edit-tier-data-placement-modal';
 import addTierModal from './modals/add-tier-modal/add-tier-modal';
 import sessionExpiredModal from './modals/session-expired-modal/session-expired-modal';
 import deployK8sPoolModal from './modals/deploy-k8s-pool-modal/deploy-k8s-pool-modal';
+import editK8sPoolModal from './modals/edit-k8s-pool-modal/edit-k8s-pool-modal';
+import deletePoolWithDataWarningModal from './modals/delete-pool-with-data-warning-modal/delete-pool-with-data-warning-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -189,7 +185,6 @@ import hostPanel from './host/host-panel/host-panel';
 import hostSummary from './host/host-summary/host-summary';
 import hostDetailsForm from './host/host-details-form/host-details-form';
 import hostEndpointForm from './host/host-endpoint-form/host-endpoint-form';
-import hostStorageForm from './host/host-storage-form/host-storage-form';
 import hostDiagnosticsForm from './host/host-diagnostics-form/host-diagnostics-form';
 /** INJECT:host.import **/
 
@@ -405,17 +400,12 @@ export default function register(ko, services) {
         accountCreatedModal,
         editBucketQuotaModal,
         setAccountIpRestrictionsModal,
-        editHostStorageDrivesModal,
-        disableHostEndpointWarningModal,
-        disableHostStorageWarningModal,
-        disableHostLastServiceWarningModal,
         connectAppModal,
         createNamespaceResourceModal,
         createNamespaceBucketModal,
         editNamespaceBucketDataPlacementModal,
         emptyDataPlacementWarningModal,
         setNodeAsTrustedModal,
-        confirmDeleteHostModal,
         editBucketDataResiliencyModal,
         riskyBucketDataResiliencyWarningModal,
         changeClusterConnectivityIpModal,
@@ -436,12 +426,13 @@ export default function register(ko, services) {
         bucketPlacementSummaryModal,
         keepUsingInternalStorageModal,
         addResourcesModal,
-        createEmptyPoolModal,
         regenerateAccountCredentialsModal,
         editTierDataPlacementModal,
         addTierModal,
         sessionExpiredModal,
         deployK8sPoolModal,
+        editK8sPoolModal,
+        deletePoolWithDataWarningModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -505,7 +496,6 @@ export default function register(ko, services) {
         hostSummary,
         hostDetailsForm,
         hostEndpointForm,
-        hostStorageForm,
         hostDiagnosticsForm,
         /** INJECT:host.list **/
 

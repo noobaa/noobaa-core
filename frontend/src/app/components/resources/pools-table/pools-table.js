@@ -2,7 +2,6 @@
 
 import template from './pools-table.html';
 import ConnectableViewModel from 'components/connectable';
-import { requestLocation, openDeployK8sPoolModal, deleteResource } from 'action-creators';
 import { realizeUri } from 'utils/browser-utils';
 import { deepFreeze, throttle, createCompareFunc, groupBy, flatMap } from 'utils/core-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
@@ -13,6 +12,12 @@ import ko from 'knockout';
 import * as routes from 'routes';
 import { inputThrottle, paginationPageSize } from 'config';
 import numeral from 'numeral';
+import {
+    requestLocation,
+    openDeployK8sPoolModal,
+    deleteResource,
+    openDeletePoolWithDataWarningModal
+} from 'action-creators';
 
 const columns = deepFreeze([
     {
@@ -42,13 +47,8 @@ const columns = deepFreeze([
     },
     {
         name: 'hosts',
-        label: 'Total Nodes'
-    },
-    {
-        name: 'endpoints',
-        label: 'S3 endpoints',
-        sortable: true,
-        compareKey: pool => pool.endpointNodeCount
+        label: 'Nubmer of Nodes',
+        compareKey: pool => pool.configuredHostCount
     },
     {
         name: 'capacity',
@@ -99,8 +99,6 @@ function _mapPoolToRow(
         region = unassignedRegionText,
         storage,
         undeletable = '',
-        storageNodeCount,
-        endpointNodeCount,
         hostsByMode
     } = pool;
 
@@ -134,11 +132,7 @@ function _mapPoolToRow(
             } : ''
         },
         hosts: {
-            text: `${
-                numeral(all).format(',')
-            } nodes / ${
-                numeral(storageNodeCount).format(',')
-            } drives`,
+            text: numeral(all).format(','),
             tooltip: {
                 template: 'propertySheet',
                 text: [
@@ -157,7 +151,7 @@ function _mapPoolToRow(
                 ]
             }
         },
-        endpoints: numeral(endpointNodeCount).format(','),
+        inUse: Boolean(storage.used),
         capacity: {
             total: storage.total,
             used: [
@@ -188,7 +182,7 @@ class RowViewModel {
     region = ko.observable();
     buckets = ko.observable();
     hosts = ko.observable();
-    endpoints = ko.observable();
+    inUse = false;
     capacity = {
         total: ko.observable(),
         used: [
@@ -224,7 +218,7 @@ class RowViewModel {
     }
 
     onToggle(poolName) {
-        this.table.onSelectForDelete(poolName);
+        this.table.onSelectForDelete(poolName, this.inUse);
     }
 
     onDelete(poolName) {
@@ -341,9 +335,14 @@ class PoolsTableViewModel extends ConnectableViewModel {
         });
     }
 
-    onSelectForDelete(poolName) {
-        const selectedForDelete = poolName || '';
-        this._query({ selectedForDelete });
+    onSelectForDelete(poolName, inUse) {
+        if (inUse) {
+            this.dispatch(openDeletePoolWithDataWarningModal(poolName));
+
+        } else {
+            const selectedForDelete = poolName || '';
+            this._query({ selectedForDelete });
+        }
     }
 
     onDeplyK8sPool() {

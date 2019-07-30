@@ -90,9 +90,6 @@ export default {
         cloudUsageStats: {
             $ref: '#/def/cloudUsageStats'
         },
-        platform: {
-            $ref: '#/def/platform'
-        },
         bucketTriggers: {
             $ref: '#/def/bucketTriggers'
         }

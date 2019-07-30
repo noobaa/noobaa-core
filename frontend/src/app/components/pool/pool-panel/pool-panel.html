@@ -7,7 +7,7 @@
         <a ko.css.selected="selectedTab.eq('nodes')"
             ko.attr.href="tabHref('nodes')"
         >
-            Nodes
+            Kubernetes Nodes
         </a>
         <a ko.css.selected="selectedTab.eq('connected-buckets')"
             ko.attr.href="tabHref('connected-buckets')"
@@ -36,5 +36,13 @@
             ko.css.selected="selectedTab.eq('associated-accounts')"
             params="resourceType: 'HOSTS', resourceName: pool"
         ></resource-associated-account-list>
+    </div>
+</div>
+
+<div class="redirect-overlay row content-middle" ko.visible="redirecting">
+    <div class="column greedy content-middle">
+        <h1 class="heading1">This pool was deleted</h1>
+        <loading-indicator class="push-both-half"></loading-indicator>
+        <p class="heading3">You will be redircted to the resources page in a moment</p>
     </div>
 </div>

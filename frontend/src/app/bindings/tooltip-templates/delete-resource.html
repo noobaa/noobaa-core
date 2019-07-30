@@ -30,6 +30,12 @@
 </p>
 <!-- /ko -->
 
+<!-- ko if: reason === 'BEING_DELETED' -->
+<p class="highlight">
+    The {{subject}} is already being deleted
+</p>
+<!-- /ko -->
+
 <!-- ko if: !reason -->
 <p class="highlight">Delete {{subject}}</p>
 <!-- /ko -->

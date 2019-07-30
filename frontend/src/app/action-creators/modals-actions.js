@@ -351,39 +351,6 @@ export function openSetAccountIpRestrictionsModal(accountName) {
     };
 }
 
-export function openEditHostStorageDrivesModal(host) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'edit-host-storage-drives-modal',
-                params: { host }
-            },
-            options:{
-                size: 'medium',
-                title: 'Edit Storage Drives'
-            }
-        }
-    };
-}
-
-export function openDisableHostEndpointWarningModal(host, isLastService) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'disable-host-endpoint-warning-modal',
-                params: { host, isLastService }
-            },
-            options: {
-                size: 'xsmall',
-                severity: 'warning',
-                title: 'Disable Node S3 Endpoint Service'
-            }
-        }
-    };
-}
-
 export function openConnectAppModal() {
     return {
         type: OPEN_MODAL,
@@ -397,39 +364,6 @@ export function openConnectAppModal() {
     };
 }
 
-export function openDisableHostStorageWarningModal(host, isLastService) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'disable-host-storage-warning-modal',
-                params: { host, isLastService }
-            },
-            options: {
-                size: 'xsmall',
-                severity: 'warning',
-                title: 'Disable Node Storage Service'
-            }
-        }
-    };
-}
-
-export function openDisableHostLastServiceWarningModal(host, service) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'disable-host-last-service-warning-modal',
-                params: { host, service }
-            },
-            options: {
-                size: 'xsmall',
-                severity: 'warning',
-                title: 'Deactivate Node Last Service'
-            }
-        }
-    };
-}
 export function openCreateNamespaceResourceModal() {
     return {
         type: OPEN_MODAL,
@@ -483,23 +417,6 @@ export function openSetNodeAsTrustedModal(host, untrustedReasons) {
             options: {
                 title: 'Set Node as Trusted',
                 size: 'small'
-            }
-        }
-    };
-}
-
-export function openConfirmDeleteHostModal(host) {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: {
-                name: 'confirm-delete-host-modal',
-                params: { host }
-            },
-            options: {
-                title: 'Delete Node',
-                size: 'xsmall',
-                severity: 'warning'
             }
         }
     };
@@ -800,19 +717,6 @@ export function openAddResourcesModal() {
     };
 }
 
-export function openCreateEmptyPoolModal() {
-    return {
-        type: OPEN_MODAL,
-        payload: {
-            component: 'create-empty-pool-modal',
-            options: {
-                size: 'small',
-                title: 'Create Pool Resource'
-            }
-        }
-    };
-}
-
 export function openSessionExpiredModal() {
     return {
         type: OPEN_MODAL,
@@ -840,6 +744,39 @@ export function openDeployK8sPoolModal() {
             options: {
                 title: 'Deploy Kubernetes Pool',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openEditK8sPoolModal(poolName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-k8s-pool-modal',
+                params: { poolName }
+            },
+            options: {
+                title: 'Edit Pool Configuration',
+                size: 'medium'
+            }
+        }
+    };
+}
+
+export function openDeletePoolWithDataWarningModal(poolName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'delete-pool-with-data-warning-modal',
+                params: { poolName }
+            },
+            options: {
+                title: 'Delete Pool with Stored Data',
+                severity: 'warning',
+                size: 'small'
             }
         }
     };

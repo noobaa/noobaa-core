@@ -5,7 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { closeModal } from 'action-creators';
 
-class [[viewModalName]] extends ConnectableViewModel {
+class [[viewModelName]] extends ConnectableViewModel {
     formName = this.constructor.name;
     asyncTriggers = [
     ];
@@ -62,6 +62,6 @@ class [[viewModalName]] extends ConnectableViewModel {
 }
 
 export default {
-    viewModel: [[viewModalName]],
+    viewModel: [[viewModelName]],
     template: template
 };

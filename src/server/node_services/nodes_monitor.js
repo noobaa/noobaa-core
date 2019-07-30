@@ -932,6 +932,19 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_status(item))
             .then(() => this._handle_issues(item))
             .then(() => this._update_nodes_store())
+            .finally(() => {
+                const pool = system_store.data.get_by_id(item.node.pool);
+                if (item.node.deleted) {
+                    return server_rpc.client.pool.react_to_node_deletion({
+                        name: pool.name
+                    }, {
+                        auth_token: auth_server.make_auth_token({
+                            system_id: system_store.data.systems[0]._id,
+                            role: 'admin'
+                        })
+                    });
+                }
+            })
             .catch(err => {
                 dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
             }));

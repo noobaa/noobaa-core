@@ -8,7 +8,7 @@ import { getHostDisplayName } from 'utils/host-utils';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
-import { openSetNodeAsTrustedModal, openConfirmDeleteHostModal } from 'action-creators';
+import { openSetNodeAsTrustedModal } from 'action-creators';
 
 const portsBlockedTooltip = `Some ports might be blocked. Check the firewall settings
     and make sure that the ports range of 60100-60600 is open for inbound traffic.
@@ -259,10 +259,6 @@ class HostDetailsFormViewModel extends ConnectableViewModel {
             this.hostName,
             this.untrustedReasons
         ));
-    }
-
-    onDeleteNode() {
-        this.dispatch(openConfirmDeleteHostModal(this.hostName));
     }
 }
 

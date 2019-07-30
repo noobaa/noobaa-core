@@ -55,6 +55,26 @@ export function fromSizeAndUnit(size, unit) {
     );
 }
 
+export function toSizeAndUnit(sizeOrBytes) {
+    let { peta, n } = normalizeSize(sizeOrBytes);
+    let i = 0;
+
+    if (peta > 0) {
+        i = 5;
+        n = peta + n / unitsInBytes.PETABYTE;
+    }
+
+    while (n / kilo >= 1) {
+        n /= kilo;
+        ++i;
+    }
+
+    return {
+        size: n,
+        unit: sizeUnits[i]
+    };
+}
+
 export function mulBigIntegerReal(bi, real){
     const scalar = Math.floor(real);
     const friction = real % 1;

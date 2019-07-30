@@ -9,12 +9,13 @@ import numeral from 'numeral';
 import { deepFreeze, throttle, flatMap } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { summrizeHostModeCounters, getHostModeListForState } from 'utils/host-utils';
-import { get } from 'rx-extensions';
+import { get, getMany } from 'rx-extensions';
 import { paginationPageSize, inputThrottle } from 'config';
 import * as routes from 'routes';
 import {
     fetchHosts,
     openAssignRegionModal,
+    openEditK8sPoolModal,
     requestLocation,
     dropHostsView
 } from 'action-creators';
@@ -35,10 +36,6 @@ const columns = deepFreeze([
         name: 'ip',
         label: 'IP Address',
         sortable: true
-    },
-    {
-        name: 'drives',
-        label: 'Healthy Drives'
     },
     {
         name: 'services',
@@ -100,9 +97,14 @@ class PoolHostsTableViewModel extends Observer {
         this.emptyMessage = ko.observable();
         this.fetching = ko.observable();
         this.onFilterByNameThrottled = throttle(this.onFilterByName, inputThrottle, this);
+        this.areActionsDisabled = ko.observable(true);
+        this.actionsTooltip = ko.observable('');
 
         this.observe(
-            state$.pipe(get('location')),
+            state$.pipe(getMany(
+                'location',
+                'hostPools'
+            )),
             this.onLocation
         );
 
@@ -112,15 +114,22 @@ class PoolHostsTableViewModel extends Observer {
         );
     }
 
-    onLocation({ route, params, query }) {
+    onLocation([location, pools]) {
+        const { route, params, query } = location;
+        if (!pools || !params) {
+            return;
+        }
+
         const { system, pool, tab = 'nodes' } = params;
-        if (!pool || tab !== 'nodes') return;
+        if (!pool || !pools[pool] || tab !== 'nodes') return;
 
         const { name, page = 0, sortBy = 'name', order = 1 } = query;
         const state =
             (query.state === true &&  []) ||
             (query.state && query.state.split('|')) ||
             states;
+
+        const disableActions = pools[pool].mode === 'DELETING';
 
         this.poolName = pool;
         this.baseRoute = realizeUri(route, { system, pool, tab }, {}, true);
@@ -129,6 +138,8 @@ class PoolHostsTableViewModel extends Observer {
         this.stateFilter(state);
         this.sorting({ sortBy, order: Number(order) });
         this.page(Number(page));
+        this.areActionsDisabled(disableActions);
+        this.actionsTooltip(disableActions ? 'Pool is being deleted' : '');
 
         action$.next(fetchHosts(
             this.viewName,
@@ -217,6 +228,10 @@ class PoolHostsTableViewModel extends Observer {
 
     onAssignRegion() {
         action$.next(openAssignRegionModal('HOSTS', this.poolName));
+    }
+
+    onEditPoolConfig() {
+        action$.next(openEditK8sPoolModal(this.poolName));
     }
 
     dispose() {

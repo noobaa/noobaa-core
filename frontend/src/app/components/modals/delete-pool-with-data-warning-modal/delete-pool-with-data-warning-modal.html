@@ -1,0 +1,50 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <section class="pad greedy column">
+        <p class="push-next">
+            This pool has some stored data. Deleting the pool and it's StatefulSet will start an evacuation process.
+            The pool will not delete until all stored data will be rebuilt on other resources.
+        </p>
+        <p class="highlight push-next-half push-prev">
+            Note: This cannot be undone.
+        </p>
+
+        <ul class="list-no-style column push-next">
+            <li class="row content-middle push-next-half">
+                <checkbox params="checked: $form.deleteConfirmed"></checkbox>
+                Delete this pool with its {{formattedHostCount}} installed nodes.
+            </li>
+            <li class="row content-middle">
+                <checkbox params="checked: $form.rebuildConfirmed"></checkbox>
+                Start rebuilding all stored data to remaining resources in the system
+            </li>
+        </ul>
+
+        <!-- ko if: isErrorMsgVisible -->
+        <p class="remark error">Please confirm all deletion results before continuing</p>
+        <!-- /ko -->
+
+    </section>
+
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button class="link alt-colors push-next"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Start Deletion Process
+            </button>
+        </div>
+    </div>
+</managed-form>
+

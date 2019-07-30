@@ -4,12 +4,12 @@ import {
     CREATE_HOSTS_POOL,
     COMPLETE_CREATE_HOSTS_POOL,
     FAIL_CREATE_HOSTS_POOL,
+    SCALE_HOSTS_POOL,
+    COMPLETE_SCALE_HOSTS_POOL,
+    FAIL_SCALE_HOSTS_POOL,
     DELETE_RESOURCE,
     COMPLETE_DELETE_RESOURCE,
     FAIL_DELETE_RESOURCE,
-    ASSIGN_HOSTS_TO_POOL,
-    COMPLETE_ASSIGN_HOSTS_TO_POOL,
-    FAIL_ASSIGN_HOSTS_TO_POOL,
     ASSIGN_REGION_TO_RESOURCE,
     COMPLETE_ASSIGN_REGION_TO_RESOURCE,
     FAIL_ASSIGN_REGION_TO_RESOURCE,
@@ -40,6 +40,28 @@ export function failCreateHostsPool(name, error) {
     };
 }
 
+export function scaleHostsPool(poolName, hostCount) {
+    return {
+        type: SCALE_HOSTS_POOL,
+        payload: { poolName, hostCount }
+    };
+}
+
+export function completeScaleHostsPool(poolName) {
+    return {
+        type: COMPLETE_SCALE_HOSTS_POOL,
+        payload: { poolName }
+    };
+}
+
+export function failScaleHostsPool(poolName, error) {
+    return {
+        type: FAIL_SCALE_HOSTS_POOL,
+        payload: { poolName, error }
+    };
+}
+
+
 export function deleteResource(resource) {
     return {
         type: DELETE_RESOURCE,
@@ -58,27 +80,6 @@ export function failDeleteResource(resource, error) {
     return {
         type: FAIL_DELETE_RESOURCE,
         payload: { resource, error }
-    };
-}
-
-export function assignHostsToPool(pool, hosts) {
-    return {
-        type: ASSIGN_HOSTS_TO_POOL,
-        payload: { pool, hosts }
-    };
-}
-
-export function completeAssignHostsToPool(pool, hosts) {
-    return {
-        type: COMPLETE_ASSIGN_HOSTS_TO_POOL,
-        payload: { pool, hosts }
-    };
-}
-
-export function failAssignHostsToPool(pool, error) {
-    return {
-        type: FAIL_ASSIGN_HOSTS_TO_POOL,
-        payload: { pool, error }
     };
 }
 

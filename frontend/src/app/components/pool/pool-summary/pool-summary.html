@@ -12,8 +12,8 @@
         </p>
         <hr />
         <p class="greedy hpad row content-middle">
-            <span class="greedy push-next">Nodes / Drives:</span>
-            <span>{{hostCount}} / {{driveCount}}</span>
+            <span class="greedy push-next">Nodes (Pods):</span>
+            <span>{{hostCount}}</span>
         </p>
         <hr />
         <p class="greedy hpad row content-middle">
@@ -26,7 +26,7 @@
         <div class="row align-middle">
             <chart-legend class="pad" params="
                 items: pieValues,
-                caption: 'Pool Capacity',
+                caption: 'Kubernetes Pool Usage',
                 format: 'size'
             "></chart-legend>
 

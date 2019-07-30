@@ -65,7 +65,7 @@ async function _init() {
     );
 
     const system = system_store.data.systems[0];
-    if (system) {
+    if (!system) {
         return;
     }
 
@@ -840,15 +840,20 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         }, _.isUndefined);
         info.undeletable = check_resrouce_pool_deletion(pool);
         info.mode = calc_cloud_pool_mode(p_nodes);
+        info.is_managed = true;
     } else if (_is_mongo_pool(pool)) {
         info.mongo_info = {};
         info.undeletable = check_resrouce_pool_deletion(pool);
         info.mode = calc_mongo_pool_mode(p_nodes);
+        info.is_managed = true;
     } else {
         info.nodes = _.defaults({}, p_nodes.nodes, POOL_NODES_INFO_DEFAULTS);
         info.storage_nodes = _.defaults({}, p_nodes.storage_nodes, POOL_NODES_INFO_DEFAULTS);
         info.s3_nodes = _.defaults({}, p_nodes.s3_nodes, POOL_NODES_INFO_DEFAULTS);
         info.hosts = _.mapValues(POOL_HOSTS_INFO_DEFAULTS, (val, key) => p_hosts.nodes[key] || val);
+        info.hosts.configured_count = pool.hosts_pool_info.host_count;
+        info.host_info = pool.hosts_pool_info.host_config;
+        info.is_managed = pool.hosts_pool_info.is_managed;
         info.undeletable = check_pool_deletion(pool);
         info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {}, p_hosts.nodes.s3_by_mode || {});
     }
@@ -915,32 +920,34 @@ function calc_mongo_pool_mode(p) {
         'ALL_NODES_OFFLINE';
 }
 
-/*eslint complexity: ["error", 40]*/
+/*eslint complexity: ["error", 50]*/
 function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
-    const { hosts, storage } = pool_info;
+    const { hosts, storage, is_managed } = pool_info;
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
-    const { count } = hosts;
+    const host_count = hosts.count;
     const storage_count = hosts.by_service.STORAGE;
     const storage_offline = storage_by_mode.OFFLINE || 0;
     const storage_optimal = storage_by_mode.OPTIMAL || 0;
-    const storage_offline_ratio = (storage_offline / count) * 100;
+    const storage_offline_ratio = (storage_offline / host_count) * 100;
     const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
     const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
     const s3_count = hosts.by_service.GATEWAY;
     const s3_optimal = s3_by_mode.OPTIMAL || 0;
     const s3_issues_ratio = ((s3_count - s3_optimal) / s3_count) * 100;
-
     const { free, total, reserved, used_other } = _.assignWith({}, storage, (__, size) => size_utils.json_to_bigint(size));
     const potential_for_noobaa = total.subtract(reserved).subtract(used_other);
     const free_ratio = potential_for_noobaa.greater(0) ? free.multiply(100).divide(potential_for_noobaa) : size_utils.BigInteger.zero;
     const activity_count = data_activities
         .reduce((sum, val) => sum + val.count, 0);
-    const activity_ratio = (activity_count / count) * 100;
+    const activity_ratio = (activity_count / host_count) * 100;
 
-    return (count === 0 && 'HAS_NO_NODES') ||
+    return (!is_managed && host_count === 0 && 'HAS_NO_NODES') ||
+        (is_managed && hosts.configured_count === 0 && 'DELETING') ||
+        (is_managed && host_count === 0 && 'INITIALIZING') ||
+        (is_managed && host_count !== hosts.configured_count && 'SCALING') ||
         (storage_offline === storage_count && 'ALL_NODES_OFFLINE') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
-        (hosts_migrating === count && 'ALL_HOSTS_IN_PROCESS') ||
+        (hosts_migrating === host_count && 'ALL_HOSTS_IN_PROCESS') ||
         (activity_ratio > 50 && 'HIGH_DATA_ACTIVITY') ||
         ((storage_issues_ratio >= 90 && s3_issues_ratio >= 90) && 'MOST_NODES_ISSUES') ||
         ((storage_issues_ratio >= 50 && s3_issues_ratio >= 50) && 'MANY_NODES_ISSUES') ||
@@ -964,6 +971,14 @@ function check_pool_deletion(pool) {
     var accounts = get_associated_accounts(pool);
     if (accounts.length) {
         return 'DEFAULT_RESOURCE';
+    }
+
+    // The pool is a hosts pool the is scaling down tooward deletions.
+    if (pool.hosts_pool_info) {
+        const { is_managed, host_count } = pool.hosts_pool_info;
+        if (is_managed && host_count === 0) {
+            return 'BEING_DELETED';
+        }
     }
 }
 

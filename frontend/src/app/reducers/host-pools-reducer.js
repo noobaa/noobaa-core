@@ -15,6 +15,7 @@ const initialState = undefined;
 
 const beingCreatedPoolState = {
     mode: 'BEING_CREATED',
+    isManaged: true,
     activities: {
         hostCount: 0,
         list: []
@@ -22,6 +23,7 @@ const beingCreatedPoolState = {
     associatedAccounts: [],
     hostCount: 0,
     hostsByMode: {},
+    configuredHostCount: 0,
     storageNodeCount: 0,
     storageNodesByMode: {},
     endpointNodeCount: 0,
@@ -76,10 +78,12 @@ function _mapPool(pool) {
         name: pool.name,
         creationTime: pool.create_time,
         mode: pool.mode,
+        isManaged: pool.is_managed,
         storage: mapApiStorage(pool.storage),
         associatedAccounts: pool.associated_accounts,
         hostCount: pool.hosts.count,
         hostsByMode: pool.hosts.by_mode,
+        configuredHostCount: pool.hosts.configured_count,
         storageNodeCount: pool.storage_nodes.count,
         storageNodesByMode: pool.storage_nodes.by_mode,
         endpointNodeCount: pool.s3_nodes.count,
@@ -89,6 +93,9 @@ function _mapPool(pool) {
         activities: {
             hostCount: pool.data_activities.host_count,
             list: activityList
+        },
+        hostConfig: {
+            volumeSize: pool.host_info.volume_size
         }
     };
 }

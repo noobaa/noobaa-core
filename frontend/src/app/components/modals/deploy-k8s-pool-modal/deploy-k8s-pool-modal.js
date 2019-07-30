@@ -78,7 +78,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             ...Object.keys(hostPools),
             ...Object.keys(cloudResources)
         ];
-        const nameRestrictionList = validateName(poolName, existingNames)
+        const nameRestrictionList = validateName(poolName, existingNames, true)
             .map(record => ({
                 label: record.message,
                 css: isPoolNameTouched ? (record.valid ? 'success' : 'error') : ''

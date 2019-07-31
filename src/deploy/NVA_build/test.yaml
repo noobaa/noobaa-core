@@ -16,7 +16,7 @@ spec:
       containers:
       - name: noobaa-test
         image: noobaaimages.azurecr.io/noobaa/nbtests
-        command: ["node", "src/test/qa/dataset.js", "--help"]
+        command: ["node", "src/test/pipeline/dataset.js", "--help"]
       restartPolicy: Never
       imagePullSecrets:
         - name: noobaaimages.azurecr.io

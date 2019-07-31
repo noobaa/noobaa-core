@@ -269,7 +269,7 @@ function updates_if_first_resource(req, pool) {
     if (pools.length) return;
     // so this is the first resource to be added to the system
     _.each(system_store.data.accounts, account => {
-        if (account.default_pool) {
+        if (account.default_pool && account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL) {
             updates.push({
                 _id: account._id,
                 $set: {
@@ -558,9 +558,9 @@ async function delete_hosts_pool(req, pool) {
 
         dbg.log0(`delete_hosts_pool: removing pool ${pool.name} from the database`);
         await system_store.make_changes({
-             remove: {
-                 pools: [pool._id]
-             }
+            remove: {
+                pools: [pool._id]
+            }
         });
 
         Dispatcher.instance().activity({

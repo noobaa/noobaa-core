@@ -234,6 +234,10 @@ export default {
             cloud_assign_region: {
                 message: 'Cloud Resource Region Assigned',
                 entityId: ({ pool }) => pool && pool.name
+            },
+            scale: {
+                message: 'Pool Scaled',
+                entityId: ({ pool }) => pool && pool.name
             }
         }
     },

@@ -1,6 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 
-export function validateName(name = '', existing) {
+export function validateName(name = '', existing, disallowPeriods = false) {
+    const symbolsRule = disallowPeriods ? {
+        valid: name && /^[a-z0-9-]*$/.test(name) &&
+            !name.includes(' ') &&
+            !name.includes('--'),
+        message: 'Only lowercase letters, numbers and nonconsecutive hyphens'
+    } : {
+        valid: name && /^[a-z0-9.-]*$/.test(name) &&
+            !name.includes(' ') &&
+            !name.includes('..') &&
+            !name.includes('.-') &&
+            !name.includes('-.') &&
+            !name.includes('--'),
+        message: 'Only lowercase letters, numbers, nonconsecutive periods or hyphens'
+    };
+
     return [
         {
             valid: 3 <= name.length && name.length <= 63,
@@ -10,15 +25,7 @@ export function validateName(name = '', existing) {
             valid: /^[a-z0-9].*[a-z0-9]$/.test(name),
             message: 'Starts and ends with a lowercase letter or number'
         },
-        {
-            valid: name && /^[a-z0-9.-]*$/.test(name) &&
-                !name.includes(' ') &&
-                !name.includes('..') &&
-                !name.includes('.-') &&
-                !name.includes('-.') &&
-                !name.includes('--'),
-            message: 'Only lowercase letters, numbers, nonconsecutive periods or hyphens'
-        },
+        symbolsRule,
         {
             valid: name && !/^\d+\.\d+\.\d+\.\d+$/.test(name),
             message: 'Avoid using the form of an IP address'

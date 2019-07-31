@@ -33,7 +33,9 @@ class ProgressBarViewModel {
             {
                 visible: marker,
                 position: 1,
-                text: numeral(ratio).format('%')
+                text: ko.pureComputed(() =>
+                    numeral(ratio()).format('%')
+                )
             }
         ];
     }

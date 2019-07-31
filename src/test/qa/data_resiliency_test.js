@@ -10,7 +10,7 @@ const test_utils = require('../system_tests/test_utils');
 dbg.set_process_name('data_availability');
 
 let failures_in_test = false;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 let errors = [];
 let files = [];
 let current_size = 0;

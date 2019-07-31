@@ -16,7 +16,7 @@ dbg.set_process_name(test_name);
 
 let bf_compatible;
 let cf_compatible;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 const server = [];
 
 const {

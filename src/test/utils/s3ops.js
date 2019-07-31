@@ -13,9 +13,6 @@ const promise_utils = require('../../util/promise_utils');
 
 require('../../util/dotenv').load();
 
-// const port = process.env.ENDPOINT_PORT || 80;
-// const ssl_port = process.env.ENDPOINT_SSL_PORT || 443;
-
 const verify_md5_map = new Map();
 
 class S3OPS {

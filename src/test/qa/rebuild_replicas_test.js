@@ -13,7 +13,7 @@ dbg.set_process_name('rebuild_replicas');
 
 let files = [];
 let errors = [];
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 
 //defining the required parameters
 const {

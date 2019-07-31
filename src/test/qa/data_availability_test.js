@@ -14,7 +14,7 @@ dbg.set_process_name('data_availability');
 let files = [];
 let errors = [];
 let current_size = 0;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 let failures_in_test = false;
 
 //defining the required parameters

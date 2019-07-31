@@ -15,7 +15,7 @@ dbg.set_process_name('spillover');
 
 let errors = [];
 let failures_in_test = false;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 const time_stamp = (Math.floor(Date.now() / 1000));
 const bucket = 'spillover.bucket' + time_stamp;
 const healthy_pool = 'healthy.pool' + time_stamp;

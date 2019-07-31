@@ -15,7 +15,7 @@ dbg.set_process_name(test_name);
 let files = [];
 let errors = [];
 let current_size = 0;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 
 const {
     mgmt_ip,

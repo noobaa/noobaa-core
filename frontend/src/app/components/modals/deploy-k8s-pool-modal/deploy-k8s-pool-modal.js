@@ -7,8 +7,10 @@ import { isFormValid, getFormValues, isFieldTouched } from 'utils/form-utils';
 import { validateName } from 'utils/validation-utils';
 import { deepFreeze, throttle } from 'utils/core-utils';
 import { fromSizeAndUnit, unitsInBytes, formatSize } from 'utils/size-utils';
+import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle } from 'config';
 import numeral from 'numeral';
+import * as routes from 'routes';
 import {
     updateForm,
     touchForm,
@@ -50,6 +52,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
     formattedNodeCount = ko.observable();
     formattedCapacity = ko.observable()
     deployBtnLabel = ko.observable();
+    poolTableHref = ko.observable();
     fields = {
         step: 0,
         poolName: '',
@@ -63,11 +66,12 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
         return [
             state.hostPools,
             state.cloudResources,
+            state.system && state.system.name,
             state.forms[this.formName]
         ];
     }
 
-    mapStateToProps(hostPools, cloudResources, form) {
+    mapStateToProps(hostPools, cloudResources, systemName, form) {
         if (!hostPools || !cloudResources || !form) {
             return;
         }
@@ -92,13 +96,19 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
                 (deployMethod === 'YAML' && 'Download YAML') ||
                 '';
 
+        const poolTableHref = realizeUri(routes.resources, {
+            system: systemName,
+            tab: 'pools'
+        });
+
         ko.assignToProps(this, {
             existingNames,
             nameRestrictionList,
             isStepValid: isFormValid(form),
             formattedNodeCount,
             formattedCapacity,
-            deployBtnLabel
+            deployBtnLabel,
+            poolTableHref
         });
     }
 

@@ -9,6 +9,25 @@ import {
     closeModal
 } from 'action-creators';
 
+function _getSelectedAccount(accountsWithS3Access, user, form) {
+    if (form) {
+        return accountsWithS3Access.find(account =>
+            account.name === getFieldValue(form, 'selectedAccount')
+        );
+    }
+
+    // return the user account if it have s3 acceess.
+    const userAccount = accountsWithS3Access.find(account =>
+        account.name === user
+    );
+    if (userAccount) {
+        return userAccount;
+    }
+
+    // Return the first user with s3 access.
+    return accountsWithS3Access[0];
+}
+
 class ConnectAppModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     fields = ko.observable();
@@ -28,6 +47,7 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         {
             label: 'REST Endpoint',
             value: this.endpoint,
+            template: 'valueWithTooltip',
             allowCopy: true
         },
         {
@@ -43,33 +63,35 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
     ];
 
     selectState(state) {
-        const { accounts, location, forms } = state;
+        const { accounts, location, session, forms } = state;
         return [
             accounts,
             location.hostname,
+            session && session.user,
             forms[this.formName]
         ];
     }
 
-    mapStateToProps(accounts, hostname, form) {
-        if (!accounts) {
+    mapStateToProps(accounts, hostname, user, form) {
+        if (!accounts || !user) {
             return;
         }
 
         const accountList = Object.values(accounts)
-            .filter(account => account.hasS3Access);
+            .filter(account =>
+                account.hasS3Access &&
+                account.roles.every(role => role !== 'operator')
+            );
         const accountOptions = accountList.map(account => account.name);
-        const { name: selectedAccount } = form ?
-            accountList.find(account => account.name === getFieldValue(form, 'selectedAccount')) :
-            accountList.find(account => account.isOwner);
+        const account = _getSelectedAccount(accountList, user, form);
 
         ko.assignToProps(this, {
             accountOptions: accountOptions,
-            accessKey: accounts[selectedAccount].accessKeys.accessKey,
-            secretKey: accounts[selectedAccount].accessKeys.secretKey,
+            accessKey: account.accessKeys.accessKey,
+            secretKey: account.accessKeys.secretKey,
             endpoint: hostname,
             fields: !form ?
-                { selectedAccount } :
+                { selectedAccount: account.name } :
                 undefined
         });
     }

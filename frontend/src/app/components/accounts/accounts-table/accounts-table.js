@@ -162,7 +162,8 @@ class AccountsTableViewModel extends ConnectableViewModel {
             const order = Number(location.query.order || 0);
             const { compareKey } = columns.find(column => column.name === sortBy);
             const compareAccounts = createCompareFunc(compareKey, order);
-            const accountList = Object.values(accounts);
+            const accountList = Object.values(accounts)
+                .filter(account => account.roles.every(role => role !== 'operator'));
             const pageStart = page * this.pageSize;
             const filteredRows = accountList.filter(account =>
                 !filter || account.name.toLowerCase().includes(filter.toLowerCase())

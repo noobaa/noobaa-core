@@ -29,8 +29,10 @@
 
         <div ko.tooltip="uploadButton().tooltip">
             <button class="upload-btn btn"
+                ko.visible="uploadButton().visible"
                 ko.disable="uploadButton().disabled"
-                ko.click="() => fileSelectorExpanded.toggle()">
+                ko.click="() => fileSelectorExpanded.toggle()
+            ">
                 Upload Objects
             </button>
         </div>

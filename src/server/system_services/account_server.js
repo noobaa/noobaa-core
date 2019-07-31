@@ -598,37 +598,20 @@ function delete_account(req) {
  *
  */
 function list_accounts(req) {
-    let accounts;
-    if (req.account && req.account.is_support) {
-        // for support account - list all accounts
-        accounts = system_store.data.accounts;
-    } else if (req.account) {
-        // list system accounts - system admin can see all the system accounts
-        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin') &&
-            !_.includes(req.account.roles_by_system[req.system._id], 'operator')) {
-            throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
-        }
-
-        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
-            (roles && roles.length && !_.includes(roles, 'operator') ? account_id : null)
-        );
-
-        accounts = _.compact(
-            _.map(
-                account_ids,
-                account_id => system_store.data.get_by_id(account_id)
-            )
-        );
+    // list system accounts is supported only for  admin / operator / support
+    const is_support = req.account.is_support;
+    const roles = req.account.roles_by_system[req.system._id];
+    if (!is_support && !roles.includes('admin') && !roles.includes('operator)')) {
+        throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
     }
 
-    return {
-        accounts: _.map(
-            accounts,
-            account => get_account_info(account, req.account === account)
-        )
-    };
-}
+    // for support account - list all accounts
+    const accounts = system_store.data.accounts
+        .filter(account => is_support || !account.is_support)
+        .map(account => get_account_info(account, req.account === account));
 
+    return { accounts };
+}
 
 /**
  *

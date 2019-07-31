@@ -75,7 +75,13 @@ module.exports = {
                 properties: {
                     token: {
                         type: 'string'
-                    }
+                    },
+                    access_keys: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/access_keys'
+                        }
+                    },
                 }
             },
             auth: {

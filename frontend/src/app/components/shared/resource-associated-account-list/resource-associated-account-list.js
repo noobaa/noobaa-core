@@ -67,13 +67,15 @@ class ResourceAssociatedAccountListViewModel extends ConnectableViewModel {
                 dataReady: true,
                 subject: subject,
                 accountCount: numeral(accountList.length || 0).format(','),
-                accounts: accountList.map(account => ({
-                    name: account.name,
-                    href: realizeUri(
-                        routes.account,
-                        { system, account: account.name }
-                    )
-                }))
+                accounts: accountList
+                    .filter(account => account.roles.every(role => role !== 'operator'))
+                    .map(account => ({
+                        name: account.name,
+                        href: realizeUri(
+                            routes.account,
+                            { system, account: account.name }
+                        )
+                    }))
             });
         }
     }

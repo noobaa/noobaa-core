@@ -41,7 +41,7 @@
                     ></svg-icon>
                     <span class="remark">
                         If you wish to scale up an existing kubernetes pool go to <br>
-                        Resources > Pools > kubernetes pool
+                        <a class="link" ko.attr.href="poolTableHref">Resources > Pools</a>
                     </span>
                 </p>
                 <wizard-controls></wizard-controls>
@@ -88,7 +88,15 @@
                     <p class="remark" ko.visible="$form.isValid()">This cannot be changed later on</p>
                 </editor>
             </div>
-            <div class="content-box pad column content-end">
+            <div class="content-box pad row content-middle">
+                <p class="greedy push-next row">
+                    <svg-icon class="icon-small push-next-quarter"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    <span class="remark">
+                        For each new node one PV will be created
+                    </span>
+                </p>
                 <wizard-controls></wizard-controls>
             </div>
         </section>

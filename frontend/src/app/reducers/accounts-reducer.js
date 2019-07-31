@@ -15,61 +15,69 @@ const initialState = undefined;
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(_, { payload }) {
-    const { buckets, accounts, owner, pools } = payload;
+    const { name: systemName, buckets, accounts, owner, pools } = payload;
     const allBuckets = buckets.map(bucket => bucket.name);
 
-    return keyByProperty(accounts, 'email', account => {
-        const {
-            email,
-            has_login,
-            access_keys,
-            has_s3_access,
-            default_pool,
-            allowed_buckets,
-            can_create_buckets,
-            allowed_ips,
-            external_connections
-        } = account;
-
-
-
-        const {
-            access_key: accessKey,
-            secret_key: secretKey
-        } = access_keys[0];
-
-        const hasAccessToAllBuckets = has_s3_access && allowed_buckets.full_permission;
-        const allowedBuckets = has_s3_access ?
-            (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
-            [];
-
-        const externalConnections = _mapExternalConnections(external_connections);
-
-        const internalResource = pools.find(pool =>
-            pool.resource_type === 'INTERNAL'
-        );
-
-        return {
-            name: email,
-            isOwner: email === owner.email,
-            hasLoginAccess: has_login,
-            hasS3Access: has_s3_access,
-            hasAccessToAllBuckets,
-            allowedBuckets,
-            canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
-            defaultResource: default_pool !== internalResource.name  ?
-                default_pool :
-                'INTERNAL_STORAGE',
-            accessKeys: { accessKey, secretKey },
-            allowedIps: allowed_ips,
-            externalConnections
-        };
-    });
+    return keyByProperty(accounts, 'email', account =>
+        _mapAccount(account, owner, systemName, pools, allBuckets)
+    );
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
+function _mapAccount(account, owner, systemName, pools, allBuckets) {
+    const {
+        email,
+        has_login,
+        access_keys,
+        has_s3_access,
+        default_pool,
+        allowed_buckets,
+        can_create_buckets,
+        allowed_ips,
+        external_connections
+    } = account;
+
+    const {
+        access_key: accessKey,
+        secret_key: secretKey
+    } = access_keys[0];
+
+    const hasAccessToAllBuckets = has_s3_access && allowed_buckets.full_permission;
+    const allowedBuckets = has_s3_access ?
+        (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
+        [];
+
+    const externalConnections = _mapExternalConnections(external_connections);
+
+    const internalResource = pools.find(pool =>
+        pool.resource_type === 'INTERNAL'
+    );
+
+    const { roles } = account.systems.find(system =>
+        system.name === systemName
+    );
+
+
+    return {
+        name: email,
+        isOwner: email === owner.email,
+        hasLoginAccess: has_login,
+        hasS3Access: has_s3_access,
+        hasAccessToAllBuckets,
+        allowedBuckets,
+        canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
+        defaultResource: default_pool !== internalResource.name  ?
+            default_pool :
+            'INTERNAL_STORAGE',
+        accessKeys: { accessKey, secretKey },
+        allowedIps: allowed_ips,
+        externalConnections,
+        roles
+    };
+}
+
 function _mapExternalConnections(externalConnections) {
     return externalConnections.connections.map(conn => {
         const { name, auth_method, endpoint_type, identity, cp_code } = conn;

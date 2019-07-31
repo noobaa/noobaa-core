@@ -24,6 +24,11 @@
 
         <div class="content-box pad greedy push-next">
             <property-sheet class="greedy" params="properties: details">
+                <template name="valueWithTooltip">
+                    <div ko.tooltip="$data">
+                        <div class="no-wrap">{{$data}}</div>
+                    </div>
+                </template>
             </property-sheet>
         </div>
     </div>

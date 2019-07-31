@@ -277,6 +277,7 @@ class BucketObjectsTableViewModel extends Observer {
         const httpsNoCert = location.protocol === 'https' && !sslCert;
         const isReadOnly = !isBucketWritable(bucket);
         const uploadButton = {
+            visible: false, // WE may renable this when we fix the cert issues.
             disabled: !account.isOwner || isReadOnly || httpsNoCert,
             tooltip: _getUploadTooltip(account.isOwner, isReadOnly, httpsNoCert)
         };

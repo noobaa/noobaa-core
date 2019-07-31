@@ -12,7 +12,8 @@ export default {
             'hasLoginAccess',
             'hasS3Access',
             'isOwner',
-            'name'
+            'name',
+            'roles'
         ],
         properties: {
             accessKeys: {
@@ -136,6 +137,12 @@ export default {
             },
             name: {
                 type: 'string'
+            },
+            roles: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
             }
         }
     }

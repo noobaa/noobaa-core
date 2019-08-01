@@ -126,6 +126,11 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                 text: disabledActionTooltip
             } : '';
 
+            const defaultResourceName =
+                (defaultResource === 'INTERNAL_STORAGE' && 'Internal Storage') ||
+                defaultResource ||
+                'Not Set';
+
             ko.assignToProps(this, {
                 dataReady: true,
                 accountName: account.name,
@@ -145,7 +150,7 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                         disabled: !hasS3Access
                     },
                     {
-                        value: defaultResource || 'Not set',
+                        value: defaultResourceName,
                         disabled: !hasS3Access
                     },
                     {

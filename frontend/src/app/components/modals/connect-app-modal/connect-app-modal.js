@@ -80,7 +80,7 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         const accountList = Object.values(accounts)
             .filter(account =>
                 account.hasS3Access &&
-                account.roles.every(role => role !== 'operator')
+                !account.roles.includes('operator')
             );
         const accountOptions = accountList.map(account => account.name);
         const account = _getSelectedAccount(accountList, user, form);

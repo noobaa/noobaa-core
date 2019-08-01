@@ -99,9 +99,11 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
         } else {
             if (route !== routes.bucket) return;
 
-            const conenctedAccounts = Object.values(accounts).filter(account =>
-                account.allowedBuckets.includes(params.bucket)
-            );
+            const conenctedAccounts = Object.values(accounts)
+                .filter(account =>
+                    account.allowedBuckets.includes(params.bucket) &&
+                    !account.roles.includes('operator')
+                );
 
             const accountCount = conenctedAccounts.length;
             const summary = `${

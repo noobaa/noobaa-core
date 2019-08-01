@@ -130,21 +130,24 @@ async function create_account(req) {
         }
     }
 
-    Dispatcher.instance().activity({
-        event: 'account.create',
-        level: 'info',
-        system: (req.system && req.system._id) || sys_id,
-        actor: req.account && req.account._id,
-        account: account._id,
-        desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
-    });
-
     const roles = account_roles.map(role => ({
         _id: system_store.new_system_store_id(),
         account: account._id,
         system: sys_id,
         role
     }));
+
+    // Suppress audit entry for creation of operator account.
+    if (!account_roles.includes('operator')) {
+        Dispatcher.instance().activity({
+            event: 'account.create',
+            level: 'info',
+            system: (req.system && req.system._id) || sys_id,
+            actor: req.account && req.account._id,
+            account: account._id,
+            desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
+        });
+    }
 
     await system_store.make_changes({
         insert: {

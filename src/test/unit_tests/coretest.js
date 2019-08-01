@@ -329,8 +329,6 @@ async function clear_test_pools() {
     // Prevent accounts from preventing pool deletions (by using a pool as default resource)
     // by disabling s3 access for all accounts.
     const { accounts } = await rpc_client.account.list_accounts({});
-    // add entry for operator account
-    accounts.push({ email: config.OPERATOR_ACCOUNT_EMAIL });
     await Promise.all(accounts.map(account =>
         rpc_client.account.update_account_s3_access({
             email: account.email,

@@ -947,7 +947,7 @@ function calc_mongo_pool_mode(p) {
         'ALL_NODES_OFFLINE';
 }
 
-/*eslint complexity: ["error", 50]*/
+/*eslint complexity: ["error", 60]*/
 function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const { hosts, storage, is_managed } = pool_info;
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
@@ -957,6 +957,7 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const storage_optimal = storage_by_mode.OPTIMAL || 0;
     const storage_offline_ratio = (storage_offline / host_count) * 100;
     const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
+    const hosts_initializing = hosts.by_mode.INITIALIZING || 0;
     const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
     const s3_count = hosts.by_service.GATEWAY;
     const s3_optimal = s3_by_mode.OPTIMAL || 0;
@@ -968,10 +969,10 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
         .reduce((sum, val) => sum + val.count, 0);
     const activity_ratio = (activity_count / host_count) * 100;
 
-    return (!is_managed && host_count === 0 && 'HAS_NO_NODES') ||
-        (is_managed && hosts.configured_count === 0 && 'DELETING') ||
-        (is_managed && host_count === 0 && 'INITIALIZING') ||
+    return (is_managed && hosts.configured_count === 0 && 'DELETING') ||
+        (is_managed && host_count === hosts_initializing && 'INITIALIZING') ||
         (is_managed && host_count !== hosts.configured_count && 'SCALING') ||
+        (host_count === 0 && 'HAS_NO_NODES') ||
         (storage_offline === storage_count && 'ALL_NODES_OFFLINE') ||
         (free < NO_CAPAITY_LIMIT && 'NO_CAPACITY') ||
         (hosts_migrating === host_count && 'ALL_HOSTS_IN_PROCESS') ||

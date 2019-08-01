@@ -50,7 +50,9 @@ class EditBucketS3AccessModalViewModel extends ConnectableViewModel {
         ko.assignToProps(this, {
             bucketName,
             accountsHref: realizeUri(routes.accounts, { system }),
-            accountOptions: accountList.map(_getAccountOption),
+            accountOptions: accountList
+                .filter(account => !account.roles.includes('operator'))
+                .map(_getAccountOption),
             fields: !form ? {
                 selectedAccounts: _getSelectedAccounts(accountList, bucketName)
             } : undefined

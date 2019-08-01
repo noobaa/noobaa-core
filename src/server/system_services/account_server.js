@@ -603,8 +603,8 @@ function delete_account(req) {
 function list_accounts(req) {
     // list system accounts is supported only for  admin / operator / support
     const is_support = req.account.is_support;
-    const roles = req.account.roles_by_system[req.system._id];
-    if (!is_support && !roles.includes('admin') && !roles.includes('operator)')) {
+    const roles = !is_support && req.account.roles_by_system[req.system._id];
+    if (!is_support && roles && !roles.includes('admin') && !roles.includes('operator')) {
         throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
     }
 

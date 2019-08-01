@@ -156,8 +156,7 @@ function _mapPoolToRow(
             total: storage.total,
             used: [
                 { value: storage.used },
-                { value: storage.usedOther },
-                { value: storage.reserved }
+                { value: storage.usedOther }
             ]
         },
         deleteButton: {
@@ -192,10 +191,6 @@ class RowViewModel {
             },
             {
                 label: 'Used (other)',
-                value: ko.observable()
-            },
-            {
-                label: 'Reserved',
                 value: ko.observable()
             }
         ]

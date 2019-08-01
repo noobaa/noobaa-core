@@ -22,6 +22,7 @@ const policyName = 'data-resiliency';
 const rebuildEffortToDisplay = deepFreeze({
     LOW: {
         text: 'Low',
+        css: '',
         moreInfo: {
             severity: 'normal',
             tooltip: {
@@ -32,6 +33,7 @@ const rebuildEffortToDisplay = deepFreeze({
     },
     HIGH: {
         text: 'High',
+        css: '',
         moreInfo: {
             severity: 'normal',
             tooltip: {
@@ -70,7 +72,11 @@ function _getConfiguredFailureTolerance(resiliency) {
             }
         };
     } else {
-        return { text };
+        return {
+            text,
+            css: '',
+            moreInfo: null
+        };
     }
 }
 
@@ -92,6 +98,7 @@ function _getActualFailureTolerance(actualTolerance, configuredTolerance, requir
     } else {
         return {
             text: text,
+            css: '',
             moreInfo: {
                 severity: 'normal',
                 tooltip: {

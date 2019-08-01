@@ -15,12 +15,11 @@ import {
 import {
     closeModal,
     updateForm,
-    updateBucketResiliencyPolicy,
-    openRiskyBucketDataResiliencyWarningModal
+    updateBucketResiliencyPolicy
 } from 'action-creators';
 
 const defaults = deepFreeze({
-    replicas: 3,
+    replicas: 1,
     dataFrags: 4,
     parityFrags: 2
 });
@@ -101,13 +100,11 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
     repFailureTolerance = ko.observable();
     repRequiredDrives = ko.observable();
     repRebuildEffort = ko.observable();
-    repIsPolicyRisky = false;
     ecDisribution = ko.observable();
     ecStorageOverhead = ko.observable();
     ecFailureTolerance = ko.observable();
     ecRequiredDrives = ko.observable();
     ecRebuildEffort = ko.observable();
-    ecIsPolicyRisky = false;
     learnMoreHref = learnMoreHref
     fields = ko.observable();
 
@@ -163,13 +160,11 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
             repFailureTolerance: _getFailureToleranceInfo(repSummary.failureTolerance),
             repRequiredDrives: repRequiredDrives,
             repRebuildEffort: rebuildEffortToDisplay[repSummary.rebuildEffort],
-            repIsPolicyRisky: repSummary.failureTolerance < 2,
             ecDisribution: `${ecSummary.dataFrags} + ${ecSummary.parityFrags}`,
             ecStorageOverhead: numeral(ecSummary.storageOverhead).format('%'),
             ecFailureTolerance: _getFailureToleranceInfo(ecSummary.failureTolerance),
             ecRequiredDrives: ecRequiredDrives,
             ecRebuildEffort: _getErasureCodingRebuildEffortInfo(ecSummary.rebuildEffort),
-            ecIsPolicyRisky: ecSummary.failureTolerance < 2,
             fields: !form ? values : undefined
         });
     }
@@ -216,24 +211,10 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
             pick(values, ['resiliencyType', 'replicas']) :
             pick(values, ['resiliencyType', 'dataFrags', 'parityFrags']);
 
-        const action = updateBucketResiliencyPolicy(
-            this.bucketName,
-            policy
+        this.dispatch(
+            closeModal(),
+            updateBucketResiliencyPolicy(this.bucketName, policy)
         );
-
-        const isPolicyRisky = resiliencyType === 'REPLICATION' ?
-            this.repIsPolicyRisky :
-            this.ecIsPolicyRisky;
-
-        if (isPolicyRisky) {
-            this.dispatch(openRiskyBucketDataResiliencyWarningModal(action));
-
-        } else {
-            this.dispatch(
-                closeModal(),
-                action
-            );
-        }
     }
 }
 

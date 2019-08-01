@@ -36,16 +36,14 @@ function _mapStorageAndUsage(host) {
         unavailableFree = 0,
         used = 0,
         unavailableUsed = 0,
-        usedOther = 0,
-        reserved = 0
+        usedOther = 0
     } = mapValues(host.storage, toBytes);
 
     return {
         availableCapacity: free,
         unavailableCapacity: unavailableFree,
         usedByNoobaaCapacity: used + unavailableUsed,
-        usedByOthersCapacity: usedOther,
-        reservedCapacity: reserved
+        usedByOthersCapacity: usedOther
     };
 }
 
@@ -107,7 +105,6 @@ class HostSummaryViewModel extends ConnectableViewModel {
     unavailableCapacity = ko.observable();
     usedByNoobaaCapacity = ko.observable();
     usedByOthersCapacity = ko.observable();
-    reservedCapacity = ko.observable();
     pieValues = [
         {
             label: 'Available',
@@ -132,12 +129,6 @@ class HostSummaryViewModel extends ConnectableViewModel {
             color: 'rgb(var(--color29))',
             value: this.usedByOthersCapacity,
             tooltip: 'The machine utilization by OS, local files etc'
-        },
-        {
-            label: 'Reserved',
-            color: 'rgb(var(--color25))',
-            value: this.reservedCapacity,
-            tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
         }
     ];
 

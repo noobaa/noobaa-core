@@ -603,11 +603,10 @@ export function getHostAccessibilityIcon(host) {
 }
 
 export function getNodeOrHostCapacityBarValues({ storage }) {
-    const { total, used, usedOther, reserved } = storage;
+    const { total, used, usedOther} = storage;
     const usage = [
         { value: used, label: 'Used (Noobaa)' },
-        { value: usedOther, label: 'Used (other)' },
-        { value: reserved, label: 'Reserved' }
+        { value: usedOther, label: 'Used (other)' }
     ];
     return { total, used: usage };
 }

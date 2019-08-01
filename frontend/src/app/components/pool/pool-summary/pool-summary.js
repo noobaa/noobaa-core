@@ -22,13 +22,12 @@ function _mapStateAndStatus(pool) {
 }
 
 function _mapStorageAndUsage(pool) {
-    const { free, unavailableFree, used, usedOther, reserved } = pool.storage;
+    const { free, unavailableFree, used, usedOther } = pool.storage;
     return {
         availableCapacity: toBytes(free),
         unavailableCapacity: toBytes(unavailableFree),
         usedByNoobaaCapacity: toBytes(used),
-        usedByOthersCapacity: toBytes(usedOther),
-        reservedCapacity: toBytes(reserved)
+        usedByOthersCapacity: toBytes(usedOther)
     };
 }
 
@@ -86,7 +85,6 @@ class PoolSummaryViewModel extends ConnectableViewModel {
     unavailableCapacity = ko.observable();
     usedByNoobaaCapacity = ko.observable();
     usedByOthersCapacity = ko.observable();
-    reservedCapacity = ko.observable();
     inProcessHotsts = ko.observable();
     pieValues = [
         {
@@ -112,12 +110,6 @@ class PoolSummaryViewModel extends ConnectableViewModel {
             color: 'rgb(var(--color29))',
             value: this.usedByOthersCapacity,
             tooltip: 'The machines utilization by OS, local files etc'
-        },
-        {
-            label: 'Reserved',
-            color: 'rgb(var(--color25))',
-            value: this.reservedCapacity,
-            tooltip: 'NooBaa reserves 10GB from each storage node to avoid a complete utilization of the local storage on the machine'
         }
     ];
 

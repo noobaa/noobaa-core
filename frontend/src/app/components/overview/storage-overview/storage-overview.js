@@ -3,7 +3,7 @@
 import template from './storage-overview.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { toBytes, formatSize, unitsInBytes, fromBigInteger, toBigInteger } from 'utils/size-utils';
+import { toBytes, formatSize, unitsInBytes } from 'utils/size-utils';
 import { aggregateStorage } from 'utils/storage-utils';
 import numeral from 'numeral';
 
@@ -69,10 +69,10 @@ class StorageOverviewViewModel extends ConnectableViewModel {
             tooltip: 'The raw storage used in the system'
         },
         {
-            label: 'Reserved & Unavailable',
+            label: 'Unavailable',
             value: ko.observable(),
             color: 'rgb(var(--color14))',
-            tooltip: 'All offline resources or unusable storage such as OS usage and reserved capacity'
+            tooltip: 'All offline resources or unusable storage such as OS usage'
         },
         {
             label: 'Available',
@@ -113,9 +113,7 @@ class StorageOverviewViewModel extends ConnectableViewModel {
                 ...Object.values(cloudResources).map(resource => resource.storage)
             );
             const systemStorage = aggregateStorage(poolsStorage, cloudStorage, internalStorage);
-            const systemUnavailable = fromBigInteger(
-                toBigInteger(systemStorage.unavailableFree || 0).add(systemStorage.reserved || 0)
-            );
+            const systemUnavailable = (systemStorage.unavailableFree || 0);
 
             ko.assignToProps(this, {
                 dataReady: true,

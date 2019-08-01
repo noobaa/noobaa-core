@@ -27,11 +27,27 @@ const METRIC_RECORDS = Object.freeze([{
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'accounts_io_usage',
+    metric_variable: 'accounts_usage_read_count',
     configuration: {
-        name: get_metric_name('accounts_io_usage'),
-        help: 'Accounts I/O Usage',
-        labelNames: ['account', 'read_count', 'write_count']
+        name: get_metric_name('accounts_usage_read_count'),
+        help: 'Accounts Usage Read Count',
+        labelNames: ['account']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'accounts_usage_write_count',
+    configuration: {
+        name: get_metric_name('accounts_usage_write_count'),
+        help: 'Accounts Usage Write Count',
+        labelNames: ['account']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'accounts_usage_logical',
+    configuration: {
+        name: get_metric_name('accounts_usage_logical'),
+        help: 'Accounts Usage Logical',
+        labelNames: ['account']
     }
 }, {
     metric_type: 'Gauge',
@@ -59,27 +75,51 @@ const METRIC_RECORDS = Object.freeze([{
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'providers_bandwidth',
+    metric_variable: 'providers_bandwidth_write_size',
     configuration: {
-        name: get_metric_name('providers_bandwidth'),
-        help: 'Providers bandwidth usage',
-        labelNames: ['type', 'write_size', 'read_size']
+        name: get_metric_name('providers_bandwidth_write_size'),
+        help: 'Providers bandwidth write size',
+        labelNames: ['type']
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'providers_ops',
+    metric_variable: 'providers_bandwidth_read_size',
     configuration: {
-        name: get_metric_name('providers_ops'),
-        help: 'Providers number of operations',
-        labelNames: ['type', 'write_num', 'read_num']
+        name: get_metric_name('providers_bandwidth_read_size'),
+        help: 'Providers bandwidth read size',
+        labelNames: ['type']
     }
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'providers_physical_logical',
+    metric_variable: 'providers_ops_read_num',
     configuration: {
-        name: get_metric_name('providers_physical_logical'),
-        help: 'Providers Physical And Logical Stats',
-        labelNames: ['type', 'logical_size', 'physical_size']
+        name: get_metric_name('providers_ops_read_num'),
+        help: 'Providers number of read operations',
+        labelNames: ['type']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'providers_ops_write_num',
+    configuration: {
+        name: get_metric_name('providers_ops_write_num'),
+        help: 'Providers number of write operations',
+        labelNames: ['type']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'providers_physical_size',
+    configuration: {
+        name: get_metric_name('providers_physical_size'),
+        help: 'Providers Physical Stats',
+        labelNames: ['type']
+    }
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'providers_logical_size',
+    configuration: {
+        name: get_metric_name('providers_logical_size'),
+        help: 'Providers Logical Stats',
+        labelNames: ['type']
     }
 }, {
     metric_type: 'Gauge',
@@ -187,12 +227,20 @@ const METRIC_RECORDS = Object.freeze([{
     generate_default_set: true,
 }, {
     metric_type: 'Gauge',
-    metric_variable: 'object_savings',
+    metric_variable: 'object_savings_logical_size',
     configuration: {
-        name: get_metric_name('object_savings'),
-        help: 'Object Savings',
-        labelNames: ['logical_size', 'physical_size'],
+        name: get_metric_name('object_savings_logical_size'),
+        help: 'Object Savings Logical',
     },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'object_savings_physical_size',
+    configuration: {
+        name: get_metric_name('object_savings_physical_size'),
+        help: 'Object Savings Physical',
+    },
+    generate_default_set: true,
 }, {
     metric_type: 'Gauge',
     metric_variable: 'rebuild_progress',
@@ -327,10 +375,14 @@ class PrometheusReporting {
 
     set_accounts_io_usage(accounts_info) {
         if (!this.enabled()) return;
-        this._metrics.accounts_io_usage.reset();
+        this._metrics.accounts_usage_logical.reset();
+        this._metrics.accounts_usage_read_count.reset();
+        this._metrics.accounts_usage_write_count.reset();
         accounts_info.accounts.forEach(account_info => {
             const { account, read_count, write_count, read_write_bytes } = account_info;
-            this._metrics.accounts_io_usage.set({ account, read_count, write_count }, read_write_bytes);
+            this._metrics.accounts_usage_logical.set({ account }, read_write_bytes);
+            this._metrics.accounts_usage_read_count.set({ account }, read_count);
+            this._metrics.accounts_usage_write_count.set({ account }, write_count);
         });
     }
 
@@ -347,35 +399,22 @@ class PrometheusReporting {
 
     set_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        const { hashMap } = this._metrics.providers_bandwidth;
-        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
-        const record = hashMap[hashKey];
-        if (record) delete this._metrics.providers_bandwidth.hashMap[hashKey];
-        this._metrics.providers_bandwidth.set({ type, write_size, read_size }, Date.now());
+        this._metrics.providers_bandwidth_read_size.set({ type }, read_size);
+        this._metrics.providers_bandwidth_write_size.set({ type }, write_size);
     }
 
     set_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        const { hashMap } = this._metrics.providers_ops;
-        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
-        const record = hashMap[hashKey];
-        if (record) delete this._metrics.providers_ops.hashMap[hashKey];
-        this._metrics.providers_ops.set({ type, write_num, read_num }, Date.now());
-    }
-
-    set_object_savings(savings) {
-        if (!this.enabled()) return;
-        this._metrics.object_savings.reset();
-        const { logical_size, physical_size } = savings;
-        this._metrics.object_savings.set({ logical_size, physical_size }, logical_size - physical_size);
+        this._metrics.providers_ops_read_num.set({ type }, read_num);
+        this._metrics.providers_ops_write_num.set({ type }, write_num);
     }
 
     set_providers_physical_logical(providers_stats) {
         if (!this.enabled()) return;
-        this._metrics.providers_physical_logical.reset();
         for (let [type, value] of Object.entries(providers_stats)) {
             const { logical_size, physical_size } = value;
-            this._metrics.providers_physical_logical.set({ type, physical_size, logical_size }, Date.now());
+            this._metrics.providers_physical_size.set({ type }, physical_size);
+            this._metrics.providers_logical_size.set({ type }, logical_size);
         }
     }
 
@@ -407,40 +446,14 @@ class PrometheusReporting {
 
     update_providers_bandwidth(type, write_size, read_size) {
         if (!this.enabled()) return;
-        const { hashMap } = this._metrics.providers_bandwidth;
-        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
-        const record = hashMap[hashKey];
-        let updated_labels = {
-            type,
-            write_size: (write_size || 0),
-            read_size: (read_size || 0),
-        };
-        if (record) {
-            const { labels } = record;
-            updated_labels.write_size += (labels.write_size || 0);
-            updated_labels.read_size += (labels.read_size || 0);
-            delete this._metrics.providers_bandwidth.hashMap[hashKey];
-        }
-        this._metrics.providers_bandwidth.set(updated_labels, Date.now());
+        this._metrics.providers_bandwidth_read_size.inc({ type }, read_size);
+        this._metrics.providers_bandwidth_write_size.inc({ type }, write_size);
     }
 
     update_providers_ops(type, write_num, read_num) {
         if (!this.enabled()) return;
-        const { hashMap } = this._metrics.providers_ops;
-        const hashKey = Object.keys(hashMap).find(key => key.includes(`type:${type}`));
-        const record = hashMap[hashKey];
-        let updated_labels = {
-            type,
-            write_num: (write_num || 0),
-            read_num: (read_num || 0),
-        };
-        if (record) {
-            const { labels } = record;
-            updated_labels.write_num += (labels.write_num || 0);
-            updated_labels.read_num += (labels.read_num || 0);
-            delete this._metrics.providers_ops.hashMap[hashKey];
-        }
-        this._metrics.providers_ops.set(updated_labels, Date.now());
+        this._metrics.providers_ops_read_num.inc({ type }, read_num);
+        this._metrics.providers_ops_write_num.inc({ type }, write_num);
     }
 }
 

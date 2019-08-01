@@ -874,6 +874,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         unhealthy_bucket_claims,
     } = buckets_stats;
     const { unhealthy_pool_count, pool_count, resources } = cloud_pool_stats;
+    const { logical_size, physical_size } = savings;
 
     prom_report.instance().set_providers_physical_logical(providers_stats);
     prom_report.instance().set_cloud_types(cloud_pool_stats);
@@ -891,7 +892,8 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);
     prom_report.instance().set_system_capacity(capacity);
     prom_report.instance().set_reduction_ratio(reduction_ratio);
-    prom_report.instance().set_object_savings(savings);
+    prom_report.instance().set_object_savings_physical_size(physical_size);
+    prom_report.instance().set_object_savings_logical_size(logical_size);
     prom_report.instance().set_bucket_class_capacity_usage(usage_by_bucket_class);
     prom_report.instance().set_projects_capacity_usage(usage_by_project);
     prom_report.instance().set_accounts_io_usage(accounts_stats);

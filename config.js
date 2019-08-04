@@ -15,8 +15,8 @@ const os = require('os');
 config.NODES_MIN_COUNT = 3;
 config.NODES_PER_CLOUD_POOL = 1;
 config.NODES_PER_MONGO_POOL = 1;
-// in kubernetes use reserve oof 1GB instead of 10GB
-config.NODES_FREE_SPACE_RESERVE = 1 * (1024 ** 3);
+// in kubernetes use reserve of 100MB instead of 10GB
+config.NODES_FREE_SPACE_RESERVE = 100 * (1024 ** 2);
 
 // don't use agents with less than reserve + 5 GB
 config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (1024 ** 3))

@@ -189,7 +189,7 @@ async function create_hosts_pool(req) {
     });
 
     try {
-        const routing_hint = hosts_pool_info.is_managed ? 'EXTERNAL' : 'INTERNAL';
+        const routing_hint = hosts_pool_info.is_managed ? 'INTERNAL' : 'INTERNAL';
         const agent_install_string = await get_agent_install_conf(system, pool, account, routing_hint);
         const agent_profile = Object.assign(
             JSON.parse(process.env.AGENT_PROFILE || '{}'),

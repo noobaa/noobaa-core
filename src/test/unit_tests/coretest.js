@@ -262,7 +262,7 @@ async function overwrite_system_address(system_name) {
         port: Number(port),
         api: 'mgmt',
         secure: protocol === 'wss:',
-        kind: 'EXTERNAL',
+        kind: 'INTERNAL',
         hostname
     }];
 

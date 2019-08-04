@@ -555,7 +555,7 @@ class S3OPS {
         }
     }
 
-    get_list_buckets() {
+    get_list_buckets(print_error = true) {
         let params = {};
         let list = [];
         let listBuckets = [];
@@ -573,7 +573,9 @@ class S3OPS {
                 return listBuckets;
             })
             .catch(err => {
-                this.log_error('Getting list of buckets return error: ', err);
+                if (print_error) {
+                    this.log_error('Getting list of buckets return error: ', err);
+                }
                 throw err;
             });
     }

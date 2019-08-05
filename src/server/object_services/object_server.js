@@ -268,7 +268,7 @@ async function complete_object_upload(req) {
 
 async function update_bucket_counters({ system, bucket_name, content_type, read_count, write_count }) {
     const bucket = system.buckets_by_name[bucket_name.unwrap()];
-    if (!bucket) return;
+    if (!bucket || bucket.deleting) return;
     await BucketStatsStore.instance().update_bucket_counters({
         system: system._id,
         bucket: bucket._id,
@@ -656,7 +656,7 @@ async function update_object_md(req) {
  */
 async function delete_object(req) {
     throw_if_maintenance(req);
-    load_bucket(req);
+    load_bucket(req, { include_deleting: true });
 
     const { reply, obj } = req.rpc_params.version_id ?
         await _delete_object_version(req) :
@@ -685,7 +685,7 @@ async function delete_object(req) {
 async function delete_multiple_objects(req) {
     dbg.log0('delete_multiple_objects: keys =', req.rpc_params.objects);
     throw_if_maintenance(req);
-    load_bucket(req);
+    load_bucket(req, { include_deleting: true });
     // group objects by key to run different keys concurrently but same keys sequentially.
     // we keep indexes to the requested objects list to return the results in the same order.
     const objects = req.rpc_params.objects;
@@ -735,17 +735,17 @@ async function delete_multiple_objects(req) {
  *
  */
 async function delete_multiple_objects_by_prefix(req) {
-    dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
-    load_bucket(req);
+    load_bucket(req, { include_deleting: true });
+    dbg.log0(`delete_multiple_objects_by_prefix: bucket=${req.bucket.name} prefix=${req.params.prefix}`);
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
+    const bucket_id = req.bucket._id;
     // TODO: change it to perform changes in batch. Won't scale.
     const { objects } = await MDStore.instance().find_objects({
-        bucket_id: req.bucket._id,
-        key: key,
+        bucket_id,
+        key,
         max_create_time: req.rpc_params.create_time,
-        // limit: ?,
+        limit: req.rpc_params.limit,
     });
-    dbg.log0('delete_multiple_objects_by_prefix:', _.map(objects, 'key'));
     await delete_multiple_objects(_.assign(req, {
         rpc_params: {
             bucket: req.bucket.name,
@@ -755,7 +755,31 @@ async function delete_multiple_objects_by_prefix(req) {
             }))
         }
     }));
+    const bucket_has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket_id);
+    return { is_empty: !bucket_has_objects };
 }
+
+
+// async function delete_all_objects(req) {
+//     dbg.log0('delete_all_objects. limit =', req.params.limit);
+//     load_bucket(req);
+//     const { objects } = await MDStore.instance().find_objects({
+//         bucket_id: req.bucket._id,
+//         limit: req.rpc_params.limit,
+//     });
+//     dbg.log0('delete_all_objects:', _.map(objects, 'key'));
+//     await delete_multiple_objects(_.assign(req, {
+//         rpc_params: {
+//             bucket: req.bucket.name,
+//             objects: _.map(objects, obj => ({
+//                 key: obj.key,
+//                 version_id: MDStore.instance().get_object_version_id(obj),
+//             }))
+//         }
+//     }));
+
+// }
+
 
 
 // The method list_objects is used for s3 access exclusively
@@ -1151,9 +1175,9 @@ function get_object_info(md) {
     };
 }
 
-function load_bucket(req) {
+function load_bucket(req, { include_deleting } = {}) {
     var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket.unwrap()];
-    if (!bucket) {
+    if (!bucket || (bucket.deleting && !include_deleting)) {
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
     req.check_s3_bucket_permission(bucket);

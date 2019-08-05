@@ -236,9 +236,26 @@ module.exports = {
                 required: ['name'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
+                    // internal_call is used by bucket_reclaimer to delete the bucket after it's empty
+                    internal_call: { type: 'boolean' },
                 }
             },
             auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_bucket_and_objects: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                // maybe only allow operator to perform this?
                 system: 'admin'
             }
         },

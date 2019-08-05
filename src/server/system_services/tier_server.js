@@ -297,7 +297,7 @@ function update_policy(req) {
 
 function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy
     var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
-    if (!bucket) {
+    if (!bucket || bucket.deleting) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
     }
@@ -321,7 +321,7 @@ function update_chunk_config_for_bucket(req) { // please remove when CCC is per 
 
 function add_tier_to_bucket(req) {
     var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
-    if (!bucket) {
+    if (!bucket || bucket.deleting) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
     }
@@ -425,7 +425,7 @@ function find_bucket_by_tier(req) {
         bkt => String(bkt.tiering._id) === String(policy._id)
     );
 
-    if (!bucket) {
+    if (!bucket || bucket.deleting) {
         return null;
         //throw new RpcError('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
     }

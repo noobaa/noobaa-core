@@ -9,7 +9,6 @@ const stream = require('stream');
 const crypto = require('crypto');
 const P = require('../../util/promise');
 const RandStream = require('../../util/rand_stream');
-const promise_utils = require('../../util/promise_utils');
 
 require('../../util/dotenv').load();
 
@@ -216,14 +215,12 @@ class S3OPS {
         let finish_byte = start_byte + jump;
         console.log(`>>> READ_RANGE - About to read object... ${file_name}, md5: ${file_md5}, parts: ${parts}`);
         try {
-            await promise_utils.pwhile(() => start_byte < file_size, () =>
-                this.get_object_range(bucket, file_name, start_byte, finish_byte, versionid)
-                .then(data => {
-                    md5.update(data);
-                    start_byte = finish_byte + 1;
-                    finish_byte = (start_byte + jump) > file_size ? file_size : (start_byte + jump);
-                })
-            );
+            while (start_byte < file_size) {
+                const data = await this.get_object_range(bucket, file_name, start_byte, finish_byte, versionid);
+                md5.update(data);
+                start_byte = finish_byte + 1;
+                finish_byte = (start_byte + jump) > file_size ? file_size : (start_byte + jump);
+            }
             const md5_digest = md5.digest('hex');
             if (md5_digest === file_md5) {
                 console.log(`file ${file_name} MD5 is: ${file_md5} on upload and download, size: ${file_size}`);
@@ -348,8 +345,8 @@ class S3OPS {
         }
     }
 
-    get_list_multipart_uploads_filters(bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
-        let params = {
+    async get_list_multipart_uploads_filters(bucket, delimiter, key_marker, max_uploads, prefix, uploadIdMarker) {
+        const params = {
             Bucket: bucket,
             Delimiter: delimiter,
             KeyMarker: key_marker,
@@ -359,24 +356,23 @@ class S3OPS {
         };
         let list = [];
         let listFiles = [];
-        return P.ninvoke(this.s3, 'listMultipartUploads', params)
-            .then(res => {
-                console.log(JSON.stringify(res));
-                list = res.Uploads;
-                if (list.length === 0) {
-                    console.warn('No objects in bucket with filters: ' + JSON.stringify(params));
-                } else {
-                    list.forEach(function(file) {
-                        listFiles.push({ Key: file.Key });
-                        console.log('files key is: ' + file.Key);
-                    });
-                }
-                return listFiles;
-            })
-            .catch(err => {
-                this.log_error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
-                throw err;
-            });
+        try {
+            const listMultipartUploads = await this.s3.listMultipartUploads(params).promise();
+            console.log(JSON.stringify(listMultipartUploads));
+            list = listMultipartUploads.Uploads;
+            if (list.length === 0) {
+                console.warn('No objects in bucket with filters: ' + JSON.stringify(params));
+            } else {
+                list.forEach(function(file) {
+                    listFiles.push({ Key: file.Key });
+                    console.log('files key is: ' + file.Key);
+                });
+            }
+            return listFiles;
+        } catch (err) {
+            this.log_error(`get_list_multipart_uploads:: listMultipartUploads ${params} failed!`, err);
+            throw err;
+        }
     }
 
     async get_list_prefixes(bucket) {
@@ -432,78 +428,73 @@ class S3OPS {
         }
     }
 
-    delete_multiple_files(bucket, files) {
-
-        let params = {
+    async delete_multiple_files(bucket, files) {
+        const params = {
             Bucket: bucket,
             Delete: {
                 Objects: []
             }
         };
 
-        for (const f of files) {
+        for (const file of files) {
             let item = {
-                Key: f.filename,
+                Key: file.filename,
             };
-            if (f.versionid) {
-                item.VersionId = f.versionid;
+            if (file.versionid) {
+                item.VersionId = file.versionid;
             }
             params.Delete.Objects.push(item);
         }
 
-        let start_ts = Date.now();
+        const start_ts = Date.now();
         console.log(`>>> MULTI DELETE - About to delete multiple objects... ${files.length}`);
-        return P.ninvoke(this.s3, 'deleteObjects', params)
-            .then(() => {
-                console.log('Multi delete took', (Date.now() - start_ts) / 1000, 'seconds');
-                console.log(`${files.length} files successfully deleted`);
-            })
-            .catch(err => {
-                this.log_error(`Multi delete failed! ${util.inspect(files)}`, err);
-                throw err;
-            });
+        try {
+            await this.s3.deleteObjects(params).promise();
+
+            console.log('Multi delete took', (Date.now() - start_ts) / 1000, 'seconds');
+            console.log(`${files.length} files successfully deleted`);
+        } catch (err) {
+            this.log_error(`Multi delete failed! ${util.inspect(files)}`, err);
+            throw err;
+        }
     }
 
-    delete_all_objects_in_bucket(bucket, is_versioning) {
+    async delete_all_objects_in_bucket(bucket, is_versioning) {
         let run_list = true;
         console.log(`cleaning all files from ${bucket} in ${this.ip}`);
-        promise_utils.pwhile(
-            () => run_list,
-            () => this.get_list_files(bucket, '', { maxKeys: 1000, version: is_versioning, suppress_logs: true })
-            .then(list => {
-                console.log(`Partial list_files.length is ${list.length}`);
-                if (list.length < 1000) {
-                    run_list = false;
+
+        while (run_list) {
+            const list = await this.get_list_files(bucket, '', { maxKeys: 1000, version: is_versioning, suppress_logs: true });
+            console.log(`Partial list_files.length is ${list.length}`);
+            if (list.length < 1000) {
+                run_list = false;
+            }
+            await this.delete_multiple_files(bucket, _.map(list, item => {
+                let i = { filename: item.Key };
+                if (item.VersionId) {
+                    i.versionid = item.VersionId;
                 }
-                return this.delete_multiple_files(bucket, _.map(list, item => {
-                    let i = { filename: item.Key };
-                    if (item.VersionId) {
-                        i.versionid = item.VersionId;
-                    }
-                    return i;
-                }));
-            })
-        );
+                return i;
+            }));
+        }
     }
 
-    get_file_size(bucket, file_name) {
-
-        let params = {
+    async get_file_size(bucket, file_name) {
+        const params = {
             Bucket: bucket,
             Key: file_name,
         };
-
-        return P.ninvoke(this.s3, 'headObject', params)
-            .then(res => res.ContentLength / 1024 / 1024)
-            .catch(err => {
-                this.log_error(`get file size ${file_name} failed!`, err);
-                throw err;
-            });
+        try {
+            const length = await this.s3.headObject(params).promise();
+            return length.ContentLength / 1024 / 1024;
+        } catch (err) {
+            this.log_error(`get file size ${file_name} failed!`, err);
+            throw err;
+        }
     }
 
-    set_file_attribute(bucket, file_name, versionid) {
-
-        let params = {
+    async set_file_attribute(bucket, file_name, versionid) {
+        const params = {
             Bucket: bucket,
             Key: file_name,
             Tagging: {
@@ -511,21 +502,19 @@ class S3OPS {
                     Key: 's3ops',
                     Value: 'set_file_attribute'
                 }]
-            }
+            },
+            VersionId: versionid ? versionid : undefined,
         };
-
-        if (versionid) {
-            params.VersionId = versionid;
-        }
 
         const psource = file_name + (versionid ? ' v' + versionid : '');
         console.log('>>> SS SET FILE ATTR - on' + psource);
-
-        return P.ninvoke(this.s3, 'putObjectTagging', params)
-            .catch(err => {
-                this.log_error(`set file attribute failed! ${file_name}`, err);
-                throw err;
-            });
+        try {
+            const tagging = await this.s3.putObjectTagging(params).promise();
+            return tagging;
+        } catch (err) {
+            this.log_error(`set file attribute failed! ${file_name}`, err);
+            throw err;
+        }
     }
 
     async set_file_attribute_with_copy(bucket, file_name, versionid) {
@@ -552,29 +541,26 @@ class S3OPS {
         }
     }
 
-    get_list_buckets(print_error = true) {
-        let params = {};
-        let list = [];
+    async get_list_buckets(print_error = true) {
         let listBuckets = [];
-        return P.ninvoke(this.s3, 'listBuckets', params)
-            .then(res => {
-                list = res.Buckets;
-                if (list.length === 0) {
-                    console.warn('No buckets access');
-                } else {
-                    list.forEach(function(bucket) {
-                        listBuckets.push(bucket.Name);
-                        // console.log('Account has access to bucket: ' + bucket.Name);
-                    });
-                }
-                return listBuckets;
-            })
-            .catch(err => {
-                if (print_error) {
-                    this.log_error('Getting list of buckets return error: ', err);
-                }
-                throw err;
-            });
+        try {
+            const buckets = await this.s3.listBuckets({}).promise();
+            const list = buckets.Buckets;
+            if (list.length === 0) {
+                console.warn('No buckets access');
+            } else {
+                list.forEach(function(bucket) {
+                    listBuckets.push(bucket.Name);
+                    // console.log('Account has access to bucket: ' + bucket.Name);
+                });
+            }
+            return listBuckets;
+        } catch (err) {
+            if (print_error) {
+                this.log_error('Getting list of buckets return error: ', err);
+            }
+            throw err;
+        }
     }
 
     // test if service is up by putting small object.
@@ -603,95 +589,88 @@ class S3OPS {
             .return();
     }
 
-    create_bucket(bucket_name) {
-
-        let params = {
+    async create_bucket(bucket_name, print_error = true) {
+        const params = {
             Bucket: bucket_name,
         };
-
-        return P.ninvoke(this.s3, 'createBucket', params)
-            .then(res => console.log("Created bucket ", res))
-            .catch(err => {
+        try {
+            const bucket = await this.s3.createBucket(params).promise();
+            console.log(`Created bucket ${bucket}`);
+        } catch (err) {
+            if (print_error) {
                 this.log_error(`creating bucket ${bucket_name} is failed!`, err.message);
-                throw err;
-            });
+            }
+            throw err;
+        }
     }
 
-    delete_bucket(bucket_name) {
-        let params = {
+    async delete_bucket(bucket_name) {
+        const params = {
             Bucket: bucket_name,
         };
-        return P.ninvoke(this.s3, 'deleteBucket', params)
-            .then(res => console.log("Deleted bucket ", res))
-            .catch(err => {
-                this.log_error(`Deleting bucket ${bucket_name} is failed!`, err);
-                throw err;
-            });
+        try {
+            const bucket = await this.s3.deleteBucket(params).promise();
+            console.log(`Deleted bucket ${bucket}`);
+        } catch (err) {
+            this.log_error(`Deleting bucket ${bucket_name} is failed!`, err);
+            throw err;
+        }
     }
 
-    get_object_uploadId(bucket, object_name) {
-        let params = {
+    async get_object_uploadId(bucket, object_name) {
+        const params = {
             Bucket: bucket,
         };
-        let list = [];
-        let dataObject = [];
-        let uploadObjectId;
-        return P.ninvoke(this.s3, 'listMultipartUploads', params)
-            .then(res => {
-                list = res.Uploads;
-                if (list.length === 0) {
-                    console.warn('No uploads for bucket ', bucket);
-                    throw new Error('No upload for buckets' + bucket);
-                } else {
-                    //TODO:: What happens if find does not find anything
-                    dataObject = list.find(content => content.Key === object_name);
-                    if (!dataObject) throw new Error('Object key wasn\'t found');
-                    console.log(`Object ${dataObject.Key} UploadId is: ${dataObject.UploadId}`);
-                    uploadObjectId = dataObject.UploadId;
-                }
-                return uploadObjectId;
-            })
-            .catch(err => {
-                //this.log_error('get_object_uploadId:: listMultipart failed!', err);
-                throw err;
-            });
+        const listMultipartUploads = await this.s3.listMultipartUploads(params).promise();
+        const list = listMultipartUploads.Uploads;
+        if (list.length === 0) {
+            console.warn('No uploads for bucket ', bucket);
+            throw new Error('No upload for buckets' + bucket);
+        } else {
+            //TODO:: What happens if find does not find anything
+            const dataObject = list.find(content => content.Key === object_name);
+            if (!dataObject) throw new Error(`Object key wasn't found`);
+            const uploadObjectId = dataObject.UploadId;
+            console.log(`Object ${dataObject.Key} UploadId is: ${uploadObjectId}`);
+            return uploadObjectId;
+        }
     }
 
-    get_bucket_uploadId(bucket) {
-        let params = {};
-        let list = [];
+    async get_bucket_uploadId(bucket) {
         let dataBucket = [];
         let uploadBucketId;
-        return P.ninvoke(this.s3, 'listBuckets', params)
-            .then(res => {
-                list = res.Contents;
-                if (list.length === 0) {
-                    console.warn('No buckets ');
-                } else {
-                    //TODO:: What happens if find does not find anything
-                    dataBucket = list.find(buckets => buckets.Name === bucket);
-                    console.log('Bucket data info is ', JSON.stringify(dataBucket));
-                    uploadBucketId = dataBucket.Owner.ID;
-                }
-                return uploadBucketId;
-            })
-            .catch(err => {
-                this.log_error('get_bucket_uploadId:: listBuckets failed!', err);
-                throw err;
-            });
+        try {
+            const listBuckets = await this.s3.listBuckets({}).promise();
+            const list = listBuckets.Contents;
+            if (list.length === 0) {
+                console.warn('No buckets ');
+            } else {
+                //TODO:: What happens if find does not find anything
+                dataBucket = list.find(buckets => buckets.Name === bucket);
+                console.log('Bucket data info is ', JSON.stringify(dataBucket));
+                uploadBucketId = dataBucket.Owner.ID;
+            }
+            return uploadBucketId;
+
+        } catch (err) {
+            this.log_error('get_bucket_uploadId:: listBuckets failed!', err);
+            throw err;
+        }
     }
 
-    is_bucket_exist(bucket) {
-        let params = {
+    async is_bucket_exist(bucket) {
+        const params = {
             Bucket: bucket
         };
         let existBucket = true;
-        return P.ninvoke(this.s3, 'headBucket', params)
-            .catch(err => {
-                console.log('Bucket is not exist', err);
-                existBucket = false;
-                return existBucket;
-            });
+        try {
+            const headBucket = await this.s3.headBucket(params).promise();
+            return headBucket;
+        } catch (err) {
+            console.log('Bucket is not exist', err);
+            existBucket = false;
+            return existBucket;
+        }
     }
 
     async get_object(bucket, key) {

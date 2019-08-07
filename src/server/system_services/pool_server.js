@@ -154,12 +154,18 @@ function new_namespace_resource_defaults(name, system_id, account_id, connection
 async function create_hosts_pool(req) {
     const { system, rpc_params, account } = req;
     const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const PV_SIZE_GB = 20;
+    const GB = 1024 ** 3;
     pool.hosts_pool_info = _.cloneDeep(
-        _.pick(rpc_params, [
+        _.defaultsDeep(_.pick(rpc_params, [
             'is_managed',
             'host_count',
             'host_config'
-        ])
+        ]), {
+            host_config: {
+                volume_size: PV_SIZE_GB * GB
+            }
+        })
     );
 
     dbg.log0('create_hosts_pool: Creating new pool', pool);

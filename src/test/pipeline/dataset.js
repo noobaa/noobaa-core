@@ -1,18 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const crypto = require('crypto');
 const fs = require('fs');
 const _ = require('lodash');
 const util = require('util');
+const crypto = require('crypto');
 const readline = require('readline');
 const P = require('../../util/promise');
+const seedrandom = require('seedrandom');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
 const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
-var seedrandom = require('seedrandom');
 
 const test_name = 'dataset';
 dbg.set_process_name(test_name);
@@ -65,7 +65,7 @@ const UNIT_MAPPING = {
 };
 
 const DATASET_NAME = 'DataSet_' + (Math.floor(Date.now() / 1000));
-const JOURNAL_FILE = `./${DATASET_NAME}_journal.log`;
+const JOURNAL_FILE = `/tmp/${DATASET_NAME}_journal.log`;
 const CFG_MARKER = 'DATASETCFG-';
 const ACTION_MARKER = 'ACT-';
 
@@ -82,7 +82,7 @@ let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFA
 let TEST_STATE = { ...TEST_STATE_INITIAL };
 const s3ops = new S3OPS({
     ip: TEST_CFG.s3_ip,
-    port: TEST_CFG.s3_port_https,
+    ssl_port: TEST_CFG.s3_port_https,
     access_key: TEST_CFG.access_key,
     secret_key: TEST_CFG.secret_key
 });
@@ -213,7 +213,7 @@ populate_random_selection();
 function usage() {
     console.log(`
     --s3_ip                 -   noobaa s3 ip
-    --s3_port_https         -   noobaa s3 port (default: ${TEST_CFG_DEFAULTS.s3_port_https})
+    --s3_port_https         -   noobaa s3 port in https (default: ${TEST_CFG_DEFAULTS.s3_port_https})
     --access_key            -   S3 storage access key
     --secret_key            -   S3 storage secret key
     --bucket                -   bucket to run on (default: ${TEST_CFG_DEFAULTS.bucket})
@@ -403,7 +403,7 @@ async function read_range_randomizer() {
 }
 
 async function read_range(params) {
-    console.log(`running read_range ${params.filename} ${params.versionid}`);
+    console.log(`running read_range ${params.filename} ${params.versionid ? ', version: ' + params.versionid : ''}`);
     await s3ops.get_file_ranges_check_md5(TEST_CFG.bucket, params.filename,
         params.rand_parts, { versionid: params.versionid });
 }
@@ -445,7 +445,7 @@ async function upload_new(params) {
     if (!TEST_STATE.aging || !TEST_STATE.current_size === TEST_CFG.dataset_size) {
         // running put new - multi-part
         if (params.is_multi_part) {
-            if (check_min_part_size) {
+            if (check_min_part_size(params.rand_size, params.rand_parts)) {
                 if (TEST_STATE.aging) {
                     console.log(`running upload new - multi-part`);
                 } else {
@@ -646,7 +646,7 @@ async function set_attribute_randomizer() {
 }
 
 async function set_attribute(params) {
-    console.log(`running set attribute for ${params.filename} ${params.versionid}`);
+    console.log(`running set attribute for ${params.filename} ${params.versionid ? ', version: ' + params.versionid : ''}`);
     if (params.useCopy) {
         console.log(`setting attribute using copyObject`);
         await s3ops.set_file_attribute_with_copy(TEST_CFG.bucket, params.filename, params.versionid);
@@ -666,7 +666,7 @@ async function delete_randomizer() {
 }
 
 async function run_delete(params) {
-    console.log(`running delete ${params.filename} ${params.versionid}`);
+    console.log(`running delete ${params.filename} ${params.versionid ? ', version: ' + params.versionid : ''}`);
     const object_number = await s3ops.get_file_number(TEST_CFG.bucket, DATASET_NAME);
     // won't delete the last file in the bucket
     if (object_number > 1) {

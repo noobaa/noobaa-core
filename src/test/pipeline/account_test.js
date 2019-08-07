@@ -258,7 +258,7 @@ async function check_bucket_creation_permissions(email) {
     } else {
         try {
             const s3ops = new S3OPS({ ip: TEST_CFG.s3_ip, port: TEST_CFG.s3_port });
-            await s3ops.create_bucket('shouldFail');
+            await s3ops.create_bucket('shouldFail', false);
             throw new Error(`Create bucket should have failed`);
         } catch (e) {
             console.log(`Creating bucket failed, as should`);
@@ -290,7 +290,6 @@ async function init_s3ops(email) {
         access_key: keys.accessKeyId,
         secret_key: keys.secretAccessKey
     });
-    console.log(`${s3ops}`);
     return s3ops;
 }
 
@@ -436,7 +435,7 @@ async function checkAccountFeatures() {
 }
 
 async function create_delete_accounts(cycle_num, count) {
-    console.log(`${RED}cycle_num: ${cycle_num}, creating ${count}${NC} accounts`);
+    console.log(`${RED}cycle_num: ${cycle_num}, creating ${count} accounts${NC}`);
     for (let account_num = 1; account_num <= count; account_num++) {
         console.log(`${YELLOW}Creating account number: ${account_num} in cycle ${cycle_num}${NC}`);
         const fullName = `${TEST_CFG.name}${account_num}_cycle${cycle_num}_` + (Math.floor(Date.now() / 1000));

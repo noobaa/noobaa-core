@@ -8,4 +8,4 @@ services:
   - docker
 
 script:
-  - travis_wait 20 make ${TEST_SUITE} SUPPRESS_LOGS=true
+  - travis_wait 30 make ${TEST_SUITE} SUPPRESS_LOGS=true

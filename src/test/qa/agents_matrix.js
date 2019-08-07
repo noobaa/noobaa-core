@@ -12,7 +12,7 @@ const shasum = crypto.createHash('sha1');
 shasum.update(Date.now().toString());
 
 const testName = 'agents_matrix';
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name(testName);
 

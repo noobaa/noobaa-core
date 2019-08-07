@@ -6,17 +6,17 @@ const blobops = require('../utils/blobops');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
+const test_utils = require('../system_tests/test_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const { CloudFunction } = require('../utils/cloud_functions');
 const { BucketFunctions } = require('../utils/bucket_functions');
 const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
-const test_utils = require('../system_tests/test_utils');
 const test_name = 'cloud_test';
 dbg.set_process_name(test_name);
 
 let bf_compatible;
 let cf_compatible;
-const POOL_NAME = "first.pool";
+const POOL_NAME = "first-pool";
 const server = [];
 
 const {
@@ -46,7 +46,7 @@ const {
     mgmt_ip,
     mgmt_port_https,
     s3_ip,
-    s3_port,
+    s3_port_https,
     name = 'compatible',
     compatible_ip,
     compatible_name = `noobaa-server-1`,
@@ -61,7 +61,7 @@ function usage() {
     --mgmt_ip               -   noobaa management ip.
     --mgmt_port_https       -   noobaa server management https port
     --s3_ip                 -   noobaa s3 ip
-    --s3_port               -   noobaa s3 port
+    --s3_port_https         -   noobaa s3 port in https
     --name                  -   compatible s3 server name (default: ${name})
     --compatible_ip         -   use an already installed compatible s3 (by ip)
     --compatible_port       -   use an already installed compatible s3 port
@@ -77,12 +77,12 @@ if (argv.help) {
 }
 
 // we require this here so --help will not call datasets help.
-const dataset = require('./dataset.js');
+const dataset = require('../pipeline/dataset.js');
 
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-const server_s3ops = new S3OPS({ ip: s3_ip, port: s3_port });
+const server_s3ops = new S3OPS({ ip: s3_ip, ssl_port: s3_port_https });
 const report = new Report();
 const bucket_functions = new BucketFunctions(client);
 const kf = new KubernetesFunctions({});
@@ -110,7 +110,7 @@ const dataset_params = {
     mgmt_ip,
     mgmt_port_https,
     s3_ip,
-    s3_port,
+    s3_port_https,
     bucket: 'first.bucket',
     part_num_low: 2,
     part_num_high: 10,

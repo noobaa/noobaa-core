@@ -47,6 +47,8 @@ const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
     by_service: {},
 });
 
+const DEFAULT_HOST_STABILIZE_TIMEOUT = 30 * 60000; //default timeout to let nodes stabilize is 30 minutes
+
 const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
 
@@ -80,6 +82,11 @@ async function _init() {
             const configured_host_count = pool.hosts_pool_info.host_count;
             const actual_host_count = await get_host_count(pool, system);
             if (actual_host_count === configured_host_count) {
+                if (pool.initializing) {
+                    // if pool is marked as initializing but have the configured host count
+                    // then unset the initializing flag of the pool
+                    await unset_pool_initializing(pool._id);
+                }
                 return;
             }
 
@@ -93,18 +100,49 @@ async function _init() {
             `);
 
             const pool_ctrl = create_pool_controller(system, pool);
-            if (configured_host_count > actual_host_count) {
-                await pool_ctrl.scale(configured_host_count);
-                await wait_for_host_count_to_stabilize(system, pool, configured_host_count);
+            if (pool.initializing) {
+                // there is an assumption here that the pool's k8s resources was created successfully by the pool controller
+                // if it wasn't than wait_for_host_count_to_stabilize will never finish
 
+                // first wait with timeout and alert if didn't reach the configured count
+                await wait_for_host_pool_init(system, pool, configured_host_count);
+            } else if (configured_host_count > actual_host_count) {
+                await pool_ctrl.scale(configured_host_count);
+                await wait_for_host_count_to_stabilize(system, pool._id, DEFAULT_HOST_STABILIZE_TIMEOUT);
             } else if (configured_host_count < actual_host_count) {
                 const delete_count = actual_host_count - configured_host_count;
                 await nodes_client.instance().delete_hosts_by_pool(pool.name, system._id, delete_count);
-                await wait_for_host_count_to_stabilize(system, pool, configured_host_count);
+                await wait_for_host_count_to_stabilize(system, pool._id);
                 await pool_ctrl.scale(configured_host_count);
             }
         });
     }
+}
+
+async function wait_for_host_pool_init(system, pool, configured_host_count) {
+    const current_host_count = await wait_for_host_count_to_stabilize(system, pool._id, DEFAULT_HOST_STABILIZE_TIMEOUT);
+    if (current_host_count === configured_host_count) {
+        await unset_pool_initializing(pool._id);
+    } else {
+        // TODO: provide more information in the alert how to resolve the issue 
+        Dispatcher.instance().alert('MAJOR',
+            system_store.data.systems[0]._id,
+            `It is taking too long to initialize Kubernetes pool "${pool.name}" with ${configured_host_count} nodes`);
+    }
+    // wait for hosts asynchrounosly without timeout just to unset the initializing flag
+    wait_for_host_count_to_stabilize(system, pool._id)
+        .then(() => unset_pool_initializing(pool._id));
+}
+
+async function unset_pool_initializing(pool_id) {
+    await system_store.make_changes({
+        update: {
+            pools: [{
+                _id: pool_id,
+                'hosts_pool_info.initializing': false
+            }]
+        }
+    });
 }
 
 function default_create_pool_controller(system, pool) {
@@ -167,6 +205,7 @@ async function create_hosts_pool(req) {
             }
         })
     );
+    pool.hosts_pool_info.initializing = true;
 
     dbg.log0('create_hosts_pool: Creating new pool', pool);
     await system_store.make_changes({
@@ -183,11 +222,11 @@ async function create_hosts_pool(req) {
         system: system._id,
         actor: account._id,
         pool: pool._id,
-        desc: `A ${
-            hosts_pool_info.is_managed ? 'managed' : 'unmanaged'
-        } pool ${
+        desc: `${
+            hosts_pool_info.is_managed ? 'A local' : 'An external'
+        } Kubernetes pool "${
             rpc_params.name
-        } with ${
+        }" with ${
             hosts_pool_info.host_count
         } nodes was created by ${
             account.email.unwrap()
@@ -212,7 +251,8 @@ async function create_hosts_pool(req) {
 
         // Lock farther scaling/delete operations until the pool stabilizes.
         pool_scaling_sem.surround_key(pool.name, async () => {
-            await wait_for_host_count_to_stabilize(system, pool, hosts_pool_info.host_count);
+            await wait_for_host_pool_init(system, pool, hosts_pool_info.host_count);
+            await wait_for_host_count_to_stabilize(system, pool._id, DEFAULT_HOST_STABILIZE_TIMEOUT);
         });
 
         return res;
@@ -424,11 +464,13 @@ function create_mongo_pool(req) {
     // })
 }
 
-function read_pool(req) {
+async function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id))
-        .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
+    const [nodes_aggregate_pool, hosts_aggregate_pool] = await P.all([
+        nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id),
+        nodes_client.instance().aggregate_hosts_by_pool([pool.name], req.system._id),
+    ]);
+    return get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool);
 }
 
 function read_namespace_resource(req) {
@@ -491,7 +533,26 @@ async function scale_hosts_pool(req) {
             // Scale up (add more storage agents)
             const pool_ctrl = create_pool_controller(req.system, pool);
             await pool_ctrl.scale(host_count);
-            await wait_for_host_count_to_stabilize(req.system, pool, host_count);
+            const actual_host_count = await wait_for_host_count_to_stabilize(req.system, pool._id, DEFAULT_HOST_STABILIZE_TIMEOUT);
+            if (actual_host_count !== host_count) {
+                // could not reach the required host count. issue an alert and set the count to the actual count
+                dbg.error(`timedout waiting for pool ${pool.name} to scale from ${
+                    configured_host_count
+                    } to ${host_count}. could only scale to ${actual_host_count}`);
+                Dispatcher.instance().alert('MAJOR',
+                    system_store.data.systems[0]._id,
+                    `Could not scale the Kubernetes pool "${pool.name}" to ${host_count}. Setting the node count to ${actual_host_count}`);
+                await system_store.make_changes({
+                    update: {
+                        pools: [{
+                            _id: pool._id,
+                            'hosts_pool_info.host_count': actual_host_count
+                        }]
+                    }
+                });
+                await pool_ctrl.scale(actual_host_count);
+            }
+
         });
 
     } else {
@@ -499,7 +560,7 @@ async function scale_hosts_pool(req) {
             // Scale down (delete hosts)
             dbg.log0(`scale_host_pool: deleting ${-host_count_diff} hosts`);
             await nodes_client.instance().delete_hosts_by_pool(pool.name, req.system._id, -host_count_diff);
-            await wait_for_host_count_to_stabilize(req.system, pool, host_count);
+            await wait_for_host_count_to_stabilize(req.system, pool._id);
 
             // No need to wait scale just cleanup the underlaying agents after the node deletion.
             const pool_ctrl = create_pool_controller(req.system, pool);
@@ -560,7 +621,7 @@ async function delete_hosts_pool(req, pool) {
             await nodes_client.instance()
                 .delete_hosts_by_pool(pool.name, req.system._id);
         }
-        await wait_for_host_count_to_stabilize(req.system, pool, 0);
+        await wait_for_host_count_to_stabilize(req.system, pool._id);
 
         dbg.log0(`delete_hosts_pool: removing pool ${pool.name} from the database`);
         await system_store.make_changes({
@@ -888,7 +949,8 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
         info.host_info = pool.hosts_pool_info.host_config;
         info.is_managed = pool.hosts_pool_info.is_managed;
         info.undeletable = check_pool_deletion(pool);
-        info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {}, p_hosts.nodes.s3_by_mode || {});
+        info.mode = calc_hosts_pool_mode(info, p_hosts.nodes.storage_by_mode || {},
+            p_hosts.nodes.s3_by_mode || {}, pool.hosts_pool_info.initializing);
     }
 
     //Get associated accounts
@@ -954,7 +1016,7 @@ function calc_mongo_pool_mode(p) {
 }
 
 /*eslint complexity: ["error", 60]*/
-function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
+function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode, initializing) {
     const { hosts, storage, is_managed } = pool_info;
     const data_activities = pool_info.data_activities ? pool_info.data_activities.activities : [];
     const host_count = hosts.count;
@@ -963,7 +1025,6 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const storage_optimal = storage_by_mode.OPTIMAL || 0;
     const storage_offline_ratio = (storage_offline / host_count) * 100;
     const storage_issues_ratio = ((storage_count - storage_optimal) / storage_count) * 100;
-    const hosts_initializing = hosts.by_mode.INITIALIZING || 0;
     const hosts_migrating = (hosts.by_mode.INITIALIZING || 0) + (hosts.by_mode.DECOMMISSIONING || 0) + (hosts.by_mode.MIGRATING || 0);
     const s3_count = hosts.by_service.GATEWAY;
     const s3_optimal = s3_by_mode.OPTIMAL || 0;
@@ -976,7 +1037,7 @@ function calc_hosts_pool_mode(pool_info, storage_by_mode, s3_by_mode) {
     const activity_ratio = (activity_count / host_count) * 100;
 
     return (is_managed && hosts.configured_count === 0 && 'DELETING') ||
-        (is_managed && host_count === hosts_initializing && 'INITIALIZING') ||
+        (is_managed && initializing && 'INITIALIZING') ||
         (is_managed && host_count !== hosts.configured_count && 'SCALING') ||
         (host_count === 0 && 'HAS_NO_NODES') ||
         (storage_offline === storage_count && 'ALL_NODES_OFFLINE') ||
@@ -1071,11 +1132,32 @@ async function get_host_count(pool, system) {
     );
 }
 
-async function wait_for_host_count_to_stabilize(system, pool, host_count) {
-    return promise_utils.wait_until(async () => {
-        const acutal_host_count = await get_host_count(pool, system);
-        return acutal_host_count === host_count;
-    });
+async function wait_for_host_count_to_stabilize(system, pool_id, timeout) {
+    let pool = system_store.data.get_by_id(pool_id);
+    let configured_host_count = pool.hosts_pool_info.host_count;
+    try {
+        await promise_utils.wait_until(async () => {
+            pool = system_store.data.get_by_id(pool_id);
+            configured_host_count = pool.hosts_pool_info.host_count;
+            const acutal_host_count = await get_host_count(pool, system);
+            return acutal_host_count === configured_host_count;
+        }, 2500, timeout);
+        return configured_host_count;
+    } catch (err) {
+        if (err instanceof P.TimeoutError) {
+            const acutal_host_count = await get_host_count(pool, system);
+            dbg.error(`wait_for_host_count_to_stabilize timout. expected ${
+                configured_host_count
+            } but got ${
+                acutal_host_count
+            } after ${timeout / 60000} minutes`);
+            return acutal_host_count;
+        } else {
+            // rethrow other errors
+            throw err;
+        }
+    }
+
 }
 
 // EXPORTS

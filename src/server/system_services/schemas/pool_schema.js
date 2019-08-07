@@ -152,6 +152,9 @@ module.exports = {
                     type: 'integer',
                     minimum: 0
                 },
+                initializing: {
+                    type: 'boolean'
+                },
                 host_config: {
                     type: 'object',
                     properties: {

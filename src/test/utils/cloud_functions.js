@@ -14,7 +14,6 @@ class CloudFunction {
             AWS_ACCESS_KEY_ID,
             AWS_SECRET_ACCESS_KEY,
         } = process.env;
-
         const AWSConnections = {
             name: 'AWSConnection',
             endpoint: "https://s3.amazonaws.com",
@@ -23,6 +22,22 @@ class CloudFunction {
             secret: AWS_SECRET_ACCESS_KEY
         };
         return AWSConnections;
+    }
+
+    getAzureConnection() {
+        const {
+            AZURE_STORAGE_ACCOUNT_NAME,
+            AZURE_STORAGE_ACCOUNT_KEY,
+        } = process.env;
+
+        const AzureConnection = {
+            name: 'AZUREConnection',
+            endpoint: 'https://blob.core.windows.net',
+            endpoint_type: "AZURE",
+            identity: AZURE_STORAGE_ACCOUNT_NAME,
+            secret: AZURE_STORAGE_ACCOUNT_KEY
+        };
+        return AzureConnection;
     }
 
     async createCloudPool(connection, name, target_bucket) {

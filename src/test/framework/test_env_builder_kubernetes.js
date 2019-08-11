@@ -13,6 +13,9 @@ const Semaphore = require('../../util/semaphore');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('test_env_builder_k8s');
 
+if (process.env.SUPPRESS_LOGS) {
+    dbg.set_level(-5, 'core');
+}
 
 const {
     context,
@@ -210,7 +213,7 @@ async function run_single_test_env(params) {
                 '--log_file', log_file,
                 ...additional_flags
             ];
-            await promise_utils.fork(test, args);
+            await promise_utils.fork(test, args, {env: process.env});
             console.log(`test ${test_name} passed`);
         }
     } catch (err) {

@@ -5,7 +5,7 @@ const P = require('../../util/promise');
 const azure_storage = require('../../util/azure_storage_wrap');
 const RandStream = require('../../util/rand_stream');
 
-
+//TODO:: Remove and use cloud_functions::getAzureConnection ??
 const {
     AZURE_STORAGE_ACCOUNT_NAME,
     AZURE_STORAGE_ACCOUNT_KEY

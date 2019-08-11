@@ -51,9 +51,9 @@ class MaintenanceFormViewModel extends ConnectableViewModel {
 
         } else {
             const timeLeft = Math.max(maintenanceMode.till - Date.now(), 0);
-            const { system, tab, section } = location.params;
+            const { system, section } = location.params;
             const toggleSection = section === sectionName ? undefined : sectionName;
-            const toggleUri = realizeUri(routes.management, { system, tab, section: toggleSection });
+            const toggleUri = realizeUri(routes.management, { system, tab: 'settings', section: toggleSection });
             const stateText = timeLeft !== 0 ? 'On' : 'Off';
             const buttonText = `Turn maintenance ${timeLeft ? 'off' : 'on'}`;
 

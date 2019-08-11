@@ -53,9 +53,13 @@ function onCompleteFetchHostObjects(state, { payload }) {
             (chunk.is_accessible ? 'AVAILABLE' : 'UNAVAILABLE');
         return {
             mode,
-            bucket: obj.bucket,
-            object: obj.key,
-            version: obj.version_id || 'null',
+            objectInfo: {
+                bucket: obj.bucket,
+                key: obj.key,
+                version: obj.version_id || 'null',
+                isUploading: Boolean(obj.upload_started),
+                isDeleteMarker: Boolean(obj.delete_marker)
+            },
             start: part.start,
             end: part.end
         };

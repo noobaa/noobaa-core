@@ -86,7 +86,7 @@ async function read_object_mapping_admin(obj, skip, limit) {
 async function read_node_mapping(node_ids, skip, limit) {
     const chunk_ids = await MDStore.instance().find_blocks_chunks_by_node_ids(node_ids, skip, limit);
     const parts = await MDStore.instance().find_parts_by_chunk_ids(chunk_ids);
-    const chunks = await read_parts_mapping(parts);
+    const chunks = await read_parts_mapping(_.uniqBy(parts, part => part.chunk.toHexString()));
     return chunks;
 }
 

@@ -24,6 +24,9 @@ const columns = deepFreeze([
         type: 'link'
     },
     {
+        name: 'version'
+    },
+    {
         name: 'start'
     },
     {
@@ -56,6 +59,7 @@ class PartRowViewModel {
     state = ko.observable();
     object = ko.observable();
     bucket = ko.observable();
+    version = ko.observable();
     start = ko.observable();
     end = ko.observable();
     size = ko.observable();
@@ -91,7 +95,7 @@ class HostPartsTableViewModel extends ConnectableViewModel {
             (resourceType === 'HOST' && 'node') ||
             (resourceType === 'CLOUD_RESOURCE' && 'cloud resoruce');
 
-        if (!hostParts || hostParts.fetching || !hostParts.parts) {
+        if (!hostParts || !hostParts.parts) {
             ko.assignToProps(this, {
                 dataReady: false,
                 subject: subject,
@@ -111,14 +115,20 @@ class HostPartsTableViewModel extends ConnectableViewModel {
                 partCount: partCount,
                 partCountFormatted: numeral(partCount).format(','),
                 rows: parts.map(part => {
-                    const { mode, bucket, object, version, start, end } = part;
+                    const { mode, objectInfo, start, end } = part;
+                    const { bucket, key, version, isUploading, isDeleteMarker } = objectInfo;
+                    const href = (!isUploading && !isDeleteMarker) ?
+                        realizeUri(routes.object, { system, bucket, object: key, version }) :
+                        undefined;
+
                     return {
                         state: modeToIcon[mode],
                         object: {
-                            text: object,
-                            href: realizeUri(routes.object, { system, bucket, object, version }),
-                            tooltip: object
+                            text: key,
+                            href: href,
+                            tooltip: key
                         },
+                        version: version,
                         bucket: {
                             text: bucket,
                             href: realizeUri(routes.bucket, { system, bucket }),

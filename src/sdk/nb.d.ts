@@ -71,6 +71,7 @@ interface NodeAPI extends Base {
     is_cloud_node: boolean;
     is_mongo_node: boolean;
     host_id: string;
+    host_seq: string;
     heartbeat: number;
     os_info: {
         hostname: string,

@@ -13,18 +13,21 @@
         </span>
     </div>
 
-    <div class="column push-next" ko.tooltip="downloadTooltip">
+    <div class="column push-next"
+        ko.tooltip="downloadTooltip"
+        ko.visible="areActionsAllowed"
+    >
         <a class="btn" download
-            ko.css.disabled="!areActionsAllowed()"
             ko.click="onDownloadClick"
             ko.attr.href="s3SignedUrl" >
             Download Object
         </a>
     </div>
 
-    <div ko.tooltip="previewTooltip">
+    <div ko.tooltip="previewTooltip"
+        ko.visible="areActionsAllowed"
+    >
         <button class="btn"
-            ko.disable="!areActionsAllowed()"
             ko.click="onPreviewFile">
             Preview Object
         </button>

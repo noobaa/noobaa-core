@@ -18,9 +18,7 @@ export default {
                 type: 'object',
                 required: [
                     'mode',
-                    'bucket',
-                    'object',
-                    'version',
+                    'objectInfo',
                     'start',
                     'end'
                 ],
@@ -33,14 +31,32 @@ export default {
                             'UNAVAILABLE'
                         ]
                     },
-                    bucket: {
-                        type: 'string'
-                    },
-                    object: {
-                        type: 'string'
-                    },
-                    version: {
-                        type: 'string'
+                    objectInfo: {
+                        type: 'object',
+                        required: [
+                            'bucket',
+                            'key',
+                            'version',
+                            'isUploading',
+                            'isDeleteMarker'
+                        ],
+                        properties: {
+                            bucket: {
+                                type: 'string'
+                            },
+                            key: {
+                                type: 'string'
+                            },
+                            version: {
+                                type: 'string'
+                            },
+                            isUploading: {
+                                type: 'boolean'
+                            },
+                            isDeleteMarker: {
+                                type: 'boolean'
+                            }
+                        }
                     },
                     start: {
                         type: 'integer'

@@ -28,7 +28,7 @@ function optional_id_str(id) {
  */
 class ChunkDB {
 
-    /** 
+    /**
      * @param {ChunkDB} chunk
      * @returns {nb.Chunk}
      */
@@ -86,8 +86,8 @@ class ChunkDB {
     }
 
     /**
-     * @param {nb.Frag} frag 
-     * @param {nb.Pool[]} pools 
+     * @param {nb.Frag} frag
+     * @param {nb.Pool[]} pools
      * @param {nb.TierMirror} mirror
      */
     add_block_allocation(frag, pools, mirror) {
@@ -151,14 +151,14 @@ class ChunkDB {
  */
 class FragDB {
 
-    /** 
+    /**
      * @param {FragDB} frag
      * @returns {nb.Frag}
      */
     static implements_interface(frag) { return frag; }
 
     /**
-     * @param {nb.FragSchemaDB} frag_db 
+     * @param {nb.FragSchemaDB} frag_db
      * @param {nb.Chunk} chunk
      */
     constructor(frag_db, chunk) {
@@ -228,7 +228,7 @@ class FragDB {
  */
 class BlockDB {
 
-    /** 
+    /**
      * @param {BlockDB} block
      * @returns {nb.Block}
      */
@@ -287,7 +287,7 @@ class BlockDB {
     }
 
     /**
-     * @param {nb.NodeAPI} node 
+     * @param {nb.NodeAPI} node
      * @param {nb.Pool} pool
      */
     set_node(node, pool) {
@@ -315,7 +315,7 @@ class BlockDB {
         };
     }
 
-    /** 
+    /**
      * @param {boolean} [adminfo]
      * @returns {nb.BlockInfo}
      */
@@ -337,7 +337,7 @@ class BlockDB {
                 pool_name: this.pool.name,
                 node_name: this.node.name,
                 node_ip: this.node.ip,
-                host_name: this.node.os_info.hostname,
+                host_name: `${this.node.os_info.hostname}#${this.node.host_seq}`,
                 mount: this.node.drive.mount,
                 online: Boolean(this.node.online),
                 in_cloud_pool: Boolean(this.node.is_cloud_node),
@@ -365,14 +365,14 @@ class BlockDB {
  */
 class PartDB {
 
-    /** 
+    /**
      * @param {PartDB} part
      * @returns {nb.Part}
      */
     static implements_interface(part) { return part; }
 
     /**
-     * @param {nb.PartSchemaDB} part_db 
+     * @param {nb.PartSchemaDB} part_db
      */
     constructor(part_db) {
         this.part_db = part_db;
@@ -397,7 +397,7 @@ class PartDB {
      */
     set_chunk(chunk_id) { this.part_db.chunk = chunk_id; }
 
-    /** 
+    /**
      * @param {nb.ID} obj_id
      */
     set_obj_id(obj_id) { this.part_db.obj = obj_id; }
@@ -426,7 +426,7 @@ class PartDB {
 
 
 /**
- * @param {nb.FragSchemaDB} frag_db 
+ * @param {nb.FragSchemaDB} frag_db
  * @param {nb.Chunk} chunk
  */
 function new_frag_db(frag_db, chunk) {
@@ -434,7 +434,7 @@ function new_frag_db(frag_db, chunk) {
 }
 
 /**
- * @param {nb.BlockSchemaDB} block_db 
+ * @param {nb.BlockSchemaDB} block_db
  * @param {nb.Frag} frag
  * @param {nb.Chunk} chunk
  */
@@ -443,7 +443,7 @@ function new_block_db(block_db, frag, chunk) {
 }
 
 /**
- * @param {nb.PartSchemaDB} part_db 
+ * @param {nb.PartSchemaDB} part_db
  */
 function new_part_db(part_db) {
     return new PartDB(part_db);

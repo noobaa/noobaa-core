@@ -106,7 +106,7 @@ class ManagedStatefulSetPoolController extends PoolController {
 
                     // Wait for the pod to be deleted.
                     dbg.log0(`ManagedStatefulSetPoolController::scale: waiting for pod ${pod_name} to be deleted`);
-                    await kube_utils.wait_for_delete('pod', pod_name);
+                    await kube_utils.wait_for_delete('pod', pod_name, 15 * 60 * 1000);
 
                     // Delete the pvc claimed by the pod.
                     const pvc_name = `noobaastorage-${pod_name}`;

@@ -16,7 +16,7 @@
         "></dropdown>
     </div>
 
-    <div class="push-next" ko.tooltip="actionsTooltip">
+    <div ko.tooltip="actionsTooltip">
         <button class="btn" ko.disable="areActionsDisabled"
             ko.click="onAssignRegion"
         >
@@ -24,7 +24,9 @@
         </button>
     </div>
 
-    <div ko.tooltip="actionsTooltip">
+    <div class="push-prev" ko.tooltip="actionsTooltip"
+        ko.visible="isEditPoolConfigVisible"
+    >
         <button class="btn"
             ko.disable="areActionsDisabled"
             ko.click="onEditPoolConfig"

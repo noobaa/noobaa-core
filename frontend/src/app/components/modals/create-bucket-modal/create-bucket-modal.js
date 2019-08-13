@@ -7,6 +7,7 @@ import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { validatePlacementPolicy, warnPlacementPolicy } from 'utils/bucket-utils';
+import { getResourceId } from 'utils/resource-utils';
 import { validateName } from 'utils/validation-utils';
 import * as routes from 'routes';
 import {
@@ -32,6 +33,11 @@ const fieldsByStep = deepFreeze({
     1: ['policyType', 'selectedResources']
 });
 
+const invalidHostPoolStates = deepFreeze([
+    'INITIALIZING',
+    'DELETING'
+]);
+
 class CreateBucketModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     steps = steps.map(step => step.label);
@@ -43,6 +49,7 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
     systemResourceCount = 0;
     hostPools = ko.observable();
     cloudResources = ko.observable();
+    disabledResources = ko.observable();
     fields = {
         step: 0,
         bucketName: '',
@@ -82,6 +89,10 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
                     css: isFieldTouched(form, 'bucketName') ? (valid ? 'success' : 'error') : ''
                 }));
 
+            const disabledResources = Object.values(hostPools)
+                .filter(pool => invalidHostPoolStates.includes(pool.mode))
+                .map(pool => getResourceId('HOSTS', pool.name));
+
             ko.assignToProps(this, {
                 existingNames,
                 systemResourceCount,
@@ -90,7 +101,7 @@ class CreateBucketModalViewModel extends ConnectableViewModel {
                 isStepValid,
                 hostPools,
                 cloudResources,
-                regionByResource: {}
+                disabledResources
             });
         }
     }

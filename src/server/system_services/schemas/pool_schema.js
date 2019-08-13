@@ -148,6 +148,9 @@ module.exports = {
                 is_managed: {
                     type: 'boolean'
                 },
+                initialized: {
+                    type: 'boolean'
+                },
                 host_count: {
                     type: 'integer',
                     minimum: 0

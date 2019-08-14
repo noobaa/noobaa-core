@@ -32,6 +32,7 @@ const TEST_CFG_DEFAULTS = {
     dataset_size: 10, // DS of 10GB
     versioning: false,
     no_exit_on_success: false,
+    data_placement: 'SPREAD',
     seed: crypto.randomBytes(10).toString('hex')
 };
 
@@ -52,6 +53,16 @@ async function _run_dataset() {
     }
 }
 
+async function _change_tier(client, bucket, data_placement) {
+    const read_bucket = await client.bucket.read_bucket({ name: bucket });
+    console.log(`Setting ${POOL_NAME} as the pool for bucket: ${bucket}`);
+    await client.tier.update_tier({
+        name: read_bucket.tiering.tiers[0].tier,
+        attached_pools: [POOL_NAME],
+        data_placement
+    });
+}
+
 async function _create_pool(agent_number, mgmt_ip, mgmt_port_https) {
     if (agent_number !== 0) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
@@ -67,6 +78,7 @@ async function _create_pool(agent_number, mgmt_ip, mgmt_port_https) {
             process.exit(1);
         }
         await test_utils.create_hosts_pool(client, POOL_NAME, agent_number);
+        await _change_tier(client, dataset_params.bucket, dataset_params.data_placement);
     }
 }
 

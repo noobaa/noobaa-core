@@ -28,6 +28,7 @@ const {
     node_ip,
     clean: clean_single_test,
     debug,
+    concurrency = 1
 } = argv;
 
 if (debug) {
@@ -58,7 +59,7 @@ function print_usage() {
       --single_test             -   Path to a single node.js test to run against the created environment
       --exec                    -   Command to run on the created server pod. if single_test is provided the command will run before the test
       --tests_list              -   Path to a js file containing tests list
-      --concurrency             -   Maximum number of pods to run in parallel (server and agents). default is 10
+      --concurrency             -   Maximum number of pods to run in parallel (server and agents). (default: ${concurrency})
       --output_dir              -   Path to store test output
       --debug                   -   run in debug mode
     `);
@@ -213,7 +214,7 @@ async function run_single_test_env(params) {
                 '--log_file', log_file,
                 ...additional_flags
             ];
-            await promise_utils.fork(test, args, {env: process.env});
+            await promise_utils.fork(test, args, { env: process.env });
             console.log(`test ${test_name} passed`);
         }
     } catch (err) {
@@ -244,7 +245,7 @@ async function run_single_test_env(params) {
 async function run_multiple_test_envs(params) {
     const {
         tests_list: tests_list_file,
-        concurrency,
+        concurrency: tests_concurrency,
         namespace_prefix
     } = params;
     let tests;
@@ -257,8 +258,8 @@ async function run_multiple_test_envs(params) {
     }
 
     try {
-        if (concurrency) {
-            await run_test_concurrently(concurrency, tests, namespace_prefix, params);
+        if (tests_concurrency > 1) {
+            await run_test_concurrently(tests_concurrency, tests, namespace_prefix, params);
         } else {
             await run_test_serially(tests, namespace_prefix, params);
         }
@@ -279,8 +280,8 @@ async function run_multiple_test_envs(params) {
     }
 }
 
-async function run_test_concurrently(concurrency, tests, namespace_prefix, params) {
-    const sem = new Semaphore(concurrency);
+async function run_test_concurrently(tests_concurrency, tests, namespace_prefix, params) {
+    const sem = new Semaphore(tests_concurrency);
     await P.all(tests.map(async test => {
         await sem.surround_count(1, () => run_test(namespace_prefix, test, params));
     }));

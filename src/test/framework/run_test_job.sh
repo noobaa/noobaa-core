@@ -2,6 +2,8 @@
 
 SCRIPT_NAME=$(basename $0)
 JOB_YAML="./test_job.yaml"
+NAMESPACE="noobaa-tests"
+TESTS_CONCURRENCY="\"1\""
 
 function usage(){
     set +x
@@ -11,9 +13,10 @@ function usage(){
     echo "--name            -   The name of the test run. will be prefixed to all namespaces created by the test job"
     echo "--image           -   The image to test"
     echo "--tester_image    -   The tester image to use"
-    echo "--job_yaml        -   The job yaml file, default is ${JOB_YAML}"
+    echo "--job_yaml        -   The job yaml file, (default: ${JOB_YAML})"
 	echo "--tests_list      -   The test list (.js)"
-    echo "--wait            -   Should wait for job completion, default is false"
+    echo "--concurrency     -   Set the number of test that runs in parallel (default: ${TESTS_CONCURRENCY})"
+    echo "--wait            -   Should wait for job completion, (default: false)"
     echo "-h --help         -   Will show this help"
     exit 1
 }
@@ -32,6 +35,8 @@ do
                         shift 2;;
 		--tests_list)   TESTS_LIST=${2}
 						shift 2;;
+        --concurrency)  TESTS_CONCURRENCY=\"${2}\"
+                        shift 2;;
         --wait)         WAIT_COMPLETION=true
                         shift 2;;
         -h|--help)	    usage;;
@@ -47,11 +52,11 @@ if [ -z "${TEST_RUN_NAME}" ] || [ -z "${IMAGE}" ] || [ -z "${TESTER_IMAGE}" ] ; 
     usage
 fi
 
-echo "Creating namespace noobaa-tests"
-kubectl create namespace noobaa-tests 
+echo "Creating namespace ${NAMESPACE}"
+kubectl create namespace ${NAMESPACE} 
 
 echo "Deploying test account and role"
-kubectl -n noobaa-tests apply -f ./test_account.yaml
+kubectl -n ${NAMESPACE} apply -f ./test_account.yaml
 
 
 echo "inspecting"
@@ -63,21 +68,21 @@ sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
 -e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME}~" \
 -e "s~TESTS_LIST_PLACEHOLDER~${TESTS_LIST}~" \
+-e "s~TESTS_CONCURRENCY_PLACEHOLDER~${TESTS_CONCURRENCY}~" \
 ${JOB_YAML} \
-| kubectl -n noobaa-tests apply -f -
+| kubectl -n ${NAMESPACE} apply -f -
 
 #Wait for completion of job
 sleep 10
-kubectl get pods -n noobaa-tests -o yaml
-pod=$(kubectl get pods -n noobaa-tests | tail -1 | awk '{print $1}' | cut -f 2 -d'-')
+kubectl get pods -n ${NAMESPACE} -o yaml
+pod=$(kubectl get pods -n ${NAMESPACE} | tail -1 | awk '{print $1}' | cut -f 2 -d'-')
 
-kubectl describe pods -n noobaa-tests
+kubectl describe pods -n ${NAMESPACE}
 
-kubectl describe jobs -n noobaa-tests
+kubectl describe jobs -n ${NAMESPACE}
 
 if [ ${WAIT_COMPLETION} ]; then
-    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} -n noobaa-tests
+    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} -n ${NAMESPACE}
+    #Display logs of run
+    kubectl logs ${TEST_RUN_NAME}-${pod} -n ${NAMESPACE}
 fi
-
-#Display logs of run
-kubectl logs ${TEST_RUN_NAME}-${pod} -n noobaa-tests

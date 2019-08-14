@@ -20,6 +20,8 @@ spec:
         - NAMESPACE_PREFIX_PLACEHOLDER
         - --tests_list
         - TESTS_LIST_PLACEHOLDER
+        - --concurrency
+        - TESTS_CONCURRENCY_PLACEHOLDER
         env:
           - name: CONTAINER_PLATFORM
             value: KUBERNETES

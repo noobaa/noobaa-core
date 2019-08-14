@@ -15,8 +15,8 @@ ENV TEST_CONTAINER true
 # python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel -- these are required by ceph tests
 RUN yum install -y -q ntpdate vim centos-release-scl && \
     yum install -y -q rh-mongodb36 && \
-    yum install -y python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
-    yum install -y git && \
+    yum install -y -q python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
+    yum install -y -q git && \
     yum clean all
 
 ##############################################################
@@ -59,6 +59,9 @@ RUN mkdir -p /noobaa-core/node_modules/.cache/nyc && \
 RUN mkdir -p /noobaa-core/coverage && \
     chmod 777 /noobaa-core/coverage
 RUN chmod -R 777 /noobaa-core/src/test
+
+# Making mocha accessible 
+RUN ln -s /noobaa-core/node_modules/mocha/bin/mocha /usr/local/bin
 
 ENV SPAWN_WRAP_SHIM_ROOT /data
 RUN mkdir -p /data && \

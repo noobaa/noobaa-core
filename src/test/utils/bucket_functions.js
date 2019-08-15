@@ -11,17 +11,17 @@ class BucketFunctions {
         try {
             await this._client.bucket.list_buckets();
         } catch (err) {
-            console.log(`FAILED to get bucket list`, err);
+            console.error(`FAILED to get bucket list`, err);
             throw err;
         }
     }
 
     async createBucket(name) {
         try {
-            let buck = await this._client.bucket.create_bucket({ name });
-            return buck;
+            const bucket = await this._client.bucket.create_bucket({ name });
+            return bucket;
         } catch (err) {
-            console.log('Create bucket ERR', err);
+            console.error('Create bucket ERR', err);
             throw err;
         }
     }
@@ -30,7 +30,7 @@ class BucketFunctions {
         try {
             await this._client.bucket.delete_bucket({ name });
         } catch (err) {
-            console.log('Delete bucket ERR', err);
+            console.error('Delete bucket ERR', err);
             throw err;
         }
     }
@@ -57,7 +57,7 @@ class BucketFunctions {
                 chunk_coder_config: chunk_coder_config
             });
         } catch (err) {
-            console.log('Update tier ERR', err);
+            console.error('Update tier ERR', err);
             throw err;
         }
     }
@@ -74,7 +74,7 @@ class BucketFunctions {
                 }
             });
         } catch (err) {
-            console.log(`$FAILED setting quota bucket `, err);
+            console.error(`FAILED setting quota bucket `, err);
             throw err;
         }
     }
@@ -87,65 +87,45 @@ class BucketFunctions {
                 quota: null
             });
         } catch (err) {
-            console.log(`FAILED disable quota bucket `, err);
+            console.error(`FAILED disable quota bucket `, err);
             throw err;
         }
     }
 
-    async checkFreeSpace(bucket_name) {
-        console.log('Checking free space in bucket ' + bucket_name);
+    async get_bucket_index(bucket_name) {
         try {
             const system_info = await this._client.system.read_system({});
             const buckets = system_info.buckets;
-            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            const space = buckets[indexBucket].data.free;
+            const indexBucket = buckets.findIndex(values => values.name.unwrap() === bucket_name);
+            return buckets[indexBucket];
+        } catch (e) {
+            console.error(`Failed to get the bucket "${bucket_name}" index number`, e);
+            throw e;
+        }
+    }
+
+    async checkFreeSpace(bucket_name) {
+        console.log(`Checking free space in bucket ${bucket_name}`);
+        try {
+            const bucket = await this.get_bucket_index(bucket_name);
+            const space = bucket.data.free;
             console.log(`Free space in bucket ${bucket_name} is ${space / 1024 / 1024} MB}`);
             return space;
         } catch (err) {
-            console.log(`FAILED to check free space in bucket`, err);
+            console.error(`FAILED to check free space in bucket`, err);
             throw err;
         }
     }
 
     async checkAvailableSpace(bucket_name) {
-        console.log('Checking available space in bucket ' + bucket_name);
+        console.log(`Checking available space in bucket ${bucket_name}`);
         try {
-            const system_info = await this._client.system.read_system({});
-            const buckets = system_info.buckets;
-            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            const available_space = buckets[indexBucket].data.available_for_upload;
+            const bucket = await this.get_bucket_index(bucket_name);
+            const available_space = bucket.data.available_for_upload;
             console.log(`Available space in bucket ${bucket_name} is ${available_space / 1024 / 1024} MB`);
             return available_space;
         } catch (err) {
-            console.log(`FAILED to check available space in bucket`, err);
-            throw err;
-        }
-    }
-
-    async checkSpilloverFreeSpace(bucket_name) {
-        console.log('Checking spillover free space in bucket ' + bucket_name);
-        try {
-            const system_info = await this._client.system.read_system({});
-            const buckets = system_info.buckets;
-            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            const spillover_free_space = buckets[indexBucket].data.spillover_free;
-            console.log(`Spillover free space in bucket ${bucket_name} is ${spillover_free_space / 1024 / 1024} MB`);
-            return spillover_free_space;
-        } catch (err) {
-            console.log(`FAILED to check spillover free space in bucket`, err);
-            throw err;
-        }
-    }
-
-    async setSpillover(bucket_name, pool) {
-        console.log('Setting spillover ' + pool + ' for bucket ' + bucket_name);
-        try {
-            await this._client.bucket.update_bucket({
-                name: bucket_name,
-                spillover: pool
-            });
-        } catch (err) {
-            console.log('Failed to set spillover ' + pool + ' for bucket ' + bucket_name + err);
+            console.error(`FAILED to check available space in bucket ${bucket_name}`, err);
             throw err;
         }
     }
@@ -156,10 +136,8 @@ class BucketFunctions {
             throw new Error(`data_placement is ${data_placement} and must be SPREAD or MIRROR`);
         }
         console.log('Getting tier for bucket ' + bucket_name);
-        const system_info = await this._client.system.read_system({});
-        const buckets = system_info.buckets;
-        const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-        const tier = system_info.buckets[indexBucket].tiering.name;
+        const bucket = await this.get_bucket_index(bucket_name);
+        const tier = bucket.tiering.name;
         console.log('Editing bucket data placement to pool ' + pool);
         try {
             await this._client.tier.update_tier({
@@ -168,41 +146,13 @@ class BucketFunctions {
                 name: tier
             });
         } catch (err) {
-            console.log('Failed to set data placement for bucket ' + bucket_name + err);
+            console.error(`Failed to set data placement for bucket ${bucket_name}`, err);
             throw err;
-        }
-    }
-
-    //checking that bucket with enable or disable spillover
-    async checkIsSpilloverHasStatus(bucket_name, status) {
-        console.log('Checking for spillover status ' + status + ' for bucket ' + bucket_name);
-        try {
-            const system_info = await this._client.system.read_system({});
-            const buckets = system_info.buckets;
-            const indexBucket = buckets.findIndex(values => values.name === bucket_name);
-            const spilloverPool = system_info.buckets[indexBucket].spillover;
-            if ((status) && (spilloverPool !== null)) {
-                console.log('Spillover for bucket ' + bucket_name + ' enabled and uses ' + spilloverPool);
-            } else if ((!status) && (spilloverPool === null)) {
-                console.log('Spillover for bucket ' + bucket_name + ' disabled ');
-            }
-        } catch (err) {
-            console.log('Failed to check spillover for bucket ' + bucket_name + err);
-            throw err;
-        }
-    }
-
-    async getInternalStoragePool() {
-        const system_info = await this._client.system.read_system({});
-        for (let i = 0; i < system_info.pools.length; i++) {
-            if (system_info.pools[i].resource_type === 'INTERNAL') {
-                return system_info.pools[i].name;
-            }
         }
     }
 
     async createNamespaceBucket(name, namespace) {
-        console.log('Creating namespace bucket with namespace ' + namespace);
+        console.log(`Creating namespace bucket with namespace ${namespace}`);
         try {
             await this._client.bucket.create_bucket({
                 name,
@@ -211,8 +161,9 @@ class BucketFunctions {
                     write_resource: namespace
                 }
             });
-        } catch (err) {
-            throw new Error(`Failed to create Namespace bucket ${err}`);
+        } catch (e) {
+            console.error('Failed to create Namespace bucket', e);
+            throw e;
         }
     }
 
@@ -226,8 +177,9 @@ class BucketFunctions {
                     write_resource
                 }
             });
-        } catch (err) {
-            throw new Error(`Failed to update Namespace bucket ${err}`);
+        } catch (e) {
+            console.error('Failed to update Namespace bucket', e);
+            throw e;
         }
     }
 

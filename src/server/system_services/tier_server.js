@@ -49,12 +49,15 @@ function new_policy_defaults(name, system_id, chunk_split_config, tiers_orders) 
  *
  */
 function create_tier(req) {
-    const changes = { insert: {} };
-
-    const policy_pool_ids = _.map(req.rpc_params.attached_pools,
-        pool_name => req.system.pools_by_name[pool_name]._id
+    const { attached_pools = [] } = req.rpc_params;
+    const pools = attached_pools.map(pool_name =>
+        req.system.pools_by_name[pool_name]
     );
 
+    throw_on_invalid_pools_for_tier(pools);
+
+    const changes = { insert: {} };
+    const policy_pool_ids = pools.map(pool => pool._id);
     const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config, req.account, req.system);
     if (!chunk_config._id) {
@@ -132,6 +135,11 @@ function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
  *
  */
 function update_tier(req) {
+    const { attached_pools = [] } = req.rpc_params;
+    throw_on_invalid_pools_for_tier(attached_pools.map(pool_name =>
+        req.system.pools_by_name[pool_name]
+    ));
+
     const tier = find_tier_by_name(req);
     const updates = {
         _id: tier._id
@@ -159,7 +167,6 @@ function update_tier(req) {
             chunk_config_changed = true;
         }
     }
-
 
     let old_pool_names = [];
     if (req.rpc_params.data_placement) {
@@ -668,6 +675,23 @@ function get_associated_tiering_policies(tier) {
     return _.map(associated_tiering_policies, tiering_policies => tiering_policies._id);
 }
 
+function throw_on_invalid_pools_for_tier(pools) {
+    const uninitialized_pools = pools.filter(pool =>
+        pool.hosts_pool_info &&
+        !pool.hosts_pool_info.initialized
+    );
+    if (uninitialized_pools.length > 0) {
+        throw new Error(`Invalid attached pools, ${uninitialized_pools.join(', ')} are not initialized yet`);
+    }
+
+    const deleting_pools = pools.filter(pool =>
+        pool.hosts_pool_info &&
+        pool.hosts_pool_info.host_count === 0
+    );
+    if (deleting_pools.length > 0) {
+        throw new Error(`Invalid attached pools, ${deleting_pools.join(', ')} are in deleting state`);
+    }
+}
 
 // EXPORTS
 exports.get_associated_tiering_policies = get_associated_tiering_policies;

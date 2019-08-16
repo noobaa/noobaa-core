@@ -254,7 +254,7 @@ function delete_noobaa {
     ${KUBECTL} delete pvc logdir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete pvc mongo-datadir-${NOOBAA_POD_NAME}
     ${KUBECTL} delete statefulset -l noobaa-module=noobaa-pool-impl # delete noobaa pool's stateful sets
-    ${KUBECTL} delete pvc -l noobaa-module=noobaa-storage # delete noobaa agents volumes
+    ${KUBECTL} delete pvc -l noobaa-module=noobaa-agent # delete noobaa agents volumes
 }
 
 

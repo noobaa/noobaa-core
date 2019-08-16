@@ -99,6 +99,7 @@ class PoolHostsTableViewModel extends Observer {
         this.onFilterByNameThrottled = throttle(this.onFilterByName, inputThrottle, this);
         this.areActionsDisabled = ko.observable(true);
         this.actionsTooltip = ko.observable('');
+        this.isEditPoolConfigVisible = ko.observable(false);
 
         this.observe(
             state$.pipe(getMany(
@@ -140,6 +141,7 @@ class PoolHostsTableViewModel extends Observer {
         this.page(Number(page));
         this.areActionsDisabled(disableActions);
         this.actionsTooltip(disableActions ? 'Pool is being deleted' : '');
+        this.isEditPoolConfigVisible(pools[pool].isManaged);
 
         action$.next(fetchHosts(
             this.viewName,

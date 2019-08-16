@@ -8,22 +8,25 @@ import {
     COMPLETE_CREATE_HOSTS_POOL
 } from 'action-types';
 
-const actionToUriAccessor = deepFreeze({
-    [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => payload.packageUri,
-    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: payload => payload.packageUri,
-    [COMPLETE_CREATE_HOSTS_POOL]: payload => payload.autoDownload ? payload.deployYAMLUri : ''
+const actionToFileInfo = deepFreeze({
+    [COMPLETE_COLLECT_HOST_DIAGNOSTICS]: payload => ({ uri: payload.packageUri }),
+    [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: payload => ({ uri: payload.packageUri }),
+    [COMPLETE_CREATE_HOSTS_POOL]: payload => payload.autoDownload ? {
+        uri: payload.deployYAMLUri,
+        name: `${payload.name}.yaml`
+    } : null
 });
 
 export default function(action$, { browser }) {
     return action$.pipe(
         map(action => {
-            const uriAccessor = actionToUriAccessor[action.type];
-            if (!uriAccessor) return;
+            const getFileInfo = actionToFileInfo[action.type];
+            if (!getFileInfo) return;
 
-            const uri = uriAccessor(action.payload);
-            if (!uri) return;
+            const fileInfo = getFileInfo(action.payload);
+            if (!fileInfo) return;
 
-            browser.downloadFile(uri);
+            browser.downloadFile(fileInfo.uri, fileInfo.name);
         })
     );
 }

@@ -29,7 +29,6 @@ spec:
       noobaa-module: noobaa-agent
   serviceName: noobaa-agent
   replicas: 3
-  podManagementPolicy: Parallel
   updateStrategy:
     type: RollingUpdate
   template:
@@ -41,12 +40,12 @@ spec:
     spec:
       containers:
         - name: noobaa-agent
-          readinessProbe:
-            # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
-            # ready when s3 port is open
-            tcpSocket:
-              port: 6001
-            timeoutSeconds: 5
+          # readinessProbe:
+          #   # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+          #   # ready when s3 port is open
+          #   tcpSocket:
+          #     port: 6001
+          #   timeoutSeconds: 5
           imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -88,7 +87,8 @@ spec:
         name: noobaastorage
         labels:
           app: noobaa
-          noobaa-module: noobaa-storage
+          # Custom labels cannot be added, see https://github.com/kubernetes/kubernetes/issues/58987
+          # noobaa-module: noobaa-storage
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:

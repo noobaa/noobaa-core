@@ -3,7 +3,7 @@
 import template from './edit-tier-data-placement-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { flatMap } from 'utils/core-utils';
+import { flatMap, deepFreeze } from 'utils/core-utils';
 import { getResourceId } from 'utils/resource-utils';
 import { realizeUri } from 'utils/browser-utils';
 import {
@@ -19,6 +19,11 @@ import {
 } from 'action-creators';
 import * as routes from 'routes';
 
+const invalidHostPoolStates = deepFreeze([
+    'INITIALIZING',
+    'DELETING'
+]);
+
 class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     dataReady = ko.observable();
@@ -28,7 +33,7 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
     resourcesHref = '';
     hostPools = ko.observable();
     cloudResources = ko.observable();
-    resourcesInUse = ko.observableArray();
+    disabledResources = ko.observableArray();
     tableHeader = ko.observable();
     formFields = ko.observable();
 
@@ -66,6 +71,10 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                     const { type, name } = record.resource;
                     return getResourceId(type, name);
                 });
+            const invalidResources = Object.values(hostPools)
+                .filter(pool => invalidHostPoolStates.includes(pool.mode))
+                .map(pool => getResourceId('HOSTS', pool.name));
+
             const resourcesHref = realizeUri(routes.resources, { system });
 
             ko.assignToProps(this, {
@@ -75,7 +84,10 @@ class EditTierDataPlacementModalViewModel extends ConnectableViewModel {
                 usingInternalStorage,
                 hostPools,
                 cloudResources,
-                resourcesInUse,
+                disabledResources: [
+                    ...resourcesInUse,
+                    ...invalidResources
+                ],
                 resourcesHref,
                 tableHeader: `Resources in Tier ${tierIndex + 1} policy`,
                 formFields: !this.formFields() ? {

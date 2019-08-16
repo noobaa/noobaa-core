@@ -221,9 +221,23 @@ export function reloadBrowser(url) {
     }
 }
 
-export function toObjectUrl(data) {
-    const json = JSON.stringify(data, undefined, 2);
-    const blob = new Blob([json], { type: 'text/json' });
+export function toObjectUrl(data, type = 'text/json') {
+    let content = null;
+    switch (type) {
+        case 'text/json': {
+            content = JSON.stringify(data, undefined, 2);
+            break;
+        }
+        case 'text/yaml': {
+            content = String(data);
+            break;
+        }
+        default: {
+            throw new Error(`Unsupported type, got ${type}`);
+        }
+    }
+
+    const blob = new Blob([content], { type });
     return global.URL.createObjectURL(blob);
 }
 

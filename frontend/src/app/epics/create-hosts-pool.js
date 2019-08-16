@@ -22,7 +22,7 @@ export default function(action$, { api, browser }) {
                     }
                 });
 
-                const deployYAMLUri = browser.toObjectUrl(deployYAML);
+                const deployYAMLUri = browser.toObjectUrl(deployYAML, 'text/yaml');
                 return completeCreateHostsPool(name, deployYAMLUri, !isManaged);
 
             } catch (error) {

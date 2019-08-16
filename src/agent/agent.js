@@ -89,6 +89,7 @@ class Agent {
         this.token_wrapper = params.token_wrapper;
         this.create_node_token_wrapper = params.create_node_token_wrapper;
 
+        this.shutdown = false;
         this.enabled = false;
 
         this.storage_path = params.storage_path;
@@ -397,95 +398,105 @@ class Agent {
         const dbg = this.dbg;
         let done = false;
         while (!done) {
-            try {
-                if (!this.is_started) return;
-                const hb_info = {
-                    version: pkg.version
-                };
-                if (this.cloud_info) {
-                    hb_info.pool_name = this.cloud_info.pool_name;
-                } else if (this.mongo_info) {
-                    hb_info.pool_name = this.mongo_info.pool_name;
-                }
+            if (this.shutdown) {
+                dbg.warn('Node is shuting down');
+                await P.delay(30000);
 
-                dbg.log0(`_do_heartbeat called. sending HB to ${this.master_address}`);
-
-                if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
-                    dbg.error('too many failure to connect, switching servers');
-                    await this._handle_server_change();
-                    throw new Error('server change after too many attempts');
-                }
-
-                const req = await this.client.node.heartbeat(hb_info, {
-                    return_rpc_req: true,
-                    timeout: MASTER_RESPONSE_TIMEOUT,
-                });
-
-                dbg.log0('heartbeat successful. connected to server. got reply', req.reply);
-
-                const res = req.reply;
-                if (res.redirect) {
-                    dbg.log0('got redirect response:', res.redirect);
-                    await this._handle_server_change(res.redirect);
-                    throw new Error('redirect to ' + res.redirect);
-                }
-
-                if (res.version !== pkg.version) {
-                    dbg.warn('identified version change:',
-                        'res.version', res.version,
-                        'pkg.version', pkg.version);
-                    this.send_message_and_exit('UPGRADE', 0);
-                }
-
-                const conn = req.connection;
-                this._server_connection = conn;
-                this.connect_attempts = 0;
-
-                if (conn._agent_heartbeat_close_listener) {
-                    conn.off('close', conn._agent_heartbeat_close_listener);
-                    conn._agent_heartbeat_close_listener = null;
-                }
-                const listener = async () => {
-                    if (this._server_connection === conn) {
-                        this._server_connection = null;
-                    }
+            } else {
+                try {
                     if (!this.is_started) return;
-                    await P.delay(1000);
-                    await this._do_heartbeat();
-                };
-                conn._agent_heartbeat_close_listener = listener;
-                conn.on('close', listener);
-
-                done = true;
-
-            } catch (err) {
-
-                dbg.error('heartbeat failed', err.stack || err.message);
-
-                if (err.rpc_code === 'DUPLICATE') {
-                    dbg.error('This agent appears to be duplicated.',
-                        'exiting and starting new agent', err);
-                    if (this.cloud_info || this.mongo_info) {
-                        dbg.error(`shouldnt be here. found duplicated node for cloud pool or mongo pool!!`);
-                        throw new Error('found duplicated cloud or mongo node');
-                    } else {
-                        this.send_message_and_exit('DUPLICATE', 68); // 68 is 'D' in ascii
+                    const hb_info = {
+                        version: pkg.version
+                    };
+                    if (this.cloud_info) {
+                        hb_info.pool_name = this.cloud_info.pool_name;
+                    } else if (this.mongo_info) {
+                        hb_info.pool_name = this.mongo_info.pool_name;
                     }
-                }
 
-                if (err.rpc_code === 'NODE_NOT_FOUND') {
-                    dbg.error('This agent appears to be using an old token.',
-                        'cleaning this agent noobaa_storage directory', this.storage_path);
-                    if (this.cloud_info || this.mongo_info) {
-                        dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
-                        throw new Error('node not found cloud or mongo node');
-                    } else {
-                        this.send_message_and_exit('NOTFOUND', 69); // 69 is 'E' in ascii
+                    dbg.log0(`_do_heartbeat called. sending HB to ${this.master_address}`);
+
+                    if (this.connect_attempts > MASTER_MAX_CONNECT_ATTEMPTS) {
+                        dbg.error('too many failure to connect, switching servers');
+                        await this._handle_server_change();
+                        throw new Error('server change after too many attempts');
                     }
-                }
 
-                this.connect_attempts += 1;
-                await P.delay(3000);
+                    const req = await this.client.node.heartbeat(hb_info, {
+                        return_rpc_req: true,
+                        timeout: MASTER_RESPONSE_TIMEOUT,
+                    });
+
+                    dbg.log0('heartbeat successful. connected to server. got reply', req.reply);
+
+                    const res = req.reply;
+                    if (res.redirect) {
+                        dbg.log0('got redirect response:', res.redirect);
+                        await this._handle_server_change(res.redirect);
+                        throw new Error('redirect to ' + res.redirect);
+                    }
+
+                    if (res.version !== pkg.version) {
+                        dbg.warn('identified version change:',
+                            'res.version', res.version,
+                            'pkg.version', pkg.version);
+                        this.send_message_and_exit('UPGRADE', 0);
+                    }
+
+                    const conn = req.connection;
+                    this._server_connection = conn;
+                    this.connect_attempts = 0;
+
+                    if (conn._agent_heartbeat_close_listener) {
+                        conn.off('close', conn._agent_heartbeat_close_listener);
+                        conn._agent_heartbeat_close_listener = null;
+                    }
+                    const listener = async () => {
+                        if (this._server_connection === conn) {
+                            this._server_connection = null;
+                        }
+
+                        if (this.shutdown) return;
+                        if (!this.is_started) return;
+                        await P.delay(1000);
+                        await this._do_heartbeat();
+                    };
+                    conn._agent_heartbeat_close_listener = listener;
+                    conn.on('close', listener);
+
+                    done = true;
+
+                } catch (err) {
+
+                    dbg.error('heartbeat failed', err.stack || err.message);
+
+                    if (err.rpc_code === 'DUPLICATE') {
+                        dbg.error('This agent appears to be duplicated.',
+                            'exiting and starting new agent', err);
+                        if (this.cloud_info || this.mongo_info) {
+                            dbg.error(`shouldnt be here. found duplicated node for cloud pool or mongo pool!!`);
+                            throw new Error('found duplicated cloud or mongo node');
+                        } else {
+                            this.send_message_and_exit('DUPLICATE', 68); // 68 is 'D' in ascii
+                        }
+                    }
+
+                    if (err.rpc_code === 'NODE_NOT_FOUND') {
+                        dbg.error('This agent appears to be using an old token.',
+                            'cleaning this agent noobaa_storage directory', this.storage_path);
+                        if (this.cloud_info || this.mongo_info) {
+                            dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
+                            throw new Error('node not found cloud or mongo node');
+                        } else {
+                            // We dont exit the process in order to keep the underlaying pod alive until
+                            // the pool statefulset will scale this pod out of existance.
+                            this.shutdown = true;
+                        }
+                    }
+
+                    this.connect_attempts += 1;
+                    await P.delay(3000);
+                }
             }
         }
     }

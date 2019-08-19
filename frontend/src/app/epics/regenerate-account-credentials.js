@@ -13,12 +13,11 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(REGENERATE_ACCOUNT_CREDENTIALS),
         mergeMap(async action => {
-            const { accountName, verificationPassword } = action.payload;
+            const { accountName } = action.payload;
 
             try {
                 await  api.account.generate_account_keys({
-                    email: accountName,
-                    verification_password: verificationPassword
+                    email: accountName
                 });
 
                 return completeRegenerateAccountCredentials(accountName);

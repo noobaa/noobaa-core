@@ -243,10 +243,10 @@ export function failDeleteExternalConnection(connection, error) {
     };
 }
 
-export function regenerateAccountCredentials(accountName, verificationPassword) {
+export function regenerateAccountCredentials(accountName) {
     return {
         type: REGENERATE_ACCOUNT_CREDENTIALS,
-        payload: { accountName, verificationPassword }
+        payload: { accountName }
     };
 }
 

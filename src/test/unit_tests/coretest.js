@@ -411,15 +411,13 @@ function set_pool_as_default_resource(system, pool_name) {
     const pool_id = system_store.data.pools
         .find(pool => pool.name === pool_name)
         ._id;
-    const account_ids = system_store.data.accounts
-        .map(account => account._id);
 
     return system_store.make_changes({
         update: {
-            accounts: [{
-                _id: { $in: account_ids },
-                default_pool: pool_id
-            }]
+            accounts: _.map(system_store.data.accounts, account => ({
+                _id: account._id,
+                default_pool: pool_id,
+            }))
         }
     });
 }
@@ -434,7 +432,7 @@ function describe_mapper_test_case({ name, bucket_name_prefix }, func) {
     const REPLICAS_FULL = [1, 2, 3, 6];
 
     const EC_BASIC = [
-        //'1+0',
+        '1+0',
         //'4+2',
         //'8+2',
     ].map(parse_ec);

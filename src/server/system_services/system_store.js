@@ -653,7 +653,8 @@ class SystemStore extends EventEmitter {
      */
     async make_changes(changes) {
         const bulk_per_collection = {};
-        const now = Date.now();
+        const now = new Date();
+        const last_update = now.getTime();
         let any_news = false;
         dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
             depth: 5
@@ -680,7 +681,7 @@ class SystemStore extends EventEmitter {
             _.each(list, item => {
                 this._check_schema(col, item);
                 data.check_indexes(col, item);
-                item.last_update = now;
+                item.last_update = last_update;
                 any_news = true;
                 get_bulk(name).insert(item);
             });
@@ -720,7 +721,7 @@ class SystemStore extends EventEmitter {
                 // }
                 if (!dont_change_last_update) {
                     if (!updates.$set) updates.$set = {};
-                    updates.$set.last_update = now;
+                    updates.$set.last_update = last_update;
                     any_news = true;
                 }
                 get_bulk(name)
@@ -739,7 +740,7 @@ class SystemStore extends EventEmitter {
                     .updateOne({
                         $set: {
                             deleted: now,
-                            last_update: now,
+                            last_update: last_update,
                         }
                     });
             });

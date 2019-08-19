@@ -1051,7 +1051,7 @@ async function add_endpoint_usage_report(req) {
         insert.system = req.system._id;
 
         if (record.bucket) {
-            const bucket = req.system.buckets_by_name[record.bucket.unwrap()];
+            const bucket = req.system.buckets_by_name && req.system.buckets_by_name[record.bucket.unwrap()];
             if (bucket) insert.bucket = bucket._id;
         }
 
@@ -1152,7 +1152,7 @@ function get_object_info(md) {
 }
 
 function load_bucket(req) {
-    var bucket = req.system.buckets_by_name[req.rpc_params.bucket.unwrap()];
+    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket.unwrap()];
     if (!bucket) {
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }

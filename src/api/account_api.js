@@ -204,10 +204,9 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'verification_password'],
+                required: ['email'],
                 properties: {
                     email: { $ref: 'common_api#/definitions/email' },
-                    verification_password: { $ref: 'common_api#/definitions/password' },
                 },
             },
             auth: {

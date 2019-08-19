@@ -3,14 +3,13 @@
 import template from './regenerate-account-credentials-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import { closeModal, regenerateAccountCredentials } from 'action-creators';
-import { api } from 'services';
 import ko from 'knockout';
 
 class RegenerateAccountCredentialsModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     targetAccount = '';
     fields = {
-        userPassword: ''
+        confirm: ''
     };
 
     selectState(_, params) {
@@ -26,33 +25,20 @@ class RegenerateAccountCredentialsModalViewModel extends ConnectableViewModel {
     }
 
     onValidate(values) {
-        const { userPassword } = values;
+        const { confirm } = values;
         const errors = {};
 
-        if (!userPassword) {
-            errors.userPassword = 'Password is required for security purposes';
+        if (confirm.trim().toLowerCase() !== 'regenerate') {
+            errors.confirm = 'Please type "regenerate" to confirm your action';
         }
 
         return errors;
     }
 
-    async onValidateSubmit(values) {
-        const { userPassword: verification_password } = values;
-        const errors = {};
-
-        const verified = await api.account.verify_authorized_account({ verification_password });
-        if (!verified) {
-            errors.userPassword = 'Please make sure your password is correct';
-        }
-
-        return errors;
-    }
-
-    onSubmit(values) {
-        const { userPassword } = values;
+    onSubmit() {
         this.dispatch(
             closeModal(),
-            regenerateAccountCredentials(this.targetAccount, userPassword)
+            regenerateAccountCredentials(this.targetAccount)
         );
     }
 

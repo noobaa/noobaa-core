@@ -48,8 +48,9 @@ class CloudFunction {
                 name,
                 target_bucket
             });
-        } catch (err) {
-            throw new Error(`Failed to create cloud pool ${err}`);
+        } catch (e) {
+            console.error('Failed to create cloud pool', e);
+            throw e;
         }
     }
 
@@ -59,8 +60,9 @@ class CloudFunction {
             await this._client.pool.delete_pool({
                 name: pool
             });
-        } catch (err) {
-            throw new Error(`Failed to delete cloud pool error ${err}`);
+        } catch (e) {
+            console.error('Failed to delete cloud pool error', e);
+            throw e;
         }
     }
 
@@ -99,8 +101,9 @@ class CloudFunction {
             await this._client.account.delete_external_connection({
                 connection_name
             });
-        } catch (err) {
-            throw new Error(`Failed to delete connection ${err}`);
+        } catch (e) {
+            console.error('Failed to delete connection', e);
+            throw e;
         }
     }
 
@@ -112,8 +115,9 @@ class CloudFunction {
                 name,
                 target_bucket
             });
-        } catch (err) {
-            throw new Error(`Failed to create namespace resource ${err}`);
+        } catch (e) {
+            console.error('Failed to create namespace resource', e);
+            throw e;
         }
     }
 
@@ -123,8 +127,9 @@ class CloudFunction {
             await this._client.pool.delete_namespace_resource({
                 name: namespace
             });
-        } catch (err) {
-            throw new Error(`Failed to delete cloud pool error ${err}`);
+        } catch (e) {
+            console.error('Failed to delete cloud pool error', e);
+            throw e;
         }
     }
 }

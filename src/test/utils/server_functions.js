@@ -31,8 +31,9 @@ async function create_system(server_ip, port, protocol) {
             password: 'DeMo1'
         });
         await wait_for_system_ready(server_ip, port, protocol);
-    } catch (err) {
-        throw new Error(`Couldn't create system ${err}`);
+    } catch (e) {
+        console.error(`Couldn't create system`, e);
+        throw e;
     }
 }
 

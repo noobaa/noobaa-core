@@ -6,8 +6,8 @@ const api = require('../../api');
 const crypto = require('crypto');
 const dataset = require('./dataset.js');
 const argv = require('minimist')(process.argv);
-const test_utils = require('../system_tests/test_utils');
 const dbg = require('../../util/debug_module')(__filename);
+const { PoolFunctions } = require('../utils/pool_functions');
 
 const test_name = 'dataset';
 dbg.set_process_name(test_name);
@@ -53,16 +53,6 @@ async function _run_dataset() {
     }
 }
 
-async function _change_tier(client, bucket, data_placement) {
-    const read_bucket = await client.bucket.read_bucket({ name: bucket });
-    console.log(`Setting ${POOL_NAME} as the pool for bucket: ${bucket}`);
-    await client.tier.update_tier({
-        name: read_bucket.tiering.tiers[0].tier,
-        attached_pools: [POOL_NAME],
-        data_placement
-    });
-}
-
 async function _create_pool(agent_number, mgmt_ip, mgmt_port_https) {
     if (agent_number !== 0) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
@@ -77,8 +67,9 @@ async function _create_pool(agent_number, mgmt_ip, mgmt_port_https) {
             console.error(`create_auth_token has failed`, e);
             process.exit(1);
         }
-        await test_utils.create_hosts_pool(client, POOL_NAME, agent_number);
-        await _change_tier(client, dataset_params.bucket, dataset_params.data_placement);
+        const pool_functions = new PoolFunctions(client);
+        await pool_functions.create_pool(POOL_NAME, agent_number);
+        await pool_functions.change_tier(POOL_NAME, dataset_params.bucket, dataset_params.data_placement);
     }
 }
 

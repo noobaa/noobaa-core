@@ -55,7 +55,12 @@ async function create_func(req) {
     const { _id: exec_account } = req.account;
     const { name, pools: pool_names = [] } = func_config;
     const version = '$LATEST';
-    const pools = pool_names.map(pool_name => pools_by_name[pool_name]._id);
+    const pools = pool_names.map(pool_name => pools_by_name[pool_name]);
+    for (const pool of pools) {
+        if (pool.cloud_pool_info || pool.mongo_pool_info) {
+            throw new RpcError('FORBIDDEN', 'invalid_pool');
+        }
+    }
     const resource_name = `arn:noobaa:lambda:region:${system}:function:${name}:${version}`;
     const code_stream = await _get_func_code_stream(req, func_code);
 
@@ -78,7 +83,7 @@ async function create_func(req) {
         last_modified: new Date(),
         last_modifier: exec_account,
         resource_name,
-        pools,
+        pools: pools.map(pool => pool._id),
         code_gridfs_id,
         code_sha256,
         code_size

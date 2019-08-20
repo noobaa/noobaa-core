@@ -24,6 +24,7 @@ const HistoryDataStore = require('../analytic_services/history_data_store').Hist
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 const KeysSemaphore = require('../../util/keys_semaphore');
 const pool_ctrls = require('./pool_controllers');
+const func_store = require('../func_services/func_store');
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
@@ -103,7 +104,7 @@ async function _init() {
                         calc_scale_up_timeout(configured_host_count - actual_host_count)
                     );
 
-                // This catch easure the release of the lock in case of a timeout
+                    // This catch easure the release of the lock in case of a timeout
                 } catch (err) {
                     if (!(err instanceof P.TimeoutError)) {
                         throw err;
@@ -261,7 +262,7 @@ async function create_hosts_pool(req) {
                     }
                 });
 
-            // This catch easure the release of the lock in case of a timeout
+                // This catch easure the release of the lock in case of a timeout
             } catch (err) {
                 if (!(err instanceof P.TimeoutError)) {
                     throw err;
@@ -722,7 +723,13 @@ async function delete_hosts_pool(req, pool) {
             pool: pool._id,
             desc: `${pool.name} was emptyed and deleted`,
         });
-
+        const related_funcs = await func_store.instance().list_funcs_by_pool(req.system._id, pool._id);
+        for (const func of related_funcs) {
+            let new_pools_arr = func.pools.filter(function(obj) {
+                return obj.toString() !== (pool._id).toString();
+            });
+            await func_store.instance().update_func(func._id, { 'pools': new_pools_arr });
+        }
         const pool_ctrl = create_pool_controller(req.system, pool);
         await pool_ctrl.delete();
     });

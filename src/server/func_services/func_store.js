@@ -88,9 +88,9 @@ class FuncStore {
 
     get_by_id_include_deleted(func_id) {
         return P.resolve()
-        .then(() => this._funcs.col().findOne({
-            _id: func_id,
-        }));
+            .then(() => this._funcs.col().findOne({
+                _id: func_id,
+            }));
     }
 
     list_funcs(system) {
@@ -98,6 +98,16 @@ class FuncStore {
             .then(() => this._funcs.col().find({
                     system: system,
                     version: '$LATEST',
+                    deleted: null,
+                })
+                .toArray());
+    }
+
+    list_funcs_by_pool(system, pool) {
+        return P.resolve()
+            .then(() => this._funcs.col().find({
+                    system: system,
+                    pools: pool,
                     deleted: null,
                 })
                 .toArray());

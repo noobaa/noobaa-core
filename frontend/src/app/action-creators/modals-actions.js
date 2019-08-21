@@ -781,5 +781,22 @@ export function openDeletePoolWithDataWarningModal(poolName) {
         }
     };
 }
+
+export function openConfirmDangerousScalingModal(action) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'confirm-dangerous-scaling-modal',
+                params: { action }
+            },
+            options: {
+                title: 'Not Enough Storage Capacity',
+                severity: 'warning',
+                size: 'xsmall'
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

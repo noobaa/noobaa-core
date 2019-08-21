@@ -95,6 +95,7 @@ import sessionExpiredModal from './modals/session-expired-modal/session-expired-
 import deployK8sPoolModal from './modals/deploy-k8s-pool-modal/deploy-k8s-pool-modal';
 import editK8sPoolModal from './modals/edit-k8s-pool-modal/edit-k8s-pool-modal';
 import deletePoolWithDataWarningModal from './modals/delete-pool-with-data-warning-modal/delete-pool-with-data-warning-modal';
+import confirmDangerousScalingModal from './modals/confirm-dangerous-scaling-modal/confirm-dangerous-scaling-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -433,6 +434,7 @@ export default function register(ko, services) {
         deployK8sPoolModal,
         editK8sPoolModal,
         deletePoolWithDataWarningModal,
+        confirmDangerousScalingModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

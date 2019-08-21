@@ -1,0 +1,9 @@
+<div class="column">
+    <p>The following connected buckets policies would encounter issues with the configured number of nodes:</p>
+    <ul class="bullet-list" ko.foreach="buckets">
+        <li>{{$data}}</li>
+    </ul>
+    <p class="row content-middle push-prev">
+        The recommended number of nodes according to the listed buckets policies is {{recommendedHostCount}}
+    </p>
+</div>

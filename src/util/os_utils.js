@@ -282,7 +282,7 @@ async function read_mac_linux_drives(include_all) {
         file: '-l'
     }, callback));
 
-    if (volumes) {
+    if (!volumes) {
         return [];
     }
 

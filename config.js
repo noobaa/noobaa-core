@@ -277,7 +277,7 @@ config.STATISTICS_COLLECTOR_EXPIRATION = 31 * 24 * 60 * 60 * 1000; // 1 month
 ///////////////////
 // USAGE REPORTS //
 ///////////////////
-
+config.SERVICES_TYPES = Object.freeze(['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']);
 config.USAGE_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 

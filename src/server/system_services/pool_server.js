@@ -834,6 +834,15 @@ async function get_cloud_services_stats(req) {
     ]);
 
     const all_services = {};
+    for (const service of config.SERVICES_TYPES) {
+        all_services[service] = {
+            service,
+            read_bytes: 0,
+            read_count: 0,
+            write_bytes: 0,
+            write_count: 0
+        };
+    }
     for (const acc of system_store.data.accounts) {
         if (acc.sync_credentials_cache) {
             acc.sync_credentials_cache.forEach(conn => {

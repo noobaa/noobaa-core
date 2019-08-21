@@ -5,30 +5,42 @@
 </div>
 
 <section class="summary row greedy" ko.css.visible="dataReady">
-    <div class="c6 card pad-double row content-middle push-next">
-        <svg-icon class="circled-icon push-next"
-            params="name: 'buckets'"
-        ></svg-icon>
-        <div class="column greedy">
-            <h2 class="heading2">
-                Data Buckets
-            </h2>
-            <h3 class="heading3">
-                {{bucketSummary}}
-            </h3>
+    <div class="c4 card column push-next">
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="greedy">Object Buckets</span>
+            <span>{{bucketsCount}}</span>
+        </div>
+        <hr>
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="greedy">Number of Objects</span>
+            <span>{{objectCount}}</span>
         </div>
     </div>
-    <div class="c6 card pad-double row content-middle push-prev">
-        <svg-icon class="circled-icon push-next"
-            params="name: 'namespace'"
-        ></svg-icon>
-        <div class="column greedy">
-            <h2 class="heading2">
-                Namespace Buckets
-            </h2>
-            <h3 class="heading3">
-                {{nsBucketSummary}}
-            </h3>
+    <div class="c4 card column push-both">
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="greedy">Namespace Buckets</span>
+            <span>{{nsBucketCount}}</span>
+        </div>
+        <hr>
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="greedy">Number of Reads/Writes</span>
+            <span>{{nsReadsWrites}}</span>
+        </div>
+    </div>
+    <div class="c4 card column push-prev">
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="greedy">Data Written on Buckets</span>
+            <span>{{dataWritten}}</span>
+        </div>
+        <hr>
+        <div class="row content-middle pad-double hpad highlight">
+            <span class="row content-middle greedy">
+                Data Reduction Savings
+                <more-info-icon class="push-prev-half"
+                    params="tooltip: reducationSavingTooltips"
+                ></more-info-icon>
+            </span>
+            <span>{{reducationSaving}}</span>
         </div>
     </div>
 </section>

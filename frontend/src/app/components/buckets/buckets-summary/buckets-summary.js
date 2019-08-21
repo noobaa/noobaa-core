@@ -3,13 +3,22 @@
 import template from './buckets-summary.html';
 import ConnectableViewModel from 'components/connectable';
 import { sumBy } from 'utils/core-utils';
-import { stringifyAmount } from 'utils/string-utils';
+import { formatSize, sumSize, toBigInteger, toBytes, fromBigInteger } from 'utils/size-utils';
 import ko from 'knockout';
+import numeral from 'numeral';
+
+const reducationSavingTooltips = 'Savings shows the uncompressed and non-deduped data that would have been stored without those techniques';
 
 class BucketsSummaryViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
-    bucketSummary = ko.observable();
-    nsBucketSummary = ko.observable();
+    bucketsCount = ko.observable();
+    objectCount = ko.observable();
+    nsBucketCount = ko.observable();
+    nsReadsWrites = ko.observable();
+    dataWritten = ko.observable();
+    reducationSaving = ko.observable();
+    reducationSavingTooltips = reducationSavingTooltips;
+
 
     selectState(state) {
         return [
@@ -28,18 +37,23 @@ class BucketsSummaryViewModel extends ConnectableViewModel {
             const bucketList = Object.values(buckets);
             const bucketCount = bucketList.length;
             const objectCount = sumBy(bucketList, bucket => bucket.objectCount);
-            let bucketSummary = stringifyAmount('bucket', bucketCount, 'No');
-            if (bucketCount > 0) {
-                bucketSummary += ` | ${stringifyAmount('object', objectCount)}`;
-            }
-
-            const nsBucketCount = Object.values(nsBuckets).length;
-            const nsBucketSummary = stringifyAmount('bucket', nsBucketCount, 'No');
+            const dataSize = sumSize(...bucketList.map(bucket => bucket.data.size));
+            const reducedSize = sumSize(...bucketList.map(bucket => bucket.data.sizeReduced));
+            const savings = fromBigInteger(toBigInteger(dataSize).subtract(reducedSize));
+            const savingsRatio = dataSize > 0 ? toBytes(savings) / toBytes(dataSize) : 0;
+            const nsBucketList = Object.values(nsBuckets);
+            const nsBucketCount = nsBucketList.length;
+            const nsReads = sumBy(nsBucketList, bucket => bucket.io.readCount);
+            const nsWrites = sumBy(nsBucketList, bucket => bucket.io.writeCount);
 
             ko.assignToProps(this, {
                 dataReady: true,
-                bucketSummary,
-                nsBucketSummary
+                bucketsCount: numeral(bucketCount).format(','),
+                objectCount: numeral(objectCount).format(','),
+                nsBucketCount: numeral(nsBucketCount).format(','),
+                nsReadsWrites: `${numeral(nsReads).format(',')}/${numeral(nsWrites).format(',')}`,
+                dataWritten: formatSize(dataSize),
+                reducationSaving: `${formatSize(savings)} (${numeral(savingsRatio).format('%')})`
             });
         }
     }

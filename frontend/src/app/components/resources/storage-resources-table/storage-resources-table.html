@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row content-middle card-shadow pad push-next">
+    <input class="push-next"
+        type="search"
+        placeholder="Filter by name or region"
+        ko.textInput="ko.pc(filter, onFilter)"
+    />
+    <div class="greedy push-next row content-middle">
+        <dropdown params="
+            options: resourceTypeOptions,
+            selected: ko.pc(typeFilter, onTypeFilter, $component)
+        "></dropdown>
+    </div>
+    <button class="btn push-next" ko.click="onDeplyK8sPool">
+        Deploy Kubernetes Pool
+    </button>
+    <button class="btn" ko.click="onAddCloudResource">
+        Add Cloud Resource
+    </button>
+</div>
+
+<data-table class="greedy resources-table" params="
+    columns: columns,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !dataReady(),
+    emptyMessage: emptyMessage
+"></data-table>
+
+<paginator params="
+    itemCount: resourceCount,
+    pageSize: pageSize,
+    page: ko.pc(page, onPage, $component)
+"></paginator>

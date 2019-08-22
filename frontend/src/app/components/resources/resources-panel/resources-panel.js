@@ -16,7 +16,7 @@ class ResourcesPanelViewModel extends ConnectableViewModel  {
     }
 
     mapStateToProps(location) {
-        const { system, tab = 'pools' } = location.params;
+        const { system, tab = 'storage' } = location.params;
 
         ko.assignToProps(this, {
             baseRoute: realizeUri(location.route, { system }, {}, true),

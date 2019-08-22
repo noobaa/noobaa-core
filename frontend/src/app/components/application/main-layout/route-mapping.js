@@ -196,10 +196,10 @@ function _generatePoolCrumbs(params) {
                 routes.resources,
                 {
                     ...pick(params, ['system']),
-                    tab: 'pools'
+                    tab: 'storage'
                 }
             ),
-            label: 'Pools'
+            label: 'Storage Resources'
         },
         {
             url: realizeUri(
@@ -219,10 +219,10 @@ function _generateCloudResourceCrumb(params) {
                 routes.resources,
                 {
                     ...pick(params, ['system']),
-                    tab: 'cloud'
+                    tab: 'storage'
                 }
             ),
-            label: 'Cloud Resources'
+            label: 'Storage Resources'
         },
         {
             url: realizeUri(

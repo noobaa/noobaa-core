@@ -157,10 +157,9 @@ import objectPartsList from './object/object-parts-list/object-parts-list';
 // Resources page components
 // -------------------------------
 import resourcesPanel from './resources/resources-panel/resources-panel';
-import poolsTable from './resources/pools-table/pools-table';
-import cloudResourcesTable from './resources/cloud-resources-table/cloud-resources-table';
-import namespaceResourcesTable from './resources/namespace-resources-table/namespace-resources-table';
 import resourcesSummary from './resources/resources-summary/resources-summary';
+import storageResourcesTable from './resources/storage-resources-table/storage-resources-table';
+import namespaceResourcesTable from './resources/namespace-resources-table/namespace-resources-table';
 /** INJECT:resources.import **/
 
 // -------------------------------
@@ -478,10 +477,9 @@ export default function register(ko, services) {
         /** INJECT:object.list **/
 
         resourcesPanel,
-        poolsTable,
-        cloudResourcesTable,
-        namespaceResourcesTable,
         resourcesSummary,
+        storageResourcesTable,
+        namespaceResourcesTable,
         /** INJECT:resources.list **/
 
         poolPanel,

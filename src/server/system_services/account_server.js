@@ -1015,7 +1015,7 @@ function delete_external_connection(req) {
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
             pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
         ))) {
-        throw new Error('Cannot delete connection as it is being used for a cloud pool');
+        throw new RpcError('IN_USE', 'Cannot delete connection as it is being used for a cloud pool');
     }
 
     return system_store.make_changes({

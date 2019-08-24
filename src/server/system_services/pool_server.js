@@ -368,7 +368,7 @@ function create_namespace_resource(req) {
             candidate_target.target_name === namespace_resource.connection.target_bucket));
     if (already_used_by) {
         dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
-        throw new Error('Target already in use');
+        throw new RpcError('IN_USE', 'Target already in use');
     }
 
     dbg.log0('creating namespace_resource:', namespace_resource);
@@ -411,7 +411,7 @@ function create_cloud_pool(req) {
             candidate_target.target_name === cloud_info.target_bucket));
     if (already_used_by) {
         dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
-        throw new Error('Target already in use');
+        throw new RpcError('IN_USE', 'Target already in use');
     }
 
     const map_pool_type = {

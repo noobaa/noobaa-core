@@ -1048,7 +1048,7 @@ module.exports = {
             ]
         },
         undeletable_bucket_reason: {
-            enum: ['LAST_BUCKET', 'NOT_EMPTY'],
+            enum: ['NOT_EMPTY'],
             type: 'string',
         },
 

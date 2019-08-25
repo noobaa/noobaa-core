@@ -301,7 +301,7 @@ function check_event_permission(req) {
         _.forEach(event.Records, record => {
             const bucket_name = record && record.s3 && record.s3.bucket && record.s3.bucket.name;
             if (typeof(bucket_name) === 'string') {
-                const bucket = req.system.buckets_by_name[bucket_name];
+                const bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name];
                 if (!bucket) throw new RpcError('UNAUTHORIZED', 'No such bucket');
                 const account = system_store.data.get_by_id(req.func.exec_account);
                 if (!auth_server.has_bucket_permission(bucket, account)) {

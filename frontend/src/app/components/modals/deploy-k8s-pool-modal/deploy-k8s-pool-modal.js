@@ -98,7 +98,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
 
         const poolTableHref = realizeUri(routes.resources, {
             system: systemName,
-            tab: 'pools'
+            tab: 'storage'
         });
 
         ko.assignToProps(this, {

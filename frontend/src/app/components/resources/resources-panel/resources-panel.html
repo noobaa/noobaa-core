@@ -4,13 +4,10 @@
 
 <section class="greedy tabs">
     <nav>
-        <a ko.attr.href="tabHref('pools')"
-            ko.css.selected="selectedTab.eq('pools')">
-            Pools
-        </a>
-        <a ko.attr.href="tabHref('cloud')"
-            ko.css.selected="selectedTab.eq('cloud')">
-            Cloud Storage
+        <a ko.attr.href="tabHref('storage')"
+            ko.css.selected="selectedTab.eq('storage')"
+        >
+            Storage Resources
         </a>
         <a ko.attr.href="tabHref('namespace')"
             ko.css.selected="selectedTab.eq('namespace')"
@@ -20,17 +17,15 @@
     </nav>
 
     <div class="tabs-row">
-         <pools-table class="tab column"
-            ko.css.selected="selectedTab.eq('pools')"
-        ></pools-table>
-
-        <cloud-resources-table class="tab column"
-            ko.css.selected="selectedTab.eq('cloud')"
-        ></cloud-resources-table>
+        <storage-resources-table class="tab column"
+            ko.css.selected="selectedTab.eq('storage')"
+        ></storage-resources-table>
 
         <namespace-resources-table class="tab column"
             ko.css.selected="selectedTab.eq('namespace')"
         ></namespace-resources-table>
+
+
     </div>
 </section>
 

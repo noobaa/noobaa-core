@@ -96,6 +96,7 @@ import deployK8sPoolModal from './modals/deploy-k8s-pool-modal/deploy-k8s-pool-m
 import editK8sPoolModal from './modals/edit-k8s-pool-modal/edit-k8s-pool-modal';
 import deletePoolWithDataWarningModal from './modals/delete-pool-with-data-warning-modal/delete-pool-with-data-warning-modal';
 import confirmDangerousScalingModal from './modals/confirm-dangerous-scaling-modal/confirm-dangerous-scaling-modal';
+import editCloudConnectionModal from './modals/edit-cloud-connection-modal/edit-cloud-connection-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -212,7 +213,7 @@ import accountsTable from './accounts/accounts-table/accounts-table';
 import accountPanel from './account/account-panel/account-panel';
 import accountDetailsForm from './account/account-details-form/account-details-form';
 import accountS3AccessForm from './account/account-s3-access-form/account-s3-access-form';
-import accountConnectionsTable from './account/account-connections-table/account-connections-table';
+import accountConnectionsList from './account/account-connections-list/account-connections-list';
 /** INJECT:account.import **/
 
 // -------------------------------
@@ -434,6 +435,7 @@ export default function register(ko, services) {
         editK8sPoolModal,
         deletePoolWithDataWarningModal,
         confirmDangerousScalingModal,
+        editCloudConnectionModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -514,7 +516,7 @@ export default function register(ko, services) {
         accountPanel,
         accountDetailsForm,
         accountS3AccessForm,
-        accountConnectionsTable,
+        accountConnectionsList,
         /** INJECT:account.list **/
 
         clusterPanel,

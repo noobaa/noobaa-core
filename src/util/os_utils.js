@@ -238,14 +238,24 @@ function get_mount_of_path(file_path) {
         });
 }
 
-function get_drive_of_path(file_path) {
-    return P.fromCallback(callback => node_df({
-            file: file_path
-        }, callback))
-        .then(volumes =>
-            volumes &&
-            volumes[0] &&
-            linux_volume_to_drive(volumes[0]));
+
+async function get_block_device_sizes() {
+   const block_devices = await P.fromCallback(cb => blockutils.getBlockInfo({}, cb));
+   if (!block_devices) return [];
+
+   return block_devices.reduce((res, bd) => {
+        res[`/dev/${bd.NAME}`] = Number(bd.SIZE);
+        return res;
+    }, {});
+}
+
+async function get_drive_of_path(file_path) {
+    const volumes = await P.fromCallback(callback => node_df({ file: file_path }, callback));
+    const vol = volumes && volumes[0];
+    if (vol) {
+        const size_by_bd = await get_block_device_sizes();
+        return linux_volume_to_drive(vol, size_by_bd);
+    }
 }
 
 
@@ -265,43 +275,49 @@ function remove_linux_readonly_drives(volumes) {
         });
 }
 
+async function read_mac_linux_drives(include_all) {
+    const volumes = await P.fromCallback(callback => node_df({
+        // this is a hack to make node_df append the -l flag to the df command
+        // in order to get only local file systems.
+        file: '-l'
+    }, callback));
 
-function read_mac_linux_drives(include_all) {
-    return P.fromCallback(callback => node_df({
-            // this is a hack to make node_df append the -l flag to the df command
-            // in order to get only local file systems.
-            file: '-l'
-        }, callback))
-        .then(volumes => P.all(_.map(volumes, function(vol) {
-                return fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README)
-                    .then(() => linux_volume_to_drive(vol))
-                    .catch(() => {
-                        dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
-                        return linux_volume_to_drive(vol, true);
-                    });
-            }))
-            .then(res => _.compact(res)));
+    if (!volumes) {
+        return [];
+    }
+
+    const size_by_bd = await get_block_device_sizes();
+    return _.compact(await Promise.all(volumes.map(async vol => {
+        try {
+            await fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README);
+            return linux_volume_to_drive(vol, size_by_bd);
+
+        } catch (_unused_) {
+            dbg.log0('Skipping drive', vol, 'Azure tmp disk indicated');
+            return linux_volume_to_drive(vol, size_by_bd, true);
+        }
+    })));
 }
 
-function read_kubernetes_agent_drives() {
-    return P.fromCallback(callback => node_df({
-            // this is a hack to make node_df append the -l flag to the df command
-            // in order to get only local file systems.
-            file: '-a'
-        }, callback))
-        .then(volumes => P.all(_.map(volumes, async function(vol) {
-                return P.resolve()
-                    .then(() => linux_volume_to_drive(vol));
-            }))
-            .then(res => _.compact(res)));
+async function read_kubernetes_agent_drives() {
+    const volumes = await P.fromCallback(cb => node_df({
+        // this is a hack to make node_df append the -l flag to the df command
+        // in order to get only local file systems.
+        file: '-a'
+    }, cb));
+
+    const size_by_bd = await get_block_device_sizes();
+    return _.compact(volumes.map(vol =>
+        linux_volume_to_drive(vol, size_by_bd)
+    ));
 }
 
-function linux_volume_to_drive(vol, skip) {
+function linux_volume_to_drive(vol, size_by_bd, skip) {
     return _.omitBy({
         mount: vol.mount,
         drive_id: vol.filesystem,
         storage: {
-            total: vol.size * 1024,
+            total: size_by_bd[vol.filesystem] || (vol.size * 1024),
             free: vol.available * 1024,
         },
         temporary_drive: skip

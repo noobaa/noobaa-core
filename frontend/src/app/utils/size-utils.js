@@ -148,6 +148,12 @@ export function isSizeZero(sizeOrBytes) {
     return peta === 0 && n == 0;
 }
 
+export function compareSize(sizeOrBytes1, sizeOrBytes2) {
+    const { peta: p1, n: n1 } = normalizeSize(sizeOrBytes1);
+    const { peta: p2, n: n2 } = normalizeSize(sizeOrBytes2);
+    return p1 === p2 ? Math.sign(n1 - n2) : Math.sign(p1 - p2);
+}
+
 // ----------------------------------
 // Internal Helpers
 // ----------------------------------

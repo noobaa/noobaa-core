@@ -9,22 +9,29 @@
     ko.visible="!ko.unwrap(loading)"
 >
     <ul class="list-no-style column greedy ld-list "
+        ko.visible="rows().length"
         ko.foreach="rows"
     >
         <li class="row content-middle border-bottom ld-row"
             ko.css.ld-row-selected="$component.isSelected($data)"
             ko.click="item => $component.onToggleItem(item)"
         >
-            <div class="no-wrap greedy push-next" ko.template="{
+            <div class="no-wrap greedy" ko.template="{
                 html: $component.rowTemplate,
                 data: $parents[1],
                 let: { $item: $data }
             }"></div>
-            <button class="link alt-colors ld-details-btn">
+            <button class="link alt-colors ld-details-btn push-prev"
+                ko.visible="$component.buttonLabel"
+            >
                 {{$component.buttonLabel}}
             </button>
         </li>
     </ul>
+
+    <!-- ko if: rows().length === 0 -->
+    <p class="empty-message greedy">{{emptyMessage}}</p>
+    <!-- /ko -->
 
     <div class="column ld-details-pane" ko.template="{
         html: $component.detailsTemplate,

@@ -7,6 +7,7 @@ export const cloudServices = deepFreeze([
         value: 'AWS',
         displayName: 'AWS S3',
         subject: 'Bucket',
+        identityDisplayName: 'Access Key',
         icon: 'aws-s3',
         defaultEndpoint: 'https://s3.amazonaws.com'
     },
@@ -14,6 +15,7 @@ export const cloudServices = deepFreeze([
         value: 'AZURE',
         displayName: 'Azure Blob',
         subject: 'Container',
+        identityDisplayName: 'Account Name',
         icon: 'azure',
         defaultEndpoint: 'https://blob.core.windows.net'
     },
@@ -21,24 +23,29 @@ export const cloudServices = deepFreeze([
         value: 'GOOGLE',
         displayName: 'Google Cloud',
         subject: 'Bucket',
+        identityDisplayName: 'Key',
         icon: 'google-cloud',
         defaultEndpoint: 'www.googleapis.com'
+
     },
     {
         value: 'S3_V2_COMPATIBLE',
         displayName: 'S3 V2 Compatible service',
         subject: 'Bucket',
+        identityDisplayName: 'Access Key',
         icon: 'cloud-v2'
     },
     {
         value: 'S3_V4_COMPATIBLE',
         displayName: 'S3 V4 Compatible service',
         subject: 'Bucket',
+        identityDisplayName: 'Access Key',
         icon: 'cloud-v4'
     },
     {
         value: 'NET_STORAGE',
         displayName: 'NetStorage service',
+        identityDisplayName: 'Key',
         subject: 'Bucket',
         icon: 'net-storage'
     },
@@ -46,6 +53,7 @@ export const cloudServices = deepFreeze([
         value: 'FLASHBLADE',
         displayName: 'Pure FlashBlade service',
         subject: 'Bucket',
+        identityDisplayName: 'Access Key',
         icon: 'pure'
     }
 ]);

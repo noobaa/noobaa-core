@@ -1,0 +1,28 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    asyncTriggers: asyncTriggers,
+    onWarn: onWarn,
+    onValidate: onValidate,
+    onValidateAsync: onValidateAsync,
+    onValidateSubmit: onValidateSubmit,
+    onSubmit: onSubmit
+">
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button class="link alt-colors push-next"
+                ko.click="onCancel"
+            >
+                Cancel
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Save
+            </button>
+        </div>
+    </div>
+</managed-form>
+

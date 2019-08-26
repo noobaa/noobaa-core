@@ -798,5 +798,21 @@ export function openConfirmDangerousScalingModal(action) {
         }
     };
 }
+
+export function openEditCloudConnectionModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-cloud-connection-modal',
+                params: { }
+            },
+            options: {
+                title: 'Edit Cloud Connection',
+                size: 'medium'
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

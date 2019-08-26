@@ -22,6 +22,7 @@ class ListDetailsViewModel {
             loading = false,
             rows = [],
             buttonLabel = 'Show Details',
+            emptyMessage = 'List is empty',
             idSelector = echo,
             selected = ''
         } = params;
@@ -31,6 +32,7 @@ class ListDetailsViewModel {
         this.detailsTemplate = detailsTemplate;
         this.rows = rows;
         this.buttonLabel = buttonLabel;
+        this.emptyMessage = emptyMessage;
         this.idSelector = idSelector;
         this.selected = !ko.isWritableObservable(selected) ?
             ko.observable(ko.unwrap(selected)) :

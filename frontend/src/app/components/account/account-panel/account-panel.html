@@ -32,10 +32,10 @@
         ></account-details-form>
 
         <!-- ko if: isCurrentUser -->
-        <account-connections-table class="tab"
+        <account-connections-list class="tab"
             ko.css.selected="selectedTab.eq('connections')"
             params="accountName: account"
-        ></account-connections-table>
+        ></account-connections-list>
         <!-- /ko -->
     </div>
 </div>

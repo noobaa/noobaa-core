@@ -1,0 +1,128 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<div class="row pad card-shadow">
+    <div class="greedy">
+        <input type="search"
+            class="push-next"
+            placeholder="Filter by name, key or endpoint"
+            ko.textInput="ko.pc(filter, onFilter)" />
+    </div>
+    <button class="btn"
+        ko.click="onAddConnection"
+        ko.disable="!dataReady()"
+    >
+        Add Connection
+    </button>
+</div>
+
+<list-details class="greedy"
+    params="
+        loading: !dataReady(),
+        rows: rows,
+        selected: ko.pc(selectedConnection, onSelectConnection, $component),
+        idSelector: row => row.name(),
+        emptyMessage: emptyMessage,
+        buttonLabel: ''
+    "
+>
+    <template name="row">
+        <div class="row content-middle no-wrap">
+            <svg-icon class="service-icon push-next-half"
+                params="name: $item.icon"
+            ></svg-icon>
+            <span class="highlight">{{$item.name}}</span>
+            <vr></vr>
+            {{$item.usage}}
+            <!-- ko if: $item.isSummaryVisible -->
+            <vr></vr>
+            {{$item.targetEndpoint}}
+            <vr></vr>
+            <span class="greedy push-next">
+                {{$item.identity}}
+            </span>
+            <button class="icon-btn push-next-half"
+                ko.preventBubble="'click'"
+                ko.click="() => $item.onEdit($item.name())"
+                ko.tooltip="'Edit Connection'"
+                ko.visible="false"
+            >
+                <svg-icon params="name: 'edit'">
+                </svg-icon>
+            </button>
+            <delete-button
+                ko.preventBubble="'click'"
+                params="
+                    id: $item.deleteBtn.id,
+                    text: $item.deleteBtn.text,
+                    tooltip: $item.deleteBtn.tooltip,
+                    active: $item.deleteBtn.isActive,
+                    disabled: $item.deleteBtn.isDisabled,
+                    onToggle: $item.deleteBtn.onToggle,
+                    onDelete: $item.deleteBtn.onDelete
+                "
+            ></delete-button>
+            <!-- /ko -->
+        </div>
+    </template>
+
+    <template name="details">
+        <div class="column greedy hpad no-overflow" ko.with="details">
+            <div class="row content-middle">
+                <h2 class="heading3 greedy">
+                    {{connName}} details
+                </h2>
+                <button class="icon-btn no-focus-ring" ko.click="onX">
+                    <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+                </button>
+            </div>
+            <hr class="push-both-half" />
+            <div class="column auto-overflow">
+                <property-sheet params="properties: connInfo">
+                </property-sheet>
+                <!-- ko foreach: usageList -->
+                <section class="column push-both">
+                    <p class="push-next-half">
+                        Connection is used as {{entityType}}:
+                        <!-- ko if: entityUrl -->
+                        <a class="link" ko.attr.href="entityUrl">
+                            {{entityName}}
+                        </a>
+                        <!-- /ko -->
+                        <!-- ko ifnot: entityUrl -->
+                        <span class="highlight">
+                            {{entityName}}
+                        </span>
+                        <!-- /ko -->
+                    </p>
+                    <property-sheet class="pad content-box usage-details"
+                        params="properties: usageDetails"
+                    >
+                        <template name="bucketList">
+                            <!-- ko if bucket.length -->
+                            <ul class="list-no-style row multiline content-middle bucket-list"
+                                ko.foreach="buckets"
+                            >
+                                <li class="no-wrap pad tag">
+                                    <a class="link" ko.attr.href="url">
+                                        {{name}}
+                                    </a>
+                                </li>
+                            </ul>
+                            <!-- /ko -->
+                            <!-- ko if bucket.length -->
+                            None
+                            <!-- /ko -->
+                        </template>
+                    </property-sheet>
+                </section>
+                <!-- /ko -->
+            </div>
+        </div>
+    </template>
+</list-details>
+<hr>
+<paginator params="
+    page: ko.pc(page, onPage.bind($component)),
+    itemCount: connectionCount,
+    pageSize: pageSize
+"></paginator>

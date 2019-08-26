@@ -410,7 +410,7 @@ function create_cred_secret {
 
 function create_noobaa_secrets {
     local SERVER_SECRET=$(openssl rand -hex 4)
-    local JWT_SECRET=$(openssl rand -base64 20 | openssl sha512 -hmac | cut -c10-44)
+    local JWT_SECRET=$(openssl rand -hex 20)
     ${KUBECTL} delete secret ${NOOBAA_SECRETS_NAME} &> /dev/null
     ${KUBECTL} create secret generic ${NOOBAA_SECRETS_NAME} \
         --from-literal=server_secret=${SERVER_SECRET} \

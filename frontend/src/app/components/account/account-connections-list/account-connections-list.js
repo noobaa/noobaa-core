@@ -44,7 +44,7 @@ function _mapCloudResourceUsage(usage, bucketList, system, serviceMeta,) {
                 value: usage.externalEntity
             },
             {
-                value: { buckets }
+                value: buckets
             }
         ]
     };
@@ -72,7 +72,7 @@ function _mapNamespaceResourceUsage(usage, nsBucketList, system, serviceMeta,) {
                 value: usage.externalEntity
             },
             {
-                value: { buckets }
+                value: buckets
             }
         ]
     };
@@ -202,10 +202,7 @@ class ConenctionUsageViewModel {
         {
             label: 'Used as a resource in the following buckets',
             template: 'bucketList',
-            value: {
-                buckets: ko.observableArray(),
-                emptyMessage: 'None'
-            }
+            value: ko.observableArray()
         }
     ];
 }

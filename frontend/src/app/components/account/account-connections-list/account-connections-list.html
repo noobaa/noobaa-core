@@ -98,9 +98,9 @@
                         params="properties: usageDetails"
                     >
                         <template name="bucketList">
-                            <!-- ko if bucket.length -->
+                            <!-- ko if: $data.length-->
                             <ul class="list-no-style row multiline content-middle bucket-list"
-                                ko.foreach="buckets"
+                                ko.foreach="$data"
                             >
                                 <li class="no-wrap pad tag">
                                     <a class="link" ko.attr.href="url">
@@ -109,12 +109,15 @@
                                 </li>
                             </ul>
                             <!-- /ko -->
-                            <!-- ko if bucket.length -->
+                            <!-- ko ifnot: $data.length -->
                             None
                             <!-- /ko -->
                         </template>
                     </property-sheet>
                 </section>
+                <!-- /ko -->
+                <!-- ko ifnot: usageList().length -->
+                <p class="push-prev">Connection is not used by any resource</p>
                 <!-- /ko -->
             </div>
         </div>

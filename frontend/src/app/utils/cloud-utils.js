@@ -23,7 +23,7 @@ export const cloudServices = deepFreeze([
         value: 'GOOGLE',
         displayName: 'Google Cloud',
         subject: 'Bucket',
-        identityDisplayName: 'Key',
+        identityDisplayName: 'Private Key ID',
         icon: 'google-cloud',
         defaultEndpoint: 'www.googleapis.com'
 
@@ -42,13 +42,13 @@ export const cloudServices = deepFreeze([
         identityDisplayName: 'Access Key',
         icon: 'cloud-v4'
     },
-    {
-        value: 'NET_STORAGE',
-        displayName: 'NetStorage service',
-        identityDisplayName: 'Key',
-        subject: 'Bucket',
-        icon: 'net-storage'
-    },
+    // {
+    //     value: 'NET_STORAGE',
+    //     displayName: 'NetStorage service',
+    //     identityDisplayName: 'Key',
+    //     subject: 'Bucket',
+    //     icon: 'net-storage'
+    // },
     {
         value: 'FLASHBLADE',
         displayName: 'Pure FlashBlade service',

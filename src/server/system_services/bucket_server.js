@@ -74,18 +74,9 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
  *
  */
 async function create_bucket(req) {
-    if (req.rpc_params.name.unwrap().length < 3 ||
-        req.rpc_params.name.unwrap().length > 63 ||
-        net.isIP(req.rpc_params.name.unwrap()) ||
-        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
-        throw new RpcError('INVALID_BUCKET_NAME');
-    }
-    if (req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
-        throw new RpcError('BUCKET_ALREADY_EXISTS');
-    }
-    if (req.account.allow_bucket_creation === false) {
-        throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
-    }
+
+    validate_bucket_creation(req);
+
     let tiering_policy;
     const changes = {
         insert: {},
@@ -1196,6 +1187,100 @@ async function update_all_buckets_default_pool(req) {
     });
 }
 
+// OB/OBC Related
+async function claim_bucket(req) {
+    dbg.log0('claim bucket', req.rpc_params);
+
+    if (req.rpc_params.create_bucket) {
+        try {
+            validate_bucket_creation(req);
+        } catch (err) {
+            dbg.log0('claim_bucket failed validating bucket', err);
+            throw err;
+        }
+        try {
+            await server_rpc.client.bucket.create_bucket({
+                name: req.rpc_params.name,
+                tiering: req.rpc_params.tiering,
+                bucket_claim: req.rpc_params.bucket_claim,
+            }, {
+                auth_token: req.auth_token
+            });
+        } catch (err) {
+            dbg.log0('claim_bucket failed creating bucket', err);
+            throw err;
+        }
+    }
+
+    try {
+        const internal_pool = pool_server.get_internal_mongo_pool(req.system);
+        const response = await server_rpc.client.account.create_account({
+            name: req.rpc_params.email,
+            email: req.rpc_params.email,
+            default_pool: internal_pool.name,
+            has_login: false,
+            s3_access: true,
+            allow_bucket_creation: false,
+            allowed_buckets: {
+                full_permission: false,
+                permission_list: [req.rpc_params.name],
+            }
+        }, {
+            auth_token: req.auth_token
+        });
+        const ret = {
+            access_keys: {
+                access_key: response.access_keys[0].access_key.unwrap(),
+                secret_key: response.access_keys[0].secret_key.unwrap()
+            }
+        };
+        return ret;
+    } catch (err) {
+        dbg.log0('claim_bucket failed creating account', err);
+        if (req.rpc_params.create_bucket) {
+            await server_rpc.client.bucket.delete_bucket({
+                name: req.rpc_params.name
+            }, {
+                auth_token: req.auth_token
+            });
+        }
+    }
+}
+
+async function delete_claim(req) {
+    dbg.log0('delete claim', req.rpc_params);
+
+    await server_rpc.client.account.delete_account({
+        email: req.rpc_params.email
+    }, {
+        auth_token: req.auth_token
+    });
+
+    if (req.rpc_params.delete_bucket) {
+        await server_rpc.client.bucket.delete_bucket({
+            name: req.rpc_params.name
+        }, {
+            auth_token: req.auth_token
+        });
+    }
+}
+
+// UTILS //////////////////////////////////////////////////////////
+
+function validate_bucket_creation(req) {
+    if (req.rpc_params.name.unwrap().length < 3 ||
+        req.rpc_params.name.unwrap().length > 63 ||
+        net.isIP(req.rpc_params.name.unwrap()) ||
+        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
+            throw new RpcError('INVALID_BUCKET_NAME');
+    }
+    if (req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
+        throw new RpcError('BUCKET_ALREADY_EXISTS');
+    }
+    if (req.account.allow_bucket_creation === false) {
+        throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+    }
+}
 
 function validate_trigger_update(req, bucket, validated_trigger) {
     dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
@@ -1238,10 +1323,6 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
     }
     return res;
 }
-
-
-// UTILS //////////////////////////////////////////////////////////
-
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
     var bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name.unwrap()];
@@ -1658,6 +1739,9 @@ exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;
 exports.delete_bucket_tagging = delete_bucket_tagging;
 exports.put_bucket_tagging = put_bucket_tagging;
 exports.get_bucket_tagging = get_bucket_tagging;
+//OB/OBC
+exports.claim_bucket = claim_bucket;
+exports.delete_claim = delete_claim;
 
 exports.delete_bucket_encryption = delete_bucket_encryption;
 exports.put_bucket_encryption = put_bucket_encryption;

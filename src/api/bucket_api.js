@@ -614,6 +614,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         set_bucket_lifecycle_configuration_rules: {
             method: 'PUT',
             params: {
@@ -697,6 +698,7 @@ module.exports = {
                 system: 'admin'
             },
         },
+
         get_bucket_lifecycle_configuration_rules: {
             method: 'GET',
             params: {
@@ -783,6 +785,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         add_bucket_lambda_trigger: {
             method: 'PUT',
             params: {
@@ -792,6 +795,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         delete_bucket_lambda_trigger: {
             method: 'DELETE',
             required: ['id', 'bucket_name'],
@@ -808,6 +812,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         update_bucket_lambda_trigger: {
             method: 'PUT',
             params: {
@@ -817,6 +822,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         update_all_buckets_default_pool: {
             method: 'PUT',
             params: {
@@ -832,6 +838,49 @@ module.exports = {
                 system: 'admin'
             }
         },
+
+        claim_bucket: {
+            method: 'PUT',
+            required: ['name', 'tiering', 'email', 'create_bucket', 'namespace'],
+            params: {
+                type: 'object',
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    tiering: { $ref: 'common_api#/definitions/tiering_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    create_bucket: { type: 'boolean' },
+                    bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['access_keys'],
+                properties: {
+                    access_keys: {
+                        $ref: 'common_api#/definitions/access_keys'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_claim: {
+            method: 'PUT',
+            required: ['name', 'email', 'delete_bucket'],
+            params: {
+                type: 'object',
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    delete_bucket: { type: 'boolean' }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
     definitions: {

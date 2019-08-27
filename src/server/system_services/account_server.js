@@ -223,8 +223,8 @@ function read_account(req) {
  * GENERATE_ACCOUNT_KEYS
  *
  */
-function generate_account_keys(req) {
-    let account = system_store.get_account_by_email(req.rpc_params.email);
+async function generate_account_keys(req) {
+    const account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -236,31 +236,26 @@ function generate_account_keys(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
-    let updates = _.pick(account, '_id');
 
-    return verify_authorized_account(req)
-        .then(res => {
-            if (!res) throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
-        })
-        .then(() => {
-            updates.access_keys = [generate_access_keys()];
-            return system_store.make_changes({
-                update: {
-                    accounts: [updates]
-                }
-            });
-        })
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'account.generate_credentials',
-                level: 'info',
-                system: req.system && req.system._id,
-                actor: req.account && req.account._id,
-                account: account._id,
-                desc: `Credentials for ${account.email.unwrap()} were regenerated ${req.account && 'by ' + req.account.email.unwrap()}`,
-            });
-        })
-        .return();
+    await system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: account._id,
+                access_keys: [
+                    generate_access_keys()
+                ]
+            }]
+        }
+    });
+
+    Dispatcher.instance().activity({
+        event: 'account.generate_credentials',
+        level: 'info',
+        system: req.system && req.system._id,
+        actor: req.account && req.account._id,
+        account: account._id,
+        desc: `Credentials for ${account.email.unwrap()} were regenerated ${req.account && 'by ' + req.account.email.unwrap()}`,
+    });
 }
 
 
@@ -1020,7 +1015,7 @@ function delete_external_connection(req) {
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
             pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
         ))) {
-        throw new Error('Cannot delete connection as it is being used for a cloud pool');
+        throw new RpcError('IN_USE', 'Cannot delete connection as it is being used for a cloud pool');
     }
 
     return system_store.make_changes({

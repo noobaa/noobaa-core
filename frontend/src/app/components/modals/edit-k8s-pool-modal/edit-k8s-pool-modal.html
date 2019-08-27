@@ -49,25 +49,24 @@
         </editor>
 
         <h2 class="heading3">Review the Changes:</h2>
-        <div class="content-box pad-double hpad row content-middle push-next">
-            <div class="column greedy content-middle">
-                <span class="highlight push-next-quarter">{{formattedNodeCount}}</span>
-                <sapn class="remark">Nodes (Pods)</sapn>
-            </div>
+        <div class="content-box pad-double hpad row content-middle push-next"
+            ko.foreach="summary"
+        >
+            <!-- ko if: $index -->
             <vr></vr>
+            <!-- /ko -->
             <div class="column greedy content-middle">
-                <span class="highlight push-next-quarter">{{formattedCapacity}}</span>
-                <sapn class="remark">Total Pool Capacity</sapn>
-            </div>
-            <vr></vr>
-            <div class="column greedy content-middle">
-                <span class="highlight push-next-quarter">StatefullSet</span>
-                <sapn class="remark">Kind</sapn>
-            </div>
-            <vr></vr>
-            <div class="column greedy content-middle">
-                <span class="highlight push-next-quarter">Storage & Endpoint</span>
-                <sapn class="remark">Node Services</sapn>
+                <span class="row push-next-quarter"
+                    ko.css="css"
+                >
+                    <span class="push-next-quarter">{{value}}</span>
+                    <svg-icon class="icon-small"
+                        ko.visible="icon"
+                        ko.tooltip="tooltip"
+                        params="name: icon"
+                    ></svg-icon>
+                </span>
+                <sapn class="remark">{{label}}</sapn>
             </div>
         </div>
     </section>

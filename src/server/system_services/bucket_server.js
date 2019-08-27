@@ -78,7 +78,7 @@ async function create_bucket(req) {
         !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
-    if (req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
+    if (req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
     if (req.account.allow_bucket_creation === false) {
@@ -1055,7 +1055,7 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
 
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
-    var bucket = req.system.buckets_by_name[bucket_name.unwrap()];
+    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name.unwrap()];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
@@ -1417,9 +1417,6 @@ function can_delete_bucket(system, bucket) {
     return P.resolve()
         .then(() => {
             if (bucket.namespace) return;
-            if (_.map(system.buckets_by_name).filter(b => !b.namespace).length === 1) {
-                return 'LAST_BUCKET';
-            }
             return MDStore.instance().has_any_completed_objects_in_bucket(bucket._id)
                 .then(has_objects => {
                     if (has_objects) {

@@ -1,0 +1,37 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields: formFields,
+    onValidate: onValidate,
+    onSubmit: onSubmit
+">
+    <div class="greedy column pad">
+        <p>
+            Scaling down the number of nodes will start an evacuation of stored data. It's highly recommended to edit the connected buckets placement policy to avoid any warnings or data inaccessibility. 
+        </p>
+        <editor params="label: 'Type &#34;scale&#34; to confirm'">
+            <input class="input"
+                ko.value="$form.confirm"
+                ko.hasFocus="true"
+                ko.validationCss="$form.confirm"
+            />
+            <validation-message params="field: $form.confirm"></validation-message>
+        </editor>
+    </div>
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button class="btn alt-colors push-next"
+                ko.click="onBack"
+            >
+                Back to Edit Pool
+            </button>
+            <button class="btn"
+                ko.shakeOnClick="!$form.isValid()"
+            >
+                Yes, Scale Anyway
+            </button>
+        </div>
+    </div>
+</managed-form>
+

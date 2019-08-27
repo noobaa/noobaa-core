@@ -50,7 +50,7 @@ coretest.describe_mapper_test_case({
 }) => {
 
     // TODO REMOVE ME
-    // if (data_placement !== 'SPREAD' || num_pools !== 1 || replicas !== 1 || data_frags !== 4 || parity_frags !== 2) return;
+    if (data_placement !== 'SPREAD' || num_pools !== 1 || replicas !== 1 || data_frags !== 4 || parity_frags !== 2) return;
 
     // TODO we need to create more nodes and pools to support all MAPPER_TEST_CASES
     if (total_blocks > 10) return;

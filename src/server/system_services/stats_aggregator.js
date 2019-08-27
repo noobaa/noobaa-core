@@ -473,11 +473,12 @@ async function _partial_buckets_info(req) {
             }
 
             const storage_used = size_utils.json_to_bigint(storage.used).plus(size_utils.json_to_bigint(storage.used_other));
+            const storage_total = size_utils.json_to_bigint(storage.total);
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
                 quota_precent: system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota),
-                capacity_precent: size_utils.bigint_to_json(storage_used.multiply(100)
-                    .divide(size_utils.json_to_bigint(storage.total))),
+                capacity_precent: storage_total > 0 ? size_utils.bigint_to_json(storage_used.multiply(100)
+                    .divide(storage_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
             });
         }

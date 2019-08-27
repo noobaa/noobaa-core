@@ -240,10 +240,10 @@ function get_mount_of_path(file_path) {
 
 
 async function get_block_device_sizes() {
-   const block_devices = await P.fromCallback(cb => blockutils.getBlockInfo({}, cb));
-   if (!block_devices) return [];
+    const block_devices = await P.fromCallback(cb => blockutils.getBlockInfo({}, cb));
+    if (!block_devices) return [];
 
-   return block_devices.reduce((res, bd) => {
+    return block_devices.reduce((res, bd) => {
         res[`/dev/${bd.NAME}`] = Number(bd.SIZE);
         return res;
     }, {});
@@ -286,7 +286,10 @@ async function read_mac_linux_drives(include_all) {
         return [];
     }
 
-    const size_by_bd = await get_block_device_sizes();
+    let size_by_bd;
+    if (IS_LINUX) {
+        size_by_bd = await get_block_device_sizes();
+    }
     return _.compact(await Promise.all(volumes.map(async vol => {
         try {
             await fs_utils.file_must_not_exist(vol.mount + '/' + AZURE_TMP_DISK_README);
@@ -317,7 +320,7 @@ function linux_volume_to_drive(vol, size_by_bd, skip) {
         mount: vol.mount,
         drive_id: vol.filesystem,
         storage: {
-            total: size_by_bd[vol.filesystem] || (vol.size * 1024),
+            total: (size_by_bd && size_by_bd[vol.filesystem]) || (vol.size * 1024),
             free: vol.available * 1024,
         },
         temporary_drive: skip

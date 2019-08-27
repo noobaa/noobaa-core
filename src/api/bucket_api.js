@@ -677,6 +677,50 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        claim_bucket: {
+            method: 'PUT',
+            required: ['name', 'tiering', 'email', 'create_bucket', 'namespace'],
+            params: {
+                type: 'object',
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    tiering: { $ref: 'common_api#/definitions/tiering_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    create_bucket: { type: 'boolean' },
+                    namespace: { type: 'string' },
+                    bucket_class: { type: 'string' },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['access_keys'],
+                properties: {
+                    access_keys: {
+                        $ref: 'common_api#/definitions/access_keys'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_claim: {
+            method: 'PUT',
+            required: ['name', 'email', 'delete_bucket'],
+            params: {
+                type: 'object',
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    email: { $ref: 'common_api#/definitions/email' },
+                    delete_bucket: { type: 'boolean' }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

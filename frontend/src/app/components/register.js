@@ -97,6 +97,7 @@ import editK8sPoolModal from './modals/edit-k8s-pool-modal/edit-k8s-pool-modal';
 import deletePoolWithDataWarningModal from './modals/delete-pool-with-data-warning-modal/delete-pool-with-data-warning-modal';
 import confirmDangerousScalingModal from './modals/confirm-dangerous-scaling-modal/confirm-dangerous-scaling-modal';
 import editCloudConnectionModal from './modals/edit-cloud-connection-modal/edit-cloud-connection-modal';
+import cloudConnectionUpdateWarningModal from './modals/cloud-connection-update-warning-modal/cloud-connection-update-warning-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -436,6 +437,7 @@ export default function register(ko, services) {
         deletePoolWithDataWarningModal,
         confirmDangerousScalingModal,
         editCloudConnectionModal,
+        cloudConnectionUpdateWarningModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

@@ -15,7 +15,7 @@ const hostsPoolModeToStateIcon = deepFreeze({
         name: 'working'
     },
     INITIALIZING: {
-        tooltip: 'Initialzing',
+        tooltip: 'Initializing',
         css: 'warning',
         name: 'working'
     },

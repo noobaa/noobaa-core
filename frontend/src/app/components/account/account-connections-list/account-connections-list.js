@@ -2,7 +2,7 @@
 
 import template from './account-connections-list.html';
 import ConnectableViewModel from 'components/connectable';
-import { throttle, keyByProperty } from 'utils/core-utils';
+import { throttle, keyByProperty, createCompareFunc } from 'utils/core-utils';
 import { includesIgnoreCase, stringifyAmount } from 'utils/string-utils';
 import { cloudServices } from 'utils/cloud-utils';
 import { realizeUri } from 'utils/browser-utils';
@@ -78,7 +78,7 @@ function _mapNamespaceResourceUsage(usage, nsBucketList, system, serviceMeta,) {
     };
 }
 
-function _mapConenctionDetails(connection, bucketList, nsBucketList, system) {
+function _mapConnectionDetails(connection, bucketList, nsBucketList, system) {
     if (!connection) {
         return;
     }
@@ -109,7 +109,7 @@ function _mapConenctionDetails(connection, bucketList, nsBucketList, system) {
     };
 }
 
-function _mapConenctionRow(connection, isSummaryVisible, isSelectedForDelete) {
+function _mapConnectionRow(connection, isSummaryVisible, isSelectedForDelete) {
     const connectionInUse = connection.usage.length > 0;
     return {
         icon: cloudServiceByType[connection.service].icon,
@@ -178,7 +178,7 @@ class ConnectionDetailsViewModel {
         }
     ];
     usageList = ko.observableArray()
-        .ofType(ConenctionUsageViewModel);
+        .ofType(ConnectionUsageViewModel);
 
     constructor( { list }) {
         this.list = list;
@@ -189,7 +189,7 @@ class ConnectionDetailsViewModel {
     }
 }
 
-class ConenctionUsageViewModel {
+class ConnectionUsageViewModel {
     entityType = ko.observable();
     entityName = ko.observable();
     entityUrl = ko.observable();
@@ -209,6 +209,7 @@ class ConenctionUsageViewModel {
 
 class AccountConnectionsListViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
+    accountName = '';
     pathname = '';
     pageSize = paginationPageSize;
     filter = ko.observable();
@@ -226,6 +227,7 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
         const { accounts, buckets, namespaceBuckets, location } = state;
         const { externalConnections } = accounts ? accounts[params.accountName] : {};
         return [
+            params.accountName,
             externalConnections,
             buckets,
             namespaceBuckets,
@@ -233,7 +235,7 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
         ];
     }
 
-    mapStateToProps(connections, buckets, nsBuckets, location) {
+    mapStateToProps(accountName, connections, buckets, nsBuckets, location) {
         if (!connections || !buckets || !nsBuckets) {
             ko.assignToProps(this, {
                 dataReady: false
@@ -249,7 +251,8 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
                     includesIgnoreCase(conn.endpoint, filter) ||
                     includesIgnoreCase(conn.identity, filter)
                 )
-                .slice(pageStart, pageStart + this.pageSize);
+                .slice(pageStart, pageStart + this.pageSize)
+                .sort(createCompareFunc(conn => conn.service));
             const connectionCount = filteredConnections.length;
             const emptyMessage =
                 (connections.length === 0 && 'The account has no external connections') ||
@@ -258,6 +261,7 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
 
             ko.assignToProps(this, {
                 dataReady: true,
+                accountName,
                 pathname,
                 selectedConnection,
                 filter,
@@ -265,12 +269,12 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
                 selectedForDelete,
                 connectionCount,
                 emptyMessage,
-                rows: filteredConnections.map(connection => _mapConenctionRow(
+                rows: filteredConnections.map(connection => _mapConnectionRow(
                     connection,
                     !selectedConnection,
                     selectedForDelete === connection.name
                 )),
-                details: _mapConenctionDetails(
+                details: _mapConnectionDetails(
                     filteredConnections.find(connection =>
                         connection.name === selectedConnection
                     ),
@@ -316,8 +320,11 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
         });
     }
 
-    onEditConnection() {
-        this.dispatch(openEditCloudConnectionModal());
+    onEditConnection(connName) {
+        this.dispatch(openEditCloudConnectionModal(
+            this.accountName,
+            connName
+        ));
     }
 
     onSelectForDelete(selectedForDelete) {

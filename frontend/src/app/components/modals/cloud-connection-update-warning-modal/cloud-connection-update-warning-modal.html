@@ -1,0 +1,35 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<managed-form class="column greedy" params="
+    name: formName,
+    fields:formFields
+">
+    <div class="column greedy pad">
+        <p class="push-next">
+            Some cloud resources might lose access to their target buckets.
+            Before saving this change, make sure that the updated connection credentials have access to the target buckets
+        </p>
+
+        <data-table class="usage-table greedy content-box" params="
+            columns: columns,
+            data: rows,
+            sorting: $form.sorting,
+            loading: !dataReady()
+        "></data-table>
+    </div>
+
+    <div class="column pad content-box">
+        <div class="row align-end content-middle">
+            <button class="link alt-colors push-next"
+                ko.click="onBack"
+            >
+                Back to Edit Connection
+            </button>
+            <button class="btn"
+                ko.click="onSave"
+            >
+                Save
+            </button>
+        </div>
+    </div>
+</managed-form>

@@ -12,6 +12,7 @@ export default function(action$) {
             types.COMPLETE_UPDATE_ACCOUNT_S3_ACCESS,
             types.COMPLETE_SET_ACCOUNT_IP_RESTRICTIONS,
             types.COMPLETE_ADD_EXTERNAL_CONNECTION,
+            types.COMPLETE_UPDATE_EXTERNAL_CONNECTION,
             types.COMPLETE_DELETE_RESOURCE,
             types.COMPLETE_DELETE_EXTERNAL_CONNECTION,
             types.COMPLETE_CREATE_HOSTS_POOL,

@@ -1,0 +1,31 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <input type="text"
+        class="push-next-half"
+        ko.value="$form.azureEndpoint"
+        ko.disable="true"
+    />
+</editor>
+
+<editor params="label: 'Account Name'">
+    <input type="text"
+        class="push-next-half"
+        ko.value="$form.azureAccountName"
+        ko.disable="true"
+    />
+</editor>
+
+<editor params="label: 'Account Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter key"
+            autocomplete="new-password"
+            ko.value="$form.azureAccountKey"
+            ko.validationCss="$form.azureAccountKey"
+        />
+        <validation-indicator params="field: $form.azureAccountKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.azureAccountKey"></validation-message>
+</editor>

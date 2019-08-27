@@ -69,6 +69,16 @@ const actionToNotification = deepFreeze({
         severity: 'error'
     }),
 
+    [types.COMPLETE_UPDATE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Updating ${connection} completed successfully`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_EXTERNAL_CONNECTION]: ({ connection }) => ({
+        message: `Updating ${connection} failed`,
+        severity: 'error'
+    }),
+
     [types.COMPLETE_DELETE_RESOURCE]: ({ resource }) => ({
         message: `Resource ${resource} deleted successfully`,
         severity: 'success'

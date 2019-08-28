@@ -461,7 +461,6 @@ async function _partial_buckets_info(req) {
                 'OPTIMAL',
             ];
 
-            const storage = bucket_info.storage.values;
             if (bucket_info.bucket_claim) {
                 buckets_stats.bucket_claims += 1;
                 buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
@@ -472,13 +471,14 @@ async function _partial_buckets_info(req) {
                 if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
             }
 
-            const storage_used = size_utils.json_to_bigint(storage.used).plus(size_utils.json_to_bigint(storage.used_other));
-            const storage_total = size_utils.json_to_bigint(storage.total);
+            const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
+            const bucket_available = size_utils.json_to_bigint(_.get(bucket_info, 'data.free') || 0);
+            const bucket_total = bucket_used.plus(bucket_available);
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
                 quota_precent: system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota),
-                capacity_precent: storage_total > 0 ? size_utils.bigint_to_json(storage_used.multiply(100)
-                    .divide(storage_total)) : 0,
+                capacity_precent: bucket_total > 0 ? size_utils.bigint_to_json(bucket_used.multiply(100)
+                    .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
             });
         }

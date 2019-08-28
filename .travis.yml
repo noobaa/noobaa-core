@@ -14,7 +14,7 @@ env:
 matrix:
   include:
     - language: generic
-    
+
       name: "Unit Tests"
 
       services:
@@ -31,7 +31,7 @@ matrix:
       name: "Build & Sanity Integration Tests"
 
       sudo: required
-      
+
       dist: xenial #seems like running trusty fails minukube deployment
 
       install:
@@ -39,4 +39,4 @@ matrix:
 
       script:
         - make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} NO_CACHE=true SUPPRESS_LOGS=true
-        - "cd ./src/test/framework/ && ./run_test_job.sh --name ${TRAVIS_COMMIT} --image ${IMAGE_TAG} --tester_image ${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml"
+        - "cd ./src/test/framework/ && ./run_test_job.sh --name ${TRAVIS_COMMIT} --image ${IMAGE_TAG} --tester_image ${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait"

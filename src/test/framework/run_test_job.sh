@@ -38,7 +38,7 @@ do
         --concurrency)  TESTS_CONCURRENCY=\"${2}\"
                         shift 2;;
         --wait)         WAIT_COMPLETION=true
-                        shift 2;;
+                        shift 1;;
         -h|--help)	    usage;;
         *)              usage;;
     esac
@@ -58,15 +58,11 @@ kubectl create namespace ${NAMESPACE}
 echo "Deploying test account and role"
 kubectl -n ${NAMESPACE} apply -f ./test_account.yaml
 
-
-echo "inspecting"
-docker inspect ${TESTER_IMAGE}
-
 echo "Running test job ${TEST_RUN_NAME}"
 sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
--e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME}~" \
+-e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME:0:7}~" \
 -e "s~TESTS_LIST_PLACEHOLDER~${TESTS_LIST}~" \
 -e "s~TESTS_CONCURRENCY_PLACEHOLDER~${TESTS_CONCURRENCY}~" \
 ${JOB_YAML} \
@@ -74,15 +70,12 @@ ${JOB_YAML} \
 
 #Wait for completion of job
 sleep 10
-kubectl get pods -n ${NAMESPACE} -o yaml
 pod=$(kubectl get pods -n ${NAMESPACE} | tail -1 | awk '{print $1}' | cut -f 2 -d'-')
 
-kubectl describe pods -n ${NAMESPACE}
-
-kubectl describe jobs -n ${NAMESPACE}
-
 if [ ${WAIT_COMPLETION} ]; then
-    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} -n ${NAMESPACE}
+    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} --timeout=500s -n ${NAMESPACE}
+    test_exit_code=$?
     #Display logs of run
     kubectl logs ${TEST_RUN_NAME}-${pod} -n ${NAMESPACE}
+    exit "$test_exit_code"
 fi

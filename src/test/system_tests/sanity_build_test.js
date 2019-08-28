@@ -28,7 +28,6 @@ const TEST_CTX = {
 };
 
 async function main() {
-    console.warn('NBNB:: ', process.env.TEST);
     if (_.isUndefined(argv.mgmt_ip) || _.isUndefined(argv.mgmt_port)) {
         console.error('Missing mgmt paramters');
         process.exit(5);
@@ -39,10 +38,10 @@ async function main() {
         process.exit(5);
     }
 
-    if (_.isUndefined(process.env.AWS_ACCESS) || _.isUndefined(process.env.AWS_SECRET)) {
-        console.error('Missing env credentials');
-        process.exit(5);
-    }
+    // if (_.isUndefined(process.env.AWS_ACCESS) || _.isUndefined(process.env.AWS_SECRET)) {
+    //     console.error('Missing env credentials');
+    //     process.exit(5);
+    // }
 
     TEST_CTX.s3_endpoint = `http://${argv.s3_ip}:${argv.s3_port}`;
     TEST_CTX.s3_endpoint_https = `https://${argv.s3_ip}:${argv.s3_port_https}`;
@@ -87,15 +86,15 @@ async function init_test() {
     TEST_CTX.bucketfunc = new BucketFunctions(TEST_CTX.client);
     TEST_CTX.cloudfunc = new CloudFunction(TEST_CTX.client);
 
-    TEST_CTX.aws_connection = TEST_CTX.cloudfunc.getAWSConnection(process.env.AWS_ACCESS, process.env.AWS_SECRET);
-    TEST_CTX.aws_connection.name = `${TEST_CTX.aws_connection.name}12`;
-    TEST_CTX.azure_connection =
-        TEST_CTX.cloudfunc.getAzureConnection(process.env.AZURE_ID, process.env.AZURE_SECRET, process.env.AZURE_ENDPOINT);
-    TEST_CTX.azure_connection.name = `${TEST_CTX.azure_connection.name}24`;
+    // TEST_CTX.aws_connection = TEST_CTX.cloudfunc.getAWSConnection(process.env.AWS_ACCESS, process.env.AWS_SECRET);
+    // TEST_CTX.aws_connection.name = `${TEST_CTX.aws_connection.name}12`;
+    // TEST_CTX.azure_connection =
+    //     TEST_CTX.cloudfunc.getAzureConnection(process.env.AZURE_ID, process.env.AZURE_SECRET, process.env.AZURE_ENDPOINT);
+    // TEST_CTX.azure_connection.name = `${TEST_CTX.azure_connection.name}24`;
     TEST_CTX.compatible_v2 = {
         name: 'compatible_V2',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: `${TEST_CTX.s3_endpoint}`,
+        endpoint: 'http://noobaa-server-0:6001',
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V2'
@@ -103,7 +102,7 @@ async function init_test() {
     TEST_CTX.compatible_v4 = {
         name: 'compatible_V4',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: `http://127.0.0.1`,
+        endpoint: `http://127.0.0.1:6001`,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V4'
@@ -131,17 +130,17 @@ async function create_configuration() {
 
 async function _create_resources_and_buckets() {
     console.info('Creating Cloud Connections (AWS, Azure, Compatible V2/V4');
-    //Create all supported connections
-    await TEST_CTX.cloudfunc.createConnection(TEST_CTX.aws_connection, 'AWS');
-    await TEST_CTX.cloudfunc.createConnection(TEST_CTX.azure_connection, 'Azure');
+    // Create all supported connections
+    // await TEST_CTX.cloudfunc.createConnection(TEST_CTX.aws_connection, 'AWS');
+    // await TEST_CTX.cloudfunc.createConnection(TEST_CTX.azure_connection, 'Azure');
     await TEST_CTX.cloudfunc.createConnection(TEST_CTX.compatible_v2, 'S3_V2');
     await TEST_CTX.cloudfunc.createConnection(TEST_CTX.compatible_v4, 'S3_V4');
     //TODO: Add await TEST_CTX.cloudfunc.createConnection(TEST_CTX.gcloud_connection, 'GCP');
 
     //Create Cloud Resources
-    console.info('Creating Cloud Resources (AWS, Azure');
-    await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.aws_connection.name, 'AWS-Resource', 'QA-Bucket');
-    await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.azure_connection.name, 'AZURE-Resource', 'container3');
+    // console.info('Creating Cloud Resources (AWS, Azure');
+    // await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.aws_connection.name, 'AWS-Resource', 'QA-Bucket');
+    // await TEST_CTX.cloudfunc.createCloudPool(TEST_CTX.azure_connection.name, 'AZURE-Resource', 'container3');
 
     //Create Compatible V2 and V4 buckets on the same system & then cloud resources on them
     console.info('Creating Cloud Resources (Compatibles V2/V4)');
@@ -159,7 +158,7 @@ async function _create_resources_and_buckets() {
     await TEST_CTX.bucketfunc.changeTierSetting(TEST_CTX.bucket_mirror, 4, 2); //EC 4+2 
     await TEST_CTX.client.tier.update_tier({
         name: buck1.tiering.tiers[0].tier,
-        attached_pools: ['AWS-Resource', 'COMP-S3-V2-Resource'],
+        attached_pools: ['COMP-S3-V4-Resource', 'COMP-S3-V2-Resource'],
         data_placement: 'MIRROR'
     });
 
@@ -167,19 +166,19 @@ async function _create_resources_and_buckets() {
     await TEST_CTX.bucketfunc.setQuotaBucket(TEST_CTX.bucket_spread, 2, 'TERABYTE');
     await TEST_CTX.client.tier.update_tier({
         name: buck2.tiering.tiers[0].tier,
-        attached_pools: ['AZURE-Resource', 'COMP-S3-V4-Resource'],
+        attached_pools: ['COMP-S3-V2-Resource', 'COMP-S3-V4-Resource'],
         data_placement: 'SPREAD'
     });
 
     //Create namespace resources
     console.info('Creating NS Resources');
-    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.aws_connection.name, 'NSAWS', 'qa-aws-bucket');
-    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.azure_connection.name, 'NSAzure', 'container2');
+    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v2.name, 'NSv2', 'first-bucket');
+    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v4.name, 'NSv4', 'first-bucket');
 
     //Create namespace bucket
     console.info('Creating NS Buckets');
-    await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'NSAWS');
-    await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, ['NSAWS', 'NSAzure'], 'NSAzure');
+    await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'NSv2');
+    await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, ['NSv2', 'NSv4'], 'NSv4');
 }
 
 async function _create_accounts() {
@@ -190,7 +189,7 @@ async function _create_accounts() {
         email: 'ac_nologin_hasaccess',
         has_login: false,
         s3_access: true,
-        default_pool: 'first-pool',
+        default_pool: 'COMP-S3-V2-Resource',
         allowed_buckets: {
             full_permission: false,
             permission_list: [
@@ -207,7 +206,7 @@ async function _create_accounts() {
         password: "9v8MQq2Q",
         must_change_password: true,
         s3_access: true,
-        default_pool: "first-pool",
+        default_pool: 'COMP-S3-V2-Resource',
         allowed_buckets: {
             full_permission: false,
             permission_list: ['first.bucket', 'ec.no.quota', 'replica.with.quota']
@@ -222,7 +221,7 @@ async function _create_accounts() {
         password: "c1QiXLlJ",
         must_change_password: false,
         s3_access: true,
-        default_pool: "first-pool",
+        default_pool: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: false
     };
@@ -234,7 +233,7 @@ async function _create_accounts() {
         password: "c1QiGkl2",
         must_change_password: false,
         s3_access: true,
-        default_pool: "first-pool",
+        default_pool: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };

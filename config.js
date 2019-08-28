@@ -361,10 +361,10 @@ config.SUPERVISOR_DEFAULTS = {
 
 
 config.SERVER_MIN_REQUIREMENTS = {
-    // We are interested in setting the minimum to 16GB, we take a buffer of 1GB
-    RAM_GB: 15,
+    // Should be synced with the container requirements
+    RAM_GB: 8,
     STORAGE_GB: 120,
-    CPU_COUNT: 8
+    CPU_COUNT: 4
 };
 
 // we currently use ~600MB during the upgrade process. use twice as much as a limit

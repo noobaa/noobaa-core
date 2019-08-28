@@ -1322,7 +1322,7 @@ function check_quota(bucket) {
                 }, uploads to this bucket will be denied`,
             Dispatcher.rules.once_daily);
         dbg.error(message);
-        throw new RpcError('FORBIDDEN', message);
+        throw new RpcError('INVALID_BUCKET_STATE', message);
     } else if (used_percent >= 90) {
         Dispatcher.instance().alert('INFO',
             system_store.data.systems[0]._id,

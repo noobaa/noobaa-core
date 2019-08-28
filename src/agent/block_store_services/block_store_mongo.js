@@ -5,12 +5,10 @@ const _ = require('lodash');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const os_utils = require('../../util/os_utils');
 const size_utils = require('../../util/size_utils');
 const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const { SERVER_MIN_REQUIREMENTS } = require('../../../config');
 const mongo_utils = require('../../util/mongo_utils');
 const Semaphore = require('../../util/semaphore');
 
@@ -90,18 +88,6 @@ class BlockStoreMongo extends BlockStoreBase {
             });
     }
 
-    set_mongo_store_limit() {
-        return os_utils.get_raw_storage()
-            .then(total => {
-                dbg.log0(`total disk size ${total}, current used ${this._usage}`);
-                if (total < SERVER_MIN_REQUIREMENTS.STORAGE_GB * size_utils.GIGABYTE) {
-                    this.usage_limit = 5 * size_utils.GIGABYTE;
-                } else {
-                    this.usage_limit = 30 * size_utils.GIGABYTE;
-                }
-            });
-    }
-
     init() {
         return mongo_client.instance().connect()
             .then(() => this._init_chunks_collection())
@@ -112,7 +98,6 @@ class BlockStoreMongo extends BlockStoreBase {
                     dbg.log0('found usage data usage_data = ', this._usage);
                 }
             })
-            .then(() => this.set_mongo_store_limit())
             .catch(err => {
                 dbg.error('got error on init:', err);
                 throw err;

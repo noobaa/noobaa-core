@@ -77,6 +77,8 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     OBJECT_IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown,
     INVALID_PART: S3Error.InvalidPart,
     INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
+    INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
+    NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
 });
 
 const S3_OPS = load_ops();

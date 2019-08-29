@@ -50,6 +50,7 @@ const stats_collector = require('../bg_services/stats_collector');
 const config_file_store = require('./config_file_store').instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const addr_utils = require('../../util/addr_utils');
+const url_utils = require('../../util/url_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -588,7 +589,8 @@ function read_system(req) {
                     failure_tolerance_threshold: config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD
                 }
             },
-            platform_restrictions: restrict[process.env.PLATFORM || 'dev'] // dev will be default for now
+            platform_restrictions: restrict[process.env.PLATFORM || 'dev'], // dev will be default for now
+            s3_endpoints: _list_s3_endpoints(system)
         };
     });
 }
@@ -989,6 +991,23 @@ function find_account_by_email(req) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
+}
+
+function _list_s3_endpoints(system) {
+    return system.system_address
+        .filter(addr =>
+            addr.service === 's3' &&
+            addr.api === 's3' &&
+            addr.secure
+        )
+        .map(addr => {
+            const { kind, hostname, port } = addr;
+            const url = url_utils.construct_url({ protocol: 'https', hostname, port });
+            return {
+                kind: kind,
+                address: url.toString()
+            };
+        });
 }
 
 // EXPORTS

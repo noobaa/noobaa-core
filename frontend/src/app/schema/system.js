@@ -12,7 +12,8 @@ export default {
         'phoneHome',
         'debug',
         'diagnostics',
-        'internalStorage'
+        'internalStorage',
+        's3Endpoints'
     ],
     properties: {
         name: {
@@ -147,6 +148,28 @@ export default {
             },
             size: {
                 $ref: '#/def/common/size'
+            }
+        },
+        s3Endpoints: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'kind',
+                    'address'
+                ],
+                properties: {
+                    kind: {
+                        type: 'string',
+                        enum: [
+                            'EXTERNAL',
+                            'INTERNAL'
+                        ]
+                    },
+                    address: {
+                        type: 'string'
+                    }
+                }
             }
         }
     }

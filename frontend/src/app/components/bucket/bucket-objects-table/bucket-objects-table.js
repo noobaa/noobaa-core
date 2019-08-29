@@ -46,13 +46,13 @@ const columns = deepFreeze([
     {
         name: 'size',
         sortable: true
-    },
-    {
-        name: 'deleteButton',
-        label: '',
-        css: 'delete-col',
-        type: 'delete'
-    }
+    }//,
+    // {
+    //     name: 'deleteButton',
+    //     label: '',
+    //     css: 'delete-col',
+    //     type: 'delete'
+    // }
 ]);
 
 const emptyMessages = deepFreeze({

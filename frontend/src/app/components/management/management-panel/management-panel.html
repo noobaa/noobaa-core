@@ -23,13 +23,13 @@
         <section class="tab"
             ko.css.selected="selectedTab.eq('settings')"
         >
+            <virtual-hosting-form class="pad">This should not be visible</virtual-hosting-form>
+            <hr />
             <maintenance-form class="pad"></maintenance-form>
             <hr />
             <server-ssl-form class="pad"
                 params="isCollapsed: sectionToggle('server-ssl')">
             </server-ssl-form>
-<!--             <hr />
-             <p2p-form class="pad"></p2p-form> -->
         </section>
 
         <diagnostics-form class="tab"

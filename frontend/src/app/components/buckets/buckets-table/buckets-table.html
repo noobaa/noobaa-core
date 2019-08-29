@@ -28,25 +28,7 @@
     sorting: ko.pc(sorting, onSort, $component),
     loading: !bucketsLoaded(),
     emptyMessage: 'The current filter does not match any bucket'
-">
-    <template name="resources-cell">
-        <div class="column">
-            <div class="row align-middle pad-quarter round-corners scale-on-hover tag"
-                ko.tooltip="tooltip"
-            >
-                <!-- ko foreach: icons -->
-                <!-- ko if: $index-->
-                <vr class="push-both-half"></vr>
-                <!-- /ko -->
-                <svg-icon class=""
-                    params="name: icon"
-                    ko.css.lighted="lighted"
-                "></svg-icon>
-                <!-- /ko -->
-            </div>
-        </div>
-    </template>
-</data-table>
+"></data-table>
 
 <paginator params="
     itemCount: bucketCount,

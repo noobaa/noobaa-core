@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './buckets-table.html';
-import tiersColTooltip from './tiers-col-tooltip.html';
 import resourcesColTooltip from './resources-col-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
@@ -14,14 +13,12 @@ import {
     deepFreeze,
     flatMap,
     createCompareFunc,
-    throttle,
-    countBy
+    throttle
 } from 'utils/core-utils';
 import {
     getBucketStateIcon,
     getVersioningStateText,
-    getResiliencyTypeDisplay,
-    flatPlacementPolicy
+    getResiliencyTypeDisplay
 } from 'utils/bucket-utils';
 import {
     requestLocation,
@@ -57,21 +54,12 @@ const columns = deepFreeze([
         compareKey: bucket => bucket.resiliency.kind
     },
     {
-        name: 'tiers',
-        sortable: true,
-        compareKey: bucket => bucket.placement.tiers.length
-    },
-    {
         name: 'resources',
         label: 'Resources in Tiers',
-        type: 'resources-cell',
         sortable: true,
         compareKey: bucket => {
-            const resourceTypes = flatPlacementPolicy(bucket)
-                .map(record => record.resource.type);
-
-            return (resourceTypes.includes('HOSTS') ? 1 : 0) +
-                (resourceTypes.includes('CLOUD') ? 1 : 0);
+            const { tiers, resources } = _countTiersAndResources(bucket);
+            return [tiers,resources];
         }
     },
     {
@@ -120,6 +108,14 @@ const resourceGroupMetadata = deepFreeze({
     }
 });
 
+function _countTiersAndResources(bucket) {
+    const { tiers } = bucket.placement;
+    const resources = flatMap(tiers, tier => flatMap(tier.mirrorSets, ms => ms.resources));
+    return {
+        tiers: tiers.length,
+        resources: resources.length
+    };
+}
 
 function _mapResiliency(resiliency) {
     const { kind, replicas, dataFrags, parityFrags } = resiliency;
@@ -130,31 +126,6 @@ function _mapResiliency(resiliency) {
             `${replicas} copies` :
             `${dataFrags}+${parityFrags}`
     })`;
-}
-
-function _mapTiers(tiers) {
-    const text = stringifyAmount('Tier', tiers.length);
-    const tooltip = {
-        template: tiersColTooltip,
-        text: tiers.map((tier, i) => {
-            if (tier.policyType === 'INTERNAL_STORAGE') {
-                return {
-                    tierIndex: 1,
-                    placement: 'No Resources'
-                };
-
-            } else {
-                const verb = tier.policyType === 'SPREAD' ? 'Spread' : 'Mirrored';
-                const resourceCount = flatMap(tier.mirrorSets, ms => ms.resources).length;
-                return {
-                    tierIndex: i + 1,
-                    placement: `${verb} on ${stringifyAmount('resource', resourceCount)}`
-                };
-            }
-        })
-    };
-
-    return { text, tooltip };
 }
 
 function _getResourceGroupTooltip(tiers, system) {
@@ -176,22 +147,11 @@ function _getResourceGroupTooltip(tiers, system) {
     };
 }
 
-function _mapResourceGroups(bucket, system) {
-    const countByType = countBy(
-        flatPlacementPolicy(bucket),
-        record => record.resource.type
-    );
-
-    const icons = Object.entries(resourceGroupMetadata)
-        .map(pair => {
-            const [type, { icon }] = pair;
-            const lighted = Boolean(countByType[type] || 0);
-            return { icon, lighted };
-        });
-
-
+function _mapResources(bucket, system) {
+    const { tiers, resources } = _countTiersAndResources(bucket);
+    const text = `${stringifyAmount('Tier', tiers)}, ${stringifyAmount('Resource', resources)}`;
     const tooltip = _getResourceGroupTooltip(bucket.placement.tiers, system);
-    return { icons, tooltip };
+    return { text, tooltip };
 }
 
 function _mapBucket(bucket, system, selectedForDelete) {
@@ -207,8 +167,7 @@ function _mapBucket(bucket, system, selectedForDelete) {
         },
         objectCount: numeral(bucket.objectCount).format('0,0'),
         resiliencyPolicy: _mapResiliency(bucket.resiliency),
-        resources: _mapResourceGroups(bucket, system),
-        tiers: _mapTiers(bucket.placement.tiers),
+        resources: _mapResources(bucket, system),
         versioning: getVersioningStateText(bucket.versioning.mode),
         capacity: {
             total: bucket.storage.total,
@@ -230,10 +189,7 @@ class RowViewModel {
     objectCount = ko.observable();
     resiliencyPolicy = ko.observable();
     tiers = ko.observable();
-    resources = {
-        icons: ko.observableArray(),
-        tooltip: ko.observable()
-    };
+    resources = ko.observable();
     versioning = ko.observable();
     capacity = {
         total: ko.observable(),

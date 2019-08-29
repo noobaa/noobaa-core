@@ -322,7 +322,8 @@ module.exports = {
                 'buckets',
                 'objects',
                 'owner',
-                'node_version'
+                'node_version',
+                's3_endpoints'
             ],
             properties: {
                 name: {
@@ -491,6 +492,22 @@ module.exports = {
                     type: 'array',
                     items: {
                         $ref: '#/definitions/restriction_enum'
+                    }
+                },
+                s3_endpoints: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['kind', 'address'],
+                        properties: {
+                            kind: {
+                                type: 'string',
+                                enum: ['EXTERNAL', 'INTERNAL']
+                            },
+                            address: {
+                                type: 'string'
+                            }
+                        }
                     }
                 }
             },

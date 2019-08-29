@@ -26,6 +26,10 @@ const diagnosticsInitialState = {
 // Action Handlers
 // ------------------------------
 function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
+    const internalStorage = _mapInternalStorage(payload.pools.find(pool =>
+        pool.resource_type === 'INTERNAL'
+    ));
+
     return {
         name: payload.name,
         version: payload.version,
@@ -41,9 +45,8 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         maintenanceMode: _mapMaintenanceMode(payload, timestamp),
         releaseNotes: state && state.releaseNotes,
         diagnostics: state ? state.diagnostics : diagnosticsInitialState,
-        internalStorage: _mapInternalStorage(payload.pools.find(pool =>
-            pool.resource_type === 'INTERNAL'
-        ))
+        internalStorage,
+        s3Endpoints: payload.s3_endpoints
     };
 }
 

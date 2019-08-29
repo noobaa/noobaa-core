@@ -6,24 +6,35 @@
 ">
     <div class="column greedy pad">
         <h2 class="heading3">
-            Choose an account to connect with
+            Set Credentials Source:
         </h2>
 
-        <dropdown params="
-            filter: true,
-            actions: accountActions,
-            options: accountOptions,
-            selected: $form.selectedAccount,
-            placeholder: 'Select account',
-            hasFocus: true
-        "></dropdown>
+        <editor params="label: 'Target Account'">
+            <dropdown params="
+                filter: true,
+                actions: accountActions,
+                options: accountOptions,
+                selected: $form.selectedAccount,
+                placeholder: 'Select account',
+                hasFocus: true
+            "></dropdown>
+        </editor>
 
-        <h2 class="heading3 push-prev">
-            Use the following infromation to config your application
+        <editor params="label: 'S3 Endpoint Address'">
+            <dropdown params="
+                options: endpointOptions,
+                selected: $form.selectedEndpoint,
+                placeholder: 'Select S3 Endpoint'
+            "></dropdown>
+        </editor>
+
+
+        <h2 class="heading3 push-prev push-next-quarter">
+            Connection Details:
         </h2>
 
         <div class="content-box pad greedy push-next">
-            <property-sheet class="greedy" params="properties: details">
+            <property-sheet class="greedy summary" params="properties: details">
                 <template name="valueWithTooltip">
                     <div ko.tooltip="$data">
                         <div class="no-wrap">{{$data}}</div>

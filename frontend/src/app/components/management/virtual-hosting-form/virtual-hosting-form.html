@@ -1,0 +1,49 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section>
+    <div class="row content-middle cursor-pointer"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                Virtual Hosting
+            </h2>
+            <section class="row" ko.visible="!isExpanded()">
+                <p>
+                    <span class="valign-middle">Internal name:</span>
+                    <span class="summary-value">{{internalEndpoint}}</span>
+                </p>
+                <vr class="push-both"></vr>
+                <p>
+                    <span class="valign-middle">External name:</span>
+                    <span class="summary-value">{{externalEndpoint}}<span>
+                </p>
+            </section>
+            <p ko.visible="isExpanded">
+                Configuring DNS in NooBaa is useful for achieving high availability on installed agents or for working with bucket virtual domains
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div class="column greedy" ko.expand="isExpanded">
+        <property-sheet class="vpad" params="properties: endpointProps"></property-sheet>
+
+        <div class="row remark content-middle ">
+            <svg-icon class="icon-small push-next-quarter"
+                    params="name: 'notif-info'"
+                ></svg-icon>
+            <p>
+                Learn more about
+                <a class="link"
+                    target="_blank"
+                    ko.attr.href="learnMoreHref"
+                >
+                    Virtual Hosting
+                </a>
+            </p>
+        </div>
+    </div>
+</section>

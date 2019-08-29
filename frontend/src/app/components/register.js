@@ -199,6 +199,7 @@ import versionForm from './management/version-form/version-form';
 import diagnosticsForm from './management/diagnostics-form/diagnostics-form';
 import maintenanceForm from './management/maintenance-form/maintenance-form';
 import serverSslForm from './management/server-ssl-form/server-ssl-form';
+import virtualHostingForm from './management/virtual-hosting-form/virtual-hosting-form';
 /** INJECT:management.import **/
 
 // -------------------------------
@@ -509,6 +510,7 @@ export default function register(ko, services) {
         diagnosticsForm,
         maintenanceForm,
         serverSslForm,
+        virtualHostingForm,
         /** INJECT:management.list **/
 
         accountsPanel,

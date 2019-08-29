@@ -7,5 +7,6 @@
     "addBucketTrigger": "https://noobaa.desk.com/customer/en/portal/articles/2939400-create-your-own-serverless-function",
     "usingInternalStorageWarningTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2852040-joining-storage-nodes-to-noobaa",
     "placementPolicyToggleMirrorTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
-    "placementPolicyToggleSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror"
+    "placementPolicyToggleSpreadTooltip": "https://noobaa.desk.com/customer/en/portal/articles/2677059-bucket-data-placement-policy-%E2%80%93-spread-vs-mirror",
+    "virtualHostingLearnMoreHref": " https://noobaa.desk.com/customer/portal/articles/2933428"
 }

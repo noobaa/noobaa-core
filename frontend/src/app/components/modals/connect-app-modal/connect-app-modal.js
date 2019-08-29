@@ -10,15 +10,9 @@ import {
     closeModal
 } from 'action-creators';
 
-const endpointKindMeta = deepFreeze({
-    EXTERNAL: {
-        optionLabel: 'Cluster External Name',
-        summaryLabel: 'Cluster External Endpoint'
-    },
-    INTERNAL: {
-        optionLabel: 'Cluster Local Name',
-        summaryLabel: 'Cluster Internal Endpoint'
-    }
+const endpointKindLabel = deepFreeze({
+    EXTERNAL: 'Cluster External Name',
+    INTERNAL: 'Cluster Internal Name'
 });
 
 function _getSelectedAccount(accountsWithS3Access, user, form) {
@@ -95,7 +89,7 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         const accountOptions = accountList.map(account => account.name);
         const endpointOptions = s3Endpoints.map((endpoint, i) => ({
             value: i + 1,
-            label: endpointKindMeta[endpoint.kind].optionLabel,
+            label: endpointKindLabel[endpoint.kind],
             remark: endpoint.address
         }));
         const { name: accountName, accessKeys } = _getSelectedAccount(accountList, user, form);
@@ -107,7 +101,7 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
             details: [
                 {},
                 {
-                    label: endpointKindMeta[endpoint.kind].summaryLabel,
+                    label: endpointKindLabel[endpoint.kind],
                     value: endpoint.address
                 },
                 {

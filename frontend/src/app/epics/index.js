@@ -24,6 +24,7 @@ import changeAccountPassword from './change-account-password';
 import resetAccountPassword from './reset-account-password';
 import regenerateAccountCredentials from './regenerate-account-credentials';
 import addExternalConnection from './add-external-connection';
+import updateExternalConnection from './update-external-connection';
 import deleteExternalConnection from './delete-external-connection';
 import deleteResource from './delete-resource';
 import createHostsPool from './create-hosts-pool';
@@ -140,6 +141,7 @@ const epics = [
     resetAccountPassword,
     regenerateAccountCredentials,
     addExternalConnection,
+    updateExternalConnection,
     tryDeleteAccount,
     signOutDeletedUser,
     deleteExternalConnection,

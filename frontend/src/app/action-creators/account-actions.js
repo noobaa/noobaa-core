@@ -20,6 +20,9 @@ import {
     ADD_EXTERNAL_CONNECTION,
     COMPLETE_ADD_EXTERNAL_CONNECTION,
     FAIL_ADD_EXTERNAL_CONNECTION,
+    UPDATE_EXTERNAL_CONNECTION,
+    COMPLETE_UPDATE_EXTERNAL_CONNECTION,
+    FAIL_UPDATE_EXTERNAL_CONNECTION,
     TRY_DELETE_ACCOUNT,
     COMPLETE_DELETE_ACCOUNT,
     FAIL_DELETE_ACCOUNT,
@@ -197,6 +200,27 @@ export function completeAddExternalConnection(connection) {
 export function failAddExternalConnection(connection, error) {
     return {
         type: FAIL_ADD_EXTERNAL_CONNECTION,
+        payload: { connection, error }
+    };
+}
+
+export function updateExternalConnection(name, service, params) {
+    return {
+        type: UPDATE_EXTERNAL_CONNECTION,
+        payload: { name, service, params }
+    };
+}
+
+export function completeUpdateExternalConnection(connection) {
+    return {
+        type: COMPLETE_UPDATE_EXTERNAL_CONNECTION,
+        payload: { connection }
+    };
+}
+
+export function failUpdateExternalConnection(connection, error) {
+    return {
+        type: FAIL_UPDATE_EXTERNAL_CONNECTION,
         payload: { connection, error }
     };
 }

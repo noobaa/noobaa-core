@@ -77,7 +77,10 @@ class NamespaceBucketS3AccessFormViewModel extends ConnectableViewModel {
             const { compareKey } = columns.find(column => column.name === sortBy) || columns[0];
             const baseRoute = realizeUri(routes.account, { system: location.params.system }, {}, true);
             const filteredAccounts = Object.values(accounts)
-                .filter(account => account.allowedBuckets.includes(this.bucketName));
+                .filter(account =>
+                    account.allowedBuckets.includes(this.bucketName) &&
+                    !account.roles.includes('operator')
+                );
 
             ko.assignToProps(this, {
                 dataReady: true,

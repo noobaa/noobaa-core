@@ -691,73 +691,91 @@ async function add_external_connection(req) {
     });
 }
 
-async function edit_external_connection_credentials(req) {
-    const { name, identity, secret } = req.rpc_params;
-    const { account } = req;
-    const connection_to_edit = cloud_utils.find_cloud_connection(account, name);
-    const { endpoint_type, cp_code, auth_method, endpoint } = connection_to_edit;
-    const new_connection = _.cloneDeep(connection_to_edit);
-    const check_connection = {
+async function update_external_connection(req) {
+    const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.name);
+    const {
         name,
-        identity,
-        secret,
-        endpoint_type,
-        cp_code,
-        auth_method,
-        endpoint,
-    };
+        identity = new SensitiveString(connection.access_key),
+        secret
+    } = req.rpc_params;
+
+    let check_failed = false;
     try {
-        const reply = await _check_external_connection(check_connection);
-        // TODO: Maybe handle differently
-        if (reply.status !== 'SUCCESS') {
-            throw new RpcError('CREDENTIALS_INVALID', `Credentials are not valid ${name}`);
-        }
+        const { status } = await _check_external_connection({
+            name,
+            identity,
+            secret,
+            endpoint_type: connection.endpoint_type,
+            endpoint: connection.endpoint,
+            cp_code: connection.cp_code,
+            auth_method: connection.auth_method
+        });
+        check_failed = status !== 'SUCCESS';
+
     } catch (error) {
-        // TODO: Maybe handle differently
-        dbg.error('_check_external_connection had error', error);
-        throw new RpcError('CREDENTIALS_INVALID', `Credentials are not valid ${name}`);
+        dbg.error('update_external_connection: _check_external_connection had error', error);
+        check_failed = true;
     }
-    new_connection.access_key = identity;
-    new_connection.secret_key = secret;
 
-    const account_updates = {
+    if (check_failed) {
+        throw new RpcError('INVALID_CREDENTIALS', `Credentials are not valid ${name}`);
+    }
+
+    const accounts_updates = [{
         _id: req.account._id,
-        sync_credentials_cache: _.filter(account.sync_credentials_cache,
-            connection => (connection.name !== name))
-    };
+        sync_credentials_cache: req.account.sync_credentials_cache.map(conn => {
+            if (conn.name === name) {
+                conn = _.cloneDeep(connection);
+                conn.access_key = identity;
+                conn.secret_key = secret;
+            }
 
-    account_updates.sync_credentials_cache.push(new_connection);
+            return conn;
+        })
+    }];
 
-    const make_changes = {
+    const pools_updates = system_store.data.pools
+        .filter(pool =>
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint_type === connection.endpoint_type &&
+            pool.cloud_pool_info.endpoint === connection.endpoint &&
+            pool.cloud_pool_info.access_keys.account_id._id === req.account._id &&
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key
+        )
+        .map(pool => ({
+            _id: pool._id,
+            'cloud_pool_info.access_keys.access_key': identity,
+            'cloud_pool_info.access_keys.secret_key': secret,
+        }));
+
+    const ns_resources_updates = system_store.data.namespace_resources
+        .filter(ns_resource =>
+            ns_resource.connection.endpoint_type === connection.endpoint_type &&
+            ns_resource.connection.endpoint === connection.endpoint &&
+            ns_resource.account._id === req.account._id &&
+            ns_resource.connection.access_key === connection.access_key
+        )
+        .map(ns_resource => ({
+            _id: ns_resource._id,
+            'connection.access_key': identity,
+            'connection.secret_key': secret
+        }));
+
+    await system_store.make_changes({
         update: {
-            accounts: [account_updates]
+            accounts: accounts_updates,
+            pools: pools_updates,
+            namespace_resources: ns_resources_updates
         }
-    };
+    });
 
-    const connected_pools = _.filter(system_store.data.pools, pool => (
-        pool.cloud_pool_info &&
-        pool.cloud_pool_info.endpoint === connection_to_edit.endpoint &&
-        pool.cloud_pool_info.access_keys.account_id._id === account._id &&
-        pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_edit.access_key
-    ));
-
-    const pools_updates = _.map(connected_pools, pool => ({
-        _id: pool._id,
-        'cloud_pool_info.access_keys.access_key': identity,
-        'cloud_pool_info.access_keys.secret_key': secret,
-    }));
-    const update_pools = !_.isEmpty(pools_updates);
-    if (update_pools) make_changes.update.pools = pools_updates;
-
-    await system_store.make_changes(make_changes);
-
-    if (update_pools) {
+    if (pools_updates.length > 0) {
         await server_rpc.client.hosted_agents.update_credentials({
+            pool_ids: pools_updates.map(update => String(update._id)),
             credentials: {
                 access_key: identity.unwrap(),
                 secret_key: secret.unwrap(),
-            },
-            pool_ids: connected_pools.map(pool => String(pool._id)),
+            }
         }, {
             auth_token: req.auth_token
         });
@@ -1011,6 +1029,7 @@ function delete_external_connection(req) {
 
     if (_.find(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
+            pool.cloud_pool_info.endpoint_type === connection_to_delete.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
             pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
@@ -1292,7 +1311,7 @@ exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;
 exports.get_system_roles = get_system_roles;
 exports.add_external_connection = add_external_connection;
-exports.edit_external_connection_credentials = edit_external_connection_credentials;
+exports.update_external_connection = update_external_connection;
 exports.check_external_connection = check_external_connection;
 exports.delete_external_connection = delete_external_connection;
 exports.get_account_info = get_account_info;

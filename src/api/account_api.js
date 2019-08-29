@@ -343,12 +343,12 @@ module.exports = {
             }
         },
 
-        edit_external_connection_credentials: {
-            doc: 'Edit a connection in authorized account\'s connections cache',
+        update_external_connection: {
+            doc: 'Update a connection in authorized account\'s connections cache',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'identity', 'secret'],
+                required: ['name', 'secret'],
                 properties: {
                     name: {
                         type: 'string'

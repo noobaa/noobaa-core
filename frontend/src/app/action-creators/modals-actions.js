@@ -799,17 +799,34 @@ export function openConfirmDangerousScalingModal(action) {
     };
 }
 
-export function openEditCloudConnectionModal() {
+export function openEditCloudConnectionModal(accountName, connectionName) {
     return {
         type: OPEN_MODAL,
         payload: {
             component: {
                 name: 'edit-cloud-connection-modal',
-                params: { }
+                params: { accountName, connectionName }
             },
             options: {
                 title: 'Edit Cloud Connection',
                 size: 'medium'
+            }
+        }
+    };
+}
+
+export function openCloudConnectionUpdateWarningModal(accountName, connectionName, updateAction) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'cloud-connection-update-warning-modal',
+                params: { accountName, connectionName, updateAction }
+            },
+            options: {
+                title: 'Connection Access Issue',
+                size: 'small',
+                severity: 'warning'
             }
         }
     };

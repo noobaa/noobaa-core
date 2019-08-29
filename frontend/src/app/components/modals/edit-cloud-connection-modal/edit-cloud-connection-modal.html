@@ -4,25 +4,46 @@
     name: formName,
     fields: formFields,
     asyncTriggers: asyncTriggers,
-    onWarn: onWarn,
-    onValidate: onValidate,
+    onValidate: values => onValidate(values, existingConnections),
     onValidateAsync: onValidateAsync,
-    onValidateSubmit: onValidateSubmit,
     onSubmit: onSubmit
 ">
-    <div class="column pad content-box">
-        <div class="row align-end content-middle">
-            <button class="link alt-colors push-next"
-                ko.click="onCancel"
-            >
-                Cancel
-            </button>
-            <button class="btn"
-                ko.shakeOnClick="!$form.isValid()"
-            >
-                Save
-            </button>
+    <div class="column greedy pad">
+        <editor params="label: 'Connection Name'">
+            <input type="text"
+                ko.value="$form.connectionName"
+                ko.disable="true"
+            />
+        </editor>
+
+        <editor params="label: 'Service'">
+            <dropdown params="
+                options: serviceOptions,
+                selected: $form.service,
+                disabled: true
+            "></dropdown>
+        </editor>
+
+        <!-- ko with: subTemplate -->
+        <!-- ko template: { html: $data, data: $parent } --><!-- /ko -->
+        <!-- /ko -->
+    </div>
+    <div class="row content-middle pad content-box">
+        <div class="greedy">
+            <p class="row content-middle error" ko.visible="globalError">
+                Somthing went wrong
+                <svg-icon class="icon-small push-prev-half"
+                    ko.tooltip="{ text: globalError, breakWords: true }",
+                    params="name: 'notif-info'"
+                ></svg-icon>
+            </p>
         </div>
+        <button type="button" class="link alt-colors push-next" ko.click="onCancel">
+            Cancel
+        </button>
+        <button class="btn" ko.shakeOnClick="!$form.isValid()">
+            Save
+        </button>
     </div>
 </managed-form>
 

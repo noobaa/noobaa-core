@@ -63,7 +63,7 @@ const undeletableReasonToTooltip = deepFreeze({
 
 function _mapResourceToRow(resource, connectedBuckets, system, selectedForDelete) {
     const { name, target, undeletable } = resource;
-    const conenctedBucketsInfo = {
+    const connectedBucketsInfo = {
         text: stringifyAmount('bucket', connectedBuckets.length),
         tooltip: {
             template: 'linkList',
@@ -80,7 +80,7 @@ function _mapResourceToRow(resource, connectedBuckets, system, selectedForDelete
         state: getNamespaceResourceStateIcon(resource),
         type: getNamespaceResourceTypeIcon(resource),
         name,
-        connectedBuckets: conenctedBucketsInfo,
+        connectedBuckets: connectedBucketsInfo,
         target: {
             text: target,
             tooltip: target

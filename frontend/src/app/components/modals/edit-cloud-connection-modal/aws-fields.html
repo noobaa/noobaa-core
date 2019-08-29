@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <input type="text"
+        class="push-next-half"
+        ko.value="$form.awsEndpoint"
+        ko.disable="true"
+    />
+</editor>
+
+<editor params="label: 'Access Key'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter Key"
+            ko.value="$form.awsAccessKey"
+            ko.validationCss="$form.awsAccessKey"
+        />
+        <validation-indicator params="field: $form.awsAccessKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.awsAccessKey"></validation-message>
+</editor>
+
+<editor params="label: 'Secret Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter Secret"
+            autocomplete="new-password"
+            ko.value="$form.awsSecretKey"
+            ko.validationCss="$form.awsSecretKey"
+        />
+        <validation-indicator params="field: $form.awsSecretKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.awsSecretKey"></validation-message>
+</editor>

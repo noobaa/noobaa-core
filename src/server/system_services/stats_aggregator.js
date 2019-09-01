@@ -261,11 +261,12 @@ async function get_partial_accounts_stats(req) {
     try {
         // TODO: Either make a large query or per account
         // In case of large query we also need to set a limit and tirgger listing queries so we won't crash
+        const now = Date.now();
         accounts_stats.accounts = await P.all(_.compact(_.map(system_store.data.accounts, async account => {
             if (account.is_support) return;
             accounts_stats.accounts_num += 1;
             const new_req = _.defaults({
-                rpc_params: { accounts: [account.email], from: new Date(0), till: new Date() },
+                rpc_params: { accounts: [account.email], since: config.NOOBAA_EPOCH, till: now },
             }, req);
 
             const account_usage_info = await account_server.get_account_usage(new_req);

@@ -121,7 +121,11 @@ class GetMapping {
                 map_reporter.add_event(`allocate_chunks(${bucket.name})`, total_size, Date.now() - start_alloc_time);
                 if (!done) {
                     retries += 1;
-                    if (retries > config.IO_WRITE_BLOCK_RETRIES) throw new Error('Couldn\'t allocate chunk - Will stop retries');
+                    if (retries > config.IO_WRITE_BLOCK_RETRIES) {
+                        const err = new Error('Couldn\'t allocate chunk - Will stop retries');
+                        err.rpc_code = 'NOT_ENOUGH_SPACE';
+                        throw err;
+                    }
                     const uniq_tiers = _.uniq(_.map(chunks, 'tier'));
                     await P.map(uniq_tiers, tier => ensure_room_in_tier(tier, bucket));
                     await P.delay(config.ALLOCATE_RETRY_DELAY_MS);

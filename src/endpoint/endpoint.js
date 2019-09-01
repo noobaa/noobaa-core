@@ -58,10 +58,21 @@ function start_all() {
     if (cluster.isMaster &&
         config.ENDPOINT_FORKS_ENABLED &&
         argv.address &&
-        !argv.s3_agent &&
-        process.env.container !== 'docker') {
+        !argv.s3_agent) {
+        //Example for num of forks according to mem
+        // Mem  Forks
+        //  4    1
+        //  6    1
+        //  8    2
+        //  10   3
+        //  12   4
+        const total_mem_mb = Math.floor(os.totalmem() / size_utils.MEGABYTE);
+        const reserved_mem_mb = 4 * size_utils.GIGABYTE;
+        const fork_mem_mb = 2 * size_utils.GIGABYTE;
+        const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
+        const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
+        const NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);
         // Fork workers
-        const NUM_OF_FORKS = (os.totalmem() >= (config.SERVER_MIN_REQUIREMENTS.RAM_GB * size_utils.GIGABYTE)) ? numCPUs : 1;
         for (let i = 0; i < NUM_OF_FORKS; i++) {
             console.warn('Spawning Endpoint Server', i + 1);
             cluster.fork();

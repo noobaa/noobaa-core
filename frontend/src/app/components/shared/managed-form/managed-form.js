@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './managed-form.html';
-import { isFunction, mapValues, noop, pick } from 'utils/core-utils';
+import { isFunction, mapValues, noop, pick, hasOwn } from 'utils/core-utils';
 import { getFormValues, isFormValid, isFormDirty } from 'utils/form-utils';
 import { get } from 'rx-extensions';
 import ko from 'knockout';
@@ -239,7 +239,7 @@ class ManagedFormViewModel {
             Object.keys(syncErrors || {}).every(field => !_asyncTriggers.includes(field));
 
         const fieldsValidity = mapValues(values, (_, field) => {
-            if (syncErrors && syncErrors.hasOwnProperty(field)) {
+            if (syncErrors && hasOwn(syncErrors, field)) {
                 return 'INVALID';
             }
 
@@ -287,7 +287,7 @@ class ManagedFormViewModel {
 
                 const hasAsyncErrors = Object.keys(asyncErrors).length > 0;
                 const fieldsValidity = hasAsyncErrors ?
-                    mapValues(values, (_, name) => asyncErrors.hasOwnProperty(name) ? 'INVALID' : 'UNKNOWN') :
+                    mapValues(values, (_, name) => hasOwn(asyncErrors, name) ? 'INVALID' : 'UNKNOWN') :
                     mapValues(values, () => 'VALID');
 
                 action$.next(setFormValidity(

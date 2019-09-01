@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { isDefined } from 'utils/core-utils';
+import { isDefined, hasOwn } from 'utils/core-utils';
 
 export function getDeep(state, path) {
     return _getDeep(state, path, 0);
@@ -39,7 +39,7 @@ export function deleteDeep(state, path) {
 
 function _deleteDeep(state, path, i) {
     const key = path[i];
-    if (!isDefined(state) || !state.hasOwnProperty(key)) {
+    if (!isDefined(state) || !hasOwn(state, key)) {
         return state;
 
     } else if (i === path.length - 1) {

@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { mapValues } from 'utils/core-utils';
+import { mapValues, hasOwn } from 'utils/core-utils';
 import { createReducer } from 'utils/reducer-utils';
 import {
     INIT_FORM,
@@ -59,7 +59,7 @@ function onUpdateForm(forms, { payload }) {
     const fields = mapValues(
         form.fields,
         (field, name) => {
-            if (!updates.hasOwnProperty(name)) {
+            if (!hasOwn(updates, name)) {
                 return field;
             }
 
@@ -201,7 +201,7 @@ function onCompleteSubmitForm(forms, { payload }) {
         (field, key) => ({
             ...field,
             initial: submitted ? field.value : field.initial,
-            validity: errors.hasOwnProperty(key) ? 'INVALID' : 'VALID'
+            validity: hasOwn(errors, key) ? 'INVALID' : 'VALID'
         })
     );
 

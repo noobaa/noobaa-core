@@ -110,7 +110,10 @@ const resourceGroupMetadata = deepFreeze({
 
 function _countTiersAndResources(bucket) {
     const { tiers } = bucket.placement;
-    const resources = flatMap(tiers, tier => flatMap(tier.mirrorSets, ms => ms.resources));
+    const resources = flatMap(
+        tiers.filter(tier => tier.policyType !== 'INTERNAL_STORAGE'),
+        tier => flatMap(tier.mirrorSets, ms => ms.resources)
+    );
     return {
         tiers: tiers.length,
         resources: resources.length

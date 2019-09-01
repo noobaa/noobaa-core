@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 
 import ko from 'knockout';
+import { hasOwn } from 'utils/core-utils';
 import { domFromHtml } from 'utils/browser-utils';
 
 const original = ko.bindingHandlers.template;
@@ -8,13 +9,13 @@ const original = ko.bindingHandlers.template;
 export default {
     init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
         let value = valueAccessor();
-        if (value.hasOwnProperty('html')) {
+        if (hasOwn(value, 'html')) {
             value.nodes = domFromHtml(
                 ko.unwrap(value.html)
             );
         }
 
-        if (value.hasOwnProperty('let')) {
+        if (hasOwn(value, 'let')) {
             bindingContext = bindingContext.extend(value['let']);
         }
 
@@ -23,13 +24,13 @@ export default {
 
     update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
         let value = valueAccessor();
-        if (value.hasOwnProperty('html')) {
+        if (hasOwn(value, 'html')) {
             value.nodes = domFromHtml(
                 ko.unwrap(value.html)
             );
         }
 
-        if (value.hasOwnProperty('let')) {
+        if (hasOwn(value, 'let')) {
             bindingContext = bindingContext.extend(value['let']);
         }
 

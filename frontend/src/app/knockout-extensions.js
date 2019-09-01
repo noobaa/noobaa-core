@@ -8,7 +8,8 @@ import {
     isFunction,
     isNumber,
     deepFreeze,
-    throttle
+    throttle,
+    hasOwn
 } from 'utils/core-utils';
 
 // -----------------------------------------
@@ -422,7 +423,7 @@ const preprocessByNodeType = deepFreeze({
 });
 
 function getCanonicalBindingName(name) {
-    if (ko.bindingHandlers.hasOwnProperty(name)) {
+    if (hasOwn(ko.bindingHandlers, name)) {
         return name;
     }
 

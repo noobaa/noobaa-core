@@ -76,10 +76,14 @@ export function isFalsy(value) {
     return !value;
 }
 
+export function hasOwn(obj, propName) {
+    return Object.prototype.hasOwnProperty.call(obj, propName);
+}
+
 export function pick(obj, keys) {
     return keys.reduce(
         (picked, key) => {
-            if (obj.hasOwnProperty(key)) {
+            if (hasOwn(obj, key)) {
                 picked[key] = obj[key];
             }
             return picked;

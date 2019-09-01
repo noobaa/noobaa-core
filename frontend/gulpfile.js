@@ -179,8 +179,7 @@ function buildAPI() {
     );
 
     b.transform(babelify, {
-        presets: ['es2015'],
-        plugins: ['transform-runtime']
+        plugins: ['@babel/plugin-transform-runtime']
     });
 
     b.require('../node_modules/ajv', { expose: 'ajv' });
@@ -420,11 +419,10 @@ function bundleCode(folder, watch) {
         .require(buildPath + '/style.json', { expose: 'style' })
         .transform(babelify, {
             plugins: [
-                'transform-es2015-modules-commonjs',
-                'transform-object-rest-spread',
-                'transform-class-properties',
-                'syntax-async-generators',
-                ['transform-runtime', { polyfill: false }]
+                '@babel/plugin-transform-modules-commonjs',
+                '@babel/plugin-proposal-class-properties',
+                '@babel/plugin-syntax-async-generators',
+                '@babel/plugin-transform-runtime'
             ]
         })
         .transform(stringify({ minify: uglify }))

@@ -168,6 +168,7 @@ export default class AppViewModel {
     async onSelectFile(_, evt) {
         try {
             const [file] = evt.target.files;
+            evt.target.value = '';
             const reader = fileReaders[file.type];
             if (!reader) {
                 throw new Error('Invalid file type');
@@ -184,7 +185,7 @@ export default class AppViewModel {
         } catch (e) {
             alert(e.message);
         }
-        evt.target.value = '';
+
     }
 
     _selectStateView(view) {

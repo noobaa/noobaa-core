@@ -308,14 +308,15 @@ class ObjectSDK {
 
     // if upload is using a copy source fix the params according to source and target real location
     async fix_copy_source_params(params, target_ns) {
-        const { bucket, key, version_id, ranges, encryption } = params.copy_source;
+        const { bucket, key, version_id, encryption } = params.copy_source;
         const source_params = { bucket, key, version_id, md_conditions: params.source_md_conditions, encryption };
 
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
         if (params.tagging_copy) await this._populate_source_object_tagging({ source_params, source_ns, source_md });
-
+        const ranges = http_utils.normalize_http_ranges(
+            params.copy_source.ranges, source_md.size, true);
         // For ranged copy we don't have the specific range hashes
         // For non-ranged copy we can verify the content hash on the target object/multipart
         if (ranges) {
@@ -339,13 +340,12 @@ class ObjectSDK {
         // take the actual namespace of the bucket either from md (in case of S3\Blob) or source_ns itself
         const actual_source_ns = source_md.ns || source_ns;
         const actual_target_ns = target_ns.get_write_resource();
+
         if (actual_target_ns.is_same_namespace(actual_source_ns)) {
             // fix copy_source in params to point to the correct cloud bucket
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
             params.copy_source.obj_id = source_md.obj_id;
             params.copy_source.version_id = source_md.version_id;
-            params.copy_source.ranges = http_utils.normalize_http_ranges(
-                params.copy_source.ranges, source_md.size);
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source

@@ -278,7 +278,7 @@ async function copy_part(s3_client, BKT) {
         UploadId: mp_init.UploadId,
         PartNumber: 1,
         CopySource: `/${BKT}/${FILE_NAME}`,
-        CopySourceRange: "bytes=0-25",
+        CopySourceRange: "bytes=0-24",
         CopySourceSSECustomerAlgorithm: 'AES256',
         CopySourceSSECustomerKey: SSECustomerKeyOrig,
         SSECustomerAlgorithm: 'AES256',

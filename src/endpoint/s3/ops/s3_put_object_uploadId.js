@@ -25,22 +25,28 @@ async function put_object_uploadId(req, res) {
 
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
-
-    const reply = await req.object_sdk.upload_multipart({
-        obj_id: req.query.uploadId,
-        bucket: req.params.bucket,
-        key: req.params.key,
-        num,
-        copy_source,
-        source_stream: req,
-        chunked_content: req.chunked_content,
-        size,
-        md5_b64,
-        sha256_b64,
-        source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
-        encryption
-    });
-
+    let reply;
+    try {
+        reply = await req.object_sdk.upload_multipart({
+            obj_id: req.query.uploadId,
+            bucket: req.params.bucket,
+            key: req.params.key,
+            num,
+            copy_source,
+            source_stream: req,
+            chunked_content: req.chunked_content,
+            size,
+            md5_b64,
+            sha256_b64,
+            source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
+            encryption
+        });
+    } catch (e) {
+        if (e.code === 'InvalidArgument') {
+            dbg.warn('Invalid Argument');
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+    }
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 
     // TODO: We do not return the VersionId of the object that was copied

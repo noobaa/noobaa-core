@@ -13,6 +13,7 @@ require('../util/panic');
 const _ = require('lodash');
 const os = require('os');
 const path = require('path');
+const url = require('url');
 const util = require('util');
 const http = require('http');
 const https = require('https');
@@ -360,7 +361,21 @@ function handle_upgrade(req, res, next) {
 function serve_fe(filename) {
     const filePath = path.join(rootdir, 'frontend', 'dist', filename);
     return (req, res) => {
-        res.sendFile(filePath);
+        if (req.secure) {
+            res.sendFile(filePath);
+
+        } else {
+            const { system_address } = system_store.data.systems[0];
+            const redirect_host = addr_utils.get_base_address(system_address, {
+                hint: 'EXTERNAL',
+                service: 'noobaa-mgmt',
+                api: 'mgmt',
+                secure: true,
+                protocol: 'https'
+            }).toString();
+
+            res.redirect(301, url.resolve(redirect_host, req.url));
+        }
     };
 }
 

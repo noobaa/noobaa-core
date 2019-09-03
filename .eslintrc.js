@@ -10,10 +10,7 @@ module.exports = {
     },
 
     parserOptions: {
-        ecmaVersion: 2017,
-        ecmaFeatures: {
-            experimentalObjectRestSpread: true
-        },
+        ecmaVersion: 2018,
     },
 
 
@@ -31,6 +28,15 @@ module.exports = {
 
     rules: {
 
+         //////////////////////////////////////////////////////////////////////
+        //                                                                  //
+        // TODO FIX                                                         //
+        //                                                                  //
+        // Probably best to fix these once we get to it                     //
+        //                                                                  //
+        //////////////////////////////////////////////////////////////////////
+
+        'require-atomic-updates': 'off',
 
         //////////////////////////////////////////////////////////////////////
         //                                                                  //
@@ -119,6 +125,8 @@ module.exports = {
             'named': 'never',
             'asyncArrow': 'always'
         }],
+
+        'function-call-argument-newline': 'off',
 
         'space-unary-ops': ['error', { words: false, nonwords: false }],
 

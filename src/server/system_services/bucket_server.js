@@ -1382,9 +1382,9 @@ function calc_data_resiliency_status(metrics) {
     if (metrics.is_using_internal) {
         return 'POLICY_PARTIALLY_APPLIED';
     }
-    if (metrics.risky_tolerance) {
+    /*if (metrics.risky_tolerance) {
         return 'RISKY_TOLERANCE';
-    }
+    }*/
     if (metrics.any_rebuilds) {
         return 'DATA_ACTIVITY';
     }

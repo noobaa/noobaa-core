@@ -136,10 +136,9 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
                 handlerFileOptions: _getHandlerFileOptions(codePackage),
                 fileSelectionFilterPlaceholder,
                 showFileContentTooltip,
-                isFileSelectionDisabled: isSingleFile || isCodePackageInvalid,
+                isFileSelectionDisabled: isCodePackageInvalid,
                 isFuncSelectionDisabled: isCodePackageInvalid,
                 isShowFileContentBtnDisabled: (
-                    isSingleFile ||
                     isOversized ||
                     isCodePackageInvalid ||
                     !handlerFile
@@ -269,7 +268,7 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
                     buffer: handle,
                     fileList
                 },
-                handlerFile: '',
+                handlerFile: fileList.length === 1 ? fileList[0]: '',
                 handlerFunc: ''
             }),
             untouchForm(

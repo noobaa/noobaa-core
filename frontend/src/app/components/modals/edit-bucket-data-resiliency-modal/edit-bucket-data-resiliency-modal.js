@@ -53,7 +53,20 @@ function _getFormInitalValues(bucket) {
         dataFrags !== defaults.dataFrags ||
         parityFrags !== defaults.parityFrags;
 
-    return { resiliencyType, advancedMode, replicas, dataFrags, parityFrags };
+    const usesCloudResources = bucket.placement.tiers.some(tier =>
+        (tier.mirrorSets || []).some(ms =>
+            ms.resources.some(resource=> resource.type === 'CLOUD')
+        )
+    );
+
+    return {
+        isInfoVisible: usesCloudResources,
+        resiliencyType,
+        advancedMode,
+        replicas,
+        dataFrags,
+        parityFrags
+    };
 }
 
 function _getFailureToleranceInfo(failureTolerance) {
@@ -167,6 +180,14 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
             ecRebuildEffort: _getErasureCodingRebuildEffortInfo(ecSummary.rebuildEffort),
             fields: !form ? values : undefined
         });
+    }
+
+    onDismissInfo() {
+        this.dispatch(updateForm(
+            this.formName,
+            { isInfoVisible: false },
+            false
+        ));
     }
 
     onToggleMode() {

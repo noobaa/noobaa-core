@@ -520,11 +520,12 @@ function read_system(req) {
             objects: objects_sys.count.toJSNumber(),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
+                if (!account) return;
                 return {
                     roles: roles,
                     account: _.pick(account, 'name', 'email')
                 };
-            }),
+            }).filter(account => !_.isUndefined),
             buckets: _.map(system.buckets_by_name,
                 bucket => {
                     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);

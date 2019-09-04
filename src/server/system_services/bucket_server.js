@@ -1369,7 +1369,6 @@ function calc_bucket_mode(tiers, metrics) {
 
 function return_bucket_issues_mode(metrics) {
     return (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
-        (metrics.risky_tolerance && 'RISKY_TOLERANCE') ||
         (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROUCHING_QUOTA') ||
         (metrics.any_rebuilds && 'DATA_ACTIVITY') ||
         'OPTIMAL';
@@ -1382,9 +1381,9 @@ function calc_data_resiliency_status(metrics) {
     if (metrics.is_using_internal) {
         return 'POLICY_PARTIALLY_APPLIED';
     }
-    /*if (metrics.risky_tolerance) {
+    if (metrics.risky_tolerance) {
         return 'RISKY_TOLERANCE';
-    }*/
+    }
     if (metrics.any_rebuilds) {
         return 'DATA_ACTIVITY';
     }

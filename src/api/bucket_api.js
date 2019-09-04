@@ -1031,7 +1031,6 @@ module.exports = {
                 'OPTIMAL',
                 'DATA_ACTIVITY',
                 'APPROUCHING_QUOTA',
-                'RISKY_TOLERANCE',
                 'NO_RESOURCES_INTERNAL',
                 'TIER_LOW_CAPACITY',
                 'LOW_CAPACITY',

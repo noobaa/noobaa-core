@@ -4,18 +4,21 @@
     ko.visible="!dataReady()"
 ></loading-indicator>
 
-<div class="row pad" ko.if="dataReady">
-    <chart-legend class="push-next" params="
-        caption: 'Usage Distribution',
-        items: chartValues,
-        format: formatRatio
-    "></chart-legend>
+<div class="row push-both">
+    <div class="row pad align-start borders content-box push-both"
+        ko.if="dataReady"
+    >
+        <chart-legend class="push-next" params="
+            caption: 'Usage Distribution',
+            items: chartValues,
+            format: formatRatio
+        "></chart-legend>
 
-    <pie-chart class="push-prev" params="
-        values: chartValues,
-        sumLabel: 'Total Usage',
-        format: formatRatio
-    "></pie-chart>
+        <pie-chart class="push-prev" params="
+            values: chartValues,
+            sumLabel: 'Total Usage',
+            format: formatRatio
+        "></pie-chart>
+    </div>
 </div>
-
 

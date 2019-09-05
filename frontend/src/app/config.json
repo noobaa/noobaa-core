@@ -1,7 +1,10 @@
 {
     "patchFile": "/fe/config.patch.json",
     "inputThrottle": 300,
-    "paginationPageSize": 25,
+    "paginationPageSize": {
+        "default": 25,
+        "options": [10, 25, 50]
+    },
     "infinitScrollPageSize": 25,
     "timeShortFormat": "DD MMM YYYY HH:mm:ss",
     "timeLongFormat": "DD MMM YYYY HH:mm:ss ([GMT]Z)",

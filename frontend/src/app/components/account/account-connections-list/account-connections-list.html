@@ -124,7 +124,7 @@
 </list-details>
 <hr>
 <paginator params="
-    page: ko.pc(page, onPage.bind($component)),
+    page: ko.pc(page, onPage, $component),
     itemCount: connectionCount,
-    pageSize: pageSize
+    pageSize: ko.pc(pageSize, onPageSize, $component)
 "></paginator>

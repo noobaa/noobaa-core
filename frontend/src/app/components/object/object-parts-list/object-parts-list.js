@@ -461,11 +461,11 @@ class PartDetailsViewModel {
 }
 
 class ObjectPartsListViewModel extends ConnectableViewModel {
-    pageSize = paginationPageSize;
     pathname = '';
     selectedPart = ko.observable();
     dataReady = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     s3SignedUrl = ko.observable();
     partCount = ko.observable();
     placementType = ko.observable();
@@ -536,7 +536,8 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
                 resourceCount: resourceCount,
                 downloadTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'download'),
                 previewTooltip: _getActionsTooltip(user.isOwner, httpsNoCert, 'preview', 'end'),
-                page: Number(query.page || 0),
+                page: Number(query.page) || 0,
+                pageSize: Number(query.pageSize) || paginationPageSize.default,
                 areActionsAllowed: user.isOwner && !httpsNoCert,
                 rows: parts.map(_mapPartToRow),
                 selectedPart: selectedPart,
@@ -565,7 +566,18 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
     }
 
     onPage(page) {
-        this._query({ page, part: '' });
+        this._query({
+            page,
+            part: ''
+        });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            part: ''
+        });
     }
 
     onCloseDetails() {
@@ -575,12 +587,14 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
     _query(query) {
         const {
             part = this.selectedPart(),
-            page = this.page()
+            page = this.page(),
+            pageSize = this.pageSize()
         } = query;
 
         const url = realizeUri(this.pathname, null, {
             part: part !== '' ? part : undefined,
-            page: page
+            page,
+            pageSize
         });
         this.dispatch(requestLocation(url));
     }

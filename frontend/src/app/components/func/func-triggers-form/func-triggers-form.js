@@ -152,8 +152,8 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
     triggerCount = ko.observable();
     sorting = ko.observable({});
     rows = ko.observableArray().ofType(BucketRowViewModel, { table: this });
-    pageSize = paginationPageSize;
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = ko.observable();
     pathname = '';
     columns = columns;
@@ -177,10 +177,11 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
         } else {
             const { query, params, pathname } = location;
             const { sortBy = 'bucketName', selectedForDelete } = query;
-            const page = Number(query.page || 0);
-            const order = Number(query.order || 1);
+            const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
+            const order = Number(query.order) || 1;
             const { compareKey } = columns.find(column => column.name === sortBy);
-            const pageStart = page * paginationPageSize;
+            const pageStart = page * pageSize;
 
             const rows = Object.values(triggers)
                 .filter(trigger =>
@@ -188,7 +189,7 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
                     trigger.func.version === func.version
                 )
                 .sort(createCompareFunc(compareKey, order))
-                .slice(pageStart, pageStart + paginationPageSize)
+                .slice(pageStart, pageStart + pageSize)
                 .map(trigger => {
                     const { name: bucketName, kind: bucketType } = trigger.bucket;
                     const { displayName: bucketTypeDisplay, route } = bucketTypeMeta[bucketType];
@@ -217,8 +218,9 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 funcId: `${func.name}:${func.version}`,
-                pathname: pathname,
-                page: page,
+                pathname,
+                page,
+                pageSize,
                 sorting: { sortBy, order },
                 selectedForDelete,
                 triggerCount: numeral(rows.length).format(','),
@@ -238,6 +240,14 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
     onPage(page) {
         this._query({
             page,
+            selectedForDelete: null
+        });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
             selectedForDelete: null
         });
     }
@@ -265,6 +275,7 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = params;
 
@@ -272,6 +283,7 @@ class FuncTriggersFormViewModel extends ConnectableViewModel {
             sortBy,
             order,
             page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         };
 

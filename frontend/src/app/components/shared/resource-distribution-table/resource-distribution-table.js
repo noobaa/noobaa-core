@@ -49,11 +49,11 @@ class BucketRowViewModel {
 
 class ResourceDistributionTableViewModel extends ConnectableViewModel {
     columns = columns;
-    pageSize = paginationPageSize;
     pathname = '';
     dataLoaded = ko.observable();
     bucketCount = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     sorting = ko.observable();
     emptyMessage = ko.observable();
     rows = ko.observableArray()
@@ -87,20 +87,22 @@ class ResourceDistributionTableViewModel extends ConnectableViewModel {
         } else {
             const subject = getResourceTypeDisplayName(resourceType);
             const sortBy = query.sortBy || 'name';
-            const order = Number(query.order || 1);
-            const page = Number(query.page || 0);
-            const pageStart = page * paginationPageSize;
+            const order = Number(query.order) || 1;
+            const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
+            const pageStart = page * pageSize;
             const { compareKey } = columns.find(column => column.name === sortBy);
 
             // Clone the array on order to prevent inline sort.
             const usageList = Array.from(usageDistribution)
                 .sort(createCompareFunc(compareKey, order))
-                .slice(pageStart, pageStart + paginationPageSize);
+                .slice(pageStart, pageStart + pageSize);
 
             ko.assignToProps(this, {
                 dataLoaded: true,
-                pathname: pathname,
-                page: page,
+                pathname,
+                page,
+                pageSize,
                 sorting: { sortBy, order },
                 bucketCount: usageDistribution.length,
                 emptyMessage: `No associated buckets for this ${subject}`,
@@ -125,6 +127,13 @@ class ResourceDistributionTableViewModel extends ConnectableViewModel {
         this._query({ page });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0
+        });
+    }
+
     onSort(sorting) {
         this._query(sorting);
     }
@@ -132,11 +141,12 @@ class ResourceDistributionTableViewModel extends ConnectableViewModel {
     _query(params) {
         const {
             page = this.page(),
+            pageSize = this.pageSize(),
             sortBy = this.sorting().sortBy,
             order = this.sorting().order
         } = params;
 
-        const url = realizeUri(this.pathname, null, { page, sortBy, order });
+        const url = realizeUri(this.pathname, null, { page, pageSize, sortBy, order });
         this.dispatch(requestLocation(url));
     }
 

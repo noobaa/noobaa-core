@@ -47,12 +47,15 @@ class HostPanelViewModel extends Observer {
         // Load/update the host data.
         action$.next(fetchHosts(viewName, { hosts: [host] }, true));
 
+        const page = Number(query.page) || 0;
+        const pageSize = Number(query.pageSize) || paginationPageSize.default;
+
         // load the host object list.
         if (tab === 'parts') {
             action$.next(fetchHostObjects(
                 params.host,
-                Number(query.page || 0) * paginationPageSize,
-                paginationPageSize
+                page * pageSize,
+                pageSize
             ));
         }
     }

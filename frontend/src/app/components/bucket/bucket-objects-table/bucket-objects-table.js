@@ -144,7 +144,7 @@ class BucketObjectsTableViewModel extends Observer {
     stateFilter = ko.observable();
     showVersions = ko.observable();
     onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-    pageSize = paginationPageSize;
+    pageSize = ko.observable();
     filter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
@@ -155,28 +155,7 @@ class BucketObjectsTableViewModel extends Observer {
     constructor({ bucketName }) {
         super();
 
-        this.viewName = this.constructor.name;
-        this.columns = columns;
-        this.baseRoute = '';
         this.bucketName = ko.unwrap(bucketName);
-        this.currQuery = null;
-        this.currBucket = null;
-        this.bucket = ko.observable();
-        this.objectsLoaded = ko.observable();
-        this.rows = ko.observableArray();
-        this.uploadButton = ko.observable();
-        this.fileSelectorExpanded = ko.observable();
-        this.objectCount = ko.observable();
-        this.stateFilterOptions = ko.observableArray();
-        this.stateFilter = ko.observable();
-        this.onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
-        this.pageSize = paginationPageSize;
-        this.filter = ko.observable();
-        this.sorting = ko.observable();
-        this.page = ko.observable();
-        this.selectedForDelete = '';
-        this.emptyMessage = ko.observable();
-        this.bucketObjects = {};
 
         this.observe(
             state$.pipe(get('location')),
@@ -204,11 +183,13 @@ class BucketObjectsTableViewModel extends Observer {
             stateFilter = 'ALL',
             filter = '',
             sortBy = 'key',
-            order = 1,
-            page = 0,
             showVersions = false,
             selectedForDelete
-        } = location.query || {};
+        } = location.query;
+
+        const order = Number(location.query.order) || 1;
+        const page = Number(location.query.page) || 0;
+        const pageSize = Number(location.query.pageSize) || paginationPageSize.default;
 
         const baseRoute = realizeUri(
             routes.object,
@@ -221,19 +202,20 @@ class BucketObjectsTableViewModel extends Observer {
         this.filter(filter);
         this.stateFilter(stateFilter);
         this.showVersions(showVersions);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
-        this.selectedForDelete = selectedForDelete;
+        this.sorting({ sortBy, order });
+        this.page(page);
+        this.pageSize(pageSize);
+        this.selectedForDelete(selectedForDelete);
 
         action$.next(fetchObjects(
             this.viewName,
             {
                 bucket: bucket,
                 filter,
-                sortBy: sortBy,
-                order: Number(order),
-                skip: Number(page) * paginationPageSize,
-                limit: paginationPageSize,
+                sortBy,
+                order,
+                skip: page * pageSize,
+                limit: pageSize,
                 stateFilter,
                 versions: showVersions
             },
@@ -292,7 +274,7 @@ class BucketObjectsTableViewModel extends Observer {
                     !account.isOwner,
                     isVersionedBucket,
                     this.showVersions(),
-                    this.selectedForDelete
+                    this.selectedForDelete()
                 );
                 return row;
             });
@@ -349,11 +331,20 @@ class BucketObjectsTableViewModel extends Observer {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     _query(params) {
         const {
             filter = this.filter(),
             sorting = this.sorting(),
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete(),
             stateFilter = this.stateFilter(),
             showVersions = this.showVersions()
@@ -365,6 +356,7 @@ class BucketObjectsTableViewModel extends Observer {
             sortBy: sortBy,
             order: order,
             page: page || undefined,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined,
             stateFilter: stateFilter,
             showVersions: showVersions || undefined

@@ -25,6 +25,6 @@
 
 <paginator params="
     itemCount: accountCount,
-    pageSize: pageSize,
+    pageSize: ko.pc(pageSize, onPageSize, $component),
     page: ko.pc(page, onPage, $component)
 "></paginator>

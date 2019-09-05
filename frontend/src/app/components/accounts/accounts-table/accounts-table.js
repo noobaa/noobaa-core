@@ -129,8 +129,8 @@ class AccountsTableViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     filter = ko.observable();
     sorting = ko.observable();
-    pageSize = paginationPageSize;
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = ko.observable();
     accountCount = ko.observable();
     onFilterThrottled = throttle(this.onFilter, inputThrottle, this);
@@ -158,13 +158,14 @@ class AccountsTableViewModel extends ConnectableViewModel {
             }
 
             const { filter = '', sortBy = 'name', selectedForDelete = '' } = location.query;
-            const page = Number(location.query.page || 0);
-            const order = Number(location.query.order || 0);
+            const page = Number(location.query.page) || 0;
+            const pageSize = Number(location.query.pageSize) || paginationPageSize.default;
+            const order = Number(location.query.order) || 1;
             const { compareKey } = columns.find(column => column.name === sortBy);
             const compareAccounts = createCompareFunc(compareKey, order);
             const accountList = Object.values(accounts)
                 .filter(account => !account.roles.includes('operator'));
-            const pageStart = page * this.pageSize;
+            const pageStart = page * pageSize;
             const filteredRows = accountList.filter(account =>
                 !filter || account.name.toLowerCase().includes(filter.toLowerCase())
             );
@@ -175,11 +176,12 @@ class AccountsTableViewModel extends ConnectableViewModel {
                 filter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 selectedForDelete,
                 accountCount: filteredRows.length,
                 rows: filteredRows
                     .sort(compareAccounts)
-                    .slice(pageStart, pageStart + this.pageSize)
+                    .slice(pageStart, pageStart + pageSize)
                     .map(account => _mapAccountToRow(
                         account,
                         session.user,
@@ -214,6 +216,14 @@ class AccountsTableViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this.onQuery({
+            pageSize,
+            page: 0,
+            selectedForDelete: undefined
+        });
+    }
+
     onSelectForDelete(account) {
         this.onQuery({ selectedForDelete: account });
     }
@@ -224,14 +234,16 @@ class AccountsTableViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting.order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = query;
 
         const uri = realizeUri(this.pathname, {}, {
             filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page,
+            sortBy,
+            order,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         });
 

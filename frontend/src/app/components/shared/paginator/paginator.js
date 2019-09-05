@@ -3,9 +3,12 @@
 import template from './paginator.html';
 import ko from 'knockout';
 import numeral from 'numeral';
+import { paginationPageSize } from 'config';
 
 class PaginatorViewModel {
     constructor({ itemCount, pageSize, page }) {
+        this.sizeOptions = paginationPageSize.options;
+        this.pageSize = pageSize;
         this.page = page;
 
         this.count = ko.pureComputed(() =>
@@ -18,7 +21,7 @@ class PaginatorViewModel {
 
         this.pageText = ko.pureComputed(() => {
             const page = this.page() + 1;
-            const pageCount  = Math.ceil(this.count() / pageSize);
+            const pageCount  = Math.ceil(this.count() / this.pageSize());
             return `${
                 numeral(page).format(',')
             } of ${
@@ -28,8 +31,8 @@ class PaginatorViewModel {
 
         this.itemRange = ko.pureComputed(() => {
             const count = this.count() || 0;
-            const start = count !== 0 ? (this.page() || 0) * pageSize + 1 : 0;
-            const end = Math.min(start + pageSize - 1, count);
+            const start = count !== 0 ? (this.page() || 0) * this.pageSize() + 1 : 0;
+            const end = Math.min(start + this.pageSize() - 1, count);
             return `${
                 numeral(start).format(',')
             } - ${
@@ -42,7 +45,7 @@ class PaginatorViewModel {
         );
 
         this.lastPageIndex = ko.pureComputed(() =>
-            this.count() > 0 ? Math.floor((this.count() - 1) / pageSize) : 0
+            this.count() > 0 ? Math.floor((this.count() - 1) / this.pageSize()) : 0
         );
 
         this.isFirstPage = ko.pureComputed(() =>
@@ -53,6 +56,12 @@ class PaginatorViewModel {
             this.page() === this.lastPageIndex()
         );
     }
+
+    onSelectPageSize(pageSize, evt) {
+        this.pageSize(pageSize);
+        evt.target.blur();
+    }
+
 
     onJumpToFirstPage() {
         this.page(0);

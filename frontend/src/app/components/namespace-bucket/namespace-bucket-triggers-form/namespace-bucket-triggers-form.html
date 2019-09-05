@@ -22,7 +22,7 @@
 
 <paginator params="
     itemCount: triggerCount,
-    pageSize: pageSize,
+    pageSize: ko.pc(pageSize, onPageSize, $component),
     page: ko.pc(page, onPage, $component)
 "></paginator>
 

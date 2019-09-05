@@ -104,7 +104,6 @@ class BucketRowViewModel {
 
 class NamespaceBucketsTableViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
-    pageSize = paginationPageSize;
     columns = columns;
     pathname = '';
     allowCreateBucket = ko.observable();
@@ -112,6 +111,7 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
     sorting = ko.observable();
     filter = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = ko.observable();
     bucketCount = ko.observable();
     rows = ko.observableArray()
@@ -143,7 +143,8 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
             const { filter, sortBy = 'name', selectedForDelete } = query;
             const order = Number(query.order) || 1;
             const page = Number(query.page) || 0;
-            const pageStart = page * this.pageSize;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
+            const pageStart = page * pageSize;
             const { compareKey } = columns.find(column => column.name == sortBy);
             const { canCreateBuckets } = accounts[user];
             const createButtonTooltip = {
@@ -157,7 +158,7 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
                 .filter(bucket => includesIgnoreCase(bucket.name, filter));
             const rows = filteredRows
                 .sort(createCompareFunc(compareKey, order))
-                .slice(pageStart, pageStart + this.pageSize)
+                .slice(pageStart, pageStart + pageSize)
                 .map(bucket => _mapBucketToRow(bucket, selectedForDelete, params.system));
 
             ko.assignToProps(this, {
@@ -168,6 +169,7 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
                 filter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 bucketCount: filteredRows.length,
                 selectedForDelete,
                 rows
@@ -202,6 +204,14 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     onCreate() {
         this.dispatch(openCreateNamespaceBucketModal());
     }
@@ -218,13 +228,15 @@ class NamespaceBucketsTableViewModel extends ConnectableViewModel {
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
+        pageSize = this.pageSize(),
         selectedForDelete = this.selectedForDelete
     }) {
         const query = {
             filter: filter || undefined,
             sortBy: sorting.sortBy,
             order: sorting.order,
-            page: page,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         };
 

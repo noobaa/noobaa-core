@@ -67,7 +67,6 @@ class PartRowViewModel {
 
 class HostPartsTableViewModel extends ConnectableViewModel {
     columns = columns;
-    pageSize = paginationPageSize;
     pathname = '';
     dataReady = ko.observable();
     subject = ko.observable();
@@ -75,6 +74,7 @@ class HostPartsTableViewModel extends ConnectableViewModel {
     partCount = ko.observable();
     partCountFormatted = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     rows = ko.observableArray()
         .ofType(PartRowViewModel)
 
@@ -104,15 +104,17 @@ class HostPartsTableViewModel extends ConnectableViewModel {
         } else {
             const { partCount, parts } = hostParts;
             const { system } = location.params;
-            const page = Number(location.query.page || 0);
+            const page = Number(location.query.page) || 0;
+            const pageSize = Number(location.query.pageSize) || paginationPageSize.default;
 
             ko.assignToProps(this, {
                 dataReady: true,
-                subject: subject,
+                subject,
                 emptyMessage: `No object parts are stored on this ${subject}`,
                 pathname: location.pathname,
-                page: page,
-                partCount: partCount,
+                page,
+                pageSize,
+                partCount,
                 partCountFormatted: numeral(partCount).format(','),
                 rows: parts.map(part => {
                     const { mode, objectInfo, start, end } = part;
@@ -144,8 +146,24 @@ class HostPartsTableViewModel extends ConnectableViewModel {
     }
 
     onPage(page) {
-        const nextPageUri = realizeUri(this.pathname, null, { page });
-        this.dispatch(requestLocation(nextPageUri));
+        this._query({ page });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0
+        });
+    }
+
+    _query(query) {
+        const {
+            pageSize = this.pageSize(),
+            page = this.page()
+        } = query;
+
+        const url = realizeUri(this.pathname, null, { page, pageSize });
+        this.dispatch(requestLocation(url));
     }
 }
 

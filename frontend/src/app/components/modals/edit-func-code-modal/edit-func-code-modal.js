@@ -122,7 +122,6 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
             const isCodePackageInvalid = isFieldTouchedAndInvalid(form, 'codePackage');
             const { size, fileList } = codePackage;
             const isOversized =  size > funcSizeLimit;
-            const isSingleFile = fileList && fileList.length === 1;
             const fileSelectionFilterPlaceholder = fileList ?
                 `Search in ${stringifyAmount('file', fileList.length)}` :
                 '';
@@ -136,10 +135,9 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
                 handlerFileOptions: _getHandlerFileOptions(codePackage),
                 fileSelectionFilterPlaceholder,
                 showFileContentTooltip,
-                isFileSelectionDisabled: isSingleFile || isCodePackageInvalid,
+                isFileSelectionDisabled: isCodePackageInvalid,
                 isFuncSelectionDisabled: isCodePackageInvalid,
                 isShowFileContentBtnDisabled: (
-                    isSingleFile ||
                     isOversized ||
                     isCodePackageInvalid ||
                     !handlerFile
@@ -269,7 +267,7 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
                     buffer: handle,
                     fileList
                 },
-                handlerFile: '',
+                handlerFile: fileList.length === 1 ? fileList[0]: '',
                 handlerFunc: ''
             }),
             untouchForm(

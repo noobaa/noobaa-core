@@ -4,7 +4,7 @@ import * as model from 'model';
 import { api } from 'services';
 import config from 'config';
 import { last, makeArray } from 'utils/core-utils';
-import { sleep, execInOrder } from 'utils/promise-utils';
+import { execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile, httpRequest, toFormData } from 'utils/browser-utils';
 
 // Action dispathers from refactored code.
@@ -409,36 +409,6 @@ export function setServerDebugLevel(secret, hostname, level){
 
 export function notify(message, severity = 'info') {
     action$.next(showNotification(message, severity));
-}
-
-export function validateActivation(code, email) {
-    logAction('validateActivation', { code, email });
-
-    api.system.validate_activation({ code, email })
-        .then(
-            reply => sleep(500, reply)
-        )
-        .then(
-            ({ valid, reason }) => model.activationState({ code, email, valid, reason })
-        )
-
-        .done();
-}
-
-export function attemptResolveSystemName(name) {
-    logAction('attemptResolveSystemName', { name });
-
-    api.system.attempt_server_resolve({
-        server_name: name,
-        version_check: true
-    })
-        .then(
-            reply => sleep(500, reply)
-        )
-        .then(
-            ({ valid, reason }) => model.nameResolutionState({ name, valid, reason })
-        )
-        .done();
 }
 
 export function registerForAlerts() {

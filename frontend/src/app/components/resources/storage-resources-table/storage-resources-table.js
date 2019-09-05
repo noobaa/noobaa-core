@@ -325,7 +325,6 @@ class RowViewModel {
 
 class StorageResourcesTableViewModel extends ConnectableViewModel {
     columns = columns;
-    pageSize = paginationPageSize;
     resourceTypeOptions = resourceTypeOptions;
     pathname = '';
     dataReady = ko.observable();
@@ -335,6 +334,7 @@ class StorageResourcesTableViewModel extends ConnectableViewModel {
     typeFilter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable(paginationPageSize);
     resourceCount = ko.observable();
     emptyMessage = ko.observable();
     rows = ko.observableArray()
@@ -362,9 +362,10 @@ class StorageResourcesTableViewModel extends ConnectableViewModel {
 
         } else {
             const { filter = '', typeFilter = 'ALL', sortBy = 'name', selectedForDelete } = location.query;
-            const order = Number(location.query.order || 1);
-            const page = Number(location.query.page || 0);
-            const pageStart = page * paginationPageSize;
+            const order = Number(location.query.order) || 1;
+            const page = Number(location.query.page) || 0;
+            const pageSize = Number(location.query.pageSize) || paginationPageSize.default;
+            const pageStart = page * pageSize;
             const nameFilter = filter.trim().toLowerCase();
             const resourceList = [
                 ...Object.values(pools).map(pool => ({ type: 'HOSTS', ...pool })),
@@ -399,11 +400,12 @@ class StorageResourcesTableViewModel extends ConnectableViewModel {
                 typeFilter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 resourceCount: filteredResources.length,
                 emptyMessage: _getEmptyMessage(resourceList.length, typeFilter, filteredResources.length),
                 rows: filteredResources
                     .sort(compareOp)
-                    .slice(pageStart, pageStart + paginationPageSize)
+                    .slice(pageStart, pageStart + pageSize)
                     .map(resource => _mapResourceToRow(
                         resource,
                         bucketsByResource[resource.name] || [],
@@ -455,6 +457,14 @@ class StorageResourcesTableViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     onSelectForDelete(poolName, inUse) {
         if (inUse) {
             this.dispatch(openDeletePoolWithDataWarningModal(poolName));
@@ -476,15 +486,17 @@ class StorageResourcesTableViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = query;
 
         const queryUrl = realizeUri(this.pathname, null, {
             filter: filter || undefined,
-            typeFilter: typeFilter,
-            sortBy: sortBy,
-            order: order,
-            page: page,
+            typeFilter,
+            sortBy,
+            order,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         });
 

@@ -8,6 +8,23 @@
         items
     </span>
 
+    <div class="page-size-selector"
+        tabindex="-1"
+    >
+        <ul class="card-bg card-shadow list-no-style page-size-options"
+            ko.foreach="sizeOptions"
+        >
+            <li>
+                <button class="page-size-option"
+                    ko.css.selected="$component.pageSize.eq($data)"
+                    ko.click="$component.onSelectPageSize.bind($component)"
+                >
+                    {{$data}}
+                </button>
+            </li>
+        </ul>
+    </div>
+
     <button class="btn-flat"
         ko.click="onJumpToFirstPage"
         ko.disable="isFirstPage"

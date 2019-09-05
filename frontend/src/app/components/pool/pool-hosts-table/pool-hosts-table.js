@@ -85,12 +85,12 @@ class PoolHostsTableViewModel extends Observer {
         this.baseRoute = '';
         this.baseHostRoute = '';
         this.poolName = '';
-        this.pageSize = paginationPageSize;
         this.columns = columns;
         this.stateFilterOptions = ko.observableArray();
         this.nameFilter = ko.observable();
         this.stateFilter = ko.observableArray();
         this.page = ko.observable();
+        this.pageSize = ko.observable();
         this.sorting = ko.observable();
         this.rows = ko.observableArray();
         this.hostCount = ko.observable();
@@ -124,7 +124,10 @@ class PoolHostsTableViewModel extends Observer {
         const { system, pool, tab = 'nodes' } = params;
         if (!pool || !pools[pool] || tab !== 'nodes') return;
 
-        const { name, page = 0, sortBy = 'name', order = 1 } = query;
+        const { name, sortBy = 'name' } = query;
+        const page = Number(query.page) || 0;
+        const pageSize = Number(query.pageSize) || paginationPageSize.default;
+        const order = Number(query.order) || 1;
         const state =
             (query.state === true &&  []) ||
             (query.state && query.state.split('|')) ||
@@ -137,8 +140,9 @@ class PoolHostsTableViewModel extends Observer {
         this.baseHostRoute = realizeUri(routes.host, { system, pool }, {}, true);
         this.nameFilter(name);
         this.stateFilter(state);
-        this.sorting({ sortBy, order: Number(order) });
-        this.page(Number(page));
+        this.sorting({ sortBy, order });
+        this.page(page);
+        this.pageSize(pageSize);
         this.areActionsDisabled(disableActions);
         this.actionsTooltip(disableActions ? 'Pool is being deleted' : '');
         this.isEditPoolConfigVisible(pools[pool].isManaged);
@@ -150,9 +154,9 @@ class PoolHostsTableViewModel extends Observer {
                 name: name,
                 modes: flatMap(state, state => getHostModeListForState(state)),
                 sortBy: sortBy,
-                order: Number(order),
-                skip: paginationPageSize * Number(page),
-                limit: paginationPageSize
+                order: order,
+                skip: pageSize * page,
+                limit: pageSize
             }
         ));
     }
@@ -212,19 +216,31 @@ class PoolHostsTableViewModel extends Observer {
         this.onQuery({ page });
     }
 
+    onPageSize(pageSize) {
+        this.onQuery({
+            pageSize,
+            page: 0
+        });
+    }
+
     onQuery(query) {
         const {
             name: _name = this.nameFilter(),
             state: _state = this.stateFilter(),
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
-            page = this.page()
+            page = this.page(),
+            pageSize = this.pageSize()
         } = query;
 
         const name = _name || undefined;
         const state = _state.join('|');
+        const url = realizeUri(
+            this.baseRoute,
+            {},
+            { name, state, sortBy, order, page, pageSize }
+        );
 
-        const url = realizeUri(this.baseRoute, {}, { name, state, sortBy, order, page });
         action$.next(requestLocation(url));
     }
 

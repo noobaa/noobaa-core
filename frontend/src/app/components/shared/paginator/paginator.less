@@ -16,8 +16,64 @@ paginator {
 
     .item-counter {
         display: inline-block;
-        margin-right: @gutter/2;
         vertical-align: middle;
+    }
+
+    .page-size-selector {
+        position: relative;
+        display: inline-block;
+        border: 5px solid transparent;
+        border-top-color: rgb(var(--color17));
+        border-bottom: none;
+        margin-right: 2*@gutter/3;
+        margin-left: @gutter/8;
+
+        &:focus, &:focus-within {
+            > .page-size-options {
+                display: block;
+            }
+        }
+    }
+
+    .page-size-options {
+        display: none;
+        position: absolute;
+        right: 100%;
+        bottom: 100%;
+        margin-bottom: 1.2em;
+        margin-right: -6px;
+        padding: @gutter/4 0;
+        width: 100px;
+        z-index: 999;
+    }
+
+    .page-size-option {
+        background: none;
+        border: none;
+        padding: @gutter/2 0;
+        width: 100%;
+        text-align: center;
+        cursor: @cursor-pointer;
+        color: rgb(var(--color17));
+
+        &::after {
+            content: 'per page';
+            color: rgb(var(--color09));
+            margin-left: @gutter/4;
+            white-space: nowrap;
+        }
+
+        &:hover {
+            background: rgb(var(--color05));
+        }
+
+        &.selected {
+            color: rgb(var(--color20));
+
+            &::after {
+                color: inherit;
+            }
+        }
     }
 
     .page-counter {

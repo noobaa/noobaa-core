@@ -38,7 +38,9 @@ class ObjectPanelViewModel extends ConnectableViewModel {
             object,
             version,
             hostname,
-            Number(query.page || 0)
+            Number(query.page) || 0,
+            Number(query.pageSize) || paginationPageSize.default
+
         );
     }
 
@@ -52,7 +54,7 @@ class ObjectPanelViewModel extends ConnectableViewModel {
         super.dispose();
     }
 
-    _fetchObjectInfo(bucket, object, version, hostname, page) {
+    _fetchObjectInfo(bucket, object, version, hostname, page, pageSize) {
         const fetchObjectAction = fetchObject(
             this.viewName,
             bucket,
@@ -65,8 +67,8 @@ class ObjectPanelViewModel extends ConnectableViewModel {
             bucket,
             key: object,
             version,
-            skip: page * paginationPageSize,
-            limit: paginationPageSize
+            skip: page * pageSize,
+            limit: pageSize
         });
 
         this.dispatch(

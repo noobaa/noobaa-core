@@ -26,7 +26,7 @@ import {
 } from 'action-types';
 
 const inMemoryQueryLimit = 10;
-const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
+const inMemoryHostLimit = paginationPageSize.default * inMemoryQueryLimit;
 const endpointUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 const eventToReasonCode = deepFreeze({
     PERMISSION_EVENT: 'TEMPERING',

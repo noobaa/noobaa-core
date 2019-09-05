@@ -122,7 +122,6 @@ class EditFuncCodeViewModel extends ConnectableViewModel {
             const isCodePackageInvalid = isFieldTouchedAndInvalid(form, 'codePackage');
             const { size, fileList } = codePackage;
             const isOversized =  size > funcSizeLimit;
-            const isSingleFile = fileList && fileList.length === 1;
             const fileSelectionFilterPlaceholder = fileList ?
                 `Search in ${stringifyAmount('file', fileList.length)}` :
                 '';

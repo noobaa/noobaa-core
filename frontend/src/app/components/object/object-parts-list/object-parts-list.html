@@ -123,7 +123,7 @@
 </list-details>
 <hr>
 <paginator params="
-    page: ko.pc(page, onPage.bind($component)),
     itemCount: partCount,
-    pageSize: pageSize
+    pageSize: ko.pc(pageSize, onPageSize, $component),
+    page: ko.pc(page, onPage, $component)
 "></paginator>

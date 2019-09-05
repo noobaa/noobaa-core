@@ -118,12 +118,12 @@ class ResourceRowViewModel {
 
 class NamespaceResourceTableViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
-    pageSize = paginationPageSize;
     columns = columns;
     pathname = '';
     sorting = ko.observable();
     filter = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = '';
     resourceCount = ko.observable();
     rows = ko.observableArray()
@@ -147,8 +147,9 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
             const { pathname, query, params } = location;
             const { filter, sortBy = 'name', selectedForDelete } = query;
             const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const order = Number(query.order) || 1;
-            const pageStart = Number(page) * this.pageSize;
+            const pageStart = page * pageSize;
             const { compareKey } = columns.find(column => column.name == sortBy);
 
             const connectedBucketsMap = Object.values(buckets)
@@ -169,7 +170,7 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
 
             const rows = filteredRows
                 .sort(createCompareFunc(compareKey, order, connectedBucketsMap))
-                .slice(pageStart, pageStart + this.pageSize)
+                .slice(pageStart, pageStart + pageSize)
                 .map(resource => _mapResourceToRow(
                     resource,
                     connectedBucketsMap[resource.name] || [],
@@ -183,6 +184,7 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
                 filter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 resourceCount: filteredRows.length,
                 selectedForDelete,
                 rows
@@ -213,7 +215,15 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
 
     onPage(page) {
         this._query({
-            page: page,
+            page,
+            selectedForDelete: null
+        });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
             selectedForDelete: null
         });
     }
@@ -230,13 +240,15 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
         filter = this.filter(),
         sorting = this.sorting(),
         page = this.page(),
+        pageSize = this.pageSize(),
         selectedForDelete = this.selectedForDelete
     }) {
         const query = {
             filter: filter || undefined,
             sortBy: sorting.sortBy,
             order: sorting.order,
-            page: page,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         };
 

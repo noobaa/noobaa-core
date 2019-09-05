@@ -146,8 +146,8 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
     columns = columns;
     pathname = '';
     sorting = ko.observable({});
-    pageSize = paginationPageSize;
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = '';
     triggerCount = ko.observable();
     rows = ko.observableArray()
@@ -176,13 +176,14 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
             const { params, query, pathname } = location;
             const { sortBy = 'funcName', selectedForDelete } = query;
             const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const order = Number(query.page) || 1;
             const { compareKey } = columns.find(column => column.name === sortBy);
-            const pageStart = page * this.pageSize;
+            const pageStart = page * pageSize;
             const triggerList = Object.values(bucketTriggers);
             const rows = triggerList
                 .sort(createCompareFunc(compareKey, order))
-                .slice(pageStart, pageStart + this.pageSize)
+                .slice(pageStart, pageStart + pageSize)
                 .map(trigger => _mapTriggerToRow(trigger, params.system, selectedForDelete));
 
             ko.assignToProps(this, {
@@ -192,6 +193,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
                 pathname,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 selectedForDelete,
                 rows: rows
             });
@@ -225,6 +227,14 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     onSelectForDelete(selected) {
         this._query({ selectedForDelete: selected });
     }
@@ -234,6 +244,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete
         } = params;
 
@@ -241,6 +252,7 @@ class BucketTriggersFormViewModel extends ConnectableViewModel {
             sortBy,
             order,
             page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         };
 

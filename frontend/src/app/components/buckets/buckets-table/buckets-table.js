@@ -223,12 +223,12 @@ class RowViewModel {
 
 class BucketsTableViewModel extends ConnectableViewModel {
     columns = columns;
-    pageSize = paginationPageSize;
     pathname = '';
     BucketsTableViewModel
     filter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = ko.observable();
     bucketCount = ko.observable();
     bucketsLoaded = ko.observable();
@@ -259,8 +259,9 @@ class BucketsTableViewModel extends ConnectableViewModel {
         } else {
             const { pathname, query } = location;
             const { filter = '', sortBy = 'name', selectedForDelete = '' } = query;
-            const order = Number(query.order || 1);
-            const page = Number(query.page || 0);
+            const order = Number(query.order) || 1;
+            const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const { compareKey } = columns.find(column => column.name === sortBy);
             const { canCreateBuckets = false } = userAccount;
             const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
@@ -268,7 +269,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 .filter(bucket => includesIgnoreCase(bucket.name, filter));
             const rows = bucketList
                 .sort(createCompareFunc(compareKey, order))
-                .slice(page * paginationPageSize, (page + 1) * paginationPageSize)
+                .slice(page * pageSize, (page + 1) * pageSize)
                 .map(bucket => _mapBucket(bucket, system, selectedForDelete));
 
             ko.assignToProps(this, {
@@ -276,6 +277,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 filter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 selectedForDelete,
                 bucketCount: bucketList.length,
                 rows,
@@ -318,6 +320,14 @@ class BucketsTableViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     onSelectForDelete(bucketName) {
         const selectedForDelete = bucketName || '';
         this._query({ selectedForDelete });
@@ -333,14 +343,16 @@ class BucketsTableViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = query;
 
         const queryUrl = realizeUri(this.pathname, null, {
             filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page,
+            sortBy,
+            order,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         });
 

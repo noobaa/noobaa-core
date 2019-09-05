@@ -38,6 +38,6 @@
 
 <paginator params="
     itemCount: bucketCount,
-    pageSize: pageSize,
+    pageSize: ko.pc(pageSize, onPageSize, $component),
     page: ko.pc(page, onPage, $component)
 "></paginator>

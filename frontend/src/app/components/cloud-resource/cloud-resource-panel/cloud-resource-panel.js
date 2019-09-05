@@ -13,6 +13,7 @@ class CloudResourcePanelViewModel extends ConnectableViewModel {
     selectedTab = ko.observable();
     hostName = ko.observable();
     page = -1;
+    pageSize = -1;
 
     selectState(state) {
         const { cloudResources = {}, location } = state;
@@ -46,16 +47,17 @@ class CloudResourcePanelViewModel extends ConnectableViewModel {
             return;
         }
 
-        const page = Number(location.query.page || 0);
-        if (this.page === page) {
+        const page = Number(location.query.page) || 0;
+        const pageSize = Number(location.query.pageSize) || paginationPageSize.default;
+        if (this.page === page && this.pageSize === pageSize) {
             return;
         }
 
         this.page = page;
         this.dispatch(fetchCloudResourceObjects(
             location.params.resource,
-            page * paginationPageSize,
-            paginationPageSize
+            page * pageSize,
+            pageSize
         ));
     }
 

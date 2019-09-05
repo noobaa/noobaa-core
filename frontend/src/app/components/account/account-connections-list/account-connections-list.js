@@ -211,9 +211,9 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     accountName = '';
     pathname = '';
-    pageSize = paginationPageSize;
     filter = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     selectedForDelete = ko.observable();
     connectionCount = ko.observable();
     emptyMessage = ko.observable();
@@ -243,15 +243,16 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
         } else {
             const { pathname, query, params } = location;
             const { filter = '', selectedConnection = '', selectedForDelete = '' } = query;
-            const page = Number(query.page || 0);
-            const pageStart = page * paginationPageSize;
+            const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
+            const pageStart = page * pageSize;
             const filteredConnections = connections
                 .filter(conn =>
                     includesIgnoreCase(conn.name, filter) ||
                     includesIgnoreCase(conn.endpoint, filter) ||
                     includesIgnoreCase(conn.identity, filter)
                 )
-                .slice(pageStart, pageStart + this.pageSize)
+                .slice(pageStart, pageStart + pageSize)
                 .sort(createCompareFunc(conn => conn.service));
             const connectionCount = filteredConnections.length;
             const emptyMessage =
@@ -266,6 +267,7 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
                 selectedConnection,
                 filter,
                 page,
+                pageSize,
                 selectedForDelete,
                 connectionCount,
                 emptyMessage,
@@ -303,6 +305,16 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
     onPage(page) {
         this._query({
             page,
+            selectedConnection: '',
+            selectedForDelete: ''
+        });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedConnection: '',
             selectedForDelete: ''
         });
     }
@@ -340,20 +352,16 @@ class AccountConnectionsListViewModel extends ConnectableViewModel {
             selectedConnection = this.selectedConnection(),
             filter = this.filter(),
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = query;
 
         const url = realizeUri(this.pathname, null, {
-            selectedConnection: selectedConnection !== '' ?
-                selectedConnection :
-                undefined,
-            filter: filter !== '' ?
-                filter :
-                undefined,
-            page: page,
-            selectedForDelete: selectedForDelete !== '' ?
-                selectedForDelete :
-                undefined
+            selectedConnection: selectedConnection !== '' ? selectedConnection : undefined,
+            filter: filter !== '' ? filter : undefined,
+            page,
+            pageSize,
+            selectedForDelete: selectedForDelete !== '' ? selectedForDelete : undefined
         });
 
         this.dispatch(requestLocation(url));

@@ -83,8 +83,8 @@
     <hr>
     <paginator params="
         page: ko.pc(page, onPage, $component),
-        itemCount: fileCount,
-        pageSize: pageSize
+        pageSize: ko.pc(pageSize, onPageSize, $component),
+        itemCount: fileCount
     "></paginator>
     <!-- /ko -->
 </div>

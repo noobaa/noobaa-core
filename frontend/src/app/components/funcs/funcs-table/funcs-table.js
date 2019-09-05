@@ -100,13 +100,13 @@ class FuncRowViewModel {
 
 class FuncsTableViewModel extends ConnectableViewModel {
     columns = columns;
-    pageSize = paginationPageSize;
     dataReady = ko.observable();
     pathname = '';
     funcCount = ko.observable();
     filter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
+    pageSize = ko.observable();
     emptyMessage = ko.observable();
     rows = ko.observableArray()
         .ofType(FuncRowViewModel, { table: this });
@@ -127,8 +127,9 @@ class FuncsTableViewModel extends ConnectableViewModel {
         } else {
             const { pathname, params, query } = location;
             const { filter = '', sortBy = 'name', selectedForDelete = '' } = query;
-            const order = Number(query.order || 1);
-            const page = Number(query.page || 0);
+            const order = Number(query.order) || 1;
+            const page = Number(query.page) || 0;
+            const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const { compareKey } = columns.find(column => column.name === sortBy);
 
             const funcList = Object.values(funcs);
@@ -136,7 +137,7 @@ class FuncsTableViewModel extends ConnectableViewModel {
                 .filter(func => includesIgnoreCase(func.name, filter));
             const rows = filtered
                 .sort(createCompareFunc(compareKey, order))
-                .slice(page * paginationPageSize, (page + 1) * paginationPageSize)
+                .slice(page * pageSize, (page + 1) * pageSize)
                 .map(func => _mapFunc(func, params.system, selectedForDelete));
 
             const emptyMessage =
@@ -152,6 +153,7 @@ class FuncsTableViewModel extends ConnectableViewModel {
                 filter,
                 sorting: { sortBy, order },
                 page,
+                pageSize,
                 emptyMessage,
                 rows
             });
@@ -186,6 +188,14 @@ class FuncsTableViewModel extends ConnectableViewModel {
         });
     }
 
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selectedForDelete: null
+        });
+    }
+
     onSelectFuncForDelete(id = '') {
         this._query({ selectedForDelete: id });
     }
@@ -201,14 +211,16 @@ class FuncsTableViewModel extends ConnectableViewModel {
             sortBy = this.sorting().sortBy,
             order = this.sorting().order,
             page = this.page(),
+            pageSize = this.pageSize(),
             selectedForDelete = this.selectedForDelete()
         } = query;
 
         const queryUrl = realizeUri(this.pathname, null, {
             filter: filter || undefined,
-            sortBy: sortBy,
-            order: order,
-            page: page,
+            sortBy,
+            order,
+            page,
+            pageSize,
             selectedForDelete: selectedForDelete || undefined
         });
 

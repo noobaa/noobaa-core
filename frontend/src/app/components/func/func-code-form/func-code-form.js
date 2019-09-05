@@ -27,7 +27,6 @@ async function _loadZip(handle) {
 }
 
 class FuncCodeFormViewModel extends ConnectableViewModel {
-    pageSize = paginationPageSize;
     funcSizeLimit = formatSize(funcSizeLimit);
     pathname = '';
     funcName = '';
@@ -48,6 +47,7 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
         align: 'start'
     };
     page = ko.observable();
+    pageSize = ko.observable();
     selectedFile = ko.observable();
     rows = ko.observableArray();
     fileLang = ko.observable();
@@ -120,7 +120,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
 
             } else {
                 let zip = this.zip || await _loadZip(handle);
-                const page = Number(query.page || 0);
+                const page = Number(query.page) || 0;
+                const pageSize = Number(query.pageSize) || paginationPageSize.default;
                 const fileNames = Object.values(zip.files)
                     .filter(zipObj => !zipObj.dir)
                     .map(zipObj => zipObj.name)
@@ -128,8 +129,8 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
 
                 const fileCount = fileNames.length;
                 const formattedFileCount = stringifyAmount('file', fileCount);
-                const pageStart = page * paginationPageSize;
-                const rows = fileNames.slice(pageStart, pageStart + paginationPageSize);
+                const pageStart = page * pageSize;
+                const rows = fileNames.slice(pageStart, pageStart + pageSize);
 
                 const selectedFile = (query.selected && fileNames.includes(query.selected)) ?
                     query.selected :
@@ -153,6 +154,7 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
                     fileCount,
                     formattedFileCount,
                     page,
+                    pageSize,
                     selectedFile,
                     rows,
                     fileContent,
@@ -200,7 +202,18 @@ class FuncCodeFormViewModel extends ConnectableViewModel {
     }
 
     onPage(page) {
-        this._query({ page, selected: '' });
+        this._query({
+            page,
+            selected: ''
+        });
+    }
+
+    onPageSize(pageSize) {
+        this._query({
+            pageSize,
+            page: 0,
+            selected: ''
+        });
     }
 
     onX() {

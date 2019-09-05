@@ -12,7 +12,7 @@
 "></data-table>
 
 <paginator params="
-    pageSize: pageSize,
     itemCount: partCount,
+    pageSize: ko.pc(pageSize, onPageSize, $component),
     page: ko.pc(page, onPage, $component)
 "></paginator>

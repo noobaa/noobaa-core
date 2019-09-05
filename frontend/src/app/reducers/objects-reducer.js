@@ -24,7 +24,7 @@ import {
 } from 'action-types';
 
 const inMemoryQueryLimit = 10;
-const inMemoryHostLimit = paginationPageSize * inMemoryQueryLimit;
+const inMemoryHostLimit = paginationPageSize.default * inMemoryQueryLimit;
 
 // ------------------------------
 // Action Handlers

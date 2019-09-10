@@ -127,7 +127,6 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['email'],
                 properties: {
                     email: { $ref: 'common_api#/definitions/email' },
                 }

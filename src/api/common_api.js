@@ -108,8 +108,44 @@ module.exports = {
         // TODO: Update to the relevant schema
         bucket_policy: {
             type: 'object',
-            additionalProperties: true,
-            properties: {}
+            required: ['statement'],
+            properties: {
+                version: { type: 'string' },
+                statement: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['effect', 'action', 'principal', 'resource'],
+                        properties: {
+                            sid: {
+                                type: 'string'
+                            },
+                            effect: {
+                                enum: ['allow', 'deny'],
+                                type: 'string'
+                            },
+                            action: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
+                            },
+                            principal: {
+                                type: 'array',
+                                items: {
+                                    wrapper: SensitiveString,
+                                }
+                            },
+                            resource: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                },
+            }
         },
 
         object_encryption: {

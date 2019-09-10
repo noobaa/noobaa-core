@@ -77,6 +77,16 @@ class ObjectSDK {
         return bucket.website;
     }
 
+    async read_bucket_sdk_policy_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        const policy_info = {
+            s3_policy: bucket.s3_policy,
+            system_owner: bucket.system_owner,
+            bucket_owner: bucket.bucket_owner,
+        };
+        return policy_info;
+    }
+
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
         const bucket = params.bucket || await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
@@ -546,16 +556,20 @@ class ObjectSDK {
 
     async put_bucket_policy(params) {
         const ns = this._get_account_namespace();
-        return ns.put_bucket_policy(params);
+        const result = await ns.put_bucket_policy(params);
+        bucket_namespace_cache.invalidate_key(params.name);
+        return result;
     }
 
     async delete_bucket_policy(params) {
         const ns = this._get_account_namespace();
+        bucket_namespace_cache.invalidate_key(params.name);
         return ns.delete_bucket_policy(params);
     }
 
     async get_bucket_policy(params) {
         const ns = this._get_account_namespace();
+        bucket_namespace_cache.invalidate_key(params.name);
         return ns.get_bucket_policy(params);
     }
 

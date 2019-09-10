@@ -17,6 +17,79 @@ const DEFAULT_S3_USER = Object.freeze({
     DisplayName: 'NooBaa'
 });
 
+const OP_NAME_TO_ACTION = Object.freeze({
+    delete_bucket_analytics: { regular: "s3:putanalyticsconfiguration" },
+    delete_bucket_cors: { regular: "s3:putbucketcors" },
+    delete_bucket_encryption: { regular: "s3:putencryptionconfiguration" },
+    delete_bucket_inventory: { regular: "s3:putinventoryconfiguration" },
+    delete_bucket_lifecycle: { regular: "s3:putlifecycleconfiguration" },
+    delete_bucket_metrics: { regular: "s3:putmetricsconfiguration" },
+    delete_bucket_policy: { regular: "s3:deletebucketpolicy" },
+    delete_bucket_replication: { regular: "s3:putreplicationconfiguration" },
+    delete_bucket_tagging: { regular: "s3:putbuckettagging" },
+    delete_bucket_website: { regular: "s3:deletebucketwebsite" },
+    delete_bucket: { regular: "s3:deletebucket" },
+    delete_object_tagging: { regular: "s3:deleteobjecttagging", versioned: "s3:deleteobjectversiontagging" },
+    delete_object_uploadid: { regular: "s3:abortmultipartupload" },
+    delete_object: { regular: "s3:deleteobject", versioned: "s3:deleteobjectversion" },
+
+    get_bucket_accelerate: { regular: "s3:getaccelerateconfiguration" },
+    get_bucket_acl: { regular: "s3:getbucketacl" },
+    get_bucket_analytics: { regular: "s3:getanalyticsconfiguration" },
+    get_bucket_cors: { regular: "s3:getbucketcors" },
+    get_bucket_encryption: { regular: "s3:getencryptionconfiguration" },
+    get_bucket_inventory: { regular: "s3:getinventoryconfiguration" },
+    get_bucket_lifecycle: { regular: "s3:getlifecycleconfiguration" },
+    get_bucket_location: { regular: "s3:getbucketlocation" },
+    get_bucket_logging: { regular: "s3:getbucketlogging" },
+    get_bucket_metrics: { regular: "s3:getmetricsconfiguration" },
+    get_bucket_notification: { regular: "s3:getbucketnotification" },
+    get_bucket_policy: { regular: "s3:getbucketpolicy" },
+    get_bucket_replication: { regular: "s3:getreplicationconfiguration" },
+    get_bucket_requestpayment: { regular: "s3:getbucketrequestpayment" },
+    get_bucket_tagging: { regular: "s3:getbuckettagging" },
+    get_bucket_uploads: { regular: "s3:listbucketmultipartuploads" },
+    get_bucket_versioning: { regular: "s3:getbucketversioning" },
+    get_bucket_versions: { regular: "s3:listbucketversions" },
+    get_bucket_website: { regular: "s3:getbucketwebsite" },
+    get_bucket: { regular: "s3:listbucket" },
+    get_object_acl: { regular: "s3:getobjectacl" },
+    get_object_tagging: { regular: "s3:getobjecttagging", versioned: "s3:getobjectversiontagging" },
+    get_object_uploadid: { regular: "s3:listmultipartuploadparts" },
+    get_object: { regular: "s3:getobject", versioned: "s3:getobjectversion" },
+    get_service: { regular: "s3:listallmybuckets" },
+
+    head_bucket: { regular: "s3:listbucket" },
+    head_object: { regular: "s3:getobject", versioned: "s3:getobjectversion" },
+
+    post_bucket_delete: { regular: "s3:deleteobject" },
+    post_object: { regular: "s3:putobject" },
+    post_object_uploadid: { regular: "s3:putobject" },
+    post_object_uploads: { regular: "s3:putobject" },
+
+    put_bucket_accelerate: { regular: "s3:putaccelerateconfiguration" },
+    put_bucket_acl: { regular: "s3:putbucketacl" },
+    put_bucket_analytics: { regular: "s3:putanalyticsconfiguration" },
+    put_bucket_cors: { regular: "s3:putbucketcors" },
+    put_bucket_encryption: { regular: "s3:putencryptionconfiguration" },
+    put_bucket_inventory: { regular: "s3:putinventoryconfiguration" },
+    put_bucket_lifecycle: { regular: "s3:putlifecycleconfiguration" },
+    put_bucket_logging: { regular: "s3:putbucketlogging" },
+    put_bucket_metrics: { regular: "s3:putmetricsconfiguration" },
+    put_bucket_notification: { regular: "s3:putbucketnotification" },
+    put_bucket_policy: { regular: "s3:putbucketpolicy" },
+    put_bucket_replication: { regular: "s3:putreplicationconfiguration" },
+    put_bucket_requestpayment: { regular: "s3:putbucketrequestpayment" },
+    put_bucket_tagging: { regular: "s3:putbuckettagging" },
+    put_bucket_versioning: { regular: "s3:putbucketversioning" },
+    put_bucket_website: { regular: "s3:putbucketwebsite" },
+    put_bucket: { regular: "s3:createbucket" },
+    put_object_acl: { regular: "s3:putobjectacl" },
+    put_object_tagging: { regular: "s3:putobjecttagging", versioned: "s3:putobjectversiontagging" },
+    put_object_uploadid: { regular: "s3:putobject" },
+    put_object: { regular: "s3:putobject" },
+});
+
 function format_s3_xml_date(input) {
     let date = input ? new Date(input) : new Date();
     date.setMilliseconds(0);
@@ -372,6 +445,7 @@ function parse_website_to_body(website) {
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
+exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.format_s3_xml_date = format_s3_xml_date;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;

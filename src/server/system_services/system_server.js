@@ -21,7 +21,6 @@ const restrict = require('../../../platform_restrictions.json');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
-const MDStore = require('../object_services/md_store').MDStore;
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
@@ -414,8 +413,6 @@ function read_system(req) {
 
         hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
 
-        obj_count_per_bucket: MDStore.instance().count_objects_per_bucket(system._id),
-
         accounts: P.fcall(() => server_rpc.client.account.list_accounts({}, {
             auth_token: req.auth_token
         })).then(
@@ -452,7 +449,6 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_and_mongo,
         nodes_aggregate_pool_with_cloud_no_mongo,
         hosts_aggregate_pool,
-        obj_count_per_bucket,
         accounts,
         has_ssl_cert,
         deletable_buckets,
@@ -470,8 +466,10 @@ function read_system(req) {
             objects_sys.size = objects_sys.size.plus(
                 (bucket.storage_stats && bucket.storage_stats.objects_size) || 0
             );
+            objects_sys.count = objects_sys.count.plus(
+                (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
+            );
         });
-        objects_sys.count = objects_sys.count.plus(obj_count_per_bucket[''] || 0);
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_time = system.debug_mode ?
@@ -536,7 +534,7 @@ function read_system(req) {
                         bucket,
                         nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                         hosts_aggregate_pool,
-                        num_of_objects: obj_count_per_bucket[bucket._id] || 0,
+                        num_of_objects: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
                         func_configs,
                         bucket_stats: stats_by_bucket[bucket.name],
                     });

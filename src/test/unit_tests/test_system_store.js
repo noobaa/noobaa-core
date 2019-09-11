@@ -7,7 +7,7 @@ const promise_utils = require('../../util/promise_utils');
 const P = require('../../util/promise');
 const _ = require('lodash');
 const mongo_client = require('../../util/mongo_client');
-coretest.setup();
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 
 const mocha = require('mocha');
 const assert = require('assert');

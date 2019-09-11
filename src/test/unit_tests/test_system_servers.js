@@ -4,7 +4,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup();
+coretest.setup({ pools_to_create: [] });
 
 const _ = require('lodash');
 const mocha = require('mocha');
@@ -33,6 +33,62 @@ mocha.describe('system_servers', function() {
     //  ACCOUNT  //
     ///////////////
 
+    mocha.it('account allowed buckets & allowed_bucket_creation', async function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        const accounts_status = await rpc_client.account.accounts_status();
+        await assert(accounts_status.has_accounts, 'has_accounts');
+
+        try {
+            await rpc_client.account.create_account({
+                name: EMAIL1,
+                email: EMAIL1,
+                password: EMAIL1,
+                has_login: true,
+                s3_access: true,
+                allow_bucket_creation: false
+            });
+        } catch (err) {
+            if (err.rpc_code !== 'BAD_REQUEST') {
+                throw err;
+            }
+        }
+
+        await rpc_client.account.create_account({
+            name: EMAIL1,
+            email: EMAIL1,
+            password: EMAIL1,
+            has_login: true,
+            s3_access: true,
+            allow_bucket_creation: true
+        });
+
+        await rpc_client.system.read_system();
+        await rpc_client.account.delete_account({ email: EMAIL1 });
+        await rpc_client.system.read_system();
+
+        await rpc_client.account.create_account({
+            name: EMAIL1,
+            email: EMAIL1,
+            password: EMAIL1,
+            has_login: true,
+            s3_access: true,
+            allow_bucket_creation: false,
+            allowed_buckets: {
+                full_permission: true,
+                permission_list: ['first.bucket']
+            },
+        });
+
+        await rpc_client.system.read_system();
+        await rpc_client.account.delete_account({ email: EMAIL1 });
+        await rpc_client.system.read_system();
+
+
+    });
+    mocha.it('setting up pools works', async function() {
+        this.timeout(300000); // eslint-disable-line no-invalid-this
+        await coretest.setup_pools(coretest.POOL_LIST);
+    });
     mocha.it('account works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const accounts_status = await rpc_client.account.accounts_status();
@@ -77,6 +133,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.system.list_systems();
         await rpc_client.events.read_activity_log({ limit: 2016 });
     });
+
 
     ////////////
     //  AUTH  //

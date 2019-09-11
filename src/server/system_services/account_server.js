@@ -123,6 +123,11 @@ async function create_account(req) {
                         )
                     };
                 }
+            } else {
+                account.allowed_buckets = {
+                    full_permission: false,
+                    permission_list: []
+                };
             }
 
             account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
@@ -1217,13 +1222,14 @@ function validate_create_account_params(req) {
                 }
             }
 
-            if (!req.rpc_params.allowed_buckets) {
+            if (!req.rpc_params.allow_bucket_creation && !req.rpc_params.allowed_buckets) {
                 throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing allowed_buckets');
             }
-
-            const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
-            if (!full_permission && !permission_list) {
-                throw new RpcError('BAD_REQUEST', 'Cannot configure without permission_list when explicit permissions');
+            if (req.rpc_params.allowed_buckets) {
+                const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
+                if (!full_permission && !permission_list) {
+                    throw new RpcError('BAD_REQUEST', 'Cannot configure without permission_list when explicit permissions');
+                }
             }
 
         }

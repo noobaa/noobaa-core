@@ -77,11 +77,13 @@ const POOL_LIST = [{
     }
 ];
 
+let CREATED_POOLS = [];
+
 function new_rpc_client() {
     return server_rpc.rpc.new_client(rpc_client.options);
 }
 
-function setup({ incomplete_rpc_coverage } = {}) {
+function setup({ incomplete_rpc_coverage, pools_to_create } = {}) {
     if (_setup) return;
     _setup = true;
 
@@ -182,10 +184,10 @@ function setup({ incomplete_rpc_coverage } = {}) {
         });
         rpc_client.options.auth_token = token;
         await overwrite_system_address(SYSTEM);
-        await announce('init_test_pools()');
-        await init_test_pools(rpc_client, SYSTEM);
-        await attach_pool_to_bucket(SYSTEM, 'first.bucket', POOL_LIST[0].name);
-        await set_pool_as_default_resource(SYSTEM, POOL_LIST[0].name);
+        if (pools_to_create.length > 0) {
+            await announce('init_test_pools()');
+            await setup_pools(pools_to_create);
+        }
         await announce(`coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
     });
 
@@ -233,6 +235,12 @@ function setup({ incomplete_rpc_coverage } = {}) {
     });
 
 }
+async function setup_pools(pools_to_create) {
+    console.log('init_test_pools()');
+    await init_test_pools(rpc_client, SYSTEM, pools_to_create);
+    await attach_pool_to_bucket(SYSTEM, 'first.bucket', CREATED_POOLS[0].name);
+    await set_pool_as_default_resource(SYSTEM, CREATED_POOLS[0].name);
+}
 
 function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
@@ -276,13 +284,13 @@ async function overwrite_system_address(system_name) {
     });
 }
 
-async function init_test_pools(client, system_name) {
-    console.log('Creating pools:', POOL_LIST);
+async function init_test_pools(client, system_name, pools_to_create) {
+    console.log('Creating pools:', pools_to_create);
 
     await node_server.start_monitor();
 
     // Create pools.
-    await Promise.all(POOL_LIST.map(pool_info =>
+    await Promise.all(pools_to_create.map(pool_info =>
         rpc_client.pool.create_hosts_pool({
             name: pool_info.name,
             host_count: pool_info.host_count,
@@ -294,17 +302,18 @@ async function init_test_pools(client, system_name) {
     await promise_utils.wait_until(async () => {
         const { hosts } = await rpc_client.host.list_hosts({
             query: {
-                pools: POOL_LIST.map(pool_info => pool_info.name),
+                pools: pools_to_create.map(pool_info => pool_info.name),
                 mode: ['OPTIMAL'],
             }
         });
 
         const optimal_hosts_by_Pool = _.countBy(hosts, host => host.pool);
-        return POOL_LIST.every(pool =>
+        return pools_to_create.every(pool =>
             pool.host_count === (optimal_hosts_by_Pool[pool.name] || 0)
         );
     }, 2500, 5 * 60 * 1000);
 
+    CREATED_POOLS = pools_to_create;
 
     await node_server.sync_monitor_to_store();
     await P.delay(2000);
@@ -575,6 +584,7 @@ function get_dbg_level() {
 }
 
 exports.setup = setup;
+exports.setup_pools = setup_pools;
 exports.no_setup = _.noop;
 exports.log = log;
 exports.SYSTEM = SYSTEM;

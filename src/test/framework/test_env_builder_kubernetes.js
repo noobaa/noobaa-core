@@ -28,6 +28,7 @@ const {
     node_ip,
     clean: clean_single_test,
     debug,
+    delete_on_fail = false,
     concurrency = 1
 } = argv;
 
@@ -61,6 +62,7 @@ function print_usage() {
       --tests_list              -   Path to a js file containing tests list
       --concurrency             -   Maximum number of pods to run in parallel (server and agents). (default: ${concurrency})
       --output_dir              -   Path to store test output
+      --delete_on_fail          -   Delete the test namespace on failed test (default ${delete_on_fail}).
       --debug                   -   run in debug mode
     `);
 }
@@ -157,7 +159,22 @@ function get_flags(flags_obj) {
     return flags_arr;
 }
 
+function should_delete_namespace(should_delete_on_fail, test_failed, clean, should_clean_single_test) {
+    if (clean || should_clean_single_test) {
+        if (should_delete_on_fail) {
+            if (test_failed) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
 async function run_single_test_env(params) {
+    console.log(`Running single test env`);
     const {
         namespace,
         command,
@@ -177,6 +194,7 @@ async function run_single_test_env(params) {
         node_ip,
         namespace,
     });
+
     try {
         await kf.init();
         const test_context = await build_env(kf, params);
@@ -222,7 +240,8 @@ async function run_single_test_env(params) {
         console.log(`test ${test_name} failed. ${err}`);
     }
 
-    if (clean || clean_single_test) {
+    //Will not delete the namespace if the test has failed.
+    if (should_delete_namespace(delete_on_fail, test_failed, clean, clean_single_test)) {
         console.log('cleaning test environment');
         try {
             // for now by default delete namespaces in background. if running tests concurrently we might want to await
@@ -243,6 +262,7 @@ async function run_single_test_env(params) {
 }
 
 async function run_multiple_test_envs(params) {
+    console.log(`Running multiple test envs`);
     const {
         tests_list: tests_list_file,
         concurrency: tests_concurrency,
@@ -253,7 +273,7 @@ async function run_multiple_test_envs(params) {
     try {
         tests = require(tests_list_file); // eslint-disable-line global-require
     } catch (err) {
-        console.error(`failed to load tests list from ${tests_list_file}`);
+        console.error(`Failed to load tests list from ${tests_list_file}`);
         throw err;
     }
 
@@ -281,6 +301,7 @@ async function run_multiple_test_envs(params) {
 }
 
 async function run_test_concurrently(tests_concurrency, tests, namespace_prefix, params) {
+    console.log(`Running tests with concurrently: ${tests_concurrency}`);
     const sem = new Semaphore(tests_concurrency);
     await P.all(tests.map(async test => {
         await sem.surround_count(1, () => run_test(namespace_prefix, test, params));
@@ -288,6 +309,7 @@ async function run_test_concurrently(tests_concurrency, tests, namespace_prefix,
 }
 
 async function run_test_serially(tests, namespace_prefix, params) {
+    console.log(`Running tests serially`);
     for (const test of tests) {
         await run_test(namespace_prefix, test, params);
     }

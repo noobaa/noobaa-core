@@ -1,8 +1,11 @@
 #!/bin/bash
 
+export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
+
 SCRIPT_NAME=$(basename $0)
 JOB_YAML="./test_job.yaml"
 NAMESPACE="noobaa-tests"
+TESTS_LIST="./pipeline_tests_list.js"
 TESTS_CONCURRENCY="\"1\""
 
 function usage(){
@@ -13,9 +16,9 @@ function usage(){
     echo "--name            -   The name of the test run. will be prefixed to all namespaces created by the test job"
     echo "--image           -   The image to test"
     echo "--tester_image    -   The tester image to use"
-    echo "--job_yaml        -   The job yaml file, (default: ${JOB_YAML})"
-	echo "--tests_list      -   The test list (.js)"
-    echo "--concurrency     -   Set the number of test that runs in parallel (default: ${TESTS_CONCURRENCY})"
+    echo "--job_yaml        -   The job yaml file, (default: ./test_job.yaml)"
+	echo "--tests_list      -   The test list (.js) (default: ./pipeline_tests_list.j})"
+    echo "--concurrency     -   Set the number of test that runs in parallel (default: 1)"
     echo "--wait            -   Should wait for job completion, (default: false)"
     echo "-h --help         -   Will show this help"
     exit 1
@@ -49,6 +52,16 @@ do
 done
 
 if [ -z "${TEST_RUN_NAME}" ] || [ -z "${IMAGE}" ] || [ -z "${TESTER_IMAGE}" ] ; then
+    usage
+fi
+
+if [ ! -f "${TESTS_LIST}" ]
+then
+    echo -e "\n❌  Missing tests list: ${TESTS_LIST}"
+    usage
+elif [ ! -f "${JOB_YAML}" ]
+then
+    echo -e "\n❌  Missing job yaml ${JOB_YAML}"
     usage
 fi
 

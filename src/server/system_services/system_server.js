@@ -993,6 +993,18 @@ function find_account_by_email(req) {
 }
 
 function _list_s3_endpoints(system) {
+    if (process.platform === 'darwin') {
+        return [{
+            kind: 'LOOPBACK',
+            address: addr_utils.get_base_address([], {
+                hint: 'LOOPBACK',
+                service: 's3',
+                api: 's3',
+                protocol: 'https',
+                secure: true
+            }).toString()
+        }];
+    }
     return system.system_address
         .filter(addr =>
             addr.service === 's3' &&

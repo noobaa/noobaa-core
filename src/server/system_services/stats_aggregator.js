@@ -70,33 +70,6 @@ const SYS_STORAGE_DEFAULTS = Object.freeze({
     real: 0,
 });
 
-const PROVIDER_STATS = {
-    'AWS': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-    'AZURE': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-    'S3_COMPATIBLE': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-    'GOOGLE': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-    'KUBERNETES': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-    'OTHERS': {
-        logical_size: 0,
-        physical_size: 0,
-    },
-};
-
 const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
     buckets: 0,
@@ -294,7 +267,7 @@ async function get_partial_accounts_stats(req) {
 
 
 async function get_partial_providers_stats(req) {
-    const provider_stats = _.cloneDeep(PROVIDER_STATS);
+    const provider_stats = {};
     const supported_cloud_types = [
         'AWS',
         'AZURE',
@@ -314,6 +287,12 @@ async function get_partial_providers_stats(req) {
                 if (pool.cloud_pool_info) {
                     type = (supported_cloud_types.includes(pool.cloud_pool_info.endpoint_type)) ?
                         pool.cloud_pool_info.endpoint_type : 'OTHERS';
+                }
+                if (!provider_stats[type]) {
+                    provider_stats[type] = {
+                        logical_size: 0,
+                        physical_size: 0,
+                    };
                 }
                 provider_stats[type].logical_size =
                     size_utils.json_to_bigint(provider_stats[type].logical_size)

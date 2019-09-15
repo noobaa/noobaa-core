@@ -93,7 +93,7 @@ run_agent_container() {
   # Providing an env variable with the name "LOOP_ON_FAIL=true" 
   # will trigger the condition below.
   # Currently we will loop on any exit of the agent_cli 
-  # regurdless to the exit code
+  # regardless to the exit code
   while [ "${LOOP_ON_FAIL}" == "true" ] 
   do
     echo "$(date) Failed to run agent_cli" 

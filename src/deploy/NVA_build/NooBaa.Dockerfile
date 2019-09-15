@@ -138,4 +138,4 @@ EXPOSE 26050
 USER 10001:0
 # We are using CMD and not ENDPOINT so 
 # we can override it when we use this image as agent. 
-CMD ["/usr/bin/supervisord", "start_container"]
+CMD ["/usr/bin/supervisord", "start"]

@@ -6,20 +6,19 @@ PIDFILE="/var/log/supervisord.pid"
 # chkconfig: 345 15 15
 
 start() {
-    #run noobaa_init script before start
+    #Run noobaa_init script before start
     local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
     if [ "${container}" == "docker" ]
     then
         path="/noobaa_init_files/"
     fi
     ${path}/noobaa_init.sh
-    # abort pod start if noobaa_init fails
+    #Abort pod start if noobaa_init fails
     rc=$?
     if [ ${rc} -ne 0 ]; then
         echo "noobaa_init failed with exit code ${rc}. aborting"
         exit ${rc}
     fi
-
 
     if [ ! -x "$SUPERVISORD" ]; then
         echo "$SUPERVISORD is not executable."
@@ -28,11 +27,7 @@ start() {
     fi
     echo "Starting ..."
     logger -p local0.info -t Superd "Starting ..."
-    if [ $1 == "container" ]; then
-        ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE -n
-    else
-        ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE
-    fi
+    ulimit -n 102400; $SUPERVISORD --pidfile $PIDFILE -n
 
     return $?
 }
@@ -73,26 +68,15 @@ stop() {
     local p=$(cat $PIDFILE)
     kill -9 ${p}
     [ $? -eq 0 ] && rm -f $PIDFILE
-    return $retval
+    return
 }
 
 case $1 in
-    start)
-        start
-    ;;
-    start_container)
-        start container
-    ;;
-    stop)
-        stop
-    ;;
-    restart)
-        stop
-        sleep 1
-        start
-    ;;
-    *)
-        echo "$0 start|stop|restart"
-        exit 2
-    ;;
+    start)      start;;
+    stop)       stop;;
+    restart)    stop
+                sleep 1
+                start;;
+    *)          echo "$0 start|stop|restart"
+                exit 2;;
 esac

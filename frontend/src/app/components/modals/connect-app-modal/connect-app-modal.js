@@ -12,7 +12,8 @@ import {
 
 const endpointKindLabel = deepFreeze({
     EXTERNAL: 'Cluster External Name',
-    INTERNAL: 'Cluster Internal Name'
+    INTERNAL: 'Cluster Internal Name',
+    LOOPBACK: 'Server IP'
 });
 
 function _getSelectedAccount(accountsWithS3Access, user, form) {
@@ -135,3 +136,4 @@ export default {
     viewModel: ConnectAppModalViewModel,
     template: template
 };
+

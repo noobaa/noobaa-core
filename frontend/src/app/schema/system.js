@@ -163,7 +163,8 @@ export default {
                         type: 'string',
                         enum: [
                             'EXTERNAL',
-                            'INTERNAL'
+                            'INTERNAL',
+                            'LOOPBACK'
                         ]
                     },
                     address: {

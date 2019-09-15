@@ -502,7 +502,7 @@ module.exports = {
                         properties: {
                             kind: {
                                 type: 'string',
-                                enum: ['EXTERNAL', 'INTERNAL']
+                                enum: ['EXTERNAL', 'INTERNAL', 'LOOPBACK']
                             },
                             address: {
                                 type: 'string'

@@ -75,7 +75,7 @@ kubectl create namespace ${NAMESPACE}
 echo "Deploying test account and role"
 kubectl -n ${NAMESPACE} apply -f ./test_account.yaml
 
-echo "Running test job ${TEST_RUN_NAME}"
+echo "Running test job ${TEST_RUN_NAME} with test list ${TESTS_LIST}"
 sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
@@ -91,7 +91,8 @@ sleep 10
 pod=$(kubectl get pods -n ${NAMESPACE} | tail -1 | awk '{print $1}' | cut -f 2 -d'-')
 
 if [ ${WAIT_COMPLETION} ]; then
-    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} --timeout=500s -n ${NAMESPACE}
+    echo "Waiting for job completion, logs will be retrieved after job completion"
+    kubectl wait --for=condition=complete job/${TEST_RUN_NAME} --timeout=2100s -n ${NAMESPACE}
     test_exit_code=$?
     #Display logs of run
     kubectl logs ${TEST_RUN_NAME}-${pod} -n ${NAMESPACE}

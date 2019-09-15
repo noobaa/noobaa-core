@@ -101,6 +101,8 @@ async function build_env(kf, params) {
         envs.push({ name: 'CREATE_SYS_NAME', value: 'demo' });
         envs.push({ name: 'CREATE_SYS_EMAIL', value: 'demo@noobaa.com' });
         envs.push({ name: 'CREATE_SYS_PASSWD', value: 'DeMo1' });
+        envs.push({ name: 'ENDPOINT_FORKS_NUMBER', value: '1' });
+        envs.push({ name: 'DISABLE_DEV_RANDOM_SEED', value: 'true' });
 
         const agent_profile = {
             image: image,
@@ -240,7 +242,6 @@ async function run_single_test_env(params) {
         console.log(`test ${test_name} failed. ${err}`);
     }
 
-    //Will not delete the namespace if the test has failed.
     if (should_delete_namespace(delete_on_fail, test_failed, clean, clean_single_test)) {
         console.log('cleaning test environment');
         try {
@@ -301,7 +302,7 @@ async function run_multiple_test_envs(params) {
 }
 
 async function run_test_concurrently(tests_concurrency, tests, namespace_prefix, params) {
-    console.log(`Running tests with concurrently: ${tests_concurrency}`);
+    console.log(`Running tests list with concurrently: ${tests_concurrency}`);
     const sem = new Semaphore(tests_concurrency);
     await P.all(tests.map(async test => {
         await sem.surround_count(1, () => run_test(namespace_prefix, test, params));
@@ -309,7 +310,7 @@ async function run_test_concurrently(tests_concurrency, tests, namespace_prefix,
 }
 
 async function run_test_serially(tests, namespace_prefix, params) {
-    console.log(`Running tests serially`);
+    console.log(`Running tests list serially`);
     for (const test of tests) {
         await run_test(namespace_prefix, test, params);
     }
@@ -317,7 +318,7 @@ async function run_test_serially(tests, namespace_prefix, params) {
 
 async function run_test(namespace_prefix, test, params) {
     const namespace = `${namespace_prefix}-${test.name}-${Date.now()}`;
-    console.log(`=============== running test ${test.name} in namespace ${namespace} ===============`);
+    console.log(`=============== preparing test ${test.name} in namespace ${namespace} ===============`);
     // when running multiple envs force clean at the end of each run
     const test_params = { ...params, ...test, namespace, clean: true };
     try {
@@ -357,8 +358,9 @@ async function main() {
             await build_env(kf, { ...argv, namespace });
         }
 
-        // wait for all namespaces to be deleted
-        await P.all(deleted_namespaces);
+    // wait for all namespaces to be deleted
+    await P.all(deleted_namespaces);
+
     } catch (err) {
         console.error('test_env_builder failed with error:', err);
         exit_code = 1;

@@ -142,6 +142,7 @@ function get_new_server(user) {
 }
 
 function run_test() {
+    console.log('running test_bucket_access');
     return authenticate()
         .then(() => setup())
         .then(() => test_list_buckets_returns_allowed_buckets())

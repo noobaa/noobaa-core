@@ -11,11 +11,7 @@ spec:
         image: TESTER_IMAGE_PLACEHOLDER
         imagePullPolicy: Never
         workingDir: /noobaa-core
-        args:
-          # - /bin/bash
-          #  - -c
-          #  - "while true; do sleep 10 ; done"
-          
+        args:          
           - node
           - ./src/test/framework/test_env_builder_kubernetes.js
           - --image

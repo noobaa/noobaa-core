@@ -1124,7 +1124,7 @@ class MDStore {
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
         for (const chunk of chunks) {
-            chunk.parts = parts_by_chunk[chunk._id.toHexString()];
+            chunk.parts = parts_by_chunk[chunk._id.toHexString()] || [];
             chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj.toHexString()])));
         }
     }
@@ -1543,7 +1543,7 @@ class MDStore {
         for (const chunk of chunks) {
             const blocks_by_frag = _.groupBy(blocks_by_chunk[chunk._id.toHexString()], 'frag');
             for (const frag of chunk.frags) {
-                const frag_blocks = blocks_by_frag[frag._id.toHexString()];
+                const frag_blocks = blocks_by_frag[frag._id.toHexString()] || [];
                 frag.blocks = sorter ? frag_blocks.sort(sorter) : frag_blocks;
             }
         }

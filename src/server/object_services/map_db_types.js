@@ -77,7 +77,7 @@ class ChunkDB {
         return this.__frag_by_index;
     }
     get parts() {
-        if (!this.__parts) this.__parts = this.chunk_db.parts.map(new_part_db);
+        if (!this.__parts) this.__parts = this.chunk_db.parts ? this.chunk_db.parts.map(new_part_db) : [];
         return this.__parts;
     }
 

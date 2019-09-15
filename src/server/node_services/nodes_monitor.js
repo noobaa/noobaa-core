@@ -2653,7 +2653,6 @@ class NodesMonitor extends EventEmitter {
             'UNTRUSTED',
             'INITIALIZING',
             'DECOMMISSIONED',
-            'GATEWAY_ERRORS',
             'OPTIMAL',
             'HTTP_PORT_ACCESS_ERROR',
             'HTTP_SRV_ERRORS',

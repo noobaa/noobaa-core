@@ -7,6 +7,7 @@ JOB_YAML="./test_job.yaml"
 NAMESPACE="noobaa-tests"
 TESTS_LIST="./pipeline_tests_list.js"
 TESTS_CONCURRENCY="\"1\""
+TESTS_DELETE_ON_FAIL="DELETE_ON_FAIL_PLACEHOLDER"
 
 function usage(){
     set +x
@@ -19,6 +20,7 @@ function usage(){
     echo "--job_yaml        -   The job yaml file, (default: ./test_job.yaml)"
 	echo "--tests_list      -   The test list (.js) (default: ./pipeline_tests_list.j})"
     echo "--concurrency     -   Set the number of test that runs in parallel (default: 1)"
+    echo "--delete_on_fail  -   When set, will check if the test has failed. if so skip it's deletion"   
     echo "--wait            -   Should wait for job completion, (default: false)"
     echo "-h --help         -   Will show this help"
     exit 1
@@ -28,22 +30,24 @@ echo "Running with: $@"
 while true
 do
     case ${1} in
-        --name)         TEST_RUN_NAME=${2}
-                        shift 2;;
-        --image)        IMAGE=${2}
-                        shift 2;;
-        --tester_image) TESTER_IMAGE=${2}
-                        shift 2;;
-        --job_yaml)     JOB_YAML=${2}
-                        shift 2;;
-		--tests_list)   TESTS_LIST=${2}
-						shift 2;;
-        --concurrency)  TESTS_CONCURRENCY=\"${2}\"
-                        shift 2;;
-        --wait)         WAIT_COMPLETION=true
-                        shift 1;;
-        -h|--help)	    usage;;
-        *)              usage;;
+        --name)             TEST_RUN_NAME=${2}
+                            shift 2;;
+        --image)            IMAGE=${2}
+                            shift 2;;
+        --tester_image)     TESTER_IMAGE=${2}
+                            shift 2;;
+        --job_yaml)         JOB_YAML=${2}
+                            shift 2;;
+		--tests_list)       TESTS_LIST=${2}
+						    shift 2;;
+        --concurrency)      TESTS_CONCURRENCY=\"${2}\"
+                            shift 2;;
+        --wait)             WAIT_COMPLETION=true
+                            shift 1;;
+        --delete_on_fail)   TESTS_DELETE_ON_FAIL="delete_on_fail"
+                            shift 1;;
+        -h|--help)          usage;;
+        *)                  usage;;
     esac
 
     if [ -z ${1} ]; then
@@ -78,6 +82,7 @@ sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME:0:7}~" \
 -e "s~TESTS_LIST_PLACEHOLDER~${TESTS_LIST}~" \
 -e "s~TESTS_CONCURRENCY_PLACEHOLDER~${TESTS_CONCURRENCY}~" \
+-e "s~DELETE_ON_FAIL_PLACEHOLDER~${TESTS_DELETE_ON_FAIL}~" \
 ${JOB_YAML} \
 | kubectl -n ${NAMESPACE} apply -f -
 

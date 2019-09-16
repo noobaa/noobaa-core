@@ -13,7 +13,6 @@ dbg.set_process_name('test_ceph_s3');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
-const test_utils = require('./test_utils');
 
 require('../../util/dotenv').load();
 
@@ -168,7 +167,6 @@ const S3_CEPH_TEST_BLACKLIST = [
     's3tests.functional.test_s3.test_list_buckets_bad_auth',
     's3tests.functional.test_s3.test_list_buckets_invalid_auth',
     's3tests.functional.test_s3.test_logging_toggle',
-    's3tests.functional.test_s3.test_multipart_copy_invalid_range',
     's3tests.functional.test_s3.test_multipart_upload_size_too_small',
     's3tests.functional.test_s3.test_object_acl_canned',
     's3tests.functional.test_s3.test_object_acl_canned_authenticatedread',
@@ -331,12 +329,15 @@ async function ceph_test_setup() {
     await fs.writeFileAsync(conf_file, new_conf_file_content);
     console.log('conf file updated');
 
-    await test_utils.create_hosts_pool(client, CEPH_TEST.pool, 3);
+    //await test_utils.create_hosts_pool(client, CEPH_TEST.pool, 3);
+    let system = await client.system.read_system();
+    const internal_pool = system.pools.filter(p => p.resource_type === 'INTERNAL');
     await client.account.create_account({
         ...CEPH_TEST.new_account_params,
-        default_pool: CEPH_TEST.pool
+        default_pool: internal_pool.name
     });
-    const system = await client.system.read_system();
+
+    system = await client.system.read_system();
     const ceph_account = system.accounts.find(account =>
         account.email.unwrap() === CEPH_TEST.new_account_params.email
     );
@@ -437,7 +438,7 @@ async function run_test() {
         throw new Error('Failed setup ceph tests');
     }
 
-   try {
+    try {
         await run_all_tests();
     } catch (err) {
         console.error('Failed running ceph tests', err);

@@ -135,14 +135,20 @@ function _format_one_http_range({ start, end }) {
  * @param {Number} size entity size in bytes
  * @return {Array} Array of {start,end}
  */
-function normalize_http_ranges(ranges, size) {
+function normalize_http_ranges(ranges, size, throw_error_ranges = false) {
     if (!ranges) return;
     for (const r of ranges) {
         if (r.end === undefined) {
             if (r.start < 0) r.start += size;
             r.end = size;
         } else if (r.end > size) {
-            r.end = size;
+            if (throw_error_ranges) {
+                let err = new Error('Invalid Argument');
+                err.code = 'InvalidArgument';
+                throw err;
+            } else {
+                r.end = size;
+            }
         }
         if (r.start < 0 || r.start > r.end) throw_ranges_error(416);
     }

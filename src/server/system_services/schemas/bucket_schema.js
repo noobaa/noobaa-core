@@ -241,6 +241,12 @@ module.exports = {
         encryption: {
             $ref: 'common_api#/definitions/bucket_encryption',
         },
+        website: {
+            $ref: 'common_api#/definitions/bucket_website',
+        },
+        policy: {
+            $ref: 'common_api#/definitions/bucket_policy',
+        },
         lambda_triggers: {
             type: 'array',
             items: {

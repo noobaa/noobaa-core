@@ -165,6 +165,22 @@ module.exports = {
             }
         },
 
+        delete_bucket_website: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         get_bucket_encryption: {
             method: 'GET',
             params: {
@@ -181,11 +197,116 @@ module.exports = {
                 properties: {
                     encryption: {
                         $ref: 'common_api#/definitions/bucket_encryption'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_website: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    website: {
+                        $ref: 'common_api#/definitions/bucket_website'
                     }
                 }
             },
             auth: {
                 system: ['admin', 'user']
+            }
+        },
+
+        put_bucket_website: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'website',
+                    'name',
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    website: {
+                        $ref: 'common_api#/definitions/bucket_website'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_policy: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    policy: {
+                        $ref: 'common_api#/definitions/bucket_policy'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_policy: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        put_bucket_policy: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'policy',
+                    'name',
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    policy: {
+                        $ref: 'common_api#/definitions/bucket_policy'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user'],
+                anonymous: true,
             }
         },
 
@@ -202,7 +323,8 @@ module.exports = {
                 $ref: '#/definitions/bucket_sdk_info'
             },
             auth: {
-                system: 'admin'
+                system: 'admin',
+                anonymous: true,
             }
         },
 
@@ -886,6 +1008,12 @@ module.exports = {
                 },
                 encryption: {
                     $ref: 'common_api#/definitions/bucket_encryption'
+                },
+                website: {
+                    $ref: 'common_api#/definitions/bucket_website'
+                },
+                policy: {
+                    $ref: 'common_api#/definitions/bucket_policy'
                 }
             }
         },
@@ -931,6 +1059,9 @@ module.exports = {
             properties: {
                 name: {
                     $ref: 'common_api#/definitions/bucket_name'
+                },
+                website: {
+                    $ref: 'common_api#/definitions/bucket_website'
                 },
                 namespace: {
                     type: 'object',

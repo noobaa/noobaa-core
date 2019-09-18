@@ -599,7 +599,7 @@ module.exports = {
                                 type: 'array',
                                 items: {
                                     type: 'string',
-                                    enum: ['admin', 'user', 'viewer', 'operator']
+                                    enum: ['admin', 'user', 'operator']
                                 }
                             }
                         }

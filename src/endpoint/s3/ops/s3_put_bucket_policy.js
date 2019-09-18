@@ -6,12 +6,16 @@ const S3Error = require('../s3_errors').S3Error;
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTpolicy.html
  */
-function put_bucket_policy(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 put_bucket_policy not implemented
-            throw new S3Error(S3Error.NotImplemented);
-        });
+async function put_bucket_policy(req) {
+    const policy = req.body;
+    try {
+        JSON.parse(policy);
+    } catch (error) {
+        console.error('put_bucket_policy: Invalid JSON provided', error);
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+
+    await req.object_sdk.put_bucket_policy({ name: req.params.bucket, policy });
 }
 
 module.exports = {

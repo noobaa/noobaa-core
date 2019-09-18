@@ -105,6 +105,13 @@ module.exports = {
             }
         },
 
+        // TODO: Update to the relevant schema
+        bucket_policy: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {}
+        },
+
         object_encryption: {
             type: 'object',
             properties: {
@@ -127,6 +134,100 @@ module.exports = {
             }
         },
 
+
+        bucket_website: {
+            type: 'object',
+            required: ['website_configuration'],
+            properties: {
+                website_configuration: {
+                    anyOf: [{
+                        type: 'object',
+                        required: ['redirect_all_requests_to'],
+                        properties: {
+                            redirect_all_requests_to: {
+                                type: 'object',
+                                required: ['host_name'],
+                                properties: {
+                                    host_name: {
+                                        type: 'string'
+                                    },
+                                    protocol: {
+                                        type: 'string',
+                                        enum: ['HTTP', 'HTTPS']
+                                    }
+                                }
+                            }
+                        }
+                    }, {
+                        type: 'object',
+                        required: ['index_document'],
+                        properties: {
+                            index_document: {
+                                type: 'object',
+                                required: ['suffix'],
+                                properties: {
+                                    suffix: {
+                                        type: 'string'
+                                    },
+                                }
+                            },
+                            error_document: {
+                                type: 'object',
+                                required: ['key'],
+                                properties: {
+                                    key: {
+                                        type: 'string'
+                                    },
+                                }
+                            },
+                            // Must be atleast one routing rule
+                            routing_rules: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    required: ['redirect'],
+                                    properties: {
+                                        condition: {
+                                            type: 'object',
+                                            // required: ['key_prefix_equals', 'http_error_code_returned_equals'],
+                                            properties: {
+                                                key_prefix_equals: {
+                                                    type: 'string'
+                                                },
+                                                http_error_code_returned_equals: {
+                                                    type: 'string'
+                                                },
+                                            }
+                                        },
+                                        redirect: {
+                                            type: 'object',
+                                            // required: ['protocol', 'host_name'],
+                                            properties: {
+                                                protocol: {
+                                                    type: 'string'
+                                                },
+                                                host_name: {
+                                                    type: 'string'
+                                                },
+                                                replace_key_prefix_with: {
+                                                    type: 'string'
+                                                },
+                                                replace_key_with: {
+                                                    type: 'string'
+                                                },
+                                                http_redirect_code: {
+                                                    type: 'string'
+                                                },
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    }]
+                },
+            },
+        },
 
         drive_info: {
             type: 'object',

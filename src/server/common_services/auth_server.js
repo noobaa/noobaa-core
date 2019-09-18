@@ -515,6 +515,17 @@ function _prepare_auth_request(req) {
         const ignore_missing_account = !options.account;
         // for system in order to make it optional we require to pass explicit false.
         const ignore_missing_system = (options.system === false);
+        // for anonymous access operations
+        const allow_anonymous_access = (options.anonymous === true);
+
+        if (allow_anonymous_access) {
+            req.anonymous = true;
+            // Currently authorize anonymous with the system that we have
+            if (!ignore_missing_system) {
+                req.system = system_store.data.systems[0];
+            }
+            return;
+        }
 
         // check that auth has account
         if (!ignore_missing_account || (req.auth && req.auth.account_id)) {
@@ -566,6 +577,10 @@ function _prepare_auth_request(req) {
         return has_bucket_permission(bucket, req.account);
     };
 
+    req.has_bucket_anonymous_permission = function(bucket) {
+        return has_bucket_anonymous_permission(bucket);
+    };
+
     req.check_bucket_permission = function(bucket) {
         if (!req.has_bucket_permission(bucket)) {
             throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
@@ -573,14 +588,16 @@ function _prepare_auth_request(req) {
     };
 
     req.has_s3_bucket_permission = function(bucket) {
-
-        /*if (req.role === 'admin' || account.is_support) {
+        const options = this.method_api.auth || {};
+        if (req.anonymous) {
             return true;
-        }*/
+        }
 
         // If the token includes S3 data, then we check for permissions
         if (req.auth_token && typeof req.auth_token === 'object') {
             return req.has_bucket_permission(bucket);
+        } else if (options.anonymous === true) {
+            return req.has_bucket_anonymous_permission(bucket);
         } else {
             return true;
         }
@@ -622,6 +639,33 @@ function has_bucket_permission(bucket, account) {
             _.get(account, 'allowed_buckets.permission_list') || [],
             allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
         );
+}
+
+// TODO: This should be changed to ACLs / Bucket Policy
+// Currently only supporting the following configuration
+// {
+//     "Version": "2012-10-17",
+//     "Statement": [{
+//         "Sid": "PublicReadForGetBucketObjects",
+//         "Effect": "Allow",
+//         "Principal": "*",
+//         "Action": ["s3:GetObject"],
+//         "Resource": ["arn:aws:s3:::example-bucket/*"]
+//     }]
+// }
+function has_bucket_anonymous_permission(bucket) {
+    const required_configuration = {
+        Sid: "PublicReadForGetBucketObjects",
+        Effect: "Allow",
+        Principal: "*",
+        Action: ["s3:GetObject"],
+        Resource: [`arn:aws:s3:::${bucket.name}/*`],
+    };
+    const bucket_policy = bucket.policy;
+    if (!bucket_policy) return false;
+    const statements = bucket_policy.Statement;
+    if (!statements) return false;
+    return _.some(statements, record => _.isEqual(required_configuration, record));
 }
 
 /**
@@ -680,3 +724,4 @@ exports.create_access_key_auth = create_access_key_auth;
 exports.authorize = authorize;
 exports.make_auth_token = make_auth_token;
 exports.has_bucket_permission = has_bucket_permission;
+exports.has_bucket_anonymous_permission = has_bucket_anonymous_permission;

@@ -292,6 +292,83 @@ function parse_body_encryption_xml(req) {
     };
 }
 
+function parse_body_website_xml(req) {
+    const website = {
+        website_configuration: {}
+    };
+    const website_configuration = req.body.WebsiteConfiguration;
+    if (website_configuration.RedirectAllRequestsTo) {
+        const site = website_configuration.RedirectAllRequestsTo[0];
+        const host_name = site.HostName[0];
+        if (!host_name) throw new S3Error(S3Error.InvalidArgument);
+        const protocol = site.Protocol && site.Protocol[0].toUpperCase();
+        website.website_configuration.redirect_all_requests_to = {
+            host_name,
+            protocol,
+        };
+        return website;
+    } else if (website_configuration.IndexDocument) {
+        const parsed_website_configuration = {};
+        const suffix = website_configuration.IndexDocument[0].Suffix[0];
+        if (!suffix || suffix.indexOf('/') > -1) throw new S3Error(S3Error.InvalidArgument);
+        parsed_website_configuration.index_document = {
+            suffix
+        };
+        if (website_configuration.ErrorDocument) {
+            const key = website_configuration.ErrorDocument[0].Key[0];
+            if (!key) throw new S3Error(S3Error.InvalidArgument);
+            parsed_website_configuration.error_document = {
+                key
+            };
+        }
+        if (website_configuration.RoutingRules) {
+            if (!website_configuration.RoutingRules[0].RoutingRule) throw new S3Error(S3Error.InvalidArgument);
+            const routing_rules = website_configuration.RoutingRules[0].RoutingRule.map(rule => {
+                if (!rule.Redirect) throw new S3Error(S3Error.InvalidArgument);
+                return _.omitBy({
+                    condition: rule.Condition && {
+                        // TODO: Need to check the required stuff regarding each and every one of them
+                        key_prefix_equals: rule.Condition[0].KeyPrefixEquals[0],
+                        http_error_code_returned_equals: rule.Condition[0].HttpErrorCodeReturnedEquals[0],
+                    },
+                    redirect: {
+                        protocol: rule.Redirect[0].Protocol[0] && rule.Redirect[0].Protocol[0].toUpperCase(),
+                        host_name: rule.Redirect[0].HostName[0],
+                        replace_key_prefix_with: rule.Redirect[0].ReplaceKeyPrefixWith[0],
+                        replace_key_with: rule.Redirect[0].ReplaceKeyWith[0],
+                        http_redirect_code: rule.Redirect[0].HttpRedirectCode[0],
+                    },
+                }, _.isUndefined);
+            });
+            parsed_website_configuration.routing_rules = routing_rules;
+        }
+        website.website_configuration = parsed_website_configuration;
+        return website;
+    }
+}
+
+function parse_website_to_body(website) {
+    const keys_func = key => _.upperFirst(_.camelCase(key));
+    const rename_keys = variable => {
+        if (_.isArray(variable)) {
+            return _.map(variable, obj => rename_keys(obj));
+        } else if (_.isObject(variable)) {
+            return Object.keys(variable).reduce((acc, key) => ({
+                ...acc,
+                ...{
+                    [keys_func(key)]: rename_keys(variable[key])
+                }
+            }), {});
+        }
+        return variable;
+    };
+    const reply = rename_keys(website);
+    if (reply.WebsiteConfiguration.RoutingRules) {
+        reply.WebsiteConfiguration.RoutingRules =
+            _.map(reply.WebsiteConfiguration.RoutingRules, rule => ({ RoutingRule: rule }));
+    }
+    return reply;
+}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
@@ -310,3 +387,5 @@ exports.parse_tagging_header = parse_tagging_header;
 exports.is_copy_tagging_directive = is_copy_tagging_directive;
 exports.parse_body_encryption_xml = parse_body_encryption_xml;
 exports.set_encryption_response_headers = set_encryption_response_headers;
+exports.parse_body_website_xml = parse_body_website_xml;
+exports.parse_website_to_body = parse_website_to_body;

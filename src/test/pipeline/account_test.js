@@ -194,10 +194,7 @@ async function delete_account(email) {
 async function regenerate_s3Access(email) {
     console.log('Regenerating account keys: ' + email);
     try {
-        await client.account.generate_account_keys({
-            email,
-            verification_password: 'DeMo1'
-        });
+        await client.account.generate_account_keys({ email });
         await report.success('regenerate_s3Access');
     } catch (err) {
         report.fail('regenerate_s3Access');

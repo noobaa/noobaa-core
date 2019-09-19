@@ -380,6 +380,7 @@ app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 ho
 app.use('/public/images/', express.static(path.join(rootdir, 'images')));
 app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
 app.use('/public/license-info', license_info.serve_http);
+app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 
 // Serve the new frontend (management console)
 app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes

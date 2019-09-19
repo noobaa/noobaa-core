@@ -31,8 +31,7 @@ function export_activity_log(req) {
     // generate csv file name:
     const file_name = 'audit.csv';
     const out_path = `/public/${file_name}`;
-    const inner_path = `${process.cwd()}/build${out_path}`;
-
+    const inner_path = `/log/${file_name}`;
     req.rpc_params.limit = req.rpc_params.limit || 100000;
     return Dispatcher.instance().read_activity_log(req)
         .then(logs => {

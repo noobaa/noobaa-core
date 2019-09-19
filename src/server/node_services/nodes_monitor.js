@@ -65,7 +65,6 @@ const AGENT_INFO_FIELDS = [
     'is_internal_agent',
     'node_type',
     'host_name',
-    'ports_allowed',
     'permission_tempering',
     'mem_usage',
     'cpu_usage',
@@ -2089,7 +2088,6 @@ class NodesMonitor extends EventEmitter {
             (item.io_reported_errors && 'IO_ERRORS') ||
             ((item.node.node_type !== 'ENDPOINT_S3' && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
             ((item.node.node_type !== 'ENDPOINT_S3' && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
-            ((item.node.node_type === 'BLOCK_STORE_FS' && !item.node.ports_allowed) && 'N2N_PORTS_BLOCKED') ||
             'OPTIMAL';
     }
 
@@ -2532,8 +2530,6 @@ class NodesMonitor extends EventEmitter {
         // than the host is decommissioning
         host_item.node.decommissioning = !host_item.node.decommissioned &&
             host_nodes.every(item => item.node.decommissioned || item.node.decommissioning);
-
-        host_item.node.ports_allowed = host_nodes.every(item => item.node.ports_allowed);
 
         //trusted, and untrusted reasons if exist
         host_item.trusted = host_nodes.every(item => item.trusted !== false);
@@ -3314,8 +3310,7 @@ class NodesMonitor extends EventEmitter {
         const port_range = (host_item.node.n2n_config || {}).tcp_permanent_passive;
         if (port_range) {
             info.ports = {
-                range: port_range,
-                allowed: host_item.node.ports_allowed
+                range: port_range
             };
         }
         info.base_address = host_item.node.base_address;

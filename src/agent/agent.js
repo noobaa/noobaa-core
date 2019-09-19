@@ -944,16 +944,6 @@ class Agent {
                 //     }
                 // });
             })
-            .then(() => {
-                if (this.node_type === 'BLOCK_STORE_FS') {
-                    const start_port = reply.n2n_config.tcp_permanent_passive.min || reply.n2n_config.tcp_permanent_passive.port;
-                    const end_port = reply.n2n_config.tcp_permanent_passive.max || reply.n2n_config.tcp_permanent_passive.port;
-                    return os_utils.is_port_range_open_in_firewall([ip], start_port, end_port)
-                        .then(ports_allowed => {
-                            reply.ports_allowed = ports_allowed;
-                        });
-                }
-            })
             .then(() => net_utils.retrieve_public_ip())
             .then(public_ip => {
                 if (public_ip) {

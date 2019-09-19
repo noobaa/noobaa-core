@@ -350,9 +350,6 @@ module.exports = {
                     properties: {
                         range: {
                             $ref: 'common_api#/definitions/port_range_config'
-                        },
-                        allowed: {
-                            type: 'boolean'
                         }
                     }
                 },

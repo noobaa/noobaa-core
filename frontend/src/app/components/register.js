@@ -98,6 +98,7 @@ import deletePoolWithDataWarningModal from './modals/delete-pool-with-data-warni
 import confirmDangerousScalingModal from './modals/confirm-dangerous-scaling-modal/confirm-dangerous-scaling-modal';
 import editCloudConnectionModal from './modals/edit-cloud-connection-modal/edit-cloud-connection-modal';
 import cloudConnectionUpdateWarningModal from './modals/cloud-connection-update-warning-modal/cloud-connection-update-warning-modal';
+import completeSslCertificateInstallationModal from './modals/complete-ssl-certificate-installation-modal/complete-ssl-certificate-installation-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -198,7 +199,7 @@ import p2pForm from './management/p2p-form/p2p-form';
 import versionForm from './management/version-form/version-form';
 import diagnosticsForm from './management/diagnostics-form/diagnostics-form';
 import maintenanceForm from './management/maintenance-form/maintenance-form';
-import serverSslForm from './management/server-ssl-form/server-ssl-form';
+import sslCertificateForm from './management/ssl-certificate-form/ssl-certificate-form';
 import virtualHostingForm from './management/virtual-hosting-form/virtual-hosting-form';
 /** INJECT:management.import **/
 
@@ -439,6 +440,7 @@ export default function register(ko, services) {
         confirmDangerousScalingModal,
         editCloudConnectionModal,
         cloudConnectionUpdateWarningModal,
+        completeSslCertificateInstallationModal,
         /** INJECT:modals.list **/
 
         overviewPanel,
@@ -509,7 +511,7 @@ export default function register(ko, services) {
         versionForm,
         diagnosticsForm,
         maintenanceForm,
-        serverSslForm,
+        sslCertificateForm,
         virtualHostingForm,
         /** INJECT:management.list **/
 

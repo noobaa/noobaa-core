@@ -508,6 +508,11 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_SERVER_DETAILS]: ({ hostname }) => ({
         message: `Updating ${hostname} details failed`,
         severity: 'error'
+    }),
+
+    [types.FAIL_UPLOAD_SSL_CERTIFICATE]: ({ error }) => ({
+        message: `Uploading SSL cartificate failed: ${error.message}`,
+        severity: 'error'
     })
 });
 

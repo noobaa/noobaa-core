@@ -168,7 +168,7 @@ class BucketObjectsTableViewModel extends Observer {
                     'objects',
                     ['session', 'user'],
                     ['accounts'],
-                    ['system', 'sslCert']
+                    ['system', 'sslCert', 'installed']
                 )
             ),
             this.onState

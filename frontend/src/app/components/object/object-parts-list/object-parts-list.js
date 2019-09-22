@@ -493,7 +493,7 @@ class ObjectPartsListViewModel extends ConnectableViewModel {
             objectParts && objectParts.items,
             cloudResources,
             accounts && accounts[state.session.user],
-            system && system.sslCert
+            system && system.sslCert.installed
         ];
     }
 

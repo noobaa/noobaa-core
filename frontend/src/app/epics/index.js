@@ -89,6 +89,7 @@ import scheduleAutoRefresh from './schedule-auto-refresh';
 import updateAccountPreferedTheme from './update-account-prefered-theme';
 import updateServerDetails from './update-server-details';
 import redirectAfterSignOut from './redirect-after-sign-out';
+import uploadSSLCertificate from './upload-ssl-certificate';
 
 const epics = [
     // General epics
@@ -120,6 +121,7 @@ const epics = [
     collectSystemDiagnostics,
     scheduleDebugModeRefresh,
     scheduleMaintenanceModeRefresh,
+    uploadSSLCertificate,
 
     // Topology related epics
     updateServerAddress,

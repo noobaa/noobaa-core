@@ -29,6 +29,7 @@ export default function(action$, { AWS }) {
                         failDeleteObject(objId, mapErrorObject(error)) :
                         completeDeleteObject(objId)
                     );
+                    deleteEvent$.complete();
                 });
             } else {
                 const params = {
@@ -42,6 +43,7 @@ export default function(action$, { AWS }) {
                         failDeleteObject(objId, mapErrorObject(error)) :
                         completeDeleteObject(objId)
                     );
+                    deleteEvent$.complete();
                 });
             }
 

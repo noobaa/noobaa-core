@@ -29,9 +29,6 @@ auditLog.loadedCategories = ko.observableArray();
 // Hold node test information.
 export const nodeTestInfo = ko.observable();
 
-// hold system upload ssl certificate status.
-export const sslCertificateUploadStatus = ko.observable();
-
 // Hold diagnostics information
 export const collectDiagnosticsState = ko.observable({});
 

@@ -54,6 +54,7 @@ class CloudResourcePanelViewModel extends ConnectableViewModel {
         }
 
         this.page = page;
+        this.pageSize = pageSize;
         this.dispatch(fetchCloudResourceObjects(
             location.params.resource,
             page * pageSize,

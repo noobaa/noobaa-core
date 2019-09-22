@@ -535,7 +535,6 @@ function read_system(req) {
                         bucket,
                         nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                         hosts_aggregate_pool,
-                        num_of_objects: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0,
                         func_configs,
                         bucket_stats: stats_by_bucket[bucket.name],
                     });

@@ -1,14 +1,21 @@
 <!-- Copyright (C) 2016 NooBaa -->
 <div class="card-shadow row pad content-middle">
-    <div class="greedy push-next">
+    <div class="row greedy content-middle push-next">
         <input type="search"
+            class="push-next"
             placeholder="Filter by bucket name"
             ko.textInput="ko.pc(filter, onFilter)"
         />
+        <p class="remark content-middle"
+            ko.visible="isObjectStatsVisible"
+        >
+            <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+            Object count and usage last updated {{objectStatsLastUpdate}}
+        </p>
     </div>
     <button class="btn push-next"
         ko.click="onConnectApplication"
-        ko.enable="bucketsLoaded"
+        ko.enable="dataReady"
     >
         Connect Application
     </button>
@@ -26,7 +33,7 @@
     columns: columns,
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
-    loading: !bucketsLoaded(),
+    loading: !dataReady(),
     emptyMessage: 'The current filter does not match any bucket'
 "></data-table>
 

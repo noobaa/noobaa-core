@@ -1102,13 +1102,19 @@ function get_bucket_info({
     bucket,
     nodes_aggregate_pool,
     hosts_aggregate_pool,
-    num_of_objects,
     func_configs,
     bucket_stats,
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
-    const tiering = tier_server.get_tiering_policy_info(bucket.tiering, tiering_pools_status,
-        nodes_aggregate_pool, hosts_aggregate_pool);
+    const tiering = tier_server.get_tiering_policy_info(
+        bucket.tiering,
+        tiering_pools_status,
+        nodes_aggregate_pool,
+        hosts_aggregate_pool
+    );
+    const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
+    const system_last_update = _.get(bucket, 'system.global.last_update') || config.NOOBAA_EPOCH;
+    const last_update = Math.max(system_last_update, bucket_last_update);
     const info = {
         name: bucket.name,
         namespace: bucket.namespace ? {
@@ -1118,12 +1124,18 @@ function get_bucket_info({
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',
-        num_objects: num_of_objects || 0,
+        num_objects: {
+            value: _.get(bucket, 'storage_stats.objects_count') || 0,
+            last_update
+        },
         writable: false,
         spillover: undefined,
         storage: undefined,
         data: undefined,
-        usage_by_pool: undefined,
+        usage_by_pool: {
+            pools: [],
+            last_update,
+        },
         quota: undefined,
         stats: undefined,
         stats_by_type: [],
@@ -1136,17 +1148,8 @@ function get_bucket_info({
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim
     };
+
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
-
-    const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
-    const system_last_update = _.get(bucket, 'system.global.last_update') || config.NOOBAA_EPOCH;
-    const last_update = Math.max(system_last_update, bucket_last_update);
-    info.usage_by_pool = {
-        pools: {},
-        last_update,
-    };
-
-    info.usage_by_pool.pools = [];
     _.mapKeys(_.get(bucket, 'storage_stats.pools') || {}, function(storage, pool_id) {
         const pool = system_store.data.get_by_id(pool_id);
         if (pool) {

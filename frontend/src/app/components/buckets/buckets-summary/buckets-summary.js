@@ -36,7 +36,7 @@ class BucketsSummaryViewModel extends ConnectableViewModel {
         } else {
             const bucketList = Object.values(buckets);
             const bucketCount = bucketList.length;
-            const objectCount = sumBy(bucketList, bucket => bucket.objectCount);
+            const objectCount = sumBy(bucketList, bucket => bucket.objects.count);
             const dataSize = sumSize(...bucketList.map(bucket => bucket.data.size));
             const reducedSize = sumSize(...bucketList.map(bucket => bucket.data.sizeReduced));
             const savings = fromBigInteger(toBigInteger(dataSize).subtract(reducedSize));

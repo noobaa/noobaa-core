@@ -803,7 +803,16 @@ module.exports = {
                     }
                 },
                 num_objects: {
-                    type: 'integer'
+                    type: 'object',
+                    required: ['value', 'last_update'],
+                    properties: {
+                        value: {
+                            type: 'integer'
+                        },
+                        last_update: {
+                            idate: true
+                        }
+                    }
                 },
                 host_tolerance: {
                     type: 'integer'

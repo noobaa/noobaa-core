@@ -178,17 +178,20 @@ class Dispatcher {
                 log_item, 'obj', OBJECT_POPULATE_FIELDS))
             .then(() => {
                 if (log_item.node) {
-                    l.node = _.pick(log_item.node, 'name');
-                    if (l.node.name) {
-                        l.node.name = `${log_item.node.os_info.hostname}#${log_item.node.host_seq}`;
+                    const { name, pool, os_info, host_seq } = log_item.node;
+                    l.node = {};
+                    if (name) {
                         l.node.linkable = true;
+                        l.node.name = `${os_info.hostname}#${host_seq}`;
+                        l.node.pool = pool;
+
                     } else {
                         l.node.linkable = false;
                     }
                 }
 
                 if (log_item.obj) {
-                    l.obj = _.pick(log_item.obj, 'key');
+                    l.obj = _.pick(log_item.obj, 'key', 'version', 'bucket');
                 }
 
                 if (log_item.server) {
@@ -200,9 +203,14 @@ class Dispatcher {
 
                 return P.resolve(log_item.node && !l.node.linkable && nodes_store.get_hidden_by_id(log_item.node));
             })
-            .then(node => {
+            .then(async node => {
                 if (node) {
-                    l.node.name = `${node.host_name}#${node.host_sequence}`;
+                    const { host_name, host_sequence, pool: pool_id } = node;
+                    const pool = system_store.data.get_by_id(pool_id) ||
+                        await system_store.data.get_by_id_include_deleted(pool_id, 'pools');
+
+                    l.node.name = `${host_name}#${host_sequence}`;
+                    l.node.pool = pool && pool.name;
                 }
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })
@@ -222,7 +230,7 @@ class Dispatcher {
             })
             .then(pool => {
                 if (pool) {
-                    l.pool = _.pick(pool.record, 'name');
+                    l.pool = _.pick(pool.record, 'name', 'resource_type');
                     l.pool.name = l.pool.name.split('#')[0];
                     l.pool.linkable = pool.linkable;
                 }
@@ -231,6 +239,7 @@ class Dispatcher {
             .then(account => {
                 if (account) {
                     l.account = _.pick(account.record, 'email');
+                    l.account.linkable = account.linkable;
                 }
                 return P.resolve(log_item.func && func_store.get_by_id_include_deleted(log_item.func, 'funcs'));
             })
@@ -244,6 +253,7 @@ class Dispatcher {
             .then(actor => {
                 if (actor) {
                     l.actor = _.pick(actor.record, 'email');
+                    l.actor.linkable = actor.linkable;
                 }
                 return log_item;
             });

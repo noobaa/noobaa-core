@@ -15,6 +15,7 @@ import topology from './topology';
 import system from './system';
 import notifications from './notifications';
 import alerts from './alerts';
+import auditLog from './audit-log';
 import drawer from './drawer';
 import modals from './modals';
 import hostParts from './host-parts';
@@ -49,6 +50,7 @@ const schemas = {
     system,
     notifications,
     alerts,
+    auditLog,
     drawer,
     modals,
     hostParts,

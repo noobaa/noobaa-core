@@ -16,6 +16,7 @@ import hostsReducer from './hosts-reducer';
 import accountsReducer from './accounts-reducer';
 import objectUploadsReducer from './object-uploads-reducer';
 import alertsReducer from './alerts-reducer';
+import auditLogReducer from './audit-log-reducer';
 import notificationsReducer from './notificaitons-reducer';
 import topologyReducer from './topology-reducer';
 import hostPartsReducer from './host-parts-reducer';
@@ -43,6 +44,7 @@ export default combineReducers({
     forms: formsReducer,
     notifications: notificationsReducer,
     alerts: alertsReducer,
+    auditLog: auditLogReducer,
     buckets: bucketsReducer,
     namespaceBuckets: namespaceBucketsReducer,
     cloudResources: cloudResourcesReducer,

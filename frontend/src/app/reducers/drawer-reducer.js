@@ -1,7 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
 import { createReducer } from 'utils/reducer-utils';
-import { OPEN_DRAWER, CLOSE_DRAWER } from 'action-types';
+import {
+    OPEN_DRAWER,
+    CLOSE_DRAWER,
+    CHANGE_LOCATION
+} from 'action-types';
 
 // ------------------------------
 // Initial State
@@ -20,11 +24,16 @@ function onCloseDrawer() {
     return initialState;
 }
 
+function onChangeLocation() {
+    return initialState;
+}
+
 // ------------------------------
 // Exported reducer function.
 // ------------------------------
 
 export default createReducer(initialState, {
     [OPEN_DRAWER]: onOpenDrawer,
-    [CLOSE_DRAWER]: onCloseDrawer
+    [CLOSE_DRAWER]: onCloseDrawer,
+    [CHANGE_LOCATION]: onChangeLocation
 });

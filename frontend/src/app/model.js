@@ -22,10 +22,6 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold the audit log
-export const auditLog = ko.observableArray();
-auditLog.loadedCategories = ko.observableArray();
-
 // Hold node test information.
 export const nodeTestInfo = ko.observable();
 

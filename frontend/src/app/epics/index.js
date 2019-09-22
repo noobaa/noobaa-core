@@ -13,9 +13,11 @@ import refresh from './refresh';
 import reactToCreateAccountResult from './react-to-create-account-result';
 import reactToResetAccountPasswordResult from './react-to-reset-account-password-result';
 import updateAccountS3Access from './update-account-s3-access';
-import fetchAlerts from './fetch-alerts';
+import fetchAuditLog from './fetch-audit-log';
+import exportAuditLog from './export-audit-log';
 import updateAlerts from './update-alerts';
 import fetchUnreadAlertsCount from './fetch-unread-alerts-count';
+import fetchAlerts from './fetch-alerts';
 import fetchNodeInstallationCommands from './fetch-node-installation-commands';
 import uploadObjects from './upload-objects';
 import setAccountIpRestrictions from './set-account-ip-restrictions';
@@ -128,10 +130,14 @@ const epics = [
     attachServerToCluster,
     updateServerDetails,
 
-    // Alerts related epicsƒup
+    // Alerts related epics
     fetchAlerts,
     updateAlerts,
     fetchUnreadAlertsCount,
+
+    // Audit log related epics
+    fetchAuditLog,
+    exportAuditLog,
 
     // Account related epics
     createAccount,

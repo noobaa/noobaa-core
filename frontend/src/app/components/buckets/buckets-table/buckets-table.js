@@ -5,6 +5,7 @@ import resourcesColTooltip from './resources-col-tooltip.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import numeral from 'numeral';
+import moment from 'moment';
 import { realizeUri } from 'utils/browser-utils';
 import { toBytes } from 'utils/size-utils';
 import { stringifyAmount, includesIgnoreCase } from 'utils/string-utils';
@@ -46,7 +47,7 @@ const columns = deepFreeze([
         name: 'objectCount',
         label: 'objects',
         sortable: true,
-        compareKey: bucket => bucket.objectCount
+        compareKey: bucket => bucket.objects.count
     },
     {
         name: 'resiliencyPolicy',
@@ -168,7 +169,7 @@ function _mapBucket(bucket, system, selectedForDelete) {
                 breakWords: true
             }
         },
-        objectCount: numeral(bucket.objectCount).format('0,0'),
+        objectCount: numeral(bucket.objects.count).format(','),
         resiliencyPolicy: _mapResiliency(bucket.resiliency),
         resources: _mapResources(bucket, system),
         versioning: getVersioningStateText(bucket.versioning.mode),
@@ -224,16 +225,17 @@ class RowViewModel {
 class BucketsTableViewModel extends ConnectableViewModel {
     columns = columns;
     pathname = '';
-    BucketsTableViewModel
+    dataReady = ko.observable();
     filter = ko.observable();
     sorting = ko.observable();
     page = ko.observable();
     pageSize = ko.observable();
     selectedForDelete = ko.observable();
     bucketCount = ko.observable();
-    bucketsLoaded = ko.observable();
     createBucketTooltip = ko.observable();
     isCreateBucketDisabled = ko.observable();
+    isObjectStatsVisible = ko.observable();
+    objectStatsLastUpdate = ko.observable();
     rows = ko.observableArray()
         .ofType(RowViewModel, { table: this });
 
@@ -253,7 +255,8 @@ class BucketsTableViewModel extends ConnectableViewModel {
         } else if (!buckets) {
             ko.assignToProps(this, {
                 isCreateBucketDisabled: true,
-                bucketsLoaded: false
+                isObjectStatsVisible: false,
+                dataReady: false
             });
 
         } else {
@@ -271,6 +274,10 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 .sort(createCompareFunc(compareKey, order))
                 .slice(page * pageSize, (page + 1) * pageSize)
                 .map(bucket => _mapBucket(bucket, system, selectedForDelete));
+            const objectStatsLastUpdate = Math.max(
+                ...bucketList.map(bucket => bucket.objects.lastUpdate),
+                0
+            );
 
             ko.assignToProps(this, {
                 pathname,
@@ -283,7 +290,9 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 rows,
                 createBucketTooltip,
                 isCreateBucketDisabled: !canCreateBuckets,
-                bucketsLoaded: true
+                isObjectStatsVisible: bucketList.length > 0,
+                objectStatsLastUpdate: moment(objectStatsLastUpdate).fromNow(),
+                dataReady: true
             });
         }
     }

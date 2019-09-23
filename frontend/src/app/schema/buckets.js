@@ -33,7 +33,7 @@ export default {
             'mode',
             'storage',
             'data',
-            'objectCount',
+            'objects',
             'placement',
             'resiliency',
             'versioning',
@@ -89,8 +89,16 @@ export default {
                     }
                 }
             },
-            objectCount: {
-                type: 'integer'
+            objects: {
+                type: 'object',
+                properties: {
+                    count: {
+                        type: 'integer'
+                    },
+                    lastUpdate: {
+                        type: 'integer'
+                    }
+                }
             },
             placement: {
                 type: 'object',

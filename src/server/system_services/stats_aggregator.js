@@ -143,10 +143,13 @@ const PARTIAL_SINGLE_SYS_DEFAULTS = {
 //Aggregate bucket configuration and policies
 function _aggregate_buckets_config(system) {
     let bucket_config = [];
-    const sorted_1k_buckets = system.buckets.sort((bucket_a, bucket_b) => bucket_b.num_objects - bucket_a.num_objects).slice(0, 1000);
+    const sorted_1k_buckets = system.buckets
+        .sort((bucket_a, bucket_b) => bucket_b.num_objects.value - bucket_a.num_objects.value)
+        .slice(0, 1000);
+
     for (const cbucket of sorted_1k_buckets) {
         let current_config = {};
-        current_config.num_objects = cbucket.num_objects;
+        current_config.num_objects = cbucket.num_objects.value;
         current_config.versioning = cbucket.versioning;
         current_config.quota = Boolean(cbucket.quota);
         current_config.tiers = [];

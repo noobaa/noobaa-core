@@ -49,7 +49,10 @@ function _mapBucket(bucket, tiersByName, resTypeByName) {
         storage: mapApiStorage(storage.values, storage.last_update),
         data: _mapData(data),
         quota: _mapQuota(quota_status, quota),
-        objectCount: bucket.num_objects,
+        objects: {
+            count: bucket.num_objects.value,
+            lastUpdate: bucket.num_objects.last_update
+        },
         undeletable: bucket.undeletable,
         placement: _mapPlacement(placementRecords, resTypeByName),
         resiliency: _mapResiliency(resiliency_status, placementRecords[0].tier),

@@ -5,7 +5,7 @@ import { api } from 'services';
 import config from 'config';
 import { last, makeArray } from 'utils/core-utils';
 import { execInOrder } from 'utils/promise-utils';
-import { realizeUri, downloadFile, httpRequest, toFormData } from 'utils/browser-utils';
+import { realizeUri, downloadFile } from 'utils/browser-utils';
 
 // Action dispathers from refactored code.
 import { action$ } from 'state';
@@ -310,50 +310,6 @@ export function abortNodeTest() {
             state: 'ABORTING'
         });
     }
-}
-
-// TODO: Notificaitons - remove message
-export function uploadSSLCertificate(SSLCertificate) {
-    logAction('uploadSSLCertificate', { SSLCertificate });
-
-    const uploadStatus = model.sslCertificateUploadStatus;
-    uploadStatus({
-        state: 'IN_PROGRESS',
-        progress: 0,
-        error: ''
-    });
-
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = function(evt) {
-        uploadStatus.assign({
-            progress: evt.lengthComputable && (evt.loaded / evt.total)
-        });
-    };
-
-    const payload = toFormData({ upload_file: SSLCertificate });
-    httpRequest('/upload_certificate', { verb: 'POST', xhr, payload })
-        .then(
-            evt => { if (evt.target.status !== 200) throw evt; }
-        )
-        .then(
-            () => {
-                uploadStatus.assign ({ state: 'SUCCESS' });
-                notify('SSL cartificate uploaded successfully', 'success');
-            }
-        )
-        .catch(
-            evt => {
-                if (evt.type === 'abort') {
-                    uploadStatus.assign ({ state: 'CANCELED' });
-                    notify('Uploading SSL cartificate canceled', 'info');
-
-                } else {
-                    const error = evt.target.responseText;
-                    uploadStatus.assign ({ state: 'FAILED', error });
-                    notify(`Uploading SSL cartificate failed: ${error}`, 'error');
-                }
-            }
-        );
 }
 
 export function downloadServerDiagnosticPack(secret, hostname) {

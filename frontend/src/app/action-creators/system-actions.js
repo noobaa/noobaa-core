@@ -31,7 +31,11 @@ import {
     FAIL_SET_SYSTEM_DEBUG_LEVEL,
     COLLECT_SYSTEM_DIAGNOSTICS,
     COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
-    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS,
+    UPLOAD_SSL_CERTIFICATE,
+    UPDATE_UPLOAD_SSL_CERTIFICATE,
+    COMPLETE_UPLOAD_SSL_CERTIFICATE,
+    FAIL_UPLOAD_SSL_CERTIFICATE
 } from 'action-types';
 
 export function createSystem(
@@ -250,3 +254,29 @@ export function failCollectSystemDiagnostics(error) {
         payload: { error }
     };
 }
+
+export function uploadSSLCertificate(certBufferKey) {
+    return {
+        type: UPLOAD_SSL_CERTIFICATE,
+        payload: { certBufferKey }
+    };
+}
+
+export function updateUploadSSLCertificate(progress) {
+    return {
+        type: UPDATE_UPLOAD_SSL_CERTIFICATE,
+        payload: { progress }
+    };
+}
+
+export function completeUploadSSLCertificate() {
+    return { type: COMPLETE_UPLOAD_SSL_CERTIFICATE };
+}
+
+export function failUploadSSLCertificate(error) {
+    return {
+        type: FAIL_UPLOAD_SSL_CERTIFICATE,
+        payload: { error }
+    };
+}
+

@@ -1,0 +1,78 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<section>
+    <div class="row content-middle cursor-pointer"
+        ko.click="onToggleSection"
+    >
+        <div class="column greedy">
+            <h2 class="heading3 greedy">
+                SSL Certificate
+            </h2>
+            <section class="row" ko.visible="!isExpanded()">
+                <p ko.visible="isCertInstalled">
+                    Customer SSL certificate installed
+                </p>
+                <p ko.visible="!isCertInstalled()">
+                    Using self-signed SSL certificate
+                </p>
+            </section>
+            <p ko.visible="isExpanded">
+                Please upload a zip containing only two files without any folders, certificate (.cert) and private key (.key) in pem format.
+            </p>
+        </div>
+        <svg-icon class="icon-small rotate push-next-half"
+            ko.css="{ 'deg-90': !isExpanded() }"
+            params="name: 'chevron'"
+        ></svg-icon>
+    </div>
+    <div ko.expand="isExpanded" class="column">
+        <drop-area class="push-prev-half push-next align-left"
+            params="
+                onDrop: onDropCertPkg,
+                active: isCertUploading
+            "
+        >
+            <!-- ko if: isCertUploading -->
+            <p ko.visible="isCertUploading">
+                <svg-icon class="icon-small match-theme spin" params="name: 'in-progress'"></svg-icon>
+                {{uploadText}}
+            </p>
+            <!-- /ko -->
+
+            <!-- ko ifnot: isCertUploading -->
+            <div class="column content-middle">
+                <!-- ko if: isCertInstalled -->
+                <p>A customer provided SSL certificate is installed</p>
+                 <label
+                    class="link alt-colors"
+                    tabindex="0"
+                    ko.keysToClicks="['space', 'enter']"
+                >
+                    Replace with another certificate
+                    <input type="file" class="hide"
+                        tabindex="-1"
+                        ko.attr.accept="sslCertificateSuffix"
+                        ko.event.change="onSelectCrtPkg"
+                    />
+                </label>
+                <!-- /ko -->
+                <!-- ko ifnot: isCertInstalled -->
+                <p class="push-next">Drag an SSL certificate here or</p>
+                <label class="btn alt-colors"
+                    tabindex="0"
+                    ko.keysToClicks="['space', 'enter']"
+                >
+                    Browse
+                    <input type="file"
+                        tabindex="-1"
+                        class="hide"
+                        ko.attr.accept="sslCertificateSuffix"
+                        ko.event.change="onSelectCrtPkg"
+                    />
+                </label>
+                <!-- /ko -->
+            </div>
+            <!-- /ko -->
+        </drop-area>
+    </div>
+</section>

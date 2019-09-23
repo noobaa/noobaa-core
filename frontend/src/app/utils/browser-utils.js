@@ -4,6 +4,8 @@ import { isUndefined, runAsync } from './core-utils';
 import { toCammelCase, toDashedCase, randomString } from './string-utils';
 import { sleep } from './promise-utils';
 
+export const XMLHttpRequest = global.XMLHttpRequest;
+
 export function parseQueryString(str) {
     return str
         .replace(/(^\?)/,'')
@@ -117,7 +119,11 @@ export function recognizeBrowser() {
 export function toFormData(payload) {
     return Object.entries(payload).reduce(
         (formData, [ key, value ]) => {
-            formData.append(key, value);
+            if (value.constructor === Blob) {
+                formData.append(key, value, key);
+            } else {
+                formData.append(key, value);
+            }
             return formData;
         },
         new FormData()

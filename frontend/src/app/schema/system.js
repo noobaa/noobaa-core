@@ -35,7 +35,18 @@ export default {
             type: 'integer'
         },
         sslCert: {
-            type: 'object'
+            type: 'object',
+            required: [
+                'installed'
+            ],
+            properties: {
+                installed: {
+                    type: 'boolean'
+                },
+                uploadProgress: {
+                    type: 'number'
+                }
+            }
         },
         upgrade: {
             type: 'object',

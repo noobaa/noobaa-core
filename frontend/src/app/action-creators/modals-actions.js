@@ -831,5 +831,21 @@ export function openCloudConnectionUpdateWarningModal(accountName, connectionNam
         }
     };
 }
+
+export function openCompleteSSLCertificateInstallationModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: 'complete-ssl-certificate-installation-modal',
+            options: {
+                title: 'SSL Certificate Uploaded Successfully',
+                size: 'xsmall',
+                severity: 'success',
+                closeButton: 'hidden',
+                backdropClose: false
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

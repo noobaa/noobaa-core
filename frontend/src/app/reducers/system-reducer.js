@@ -8,7 +8,11 @@ import {
     FAIL_FETCH_VERSION_RELEASE_NOTES,
     COLLECT_SYSTEM_DIAGNOSTICS,
     COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
-    FAIL_COLLECT_SYSTEM_DIAGNOSTICS
+    FAIL_COLLECT_SYSTEM_DIAGNOSTICS,
+    UPLOAD_SSL_CERTIFICATE,
+    UPDATE_UPLOAD_SSL_CERTIFICATE,
+    COMPLETE_UPLOAD_SSL_CERTIFICATE,
+    FAIL_UPLOAD_SSL_CERTIFICATE
 } from 'action-types';
 
 // ------------------------------
@@ -37,7 +41,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         dnsName: payload.dns_name,
         ipAddress: payload.ip_address,
         sslPort: Number(payload.ssl_port),
-        sslCert: payload.has_ssl_cert ? {} : undefined,
+        sslCert: _mapSSLCert(state, Boolean(payload.has_ssl_cert)),
         upgrade: _mapUpgrade(payload),
         p2pSettings: _mapP2PSettings(payload),
         phoneHome:_mapPhoneHome(payload),
@@ -130,9 +134,54 @@ function onFailCollectSystemDiagnostics(state) {
     };
 }
 
+function onUploadCertificate(state) {
+    return {
+        ...state,
+        sslCert: {
+            ...state.sslCert,
+            uploadProgress: 0
+        }
+    };
+}
+
+function onUpdateUploadCertificate(state, { payload }) {
+    return {
+        ...state,
+        sslCert: {
+            ...state.sslCert,
+            uploadProgress: payload.progress
+        }
+    };
+}
+
+function onCompleteUploadCertificate(state) {
+    const { uploadProgress, ...sslCert } = state.sslCert;
+    return {
+        ...state,
+        sslCert
+    };
+}
+
+function onFailUploadCertificate(state) {
+    const { uploadProgress, ...sslCert } = state.sslCert;
+    return {
+        ...state,
+        sslCert
+    };
+}
+
+
+
 // ------------------------------
 // Local util functions
 // ------------------------------
+function _mapSSLCert(state, isCertInstalled) {
+    return {
+        ...(state ? state.sslCert : {}),
+        installed: isCertInstalled
+    };
+}
+
 function _mapUpgrade(payload) {
     const { last_upgrade } = payload.upgrade;
 
@@ -190,5 +239,9 @@ export default createReducer(initialState, {
     [FAIL_FETCH_VERSION_RELEASE_NOTES]: onFailFetchVersionReleaseNotes,
     [COLLECT_SYSTEM_DIAGNOSTICS]: onCollectSystemDiagnostics,
     [COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS]: onCompleteCollectSystemDiagnostics,
-    [FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: onFailCollectSystemDiagnostics
+    [FAIL_COLLECT_SYSTEM_DIAGNOSTICS]: onFailCollectSystemDiagnostics,
+    [UPLOAD_SSL_CERTIFICATE]: onUploadCertificate,
+    [UPDATE_UPLOAD_SSL_CERTIFICATE]: onUpdateUploadCertificate,
+    [COMPLETE_UPLOAD_SSL_CERTIFICATE]: onCompleteUploadCertificate,
+    [FAIL_UPLOAD_SSL_CERTIFICATE]: onFailUploadCertificate
 });

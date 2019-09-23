@@ -513,6 +513,11 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPLOAD_SSL_CERTIFICATE]: ({ error }) => ({
         message: `Uploading SSL cartificate failed: ${error.message}`,
         severity: 'error'
+    }),
+
+    [types.FAIL_EXPORT_AUDIT_LOG]: () => ({
+        message: 'Exporting audit log failed',
+        severity: 'error'
     })
 });
 

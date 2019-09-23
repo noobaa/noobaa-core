@@ -3,7 +3,7 @@
 import * as model from 'model';
 import { api } from 'services';
 import config from 'config';
-import { last, makeArray } from 'utils/core-utils';
+import { makeArray } from 'utils/core-utils';
 import { execInOrder } from 'utils/promise-utils';
 import { realizeUri, downloadFile } from 'utils/browser-utils';
 
@@ -83,79 +83,6 @@ export async function loadServerInfo(testPhonehomeConnectvity) {
             config: config
         });
     }
-}
-
-export function loadAuditEntries(categories, count) {
-    logAction('loadAuditEntries', { categories, count });
-
-    const auditLog = model.auditLog;
-    const filter = categories
-        .map(
-            category => `(^${category}.)`
-        )
-        .join('|');
-
-    if (filter !== '') {
-        api.events.read_activity_log({
-            event: filter || '^$',
-            limit: count
-        })
-            .then(
-                ({ logs }) => {
-                    auditLog(logs);
-                    auditLog.loadedCategories(categories);
-                }
-            )
-            .done();
-
-    } else {
-        auditLog([]);
-        auditLog.loadedCategories([]);
-    }
-}
-
-export function loadMoreAuditEntries(count) {
-    logAction('loadMoreAuditEntries', { count });
-
-    const auditLog = model.auditLog;
-    const lastEntryTime = last(auditLog()).time;
-    const filter = model.auditLog.loadedCategories()
-        .map(
-            category => `(^${category}.)`
-        )
-        .join('|');
-
-    if (filter !== '') {
-        api.events.read_activity_log({
-            event: filter,
-            till: lastEntryTime,
-            limit: count
-        })
-            .then(
-                ({ logs }) => auditLog.push(...logs)
-            )
-            .done();
-    }
-}
-
-export function exportAuditEnteries(categories) {
-    logAction('exportAuditEnteries', { categories });
-
-    const filter = categories
-        .map(
-            category => `(^${category}.)`
-        )
-        .join('|');
-
-    api.events.export_activity_log({ event: filter || '^$' })
-        .catch(
-            err => {
-                notify('Exporting activity log failed', 'error');
-                throw err;
-            }
-        )
-        .then(downloadFile)
-        .done();
 }
 
 // -----------------------------------------------------

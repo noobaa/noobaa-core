@@ -1,97 +1,257 @@
 /* Copyright (C) 2016 NooBaa */
 
 import template from './audit-pane.html';
-import AuditRowViewModel from './audit-row';
-import BaseViewModel from 'components/base-view-model';
+import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { auditLog } from 'model';
-import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries } from 'actions';
-import categories from './categories';
-import { deepFreeze } from 'utils/core-utils';
-import { infinitScrollPageSize as pageSize } from 'config';
+import eventDisplayNames from './event-display-names';
+import moment from 'moment';
+import { deepFreeze, last } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
+import { timeShortFormat, infinitScrollPageSize } from 'config';
+import * as routes from 'routes';
+import {
+    closeDrawer,
+    fetchAuditLog,
+    exportAuditLog,
+    dropAuditLog,
+    selectAuditRecord
+} from 'action-creators';
+
+const categoryDisplayNames = deepFreeze({
+    node: 'Nodes',
+    obj: 'Objects',
+    bucket: 'Buckets',
+    account: 'Accounts',
+    resource:'Resources',
+    dbg: 'Debug',
+    cluster: 'Cluster',
+    functions: 'Functions',
+    conf: 'Configuration'
+});
+
+const categoryOptions = Object.entries(categoryDisplayNames)
+    .map(pair => ({ value: pair[0], label: pair[1] }));
 
 const columns = deepFreeze([
-    'time',
-    'account',
-    'category',
-    'event',
-    'entity'
+    {
+        name: 'time'
+    },
+    {
+        name: 'account',
+        type: 'link'
+    },
+    {
+        name: 'category'
+    },
+    {
+        name: 'event'
+    },
+    {
+        name: 'entity',
+        type: 'link'
+    }
 ]);
 
-class AuditPaneViewModel extends BaseViewModel {
-    constructor({ onClose }) {
-        super();
+const exportTooltip = deepFreeze({
+    text: 'Export as CSV',
+    align: 'end'
+});
 
-        this.onClose = onClose;
-        this.categories = Object.keys(categories).map(
-            key => ({
-                value: key,
-                label: categories[key].displayName
-            })
-        );
+function _mapEntity(entity, system) {
+    if (!entity) {
+        return { text: '---' };
+    }
 
-        this.selectedCategories = ko.pureComputed({
-            read: auditLog.loadedCategories,
-            write: categoryList => {
-                this.selectedRow(null);
-                loadAuditEntries(categoryList, pageSize);
+    switch (entity.kind) {
+        case 'node': {
+            const { linkable, name: host, pool } = entity;
+            return {
+                text: host.split('#')[0],
+                href: linkable ? realizeUri(routes.host, { system, pool, host }) : ''
+            };
+        }
+        case 'object': {
+            const { linkable, key: object, bucket, version  } = entity;
+            return {
+                text: object,
+                href: linkable ? realizeUri(routes.object, { bucket, object, version }) : ''
+            };
+        }
+        case 'bucket': {
+            const { linkable, name: bucket } = entity;
+            return {
+                text: bucket,
+                href: linkable ? realizeUri(routes.bucket, { system, bucket }) : ''
+            };
+        }
+        case 'account': {
+            const { linkable, name: account } = entity;
+            return {
+                text: account,
+                href: linkable ? realizeUri(routes.account, { system, account }) : ''
+            };
+        }
+        case 'resource': {
+            const { linkable, name, resourceType } = entity;
+            if (!linkable) {
+                return { text: name };
+
+            } else {
+                return {
+                    text: name,
+                    href: (
+                        (resourceType === 'HOSTS' && realizeUri(routes.pool, { system, pool: name })) ||
+                        (resourceType === 'CLOUD' && realizeUri(routes.cloudResource, { system, resource: name })) ||
+                        ''
+                    )
+                };
             }
-        });
+        }
+        case 'server': {
+            const { linkable, name: server } = entity;
+            return {
+                text: server,
+                href: linkable ? realizeUri(routes.server, { system, server }) : ''
+            };
 
-        this.columns = columns;
-        this.entries = auditLog;
-        this.isLoading = false;
-        this.addToDisposeList(
-            this.entries.subscribe(
-                () => {
-                    this.scroll(1 - pageSize/this.entries().length);
-                    this.isLoading = false;
-                }
-            )
-        );
+        }
+        case 'function': {
+            const { linkable, name: func } = entity;
+            return {
+                text: func,
+                href: linkable ? realizeUri(routes.func, { system, func }) : ''
+            };
+        }
+    }
+}
 
-        let _scroll = ko.observable(0);
-        this.scroll = ko.pureComputed({
-            read: _scroll,
-            write: pos => {
-                _scroll(pos);
-                const maxPos = 1 - 1/this.entries().length;
-                if (!this.isLoading && (pos > maxPos)){
-                    this.isLoading = true;
-                    loadMoreAuditEntries(pageSize);
-                }
-            }
-        });
+function _mapItemToRow(item, system) {
+    const { time, actor, category, event, entity, id } = item;
+    const account = {
+        text: actor ? actor.name : '---',
+        href: (actor && actor.linkable) ?
+            realizeUri(routes.account, { system, account: actor.name }) :
+            ''
+    };
 
-        this.selectedRow = ko.observable();
+    return {
+        id,
+        time: moment(time).format(timeShortFormat),
+        account,
+        category: categoryDisplayNames[category],
+        event: eventDisplayNames[`${category}.${event}`] || '',
+        entity: _mapEntity(entity, system)
+    };
+}
 
-        this.description = ko.pureComputed(
-            () => this.selectedRow() && this.selectedRow().description()
-        );
+class EventRowViewModel {
+    id = '';
+    time = ko.observable();
+    account = ko.observable();
+    category = ko.observable();
+    event = ko.observable()
+    entity = ko.observable();
+}
 
-        this.selectedCategories(Object.keys(categories));
+class AuditPaneViewModel extends ConnectableViewModel {
+    categoryOptions = categoryOptions;
+    columns = columns;
+    exportTooltip = exportTooltip;
+    selectedCategories = ko.observableArray();
+    loadState = ko.observable();
+    oldestTimestamp = 0;
+    desc = ko.observable();
+    rows = ko.observableArray()
+        .ofType(EventRowViewModel);
+
+    constructor(...args) {
+        super(...args);
+
+        this.dispatch(fetchAuditLog(
+            { categories: Object.keys(categoryDisplayNames) },
+            infinitScrollPageSize
+        ));
+    }
+
+    selectState(state) {
+        const { auditLog, location } = state;
+        return [
+            auditLog,
+            location.params.system
+        ];
+    }
+
+    mapStateToProps(auditLog, system) {
+        if (!auditLog) {
+            ko.assignToProps(this, {
+                isLoading: true,
+                desc: ''
+            });
+
+        } else {
+            const { loading, loadError, endOfList, categories, list, selectedRecord } = auditLog;
+            const loadState =
+                (loading > 0 && 'LOADING') ||
+                (loadError && 'LOAD_ERROR') ||
+                (endOfList && 'ALL_LOADED') ||
+                'IDEL';
+            const { desc } = selectedRecord ?
+                list.find(record => record.id === selectedRecord) :
+                { desc: '' };
+
+            ko.assignToProps(this, {
+                dataReady: true,
+                loadState,
+                oldestTimestamp: list.length > 0 ? last(list).time : Date.now(),
+                selectedCategories: categories,
+                desc,
+                rows: list.map(item => _mapItemToRow(item, system))
+            });
+        }
     }
 
     onX() {
-        this.onClose();
+        this.dispatch(closeDrawer());
     }
 
-    createAuditRow(auditEntry) {
-        return new AuditRowViewModel(auditEntry, this.selectedRow);
-    }
-
-    selectAllCategories() {
-        this.selectedCategories(
-            Object.keys(categories)
+    onSelectAllCategories() {
+        this.onSelectCategories(
+            Object.keys(categoryDisplayNames)
         );
     }
 
-    clearAllCategories() {
-        this.selectedCategories([]);
+    onClearAllCategories() {
+        this.onSelectCategories([]);
     }
 
-    exportToCSV() {
-        exportAuditEnteries(this.selectedCategories());
+    onSelectCategories(categories) {
+        this.dispatch(fetchAuditLog( { categories }, infinitScrollPageSize));
+    }
+
+    onSelectedRecord(recordId) {
+        this.dispatch(selectAuditRecord(recordId));
+    }
+
+    onScroll(scrollPos) {
+        const loadMoreScrollBound = 1 - (1 / this.rows().length);
+        const categories = this.selectedCategories();
+        if (this.loadState() === 'IDEL' && scrollPos > loadMoreScrollBound) {
+            this.dispatch(fetchAuditLog( { categories }, infinitScrollPageSize, this.oldestTimestamp));
+        }
+    }
+
+    onRetryLoad() {
+        const categories =  this.selectedCategories();
+        this.dispatch(fetchAuditLog( { categories }, infinitScrollPageSize, this.oldestTimestamp));
+    }
+
+    onExportToCSV() {
+        this.dispatch(exportAuditLog(this.selectedCategories()));
+    }
+
+    dispose() {
+        this.dispatch(dropAuditLog());
+        super.dispose();
     }
 }
 

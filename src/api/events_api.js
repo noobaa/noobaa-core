@@ -77,6 +77,9 @@ module.exports = {
                                         name: {
                                             type: 'string'
                                         },
+                                        pool: {
+                                            type: 'string'
+                                        },
                                         linkable: {
                                             type: 'boolean'
                                         },
@@ -99,6 +102,9 @@ module.exports = {
                                         name: {
                                             type: 'string'
                                         },
+                                        resource_type: {
+                                            $ref: 'pool_api#/definitions/resource_type'
+                                        },
                                         linkable: {
                                             type: 'boolean'
                                         },
@@ -108,9 +114,16 @@ module.exports = {
                                     type: 'object',
                                     required: ['key'],
                                     properties: {
+                                        bucket: {
+                                            type: 'string'
+                                        },
                                         key: {
                                             type: 'string'
+                                        },
+                                        version: {
+                                            type: 'string'
                                         }
+
                                     }
                                 },
                                 account: {
@@ -118,6 +131,9 @@ module.exports = {
                                     required: ['email'],
                                     properties: {
                                         email: { $ref: 'common_api#/definitions/email' },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 server: {
@@ -148,6 +164,9 @@ module.exports = {
                                     required: ['email'],
                                     properties: {
                                         email: { $ref: 'common_api#/definitions/email' },
+                                        linkable: {
+                                            type: 'boolean'
+                                        },
                                     }
                                 },
                                 desc: {

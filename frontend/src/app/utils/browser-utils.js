@@ -89,7 +89,6 @@ export function downloadFile(url, name = '') {
     link.href = url;
     body.appendChild(link);
     link.click();
-
     runAsync(() => body.removeChild(link));
 }
 

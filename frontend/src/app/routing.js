@@ -1,41 +1,31 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { mapValues, noop } from 'utils/core-utils';
+import { mapValues  } from 'utils/core-utils';
 import { parseQueryString } from 'utils/browser-utils';
 import * as routes from 'routes';
-import * as actions from 'actions';
 import { action$ } from 'state';
-import { sessionInfo } from 'model';
 import { changeLocation } from 'action-creators';
 
 const protocol = global.location.protocol.slice(0, -1);
 const hostname = global.location.hostname;
 
 // Register a route handler
-function registerRouteHandler(page, route, extra = noop) {
-    page(
-        route,
-        ctx => {
-            const query = parseQueryString(ctx.querystring);
-            const { ['0']: _, ...params } = ctx.params;
-            const decodedParams = mapValues(params, p => p && decodeURIComponent(p));
+function registerRouteHandler(page, route) {
+    page(route, ctx => {
+        const query = parseQueryString(ctx.querystring);
+        const { ['0']: _, ...params } = ctx.params;
+        const decodedParams = mapValues(params, p => p && decodeURIComponent(p));
 
-            // Update state about location:
-            action$.next(changeLocation({
-                protocol,
-                hostname,
-                pathname: ctx.pathname,
-                route: route !== '*' ? route : undefined,
-                params: decodedParams,
-                query
-            }));
-
-            // Do extra work if authorized
-            if (sessionInfo() && !sessionInfo().passwordExpired) {
-                extra();
-            }
-        }
-    );
+        // Update state about location:
+        action$.next(changeLocation({
+            protocol,
+            hostname,
+            pathname: ctx.pathname,
+            route: route !== '*' ? route : undefined,
+            params: decodedParams,
+            query
+        }));
+    });
 }
 
 export default function routing(page) {
@@ -56,7 +46,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.cluster);
     registerRouteHandler(page, routes.server);
     registerRouteHandler(page, routes.funcs);
-    registerRouteHandler(page, routes.func, actions.showFunc);
+    registerRouteHandler(page, routes.func);
     registerRouteHandler(page, routes.analytics);
 
     // Catch unknown routes handler

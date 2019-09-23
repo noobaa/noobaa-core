@@ -11,10 +11,21 @@
     }
 
     .category-filter {
-        height: 100px;
+        height: 130px;
     }
 
     .audit-table {
+        background: transparent;
+        display: unset;
+        position: unset;
+
+        table {
+            display: table;
+        }
+
+        th {
+            background-color: rgb(var(--color03));
+        }
         .main-row {
             height: 54px;
 
@@ -56,7 +67,6 @@
         }
 
         .entity-col {
-            text-align: left;
             width: 100%;
             max-width: 200px;
             word-wrap: break-word;

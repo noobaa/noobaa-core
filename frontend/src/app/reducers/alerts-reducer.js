@@ -82,7 +82,7 @@ function onFailFetchAlerts(state, { payload }) {
 function onUpdateAlerts(state, { payload }) {
     const { query } = payload;
     const list = state.list.map(
-        item => _matchs(item, query) ?
+        item => _matches(item, query) ?
             { ...item, updating: true } :
             item
     );
@@ -93,7 +93,7 @@ function onUpdateAlerts(state, { payload }) {
 function onCompleteUpdateAlerts(state, { payload }) {
     const { query, read } = payload;
     const list = state.list.map(
-        item => _matchs(item, query) ?
+        item => _matches(item, query) ?
             { ...item, updating: false, read: read } :
             item
     );
@@ -104,7 +104,7 @@ function onCompleteUpdateAlerts(state, { payload }) {
 function onFailUpdateAlerts(state, { payload }) {
     const { query } = payload;
     const list = state.list.map(
-        item => _matchs(item, query) ?
+        item => _matches(item, query) ?
             { ...item, updating: false } :
             item
     );
@@ -124,7 +124,7 @@ function onDropAlerts(state) {
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _matchs(item, { ids, severity, read }) {
+function _matches(item, { ids, severity, read }) {
     return true &&
         (isUndefined(ids) || ids.includes(item.id)) &&
         (isUndefined(severity) || item.severity === severity) &&

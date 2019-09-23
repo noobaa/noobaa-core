@@ -39,6 +39,9 @@ export default {
         alerts: {
             $ref: '#/def/alerts'
         },
+        auditLog: {
+            $ref: '#/def/auditLog'
+        },
         drawer: {
             $ref: '#/def/drawer'
         },

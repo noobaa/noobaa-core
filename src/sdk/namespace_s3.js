@@ -11,6 +11,7 @@ const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const blob_translator = require('./blob_translator');
 const stats_collector = require('./endpoint_stats_collector');
+const config = require('../../config');
 
 class NamespaceS3 {
 
@@ -121,9 +122,9 @@ class NamespaceS3 {
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
-            const request = { Key: params.key };
+            const request = { Key: params.key, Range: `bytes=0-${config.INLINE_MAX_SIZE - 1}` };
             this._assign_encryption_to_request(params, request);
-            const res = await this.s3.headObject(request).promise();
+            const res = await this.s3.getObject(request).promise();
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
@@ -518,7 +519,8 @@ class NamespaceS3 {
             delete_marker: res.DeleteMarker,
             content_type: res.ContentType,
             xattr,
-            tag_count: res.TagCount
+            tag_count: res.TagCount,
+            first_range_data: res.Body,
         };
     }
 

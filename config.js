@@ -426,3 +426,9 @@ try {
 //////////////////////////////
 
 config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
+
+///////////////////////////////
+// FILES RELATED             //
+///////////////////////////////
+
+config.INLINE_MAX_SIZE = 4096;

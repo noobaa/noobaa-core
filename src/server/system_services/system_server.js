@@ -526,7 +526,7 @@ function read_system(req) {
                     account: _.pick(account, 'name', 'email')
                 };
             }).filter(account => !_.isUndefined),
-            buckets: _.map(system.buckets_by_name,
+            buckets: _.filter(system.buckets_by_name, bucket => _.isUndefined(bucket.deleting)).map(
                 bucket => {
                     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
                     Object.assign(tiering_status_by_tier, tiering_pools_status);

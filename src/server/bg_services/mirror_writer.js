@@ -176,11 +176,14 @@ class MirrorWriter {
 
     _get_mirrored_buckets() {
         // return buckets that has at least one tier with more than 1 mirror set
-        return system_store.data.buckets.filter(bucket =>
-            bucket.tiering.tiers.some(tier => tier.tier.mirrors.length > 1)).map(bucket => ({
-            name: bucket.name,
-            _id: MDStore.instance().make_md_id(bucket._id),
-        }));
+        return system_store.data.buckets
+            .filter(bucket =>
+                _.isUndefined(bucket.deleting) &&
+                bucket.tiering.tiers.some(tier => tier.tier.mirrors.length > 1))
+            .map(bucket => ({
+                name: bucket.name,
+                _id: MDStore.instance().make_md_id(bucket._id),
+            }));
     }
 
     _handle_build_errors(chunk_ids) {

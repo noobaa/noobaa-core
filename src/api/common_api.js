@@ -312,8 +312,9 @@ module.exports = {
                 'SYSTEM_ENTITY',
                 'NOT_EMPTY',
                 'IN_USE',
-            'DEFAULT_RESOURCE',
-                'BEING_DELETED'
+                'CONNECTED_BUCKET_DELETING',
+                'DEFAULT_RESOURCE',
+                'BEING_DELETED',
             ],
             type: 'string',
         },

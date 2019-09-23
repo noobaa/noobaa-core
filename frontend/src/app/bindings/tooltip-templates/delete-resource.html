@@ -12,6 +12,10 @@
 <p class="highlight">Cannot delete a {{subject}} that is assigned to a bucket policy</p>
 <!-- /ko -->
 
+<!-- ko if: reason === 'CONNECTED_BUCKET_DELETING' -->
+<p class="highlight">Cannot delete a {{subject}} that is assigned to a bucket which is being deleted</p>
+<!-- /ko -->
+
 <!-- ko if: reason === 'DEFAULT_RESOURCE' && accounts.length === 1 -->
 <p class="highlight">
     Cannot delete. The {{subject}} is used as a default resource by

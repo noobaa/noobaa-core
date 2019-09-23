@@ -19,14 +19,19 @@ class SensitiveString {
         } else {
             throw new TypeError(`SensitiveString should be a string, got ${type}`);
         }
+        if (process.env.DISABLE_SENSITIVE_STRING === 'true') {
+            this.sensitive_val = this.val;
+        } else {
+            this.sensitive_val = 'SENSITIVE-' + this.md5;
+        }
     }
 
     [util.inspect.custom]() {
-        return 'SENSITIVE-' + this.md5;
+        return this.sensitive_val;
     }
 
     toString() {
-        return 'SENSITIVE-' + this.md5;
+        return this.sensitive_val;
     }
 
     toJSON() {

@@ -23,6 +23,12 @@ async function background_worker() {
     );
 }
 
+// returns all buckets from system storewhich are not in deleting state
+function get_buckets(system_store) {
+    return system_store.data.buckets.filter(b => !b.deleting);
+}
+
+
 async function run_md_aggregator(md_store, system_store, target_now, delay) {
 
     if (!system_store.is_finished_initial_load) {
@@ -40,7 +46,7 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
 
     const md_local_store = {
         data: {
-            buckets: _.clone(system_store.data.buckets),
+            buckets: _.clone(get_buckets(system_store)),
             pools: _.clone(system_store.data.pools),
         }
     };
@@ -93,7 +99,8 @@ function find_minimal_range({
     let till_time = target_now;
     let should_reset_all = false;
 
-    _.forEach(system_store.data.buckets, bucket => {
+    _.forEach(get_buckets(system_store), bucket => {
+        if (bucket.deleting) return;
         const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
         const last_update = global_last_update > bucket_last_update ? global_last_update : bucket_last_update;
         if (last_update > target_now) {
@@ -150,7 +157,7 @@ function find_next_range({
         'target_now*', target_now - from_time,
         'global_last_update', global_last_update,
     );
-    _.forEach(system_store.data.buckets, bucket => {
+    _.forEach(get_buckets(system_store), bucket => {
         const bucket_last_update = _.get(bucket, 'storage_stats.last_update') || config.NOOBAA_EPOCH;
         const last_update = bucket_last_update > global_last_update ? bucket_last_update : global_last_update;
         dbg.log1('find_next_range: bucket', bucket.name,
@@ -179,7 +186,7 @@ function find_next_range({
                     _id: original_system_store.data.systems[0]._id,
                     global_last_update: config.NOOBAA_EPOCH,
                 }],
-                buckets: _.map(system_store.data.buckets, bucket => ({
+                buckets: _.map(get_buckets(system_store), bucket => ({
                     _id: bucket._id,
                     storage_stats: {
                         last_update: config.NOOBAA_EPOCH,
@@ -238,7 +245,7 @@ function range_md_aggregator({
     const till_time = range.till_time;
     let more_updates = false;
 
-    const filtered_buckets = _.filter(system_store.data.buckets, bucket => bucket.storage_stats.last_update <= from_time);
+    const filtered_buckets = _.filter(get_buckets(system_store), bucket => bucket.storage_stats.last_update <= from_time);
     const filtered_pools = _.filter(system_store.data.pools, pool => pool.storage_stats.last_update <= from_time);
     if (filtered_buckets.length > config.MD_AGGREGATOR_BATCH || filtered_pools.length > config.MD_AGGREGATOR_BATCH) {
         more_updates = true;

@@ -200,7 +200,7 @@ async function create_bucket(req) {
  */
 async function get_bucket_tagging(req) {
     dbg.log0('get_bucket_tagging:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     return {
         tagging: bucket.tagging,
     };
@@ -214,7 +214,7 @@ async function get_bucket_tagging(req) {
  */
 async function put_bucket_tagging(req) {
     dbg.log0('put_bucket_tagging:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -233,7 +233,7 @@ async function put_bucket_tagging(req) {
  */
 async function delete_bucket_tagging(req) {
     dbg.log0('delete_bucket_tagging:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -246,7 +246,7 @@ async function delete_bucket_tagging(req) {
 
 async function get_bucket_encryption(req) {
     dbg.log0('get_bucket_encryption:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     return {
         encryption: bucket.encryption,
     };
@@ -255,7 +255,7 @@ async function get_bucket_encryption(req) {
 
 async function put_bucket_encryption(req) {
     dbg.log0('put_bucket_encryption:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -269,7 +269,7 @@ async function put_bucket_encryption(req) {
 
 async function delete_bucket_encryption(req) {
     dbg.log0('delete_bucket_encryption:', req.rpc_params);
-    const bucket = find_bucket(req, req.rpc_params.name);
+    const bucket = find_bucket(req);
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -591,62 +591,96 @@ function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
     );
 }
 
+
+async function delete_bucket_and_objects(req) {
+    var bucket = find_bucket(req);
+
+    // fail on namespace bucket
+    if (bucket.namespace) {
+        throw new RpcError('BAD_REQUEST', 'cannot perform delete_bucket_and_objects on namespace bucket');
+    }
+    const now = new Date();
+    // mark the bucket as deleting. it will be excluded from system_store indexes 
+    // rename the bucket to prevent collisions if the a new bucket with the same name is created immediately.
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $set: {
+                    name: `${bucket.name.unwrap()}-deleting-${now.getTime()}`,
+                    deleting: now
+                }
+            }]
+        }
+    });
+
+    const req_account = req.account &&
+        (req.account.email.unwrap() === config.OPERATOR_ACCOUNT_EMAIL ?
+            'NooBaa operator' :
+            req.account.email.unwrap());
+    Dispatcher.instance().activity({
+        event: 'bucket.delete',
+        level: 'info',
+        system: req.system._id,
+        bucket: bucket._id,
+        desc: `The bucket "${bucket.name.unwrap()}" and its content were deleted by ${req_account}`,
+    });
+}
+
 /**
  *
  * DELETE_BUCKET
  *
  */
-function delete_bucket(req) {
+async function delete_bucket(req) {
     var bucket = find_bucket(req);
     // TODO before deleting tier and tiering_policy need to check they are not in use
     let tiering_policy = bucket.tiering;
-    return can_delete_bucket(req.system, bucket)
-        .then(reason => {
-            if (reason) {
-                throw new RpcError(reason, 'Cannot delete bucket');
-            }
-            Dispatcher.instance().activity({
-                event: 'bucket.delete',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                bucket: bucket._id,
-                desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
-            });
-            return system_store.make_changes({
-                remove: {
-                    buckets: [bucket._id],
-                    tieringpolicies: [tiering_policy._id],
-                    tiers: _.compact(_.map(tiering_policy.tiers, tier_and_order => {
-                        const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
-                            .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
-                        if (_.isEmpty(associated_tiering_policies)) {
-                            return tier_and_order.tier._id;
-                        }
-                    }))
+    const reason = await can_delete_bucket(req.system, bucket);
+    if (reason) {
+        throw new RpcError(reason, 'Cannot delete bucket');
+    }
+    if (!req.rpc_params.internal_call) {
+        Dispatcher.instance().activity({
+            event: 'bucket.delete',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: bucket._id,
+            desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
+        });
+    }
+    await system_store.make_changes({
+        remove: {
+            buckets: [bucket._id],
+            tieringpolicies: [tiering_policy._id],
+            tiers: _.compact(_.map(tiering_policy.tiers, tier_and_order => {
+                const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
+                    .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
+                if (_.isEmpty(associated_tiering_policies)) {
+                    return tier_and_order.tier._id;
                 }
-            });
-        })
-        .then(() => {
-            const accounts_update = _.compact(_.map(system_store.data.accounts,
-                account => {
-                    if (!account.allowed_buckets ||
-                        (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
-                    return {
-                        _id: account._id,
-                        $pullAll: {
-                            'allowed_buckets.permission_list': [bucket._id]
-                        }
-                    };
-                }));
+            }))
+        }
+    });
 
-            return system_store.make_changes({
-                update: {
-                    accounts: accounts_update
+    const accounts_update = _.compact(_.map(system_store.data.accounts,
+        account => {
+            if (!account.allowed_buckets ||
+                (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
+            return {
+                _id: account._id,
+                $pullAll: {
+                    'allowed_buckets.permission_list': [bucket._id]
                 }
-            });
-        })
-        .return();
+            };
+        }));
+
+    await system_store.make_changes({
+        update: {
+            accounts: accounts_update
+        }
+    });
 }
 
 /**
@@ -693,7 +727,7 @@ function delete_bucket_lifecycle(req) {
 function list_buckets(req) {
     var buckets_by_name = _.filter(
         req.system.buckets_by_name,
-        bucket => req.has_s3_bucket_permission(bucket)
+        bucket => req.has_s3_bucket_permission(bucket) && !bucket.deleting
     );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {
@@ -1435,6 +1469,7 @@ exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
+exports.delete_bucket_and_objects = delete_bucket_and_objects;
 exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
 exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
 exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;

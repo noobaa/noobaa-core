@@ -51,7 +51,7 @@ class TieringTTFWorker {
     }
 
     _get_multi_tiered_buckets() {
-        return system_store.data.buckets.filter(bucket => bucket.tiering.tiers.length > 1);
+        return system_store.data.buckets.filter(bucket => _.isUndefined(bucket.deleting) && bucket.tiering.tiers.length > 1);
     }
 
     async _rebuild_need_to_move_chunks(buckets) {

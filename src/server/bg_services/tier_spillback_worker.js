@@ -48,7 +48,9 @@ class TieringSpillbackWorker {
     }
 
     _get_spillback_buckets() {
-        return system_store.data.buckets.filter(bucket => _.some(bucket.tiering.tiers, t => t.spillover));
+        return system_store.data.buckets.filter(bucket =>
+            _.isUndefined(bucket.deleting) &&
+            _.some(bucket.tiering.tiers, t => t.spillover));
     }
 
     async _spillback_need_to_move_chunks(buckets) {

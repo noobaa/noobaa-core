@@ -61,7 +61,8 @@ export default {
                 enum: [
                     'NOT_EMPTY',
                     'IN_USE',
-                    'DEFAULT_RESOURCE'
+                    'DEFAULT_RESOURCE',
+                    'CONNECTED_BUCKET_DELETING'
                 ]
             },
             usedBy: {

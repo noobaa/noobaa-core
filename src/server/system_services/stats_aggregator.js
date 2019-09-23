@@ -277,6 +277,7 @@ async function get_partial_providers_stats(req) {
     try {
         for (const bucket of system_store.data.buckets) {
             if (!bucket.storage_stats) continue;
+            if (bucket.deleting) continue;
             const { pools, objects_size } = bucket.storage_stats;
             const types_mapped = new Map();
             for (let [key, value] of Object.entries(pools)) {
@@ -402,6 +403,7 @@ async function _partial_buckets_info(req) {
     try {
         for (const bucket of system_store.data.buckets) {
             if (String(bucket.system._id) !== String(req.system._id)) return;
+            if (bucket.deleting) continue;
             const new_req = _.defaults({
                 rpc_params: { name: bucket.name, },
             }, req);
@@ -577,6 +579,7 @@ function get_ops_stats(req) {
 function get_bucket_sizes_stats(req) {
     let ret = [];
     for (const b of system_store.data.buckets) {
+        if (b.deleting) continue;
         if (b.storage_stats.objects_hist &&
             !_.isEmpty(b.storage_stats.objects_hist)) {
             ret.push({

@@ -902,6 +902,7 @@ function get_pool_history(req) {
 // What should we do in that case? Shall we delete the pool or not?
 function get_associated_buckets_int(pool) {
     var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
+        if (bucket.deleting) return false;
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.mirrors, function(mirror) {
                 return _.find(mirror.spread_pools, function(spread_pool) {
@@ -916,8 +917,9 @@ function get_associated_buckets_int(pool) {
     });
 }
 
-function has_associated_buckets_int(pool) {
+function has_associated_buckets_int(pool, { exclude_deleting_buckets } = {}) {
     const associated_bucket = _.find(pool.system.buckets_by_name, function(bucket) {
+        if (bucket.deleting && exclude_deleting_buckets) return false;
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.mirrors, function(mirror) {
                 return _.find(mirror.spread_pools, function(spread_pool) {
@@ -1164,8 +1166,13 @@ function calc_hosts_pool_mode(pool_info, is_initialized, storage_by_mode, s3_by_
 
 function check_pool_deletion(pool) {
     //Verify pool is not used by any bucket/tier
-    if (has_associated_buckets_int(pool)) {
+    if (has_associated_buckets_int(pool, { exclude_deleting_buckets: true })) {
         return 'IN_USE';
+    }
+
+    //Verify pool is not used by any bucket/tier
+    if (has_associated_buckets_int(pool)) {
+        return 'CONNECTED_BUCKET_DELETING';
     }
 
     //Verify pool is not defined as default for any account
@@ -1187,8 +1194,13 @@ function check_pool_deletion(pool) {
 function check_resrouce_pool_deletion(pool) {
 
     //Verify pool is not used by any bucket/tier
-    if (has_associated_buckets_int(pool)) {
+    if (has_associated_buckets_int(pool, { exclude_deleting_buckets: true })) {
         return 'IN_USE';
+    }
+
+    //Verify pool is not used by any bucket/tier
+    if (has_associated_buckets_int(pool)) {
+        return 'CONNECTED_BUCKET_DELETING';
     }
 
     //Verify pool is not defined as default for any account

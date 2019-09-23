@@ -1047,6 +1047,17 @@ module.exports = {
                     },
                     create_time: {
                         idate: true,
+                    },
+                    limit: {
+                        type: 'integer'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_empty: {
+                        type: 'boolean'
                     }
                 }
             },

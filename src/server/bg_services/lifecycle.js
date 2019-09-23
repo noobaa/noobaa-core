@@ -22,7 +22,7 @@ function background_worker() {
             return system_store.refresh()
                 .then(function() {
                     _.each(system_store.data.buckets, function(bucket, i) {
-                        if (!bucket.lifecycle_configuration_rules) {
+                        if (!bucket.lifecycle_configuration_rules || bucket.deleting) {
                             return;
                         }
                         P.all(_.map(bucket.lifecycle_configuration_rules, function(lifecycle_rule, j) {

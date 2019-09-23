@@ -38,6 +38,9 @@ module.exports = {
         deleted: {
             date: true
         },
+        deleting: {
+            date: true
+        },
         system: {
             objectid: true
         },

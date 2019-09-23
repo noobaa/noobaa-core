@@ -2,6 +2,7 @@
 'use strict';
 
 const stream = require('stream');
+const P = require('./promise');
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
@@ -150,6 +151,18 @@ function count_length(buffers) {
     return l;
 }
 
+function write_to_stream(writable, buf) {
+    return new P((resolve, reject) => {
+        writable.once('error', reject);
+        writable.write(buf, err => {
+            if (err) {
+                return reject(err);
+            }
+            return resolve();
+        });
+    });
+}
+
 exports.eq = eq;
 exports.neq = neq;
 exports.join = join;
@@ -160,3 +173,4 @@ exports.read_stream_join = read_stream_join;
 exports.write_stream = write_stream;
 exports.count_length = count_length;
 exports.buffer_to_read_stream = buffer_to_read_stream;
+exports.write_to_stream = write_to_stream;

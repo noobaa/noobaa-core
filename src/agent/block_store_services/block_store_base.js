@@ -26,6 +26,15 @@ function _new_monitring_stats() {
     };
 }
 
+function get_block_internal_dir(block_id) {
+
+    let hex_str_regex = /^[0-9a-fA-F]+$/;
+    let internal_dir = hex_str_regex.test(block_id) ?
+        block_id.substring(block_id.length - 3) + '.blocks' :
+        'other.blocks';
+    return internal_dir;
+}
+
 class BlockStoreBase {
 
     constructor(options) {
@@ -57,7 +66,9 @@ class BlockStoreBase {
             'replicate_block',
             'delete_blocks',
             'handle_delegator_error',
-            'verify_blocks'
+            'verify_blocks',
+            'get_block_store_info',
+            'update_store_usage',
         ]);
     }
 
@@ -74,33 +85,31 @@ class BlockStoreBase {
         };
     }
 
-    delegate_read_block(req) {
-        const { block_md } = req.rpc_params;
-        const cached_data = this.block_cache.peek_cache(block_md);
-        if (cached_data) {
-            const ret = {
-                cached_data: {
-                    block_md,
-                },
-                [RPC_BUFFERS]: { data: cached_data.data }
-            };
-            return ret;
+    get_block_store_info(req) {
+        return this._get_block_store_info();
+    }
+
+    update_store_usage(req) {
+        const io_stats = req.rpc_params;
+        if (io_stats.read_count) {
+            this.io_stats.read_count += io_stats.read_count;
+            this.io_stats.read_bytes += io_stats.read_bytes;
         }
-        return this._delegate_read_block(block_md);
+        if (io_stats.write_count) {
+            this.io_stats.write_count += io_stats.write_count;
+            this.io_stats.write_bytes += io_stats.write_bytes;
+            this._update_usage({
+                size: io_stats.write_bytes,
+                count: io_stats.write_count
+            });
+        }
     }
 
-    delegate_write_block(req) {
-        this._check_write_space(req.rpc_params.data_length);
-        return this._delegate_write_block(req.rpc_params.block_md, req.rpc_params.data_length);
+    _get_block_store_info() {
+        throw new Error('this block store does not support block_store_info');
     }
 
-    _delegate_read_block() {
-        throw new Error('this block store does not delegate');
-    }
 
-    _delegate_write_block() {
-        throw new Error('this block store does not delegate');
-    }
 
 
 
@@ -325,14 +334,6 @@ class BlockStoreBase {
         }
     }
 
-    _get_block_internal_dir(block_id) {
-        let hex_str_regex = /^[0-9a-fA-f]+$/;
-        let internal_dir = hex_str_regex.test(block_id) ?
-            block_id.substring(block_id.length - 3) + '.blocks' :
-            'other.blocks';
-        return internal_dir;
-    }
-
     _handle_delegator_error() {
         throw new Error('this block store does not delegate');
     }
@@ -415,7 +416,7 @@ class BlockStoreBase {
     }
 
     _block_key(block_id) {
-        const block_dir = this._get_block_internal_dir(block_id);
+        const block_dir = get_block_internal_dir(block_id);
         return `${this.blocks_path}/${block_dir}/${block_id}`;
     }
 
@@ -445,3 +446,4 @@ async function test_average_latency(count, delay_ms, async_func) {
 
 // EXPORTS
 exports.BlockStoreBase = BlockStoreBase;
+exports.get_block_internal_dir = get_block_internal_dir;

@@ -5,7 +5,6 @@ const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const S3Error = require('./s3_errors').S3Error;
@@ -85,12 +84,19 @@ const S3_OPS = load_ops();
 
 let usage_report = new_usage_report();
 
-function s3_rest(req, res) {
-    return P.try(() => handle_request(req, res))
-        .catch(err => handle_error(req, res, err));
+async function s3_rest(req, res) {
+    try {
+        await handle_request(req, res);
+    } catch (err) {
+        if (req.bucket_website_info) {
+            await handle_website_error(req, res, err);
+        } else {
+            handle_error(req, res, err);
+        }
+    }
 }
 
-function handle_request(req, res) {
+async function handle_request(req, res) {
 
     // fill up standard amz response headers
     res.setHeader('x-amz-request-id', req.request_id);
@@ -114,6 +120,15 @@ function handle_request(req, res) {
     }
 
     check_headers(req);
+
+    const redirect = await populate_request_additional_info_or_redirect(req);
+    if (redirect) {
+        res.setHeader('Location', redirect);
+        res.statusCode = 301;
+        res.end();
+        return;
+    }
+
     const op_name = parse_op_name(req);
     authenticate_request(req);
 
@@ -138,11 +153,27 @@ function handle_request(req, res) {
         error_body_sha256_mismatch: S3Error.XAmzContentSHA256Mismatch,
     };
 
-    return P.resolve()
-        .then(() => http_utils.read_and_parse_body(req, options))
-        .then(() => op.handler(req, res))
-        .then(reply => http_utils.send_reply(req, res, reply, options))
-        .then(() => submit_usage_report(op, req, res));
+    await http_utils.read_and_parse_body(req, options);
+    const reply = await op.handler(req, res);
+    http_utils.send_reply(req, res, reply, options);
+    submit_usage_report(op, req, res);
+}
+
+async function populate_request_additional_info_or_redirect(req) {
+    if ((req.method === 'HEAD' || req.method === 'GET') && _.isEmpty(req.query)) {
+        const { bucket } = parse_bucket_and_key(req);
+        if (bucket) return _get_redirection_bucket(req, bucket);
+    }
+}
+
+async function _get_redirection_bucket(req, bucket) {
+    const bucket_website_info = await req.object_sdk.read_bucket_sdk_website_info(bucket);
+    const redirect = bucket_website_info && bucket_website_info.website_configuration.redirect_all_requests_to;
+    if (redirect) {
+        const dest = redirect.host_name;
+        const protocol = redirect.protocol || req.secure ? 'https' : 'http';
+        return `${protocol}//${dest}`;
+    }
 }
 
 function check_headers(req, res) {
@@ -209,7 +240,7 @@ function check_headers(req, res) {
         time_utils.parse_http_header_date(req.headers.date);
 
     // In case of presigned urls we shouldn't fail on non provided time.
-    if (req_time < 0 || (isNaN(req_time) && !req.query.Expires)) {
+    if (isNaN(req_time) && !req.query.Expires) {
         throw new S3Error(S3Error.AccessDenied);
     }
 
@@ -270,10 +301,29 @@ function parse_bucket_and_key(req) {
     };
 }
 
+function get_bucket_and_key(req) {
+    let { bucket, key, is_virtual_hosted_bucket } = parse_bucket_and_key(req);
+    if (req.bucket_website_info) {
+        bucket = req.bucket_website_info.bucket;
+        const suffix = req.bucket_website_info.website.website_configuration.index_document.suffix;
+        if (key) {
+            key = key.endsWith('/') ? key.concat(suffix) : key;
+        } else {
+            key = suffix;
+        }
+    }
+    return {
+        bucket,
+        // decode and replace hadoop _$folder$ in key
+        key: decodeURIComponent(key).replace(/_\$folder\$/, '/'),
+        is_virtual_hosted_bucket
+    };
+}
+
 function parse_op_name(req) {
     const method = req.method.toLowerCase();
 
-    let { bucket, key, is_virtual_hosted_bucket } = parse_bucket_and_key(req);
+    let { bucket, key, is_virtual_hosted_bucket } = get_bucket_and_key(req);
     req.params = { bucket, key };
     if (is_virtual_hosted_bucket) {
         req.virtual_hosted_bucket = bucket;
@@ -332,6 +382,76 @@ function handle_error(req, res, err) {
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
+}
+
+async function _handle_html_response(req, res, err) {
+    var s3err =
+        ((err instanceof S3Error) && err) ||
+        new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
+
+    if (s3err.rpc_data) {
+        if (s3err.rpc_data.etag) {
+            res.setHeader('ETag', s3err.rpc_data.etag);
+        }
+        if (s3err.rpc_data.last_modified) {
+            res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
+        }
+    }
+
+    // md_conditions used for PUT/POST/DELETE should return PreconditionFailed instead of NotModified
+    if (s3err.code === 'NotModified' && req.method !== 'HEAD' && req.method !== 'GET') {
+        s3err = new S3Error(S3Error.PreconditionFailed);
+    }
+
+    usage_report.s3_errors_info.total_errors += 1;
+    usage_report.s3_errors_info[s3err.code] = (usage_report.s3_errors_info[s3err.code] || 0) + 1;
+
+    const reply = `<html> \
+        <head><title>${s3err.http_code} ${s3err.code}</title></head> \
+        <body> \
+        <h1>${s3err.http_code} ${s3err.code}</h1> \
+        <ul> \
+        <li>Code: ${s3err.code}</li> \
+        <li>Message: ${s3err.message}</li> \
+        <li>RequestId: ${req.request_id}</li> \
+        </ul> \
+        <hr/> \
+        </body> \
+        </html>`;
+    res.statusCode = s3err.http_code;
+    dbg.error('S3 ERROR', reply,
+        req.method, req.originalUrl,
+        JSON.stringify(req.headers),
+        err.stack || err);
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Length', Buffer.byteLength(reply));
+    res.end(reply);
+}
+
+async function handle_website_error(req, res, err) {
+    const error_document = _.get(req, 'bucket_website_info.website.website_configuration.error_document');
+    if (error_document) {
+        try {
+            const object_md = await req.object_sdk.read_object_md({
+                bucket: req.params.bucket,
+                key: error_document.key,
+            });
+            const params = {
+                object_md,
+                obj_id: object_md.obj_id,
+                bucket: req.params.bucket,
+                key: error_document.key,
+                content_type: object_md.content_type,
+            };
+            const read_stream = await req.object_sdk.read_object_stream(params);
+            res.setHeader('Content-Type', 'text/html');
+            read_stream.pipe(res);
+        } catch (error) {
+            await _handle_html_response(req, res, error);
+        }
+    } else {
+        await _handle_html_response(req, res, err);
+    }
 }
 
 function new_usage_report() {

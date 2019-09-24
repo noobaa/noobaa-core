@@ -550,7 +550,7 @@ module.exports = {
 
 
         role_enum: {
-            enum: ['admin', 'user', 'viewer', 'operator'],
+            enum: ['admin', 'user', 'operator'],
             type: 'string',
         },
 

@@ -72,6 +72,11 @@ class ObjectSDK {
         return ns;
     }
 
+    async read_bucket_sdk_website_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket.website;
+    }
+
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
         const bucket = params.bucket || await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
@@ -513,6 +518,44 @@ class ObjectSDK {
     async get_bucket_encryption(params) {
         const ns = this._get_account_namespace();
         return ns.get_bucket_encryption(params);
+    }
+
+    ////////////////////
+    // BUCKET WEBSITE //
+    ////////////////////
+
+    async put_bucket_website(params) {
+        const ns = this._get_account_namespace();
+        return ns.put_bucket_website(params);
+    }
+
+    async delete_bucket_website(params) {
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket_website(params);
+    }
+
+    async get_bucket_website(params) {
+        const ns = this._get_account_namespace();
+        return ns.get_bucket_website(params);
+    }
+
+    ////////////////////
+    // BUCKET POLICY  //
+    ////////////////////
+
+    async put_bucket_policy(params) {
+        const ns = this._get_account_namespace();
+        return ns.put_bucket_policy(params);
+    }
+
+    async delete_bucket_policy(params) {
+        const ns = this._get_account_namespace();
+        return ns.delete_bucket_policy(params);
+    }
+
+    async get_bucket_policy(params) {
+        const ns = this._get_account_namespace();
+        return ns.get_bucket_policy(params);
     }
 
     should_run_triggers({ active_triggers, operation, obj }) {

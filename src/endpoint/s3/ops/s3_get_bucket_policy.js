@@ -6,14 +6,10 @@ const S3Error = require('../s3_errors').S3Error;
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETpolicy.html
  */
-function get_bucket_policy(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            if (!bucket_info.s3_policy) {
-                throw new S3Error(S3Error.NoSuchBucketPolicy);
-            }
-            return bucket_info.s3_policy;
-        });
+async function get_bucket_policy(req) {
+    const reply = await req.object_sdk.get_bucket_policy({ name: req.params.bucket });
+    if (!reply.policy) throw new S3Error(S3Error.NoSuchBucketPolicy);
+    return reply.policy;
 }
 
 module.exports = {

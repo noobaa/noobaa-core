@@ -92,14 +92,60 @@ class AccountSpaceNB {
         });
     }
 
+    get_bucket_encryption(params) {
+        return this.rpc_client.bucket.get_bucket_encryption({
+            name: params.name
+        });
+    }
+
     delete_bucket_encryption(params) {
         return this.rpc_client.bucket.delete_bucket_encryption({
             name: params.name
         });
     }
 
-    get_bucket_encryption(params) {
-        return this.rpc_client.bucket.get_bucket_encryption({
+    ////////////////////
+    // BUCKET WEBSITE //
+    ////////////////////
+
+    put_bucket_website(params) {
+        return this.rpc_client.bucket.put_bucket_website({
+            name: params.name,
+            website: params.website
+        });
+    }
+
+    delete_bucket_website(params) {
+        return this.rpc_client.bucket.delete_bucket_website({
+            name: params.name
+        });
+    }
+
+    get_bucket_website(params) {
+        return this.rpc_client.bucket.get_bucket_website({
+            name: params.name
+        });
+    }
+
+    ////////////////////
+    // BUCKET POLICY  //
+    ////////////////////
+
+    put_bucket_policy(params) {
+        return this.rpc_client.bucket.put_bucket_policy({
+            name: params.name,
+            policy: params.policy
+        });
+    }
+
+    delete_bucket_policy(params) {
+        return this.rpc_client.bucket.delete_bucket_policy({
+            name: params.name
+        });
+    }
+
+    get_bucket_policy(params) {
+        return this.rpc_client.bucket.get_bucket_policy({
             name: params.name
         });
     }

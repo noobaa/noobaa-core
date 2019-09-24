@@ -4,11 +4,8 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html
  */
-function delete_bucket_policy(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 delete_bucket_policy not implemented
-        });
+async function delete_bucket_policy(req) {
+    await req.object_sdk.delete_bucket_policy({ name: req.params.bucket });
 }
 
 module.exports = {

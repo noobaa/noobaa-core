@@ -244,11 +244,26 @@ async function delete_bucket_tagging(req) {
     });
 }
 
+
 async function get_bucket_encryption(req) {
     dbg.log0('get_bucket_encryption:', req.rpc_params);
     const bucket = find_bucket(req);
     return {
         encryption: bucket.encryption,
+    };
+}
+
+
+/**
+ *
+ * GET_BUCKET_WEBSITE
+ *
+ */
+async function get_bucket_website(req) {
+    dbg.log0('get_bucket_website:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    return {
+        website: bucket.website,
     };
 }
 
@@ -266,6 +281,61 @@ async function put_bucket_encryption(req) {
     });
 }
 
+async function get_bucket_policy(req) {
+    dbg.log0('get_bucket_policy:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    return {
+        policy: bucket.policy,
+    };
+}
+
+
+async function put_bucket_policy(req) {
+    dbg.log0('put_bucket_policy:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                policy: req.rpc_params.policy
+            }]
+        }
+    });
+}
+
+
+async function delete_bucket_policy(req) {
+    dbg.log0('delete_bucket_policy:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { policy: 1 }
+            }]
+        }
+    });
+}
+
+
+/**
+ *
+ * PUT_BUCKET_WEBSITE
+ *
+ */
+async function put_bucket_website(req) {
+    dbg.log0('put_bucket_website:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                website: req.rpc_params.website
+            }]
+        }
+    });
+}
+
 
 async function delete_bucket_encryption(req) {
     dbg.log0('delete_bucket_encryption:', req.rpc_params);
@@ -275,6 +345,25 @@ async function delete_bucket_encryption(req) {
             buckets: [{
                 _id: bucket._id,
                 $unset: { encryption: 1 }
+            }]
+        }
+    });
+}
+
+
+/**
+ *
+ * DELETE_BUCKET_WEBSITE
+ *
+ */
+async function delete_bucket_website(req) {
+    dbg.log0('delete_bucket_website:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { website: 1 }
             }]
         }
     });
@@ -314,6 +403,7 @@ async function read_bucket_sdk_info(req) {
 
     const reply = {
         name: bucket.name,
+        website: bucket.website,
         active_triggers: _.map(
             _.filter(bucket.lambda_triggers, 'enabled'),
             trigger => _.pick(trigger, trigger_properties)
@@ -1146,7 +1236,9 @@ function get_bucket_info({
         versioning: bucket.versioning,
         tagging: bucket.tagging,
         encryption: bucket.encryption,
-        bucket_claim: bucket.bucket_claim
+        bucket_claim: bucket.bucket_claim,
+        website: bucket.website,
+        policy: bucket.policy
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
@@ -1499,3 +1591,9 @@ exports.get_bucket_tagging = get_bucket_tagging;
 exports.delete_bucket_encryption = delete_bucket_encryption;
 exports.put_bucket_encryption = put_bucket_encryption;
 exports.get_bucket_encryption = get_bucket_encryption;
+exports.delete_bucket_website = delete_bucket_website;
+exports.put_bucket_website = put_bucket_website;
+exports.get_bucket_website = get_bucket_website;
+exports.delete_bucket_policy = delete_bucket_policy;
+exports.put_bucket_policy = put_bucket_policy;
+exports.get_bucket_policy = get_bucket_policy;

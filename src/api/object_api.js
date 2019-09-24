@@ -431,7 +431,10 @@ module.exports = {
                     },
                 }
             },
-            auth: { system: ['admin', 'user', 'viewer'] }
+            auth: {
+                system: ['admin', 'user'],
+                anonymous: true,
+            }
         },
 
         read_object_mapping_admin: {
@@ -522,7 +525,10 @@ module.exports = {
             reply: {
                 $ref: '#/definitions/object_info'
             },
-            auth: { system: ['admin', 'user', 'viewer'] }
+            auth: {
+                system: ['admin', 'user'],
+                anonymous: true,
+            }
         },
 
         update_object_md: {
@@ -680,7 +686,7 @@ module.exports = {
                     }
                 }
             },
-            auth: { system: ['admin', 'user', 'viewer'] }
+            auth: { system: ['admin', 'user'] }
         },
 
         list_object_versions: {
@@ -734,7 +740,7 @@ module.exports = {
                     }
                 }
             },
-            auth: { system: ['admin', 'user', 'viewer'] }
+            auth: { system: ['admin', 'user'] }
         },
 
         list_uploads: {
@@ -788,7 +794,7 @@ module.exports = {
                     }
                 }
             },
-            auth: { system: ['admin', 'user', 'viewer'] }
+            auth: { system: ['admin', 'user'] }
         },
 
         list_objects_admin: {

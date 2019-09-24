@@ -22,7 +22,7 @@ class HTTPRecorder extends stream.Writable {
         if (this._out_file) this._out_file.end();
         this._out_file = null;
         this._pending = [];
-        this._parser.reinitialize(HTTPParser.REQUEST);
+        this._parser.reinitialize(HTTPParser.REQUEST, true);
 
         let slow_url = '';
         let slow_headers = [];

@@ -70,7 +70,17 @@ async function get_object(req, res) {
         }
         throw err;
     }
-
+    // first_range_data are the first 4K data of the object
+    // if the object's size or the end of range is smaller than 4K return it, else get the whole object
+    if (params.object_md.first_range_data) {
+        const start = Number(params.start) || 0;
+        const end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
+        if (params.object_md.first_range_data.length >= end) {
+            const sliced_data = params.object_md.first_range_data.slice(start, end);
+            res.end(sliced_data);
+            return;
+        }
+    }
     const read_stream = await req.object_sdk.read_object_stream(params);
 
     // on http disconnection close the read stream to stop from buffering more data
@@ -87,6 +97,7 @@ async function get_object(req, res) {
         res.destroy(err);
     });
     read_stream.pipe(res);
+
 }
 
 

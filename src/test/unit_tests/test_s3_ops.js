@@ -3,7 +3,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: coretest.POOL_LIST });
 
 // const _ = require('lodash');
 const AWS = require('aws-sdk');
@@ -74,6 +74,9 @@ mocha.describe('s3_ops', function() {
 
     function test_object_ops(bucket_name, bucket_type) {
         const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
+        const sliced_file_body = "TEXT-F";
+        const sliced_file_body1 = "_COOL";
+
         const text_file1 = 'text-file1';
         const text_file2 = 'text-file2';
         mocha.before(async function() {
@@ -105,6 +108,27 @@ mocha.describe('s3_ops', function() {
         });
         mocha.it('should get text-file', async function() {
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            assert.strictEqual(res.Body.toString(), file_body);
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, file_body.length);
+        });
+
+        mocha.it('should get text-file sliced 1', async function() {
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-5' }).promise();
+            assert.strictEqual(res.Body.toString(), sliced_file_body);
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, sliced_file_body.length);
+        });
+
+        mocha.it('should get text-file sliced 2', async function() {
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=-5' }).promise();
+            assert.strictEqual(res.Body.toString(), sliced_file_body1);
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, sliced_file_body1.length);
+        });
+
+        mocha.it('should get text-file sliced 3', async function() {
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-' }).promise();
             assert.strictEqual(res.Body.toString(), file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);

@@ -411,11 +411,42 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
     ui_theme: 'DARK'
 };
 
-// load a local config file that overwrites some of the config
+//Load overrides if exist
 try {
+    // load a local config file that overwrites some of the config
     // eslint-disable-next-line global-require
     const local_config = require('./config-local');
     Object.assign(config, local_config);
+
+    //load env variables to override if exists (should start with CONFIG_JS_)
+    const ENV_PREFIX = 'CONFIG_JS_';
+    for (const key of Object.keys(process.env)) {
+        if (key.startsWith(ENV_PREFIX)) {
+            const conf_name = key.substring(ENV_PREFIX.length);
+            let new_val;
+            if (config[conf_name]) {
+                //value exists, verify same type
+                const type = typeof config[conf_name];
+                if (type === 'number' && !isNaN(parseInt(process.env[key], 10))) {
+                    new_val = parseInt(process.env[key], 10);
+                } else if (type === 'boolean' && process.env[key] === 'true') {
+                    new_val = true;
+                } else if (type === 'boolean' && process.env[key] === 'false') {
+                    new_val = false;
+                } else if (type === 'string') {
+                    new_val = process.env[key];
+                } else {
+                    console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`)
+                }
+            } else {
+                new_val = process.env[key];
+            }
+            if (new_val) {
+                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val}`);
+                config[conf_name] = new_val;
+            }
+        }
+      }
 } catch (err) {
     if (err.code !== 'MODULE_NOT_FOUND') throw err;
     console.log('NO LOCAL CONFIG');

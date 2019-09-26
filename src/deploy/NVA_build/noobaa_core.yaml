@@ -158,6 +158,18 @@ spec:
           env:
             - name: CONTAINER_PLATFORM
               value: KUBERNETES
+            - name: ENDPOINT_FORKS_NUMBER
+              valueFrom:
+                configMapKeyRef:
+                  name: noobaa-config-map
+                  key: endpoint_number_of_forks
+                  optional: true
+            - name: DISABLE_DEV_RANDOM_SEED
+              valueFrom:
+                configMapKeyRef:
+                  name: noobaa-config-map
+                  key: disable_dev_random
+                  optional: true
             - name: CREATE_SYS_NAME
               valueFrom:
                 secretKeyRef:

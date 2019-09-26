@@ -61,9 +61,7 @@ function start_all() {
         !argv.s3_agent) {
 
         let NUM_OF_FORKS;
-        if (process.env.ENDPOINT_FORKS_NUMBER) {
-            NUM_OF_FORKS = process.env.ENDPOINT_FORKS_NUMBER;
-        } else {
+        if (isNaN(parseInt(process.env.ENDPOINT_FORKS_NUMBER, 10))) {
             //Example for num of forks according to mem / cpu
             // Mem  Forks
             //  4    1
@@ -77,6 +75,8 @@ function start_all() {
             const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
             const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
             NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);
+        } else {
+            NUM_OF_FORKS = parseInt(process.env.ENDPOINT_FORKS_NUMBER, 10);
         }
         // Fork workers
         for (let i = 0; i < NUM_OF_FORKS; i++) {

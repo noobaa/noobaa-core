@@ -424,26 +424,27 @@ try {
         if (key.startsWith(ENV_PREFIX)) {
             const conf_name = key.substring(ENV_PREFIX.length);
             let new_val;
-            if (config[conf_name]) {
-                //value exists, verify same type
-                const type = typeof config[conf_name];
-                if (type === 'number' && !isNaN(parseInt(process.env[key], 10))) {
-                    new_val = parseInt(process.env[key], 10);
-                } else if (type === 'boolean' && process.env[key] === 'true') {
-                    new_val = true;
-                } else if (type === 'boolean' && process.env[key] === 'false') {
-                    new_val = false;
-                } else if (type === 'string') {
-                    new_val = process.env[key];
-                } else {
-                    console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`)
-                }
-            } else {
-                new_val = process.env[key];
-            }
-            if (new_val) {
-                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val}`);
+
+            //value exists, verify same type
+            const type = typeof config[conf_name];
+            if (type === 'number' && !isNaN(parseInt(process.env[key], 10))) {
+                new_val = parseInt(process.env[key], 10);
+                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (Int)`);
                 config[conf_name] = new_val;
+            } else if (type === 'boolean' && process.env[key] === 'true') {
+                new_val = true;
+                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (bool)`);
+                config[conf_name] = new_val;
+            } else if (type === 'boolean' && process.env[key] === 'false') {
+                new_val = false;
+                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (bool)`);
+                config[conf_name] = new_val;
+            } else if (type === 'string' || type === 'undefined') {
+                new_val = process.env[key];
+                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (string)`);
+                config[conf_name] = new_val;
+            } else {
+                console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
             }
         }
       }

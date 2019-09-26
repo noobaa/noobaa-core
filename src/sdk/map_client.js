@@ -26,6 +26,7 @@ const block_read_sem_global = new Semaphore(config.IO_READ_CONCURRENCY_GLOBAL);
 
 // semphores specific to an agent
 const block_write_sem_agent = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT);
+const block_write_sem_agent_cloud = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT_CLOUD);
 const block_replicate_sem_agent = new KeysSemaphore(config.IO_REPLICATE_CONCURRENCY_AGENT);
 const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT);
 
@@ -294,7 +295,8 @@ class MapClient {
      * @param {Buffer} buffer
      */
     async write_block(block_md, buffer) {
-        await block_write_sem_agent.surround_key(String(block_md.node), async () =>
+        const write_sem_agent = block_md.node_type === 'BLOCK_STORE_FS' ? block_write_sem_agent : block_write_sem_agent_cloud;
+        await write_sem_agent.surround_key(String(block_md.node), async () =>
             block_write_sem_global.surround(async () => {
                 dbg.log1('UPLOAD:', this.desc, 'write block',
                     'buffer', buffer.length,

@@ -140,6 +140,43 @@ module.exports = {
             }
         },
 
+        get_block_store_info: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['connection_params', 'target_bucket', 'blocks_path'],
+                properties: {
+                    connection_params: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
+                    target_bucket: {
+                        type: 'string'
+                    },
+                    blocks_path: {
+                        type: 'string',
+                    },
+                    disable_metadata: {
+                        type: 'boolean',
+                    }
+                }
+            }
+        },
+
+        update_store_usage: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    read_count: { type: 'integer' },
+                    read_bytes: { type: 'integer' },
+                    write_count: { type: 'integer' },
+                    write_bytes: { type: 'integer' },
+                },
+            },
+        },
+
         read_block: {
             method: 'GET',
             params: {

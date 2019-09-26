@@ -345,7 +345,7 @@ class ObjectIO {
         // The splitter transformer is responsible for splitting the stream into chunks
         // and also calculating the md5/sha256 of the entire stream as needed for the protocol.
         const splitter = new ChunkSplitter({
-            watermark: 100,
+            watermark: 50,
             calc_md5: true,
             calc_sha256: Boolean(params.sha256_b64),
             chunk_split_config: params.chunk_split_config,
@@ -353,7 +353,7 @@ class ObjectIO {
 
         // The coder transformer is responsible for digest & compress & encrypt & erasure coding
         const coder = new ChunkCoder({
-            watermark: 20,
+            watermark: 50,
             concurrency: 20,
             coder: 'enc',
             chunk_coder_config: params.chunk_coder_config,
@@ -363,7 +363,7 @@ class ObjectIO {
 
         const coalescer = new CoalesceStream({
             objectMode: true,
-            max_length: 20,
+            max_length: 50,
             max_wait_ms: 10,
         });
 
@@ -372,7 +372,7 @@ class ObjectIO {
         const uploader = new stream.Transform({
             objectMode: true,
             allowHalfOpen: false,
-            highWaterMark: 1,
+            highWaterMark: 4,
             transform: (chunks, encoding, callback) =>
                 this._upload_chunks(params, complete_params, chunks, callback)
         });

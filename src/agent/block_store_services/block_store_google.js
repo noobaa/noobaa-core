@@ -77,6 +77,19 @@ class BlockStoreGoogle extends BlockStoreBase {
         };
     }
 
+    _get_block_store_info() {
+        const connection_params = {
+            project_id: this.cloud_info.google.project_id,
+            client_email: this.cloud_info.google.client_email,
+            private_key: this.cloud_info.google.private_key
+        };
+        return {
+            connection_params,
+            target_bucket: this.cloud_info.target_bucket,
+            blocks_path: this.blocks_path,
+        };
+    }
+
     async _read_block(block_md) {
         const MAX_RETRIES = 5;
         let block_data;
@@ -147,7 +160,7 @@ class BlockStoreGoogle extends BlockStoreBase {
         });
         dbg.log3('writing block id to cloud: ', key);
         try {
-            await this._write_to_stream(write_stream, data);
+            await buffer_utils.write_to_stream(write_stream, data);
             write_stream.end();
             const usage = {
                 size: data.length + encoded_md.length,
@@ -159,18 +172,6 @@ class BlockStoreGoogle extends BlockStoreBase {
         } catch (err) {
             await this._handle_error(err, block_md.id);
         }
-    }
-
-    _write_to_stream(writable, buf) {
-        return new P((resolve, reject) => {
-            writable.once('error', reject);
-            writable.write(buf, err => {
-                if (err) {
-                    return reject(err);
-                }
-                return resolve();
-            });
-        });
     }
 
     async _handle_error(err, block_id) {

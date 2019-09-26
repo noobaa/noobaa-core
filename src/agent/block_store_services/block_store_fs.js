@@ -12,6 +12,7 @@ const os_utils = require('../../util/os_utils');
 const config = require('../../../config.js');
 const string_utils = require('../../util/string_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+const get_block_internal_dir = require('./block_store_base').get_block_internal_dir;
 const { RpcError } = require('../../rpc');
 
 class BlockStoreFs extends BlockStoreBase {
@@ -247,17 +248,17 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _get_block_data_path(block_id) {
-        let block_dir = this._get_block_internal_dir(block_id);
+        let block_dir = get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.data');
     }
 
     _get_block_meta_path(block_id) {
-        let block_dir = this._get_block_internal_dir(block_id);
+        let block_dir = get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
     }
 
     _get_block_other_path(file) {
-        let block_dir = this._get_block_internal_dir('other');
+        let block_dir = get_block_internal_dir('other');
         return path.join(this.blocks_path_root, block_dir, file);
     }
 

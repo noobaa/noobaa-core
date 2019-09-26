@@ -53,16 +53,14 @@ class BlockStoreAzure extends BlockStoreBase {
         return this.blob.generateSharedAccessSignature(this.container_name, block_key, shared_access_policy);
     }
 
-    _delegate_read_block(block_md) {
-        const block_key = this._block_key(block_md.id);
-
-        this._update_read_stats(block_md.size);
-
+    _get_block_store_info() {
+        const connection_params = {
+            connection_string: this.cloud_info.azure.connection_string,
+        };
         return {
-            host: this.blob.host,
-            container: this.container_name,
-            block_key,
-            blob_sas: this._get_shared_access_signature(block_key, azure_storage.BlobUtilities.SharedAccessPermissions.READ)
+            connection_params,
+            target_bucket: this.cloud_info.target_bucket,
+            blocks_path: this.blocks_path,
         };
     }
 
@@ -105,32 +103,6 @@ class BlockStoreAzure extends BlockStoreBase {
         return {
             block_md: store_block_md,
             store_md5
-        };
-    }
-
-    _delegate_write_block(block_md, data_length) {
-        const encoded_md = this._encode_block_md(block_md);
-        const block_key = this._block_key(block_md.id);
-        // update usage optimistically. if delegator will fail it should rollback the change
-        // only increment usage if we got data_length
-        const usage = data_length ? {
-            size: (block_md.is_preallocated ? 0 : data_length) + encoded_md.length,
-            count: block_md.is_preallocated ? 0 : 1
-        } : { size: 0, count: 0 };
-        if (data_length) {
-            this._update_usage(usage);
-        }
-        this._update_write_stats(usage.size);
-
-        return {
-            host: this.blob.host,
-            container: this.container_name,
-            block_key,
-            blob_sas: this._get_shared_access_signature(block_key, azure_storage.BlobUtilities.SharedAccessPermissions.WRITE),
-            metadata: {
-                noobaablockmd: encoded_md
-            },
-            usage
         };
     }
 

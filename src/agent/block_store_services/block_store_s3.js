@@ -118,85 +118,23 @@ class BlockStoreS3 extends BlockStoreBase {
         };
     }
 
-    _delegate_read_block(block_md) {
-        const params = {
-            Bucket: this.cloud_info.target_bucket,
-            Key: this._block_key(block_md.id),
+    _get_block_store_info() {
+        const endpoint = this.cloud_info.endpoint;
+        const connection_params = {
+            endpoint: endpoint,
+            s3ForcePathStyle: true,
+            accessKeyId: this.cloud_info.access_keys.access_key,
+            secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
+            signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+            s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
         };
-
-        if (this.disable_delegation) {
-            // if S3 compatible does not support signed urls we return access\secret instead
-            const endpoint = this.cloud_info.endpoint;
-            return {
-                disable_delegation: this.disable_delegation,
-                disable_metadata: this.disable_metadata,
-                s3_params: {
-                    endpoint: endpoint,
-                    s3ForcePathStyle: true,
-                    accessKeyId: this.cloud_info.access_keys.access_key,
-                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
-                },
-                read_params: params,
-            };
-        }
-
-        this._update_read_stats(block_md.size);
-
         return {
-            disable_delegation: this.disable_delegation,
-            disable_metadata: this.disable_metadata,
-            signed_url: this.s3cloud.getSignedUrl('getObject', params),
+            connection_params,
+            target_bucket: this.cloud_info.target_bucket,
+            blocks_path: this.blocks_path,
+            disable_metadata: Boolean(this.disable_metadata)
         };
     }
-
-    _delegate_write_block(block_md, data_length) {
-        const encoded_md = this.disable_metadata ? '' : this._encode_block_md(block_md);
-        const block_key = this._block_key(block_md.id);
-
-        const usage = data_length ? {
-            size: (block_md.is_preallocated ? 0 : data_length) + encoded_md.length,
-            count: block_md.is_preallocated ? 0 : 1
-        } : { size: 0, count: 0 };
-        if (data_length) {
-            this._update_usage(usage);
-        }
-        this._update_write_stats(usage.size);
-        const params = {
-            Bucket: this.cloud_info.target_bucket,
-            Key: block_key,
-            Metadata: this.disable_metadata ? undefined : { noobaablockmd: encoded_md },
-        };
-
-        if (this.disable_delegation) {
-            // if S3 compatible does not support signed urls we return access\secret instead
-            const endpoint = this.cloud_info.endpoint;
-            return {
-                disable_delegation: this.disable_delegation,
-                disable_metadata: this.disable_metadata,
-                s3_params: {
-                    endpoint: endpoint,
-                    s3ForcePathStyle: true,
-                    accessKeyId: this.cloud_info.access_keys.access_key,
-                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
-                },
-                write_params: params,
-            };
-        }
-
-        const signed_url = this.s3cloud.getSignedUrl('putObject', params);
-
-        return {
-            disable_delegation: this.disable_delegation,
-            disable_metadata: this.disable_metadata,
-            usage,
-            signed_url,
-        };
-    }
-
 
     async _read_block(block_md) {
         try {

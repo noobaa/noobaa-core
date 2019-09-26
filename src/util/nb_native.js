@@ -69,14 +69,15 @@ async function read_rand_seed(seed_bytes) {
     while (offset < buf.length) {
         try {
             const count = buf.length - offset;
+            const random_dev = process.env.DISABLE_DEV_RANDOM_SEED ? '/dev/urandom' : '/dev/random';
             if (!fd) {
-                console.log(`read_rand_seed: opening /dev/random ...`);
-                fd = await async_open_fd('/dev/random', 'r');
+                console.log(`read_rand_seed: opening ${random_dev} ...`);
+                fd = await async_open_fd(random_dev, 'r');
             }
-            console.log(`read_rand_seed: reading ${count} bytes from /dev/random ...`);
+            console.log(`read_rand_seed: reading ${count} bytes from ${random_dev} ...`);
             const { bytesRead } = await async_read_fd(fd, buf, offset, count, null);
             offset += bytesRead;
-            console.log(`read_rand_seed: got ${bytesRead} bytes from /dev/random, total ${offset} ...`);
+            console.log(`read_rand_seed: got ${bytesRead} bytes from ${random_dev}, total ${offset} ...`);
         } catch (err) {
             console.log('read_rand_seed: error', err);
             if (fd) {

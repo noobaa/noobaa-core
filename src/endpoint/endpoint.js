@@ -59,19 +59,25 @@ function start_all() {
         config.ENDPOINT_FORKS_ENABLED &&
         argv.address &&
         !argv.s3_agent) {
-        //Example for num of forks according to mem
-        // Mem  Forks
-        //  4    1
-        //  6    1
-        //  8    2
-        //  10   3
-        //  12   4
-        const total_mem_mb = Math.floor(os.totalmem() / size_utils.MEGABYTE);
-        const reserved_mem_mb = 4 * size_utils.GIGABYTE;
-        const fork_mem_mb = 2 * size_utils.GIGABYTE;
-        const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
-        const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
-        const NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);
+
+        let NUM_OF_FORKS;
+        if (process.env.ENDPOINT_FORKS_NUMBER) {
+            NUM_OF_FORKS = process.env.ENDPOINT_FORKS_NUMBER;
+        } else {
+            //Example for num of forks according to mem / cpu
+            // Mem  Forks
+            //  4    1
+            //  6    1
+            //  8    2
+            //  10   3
+            //  12   4
+            const total_mem_mb = Math.floor(os.totalmem() / size_utils.MEGABYTE);
+            const reserved_mem_mb = 4 * size_utils.GIGABYTE;
+            const fork_mem_mb = 2 * size_utils.GIGABYTE;
+            const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
+            const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
+            NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);
+        }
         // Fork workers
         for (let i = 0; i < NUM_OF_FORKS; i++) {
             console.warn('Spawning Endpoint Server', i + 1);

@@ -185,11 +185,14 @@ class CreateFuncModalViewModel extends ConnectableViewModel {
                 if (!funcName) {
                     errors.funcName = 'Name must contain at least one character';
 
+                } else if (funcName.length > 140) {
+                    errors.funcName = 'Name must be 140 characters or less';
+
                 } else if (!isValidFuncName(funcName)) {
                     errors.funcName = 'Please use only alphanumeric characters, hyphens or underscores';
 
                 } else if (existingNames.includes(funcName)) {
-                    errors.funcName = 'Function name already in use';
+                    errors.funcName = 'Name already in use';
                 }
 
                 const overflow = funcDesc.length - 256;

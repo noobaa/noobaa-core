@@ -62,7 +62,7 @@ async function run_monitors() {
     await _verify_server_certificate();
     await _check_dns_and_phonehome();
     await _check_internal_ips();
-    await _check_disk_space();
+    _check_disk_space();
 
     // Address auto detection should only run on master machine.
     if (is_master) {
@@ -76,9 +76,9 @@ function _verify_server_certificate() {
             config_file_store.get(ssl_utils.SERVER_SSL_CERT_PATH),
             config_file_store.get(ssl_utils.SERVER_SSL_KEY_PATH),
             fs.readFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, 'utf8')
-            .catch(err => dbg.warn('could not read crt file', (err && err.code) || err)),
+            .catch(err => fs_utils.ignore_enoent(err)),
             fs.readFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, 'utf8')
-            .catch(err => dbg.warn('could not read key file', (err && err.code) || err))
+            .catch(err => fs_utils.ignore_enoent(err)),
         )
         .spread((certificate, key, platform_cert, platform_key) => {
             if (!_are_platform_and_cluster_conf_equal(platform_cert, certificate && certificate.data) ||
@@ -186,7 +186,6 @@ function _check_disk_space() {
             to increase the disk size of the VM and then perform the increase option from the linux installer by logging into the machine with the noobaa user`,
             Dispatcher.rules.once_weekly);
     }
-    return os_utils.handle_unreleased_fds();
 }
 
 async function _check_address_changes(container_platform) {

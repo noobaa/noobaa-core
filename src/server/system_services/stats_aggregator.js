@@ -416,7 +416,7 @@ async function _partial_buckets_info(req) {
             objects_sys.size = objects_sys.size.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
-            objects_sys.count += bucket_info.num_objects || 0;
+            objects_sys.count += bucket_info.num_objects.value || 0;
 
 
             if (bucket_info.namespace) return;
@@ -448,11 +448,11 @@ async function _partial_buckets_info(req) {
 
             if (bucket_info.bucket_claim) {
                 buckets_stats.bucket_claims += 1;
-                buckets_stats.objects_in_bucket_claims += bucket_info.num_objects;
+                buckets_stats.objects_in_bucket_claims += bucket_info.num_objects.value;
                 if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_bucket_claims += 1;
             } else {
                 buckets_stats.buckets_num += 1;
-                buckets_stats.objects_in_buckets += bucket_info.num_objects;
+                buckets_stats.objects_in_buckets += bucket_info.num_objects.value;
                 if (!_.includes(OPTIMAL_MODES, bucket_info.mode)) buckets_stats.unhealthy_buckets += 1;
             }
 

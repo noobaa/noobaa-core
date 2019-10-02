@@ -558,24 +558,6 @@ function is_valid_hostname(hostname_string) {
     return Boolean(hostname_regex.exec(hostname_string));
 }
 
-function handle_unreleased_fds() {
-    if (!IS_LINUX) {
-        return P.resolve();
-    }
-
-    //print deleted un-released file descriptors
-    return promise_utils.exec('lsof -n | grep deleted | grep REG', {
-            ignore_rc: true,
-            return_stdout: true,
-        })
-        .then(res => {
-            if (res) {
-                dbg.log0('Deleted FDs which were not released', res);
-            }
-
-        });
-}
-
 
 function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
     return P.resolve()
@@ -831,7 +813,6 @@ exports.set_hostname = set_hostname;
 exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;
-exports.handle_unreleased_fds = handle_unreleased_fds;
 exports.calc_cpu_usage = calc_cpu_usage;
 exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
 exports.get_iptables_rules = get_iptables_rules;

@@ -371,9 +371,9 @@ config.SUPERVISOR_DEFAULTS = {
 
 config.SERVER_MIN_REQUIREMENTS = {
     // Should be synced with the container requirements
-    RAM_GB: 8,
-    STORAGE_GB: 120,
-    CPU_COUNT: 4
+    RAM_GB: 2,
+    STORAGE_GB: 50,
+    CPU_COUNT: 1
 };
 
 // we currently use ~600MB during the upgrade process. use twice as much as a limit
@@ -449,7 +449,7 @@ try {
                 console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
             }
         }
-      }
+    }
 } catch (err) {
     if (err.code !== 'MODULE_NOT_FOUND') throw err;
     console.log('NO LOCAL CONFIG');

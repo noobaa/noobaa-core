@@ -155,7 +155,7 @@ async function _create_resources_and_buckets() {
     let buck2 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_spread);
 
     console.info('Updating Tier to EC & Mirror');
-    await TEST_CTX.bucketfunc.changeTierSetting(TEST_CTX.bucket_mirror, 4, 2); //EC 4+2 
+    await TEST_CTX.bucketfunc.changeTierSetting(TEST_CTX.bucket_mirror, 4, 2); //EC 4+2
     await TEST_CTX.client.tier.update_tier({
         name: buck1.tiering.tiers[0].tier,
         attached_pools: ['COMP-S3-V4-Resource', 'COMP-S3-V2-Resource'],
@@ -200,10 +200,9 @@ async function _create_accounts() {
     };
 
     const ac2 = {
-        name: "ac_login_all_buckets",
-        email: "ac_login_all_buckets@demo.com",
-        has_login: true,
-        password: "9v8MQq2Q",
+        name: "ac_nologin_all_buckets",
+        email: "ac_nologin_all_buckets@demo.com",
+        has_login: false,
         must_change_password: true,
         s3_access: true,
         default_pool: 'COMP-S3-V2-Resource',
@@ -215,20 +214,19 @@ async function _create_accounts() {
     };
 
     const ac3 = {
-        name: "ac_login_full",
-        email: "ac_login_full@noobaa.com",
-        has_login: true,
-        password: "c1QiXLlJ",
+        name: "ac_nologin_full",
+        email: "ac_nologin_full@noobaa.com",
+        has_login: false,
         must_change_password: false,
         s3_access: true,
         default_pool: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
-        allow_bucket_creation: false
+        allow_bucket_creation: true
     };
 
     const ac4 = {
-        name: "ac_with_limit",
-        email: "ac_with_limit@noobaa.com",
+        name: "ac_haslogin",
+        email: "ac_haslogin@noobaa.com",
         has_login: true,
         password: "c1QiGkl2",
         must_change_password: false,
@@ -237,7 +235,18 @@ async function _create_accounts() {
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
-    const ac4_update = {
+
+    const ac5 = {
+        name: "ac_with_limit",
+        email: "ac_with_limit@noobaa.com",
+        has_login: false,
+        must_change_password: false,
+        s3_access: true,
+        default_pool: 'COMP-S3-V2-Resource',
+        allowed_buckets: { full_permission: true },
+        allow_bucket_creation: true
+    };
+    const ac5_update = {
         email: ac4.email,
         ips: [
             { start: '10.0.0.1', end: '10.0.0.100' },
@@ -250,7 +259,8 @@ async function _create_accounts() {
     await TEST_CTX.client.account.create_account(ac2);
     await TEST_CTX.client.account.create_account(ac3);
     await TEST_CTX.client.account.create_account(ac4);
-    await TEST_CTX.client.account.update_account(ac4_update);
+    await TEST_CTX.client.account.create_account(ac5);
+    await TEST_CTX.client.account.update_account(ac5_update);
 }
 
 async function _create_lambda() {

@@ -42,8 +42,7 @@ mocha.describe('system_servers', function() {
             await rpc_client.account.create_account({
                 name: EMAIL1,
                 email: EMAIL1,
-                password: EMAIL1,
-                has_login: true,
+                has_login: false,
                 s3_access: true,
                 allow_bucket_creation: false
             });
@@ -56,8 +55,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.account.create_account({
             name: EMAIL1,
             email: EMAIL1,
-            password: EMAIL1,
-            has_login: true,
+            has_login: false,
             s3_access: true,
             allow_bucket_creation: true
         });
@@ -69,8 +67,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.account.create_account({
             name: EMAIL1,
             email: EMAIL1,
-            password: EMAIL1,
-            has_login: true,
+            has_login: false,
             s3_access: true,
             allow_bucket_creation: false,
             allowed_buckets: {
@@ -108,8 +105,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.account.create_account({
             name: EMAIL1,
             email: EMAIL1,
-            password: EMAIL1,
-            has_login: true,
+            has_login: false,
             s3_access: true,
             allowed_buckets: {
                 full_permission: false,

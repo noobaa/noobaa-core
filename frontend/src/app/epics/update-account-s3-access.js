@@ -12,7 +12,6 @@ export default function(action$, { api }) {
         mergeMap(async action => {
             const {
                 accountName,
-                hasS3Access,
                 defaultResource,
                 hasAccessToAllBuckets,
                 allowedBuckets,
@@ -22,13 +21,13 @@ export default function(action$, { api }) {
             try {
                 await api.account.update_account_s3_access({
                     email: accountName,
-                    s3_access: hasS3Access,
-                    default_pool: hasS3Access ? defaultResource:  undefined,
-                    allowed_buckets: !hasS3Access ? undefined : {
+                    s3_access: true,
+                    default_pool: defaultResource,
+                    allowed_buckets: {
                         full_permission: hasAccessToAllBuckets,
                         permission_list: hasAccessToAllBuckets ? undefined : allowedBuckets
                     },
-                    allow_bucket_creation: hasS3Access && allowBucketCreation
+                    allow_bucket_creation: allowBucketCreation
                 });
 
                 return completeUpdateAccountS3Access(accountName);

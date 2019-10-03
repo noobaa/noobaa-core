@@ -1232,7 +1232,6 @@ function validate_create_account_params(req) {
                     throw new RpcError('BAD_REQUEST', 'Cannot configure without permission_list when explicit permissions');
                 }
             }
-
         }
 
         if (req.rpc_params.new_system_parameters) {
@@ -1254,6 +1253,23 @@ function validate_create_account_params(req) {
         if (!req.rpc_params.password) {
             throw new RpcError('BAD_REQUEST', 'Password is missing');
         }
+
+        // Verify that account with login access have full s3 access permissions.
+        const { default_pool, allowed_buckets } = req.rpc_params.new_system_parameters || req.rpc_params;
+        const allow_bucket_creation = req.rpc_params.new_system_parameters ?
+            true :
+            req.rpc_params.allow_bucket_creation;
+
+        if (
+            !req.rpc_params.s3_access ||
+            !default_pool ||
+            !allow_bucket_creation ||
+            !allowed_buckets ||
+            !allowed_buckets.full_permission
+        ) {
+            throw new RpcError('BAD_REQUEST', 'Accounts with login access must have full s3 access permissions');
+        }
+
     } else if (req.rpc_params.password) {
         throw new RpcError('BAD_REQUEST', 'Password should not be sent');
     }

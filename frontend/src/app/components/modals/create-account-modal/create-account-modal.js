@@ -42,8 +42,8 @@ const fieldsByStep = deepFreeze({
 function _getAccountNameFieldProps(form) {
     if (!form) return {};
 
-    const hasLoginAccess = getFieldValue(form, 'hasLoginAccess');
-    if (hasLoginAccess) {
+    const accessType = getFieldValue(form, 'accessType');
+    if (accessType === 'ADMIN') {
         return {
             label: 'Email Address',
             placeholder: 'Enter account email address',
@@ -78,7 +78,6 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
         placeholder: ko.observable(),
         isRemarkVisible: ko.observable()
     };
-    isS3AccessDisabled = ko.observable();
     isAllowAccessToFutureBucketsDisabled = ko.observable();
     isStepValid = false;
     fields = ko.observable();
@@ -102,7 +101,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
         } else {
             const bucketList = Object.keys(buckets);
             const {
-                hasS3Access = true,
+                accessType = 'ADMIN',
                 allowAccessToFutureBuckets = false,
                 allowedBuckets = bucketList
             } = form ? getFormValues(form) : {};
@@ -114,25 +113,20 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             ];
             const resourceOptions = resourceList.map(mapResourceToOptions);
             const systemHasResources = resourceList.length > 0;
-            const isS3AccessDisabled = (form && form.submitted) || !hasS3Access;
-            const isAllowAccessToFutureBucketsDisabled =
-                isS3AccessDisabled ||
-                allowedBuckets.length < bucketList.length;
+            const isAllowAccessToFutureBucketsDisabled = allowedBuckets.length < bucketList.length;
 
             ko.assignToProps(this, {
                 accountNames,
                 resourceOptions,
                 bucketOptions: bucketList,
                 accountNameProps: _getAccountNameFieldProps(form),
-                isS3AccessDisabled,
                 isAllowAccessToFutureBucketsDisabled,
                 systemHasResources,
                 isStepValid: form ? isFormValid(form) : false,
                 fields: !form ? {
                     step: 0,
                     accountName: '',
-                    hasLoginAccess: true,
-                    hasS3Access,
+                    accessType,
                     defaultResource: undefined,
                     allowedBuckets,
                     allowAccessToFutureBuckets,
@@ -152,10 +146,10 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
 
     onWarn(values) {
         const warnings = {};
-        const { hasS3Access, step } = values;
+        const { step } = values;
 
         if (step === 1) {
-            if (hasS3Access && !this.systemHasResources) {
+            if (!this.systemHasResources) {
                 warnings.defaultResource = 'Until connecting resources, internal storage will be used';
             }
         }
@@ -166,13 +160,16 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
     onValidate(values) {
         const {
             step,
+            accessType,
             accountName,
-            hasLoginAccess,
-            hasS3Access,
             defaultResource
         } = values;
 
-        const subject = hasLoginAccess ? 'Email address' : 'Account name';
+        const subject =
+            (accessType === 'ADMIN' && 'Email address') ||
+            (accessType === 'APP' && 'Account name') ||
+            '';
+
         const accounts = this.accountNames;
         const errors = {};
         const trimmedName = accountName.trim();
@@ -180,13 +177,13 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
         if (step == 0) {
             if (!trimmedName) {
                 errors.accountName = `${subject} is required`;
-            } else if (hasLoginAccess && !isEmail(trimmedName)) {
+            } else if (accessType === 'ADMIN' && !isEmail(trimmedName)) {
                 errors.accountName = 'Please enter a valid email address';
 
-            } else if (hasLoginAccess && trimmedName.length > 70) {
+            } else if (accessType === 'ADMIN' && trimmedName.length > 70) {
                 errors.accountName = 'Please enter an email address up to 70 characters';
 
-            } else if (!hasLoginAccess && (trimmedName.length < 3 || trimmedName.length > 32)) {
+            } else if (accessType === 'APP' && (trimmedName.length < 3 || trimmedName.length > 32)) {
                 errors.accountName = 'Please enter a name between 3 - 32 characters';
 
             } else if (accounts.includes(trimmedName)) {
@@ -194,11 +191,7 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             }
 
         } else if (step === 1) {
-            if (!hasLoginAccess && !hasS3Access) {
-                errors.hasS3Access = 'A user must have either login access or S3 access';
-            }
-
-            if (hasS3Access && this.systemHasResources && !defaultResource) {
+            if (this.systemHasResources && !defaultResource) {
                 errors.defaultResource = 'Please select a default resource for the account';
             }
         }
@@ -222,21 +215,25 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
+        const accountName = values.accountName.trim();
+        const {
+            accessType,
+            defaultResource,
+            allowAccessToFutureBuckets,
+            allowedBuckets,
+            allowBucketCreation
+        } = values;
+
+        const createAction = accessType === 'ADMIN' ?
+            createAccount(accountName, true, this.password, defaultResource, true, null, true) :
+            createAccount(accountName, false, null, defaultResource, allowAccessToFutureBuckets, allowedBuckets, allowBucketCreation);
+
         this.dispatch(
             updateModal({
                 backdropClose: false,
                 closeButton: 'disabled'
             }),
-            createAccount(
-                values.accountName.trim(),
-                values.hasLoginAccess,
-                this.password,
-                values.hasS3Access,
-                values.defaultResource,
-                values.allowAccessToFutureBuckets,
-                values.allowedBuckets,
-                values.allowBucketCreation
-            )
+            createAction
         );
     }
 

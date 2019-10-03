@@ -5,15 +5,12 @@
         General Information
     </h2>
 
-    <div ko.tooltip="button.tooltip">
-        <button class="btn"
-            ko.visible="button.isVisible"
-            ko.disable="button.isDisabled"
-            ko.click="onChangeOrResetPassword"
-        >
-            {{button.label}}
-        </button>
-    </div>
+    <button class="btn"
+        ko.visible="button.isVisible"
+        ko.click="onChangeOrResetPassword"
+    >
+        {{button.label}}
+    </button>
 </div>
 
 <property-sheet class="pad" params="properties: profileInfo">

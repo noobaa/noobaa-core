@@ -304,6 +304,11 @@ async function _get_k8s_conf(params) {
         if (!_.isUndefined(params.volume_size)) {
             volume_claim_template.spec.resources.requests.storage = params.volume_size;
         }
+
+        if (!_.isUndefined(params.storage_class)) {
+            volume_claim_template.spec.storageClassName = params.storage_class;
+        }
+
     } else {
         //remove persistent volume claims from the statefulset
         statefulset.spec.volumeClaimTemplates = null;

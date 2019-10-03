@@ -1362,7 +1362,7 @@ function _calc_metrics({
 
         const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
         const configured_failure_tolerance = ccc.parity_frags || ccc.replicas - 1;
-        risky_tolerance = configured_failure_tolerance < 2;
+        risky_tolerance = configured_failure_tolerance < 0;
 
         const mirrors_with_valid_pool = tier_extra_info.mirrors_with_valid_pool;
         const mirrors_with_enough_nodes = tier_extra_info.mirrors_with_enough_nodes;

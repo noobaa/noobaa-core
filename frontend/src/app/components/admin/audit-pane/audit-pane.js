@@ -38,7 +38,6 @@ const columns = deepFreeze([
     },
     {
         name: 'account',
-        type: 'link'
     },
     {
         name: 'category'
@@ -127,17 +126,10 @@ function _mapEntity(entity, system) {
 
 function _mapItemToRow(item, system) {
     const { time, actor, category, event, entity, id } = item;
-    const account = {
-        text: actor ? actor.name : '---',
-        href: (actor && actor.linkable) ?
-            realizeUri(routes.account, { system, account: actor.name }) :
-            ''
-    };
-
     return {
         id,
         time: moment(time).format(timeShortFormat),
-        account,
+        account: actor ? actor.name : '---',
         category: categoryDisplayNames[category],
         event: eventDisplayNames[`${category}.${event}`] || '',
         entity: _mapEntity(entity, system)
@@ -230,6 +222,7 @@ class AuditPaneViewModel extends ConnectableViewModel {
 
     onSelectedRecord(recordId) {
         this.dispatch(selectAuditRecord(recordId));
+        return true;
     }
 
     onScroll(scrollPos) {

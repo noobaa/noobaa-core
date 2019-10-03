@@ -206,11 +206,16 @@ class Dispatcher {
             .then(async node => {
                 if (node) {
                     const { host_name, host_sequence, pool: pool_id } = node;
-                    const pool = system_store.data.get_by_id(pool_id) ||
-                        await system_store.data.get_by_id_include_deleted(pool_id, 'pools');
-
                     l.node.name = `${host_name}#${host_sequence}`;
-                    l.node.pool = pool && pool.name;
+
+                    const pool = system_store.data.get_by_id(pool_id);
+                    if (pool) {
+                        l.node.pool = pool.name;
+
+                    } else {
+                        const { record } = await system_store.data.get_by_id_include_deleted(pool_id, 'pools');
+                        l.node.pool = record && record.name;
+                    }
                 }
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })

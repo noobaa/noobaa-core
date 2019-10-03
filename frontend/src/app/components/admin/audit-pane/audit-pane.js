@@ -124,7 +124,7 @@ function _mapEntity(entity, system) {
     }
 }
 
-function _mapItemToRow(item, system) {
+function _mapItemToRow(item, system, selectedRecord) {
     const { time, actor, category, event, entity, id } = item;
     return {
         id,
@@ -132,7 +132,8 @@ function _mapItemToRow(item, system) {
         account: actor ? actor.name : '---',
         category: categoryDisplayNames[category],
         event: eventDisplayNames[`${category}.${event}`] || '',
-        entity: _mapEntity(entity, system)
+        entity: _mapEntity(entity, system),
+        css: id === selectedRecord ? 'selected' : ''
     };
 }
 
@@ -143,6 +144,7 @@ class EventRowViewModel {
     category = ko.observable();
     event = ko.observable()
     entity = ko.observable();
+    css = ko.observable();
 }
 
 class AuditPaneViewModel extends ConnectableViewModel {
@@ -197,7 +199,7 @@ class AuditPaneViewModel extends ConnectableViewModel {
                 oldestTimestamp: list.length > 0 ? last(list).time : Date.now(),
                 selectedCategories: categories,
                 desc,
-                rows: list.map(item => _mapItemToRow(item, system))
+                rows: list.map(item => _mapItemToRow(item, system, selectedRecord))
             });
         }
     }

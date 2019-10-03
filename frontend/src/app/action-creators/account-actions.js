@@ -37,9 +37,8 @@ import {
 
 export function createAccount(
     accountName,
-    hasLoginAccess,
+    isAdmin,
     password,
-    hasS3Access,
     defaultResource,
     hasAccessToAllBucekts,
     allowedBuckets,
@@ -49,9 +48,8 @@ export function createAccount(
         type: CREATE_ACCOUNT,
         payload: {
             accountName,
-            hasLoginAccess,
+            isAdmin,
             password,
-            hasS3Access,
             defaultResource,
             hasAccessToAllBucekts,
             allowedBuckets,
@@ -76,7 +74,6 @@ export function failCreateAccount(accountName, error) {
 
 export function updateAccountS3Access(
     accountName,
-    hasS3Access,
     defaultResource,
     hasAccessToAllBuckets,
     allowedBuckets,
@@ -86,7 +83,6 @@ export function updateAccountS3Access(
         type: UPDATE_ACCOUNT_S3_ACCESS,
         payload: {
             accountName,
-            hasS3Access,
             defaultResource,
             hasAccessToAllBuckets,
             allowedBuckets,

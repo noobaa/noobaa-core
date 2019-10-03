@@ -17,17 +17,28 @@
         onComplete: $form.submit,
         onCancel: onCancel
     ">
-        <section class="column greedy pad">
-            <editor params="label: 'Login Access'">
-                <toggle-switch params="
-                    value: $form.hasLoginAccess,
-                    onLabel: 'Enabled',
-                    offLabel: 'Disabled',
+        <section class="column greedy hpad">
+            <editor params="label: 'Access Type'">
+                <radio-btn params="
+                    group: 'accessType',
+                    value: 'ADMIN',
+                    selected: $form.accessType,
+                    label: 'Administrator',
                     hasFocus: true
-                "></toggle-switch>
-                <p class="remark push-prev-half">
-                    Enabling login access will generate a password that allows login to
-                    NooBaa management  console as a system admin
+                "></radio-btn>
+                <p class="remark push-next-half">
+                    Enabling administrative access will generate a password that allows login to
+                    NooBaa management console as a system admin
+                </p>
+                <radio-btn params="
+                    group: 'accessType',
+                    value: 'APP',
+                    selected: $form.accessType,
+                    label: 'S3 Access Only'
+                "></radio-btn>
+                <p class="remark">
+                    Granting S3 access will allow this account to connect S3 client
+                    applications by generating security credentials (key set).
                 </p>
             </editor>
 
@@ -44,95 +55,63 @@
             </editor>
         </section>
 
-        <section class="auto-overflow push-both-half">
-            <div class="column">
-                <div class="hpad">
-                    <editor params="
-                        label: 'S3 Access',
-                        tooltip: s3AccessTooltip,
-                        disabled: $form.isSubmitted"
-                    >
-                        <toggle-switch params="
-                            value: $form.hasS3Access,
-                            onLabel: 'Enabled',
-                            offLabel: 'Disabled',
-                            disabled: $form.isSubmitted,
-                            hasFocus: true
-                        "></toggle-switch>
-
-                        <validation-message class="push-next-quarter"
-                            params="field: $form.hasS3Access"
-                        ></validation-message>
-                    </editor>
-
-                    <editor params="
-                        label: 'S3 default placement',
-                        tooltip: s3PlacementToolTip,
-                        disabled: isS3AccessDisabled
-                    ">
-                        <dropdown params="
-                                filter: true,
-                                options: resourceOptions,
-                                selected: $form.defaultResource,
-                                disabled: isS3AccessDisabled,
-                                subject: 'resource'
-                            "
-                            ko.validationCss="$form.defaultResource"
-                        ></dropdown>
-                         <validation-message
-                            ko.css.disabled="isS3AccessDisabled"
-                            params="field: $form.defaultResource"
-                        ></validation-message>
-                    </editor>
-                </div>
-
-                <hr class="push-both">
-
-                <div class="hpad">
-                    <h2 class="heading3"
-                        ko.css.disabled="isS3AccessDisabled"
-                    >
-                        Select which buckets this account could access
-                    </h2>
-
-                    <editor params="
-                        label: 'Buckets Permissions',
-                        disabled: isS3AccessDisabled
-                    ">
-                        <dropdown class="push-next" params="
-                            options: bucketOptions,
-                            selected: ko.pc(
-                                $form.allowedBuckets,
-                                buckets => onSelectAllowedBuckets(buckets)
-                            ),
-                            disabled: isS3AccessDisabled,
-                            filter: true,
-                            subject: 'bucket',
-                            placeholder: 'Choose Buckets',
-                            multiselect: true,
-                            selectAllLabel: 'All Current Buckets'
-                        "></dropdown>
-                        <checkbox params="
-                            label: 'Include any future buckets',
-                            checked: $form.allowAccessToFutureBuckets,
-                            disabled: isAllowAccessToFutureBucketsDisabled
-                        "></checkbox>
-                    </editor>
-
-                    <editor params="
-                        label: 'Allow new bucket creation',
-                        tooltip: allowBucketCreationTooltip,
-                        disabled: isS3AccessDisabled
-                    ">
-                        <toggle-switch params="
-                            value: $form.allowBucketCreation,
-                            onLabel: 'Enabled',
-                            offLabel: 'Disabled',
-                            disabled: isS3AccessDisabled
-                        "></toggle-switch>
-                    </editor>
-                </div>
+        <section class="column greedy pad">
+            <!-- ko if: $form.accessType.eq('ADMIN') -->
+            <div class="info-box info pad row content-middle push-next">
+                <svg-icon params="name: 'notif-info'" class="push-next-half"></svg-icon>
+                <span class="greedy">
+                    Administrator accounts have full S3 access that includes all current and future created buckets via any S3 application or the management console
+                </span>
             </div>
+            <!-- /ko -->
+
+            <editor params="
+                label: 'S3 default placement',
+                tooltip: s3PlacementToolTip,
+            ">
+                <dropdown params="
+                        filter: true,
+                        options: resourceOptions,
+                        selected: $form.defaultResource,
+                        subject: 'resource'
+                    "
+                    ko.validationCss="$form.defaultResource"
+                ></dropdown>
+                 <validation-message params="field: $form.defaultResource"></validation-message>
+            </editor>
+
+            <!-- ko if:  $form.accessType.eq('APP') -->
+            <editor params="label: 'Buckets Permissions'">
+                <dropdown class="push-next" params="
+                    options: bucketOptions,
+                    selected: ko.pc(
+                        $form.allowedBuckets,
+                        buckets => onSelectAllowedBuckets(buckets)
+                    ),
+                    filter: true,
+                    subject: 'bucket',
+                    placeholder: 'Choose Buckets',
+                    multiselect: true,
+                    selectAllLabel: 'All Current Buckets'
+                "></dropdown>
+                <checkbox params="
+                    label: 'Include any future buckets',
+                    checked: $form.allowAccessToFutureBuckets,
+                    disabled: isAllowAccessToFutureBucketsDisabled
+                "></checkbox>
+            </editor>
+
+            <editor params="
+                label: 'Allow new bucket creation',
+                tooltip: allowBucketCreationTooltip,
+            ">
+                <toggle-switch params="
+                    value: $form.allowBucketCreation,
+                    onLabel: 'Enabled',
+                    offLabel: 'Disabled',
+                "></toggle-switch>
+            </editor>
+            <!-- /ko -->
         </section>
     </wizard>
 </managed-form>

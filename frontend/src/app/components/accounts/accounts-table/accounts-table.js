@@ -22,21 +22,9 @@ const columns = deepFreeze([
         compareKey: account => account.name
     },
     {
-        name: 'loginAccess',
-        label: 'Login Access',
+        name: 'accessType',
         sortable: true,
-        compareKey: account => account.hasLoginAccess
-    },
-    {
-        name: 's3Access',
-        label: 's3 access',
-        sortable: true,
-        compareKey: account => account.hasS3Access
-    },
-    {
-        name: 'role',
-        sortable: true,
-        compareKey: account => _getAccountRole(account)
+        compareKey: account => account.isAdmin
     },
     {
         name: 'defaultResource',
@@ -50,14 +38,8 @@ const columns = deepFreeze([
     }
 ]);
 
-function _getAccountRole(account) {
-    return !account.isOwner ?
-        (account.hasLoginAccess ? 'admin' : 'application') :
-        'owner';
-}
-
 function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
-    const { name, isOwner, hasS3Access, hasLoginAccess, defaultResource } = account;
+    const { name, isOwner, defaultResource } = account;
     const isCurrentUser = name === currentUser;
     const accountNameText = `${name} ${isCurrentUser ? '(Current user)' : ''}`;
     const usingInternalStorage = defaultResource === 'INTERNAL_STORAGE';
@@ -69,9 +51,7 @@ function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
             href: realizeUri(baseRoute, { account: name }),
             tooltip: accountNameText
         },
-        role: _getAccountRole(account),
-        s3Access: hasS3Access ? 'enabled' : 'disabled',
-        loginAccess: hasLoginAccess ? 'enabled' : 'disabled',
+        accessType: account.isAdmin ? 'Administator' : 'Application',
         defaultResource: {
             text: false ||
                 (usingInternalStorage && 'Using internal storage') ||
@@ -95,9 +75,7 @@ function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
 class AccountRowViewModel {
     table = null;
     name = ko.observable();
-    role = ko.observable();
-    s3Access = ko.observable();
-    loginAccess = ko.observable();
+    accessType = ko.observable();
     defaultResource = ko.observable();
     isCurrentUser = false;
     deleteButton = {

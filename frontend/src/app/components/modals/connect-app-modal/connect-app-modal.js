@@ -84,9 +84,8 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         }
 
 
-        const accountList = Object.values(accounts).filter(account =>
-            account.hasS3Access && !account.roles.includes('operator')
-        );
+        const accountList = Object.values(accounts)
+            .filter(account =>!account.roles.includes('operator'));
         const accountOptions = accountList.map(account => account.name);
         const endpointOptions = s3Endpoints.map((endpoint, i) => ({
             value: i + 1,

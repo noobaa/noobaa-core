@@ -62,9 +62,8 @@ function _mapAccount(account, owner, systemName, pools, allBuckets) {
 
     return {
         name: email,
+        isAdmin: has_login,
         isOwner: email === owner.email,
-        hasLoginAccess: has_login,
-        hasS3Access: has_s3_access,
         hasAccessToAllBuckets,
         allowedBuckets,
         canCreateBuckets: Boolean(has_s3_access && can_create_buckets),

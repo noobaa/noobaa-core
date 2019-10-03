@@ -37,7 +37,7 @@ const columns = deepFreeze([
         name: 'time'
     },
     {
-        name: 'account',
+        name: 'account'
     },
     {
         name: 'category'

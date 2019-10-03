@@ -9,8 +9,7 @@ export default {
             'allowedBuckets',
             'canCreateBuckets',
             'externalConnections',
-            'hasLoginAccess',
-            'hasS3Access',
+            'isAdmin',
             'isOwner',
             'name',
             'roles'
@@ -126,10 +125,7 @@ export default {
             hasAccessToAllBuckets: {
                 type: 'boolean'
             },
-            hasLoginAccess: {
-                type: 'boolean'
-            },
-            hasS3Access: {
+            isAdmin: {
                 type: 'boolean'
             },
             isOwner: {

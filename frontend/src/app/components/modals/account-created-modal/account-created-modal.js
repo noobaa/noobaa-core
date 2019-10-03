@@ -21,15 +21,15 @@ class AccountCreatedModalViewModel extends ConnectableViewModel {
     }
 
     mapStateToProps(account, password, endpoint, sslPort) {
-        const { name, hasLoginAccess, hasS3Access, accessKeys } = account;
+        const { name, isAdmin, accessKeys } = account;
         const message = ko.renderToString(
             accountDetailsMessageTemplate,
             {
                 serverAddress: `https://${endpoint}:${sslPort}`,
-                username: hasLoginAccess ? name : '',
-                password: hasLoginAccess ? password : '',
-                accessKey: hasS3Access ? accessKeys.accessKey : '',
-                secretKey: hasS3Access ? accessKeys.secretKey : ''
+                username: isAdmin ? name : '',
+                password: isAdmin ? password : '',
+                accessKey: accessKeys.accessKey,
+                secretKey: accessKeys.secretKey
             }
         );
 

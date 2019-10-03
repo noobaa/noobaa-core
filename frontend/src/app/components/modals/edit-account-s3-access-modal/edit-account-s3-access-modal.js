@@ -14,7 +14,6 @@ import {
 } from 'action-creators';
 
 const s3PlacementToolTip = 'The selected resource will be associated to this account as it’s default data placement for each new bucket that will be created via an S3 application';
-const systemOwnerS3AccessTooltip = 'S3 access cannot be disabled for system owner';
 const allowBucketCreationTooltip = 'The ability to create new buckets. By disabling this option, the user could not create any new buckets via S3 client or via the management console';
 
 function mapResourceToOption({ type, name: value, storage }) {
@@ -28,9 +27,8 @@ function mapResourceToOption({ type, name: value, storage }) {
 class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     s3PlacementToolTip = s3PlacementToolTip;
+    accessType = ko.observable();
     allowBucketCreationTooltip = allowBucketCreationTooltip;
-    isS3AccessToggleDisabled = ko.observable();
-    s3AccessToggleTooltip = ko.observable();
     isAllowAccessToFutureBucketsDisabled = ko.observable();
     resourceOptions = ko.observable();
     systemHasResources = false;
@@ -88,28 +86,22 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
             });
 
         const {
-            hasS3Access = account.hasS3Access,
             allowedBuckets = account.allowedBuckets
         } = form ? getFormValues(form) : {};
 
-        const isAllowAccessToFutureBucketsDisabled =
-            !hasS3Access ||
-            allowedBuckets.length < bucketOptions.length;
-
+        const isAllowAccessToFutureBucketsDisabled = allowedBuckets.length < bucketOptions.length;
         const defaultResource = account.defaultResource !== 'INTERNAL_STORAGE' ?
             account.defaultResource :
             undefined;
 
         ko.assignToProps(this, {
-            isS3AccessToggleDisabled: account.isOwner,
-            s3AccessToggleTooltip: account.isOwner ? systemOwnerS3AccessTooltip : '',
+            accessType: account.isAdmin ? 'ADMIN' : 'APP',
             resourceOptions: resourceOptions,
             systemHasResources,
             bucketOptions: bucketOptions,
             isAllowAccessToFutureBucketsDisabled,
             fields: !form ? {
                 accountName: account.name,
-                hasS3Access: account.hasS3Access,
                 allowAccessToFutureBuckets: account.hasAccessToAllBuckets,
                 allowedBuckets: account.allowedBuckets || [],
                 defaultResource,
@@ -126,11 +118,10 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
         this.dispatch(updateForm(this.formName, update));
     }
 
-    onWarn(values) {
+    onWarn() {
         const warnings = {};
-        const { hasS3Access } = values;
 
-        if (hasS3Access && !this.systemHasResources) {
+        if (!this.systemHasResources) {
             warnings.defaultResource = 'Until connecting resources, internal storage will be used';
         }
 
@@ -139,9 +130,9 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
 
     onValidate(values) {
         const errors = {};
-        const { hasS3Access, defaultResource } = values;
+        const { defaultResource } = values;
 
-        if (hasS3Access && this.systemHasResources && !defaultResource) {
+        if (this.systemHasResources && !defaultResource) {
             errors.defaultResource = 'Please select a default resource for the account';
         }
 
@@ -161,7 +152,6 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
 
     onSubmit({
         accountName,
-        hasS3Access,
         defaultResource,
         allowAccessToFutureBuckets,
         allowedBuckets,
@@ -172,7 +162,6 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
             closeModal(),
             updateAccountS3Access(
                 accountName,
-                hasS3Access,
                 defaultResource,
                 allowAccessToFutureBuckets,
                 allowedBuckets,

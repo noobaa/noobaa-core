@@ -90,7 +90,7 @@ function patch {
                 "spec": {
                     "containers": [
                         {
-                            "name": '"${CONTAINER}"',
+                            "name": "'${CONTAINER}'",
                             "env": [
                                 {
                                     "name": "WEB_NODE_OPTIONS",

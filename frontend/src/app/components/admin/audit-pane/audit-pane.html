@@ -1,100 +1,87 @@
 <!-- Copyright (C) 2016 NooBaa -->
 
-<!-- <managed-form class="column greedy"" params="
-    name: formName,
-    fields: formFields
-"> -->
-    <h1 class="row content-middle heading1 pane-header hpad push-next">
-        <span class="greedy push-next">Audit Log</span>
+<h1 class="row content-middle heading1 pane-header hpad push-next">
+    <span class="greedy push-next">Audit Log</span>
 
-        <button class="icon-btn"
-            ko.click="onX"
-        >
-            <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
-        </button>
-    </h1>
+    <button class="icon-btn"
+        ko.click="onX"
+    >
+        <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+    </button>
+</h1>
 
-    <div class="column hpad push-next">
-        <div class="row content-middle">
-            <h2 class="heading3 greedy">Choose Categories</h2>
+<div class="column hpad push-next">
+    <div class="row content-middle">
+        <h2 class="heading3 greedy">Choose Categories</h2>
 
-            <div>
-                <button type="button"
-                    class="link alt-colors"
-                    ko.click="onSelectAllCategories"
-                >
-                    Select all
-                </button>
-                |
-                <button type="button"
-                    class="link alt-colors"
-                    ko.click="onClearAllCategories"
-                >
-                    Clear
-                </button>
-            </div>
-        </div>
-
-        <multiselect class="category-filter" params="
-            options: categoryOptions,
-            selected: ko.pc(selectedCategories, onSelectCategories, $component)
-        "></multiselect>
-    </div>
-
-    <div class="column hpad greedy push-next">
-        <div class="row">
-            <h3 class="heading3 greedy push-next align-end">Events</h3>
-
-            <button class="icon-btn export-btn"
-                ko.click="onExportToCSV"
-                ko.tooltip="exportTooltip"
+        <div>
+            <button type="button"
+                class="link alt-colors"
+                ko.click="onSelectAllCategories"
             >
-                <svg-icon class="icon-small" params="name: 'export'" ></svg-icon>
+                Select all
+            </button>
+            |
+            <button type="button"
+                class="link alt-colors"
+                ko.click="onClearAllCategories"
+            >
+                Clear
             </button>
         </div>
+    </div>
 
-        <div class="greedy content-box scroll-overflow"
-            ko.scroll="ko.pc(ko.observable(), onScroll, $component)"
+    <multiselect class="category-filter" params="
+        options: categoryOptions,
+        selected: ko.pc(selectedCategories, onSelectCategories, $component)
+    "></multiselect>
+</div>
+
+<div class="column hpad greedy push-next">
+    <div class="row">
+        <h3 class="heading3 greedy push-next align-end">Events</h3>
+
+        <button class="icon-btn export-btn"
+            ko.click="onExportToCSV"
+            ko.tooltip="exportTooltip"
         >
-            <data-table class="audit-table " params="
-                columns: columns,
-                data: rows,
-                rowClick: row => onSelectedRecord(row.id)
-            "></data-table>
+            <svg-icon class="icon-small" params="name: 'export'" ></svg-icon>
+        </button>
+    </div>
 
-            <div class="border-top column">
-                <loading-indicator class="align-middle greedy pad"
-                    ko.visible="loadState.eq('LOADING')"
-                ></loading-indicator>
+    <div class="greedy content-box scroll-overflow"
+        ko.scroll="ko.pc(ko.observable(), onScroll, $component)"
+    >
+        <data-table class="audit-table " params="
+            columns: columns,
+            data: rows,
+            rowClick: row => onSelectedRecord(row.id),
+            rowCssProp: 'css'
+        "></data-table>
 
-                <div class="align-middle remark pad"
-                    ko.visible="loadState.eq('ALL_LOADED')"
-                >
-                    No more results
-                </div>
+        <div class="border-top column">
+            <loading-indicator class="align-middle greedy pad"
+                ko.visible="loadState.eq('LOADING')"
+            ></loading-indicator>
 
-                <div class="link align-middle pad"
-                    ko.visible="loadState.eq('LOAD_ERROR')"
-                >
-                    <button class="link error" ko.click="onRetryLoad">
-                        Loading failed, click to retry
-                    </button>
-                </div>
+            <div class="align-middle remark pad"
+                ko.visible="loadState.eq('ALL_LOADED')"
+            >
+                No more results
+            </div>
+
+            <div class="link align-middle pad"
+                ko.visible="loadState.eq('LOAD_ERROR')"
+            >
+                <button class="link error" ko.click="onRetryLoad">
+                    Loading failed, click to retry
+                </button>
             </div>
         </div>
     </div>
-    <div class="column hpad push-next">
-        <h3 class="heading3">Event Description</h3>
-        <pre class="desc-box content-box pad">{{desc}}</pre>
-    </div>
-<!-- </managed-form> -->
+</div>
+<div class="column hpad push-next">
+    <h3 class="heading3">Event Description</h3>
+    <pre class="desc-box content-box pad">{{desc}}</pre>
+</div>
 
-<!--
-            rowCssProp: 'selectedCss',
-            rowClick: selectedRow,
-
-
-
-
-
- -->

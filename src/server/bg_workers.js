@@ -95,6 +95,7 @@ function run_master_workers() {
         register_bg_worker({
             name: 'system_server_stats_aggregator',
             delay: config.central_stats.partial_send_time_cycle,
+            run_immediate: true
         }, stats_aggregator.background_worker);
     }
 

@@ -37,6 +37,10 @@ class PoolController {
         throw new Error('Not Implemented');
     }
 
+    async upgrade(image) {
+        throw new Error('Not Implemented');
+    }
+
     async delete() {
         throw new Error('Not Implemented');
     }
@@ -117,6 +121,26 @@ class ManagedStatefulSetPoolController extends PoolController {
         }
     }
 
+    async upgrade(image) {
+        dbg.log0(`ManagedStatefulSetPoolController::upgrade: upgrading (if needed) stateful set ${
+            this._statefulset_name
+        } to use ${
+            image
+        } image`);
+
+        await kube_utils.patch_resource(
+            'StatefulSet',
+            this._statefulset_name,
+            { spec: { template: { spec: { containers: [{ name: 'noobaa-agent', image }] } } } }
+        );
+
+        const pods = await this._list_pods();
+        await Promise.all(pods.map(async pod => {
+            const pod_name = pod.metadata.name;
+            return kube_utils.wait_for_condition('pod', pod_name, 'ready', 15 * 60 * 1000);
+        }));
+    }
+
     async delete() {
         this.scale(0);
     }
@@ -153,6 +177,10 @@ class UnmanagedStatefulSetPoolController extends PoolController {
     }
 
     async scale(host_count) {
+        // noop (unmanaged)
+    }
+
+    async upgrade(image) {
         // noop (unmanaged)
     }
 
@@ -209,6 +237,10 @@ class InProcessAgentsPoolController extends PoolController {
 
         await this.scale(0);
         pools_context.delete(this.pool_name);
+    }
+
+    async upgrade(image) {
+        // noop (not relevant)
     }
 
     async _create_and_start_agent(hostname, base_address, token_template) {

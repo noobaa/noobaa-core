@@ -245,11 +245,11 @@ class BucketObjectsTableViewModel extends Observer {
 
         const account = accounts[user];
         const { counters, items: queryObjects, emptyReason } = query.result;
-        const s3Connection = account.hasS3Access ? {
+        const s3Connection = {
             accessKey: account.accessKeys.accessKey,
             secretKey: account.accessKeys.secretKey,
             endpoint: location.hostname
-        } : null;
+        };
         const rowParams = {
             baseRoute: this.baseRoute,
             onSelectForDelete: this.onSelectForDelete.bind(this),

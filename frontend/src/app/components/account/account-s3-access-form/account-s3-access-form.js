@@ -9,7 +9,6 @@ import {
     openRegenerateAccountCredentialsModal
 } from 'action-creators';
 
-const disabledActionTooltip = 'This option is unavailable for accounts without S3 access';
 const boxCount = 4;
 
 
@@ -37,12 +36,9 @@ function _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) {
 class AccountS3AccessFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     accountName = ko.observable();
-    isS3AccessDisabled = ko.observable();
-    setIPRestrictionsButtonTooltip = ko.observable();
-    regenerateCredentialsButtonTooltip = ko.observable();
     s3AccessInfo = [
         {
-            label: 'S3 Access',
+            label: 'Access Type',
             value: ko.observable()
         },
         {
@@ -106,25 +102,19 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
     mapStateToProps(account) {
         if (!account) {
             ko.assignToProps(this, {
-                dataReady: false,
-                isS3AccessDisabled: true
+                dataReady: false
             });
 
         } else {
             const {
                 defaultResource,
-                hasS3Access,
+                isAdmin,
                 hasAccessToAllBuckets,
                 allowedBuckets,
                 accessKeys,
                 allowedIps
             } = account;
 
-
-            const regenerateCredentialsTooltip = !hasS3Access ? {
-                align: 'end',
-                text: disabledActionTooltip
-            } : '';
 
             const defaultResourceName =
                 (defaultResource === 'INTERNAL_STORAGE' && 'Internal Storage') ||
@@ -134,43 +124,20 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 accountName: account.name,
-                isS3AccessDisabled: !hasS3Access,
-                setIPRestrictionsButtonTooltip: hasS3Access ? '' : disabledActionTooltip,
-                regenerateCredentialsButtonTooltip: regenerateCredentialsTooltip,
                 s3AccessInfo: [
-                    {
-                        value: hasS3Access ? 'Enabled' : 'Disabled'
-                    },
-                    {
-                        value: _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets),
-                        disabled: !hasS3Access
-                    },
-                    {
-                        value: account.canCreateBuckets ? 'Allowed' : 'Not Allowed',
-                        disabled: !hasS3Access
-                    },
-                    {
-                        value: defaultResourceName,
-                        disabled: !hasS3Access
-                    },
-                    {
-                        value: allowedIps ? 'Enabled' : 'Not set',
-                        disabled: !hasS3Access
-                    },
+                    { value: isAdmin ? 'Administator' : 'Application' },
+                    { value: _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) },
+                    { value: account.canCreateBuckets ? 'Allowed' : 'Not Allowed' },
+                    { value: defaultResourceName },
+                    { value: allowedIps ? 'Enabled' : 'Not set' },
                     {
                         value: _getAllowedIpsInfo(allowedIps),
-                        visible: Boolean(hasS3Access && allowedIps)
+                        visible: Boolean(allowedIps)
                     }
                 ],
                 credentials: [
-                    {
-                        value: accessKeys.accessKey,
-                        disabled: !hasS3Access
-                    },
-                    {
-                        value: accessKeys.secretKey,
-                        disabled: !hasS3Access
-                    }
+                    { value: accessKeys.accessKey },
+                    { value: accessKeys.secretKey }
                 ]
             });
         }

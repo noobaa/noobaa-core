@@ -5,14 +5,11 @@
         Account S3 Access
     </h2>
 
-    <div class="push-next" ko.tooltip="setIPRestrictionsButtonTooltip">
-        <button class="btn"
-            ko.click="onSetIPRestrictions"
-            ko.disable="isS3AccessDisabled"
-        >
-            Set IP Restrictions
-        </button>
-    </div>
+    <button class="btn push-next"
+        ko.click="onSetIPRestrictions"
+    >
+        Set IP Restrictions
+    </button>
 
     <button class="btn"
         ko.click="onEditS3Access"
@@ -38,25 +35,20 @@
 <hr>
 
 <div class="row card-shadow pad content-middle">
-    <h2 class="heading3 greedy push-next" ko.css.disabled="isS3AccessDisabled">
+    <h2 class="heading3 greedy push-next">
         Account Security Credentials
     </h2>
 
-    <div ko.tooltip="regenerateCredentialsButtonTooltip">
-        <button class="btn"
-            ko.click="onRegenerateAccountCredentials"
-            ko.disable="isS3AccessDisabled"
-        >
-            Regenerate Credentials
-        </button>
-    </div>
+    <button class="btn" ko.click="onRegenerateAccountCredentials">
+        Regenerate Credentials
+    </button>
 </div>
 
 <loading-indicator class="align-start pad"
     ko.visible="!dataReady()"
 ></loading-indicator>
 <div class="pad column" ko.if="dataReady">
-    <span class="highlight push-next" ko.css.disabled="isS3AccessDisabled">
+    <span class="highlight push-next">
         Use the following S3 access keys to connect a S3 compatible application to NooBaa:
     </span>
     <property-sheet class="pad content-box" params="properties: credentials"></property-sheet>

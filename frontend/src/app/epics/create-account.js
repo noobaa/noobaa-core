@@ -13,9 +13,8 @@ export default function(action$, { api }) {
         mergeMap(async action => {
             const {
                 accountName,
-                hasLoginAccess,
+                isAdmin,
                 password,
-                hasS3Access,
                 defaultResource,
                 hasAccessToAllBucekts,
                 allowedBuckets,
@@ -27,16 +26,16 @@ export default function(action$, { api }) {
                     api.account.create_account({
                         name: accountName.split('@')[0],
                         email: accountName,
-                        has_login: hasLoginAccess,
-                        password: hasLoginAccess ? password : undefined,
-                        must_change_password: hasLoginAccess || undefined,
-                        s3_access: hasS3Access,
-                        default_pool: hasS3Access ? defaultResource : undefined,
-                        allowed_buckets: hasS3Access ? {
+                        has_login: isAdmin,
+                        password: isAdmin ? password : undefined,
+                        must_change_password: isAdmin || undefined,
+                        s3_access: true,
+                        default_pool: defaultResource,
+                        allowed_buckets: {
                             full_permission: hasAccessToAllBucekts,
                             permission_list: !hasAccessToAllBucekts ? allowedBuckets : undefined
-                        } : undefined,
-                        allow_bucket_creation: hasS3Access && allowBucketCreation
+                        },
+                        allow_bucket_creation: allowBucketCreation
                     }),
                     sleep(750)
                 );

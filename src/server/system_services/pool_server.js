@@ -62,7 +62,7 @@ let create_pool_controller = default_create_pool_controller;
 // that the server process was stopped unexpectedly.
 async function _init() {
     await promise_utils.wait_until(() =>
-        system_store.is_finished_initial_load,
+        system_store.is_finished_initial_load
     );
 
     const system = system_store.data.systems[0];
@@ -78,6 +78,14 @@ async function _init() {
         // We do not wait on the lock intentionally, we want to lock all pools synchronously.
         // eslint-disable-next-line no-loop-func
         pool_scaling_sem.surround_key(pool.name, async () => {
+            const { image } = JSON.parse(process.env.AGENT_PROFILE || '{}');
+
+            // Try to upgrade all hosts statefulsets to use the current image.
+            const pool_ctrl = create_pool_controller(system, pool);
+            await pool_ctrl.upgrade(image); // noop if an upgrade is not needed.
+
+
+            // Fix issue with mismatch between configured host count and actual host count
             const configured_host_count = pool.hosts_pool_info.host_count;
             const actual_host_count = await get_initialized_hosts_count(pool._id, system._id);
             if (actual_host_count === configured_host_count) {
@@ -93,7 +101,6 @@ async function _init() {
                 } hosts were found, scaling to fix.
             `);
 
-            const pool_ctrl = create_pool_controller(system, pool);
             if (configured_host_count > actual_host_count) {
                 await pool_ctrl.scale(configured_host_count);
                 try {

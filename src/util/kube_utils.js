@@ -80,6 +80,13 @@ function wait_for_delete(resource_type, resource_name, timeout = 300) {
     );
 }
 
+function wait_for_condition(resource_type, resource_name, condition, timeout = 300) {
+    return exec_kubectl(
+        `wait ${resource_type} ${resource_name} --for condition=${condition} --timeout=${timeout}s`,
+        'json'
+    );
+}
+
 exports.read_namespace = read_namespace;
 exports.read_sa_token = read_sa_token;
 exports.apply_conf = apply_conf;
@@ -88,3 +95,4 @@ exports.get_resource = get_resource;
 exports.patch_resource = patch_resource;
 exports.delete_resource = delete_resource;
 exports.wait_for_delete = wait_for_delete;
+exports.wait_for_condition = wait_for_condition;

@@ -7,7 +7,7 @@ SCRIPT_NAME=$(basename $0)
 K8S_CLIENT='kubectl'
 STATEFULSET=noobaa-core
 POD=$STATEFULSET-0
-CONTAINER=noobaa-server
+CONTAINER=core
 WEB_DEBUG_PORT=9220
 BG_DEBUG_PORT=9221
 HOSTED_AGENTS_DEBUG_PORT=9222
@@ -90,7 +90,7 @@ function patch {
                 "spec": {
                     "containers": [
                         {
-                            "name": "noobaa-server",
+                            "name": '"${CONTAINER}"',
                             "env": [
                                 {
                                     "name": "WEB_NODE_OPTIONS",

@@ -28,6 +28,7 @@ const auth_server = require('../common_services/auth_server');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
+const pool_server = require('../system_services/pool_server');
 const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
@@ -106,7 +107,7 @@ async function create_account(req) {
         } else {
             account.default_pool = req.rpc_params.default_pool ?
                 req.system.pools_by_name[req.rpc_params.default_pool]._id :
-                Object.values(req.system.pools_by_name)[0]._id; // only pool is internal
+                pool_server.get_internal_mongo_pool(req.system)._id; //Internal
 
             if (req.rpc_params.allowed_buckets) {
                 const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
@@ -1215,7 +1216,7 @@ function validate_create_account_params(req) {
                 throw new RpcError('No resources in the system - Can\'t create accounts');
             }
 
-            if (!req.rpc_params.default_pool) {
+            if (req.rpc_params.allow_bucket_creation && !req.rpc_params.default_pool) { //default resource needed only if new bucket can be created
                 const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
                 if (pools.length) { // has resources which is not internal - must supply resource
                     throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');

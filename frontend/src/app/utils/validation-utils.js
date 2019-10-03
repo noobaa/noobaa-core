@@ -22,7 +22,7 @@ export function validateName(name = '', existing, disallowPeriods = false) {
             message: '3-63 characters'
         },
         {
-            valid: /^[a-z0-9].*[a-z0-9]$/.test(name),
+            valid: /^[a-z0-9](.*[a-z0-9])?$/.test(name),
             message: 'Starts and ends with a lowercase letter or number'
         },
         symbolsRule,

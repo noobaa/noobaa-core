@@ -94,5 +94,6 @@ spec:
         resources:
           requests:
             storage: 30Gi
-        # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
-        #storageClassName:
+        # storageClassName if needed will be added by the pool controller (via pool server),
+        # Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+

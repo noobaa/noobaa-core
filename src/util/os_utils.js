@@ -46,6 +46,14 @@ if (!process.env.PLATFORM) {
     dotenv.load();
 }
 
+function get_memory() {
+    return Number(process.env.CONTAINER_MEM_REQUEST) || os.totalmem();
+}
+
+function get_cpus() {
+    return Number(process.env.CONTAINER_CPU_REQUEST) || os.cpus().length;
+}
+
 
 function os_info(count_mongo_reserved_as_free) {
 
@@ -70,7 +78,7 @@ function os_info(count_mongo_reserved_as_free) {
             release: os.release(),
             uptime: Date.now() - Math.floor(1000 * os.uptime()),
             loadavg: os.loadavg(),
-            totalmem: os.totalmem(),
+            totalmem: get_memory(),
             freemem: free_mem,
             cpus: os.cpus(),
             networkInterfaces: interfaces
@@ -791,6 +799,8 @@ function sort_address_list(address_list) {
 
 
 // EXPORTS
+exports.get_memory = get_memory;
+exports.get_cpus = get_cpus;
 exports.os_info = os_info;
 exports.read_drives = read_drives;
 exports.get_raw_storage = get_raw_storage;

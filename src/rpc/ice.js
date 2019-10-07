@@ -746,6 +746,7 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
  * see _init_tcp_connection above for an instance wrapper.
  */
 function init_tcp_connection(conn, session, ice, ice_lookup) {
+    dbg.log0('init_tcp_connection info', conn, session, ice, ice_lookup);
     var info = {
         family: conn.remoteFamily,
         address: conn.remoteAddress,
@@ -769,12 +770,13 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
     conn.on('timeout', destroy_conn);
 
     function destroy_conn(err) {
+        dbg.log0('init_tcp_connection destroy_conn called', err, temp_queue ? temp_queue.length : undefined, info.key);
         temp_queue = null;
         conn.destroy();
         if (info.session) {
             info.session.close(err || new Error('ICE TCP DESTROYING'));
         } else {
-            dbg.log1('ICE TCP DESTROYING', err || '');
+            dbg.log0('ICE TCP DESTROYING', err || '');
         }
     }
 
@@ -787,7 +789,7 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
     // we solve by queueing them, and unleashing once the handler is added.
     conn.on('newListener', function new_listener_handler(event) {
         if (event !== 'message') return;
-        dbg.log1('ICE TCP UNLEASH', temp_queue.length, 'QUEUED MESSAGES', info.key);
+        dbg.log0('ICE TCP UNLEASH', temp_queue ? temp_queue.length : undefined, 'QUEUED MESSAGES', info.key);
         conn.removeListener('newListener', new_listener_handler);
         var mq = temp_queue;
         temp_queue = null;
@@ -798,6 +800,7 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
 
     conn.frame_stream = new FrameStream(conn, function(buffers, msg_type) {
         if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
+            dbg.log0('FrameStream ICE_FRAME_STUN_MSG_TYPE handle', temp_queue ? temp_queue.length : undefined, info.key);
             const stun_buffer = buffer_utils.join(buffers);
             if (!ice) {
                 ice = ice_lookup(stun_buffer, info);
@@ -822,8 +825,8 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
             return;
         }
         temp_queue.push(buffers);
-        dbg.log1('ICE TCP HOLDING MESSAGE IN QUEUE FOR LISTENER',
-            temp_queue.length, info.key);
+        dbg.log0('ICE TCP HOLDING MESSAGE IN QUEUE FOR LISTENER',
+        temp_queue ? temp_queue.length : undefined, info.key);
     }, ICE_FRAME_CONFIG);
 }
 

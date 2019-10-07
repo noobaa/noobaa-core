@@ -3,10 +3,13 @@
 
 const _ = require('lodash');
 const buffer_utils = require('./buffer_utils');
+const dbg = require('../util/debug_module')(__filename);
+const uuid = require('uuid/v4');
 
 const DEFAULT_MSG_MAGIC = "FramStrm";
 const DEFAULT_MAX_MSG_LEN = 64 * 1024 * 1024;
 const MAX_SEQ = 256 * 256; // 16 bit
+const weak_streams_map = new WeakMap();
 
 /**
  * message framing for byte streams
@@ -20,6 +23,12 @@ const MAX_SEQ = 256 * 256; // 16 bit
 class FrameStream {
 
     constructor(stream, msg_handler, config) {
+        if (weak_streams_map.has(stream)) {
+            const value = weak_streams_map.get(stream);
+            dbg.log0('FrameStream already initialized with stream', stream, config, msg_handler);
+            dbg.log0('FrameStream previous stream metadata', value);
+        }
+        weak_streams_map.set(stream, { stream, msg_handler, config, uuid: uuid() });
         this.stream = stream;
         this.msg_handler = msg_handler || function(msg, msg_type) {
             stream.emit('message', msg, msg_type);
@@ -33,6 +42,7 @@ class FrameStream {
         this._buffers = [];
         this._buffers_length = 0;
         stream.on('data', data => this._on_data(data));
+        dbg.log0('FrameStream initialized with stream', stream, config, msg_handler, this._send_seq);
     }
 
     /**
@@ -55,6 +65,8 @@ class FrameStream {
         if (msg_len > this._max_len) {
             throw new Error('message too big' + msg_len);
         }
+        const value = weak_streams_map.get(this.stream);
+        dbg.log0('FrameStream _send_message info', this._send_seq, this._recv_seq, value.uuid);
         var msg_header = Buffer.allocUnsafe(this._header_len);
         msg_header.write(this._magic, 0, this._magic_len, 'ascii');
         msg_header.writeUInt16BE(this._send_seq, this._magic_len);
@@ -82,6 +94,8 @@ class FrameStream {
     }
 
     _on_data(data) {
+        const value = weak_streams_map.get(this.stream);
+        dbg.log0('FrameStream _on_data info', this._send_seq, this._recv_seq, value.uuid);
         this._buffers.push(data);
         this._buffers_length += data.length;
         var run = true;

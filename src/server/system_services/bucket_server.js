@@ -690,7 +690,7 @@ async function delete_bucket_and_objects(req) {
         throw new RpcError('BAD_REQUEST', 'cannot perform delete_bucket_and_objects on namespace bucket');
     }
     const now = new Date();
-    // mark the bucket as deleting. it will be excluded from system_store indexes 
+    // mark the bucket as deleting. it will be excluded from system_store indexes
     // rename the bucket to prevent collisions if the a new bucket with the same name is created immediately.
     await system_store.make_changes({
         update: {
@@ -1351,7 +1351,6 @@ function _calc_metrics({
             quota_free = BigInteger.zero;
         }
     }
-    const internal_info = pool_server.get_pool_info(internal_pool, nodes_aggregate_pool, hosts_aggregate_pool);
     let risky_tolerance = false;
 
     _.each(bucket.tiering.tiers, tier_and_order => {
@@ -1434,7 +1433,6 @@ function _calc_metrics({
 
     return {
         is_using_internal: is_using_internal_storage(bucket, internal_pool),
-        internal_has_issues: (internal_info.mode !== 'OPTIMAL'),
         has_any_pool_configured,
         has_enough_healthy_nodes_for_tiering,
         has_enough_total_nodes_for_tiering,

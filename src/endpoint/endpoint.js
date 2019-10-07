@@ -17,9 +17,7 @@ const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
 const cluster = require('cluster');
-const os = require('os');
 const size_utils = require('../util/size_utils');
-const numCPUs = os.cpus().length;
 const FtpSrv = require('ftp-srv');
 const net = require('net');
 
@@ -69,7 +67,8 @@ function start_all() {
             //  8    2
             //  10   3
             //  12   4
-            const total_mem_mb = Math.floor(os.totalmem() / size_utils.MEGABYTE);
+            const numCPUs = os_utils.get_cpus();
+            const total_mem_mb = Math.floor(os_utils.get_memory() / size_utils.MEGABYTE);
             const reserved_mem_mb = 4 * size_utils.GIGABYTE;
             const fork_mem_mb = 2 * size_utils.GIGABYTE;
             const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));

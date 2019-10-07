@@ -2,12 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
-const os = require('os');
 const util = require('util');
 const stream = require('stream');
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
+const os_utils = require('../util/os_utils');
 const Pipeline = require('../util/pipeline');
 const Semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
@@ -131,7 +131,7 @@ class ObjectIO {
 
         dbg.log0('ObjectIO Configurations:', util.inspect({
             location_info,
-            totalmem: os.totalmem(),
+            totalmem: os_utils.get_memory(),
             ENDPOINT_FORKS_COUNT: config.ENDPOINT_FORKS_COUNT,
             IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP
         }));

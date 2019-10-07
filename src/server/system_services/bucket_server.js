@@ -1132,6 +1132,36 @@ function update_bucket_lambda_trigger(req) {
         .return();
 }
 
+
+async function update_all_buckets_default_pool(req) {
+    const pool_name = req.rpc_params.pool_name;
+    const pool = req.system.pools_by_name[pool_name];
+    if (!pool) throw new RpcError('INVALID_POOL_NAME');
+    const internal_pool = pool_server.get_internal_mongo_pool(pool.system);
+    if (String(pool._id) === String(internal_pool._id)) return;
+    const buckets_with_internal_pool = _.filter(req.system.buckets_by_name, bucket =>
+        is_using_internal_storage(bucket, internal_pool));
+    if (!buckets_with_internal_pool.length) return;
+
+    const updates = [];
+    for (const bucket of buckets_with_internal_pool) {
+        updates.push({
+            _id: bucket.tiering.tiers[0].tier._id,
+            mirrors: [{
+                _id: system_store.new_system_store_id(),
+                spread_pools: [pool._id]
+            }]
+        });
+    }
+    dbg.log0(`Updating ${buckets_with_internal_pool.length} buckets to use ${pool_name} as default resource`);
+    await system_store.make_changes({
+        update: {
+            tiers: updates
+        }
+    });
+}
+
+
 function validate_trigger_update(req, bucket, validated_trigger) {
     dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
     let validate_function = true;
@@ -1595,3 +1625,5 @@ exports.get_bucket_website = get_bucket_website;
 exports.delete_bucket_policy = delete_bucket_policy;
 exports.put_bucket_policy = put_bucket_policy;
 exports.get_bucket_policy = get_bucket_policy;
+
+exports.update_all_buckets_default_pool = update_all_buckets_default_pool;

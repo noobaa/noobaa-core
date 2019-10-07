@@ -816,7 +816,22 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        }
+        },
+        update_all_buckets_default_pool: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['pool_name'],
+                properties: {
+                    pool_name: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
 
     definitions: {

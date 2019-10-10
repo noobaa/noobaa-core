@@ -227,10 +227,10 @@ module.exports = {
         },
         bucket_claim: {
             type: 'object',
-            required: ['policy_type', 'namespace'],
+            required: ['bucket_class', 'namespace'],
             properties: {
                 // TODO: Fill this with relevant info
-                policy_type: {
+                bucket_class: {
                     type: 'string',
                 },
                 namespace: {

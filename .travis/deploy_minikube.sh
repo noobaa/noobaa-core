@@ -15,7 +15,7 @@ set -x
 # socat is needed for port forwarding
 sudo apt-get update && sudo apt-get install socat
 
-export MINIKUBE_VERSION=v1.2.0
+export MINIKUBE_VERSION=v1.4.0
 export KUBERNETES_VERSION=v1.15.0
 
 sudo mount --make-rshared /
@@ -31,7 +31,7 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VE
     sudo mv minikube /usr/local/bin/minikube
 
 mkdir "${HOME}"/.kube || true
-touch "${HOME}"/.kube/config
+# touch "${HOME}"/.kube/config
 
 # minikube config
 minikube config set WantNoneDriverWarning false
@@ -41,7 +41,7 @@ minikube version
 sudo minikube start --kubernetes-version=$KUBERNETES_VERSION --extra-config=apiserver.authorization-mode=RBAC #--insecure-registry="${LOCAL_IP}:5000" #TODO Remove insecure
 sudo chown -R travis: /home/travis/.minikube/
 
-minikube update-context
+minikube update-context || true
 
 # waiting for node(s) to be ready
 JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done

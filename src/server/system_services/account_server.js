@@ -1202,6 +1202,11 @@ function is_support_or_admin_or_me(system, account, target_account) {
 }
 
 function validate_create_account_params(req) {
+    // find none-internal pools
+    const has_non_internal_resources = (req.system && req.system.pools_by_name) ?
+        Object.values(req.system.pools_by_name).some(p => !p.mongo_pool_info) :
+        false;
+
     if (req.rpc_params.name.unwrap() !== req.rpc_params.name.unwrap().trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
     }
@@ -1217,8 +1222,7 @@ function validate_create_account_params(req) {
             }
 
             if (req.rpc_params.allow_bucket_creation && !req.rpc_params.default_pool) { //default resource needed only if new bucket can be created
-                const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
-                if (pools.length) { // has resources which is not internal - must supply resource
+                if (has_non_internal_resources) { // has resources which is not internal - must supply resource
                     throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
                 }
             }
@@ -1262,7 +1266,7 @@ function validate_create_account_params(req) {
 
         if (
             !req.rpc_params.s3_access ||
-            !default_pool ||
+            (has_non_internal_resources && !default_pool) ||
             !allow_bucket_creation ||
             !allowed_buckets ||
             !allowed_buckets.full_permission

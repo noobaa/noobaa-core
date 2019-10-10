@@ -434,7 +434,7 @@ async function _partial_buckets_info(req) {
             usage_by_project[bucket_project] = existing_project.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
-            const bucket_class = (bucket_info.bucket_claim && bucket_info.bucket_claim.policy_type) || 'Others';
+            const bucket_class = (bucket_info.bucket_claim && bucket_info.bucket_claim.bucket_class) || 'Others';
             const existing_bucket_class = usage_by_bucket_class[bucket_class] || size_utils.BigInteger.zero;
             usage_by_bucket_class[bucket_class] = existing_bucket_class.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0

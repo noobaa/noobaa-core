@@ -143,6 +143,7 @@ async function _init() {
             }
         });
     }
+    check_accounts_default_resource();
 }
 
 function default_create_pool_controller(system, pool) {
@@ -212,9 +213,8 @@ async function create_hosts_pool(req) {
         insert: {
             pools: [pool],
         },
-        update: updates_if_first_resource(req, pool)
     });
-
+    updates_if_first_resource(req, false);
     const { hosts_pool_info } = pool;
     Dispatcher.instance().activity({
         event: 'resource.create',
@@ -337,23 +337,64 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
     return Buffer.from(install_string).toString('base64');
 }
 
-function updates_if_first_resource(req, pool) {
-    const system = req.system;
-    const updates = [];
-    const pools = _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
-    if (pools.length) return;
-    // so this is the first resource to be added to the system
-    _.each(system_store.data.accounts, account => {
-        if (account.default_pool && account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL) {
-            updates.push({
-                _id: account._id,
-                $set: {
-                    'default_pool': pool._id
-                }
-            });
+async function updates_if_first_resource(req, skip_pools_check) {
+    let accounts_updated = false;
+    if (!skip_pools_check) {
+        const system = req.system;
+        const pools = _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
+        if (pools.length > 0) {
+            return; //on first pool
         }
-    });
-    return { accounts: updates };
+    }
+    while (!accounts_updated) {
+        await P.delay(5000);
+        accounts_updated = await updates_first_resource();
+    }
+}
+
+async function check_accounts_default_resource() {
+    const non_mongo_pools = _.filter(system_store.data.pools, p => (!_.get(p, 'mongo_pool_info')));
+    const accounts = _.filter(system_store.data.accounts, account => // accounts needs to be updated
+        (account.default_pool && _is_mongo_pool(account.default_pool) &&
+            account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL));
+    if (accounts.length > 0 && non_mongo_pools.length > 0) {
+        updates_if_first_resource(_, true);
+    }
+}
+async function updates_first_resource() {
+    const non_mongo_pools = _.filter(system_store.data.pools, p => (!_.get(p, 'mongo_pool_info')));
+    const promiseList = _.map(
+        non_mongo_pools,
+        async pool => {
+            const updates = [];
+            const agg = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
+            const pool_info = get_pool_info(pool, agg);
+            if (pool_info.mode && pool_info.mode === ('OPTIMAL')) {
+                _.each(system_store.data.accounts, account => {
+                    if (account.default_pool &&
+                        _is_mongo_pool(account.default_pool) &&
+                        account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL) {
+                        updates.push({
+                            _id: account._id,
+                            $set: {
+                                'default_pool': pool._id
+                            }
+                        });
+                    }
+                });
+            }
+            return updates;
+        }
+    );
+
+    const all_updates = _.flatten(await Promise.all(promiseList));
+    if (all_updates.length > 0) {
+        await system_store.make_changes({
+            update: { accounts: all_updates }
+        });
+        return true;
+    }
+    return false;
 }
 
 function create_namespace_resource(req) {
@@ -438,8 +479,7 @@ function create_cloud_pool(req) {
     return system_store.make_changes({
             insert: {
                 pools: [pool]
-            },
-            update: updates_if_first_resource(req, pool)
+            }
         })
         .then(res => server_rpc.client.hosted_agents.create_pool_agent({
             pool_name: req.rpc_params.name,
@@ -447,6 +487,7 @@ function create_cloud_pool(req) {
             auth_token: req.auth_token
         }))
         .then(() => {
+            updates_if_first_resource(req, false);
             Dispatcher.instance().activity({
                 event: 'resource.cloud_create',
                 level: 'info',

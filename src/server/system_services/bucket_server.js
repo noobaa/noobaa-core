@@ -1582,11 +1582,15 @@ function can_delete_bucket(system, bucket) {
         });
 }
 
+async function list_undeletable_buckets() {
+    return MDStore.instance().all_buckets_with_completed_objects();
+}
 
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
 exports.can_delete_bucket = can_delete_bucket;
+exports.list_undeletable_buckets = list_undeletable_buckets;
 //Bucket Management
 exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;

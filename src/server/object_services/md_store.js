@@ -403,7 +403,7 @@ class MDStore {
 
     /**
      * TODO define indexes used by find_objects()
-     * 
+     *
      * @typedef {Object} FindObjectsParams
      * @property {nb.ID} bucket_id
      * @property {string|RegExp} key
@@ -416,11 +416,11 @@ class MDStore {
      * @property {string} [sort]
      * @property {1|-1} [order]
      * @property {boolean} [pagination]
-     * 
+     *
      * @typedef {Object} FindObjectsReply
      * @property {nb.ObjectMD[]} objects
      * @property {{ non_paginated: Object, by_mode: Object }} counters
-     * 
+     *
      * @param {FindObjectsParams} params
      * @returns {Promise<FindObjectsReply>}
      */
@@ -729,6 +729,19 @@ class MDStore {
             sort: { bucket: 1, key: 1, version_seq: -1 },
         });
         return Boolean(obj);
+    }
+
+    async all_buckets_with_completed_objects() {
+        return this._objects.col().distinct('bucket', {
+            // prefix for stored blob blocks information. TODO: move somwhere like config.js
+            key: { $not: /^\.noobaa_blob_blocks/ },
+            // partialFilterExpression:
+            deleted: null,
+            upload_started: null,
+        }, {
+            hint: 'version_seq_index',
+            sort: { bucket: 1 }
+        });
     }
 
     async count_objects_of_bucket(bucket_id) {
@@ -1070,7 +1083,7 @@ class MDStore {
     }
 
     /**
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} chunk_ids
      * @returns {Promise<nb.ID[]>}
      */
     async find_parts_unreferenced_chunk_ids(chunk_ids) {
@@ -1108,7 +1121,7 @@ class MDStore {
     }
 
     /**
-     * @param {nb.ChunkSchemaDB[]} chunks 
+     * @param {nb.ChunkSchemaDB[]} chunks
      */
     async load_parts_objects_for_chunks(chunks) {
         if (!chunks || !chunks.length) return;
@@ -1354,7 +1367,7 @@ class MDStore {
     }
 
     /**
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} chunk_ids
      */
     async delete_chunks_by_ids(chunk_ids) {
         const delete_date = new Date();
@@ -1606,7 +1619,7 @@ class MDStore {
     }
 
     /**
-     * @param {nb.ID[]} block_ids 
+     * @param {nb.ID[]} block_ids
      */
     async delete_blocks_by_ids(block_ids) {
         const delete_date = new Date();
@@ -1774,7 +1787,7 @@ function sort_list_uploads_with_delimiter(a, b) {
 }
 
 /**
- * @param {string} id_str 
+ * @param {string} id_str
  * @returns {nb.ID}
  */
 function make_md_id(id_str) {

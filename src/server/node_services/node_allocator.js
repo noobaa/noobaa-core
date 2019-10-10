@@ -24,15 +24,15 @@ const nodes_alloc_round_robin_symbol = Symbol('nodes_alloc_round_robin_symbol');
  * @property {Promise|P} promise
  * @property {nb.NodeAPI[]} nodes
  * @property {{nodes:nb.NodeAPI[]}[]} latency_groups
- * 
+ *
  * @typedef {Object} PoolSetAllocGroup
  * @property {{nodes:nb.NodeAPI[]}[]} latency_groups
- * 
+ *
  * @typedef {Object} TieringAllocGroup
  * @property {number} last_refresh
  * @property {Promise|P} promise
  * @property {{ [tier_id: string]: nb.MirrorStatus[] }} mirrors_storage_by_tier_id
- * 
+ *
  */
 
 /** @type {{ [pool_id: string]: PoolAllocGroup }} */
@@ -43,7 +43,43 @@ let alloc_group_by_pool_set = {};
 let alloc_group_by_tiering = {};
 
 /**
- * @param {nb.Tiering} tiering 
+ * @param {nb.System} system
+ * @returns {Promise<void>}
+ *
+ * Refresh allocation for all tiers for a given system.
+ * This funciton should be used instead of  calling refersh_tiering_alloc
+ * for each tiering policy in the system in a loop because it prefvent duplicate
+ * refreshs_pools_allocs for the same pools.
+  */
+async function refresh_system_alloc(system) {
+    const tiering_list = [];
+    const pool_set = new Set();
+
+    for (const bucket of Object.values(system.buckets_by_name)) {
+        tiering_list.push(bucket.tiering);
+
+        for (const { tier } of bucket.tiering.tiers) {
+            for (const mirror of tier.mirrors) {
+                for (const pool of mirror.spread_pools) {
+                    pool_set.add(pool);
+                }
+            }
+        }
+    }
+
+    await Promise.all([
+        // Refresh pools promise list
+        ...Array.from(pool_set).map(
+            pool => refresh_pool_alloc(pool)
+        ),
+
+        // Refresh tiers promise list
+        refresh_tiers_alloc(tiering_list)
+    ]);
+}
+
+/**
+ * @param {nb.Tiering} tiering
  * @param {'force'} [force]
  * @returns {Promise<void>}
  */
@@ -66,12 +102,12 @@ async function refresh_tiering_alloc(tiering, force) {
     }
     await P.join(
         P.map(pools, pool => refresh_pool_alloc(pool, force)).then(() => { /*void*/ }),
-        refresh_tiers_alloc(tiering, force),
+        refresh_tiers_alloc([tiering], force),
     );
 }
 
 /**
- * @param {nb.Pool} pool 
+ * @param {nb.Pool} pool
  * @param {'force'} [force]
  * @returns {Promise<void>}
  */
@@ -124,52 +160,79 @@ async function refresh_pool_alloc(pool, force) {
 
 
 /**
- * @param {nb.Tiering} tiering 
+ * @param {nb.Tiering[]} tiering_list
  * @param {'force'} [force]
  * @returns {Promise<void>}
  */
-async function refresh_tiers_alloc(tiering, force) {
-    const tiering_id_str = tiering._id.toHexString();
-    let group = alloc_group_by_tiering[tiering_id_str];
-    if (!group) {
-        group = {
-            promise: undefined,
-            last_refresh: 0,
-            mirrors_storage_by_tier_id: {},
-        };
-        alloc_group_by_tiering[tiering_id_str] = group;
+
+async function refresh_tiers_alloc(tiering_list, force) {
+    if (tiering_list.length === 0) {
+        return;
     }
 
-    dbg.log1('refresh_tier_alloc: checking tiering', tiering._id, 'group', group);
+    const system_id = tiering_list[0].tiers[0].tier.system._id;
+    const update_list = [];
+    const wait_list = [];
 
-    if (force !== 'force') {
-        // cache the nodes for some time before refreshing
-        if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
-            return;
+    for (const tiering of tiering_list) {
+        const tiering_id_str = tiering._id.toHexString();
+        let group = alloc_group_by_tiering[tiering_id_str];
+        if (!group) {
+            group = {
+                promise: undefined,
+                last_refresh: 0,
+                mirrors_storage_by_tier_id: {},
+            };
+            alloc_group_by_tiering[tiering_id_str] = group;
         }
+
+        if (force !== 'force') {
+            // cache the nodes for some time before refreshing
+            if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
+                continue;
+            }
+        }
+
+        if (group.promise) {
+            wait_list.push(group.promise);
+            continue;
+        }
+
+        const tiers = tiering.tiers.map(tier_and_order => String(tier_and_order.tier._id));
+        update_list.push({ group, tiers });
     }
 
-    if (group.promise) return group.promise;
+    if (update_list.length > 0) {
+        const tiers_to_refresh = _.flatMap(update_list, item => item.tiers);
+        const promise = P.resolve()
+            .then(async () => {
+                const aggr_by_tier = await nodes_client.instance().aggregate_data_free_by_tier(tiers_to_refresh, system_id);
+                for (const { group, tiers } of update_list) {
+                    group.promise = null;
+                    group.last_refresh = Date.now();
+                    group.mirrors_storage_by_tier_id = _.pick(aggr_by_tier, tiers);
+                }
+            })
+            .catch(err => {
+                for (const { group } of update_list) {
+                    group.promise = null;
+                }
+                throw err;
+            });
 
-    group.promise = P.resolve()
-        .then(() => nodes_client.instance().aggregate_data_free_by_tier(
-            _.map(tiering.tiers, tier_and_order => String(tier_and_order.tier._id)),
-            _.sample(tiering.tiers).tier.system._id
-        ))
-        .then(res => {
-            group.last_refresh = Date.now();
-            group.promise = null;
-            group.mirrors_storage_by_tier_id = res;
-        }, err => {
-            group.promise = null;
-            throw err;
-        });
+        for (const { group } of update_list) {
+            group.promise = promise;
+        }
 
-    return group.promise;
+        wait_list.push(promise);
+    }
+
+    await Promise.all(wait_list);
+    return null;
 }
 
 /**
- * @param {nb.Tiering} tiering 
+ * @param {nb.Tiering} tiering
  * @returns {nb.TieringStatus}
  */
 function get_tiering_status(tiering) {
@@ -351,6 +414,7 @@ function report_error_on_node_alloc(node_id) {
 
 // EXPORTS
 exports.get_tiering_status = get_tiering_status;
+exports.refresh_system_alloc = refresh_system_alloc;
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;

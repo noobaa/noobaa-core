@@ -10,28 +10,13 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## Deploy to Kubernetes
 
-To deploy run the following commands:
-
-```bash
-curl -O https://raw.githubusercontent.com/noobaa/noobaa-core/master/src/deploy/NVA_build/noobaa_deploy_k8s.sh
-chmod +x noobaa_deploy_k8s.sh
-./noobaa_deploy_k8s.sh deploy -n noobaa
-```
-
-NOTE: check that you have these tools installed in your package manager (brew/yum/apt/etc):
- - `kubectl`
- - `curl`
- - `openssl`
- - `jq` - https://stedolan.github.io/jq/download
+To deploy NooBaa, we recommend using NooBaa CLI. 
+Follow the instructions in https://github.com/noobaa/noobaa-operator#noobaa-operator 
+Once NooBaa CLI installed, simply Install the operator and noobaa with: ./noobaa install The install output includes S3 service endpoint and credentials, as well as web management console address with credentials.
+Getting this information is always available with: ./noobaa status
+Remove NooBaa deployment can be done with: ./noobaa uninstall
 
 
-## Tutorials
-
-[![asciicast](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm.svg)](https://asciinema.org/a/kCziF0feQD9qmNioLUSAZNoEm?speed=2&autoplay=1)
-
-[NooBaa From Zero to Multi Cloud on youtube](https://youtu.be/fuTKXBMwOes)
-
-[![Watch the video](https://img.youtube.com/vi/fuTKXBMwOes/default.jpg)](https://youtu.be/fuTKXBMwOes)
 
 ## Help
 

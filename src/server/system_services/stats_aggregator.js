@@ -123,6 +123,11 @@ const PARTIAL_SINGLE_ACCOUNT_DEFAULTS = {
 const PARTIAL_SINGLE_SYS_DEFAULTS = {
     name: '',
     address: '',
+    links: {
+        resources: '',
+        dashboard: '',
+        buckets: '',
+    },
     capacity: 0,
     reduction_ratio: 0,
     savings: {
@@ -360,15 +365,24 @@ async function get_partial_systems_stats(req) {
 
             const { system_address } = system;
             const https_port = process.env.SSL_PORT || 5443;
-            const address = DEV_MODE ? `https://localhost:${https_port}` : addr_utils.get_base_address(system_address, {
+            const address = DEV_MODE ? `https://localhost:${https_port}/` : addr_utils.get_base_address(system_address, {
                 hint: 'EXTERNAL',
                 protocol: 'https'
             }).toString();
+
+            // TODO: Attempted to dynamically build from routes.js in the FE.
+            // There is a problem that we do not pack the source code and only the dist.
+            const links = {
+                buckets: address.concat(`fe/systems/${system.name}/buckets/data-buckets`),
+                resources: address.concat(`fe/systems/${system.name}/resources/storage`),
+                dashboard: address.concat(`fe/systems/${system.name}`),
+            };
 
             return _.defaults({
                 name: system.name,
                 address,
                 capacity,
+                links,
                 reduction_ratio,
                 savings,
                 total_usage,
@@ -850,6 +864,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         usage_by_bucket_class,
         usage_by_project,
         total_usage,
+        links,
     } = systems_stats.systems[0];
     const {
         buckets,
@@ -869,6 +884,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_num_pools(pool_count);
     prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
     prom_report.instance().set_system_info({ name, address });
+    prom_report.instance().set_system_links(links);
     prom_report.instance().set_num_buckets(buckets_num);
     prom_report.instance().set_bucket_status(buckets);
     prom_report.instance().set_resource_status(resources);

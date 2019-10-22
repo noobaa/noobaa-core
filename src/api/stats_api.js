@@ -540,6 +540,7 @@ module.exports = {
                         required: [
                             'name',
                             'address',
+                            'links',
                             'capacity',
                             'reduction_ratio',
                             'savings',
@@ -571,6 +572,21 @@ module.exports = {
                                     physical_size: {
                                         type: 'number'
                                     }
+                                }
+                            },
+                            links: {
+                                type: 'object',
+                                required: ['resources', 'buckets', 'dashboard'],
+                                properties: {
+                                    resources: {
+                                        type: 'string'
+                                    },
+                                    buckets: {
+                                        type: 'string'
+                                    },
+                                    dashboard: {
+                                        type: 'string'
+                                    },
                                 }
                             },
                             reduction_ratio: {

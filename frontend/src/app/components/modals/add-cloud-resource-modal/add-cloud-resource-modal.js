@@ -23,7 +23,8 @@ const allowedServices = deepFreeze([
     'S3_V4_COMPATIBLE',
     'AZURE',
     'GOOGLE',
-    'FLASHBLADE'
+    'FLASHBLADE',
+    'IBM_COS'
 ]);
 
 class AddCloudResourceModalViewModel extends ConnectableViewModel {

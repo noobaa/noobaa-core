@@ -257,16 +257,19 @@ config.DB_CLEANER = {
 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION = {
     DEFAULT: false,
     FLASHBLADE: true,
+    IBM_COS: true,
 };
 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA = {
     DEFAULT: false,
     FLASHBLADE: true,
     S3_COMPATIBLE: true,
+    IBM_COS: true,
 };
 
 config.DEFAULT_S3_AUTH_METHOD = {
     AWS: 'AWS_V4',
-    FLASHBLADE: 'AWS_V4'
+    FLASHBLADE: 'AWS_V4',
+    IBM_COS: 'AWS_V2',
 };
 
 //////////////////////
@@ -286,7 +289,7 @@ config.STATISTICS_COLLECTOR_EXPIRATION = 31 * 24 * 60 * 60 * 1000; // 1 month
 ///////////////////
 // USAGE REPORTS //
 ///////////////////
-config.SERVICES_TYPES = Object.freeze(['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE']);
+config.SERVICES_TYPES = Object.freeze(['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'IBM_COS']);
 config.USAGE_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 config.BLOCK_STORE_USAGE_INTERVAL = 1 * 60 * 1000; // 1 minute

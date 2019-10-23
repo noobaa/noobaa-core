@@ -55,6 +55,13 @@ export const cloudServices = deepFreeze([
         subject: 'Bucket',
         identityDisplayName: 'Access Key',
         icon: 'pure'
+    },
+    {
+        value: 'IBM_COS',
+        displayName: 'IBM COS service',
+        subject: 'Bucket',
+        identityDisplayName: 'Access Key',
+        icon: 'ibm-cos'
     }
 ]);
 

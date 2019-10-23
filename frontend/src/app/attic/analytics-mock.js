@@ -29,6 +29,7 @@ const cloudServices = [
     'S3_COMPATIBLE',
     'GOOGLE',
     'FLASHBLADE',
+    'IBM_COS',
     'NET_STORAGE'
 ];
 

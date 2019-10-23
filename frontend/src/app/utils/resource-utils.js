@@ -191,6 +191,10 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
     FLASHBLADE: {
         name: 'pure',
         tooltip: 'Pure FlashBlade'
+    },
+    IBM_COS: {
+        name: 'ibm-cos',
+        tooltip: 'IBM COS'
     }
 });
 

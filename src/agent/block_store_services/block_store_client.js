@@ -331,7 +331,7 @@ class BlockStoreClient {
                     Bucket: bs_info.target_bucket,
                     Key: `${bs_info.blocks_path}/${block_dir}/${block_id}`
                 };
-                const disable_metadata = params.disable_metadata;
+                const disable_metadata = bs_info.disable_metadata;
                 dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
                     _.omit(s3_params, 'secretAccessKey'));
 

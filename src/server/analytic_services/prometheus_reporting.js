@@ -289,6 +289,14 @@ const METRIC_RECORDS = Object.freeze([{
         help: 'Resource Health',
         labelNames: ['resource_name'],
     },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'system_links',
+    configuration: {
+        name: get_metric_name('system_links'),
+        help: 'System Links',
+        labelNames: ['resources', 'buckets', 'dashboard'],
+    }
 }]);
 
 
@@ -422,6 +430,12 @@ class PrometheusReporting {
         if (!this.enabled()) return;
         this._metrics.system_info.reset();
         this._metrics.system_info.set({ system_name: info.name, system_address: info.address }, Date.now());
+    }
+
+    set_system_links(links) {
+        if (!this.enabled()) return;
+        this._metrics.system_links.reset();
+        this._metrics.system_links.set({ resources: links.resources, buckets: links.buckets, dashboard: links.dashboard }, Date.now());
     }
 
     set_bucket_status(buckets_info) {

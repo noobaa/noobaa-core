@@ -7,6 +7,7 @@
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
+#include <openssl/x509v3.h>
 // Under Win32 these are defined in wincrypt.h
 #ifdef OPENSSL_SYS_WIN32
 #undef X509_NAME
@@ -92,7 +93,10 @@ static napi_value
 _nb_x509(napi_env env, napi_callback_info info)
 {
     napi_value result = 0;
-    int days = 36500;
+    int days = 2 * 365; // limit by new clients to 825 days
+    char *dns_buf = NULL;
+    X509_EXTENSION *ext_key_usage = NULL;
+    X509_EXTENSION *ext_subject_alt_name = NULL;
     X509_NAME* owner_x509_name = NULL;
     X509_NAME* issuer_x509_name = NULL;
     EVP_PKEY* issuer_private_key = NULL;
@@ -101,6 +105,9 @@ _nb_x509(napi_env env, napi_callback_info info)
     X509* x509 = NULL;
 
     StackCleaner cleaner([&] {
+        free(dns_buf);
+        X509_EXTENSION_free(ext_key_usage);
+        X509_EXTENSION_free(ext_subject_alt_name);
         if (issuer_x509_name != owner_x509_name) {
             X509_NAME_free(issuer_x509_name);
         }
@@ -127,6 +134,20 @@ _nb_x509(napi_env env, napi_callback_info info)
 
         napi_get_named_property(env, v_options, "days", &v);
         napi_get_value_int32(env, v, &days);
+
+        napi_get_named_property(env, v_options, "dns", &v);
+        napi_typeof(env, v, &vt);
+        if (vt == napi_string) {
+            size_t dns_len = 0;
+            napi_get_value_string_utf8(env, v, 0, 0, &dns_len);
+            dns_len += 5; // for null terminator + "DNS:" prefix
+            dns_buf = (char*)malloc(dns_len);
+            napi_get_value_string_utf8(env, v, dns_buf+4, dns_len-4, 0);
+            dns_buf[0] = 'D';
+            dns_buf[1] = 'N';
+            dns_buf[2] = 'S';
+            dns_buf[3] = ':';
+        }
 
         napi_get_named_property(env, v_options, "owner", &v);
         napi_typeof(env, v, &vt);
@@ -177,9 +198,14 @@ _nb_x509(napi_env env, napi_callback_info info)
         }
     }
 
+    const char *dns_str = dns_buf != NULL ? dns_buf : "DNS:selfsigned.noobaa.io";
+    ext_key_usage = X509V3_EXT_conf_nid(NULL, NULL, NID_ext_key_usage, "serverAuth");
+    ext_subject_alt_name = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, dns_str);
     if (!owner_x509_name) {
         // the minimal name should have an organization
         owner_x509_name = X509_NAME_new();
+        X509_NAME_add_entry_by_txt(
+            owner_x509_name, "CN", MBSTRING_UTF8, (const unsigned char*)(dns_str+4), -1, -1, 0);
         X509_NAME_add_entry_by_txt(
             owner_x509_name, "C", MBSTRING_UTF8, (const unsigned char*)"US", -1, -1, 0);
         X509_NAME_add_entry_by_txt(
@@ -213,12 +239,15 @@ _nb_x509(napi_env env, napi_callback_info info)
     x509 = X509_new();
     // version is zero based - 2 means v3
     X509_set_version(x509, 2);
-    // some clients require the serial number to be non 0 which is default so
-    // setting
+    // some clients require the serial number to be non 0 which is default
     ASN1_INTEGER_set(X509_get_serialNumber(x509), 1);
     // set times - notBefore now, notAfter now+days
     X509_gmtime_adj(X509_get_notBefore(x509), 0);
     X509_time_adj_ex(X509_get_notAfter(x509), days, 0, NULL);
+    // set ExtendedKeyUsage extension to serverAuth
+    X509_add_ext(x509, ext_key_usage, -1);
+    // set SubjectAlternateName extension to dns name
+    X509_add_ext(x509, ext_subject_alt_name, -1);
     // set the owner's certificate details (called subject)
     X509_set_subject_name(x509, owner_x509_name);
     // set the issuer certificate details - the certificate authority

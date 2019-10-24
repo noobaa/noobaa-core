@@ -15,13 +15,13 @@ spec:
           # - /bin/bash
           #  - -c
           #  - "while true; do sleep 10 ; done"
-          
+
           - node
           - ./src/test/framework/test_env_builder_kubernetes.js
           - --image
-          - NOOBAA_IMAGE_PLACEHOLDER
-          - --namespace_prefix 
-          - NAMESPACE_PREFIX_PLACEHOLDER
+          - "NOOBAA_IMAGE_PLACEHOLDER"
+          - --namespace_prefix
+          - "NAMESPACE_PREFIX_PLACEHOLDER"
           - --tests_list
           - /noobaa-core/src/test/framework/sanity_tests_list.js
         env:

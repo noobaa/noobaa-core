@@ -33,13 +33,15 @@ function get_base_address(address_list, options = {}) {
 
     let default_port = default_base_port + api_default_port_offset[api];
     if (hint === 'EXTERNAL') {
-        const extenral_addr = api_list.find(addr =>
+        const external_addrs = api_list.filter(addr =>
             addr.kind === 'EXTERNAL' &&
             addr.secure === secure
         );
 
-        if (extenral_addr) {
-            const { hostname, port } = extenral_addr;
+        if (external_addrs.length > 0) {
+            const [{ hostname, port }] = external_addrs.sort((addr1, addr2) =>
+                addr2.weight - addr1.weight
+            );
             return construct_url({ protocol, hostname, port });
         }
 
@@ -47,13 +49,15 @@ function get_base_address(address_list, options = {}) {
     }
 
     if (hint === 'INTERNAL') {
-        const internal_addr = api_list.find(addr =>
+        const internal_addrs = api_list.filter(addr =>
             addr.kind === 'INTERNAL' &&
             addr.secure === secure
         );
 
-        if (internal_addr) {
-            const { hostname, port } = internal_addr;
+        if (internal_addrs.length > 0) {
+            const [{ hostname, port }] = internal_addrs.sort((addr1, addr2) =>
+                addr2.weight - addr1.weight
+            );
             return construct_url({ protocol, hostname, port });
         }
 

@@ -294,7 +294,7 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
     },
 
     definitions: {

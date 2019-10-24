@@ -11,6 +11,7 @@ const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const phone_home_utils = require('../../util/phone_home');
 const clustering_utils = require('../utils/clustering_utils.js');
+const ssl_utils = require('../../util/ssl_utils');
 
 const dotenv = require('../../util/dotenv');
 
@@ -56,6 +57,7 @@ async function run_monitors() {
 
     await _check_dns_and_phonehome();
     await _check_internal_ips();
+    await _verify_ssl_certs();
     _check_disk_space();
 
     // Address auto detection should only run on master machine.
@@ -134,6 +136,41 @@ function _check_internal_ips() {
             monitoring_status.cluster_status = "UNKNOWN";
             dbg.warn(`Error when trying to check cluster servers' status.`, err.stack || err);
         });
+}
+
+async function _verify_ssl_certs() {
+    dbg.log2('_verify_ssl_certs');
+    try {
+        if (!(await ssl_utils.is_using_local_certs())) {
+            dbg.log2('_verify_ssl_certs: sytem using self generated certs, skipping');
+            return;
+        }
+
+        const [ loaded_certs, certs_on_disk ] = await Promise.all([
+            ssl_utils.get_ssl_certificates(),
+            ssl_utils.read_ssl_certificates()
+        ]);
+
+        const restart_needed = Object.entries(loaded_certs)
+            .some(pair => {
+                const [service_name, service_cert] = pair;
+                return service_cert.key !== certs_on_disk[service_name].key;
+            });
+
+        if (restart_needed) {
+            // Update the loaded certs with the new certs.
+            ssl_utils.update_ssl_certificates(certs_on_disk);
+
+            dbg.log0('_verify_ssl_certs: SSL certs changed, restarting relevant services');
+            await os_utils.restart_services([
+                'webserver',
+                's3rver'
+            ]);
+
+        }
+    } catch (err) {
+        dbg.warn('_verify_ssl_certs: Error when trying to verify ssl certs', err);
+    }
 }
 
 function _check_disk_space() {

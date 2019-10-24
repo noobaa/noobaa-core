@@ -254,7 +254,7 @@ class NodesMonitor extends EventEmitter {
         dbg.log0('starting nodes_monitor');
         this._started = true;
         this.n2n_rpc.set_disconnected_state(false);
-        this.ssl_certs = await ssl_utils.read_ssl_certificate('S3');
+        this.ssl_certs = await ssl_utils.get_ssl_certificate('S3');
         await this._load_from_store();
 
         // initialize nodes stats in prometheus

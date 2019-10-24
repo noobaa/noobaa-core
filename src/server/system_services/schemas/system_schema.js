@@ -53,7 +53,7 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['service', 'kind', 'hostname', 'port', 'api', 'secure'],
+                required: ['service', 'kind', 'hostname', 'port', 'api', 'secure', 'weight'],
                 properties: {
                     service: {
                         type: 'string',
@@ -69,7 +69,8 @@ module.exports = {
                         type: 'string',
                         enum: ['mgmt', 's3', 'md', 'bg', 'hosted_agents']
                     },
-                    secure: { type: 'boolean' }
+                    secure: { type: 'boolean' },
+                    weight: { type: 'integer' }
                 }
             }
         },

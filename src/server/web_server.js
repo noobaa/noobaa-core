@@ -84,7 +84,7 @@ async function start_web_server() {
         server_rpc.rpc.register_ws_transport(http_server);
         await P.ninvoke(http_server, 'listen', http_port);
 
-        const ssl_cert = await ssl_utils.read_ssl_certificate('MGMT');
+        const ssl_cert = await ssl_utils.get_ssl_certificate('MGMT');
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);

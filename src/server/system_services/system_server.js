@@ -4,10 +4,8 @@
 require('../../util/dotenv').load();
 
 const _ = require('lodash');
-const fs = require('fs');
 const net = require('net');
 const dns = require('dns');
-const path = require('path');
 const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
@@ -415,7 +413,7 @@ function read_system(req) {
             response => response.accounts
         ),
 
-        has_ssl_cert: using_local_certs(),
+        has_ssl_cert: ssl_utils.is_using_local_certs(),
 
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
@@ -904,7 +902,6 @@ async function _ensure_internal_structure(system_id) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-
 function get_system_info(system, get_id) {
     if (get_id) {
         return _.pick(system, 'id');
@@ -940,6 +937,15 @@ function _list_s3_endpoints(system) {
             addr.api === 's3' &&
             addr.secure
         )
+        .sort((addr1, addr2) => {
+            // Prefer external addresses.
+            if (addr1.kind !== addr2.kind) {
+                return addr1.kind === 'EXTERNAL' ? -1 : 1;
+            }
+
+            // Prefer addresses with higher weight.
+            return Math.sign(addr2.weight - addr1.weight);
+        })
         .map(addr => {
             const { kind, hostname, port } = addr;
             const url = url_utils.construct_url({ protocol: 'https', hostname, port });
@@ -950,22 +956,6 @@ function _list_s3_endpoints(system) {
         });
 }
 
-async function using_local_certs() {
-    const cert_paths = Object.values(ssl_utils.SSL_CERTS_DIR_PATHS);
-    const exists_list = await Promise.all(cert_paths.map(async dir_path => {
-        try {
-            await fs.statAsync(path.join(dir_path, 'tls.key'));
-            return true;
-
-        } catch (err) {
-            return false;
-        }
-    }));
-
-    // Check that all values are true.
-    return exists_list.every(Boolean);
-
-}
 // EXPORTS
 exports._init = _init;
 exports.is_initialized = is_initialized;
@@ -991,3 +981,4 @@ exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
+

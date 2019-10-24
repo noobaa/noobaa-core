@@ -11,12 +11,11 @@ require('../util/coverage_utils');
 require('../util/panic');
 
 const _ = require('lodash');
-const os = require('os');
 const path = require('path');
 const util = require('util');
 const http = require('http');
 const https = require('https');
-const multer = require('multer');
+// const multer = require('multer');
 const express = require('express');
 const express_favicon = require('serve-favicon');
 const express_compress = require('compression');
@@ -30,9 +29,7 @@ const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reports = require('./analytic_services/prometheus_reporting').PrometheusReporting;
-const SupervisorCtl = require('./utils/supervisor_ctrl');
 const cutil = require('./utils/clustering_utils');
-const system_server = require('./system_services/system_server');
 const account_server = require('./system_services/account_server');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
@@ -87,7 +84,7 @@ async function start_web_server() {
         server_rpc.rpc.register_ws_transport(http_server);
         await P.ninvoke(http_server, 'listen', http_port);
 
-        const ssl_cert = await ssl_utils.read_ssl_certificate();
+        const ssl_cert = await ssl_utils.read_ssl_certificate('MGMT');
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);
@@ -150,38 +147,6 @@ app.use(express_compress());
 ////////////
 // ROUTES //
 ////////////
-
-// setup pages
-app.post('/upload_certificate',
-    multer({
-        storage: multer.diskStorage({
-            destination: function(req, file, cb) {
-                cb(null, '/tmp');
-            },
-            filename: function(req, file, cb) {
-                dbg.log0('uploading SSL Certificate', file);
-                cb(null, 'nb_ssl_certificate_' + Date.now() + '_' + file.originalname);
-            }
-        })
-    })
-    .single('upload_file'),
-    function(req, res) {
-        system_server.set_certificate(req.file)
-            .then(() => {
-                res.status(200).send('SUCCESS');
-                if (os.type() === 'Linux') {
-                    dbg.log0('Restarting server on certificate set');
-                    return SupervisorCtl.restart(['s3rver', 'webserver']);
-                }
-            })
-            .catch(err => {
-                dbg.error('Was unable to set certificate', err);
-                res.status(500).send(err.message);
-            });
-    }
-);
-
-
 if (prom_reports.instance().enabled()) {
     app.get('/metrics', function(req, res) {
         res.set('Content-Type', prom_reports.instance().client().register.contentType);

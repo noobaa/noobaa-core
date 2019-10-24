@@ -211,7 +211,8 @@ function handle_server_error(err) {
         process.send({
             code: 'SRV_ERROR',
             err_code: err.code,
-            err_msg: err.message
+            err_msg: err.message,
+            pid: process.pid,
         });
     } else {
         process.exit(1);

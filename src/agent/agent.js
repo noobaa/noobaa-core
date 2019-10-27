@@ -755,7 +755,7 @@ class Agent {
                 // run node process, inherit stdio and connect ipc channel for communication.
                 const s3rver_args = ['--s3_agent', '--address', this.master_address];
                 dbg.log0('starting s3 server with command: node ./src/s3/s3rver_starter', s3rver_args.join(' '));
-                this.endpoint_info.s3rver_process = child_process.fork('./src/s3/s3rver_starter', s3rver_args, {
+                const proc = child_process.fork('./src/s3/s3rver_starter', s3rver_args, {
                         stdio: ['inherit', 'inherit', 'inherit', 'ipc']
                     })
                     .on('message', this._handle_s3rver_messages.bind(this))
@@ -765,15 +765,21 @@ class Agent {
                     })
                     .once('exit', (code, signal) => {
                         const RETRY_PERIOD = 30000;
-                        dbg.warn(`s3rver process exited with code=${code} signal=${signal}. retry in ${RETRY_PERIOD / 1000} seconds`);
-                        this.endpoint_info.s3rver_process = null;
-                        P.delay(RETRY_PERIOD)
-                            .then(() => {
-                                if (this.enabled) {
-                                    this._enable_service();
-                                }
-                            });
+                        dbg.warn(`s3rver process ${proc.pid} exited with code=${code} signal=${signal}`);
+                        if (!this.endpoint_info.s3rver_process ||
+                            this.endpoint_info.s3rver_process === proc) {
+                            dbg.warn(`active s3rver process exited and will retry in ${RETRY_PERIOD / 1000} seconds`);
+                            this.endpoint_info.s3rver_process = null;
+                            P.delay(RETRY_PERIOD)
+                                .then(() => {
+                                    if (this.enabled) {
+                                        this._enable_service();
+                                    }
+                                });
+                        }
                     });
+                this.endpoint_info.s3rver_process = proc;
+                dbg.log0(`started s3rver process with pid ${proc.pid}`);
             } catch (err) {
                 dbg.error('got error when spawning s3rver:', err);
             }
@@ -787,14 +793,18 @@ class Agent {
         dbg.log0(`got message from endpoint process:`, message);
         switch (message.code) {
             case 'WAITING_FOR_CERTS':
-                this.endpoint_info.s3rver_process.send({
-                    message: 'run_server',
-                    base_address: this.master_address,
-                    certs: this._ssl_certs,
-                    location_info: this.location_info,
-                    routing_hint: this.rpc.routing_hint,
-                    virtual_hosts: this.virtual_hosts
-                });
+                if (this.endpoint_info.s3rver_process) {
+                    this.endpoint_info.s3rver_process.send({
+                        message: 'run_server',
+                        base_address: this.master_address,
+                        certs: this._ssl_certs,
+                        location_info: this.location_info,
+                        routing_hint: this.rpc.routing_hint,
+                        virtual_hosts: this.virtual_hosts
+                    });
+                } else {
+                    dbg.warn('no active s3rver process. dropping message', message);
+                }
                 break;
             case 'STATS':
                 // we also get here the name of the bucket and access key, but ignore it for now
@@ -813,8 +823,12 @@ class Agent {
                     message: message.err_msg
                 };
                 // kill s3rver process on error
-                dbg.error('killing s3rver process', this.endpoint_info.s3rver_process.pid);
-                this.endpoint_info.s3rver_process.kill();
+                if (this.endpoint_info.s3rver_process && message.pid === this.endpoint_info.s3rver_process.pid) {
+                    dbg.error('killing s3rver process', this.endpoint_info.s3rver_process.pid);
+                    this.endpoint_info.s3rver_process.kill();
+                } else {
+                    dbg.warn('did not match a s3rver process to the relvant pid. got message:', message);
+                }
                 break;
             case 'STARTED_SUCCESSFULLY':
                 dbg.log0('S3 server started successfully. clearing srv_error');

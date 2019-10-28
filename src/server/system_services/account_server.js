@@ -809,7 +809,8 @@ function check_external_connection(req) {
 
                 case 'AWS':
                 case 'S3_COMPATIBLE':
-                case 'FLASHBLADE': {
+                case 'FLASHBLADE':
+                case 'IBM_COS': {
                     return check_aws_connection(params);
                 }
 
@@ -836,7 +837,8 @@ async function _check_external_connection(connection) {
 
         case 'AWS':
         case 'S3_COMPATIBLE':
-        case 'FLASHBLADE': {
+        case 'FLASHBLADE':
+        case 'IBM_COS': {
             return check_aws_connection(connection);
         }
 

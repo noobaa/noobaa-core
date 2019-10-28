@@ -116,7 +116,7 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 agent_info: {
                     type: 'object',

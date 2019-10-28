@@ -41,7 +41,8 @@ export default {
                     'S3_COMPATIBLE',
                     'GOOGLE',
                     'FLASHBLADE',
-                    'NET_STORAGE'
+                    'NET_STORAGE',
+                    'IBM_COS'
                 ]
             },
             endpoint: {

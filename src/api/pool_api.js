@@ -229,7 +229,7 @@ module.exports = {
                     properties: {
                         service: {
                             type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE']
+                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                         },
                         read_count: {
                             type: 'integer'

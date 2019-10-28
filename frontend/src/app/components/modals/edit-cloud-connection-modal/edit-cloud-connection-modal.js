@@ -2,6 +2,7 @@
 
 import template from './edit-cloud-connection-modal.html';
 import awsFieldsTemplate from './aws-fields.html';
+import ibmFieldsTemplate from './ibm-fields.html';
 import azureFieldsTemplate from './azure-fields.html';
 import s3v2CompatibleFieldsTemplate from './s3-v2-compatible-fields.html';
 import s3v4CompatibleFieldsTemplate from './s3-v4-compatible-fields.html';
@@ -29,7 +30,8 @@ const templates = deepFreeze({
     AZURE: azureFieldsTemplate,
     S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
     S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
-    GOOGLE: googleCloudTemplate
+    GOOGLE: googleCloudTemplate,
+    IBM_COS: ibmFieldsTemplate
 });
 
 const s3LikeConnKeyMappings = deepFreeze({
@@ -52,6 +54,11 @@ const s3LikeConnKeyMappings = deepFreeze({
         endpoint: 'fbEndpoint',
         accessKey: 'fbAccessKey',
         secretKey: 'fbSecretKey'
+    },
+    IBM_COS: {
+        endpoint: 'ibmEndpoint',
+        accessKey: 'ibmAccessKey',
+        secretKey: 'ibmSecretKey'
     }
 });
 
@@ -99,6 +106,14 @@ function _getFormFields(connection) {
                 ...commonFields,
                 gcKeysFileName: '',
                 gcKeysJson: ''
+            };
+        }
+        case 'IBM_COS': {
+            return {
+                ...commonFields,
+                ibmEndpoint: connection.endpoint,
+                ibmAccessKey: connection.identity,
+                ibmSecretKey: ''
             };
         }
     }
@@ -192,7 +207,10 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
         's3v4AccessKey',
         's3v4SecretKey',
         'gcKeysFileName',
-        'gcKeysJson'
+        'gcKeysJson',
+        'ibmEndpoint',
+        'ibmAccessKey',
+        'ibmSecretKey'
     ];
     formFields = ko.observable()
     globalError = ko.observable();
@@ -247,6 +265,7 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
             (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
             (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
+            (service === 'IBM_COS' && this.ibmOnValidate) ||
             (() => {});
 
         return serviceValidateSync(values, existingConnections);
@@ -260,6 +279,7 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
             (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
             (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
+            (service === 'IBM_COS' && this.ibmOnValidateAsync) ||
             (() => {});
 
         return await serviceValidateAsync(values);
@@ -272,6 +292,7 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
             (service === 'AZURE' && ['azureAccountKey']) ||
             (service === 'S3_V2_COMPATIBLE' && ['s3v2AccessKey', 's3v2SecretKey']) ||
             (service === 'S3_V4_COMPATIBLE' && ['s3v4AccessKey', 's3v4SecretKey']) ||
+            (service === 'IBM_COS' && ['ibmAccessKey', 'ibmSecretKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']);
 
         const params = pick(values, fields);
@@ -376,6 +397,30 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
             'AWS',
             'AWS',
             'AWS_V4'
+        );
+    }
+
+    // --------------------------------------
+    // AWS related methods:
+    // --------------------------------------
+    ibmOnValidate(values, existingConnections) {
+        const ibmConnections = existingConnections
+            .filter(connection => connection.service === 'IBM_COS');
+
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['IBM_COS'],
+            values,
+            ibmConnections
+        );
+    }
+
+    async ibmOnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['IBM_COS'],
+            values,
+            'IBM_COS',
+            'IBM COS',
+            'AWS_V2'
         );
     }
 

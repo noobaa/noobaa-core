@@ -118,6 +118,11 @@ const resourceTypeOptions = [
         value: 'FLASHBLADE',
         label: 'Pure FlashBlade',
         icon: 'pure'
+    },
+    {
+        value: 'IBM_COS',
+        label: 'IBM COS',
+        icon: 'ibm-cos'
     }
 ];
 

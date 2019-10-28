@@ -85,6 +85,17 @@ function _getApiRequestParams(payload) {
             };
         }
 
+        case 'IBM_COS': {
+            return {
+                name,
+                endpoint_type: 'IBM_COS',
+                endpoint: params.ibmEndpoint,
+                identity: params.ibmAccessKey,
+                secret: params.ibmSecretKey,
+                auth_method: 'AWS_V2'
+            };
+        }
+
         default: {
             throw new Error(`Invalid service: ${service}`);
         }

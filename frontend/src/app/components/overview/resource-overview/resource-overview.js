@@ -43,7 +43,8 @@ const chartBars = deepFreeze([
         cloudTypes: [
             'S3_COMPATIBLE',
             'FLASHBLADE',
-            'NET_STORAGE'
+            'NET_STORAGE',
+            'IBM_COS'
         ]
     }
 ]);

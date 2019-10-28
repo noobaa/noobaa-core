@@ -23,7 +23,8 @@ const allowedServices = deepFreeze([
     'S3_V2_COMPATIBLE',
     'S3_V4_COMPATIBLE',
     'AZURE',
-    'NET_STORAGE'
+    'NET_STORAGE',
+    'IBM_COS'
 ]);
 
 class CreateNamespaceResourceModalViewModel extends ConnectableViewModel {

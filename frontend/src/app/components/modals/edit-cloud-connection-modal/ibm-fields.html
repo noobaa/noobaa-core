@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<editor params="label: 'Endpoint'">
+    <input type="text"
+        class="push-next-half"
+        ko.value="$form.ibmEndpoint"
+        ko.disable="true"
+    />
+</editor>
+
+<editor params="label: 'Access Key'">
+    <div class="row">
+        <input type="text"
+            class="push-next-half"
+            placeholder="Enter Key"
+            ko.value="$form.ibmAccessKey"
+            ko.validationCss="$form.ibmAccessKey"
+        />
+        <validation-indicator params="field: $form.ibmAccessKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.ibmAccessKey"></validation-message>
+</editor>
+
+<editor params="label: 'Secret Key'">
+    <div class="row">
+        <input type="password"
+            class="push-next-half"
+            placeholder="Enter Secret"
+            autocomplete="new-password"
+            ko.value="$form.ibmSecretKey"
+            ko.validationCss="$form.ibmSecretKey"
+        />
+        <validation-indicator params="field: $form.ibmSecretKey"></validation-indicator>
+    </div>
+    <validation-message params="field: $form.ibmSecretKey"></validation-message>
+</editor>

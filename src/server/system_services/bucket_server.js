@@ -1016,7 +1016,7 @@ function get_cloud_buckets(req) {
                     .then(data => data[0].map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
             } else { //else if AWS
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE'],
+                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 var s3 = new AWS.S3({
                     endpoint: connection.endpoint,

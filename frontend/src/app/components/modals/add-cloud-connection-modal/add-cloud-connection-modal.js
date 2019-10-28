@@ -5,6 +5,7 @@ import awsFieldsTemplate from './aws-fields.html';
 import azureFieldsTemplate from './azure-fields.html';
 import s3v2CompatibleFieldsTemplate from './s3-v2-compatible-fields.html';
 import s3v4CompatibleFieldsTemplate from './s3-v4-compatible-fields.html';
+import ibmFieldsTemplate from './ibm-fields.html';
 import netStorageTemplate from './net-storage-fields.html';
 import googleCloudTemplate from './google-cloud-fields.html';
 import flashbladeFieldsTemplate from './flashblade-fields.html';
@@ -39,7 +40,8 @@ const templates = deepFreeze({
     S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
     NET_STORAGE: netStorageTemplate,
     GOOGLE: googleCloudTemplate,
-    FLASHBLADE: flashbladeFieldsTemplate
+    FLASHBLADE: flashbladeFieldsTemplate,
+    IBM_COS: ibmFieldsTemplate
 });
 
 const asyncTriggers = deepFreeze([
@@ -65,7 +67,10 @@ const asyncTriggers = deepFreeze([
     'gcKeysJson',
     'fbEndpoint',
     'fbAccessKey',
-    'fbSecretKey'
+    'fbSecretKey',
+    'ibmEndpoint',
+    'ibmAccessKey',
+    'ibmSecretKey'
 ]);
 
 const s3LikeConnKeyMappings = deepFreeze({
@@ -88,6 +93,11 @@ const s3LikeConnKeyMappings = deepFreeze({
         endpoint: 'fbEndpoint',
         accessKey: 'fbAccessKey',
         secretKey: 'fbSecretKey'
+    },
+    IBM_COS: {
+        endpoint: 'ibmEndpoint',
+        accessKey: 'ibmAccessKey',
+        secretKey: 'ibmSecretKey'
     }
 });
 
@@ -274,7 +284,12 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
                 // Pure FlashBlade fields.
                 fbEndpoint: '',
                 fbAccessKey: '',
-                fbSecretKey: ''
+                fbSecretKey: '',
+
+                // IBM COS fields.
+                ibmEndpoint: '',
+                ibmAccessKey: '',
+                ibmSecretKey: ''
             } : undefined
         });
 
@@ -308,6 +323,7 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
             (service === 'NET_STORAGE' && this.nsOnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
             (service === 'FLASHBLADE' && this.flashBladeOnValidate) ||
+            (service === 'IBM_COS' && this.ibmOnValidate) ||
             _getEmptyObj;
 
         return Object.assign(
@@ -326,6 +342,7 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
             (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
             (service === 'FLASHBLADE' && this.flashBladeOnValidateAsync) ||
+            (service === 'IBM_COS' && this.ibmOnValidateAsync) ||
             _getEmptyObj;
 
 
@@ -341,7 +358,8 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
             (service === 'S3_V4_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V4_COMPATIBLE'])) ||
             (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']) ||
-            (service === 'FLASHBLADE' && Object.values(s3LikeConnKeyMappings['FLASHBLADE']));
+            (service === 'FLASHBLADE' && Object.values(s3LikeConnKeyMappings['FLASHBLADE'])) ||
+            (service === 'IBM_COS' && Object.values(s3LikeConnKeyMappings['IBM_COS']));
 
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
@@ -534,6 +552,31 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
             'FLASHBLADE',
             'FlashBlade',
             'AWS_V4'
+        );
+    }
+
+    // --------------------------------------
+    // IBM COS related methods:
+    // --------------------------------------
+    ibmOnValidate(values, existingConnections) {
+        const ibmConnections = existingConnections
+            .filter(connection => connection.service === 'IBM_COS');
+
+        return _onS3LikeValidate(
+            s3LikeConnKeyMappings['IBM_COS'],
+            values,
+            ibmConnections,
+            'IBM COS'
+        );
+    }
+
+    async ibmOnValidateAsync(values) {
+        return _onS3LikeValidateAsync(
+            s3LikeConnKeyMappings['IBM_COS'],
+            values,
+            'IBM_COS',
+            'IBM COS',
+            'AWS_V2'
         );
     }
 

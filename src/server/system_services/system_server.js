@@ -4,11 +4,8 @@
 require('../../util/dotenv').load();
 
 const _ = require('lodash');
-const fs = require('fs');
-const tls = require('tls');
 const net = require('net');
 const dns = require('dns');
-const path = require('path');
 const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
@@ -22,13 +19,10 @@ const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
-const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const { RpcError } = require('../../rpc');
-const ssl_utils = require('../../util/ssl_utils');
 const nb_native = require('../../util/nb_native');
 const net_utils = require('../../util/net_utils');
-const zip_utils = require('../../util/zip_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
@@ -46,10 +40,10 @@ const account_server = require('./account_server');
 const cluster_server = require('./cluster_server');
 const node_allocator = require('../node_services/node_allocator');
 const stats_collector = require('../bg_services/stats_collector');
-const config_file_store = require('./config_file_store').instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const addr_utils = require('../../util/addr_utils');
 const url_utils = require('../../util/url_utils');
+const ssl_utils = require('../../util/ssl_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -419,9 +413,7 @@ function read_system(req) {
             response => response.accounts
         ),
 
-        has_ssl_cert: fs.statAsync(path.join('/etc', 'private_ssl_path', 'server.key'))
-            .return(true)
-            .catch(() => false),
+        has_ssl_cert: ssl_utils.is_using_local_certs(),
 
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
@@ -794,70 +786,6 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-function set_certificate(zip_file) {
-    dbg.log0('upload_certificate');
-    let key;
-    let cert;
-    return P.resolve()
-        .then(() => zip_utils.unzip_from_file(zip_file.path))
-        .then(zipfile => zip_utils.unzip_to_mem(zipfile))
-        .then(files => {
-            let key_count = 0;
-            let cert_count = 0;
-            _.forEach(files, file => {
-                if (file.path.startsWith('__MACOSX')) return;
-                if (file.path.endsWith('.key')) {
-                    key = file.data.toString();
-                    key_count += 1;
-                } else if (file.path.endsWith('.cert')) {
-                    cert = file.data.toString();
-                    cert_count += 1;
-                }
-            });
-            if (key_count !== 1) throw new Error('Expected single .key file in zip but found ' + key_count);
-            if (cert_count !== 1) throw new Error('Expected single .cert file in zip but found ' + cert_count);
-
-            // check that these key and certificate are valid, matching and can be loaded before storing them
-            try {
-                tls.createSecureContext({ key });
-            } catch (err) {
-                dbg.error('The provided private key is invalid', err);
-                throw new Error('The provided private key is invalid');
-            }
-            try {
-                tls.createSecureContext({ cert });
-            } catch (err) {
-                dbg.error('The provided certificate is invalid', err);
-                throw new Error('The provided certificate is invalid');
-            }
-            try {
-                tls.createSecureContext({ key, cert });
-            } catch (err) {
-                dbg.error('The provided certificate and private key do not match', err);
-                throw new Error('The provided certificate and private key do not match');
-            }
-        })
-        .then(() => fs_utils.create_fresh_path(ssl_utils.SERVER_SSL_DIR_PATH))
-        .then(() => P.join(
-            save_config_file(ssl_utils.SERVER_SSL_KEY_PATH, key),
-            save_config_file(ssl_utils.SERVER_SSL_CERT_PATH, cert)
-        ))
-        .then(() => {
-            Dispatcher.instance().activity({
-                system: system_store.data.systems[0]._id,
-                event: 'conf.set_certificate',
-                level: 'info',
-                desc: `New certificate was successfully set`
-            });
-        });
-}
-
-function save_config_file(filename, data) {
-    return P.resolve()
-        .then(() => config_file_store.insert({ filename, data }))
-        .then(() => fs_utils.replace_file(filename, data));
-}
-
 function attempt_server_resolve(req) {
     let result;
     //If already in IP form, no need for resolving
@@ -974,7 +902,6 @@ async function _ensure_internal_structure(system_id) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-
 function get_system_info(system, get_id) {
     if (get_id) {
         return _.pick(system, 'id');
@@ -1010,6 +937,15 @@ function _list_s3_endpoints(system) {
             addr.api === 's3' &&
             addr.secure
         )
+        .sort((addr1, addr2) => {
+            // Prefer external addresses.
+            if (addr1.kind !== addr2.kind) {
+                return addr1.kind === 'EXTERNAL' ? -1 : 1;
+            }
+
+            // Prefer addresses with higher weight.
+            return Math.sign(addr2.weight - addr1.weight);
+        })
         .map(addr => {
             const { kind, hostname, port } = addr;
             const url = url_utils.construct_url({ protocol: 'https', hostname, port });
@@ -1045,4 +981,4 @@ exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
-exports.set_certificate = set_certificate;
+

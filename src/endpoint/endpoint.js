@@ -189,7 +189,7 @@ async function run_server(options) {
         const endpoint_request_handler = create_endpoint_handler(rpc, options);
         if (ENDPOINT_FTP_ENABLED) start_ftp_endpoint(rpc);
 
-        const ssl_cert = options.certs || await ssl_utils.read_ssl_certificate();
+        const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, endpoint_request_handler);
         dbg.log0('Starting HTTP', port);
@@ -211,7 +211,8 @@ function handle_server_error(err) {
         process.send({
             code: 'SRV_ERROR',
             err_code: err.code,
-            err_msg: err.message
+            err_msg: err.message,
+            pid: process.pid,
         });
     } else {
         process.exit(1);

@@ -1,21 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
 const moment = require('moment');
 
 const _ = require('lodash');
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
-const fs_utils = require('../../util/fs_utils');
-const ssl_utils = require('../../util/ssl_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const phone_home_utils = require('../../util/phone_home');
-const config_file_store = require('../system_services/config_file_store').instance();
 const clustering_utils = require('../utils/clustering_utils.js');
+const ssl_utils = require('../../util/ssl_utils');
 
 const dotenv = require('../../util/dotenv');
 
@@ -59,46 +55,15 @@ async function run_monitors() {
     const { CONTAINER_PLATFORM } = process.env;
     const is_master = clustering_utils.check_if_master();
 
-    await _verify_server_certificate();
     await _check_dns_and_phonehome();
     await _check_internal_ips();
+    await _verify_ssl_certs();
     _check_disk_space();
 
     // Address auto detection should only run on master machine.
     if (is_master) {
         await _check_address_changes(CONTAINER_PLATFORM);
     }
-}
-
-function _verify_server_certificate() {
-    dbg.log2('Verifying certificate in relation to cluster config');
-    return P.join(
-            config_file_store.get(ssl_utils.SERVER_SSL_CERT_PATH),
-            config_file_store.get(ssl_utils.SERVER_SSL_KEY_PATH),
-            fs.readFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, 'utf8')
-            .catch(err => fs_utils.ignore_enoent(err)),
-            fs.readFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, 'utf8')
-            .catch(err => fs_utils.ignore_enoent(err)),
-        )
-        .spread((certificate, key, platform_cert, platform_key) => {
-            if (!_are_platform_and_cluster_conf_equal(platform_cert, certificate && certificate.data) ||
-                !_are_platform_and_cluster_conf_equal(platform_key, key && key.data)) {
-                dbg.warn('platform certificate not synced to cluster. Resetting now');
-                return fs_utils.create_fresh_path(ssl_utils.SERVER_SSL_DIR_PATH)
-                    .then(() => P.join(
-                        certificate && certificate.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_CERT_PATH, certificate.data),
-                        key && key.data && fs.writeFileAsync(ssl_utils.SERVER_SSL_KEY_PATH, key.data)
-                    ))
-                    .then(() => os_utils.restart_noobaa_services());
-            }
-        });
-}
-
-function _are_platform_and_cluster_conf_equal(platform_conf, cluster_conf) {
-    platform_conf = _.omitBy(platform_conf, _.isEmpty);
-    cluster_conf = _.omitBy(cluster_conf, _.isEmpty);
-    return (_.isEmpty(platform_conf) && _.isEmpty(cluster_conf)) || // are they both either empty or undefined
-        _.isEqual(platform_conf, cluster_conf); // if not, are they equal
 }
 
 function _check_dns_and_phonehome() {
@@ -171,6 +136,41 @@ function _check_internal_ips() {
             monitoring_status.cluster_status = "UNKNOWN";
             dbg.warn(`Error when trying to check cluster servers' status.`, err.stack || err);
         });
+}
+
+async function _verify_ssl_certs() {
+    dbg.log2('_verify_ssl_certs');
+    try {
+        if (!(await ssl_utils.is_using_local_certs())) {
+            dbg.log2('_verify_ssl_certs: sytem using self generated certs, skipping');
+            return;
+        }
+
+        const [ loaded_certs, certs_on_disk ] = await Promise.all([
+            ssl_utils.get_ssl_certificates(),
+            ssl_utils.read_ssl_certificates()
+        ]);
+
+        const restart_needed = Object.entries(loaded_certs)
+            .some(pair => {
+                const [service_name, service_cert] = pair;
+                return service_cert.key !== certs_on_disk[service_name].key;
+            });
+
+        if (restart_needed) {
+            // Update the loaded certs with the new certs.
+            ssl_utils.update_ssl_certificates(certs_on_disk);
+
+            dbg.log0('_verify_ssl_certs: SSL certs changed, restarting relevant services');
+            await os_utils.restart_services([
+                'webserver',
+                's3rver'
+            ]);
+
+        }
+    } catch (err) {
+        dbg.warn('_verify_ssl_certs: Error when trying to verify ssl certs', err);
+    }
 }
 
 function _check_disk_space() {

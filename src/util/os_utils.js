@@ -17,6 +17,7 @@ const config = require('../../config.js');
 const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
 const net_utils = require('./net_utils');
+const kube_utils = require('./kube_utils');
 const { get_default_ports } = require('../util/addr_utils');
 const dbg = require('./debug_module')(__filename);
 const os_detailed_info = require('getos');
@@ -718,14 +719,9 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
         throw new Error(`Invalid app name, got: ${app}`);
     }
 
-    const text = await promise_utils.exec(
-        'kubectl get services -o json', { return_stdout: true }
-    );
-    const json = JSON.parse(text);
-    const services = json.items.filter(service =>
-        _.get(service, 'metadata.labels.app') === app
-    );
 
+    const routes = await _list_openshift_routes(`app=${app}`);
+    const { items: services } = await kube_utils.list_resources('service', `app=${app}`);
     const list = _.flatMap(services, service_info => {
         const { metadata, spec = {}, status } = service_info;
         const { externalIPs = [] } = spec;
@@ -736,32 +732,63 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
             ...externalIPs, // see: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
         ];
 
+        const service_routes = routes
+            .filter(route_info => {
+                const { kind, name } = route_info.spec.to;
+                return kind.toLowerCase() === 'service' && name === metadata.name;
+            });
+
         return _.flatMap(spec.ports, port_info => {
+            const routes_to_port = service_routes.filter(route_info =>
+                route_info.spec.port.targetPort === port_info.name
+            );
+
             const api = port_info.name
                 .replace('-https', '')
                 .replace(/-/g, '_');
 
-            const common = {
+            const defaults = {
                 service: metadata.name,
                 port: port_info.port,
-                api: api,
                 secure: port_info.name.endsWith('https'),
+                api: api,
+                weight: 0
             };
-            return [{
-                    ...common,
+
+            return [
+                {
+                    ...defaults,
                     kind: 'INTERNAL',
                     hostname: internal_hostname,
                 },
                 ...external_hostnames.map(hostname => ({
-                    ...common,
+                    ...defaults,
                     kind: 'EXTERNAL',
-                    hostname
+                    hostname,
+                })),
+                ...routes_to_port.map(route_info => ({
+                    ...defaults,
+                    kind: 'EXTERNAL',
+                    hostname: route_info.spec.host,
+                    port: route_info.spec.tls ? 443 : 80,
+                    secure: Boolean(route_info.spec.tls),
+                    weight: route_info.spec.to.weight
                 }))
             ];
         });
     });
 
     return sort_address_list(list);
+}
+
+async function _list_openshift_routes(selector) {
+    const has_route_crd = await kube_utils.api_exists('route.openshift.io');
+    if (!has_route_crd) {
+        return [];
+    }
+
+    const { items } = await kube_utils.list_resources('route', selector);
+    return items;
 }
 
 async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
@@ -779,13 +806,14 @@ async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
             port,
             api,
             secure: true,
+            weight: 0
         }));
 
     return sort_address_list(list);
 }
 
 function sort_address_list(address_list) {
-    const sort_fields = ['kind', 'service', 'hostname', 'port', 'api', 'secure'];
+    const sort_fields = ['kind', 'service', 'hostname', 'port', 'api', 'secure', 'weight'];
     return address_list.sort((item, other) => {
         const item_key = sort_fields.map(field => item[field]).join();
         const other_key = sort_fields.map(field => other[field]).join();
@@ -795,6 +823,49 @@ function sort_address_list(address_list) {
             0
         );
     });
+}
+
+async function restart_services(services) {
+    if (services) {
+        if (services.length === 0) {
+            return;
+        }
+
+        let status = '';
+        try {
+            status = await promise_utils.exec('supervisorctl status', { return_stdout: true });
+
+        } catch (err) {
+            console.error('restart_services: Could not list supervisor services');
+            throw new Error('Could not list supervisor services');
+        }
+
+        const all_services = status
+            .split('\n')
+            .map(line => line.substr(0, line.indexOf(' ')).trim())
+            .filter(Boolean);
+
+
+        const unknown_services = services
+            .filter(name => !all_services.includes(name));
+
+        if (unknown_services.length > 0) {
+            throw new Error(`restart_services: Unknown services ${unknown_services.join(', ')}`);
+        }
+    } else {
+        services = ['all'];
+    }
+
+    try {
+        dbg.log0(`restart_services: restarting noobaa services: ${services.join(', ')}`);
+        await promise_utils.spawn('supervisorctl', ['restart', ...services], { detached: true }, false);
+        await P.delay(5000);
+
+    } catch (err) {
+        const msg = `Failed to restart services: ${services.join(', ')}`;
+        console.error(`restart_services: ${msg}`);
+        throw new Error(msg);
+    }
 }
 
 
@@ -831,3 +902,4 @@ exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
 exports.discover_k8s_services = discover_k8s_services;
 exports.discover_virtual_appliance_address = discover_virtual_appliance_address;
+exports.restart_services = restart_services;

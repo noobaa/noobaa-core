@@ -63,7 +63,6 @@ const EXISTING_AUDIT_LOGS = {
         'server_date_time_updated',
         'dns_address',
         'dns_servers',
-        'set_certificate',
         'upload_package',
         'system_upgrade_started',
         'system_after_completed'
@@ -76,7 +75,7 @@ const ALERTS_SAMPLES = [
     `Somebody's shoved a red-hot poker up our ass, and I want to know whose name is on the handle`,
     `Winter is coming`,
     `The problem is not the problem, the problem is your attitude about the problem`,
-    `Scissors cuts paper, paper covers rock, rock crushes lizard, lizard poisons Spock, Spock smashes scissors, scissors decapitates lizard, 
+    `Scissors cuts paper, paper covers rock, rock crushes lizard, lizard poisons Spock, Spock smashes scissors, scissors decapitates lizard,
         lizard eats paper, paper disproves Spock, Spock vaporizes rock, and as it always has, rock crushes scissors`,
     `That's the second biggest monkey head I've ever seen!`,
     `Run you fools!`,

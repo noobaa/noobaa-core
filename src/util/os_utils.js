@@ -727,7 +727,7 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
         dbg.warn('discover_k8s_services: could not list OpenShift routes: ', err);
     }
 
-    let services = []
+    let services = [];
     try {
         const { items } = await kube_utils.list_resources('service', `app=${app}`);
         services = items;

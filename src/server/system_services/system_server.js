@@ -413,8 +413,6 @@ function read_system(req) {
             response => response.accounts
         ),
 
-        has_ssl_cert: ssl_utils.is_using_local_certs(),
-
         refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
 
         deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket => bucket_server.can_delete_bucket(system, bucket))),
@@ -442,7 +440,6 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo,
         hosts_aggregate_pool,
         accounts,
-        has_ssl_cert,
         deletable_buckets,
         rs_status,
         funcs,
@@ -568,7 +565,7 @@ function read_system(req) {
             node_version: process.version,
             debug: debug,
             system_cap: system_cap,
-            has_ssl_cert: has_ssl_cert,
+            has_ssl_cert: !ssl_utils.is_using_generated_certs(),
             cluster: cluster_info,
             upgrade: { last_upgrade },
             defaults: {

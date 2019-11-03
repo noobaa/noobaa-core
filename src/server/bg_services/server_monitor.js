@@ -140,36 +140,13 @@ function _check_internal_ips() {
 
 async function _verify_ssl_certs() {
     dbg.log2('_verify_ssl_certs');
-    try {
-        if (!(await ssl_utils.is_using_local_certs())) {
-            dbg.log2('_verify_ssl_certs: sytem using self generated certs, skipping');
-            return;
-        }
-
-        const [ loaded_certs, certs_on_disk ] = await Promise.all([
-            ssl_utils.get_ssl_certificates(),
-            ssl_utils.read_ssl_certificates()
+    const updated = await ssl_utils.update_certs_from_disk();
+    if (updated) {
+        dbg.log0('_verify_ssl_certs: SSL certificates changed, restarting relevant services');
+        await os_utils.restart_services([
+            'webserver',
+            's3rver'
         ]);
-
-        const restart_needed = Object.entries(loaded_certs)
-            .some(pair => {
-                const [service_name, service_cert] = pair;
-                return service_cert.key !== certs_on_disk[service_name].key;
-            });
-
-        if (restart_needed) {
-            // Update the loaded certs with the new certs.
-            ssl_utils.update_ssl_certificates(certs_on_disk);
-
-            dbg.log0('_verify_ssl_certs: SSL certs changed, restarting relevant services');
-            await os_utils.restart_services([
-                'webserver',
-                's3rver'
-            ]);
-
-        }
-    } catch (err) {
-        dbg.warn('_verify_ssl_certs: Error when trying to verify ssl certs', err);
     }
 }
 

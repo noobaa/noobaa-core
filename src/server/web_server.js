@@ -238,6 +238,7 @@ app.get('/oauth/authorize', async (req, res) => {
     const {
         KUBERNETES_SERVICE_HOST,
         KUBERNETES_SERVICE_PORT,
+        NOOBAA_SERVICE_ACCOUNT,
         OAUTH_AUTHORIZATION_ENDPOINT
     } = process.env;
 
@@ -255,6 +256,12 @@ app.get('/oauth/authorize', async (req, res) => {
         return;
     }
 
+    if (!NOOBAA_SERVICE_ACCOUNT) {
+        dbg.warn('/oauth/authorize: noobaa k8s service account name is not available');
+        res.status(500);
+        res.end();
+    }
+
     let redirect_host;
     if (dev_mode) {
         redirect_host = `https://localhost:${https_port}`;
@@ -268,7 +275,7 @@ app.get('/oauth/authorize', async (req, res) => {
     }
 
     const k8s_namespace = await kube_utils.read_namespace();
-    const client_id = `system:serviceaccount:${k8s_namespace}:noobaa-account`;
+    const client_id = `system:serviceaccount:${k8s_namespace}:${NOOBAA_SERVICE_ACCOUNT}`;
     const redirect_uri = new URL(config.OAUTH_REDIRECT_ENDPOINT, redirect_host);
     const return_url = new URL(req.url, 'http://dummy').searchParams.get('return-url');
     const authorization_endpoint = new URL(OAUTH_AUTHORIZATION_ENDPOINT);

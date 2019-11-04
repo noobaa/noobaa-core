@@ -178,6 +178,7 @@ async function create_k8s_auth(req) {
         KUBERNETES_SERVICE_HOST,
         KUBERNETES_SERVICE_PORT,
         OAUTH_TOKEN_ENDPOINT,
+        NOOBAA_SERVICE_ACCOUNT,
         DEV_MODE,
         HTTPS_PORT = 5443
     } = process.env;
@@ -186,7 +187,7 @@ async function create_k8s_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is supported only on kubernetes deployments');
     }
 
-    if (!OAUTH_TOKEN_ENDPOINT) {
+    if (!OAUTH_TOKEN_ENDPOINT || !NOOBAA_SERVICE_ACCOUNT) {
         throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is not supported');
     }
 
@@ -204,7 +205,7 @@ async function create_k8s_auth(req) {
 
     const sa_token = await kube_utils.read_sa_token(unauthorized_error);
     const kube_namespace = await kube_utils.read_namespace(unauthorized_error);
-    const oauth_client = `system:serviceaccount:${kube_namespace}:noobaa-account`;
+    const oauth_client = `system:serviceaccount:${kube_namespace}:${NOOBAA_SERVICE_ACCOUNT}`;
     const { access_token, expires_in } = await oauth_utils.trade_grant_code_for_access_token(
         OAUTH_TOKEN_ENDPOINT,
         oauth_client,

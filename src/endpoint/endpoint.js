@@ -69,8 +69,8 @@ function start_all() {
             //  12   4
             const numCPUs = os_utils.get_cpus();
             const total_mem_mb = Math.floor(os_utils.get_memory() / size_utils.MEGABYTE);
-            const reserved_mem_mb = 4 * size_utils.GIGABYTE;
-            const fork_mem_mb = 2 * size_utils.GIGABYTE;
+            const reserved_mem_mb = 4 * 1024;
+            const fork_mem_mb = 2 * 1024;
             const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
             const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
             NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);

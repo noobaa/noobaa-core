@@ -7,6 +7,7 @@ const fs = require('fs');
 const tls = require('tls');
 const path = require('path');
 const https = require('https');
+const Semaphore = require('../util/semaphore');
 const dbg = require('./debug_module')(__filename);
 const nb_native = require('./nb_native');
 
@@ -15,9 +16,10 @@ const SSL_CERTS_DIR_PATHS = Object.freeze({
     S3: '/etc/s3-secret'
 });
 
-
 let certs = null;
 let using_generated_certs = true;
+
+const certs_read_sem = new Semaphore(1);
 
 function generate_ssl_certificate() {
     const ssl_cert = nb_native().x509();
@@ -34,9 +36,17 @@ function verify_ssl_certificate(certificate) {
 
 // Get SSL certificates from local memroy.
 async function get_ssl_certificates() {
-    if (certs === null) {
+    if (certs !== null) {
+        return certs;
+    }
+
+    return certs_read_sem.surround(async () => {
+        if (certs !== null) {
+            return certs;
+        }
+
         try {
-            certs = await read_ssl_certificates();
+            certs = await _read_ssl_certificates();
             using_generated_certs = false;
             dbg.log0('Using mounted certificates');
 
@@ -54,13 +64,14 @@ async function get_ssl_certificates() {
                 }, {});
             using_generated_certs = true;
         }
-    }
 
-    return certs;
+        return certs;
+    });
 }
 
 async function get_ssl_certificate(service) {
-    const { [service]: certificate = null } = await get_ssl_certificates();
+    const all_certificates = await get_ssl_certificates();
+    const certificate = all_certificates[service] || null;
     if (certificate === null) {
         throw new Error(`Invalid service name, got: ${service}`);
     }
@@ -68,8 +79,31 @@ async function get_ssl_certificate(service) {
     return certificate;
 }
 
+function update_certs_from_disk() {
+    return certs_read_sem.surround(async () => {
+        try {
+            const certs_on_disk = await _read_ssl_certificates();
+            if (_compare_with_loaded_certs(certs_on_disk)) {
+                return false;
+            }
+
+            certs = certs_on_disk;
+            using_generated_certs = false;
+            return true;
+
+        } catch (err) {
+            if (err.code !== 'ENOENT') {
+                dbg.warn('One or more SSL certificates failed to load', err.message);
+            }
+            return false;
+        }
+    });
+}
+
 // Read SSL certificates form disk
-function read_ssl_certificates() {
+// This func is designed to throw in case there are not certificated on disk or that
+// loaded certs cannot be verified.
+function _read_ssl_certificates() {
     return P.props(
         _.mapValues(SSL_CERTS_DIR_PATHS, async dir => {
             const key_path = path.join(dir, 'tls.key');
@@ -86,18 +120,19 @@ function read_ssl_certificates() {
     );
 }
 
-// Overide the current loaded certs with new certs.
-async function update_ssl_certificates(new_certs) {
-    dbg.log0(`update_ssl_certificates: Updating loaded certificate for ${Object.keys(new_certs)}`);
-    using_generated_certs = false;
-    certs = {
-        ...(certs || {}),
-        ...new_certs
-    };
+function is_using_generated_certs() {
+    return using_generated_certs;
 }
 
-async function is_using_local_certs() {
-    return !using_generated_certs;
+function _compare_with_loaded_certs(new_certs) {
+    if (!certs || using_generated_certs) {
+        return false;
+    }
+
+    return Object.entries(certs).every(pair => {
+        const [service_name, service_cert] = pair;
+        return service_cert.key === new_certs[service_name].key;
+    });
 }
 
 // create a default certificate and start an https server to test it in the browser
@@ -121,8 +156,7 @@ exports.generate_ssl_certificate = generate_ssl_certificate;
 exports.verify_ssl_certificate = verify_ssl_certificate;
 exports.get_ssl_certificates = get_ssl_certificates;
 exports.get_ssl_certificate = get_ssl_certificate;
-exports.read_ssl_certificates = read_ssl_certificates;
-exports.update_ssl_certificates = update_ssl_certificates;
-exports.is_using_local_certs = is_using_local_certs;
+exports.is_using_generated_certs = is_using_generated_certs;
+exports.update_certs_from_disk = update_certs_from_disk;
 
 if (require.main === module) run_https_test_server();

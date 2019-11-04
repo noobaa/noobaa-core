@@ -37,7 +37,7 @@ async function put_object(req, res) {
         md_conditions: http_utils.get_md_conditions(req),
         source_md_conditions: http_utils.get_md_conditions(req, 'x-amz-copy-source-'),
         xattr: s3_utils.get_request_xattr(req),
-        xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY'),
+        xattr_copy: (req.headers['x-amz-metadata-directive'] !== 'REPLACE'),
         tagging,
         tagging_copy: s3_utils.is_copy_tagging_directive(req),
         encryption

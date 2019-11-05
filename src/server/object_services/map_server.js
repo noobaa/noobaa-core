@@ -487,11 +487,11 @@ function enough_room_in_tier(tier, bucket) {
         'free', tier_status.mirrors_storage.map(storage => (storage.free || 0))
     ));
     if (available_to_upload && available_to_upload.greater(config.ENOUGH_ROOM_IN_TIER_THRESHOLD)) {
-        dbg.log0('enough_room_in_tier: has enough room', tier.name, available_to_upload.toJSNumber(), '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        dbg.log1('enough_room_in_tier: has enough room', tier.name, available_to_upload.toJSNumber(), '>', config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
         map_reporter.add_event(`has_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return true;
     } else {
-        dbg.log0(`enough_room_in_tier: not enough room ${tier.name}:`,
+        dbg.log0_throttled(`enough_room_in_tier: not enough room ${tier.name}:`,
             `${available_to_upload.toJSNumber()} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
         map_reporter.add_event(`enough_room_in_tier: not_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
         return false;

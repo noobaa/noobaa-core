@@ -47,6 +47,7 @@ class MapBuilder {
     }
 
     async run() {
+        this.start_run = Date.now();
         dbg.log0('MapBuilder.run:', 'batch start', this.chunk_ids, 'move_to_tier', this.move_to_tier && this.move_to_tier.name);
         if (!this.chunk_ids.length) return;
 
@@ -130,7 +131,9 @@ class MapBuilder {
                 // }
 
                 if (!chunk.parts || !chunk.parts.length) {
+                    const last_hour = this.start_run - (60 * 60 * 1000); // chunks that were created in the last hour will not be deleted
                     dbg.log0('unreferenced chunk to delete', chunk);
+                    if (chunk._id.getTimestamp().getTime() > last_hour) return;
                     chunks_to_delete.push(chunk);
                     return;
                 }

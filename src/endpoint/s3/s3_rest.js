@@ -315,7 +315,7 @@ function get_bucket_and_key(req) {
     return {
         bucket,
         // decode and replace hadoop _$folder$ in key
-        key: decodeURIComponent(key.replace('%', '%25')).replace(/_\$folder\$/, '/'),
+        key,
         is_virtual_hosted_bucket
     };
 }

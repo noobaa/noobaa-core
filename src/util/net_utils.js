@@ -91,6 +91,9 @@ async function retrieve_public_ip() {
         const res = await P.fromCallback(callback =>
             request.get('http://api.ipify.org/', callback)
         );
+        if (!is_ip(res.body)) {
+            return undefined;
+        }
         return res.body;
     } catch (err) {
         return undefined;

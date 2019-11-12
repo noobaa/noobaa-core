@@ -31,16 +31,19 @@ async function get_bucket(req) {
     };
 
     const reply = await req.object_sdk.list_objects(params);
+    let res_params = {
+        'Name': req.params.bucket,
+        'Prefix': req.query.prefix,
+        'MaxKeys': max_keys_received,
+        'IsTruncated': reply.is_truncated,
+        'Encoding-Type': req.query['encoding-type'],
+    };
+    if (req.query.delimiter !== '') {
+        res_params.Delimiter = req.query.delimiter;
+    }
 
     return {
-        ListBucketResult: [{
-                'Name': req.params.bucket,
-                'Prefix': req.query.prefix,
-                'Delimiter': req.query.delimiter,
-                'MaxKeys': max_keys_received,
-                'IsTruncated': reply.is_truncated,
-                'Encoding-Type': req.query['encoding-type'],
-            }, list_type === '2' ? {
+        ListBucketResult: [res_params, list_type === '2' ? {
                 'ContinuationToken': cont_tok,
                 'StartAfter': start_after,
                 'KeyCount': reply.objects.length,

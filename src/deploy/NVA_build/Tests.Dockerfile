@@ -42,6 +42,7 @@ RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
     ./bootstrap && \
     touch ./s3tests/tests/__init__.py
 COPY .eslintrc.js /noobaa-core
+COPY .eslintignore /noobaa-core
 
 ##############################################################
 # Layers:

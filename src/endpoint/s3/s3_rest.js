@@ -148,7 +148,7 @@ async function handle_request(req, res) {
         XML_ROOT_ATTRS: S3_XML_ROOT_ATTRS,
         ErrorClass: S3Error,
         error_max_body_len_exceeded: S3Error.MaxMessageLengthExceeded,
-        error_missing_body: S3Error.MissingRequestBodyError,
+        error_missing_body: op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.MissingRequestBodyError,
         error_invalid_body: op.body.invalid_error || (op.body.type === 'xml' ? S3Error.MalformedXML : S3Error.InvalidRequest),
         error_body_sha256_mismatch: S3Error.XAmzContentSHA256Mismatch,
     };
@@ -204,7 +204,7 @@ function check_headers(req, res) {
     });
 
     if (req.headers['content-length'] === '') {
-        throw new S3Error(S3Error.BadRequestWithoutCode);
+        throw new S3Error(S3Error.BadRequest);
     }
 
     if (req.method === 'POST' || req.method === 'PUT') s3_utils.parse_content_length(req);
@@ -315,7 +315,7 @@ function get_bucket_and_key(req) {
     return {
         bucket,
         // decode and replace hadoop _$folder$ in key
-        key: decodeURIComponent(key).replace(/_\$folder\$/, '/'),
+        key,
         is_virtual_hosted_bucket
     };
 }

@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const wtf = require("wtfnode");
+
 const panic = require('../../util/panic');
 panic.enable_heapdump('coretest');
 
@@ -77,13 +79,14 @@ const POOL_LIST = [{
     }
 ];
 
-let CREATED_POOLS = [];
+let CREATED_POOLS = null;
 
 function new_rpc_client() {
     return server_rpc.rpc.new_client(rpc_client.options);
 }
 
-function setup({ incomplete_rpc_coverage, pools_to_create } = {}) {
+function setup(options = {}) {
+    const { incomplete_rpc_coverage, pools_to_create = [] } = options;
     if (_setup) return;
     _setup = true;
 
@@ -185,7 +188,7 @@ function setup({ incomplete_rpc_coverage, pools_to_create } = {}) {
         rpc_client.options.auth_token = token;
         await overwrite_system_address(SYSTEM);
         if (pools_to_create.length > 0) {
-            await announce('init_test_pools()');
+            await announce('setup_pools()');
             await setup_pools(pools_to_create);
         }
         await announce(`coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
@@ -224,19 +227,32 @@ function setup({ incomplete_rpc_coverage, pools_to_create } = {}) {
         await announce('https_server close()');
         if (https_server) https_server.close();
         await announce('coretest done ...');
-        setInterval(() => {
-            const reqs = process._getActiveRequests();
-            console.log(`### Active Requests: found ${reqs.length} items`);
-            for (const r of reqs) console.log('### Active Request:', r);
-            const handles = process._getActiveHandles();
-            console.log(`### Active Handles: found ${handles.length} items`);
-            for (const h of handles) console.log('### Active Handle:', h);
+
+        let tries_left = 3;
+        setInterval(function check_dangling_handles() {
+            tries_left -= 1;
+            console.info(`Wating for dangling handles to release, re-sample in 30s (tries left: ${tries_left})`);
+            wtf.dump();
+
+            if (tries_left === 0) {
+                console.error('Tests cannot complete successfuly, running tests resulted in dangling handles');
+
+                // Force the test suite to fail (ignoring the exist handle that mocha sets up in order to return a fail
+                // exit code)
+                process.removeAllListeners('exit');
+                process.exit(1);
+            }
         }, 30000).unref();
     });
-
 }
+
 async function setup_pools(pools_to_create) {
-    console.log('init_test_pools()');
+    console.log('setup_pools()');
+    if (CREATED_POOLS) {
+        console.error('Setup pools was already called');
+        throw new Error('INVALID_SETUP_POOLS_CALL');
+    }
+
     await init_test_pools(rpc_client, SYSTEM, pools_to_create);
     await attach_pool_to_bucket(SYSTEM, 'first.bucket', CREATED_POOLS[0].name);
     await set_pool_as_default_resource(SYSTEM, CREATED_POOLS[0].name);
@@ -271,6 +287,7 @@ async function overwrite_system_address(system_name) {
         api: 'mgmt',
         secure: protocol === 'wss:',
         kind: 'INTERNAL',
+        weight: 0,
         hostname
     }];
 
@@ -346,16 +363,18 @@ async function clear_test_pools() {
     ));
 
     // Delete all pools (will stop all agents managed by the pool)
-    await Promise.all(POOL_LIST.map(pool =>
-        rpc_client.pool.delete_pool({ name: pool.name })
-    ));
+    if (CREATED_POOLS) {
+        await Promise.all(CREATED_POOLS.map(pool =>
+            rpc_client.pool.delete_pool({ name: pool.name })
+        ));
 
-    console.log('Waiting until all pools are deleted (including hosts)');
-    await promise_utils.wait_until(async () => {
-        const { pools } = await rpc_client.system.read_system({});
-        const existing_pools = new Set(pools.map(pool => pool.name));
-        return POOL_LIST.every(pool => !existing_pools.has(pool.name));
-    }, 2500, 5 * 60 * 1000);
+        console.log('Waiting until all pools are deleted (including hosts)');
+        await promise_utils.wait_until(async () => {
+            const { pools } = await rpc_client.system.read_system({});
+            const existing_pools = new Set(pools.map(pool => pool.name));
+            return CREATED_POOLS.every(pool => !existing_pools.has(pool.name));
+        }, 2500, 5 * 60 * 1000);
+    }
 
     console.log('STOP MONITOR');
     await node_server.stop_monitor('force_close_n2n');

@@ -143,7 +143,10 @@ async function _init() {
             }
         });
     }
-    check_accounts_default_resource();
+
+    // Ensure that all account are not using mongo pool as default resource after
+    // at least one pool is in optimal state.
+    update_account_default_resource();
 }
 
 function default_create_pool_controller(system, pool) {
@@ -214,7 +217,7 @@ async function create_hosts_pool(req) {
             pools: [pool],
         },
     });
-    updates_if_first_resource(req, false);
+
     const { hosts_pool_info } = pool;
     Dispatcher.instance().activity({
         event: 'resource.create',
@@ -337,66 +340,6 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
     return Buffer.from(install_string).toString('base64');
 }
 
-async function updates_if_first_resource(req, skip_pools_check) {
-    let accounts_updated = false;
-    if (!skip_pools_check) {
-        const system = req.system;
-        const pools = _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
-        if (pools.length > 0) {
-            return; //on first pool
-        }
-    }
-    while (!accounts_updated) {
-        await P.delay(5000);
-        accounts_updated = await updates_first_resource();
-    }
-}
-
-async function check_accounts_default_resource() {
-    const non_mongo_pools = _.filter(system_store.data.pools, p => (!_.get(p, 'mongo_pool_info')));
-    const accounts = _.filter(system_store.data.accounts, account => // accounts needs to be updated
-        (account.default_pool && _is_mongo_pool(account.default_pool) &&
-            account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL));
-    if (accounts.length > 0 && non_mongo_pools.length > 0) {
-        updates_if_first_resource(_, true);
-    }
-}
-async function updates_first_resource() {
-    const non_mongo_pools = _.filter(system_store.data.pools, p => (!_.get(p, 'mongo_pool_info')));
-    const promiseList = _.map(
-        non_mongo_pools,
-        async pool => {
-            const updates = [];
-            const agg = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
-            const pool_info = get_pool_info(pool, agg);
-            if (pool_info.mode && pool_info.mode === ('OPTIMAL')) {
-                _.each(system_store.data.accounts, account => {
-                    if (account.default_pool &&
-                        _is_mongo_pool(account.default_pool) &&
-                        account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL) {
-                        updates.push({
-                            _id: account._id,
-                            $set: {
-                                'default_pool': pool._id
-                            }
-                        });
-                    }
-                });
-            }
-            return updates;
-        }
-    );
-
-    const all_updates = _.flatten(await Promise.all(promiseList));
-    if (all_updates.length > 0) {
-        await system_store.make_changes({
-            update: { accounts: all_updates }
-        });
-        return true;
-    }
-    return false;
-}
-
 function create_namespace_resource(req) {
     const name = req.rpc_params.name;
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
@@ -488,7 +431,6 @@ function create_cloud_pool(req) {
             auth_token: req.auth_token
         }))
         .then(() => {
-            updates_if_first_resource(req, false);
             Dispatcher.instance().activity({
                 event: 'resource.cloud_create',
                 level: 'info',
@@ -1316,6 +1258,56 @@ function calc_scale_up_timeout(host_count_diff) {
         host_count_diff * 5 * min,
         60 * min
     );
+}
+
+async function update_account_default_resource() {
+    for (;;) {
+        try {
+            let optimal_pool_id = null;
+            for (const pool of system_store.data.pools) {
+                // skip mongo pools.
+                if (_is_mongo_pool(pool)) {
+                    continue;
+                }
+
+                const aggr = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
+                const { mode = '' } = get_pool_info(pool, aggr);
+                if (mode === 'OPTIMAL') {
+                    optimal_pool_id = pool._id;
+                    break;
+                }
+            }
+
+            if (optimal_pool_id) {
+                const updates = system_store.data.accounts
+                    .filter(account =>
+                        account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
+                        account.default_pool &&
+                        _is_mongo_pool(account.default_pool)
+                    )
+                    .map(account => ({
+                        _id: account._id,
+                        $set: {
+                            'default_pool': optimal_pool_id
+                        }
+                    }));
+
+                if (updates.length > 0) {
+                    await system_store.make_changes({
+                        update: { accounts: updates }
+                    });
+                }
+
+                return;
+            }
+
+        } catch (error) {
+            // Ignore errors so we could continue with another iteration of the loop.
+            _.noop();
+        }
+
+        await promise_utils.delay_unblocking(5000);
+    }
 }
 
 // EXPORTS

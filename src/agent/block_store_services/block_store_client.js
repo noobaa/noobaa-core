@@ -33,10 +33,8 @@ class BlockStoreClient {
     }
 
     constructor() {
-        this.report_interval = setTimeout(async () => {
-            await this.send_usage_stats();
-        }, config.BLOCK_STORE_USAGE_INTERVAL);
         this.io_stats = new Map();
+        this.send_usage_stats();
     }
 
     write_block(rpc_client, params, options) {
@@ -391,9 +389,12 @@ class BlockStoreClient {
     }
 
     async send_usage_stats() {
-        const updates = Array.from(this.io_stats.entries());
-        this.io_stats = new Map();
-        try {
+        for (;;) {
+            await promise_utils.delay_unblocking(config.BLOCK_STORE_USAGE_INTERVAL);
+
+            const updates = Array.from(this.io_stats.entries());
+            this.io_stats = new Map();
+
             await Promise.all(updates.map(async ([address, update]) => {
                 try {
                     const rpc_client = update.rpc_client;
@@ -405,10 +406,6 @@ class BlockStoreClient {
                     this._update_usage_stats(update.rpc_client, _.omit(update, 'rpc_client'), address, 'BOTH');
                 }
             }));
-        } finally {
-            setTimeout(async () => {
-                await this.send_usage_stats();
-            }, config.BLOCK_STORE_USAGE_INTERVAL);
         }
     }
 }

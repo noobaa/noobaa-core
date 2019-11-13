@@ -5,7 +5,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup();
 
 const _ = require('lodash');
 const mocha = require('mocha');
@@ -19,12 +19,12 @@ const { ChunkDB, BlockDB } = require('../../server/object_services/map_db_types'
 
 class VerifierMock extends AgentBlocksVerifier {
     /**
-     * 
-     * @param {nb.BlockSchemaDB[]} blocks 
-     * @param {nb.NodeAPI[]} nodes 
-     * @param {nb.ChunkSchemaDB[]} chunks 
-     * @param {nb.Pool[]} pools 
-     * @param {string} test_suffix 
+     *
+     * @param {nb.BlockSchemaDB[]} blocks
+     * @param {nb.NodeAPI[]} nodes
+     * @param {nb.ChunkSchemaDB[]} chunks
+     * @param {nb.Pool[]} pools
+     * @param {string} test_suffix
      */
     constructor(blocks = [], nodes = [], chunks = [], pools = [], test_suffix = '') {
         super(`VerifierMock-${test_suffix}`);
@@ -38,10 +38,10 @@ class VerifierMock extends AgentBlocksVerifier {
     }
 
     /**
-     * 
-     * @param {nb.ID} marker 
-     * @param {number} limit 
-     * @param {boolean} deleted_only 
+     *
+     * @param {nb.ID} marker
+     * @param {number} limit
+     * @param {boolean} deleted_only
      * @returns {Promise<nb.BlockSchemaDB[]>}
      */
     async iterate_all_blocks(marker, limit, deleted_only) {
@@ -58,8 +58,8 @@ class VerifierMock extends AgentBlocksVerifier {
     }
 
     /**
-     * 
-     * @param {nb.BlockSchemaDB[]} blocks 
+     *
+     * @param {nb.BlockSchemaDB[]} blocks
      * @returns {Promise<nb.Block[]>}
      */
     async populate_and_prepare_for_blocks(blocks) {
@@ -201,9 +201,9 @@ mocha.describe('mocked agent_blocks_verifier', function() {
     });
 
     /**
-     * 
-     * @param {nb.ID} frag_id 
-     * @param {nb.ID} chunk_id 
+     *
+     * @param {nb.ID} frag_id
+     * @param {nb.ID} chunk_id
      * @returns {nb.BlockSchemaDB}
      */
     function make_schema_block(frag_id, chunk_id, node_id, pool_id) {
@@ -220,7 +220,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
     }
 
     /**
-     * 
+     *
      * @returns {nb.FragSchemaDB}
      */
     function make_schema_frag() {
@@ -231,7 +231,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
     }
 
     /**
-     * 
+     *
      * @returns {nb.ChunkSchemaDB}
      */
     function make_schema_chunk(cc_id, frags) {
@@ -255,10 +255,10 @@ mocha.describe('mocked agent_blocks_verifier', function() {
     }
 
     /**
-     * 
-     * @param {string} node_name 
+     *
+     * @param {string} node_name
      * @param {boolean} offline
-     * @returns {nb.NodeAPI} 
+     * @returns {nb.NodeAPI}
      */
     function make_node(node_name, offline) {
         return {
@@ -285,8 +285,8 @@ mocha.describe('mocked agent_blocks_verifier', function() {
     }
 
     /**
-     * 
-     * @param {string} name 
+     *
+     * @param {string} name
      * @returns {nb.Pool}
      */
     function make_schema_pool(name) {

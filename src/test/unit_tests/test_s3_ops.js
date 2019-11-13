@@ -80,6 +80,7 @@ mocha.describe('s3_ops', function() {
         const text_file1 = 'text-file1';
         const text_file2 = 'text-file2';
         mocha.before(async function() {
+            this.timeout(10000); // eslint-disable-line no-invalid-this
             if (bucket_type === "regular") {
                 await s3.createBucket({ Bucket: bucket_name }).promise();
             } else if (SKIP_TEST) {

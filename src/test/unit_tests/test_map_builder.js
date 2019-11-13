@@ -5,7 +5,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup();
 
 const _ = require('lodash');
 // const util = require('util');
@@ -219,8 +219,8 @@ coretest.describe_mapper_test_case({
     }
 
     /**
-     * 
-     * @param {BuilderObject} obj 
+     *
+     * @param {BuilderObject} obj
      */
     async function assert_fully_built(obj) {
         const chunks = await map_reader.read_object_mapping({ _id: MDStore.instance().make_md_id(obj.obj_id) });

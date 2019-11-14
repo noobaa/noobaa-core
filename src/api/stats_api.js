@@ -599,7 +599,7 @@ module.exports = {
                             usage_by_project: {
                                 type: 'object',
                                 patternProperties: {
-                                    '^[a-zA-Z0-9_]+$': {
+                                    '^[a-zA-Z0-9_-]+$': {
                                         type: 'number',
                                     }
                                 },
@@ -608,7 +608,7 @@ module.exports = {
                             usage_by_bucket_class: {
                                 type: 'object',
                                 patternProperties: {
-                                    '^[a-zA-Z0-9_]+$': {
+                                    '^[a-zA-Z0-9_-]+$': {
                                         type: 'number',
                                     }
                                 },
@@ -622,7 +622,7 @@ module.exports = {
         partial_providers_stats: {
             type: 'object',
             patternProperties: {
-                '^[a-zA-Z0-9_]+$': {
+                '^[a-zA-Z0-9_-]+$': {
                     type: 'object',
                     required: ['logical_size', 'physical_size'],
                     properties: {

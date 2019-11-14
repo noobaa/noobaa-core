@@ -413,9 +413,9 @@ function read_system(req) {
             response => response.accounts
         ),
 
-        refresh_tiering_alloc: P.props(_.mapValues(system.buckets_by_name, bucket => node_allocator.refresh_tiering_alloc(bucket.tiering))),
+        refresh_system_alloc_unused: node_allocator.refresh_system_alloc(system),
 
-        deletable_buckets: P.props(_.mapValues(system.buckets_by_name, bucket => bucket_server.can_delete_bucket(system, bucket))),
+        undeletable_buckets: bucket_server.list_undeletable_buckets(),
 
         rs_status: system_store.get_local_cluster_info().is_clusterized ?
             MongoCtrl.get_hb_rs_status()
@@ -440,7 +440,7 @@ function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo,
         hosts_aggregate_pool,
         accounts,
-        deletable_buckets,
+        undeletable_buckets,
         rs_status,
         funcs,
         buckets_stats
@@ -503,6 +503,7 @@ function read_system(req) {
         const base_address = addr_utils.get_base_address(system.system_address);
         const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
         const tiering_status_by_tier = {};
+        const undeletable_bucket_set = new Set(undeletable_buckets);
 
         return {
             name: system.name,
@@ -528,8 +529,8 @@ function read_system(req) {
                         bucket_stats: stats_by_bucket[bucket.name],
                     });
                     const bucket_name = bucket.name.unwrap();
-                    if (deletable_buckets[bucket_name]) {
-                        b.undeletable = deletable_buckets[bucket_name];
+                    if (undeletable_bucket_set.has(bucket_name)) {
+                        b.undeletable = 'NOT_EMPTY';
                     }
                     return b;
                 }),
@@ -884,7 +885,7 @@ async function _ensure_internal_structure(system_id) {
     if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
     try {
         server_rpc.client.hosted_agents.create_pool_agent({
-            pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system}`
+            pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`
         }, {
             auth_token: auth_server.make_auth_token({
                 system_id,

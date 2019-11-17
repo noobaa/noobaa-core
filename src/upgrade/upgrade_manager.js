@@ -94,7 +94,7 @@ async function load_required_scripts(server_version, container_version) {
         .sort(version_compare);
     dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${server_version}):`, newer_versions);
     // get all scripts under new_versions
-    let upgrade_scripts = await _.flatMap(newer_versions, ver => {
+    let upgrade_scripts = _.flatMap(newer_versions, ver => {
         const full_path = path.join(upgrade_scripts_dir, ver);
         const scripts = fs.readdirSync(full_path);
         return scripts.map(script => path.join(full_path, script));

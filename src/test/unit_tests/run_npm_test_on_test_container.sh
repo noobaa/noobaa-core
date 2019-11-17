@@ -16,7 +16,6 @@ function cleanup() {
 }
 
 function start_mongo() {
-    source /opt/rh/rh-mongodb36/enable
     mkdir -p /data/db
     echo "$(date) starting mongod"
     mongod --logpath /dev/null &

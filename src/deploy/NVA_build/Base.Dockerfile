@@ -7,8 +7,7 @@ FROM noobaa-builder
 #   Cache: Rebuild when there is new package.json or package-lock.json
 ######################################################################
 COPY ./package*.json ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm install --production && \
+RUN npm install --production && \
     npm cache clean --force
 
 ##############################################################
@@ -20,8 +19,7 @@ RUN source /opt/rh/devtoolset-7/enable && \
 ##############################################################
 COPY ./binding.gyp .
 COPY ./src/native ./src/native/
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:native
+RUN npm run build:native
 
 ######################################################################
 # Layers:
@@ -56,5 +54,4 @@ COPY ./src/rpc/ ./src/rpc/
 COPY ./src/api/ ./src/api/
 COPY ./src/util/ ./src/util/
 COPY ./config.js ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:fe
+RUN npm run build:fe

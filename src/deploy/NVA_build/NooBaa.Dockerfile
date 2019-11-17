@@ -39,7 +39,7 @@ RUN tar \
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM centos:7
+FROM centos:8
 
 ENV container docker
 ENV PORT 8080
@@ -57,18 +57,19 @@ ENV ENDPOINT_NODE_OPTIONS ''
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-RUN yum install -y -q bash \
+# RUN dnf install -y -q bash \
+RUN dnf install -y -q bash \
     lsof \
     openssl \
-    rsyslog-8.24.0 \
+    rsyslog-8.37.0 \
     strace \
     wget \
     curl \
     nc \
     less \
     bash-completion \
-    python-setuptools-0.9.8 && \
-    yum clean all
+    python2-setuptools && \
+    dnf clean all
 
 ##############################################################
 # Layers:

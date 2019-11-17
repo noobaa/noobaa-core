@@ -1,4 +1,4 @@
-FROM centos:7 
+FROM centos:8 
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################
@@ -8,12 +8,12 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN yum install -y -q wget unzip which vim centos-release-scl && \
-    yum group install -y -q "Development Tools" && \ 
-    yum install -y -q devtoolset-7 && \
-    yum clean all
-RUN source /opt/rh/devtoolset-7/enable && \
-    version="1.3.0" && \
+RUN dnf install -y -q wget unzip which vim && \
+    dnf group install -y -q "Development Tools" && \
+    dnf install -y -q python2 && \
+    dnf clean all
+RUN alternatives --set python /usr/bin/python2
+RUN version="1.3.0" && \
     wget -q -O yasm-${version}.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \
     tar -xf yasm-${version}.tar.gz && \
     pushd yasm-${version} && \

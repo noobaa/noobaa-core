@@ -9,8 +9,7 @@ RUN npm run clean && \
     npm cache clean --force
 
 COPY ./package*.json ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm install
+RUN npm install
 
 RUN tar -zcf build_deps.tar.gz /root/.npm/ /root/.node-gyp
 
@@ -29,8 +28,7 @@ COPY ./src/rpc/ ./src/rpc/
 COPY ./src/api/ ./src/api/
 COPY ./src/util/ ./src/util/
 COPY ./config.js ./
-RUN source /opt/rh/devtoolset-7/enable && \
-    npm run build:fe
+RUN npm run build:fe
 
 FROM code 
 

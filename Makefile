@@ -20,28 +20,28 @@ endif
 export
 
 all: tester noobaa
-	@echo "\033[1;34mAll done.\033[0m"
+	@echo "\033[1;32mAll done.\033[0m"
 .PHONY: all
 
 builder:
 	@echo "\033[1;34mStarting Builder docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) -t noobaa-builder . $(REDIRECT_STDOUT)
 	docker tag noobaa-builder $(BUILDER_TAG)
-	@echo "\033[1;34mBuilder done.\033[0m"
+	@echo "\033[1;32mBuilder done.\033[0m"
 .PHONY: builder
 
 base: builder
 	@echo "\033[1;34mStarting Base docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	docker tag noobaa-base $(NOOBAA_BASE_TAG)
-	@echo "\033[1;34mBase done.\033[0m"
+	@echo "\033[1;32mBase done.\033[0m"
 .PHONY: base
 
 tester: base noobaa
 	@echo "\033[1;34mStarting Tester docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
 	docker tag noobaa-tester $(TESTER_TAG)
-	@echo "\033[1;34mTester done.\033[0m"
+	@echo "\033[1;32mTester done.\033[0m"
 .PHONY: tester
 
 test: tester
@@ -56,7 +56,7 @@ noobaa: base
 	@echo "\033[1;34mStarting NooBaa docker build.\033[0m"
 	docker build -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	docker tag noobaa $(NOOBAA_TAG)
-	@echo "\033[1;34mNooBaa done.\033[0m"
+	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
 
 clean:

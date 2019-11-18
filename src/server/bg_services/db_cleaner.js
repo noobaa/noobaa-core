@@ -37,10 +37,10 @@ async function background_worker() {
         target_now: now,
         system_store: system_store
     });
-    dbg.log2('DB_CLEANER: md_aggreagator at', new Date(from_time));
+    dbg.log2('DB_CLEANER: md_aggregator at', new Date(from_time));
     if (from_time < last_date_to_remove) {
-        dbg.log0('DB_CLEANER: waiting for md_aggreagator to advance to later than', new Date(last_date_to_remove));
-        return config.DB_CLEANER.CYCLE; // if md_aggreagator is still working on more than 3 month old objects - exit
+        dbg.log0('DB_CLEANER: waiting for md_aggregator to advance to later than', new Date(last_date_to_remove));
+        return config.DB_CLEANER.CYCLE; // if md_aggregator is still working on more than 3 month old objects - exit
     }
     dbg.log0('DB_CLEANER:', 'START');
     await clean_md_store(last_date_to_remove);
@@ -98,7 +98,7 @@ async function clean_nodes_store(last_date_to_remove) {
         },
     };
     const nodes = await nodes_store.find_nodes(query, config.DB_CLEANER.DOCS_LIMIT, { _id: 1, deleted: 1 });
-    const node_ids = await mongo_utils.uniq_ids(nodes, '_id');
+    const node_ids = mongo_utils.uniq_ids(nodes, '_id');
     dbg.log2('DB_CLEANER: list nodes:', node_ids);
     const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted
     dbg.log2('DB_CLEANER: list nodes with no agents to be removed from DB', filtered_nodes);

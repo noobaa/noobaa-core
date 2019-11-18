@@ -212,7 +212,7 @@ function parse_body_tagging_xml(req) {
             value: tag.Value && tag.Value[0]
         };
     });
-    if (!tag_set_map || tag_set_map.length > 10) throw new S3Error(S3Error.InvalidTag);
+    if (tag_set_map.length === 0 || tag_set_map.length > 10) throw new S3Error(S3Error.InvalidTag);
     const tag_map = new Map();
     tag_set_map.forEach(tag => {
         if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);

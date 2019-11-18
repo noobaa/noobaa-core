@@ -921,7 +921,7 @@ function _list_limit(limit) {
     limit = _.isUndefined(limit) ? 1000 : limit;
     if (limit < 0) throw new Error('Limit must be a positive Integer');
     // In case that we've received max-keys 0, we should return an empty reply without is_truncated
-    // This is used in order to follow aws spec and bevaiour
+    // This is used in order to follow aws spec and behaviour
     return Math.min(limit, 1000);
 }
 
@@ -1358,7 +1358,7 @@ function check_quota(bucket) {
 async function dispatch_triggers(req) {
     load_bucket(req);
     const triggers_to_run = events_dispatcher.get_triggers_for_event(req.bucket, req.rpc_params.obj, req.rpc_params.event_name);
-    if (!triggers_to_run) return;
+    if (triggers_to_run.length === 0) return;
     setTimeout(() => events_dispatcher.run_bucket_triggers(
         triggers_to_run, req.bucket, req.rpc_params.obj, req.account._id, req.auth_token), 1000);
 }

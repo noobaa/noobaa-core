@@ -74,6 +74,6 @@ require('./test_object_io');
 require('./test_agent_blocks_reclaimer');
 require('./test_s3_ops');
 require('./test_s3_encryption');
+require('./test_s3_bucket_policy');
 require('./test_node_allocator');
 // require('./test_tiering_upload');
-

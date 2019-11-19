@@ -213,7 +213,7 @@ function create_external_user_account(req) {
  *
  */
 function read_account(req) {
-    let email = req.rpc_params.email;
+    let email = req.rpc_params.email || req.account.email;
 
     let account = system_store.get_account_by_email(email);
     if (!account) {

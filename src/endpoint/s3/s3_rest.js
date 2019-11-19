@@ -78,6 +78,7 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
+    MALFORMED_POLICY: S3Error.MalformedPolicy,
 });
 
 const S3_OPS = load_ops();
@@ -131,6 +132,8 @@ async function handle_request(req, res) {
 
     const op_name = parse_op_name(req);
     authenticate_request(req);
+    req.op_name = op_name;
+    await authorize_request(req);
 
     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
@@ -267,6 +270,92 @@ function authenticate_request(req, res) {
     }
 }
 
+async function authorize_request(req) {
+    if (!req.params.bucket) return;
+    if (req.op_name === 'put_bucket') return;
+    const policy_info = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+    const s3_policy = policy_info.s3_policy;
+    const system_owner = policy_info.system_owner;
+    const bucket_owner = policy_info.bucket_owner;
+    if (s3_policy) {
+        const arn_path = _get_arn_from_req_path(req);
+        const method = _get_method_from_req(req);
+        const account = await req.object_sdk.rpc_client.account.read_account({});
+        // system owner by design can always change bucket policy
+        // bucket owner has FC ACL by design - so no need to check bucket policy
+        if (((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) ||
+            account.email.unwrap() === bucket_owner.unwrap()) return;
+        if (!has_bucket_policy_permission(s3_policy, account.email, method, arn_path)) {
+            throw new S3Error(S3Error.AccessDenied);
+        }
+    }
+}
+
+function _get_method_from_req(req) {
+    const s3_op = s3_utils.OP_NAME_TO_ACTION[req.op_name];
+    if (!s3_op) {
+        dbg.error(`Got a not supported S3 op ${req.op_name} - doesn't suppose to happen`);
+        throw new S3Error(S3Error.InternalError);
+    }
+    if (req.query && req.query.versionId && s3_op.versioned) {
+        return s3_op.versioned;
+    }
+    return s3_op.regular;
+}
+
+function _get_arn_from_req_path(req) {
+    const bucket = req.params.bucket;
+    const key = req.params.key;
+    let arn_path = `arn:aws:s3:::${bucket}`;
+    if (key) {
+        arn_path += `/${key}`;
+    }
+    return arn_path;
+}
+
+function has_bucket_policy_permission(policy, account, method, arn_path) {
+    const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
+
+    // look for explicit denies
+    if (is_statements_fit(deny_statements, account, method, arn_path)) return false;
+
+    // look for explicit allows
+    if (is_statements_fit(allow_statements, account, method, arn_path)) return true;
+
+    // implicit deny
+    return false;
+}
+
+function is_statements_fit(statements, account, method, arn_path) {
+    for (const statement of statements) {
+        let action_fit = false;
+        let principal_fit = false;
+        let resource_fit = false;
+        for (const action of statement.action) {
+            dbg.log1('bucket_policy: action fit?', action, method);
+            if ((action === '*') || (action === 's3:*') || (action === method)) {
+                action_fit = true;
+            }
+        }
+        for (const principal of statement.principal) {
+            dbg.log1('bucket_policy: principal fit?', principal, account);
+            if ((principal.unwrap() === '*') || (principal.unwrap() === account.unwrap())) {
+                principal_fit = true;
+            }
+        }
+        for (const resource of statement.resource) {
+            const resource_regex = RegExp(`^${resource.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
+            dbg.log1('bucket_policy: resource fit?', resource_regex, arn_path);
+            if (resource_regex.test(arn_path)) {
+                resource_fit = true;
+            }
+        }
+        dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
+        if (action_fit && principal_fit && resource_fit) return true;
+    }
+    return false;
+}
+
 // We removed support for default website hosting (host value is a bucket name)
 // after a discussion with [Ohad, Nimrod, Eran, Guy] because it introduced a conflict
 // that will be resolved with Bucket Website Configuration
@@ -355,6 +444,11 @@ function handle_error(req, res, err) {
     var s3err =
         ((err instanceof S3Error) && err) ||
         new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
+
+    if (s3err.code === 'MalformedPolicy') {
+        s3err.message = err.message;
+        s3err.detail = err.rpc_data.detail;
+    }
 
     if (s3err.rpc_data) {
         if (s3err.rpc_data.etag) {

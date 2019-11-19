@@ -845,6 +845,14 @@ module.exports = {
                     enum: ['REGULAR', 'NAMESPACE'],
                     type: 'string',
                 },
+                owner_account: {
+                    type: 'object',
+                    required: ['email', 'id'],
+                    properties: {
+                        email: { $ref: 'common_api#/definitions/email' },
+                        id: { objectid: true }
+                    }
+                },
                 versioning: { $ref: '#/definitions/versioning' },
                 namespace: {
                     $ref: '#/definitions/bucket_namespace'
@@ -1069,11 +1077,17 @@ module.exports = {
         bucket_sdk_info: {
             type: 'object',
             required: [
-                'name'
+                'name', 'system_owner', 'bucket_owner'
             ],
             properties: {
                 name: {
                     $ref: 'common_api#/definitions/bucket_name'
+                },
+                system_owner: {
+                    $ref: 'common_api#/definitions/email'
+                },
+                bucket_owner: {
+                    $ref: 'common_api#/definitions/email'
                 },
                 website: {
                     $ref: 'common_api#/definitions/bucket_website'
@@ -1112,7 +1126,10 @@ module.exports = {
                             }
                         }
                     }
-                }
+                },
+                s3_policy: {
+                    $ref: 'common_api#/definitions/bucket_policy'
+                },
             }
         },
 

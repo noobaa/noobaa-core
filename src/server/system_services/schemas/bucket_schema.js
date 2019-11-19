@@ -47,6 +47,9 @@ module.exports = {
         name: {
             wrapper: SensitiveString,
         },
+        owner_account: {
+            objectid: true
+        },
         namespace: {
             type: 'object',
             required: [
@@ -244,7 +247,7 @@ module.exports = {
         website: {
             $ref: 'common_api#/definitions/bucket_website',
         },
-        policy: {
+        s3_policy: {
             $ref: 'common_api#/definitions/bucket_policy',
         },
         lambda_triggers: {

@@ -226,7 +226,7 @@ function new_system_changes(name, owner_account_id) {
             disabled: false
         }]
     );
-    const bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+    const bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id, owner_account_id);
     return {
         insert: {
             systems: [system],
@@ -979,4 +979,3 @@ exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
-

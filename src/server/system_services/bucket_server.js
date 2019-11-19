@@ -34,6 +34,7 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
+const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -42,13 +43,14 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
-function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
+function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag) {
     let now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
         name: name,
         tag: js_utils.default_value(tag, ''),
         system: system_id,
+        owner_account: owner_account_id,
         tiering: tiering_policy_id,
         storage_stats: {
             chunks_capacity: 0,
@@ -134,6 +136,7 @@ async function create_bucket(req) {
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id,
+        req.account._id,
         req.rpc_params.tag);
 
     if (req.rpc_params.namespace) {
@@ -285,7 +288,7 @@ async function get_bucket_policy(req) {
     dbg.log0('get_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
     return {
-        policy: bucket.policy,
+        policy: bucket.s3_policy,
     };
 }
 
@@ -293,14 +296,42 @@ async function get_bucket_policy(req) {
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    _validate_s3_policy(req.rpc_params.policy, bucket.name);
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
-                policy: req.rpc_params.policy
+                s3_policy: req.rpc_params.policy
             }]
         }
     });
+}
+
+function _validate_s3_policy(policy, bucket_name) {
+    const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
+    for (const statement of policy.statement) {
+        for (const principal of statement.principal) {
+            if (principal.unwrap() !== '*') {
+                const account = system_store.get_account_by_email(principal);
+                if (!account) {
+                    throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+                }
+            }
+        }
+        for (const resource of statement.resource) {
+            const resource_bucket_part = resource.split('/')[0];
+            const resource_regex = RegExp(`^${resource_bucket_part.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
+            if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
+                throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
+            }
+        }
+        for (const action of statement.action) {
+            if (action !== 's3:*' && !all_op_names.includes(action)) {
+                throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
+            }
+        }
+        // TODO: Need to validate that the resource comply with the action
+    }
 }
 
 
@@ -311,7 +342,7 @@ async function delete_bucket_policy(req) {
         update: {
             buckets: [{
                 _id: bucket._id,
-                $unset: { policy: 1 }
+                $unset: { s3_policy: 1 }
             }]
         }
     });
@@ -399,15 +430,19 @@ function read_bucket(req) {
 
 async function read_bucket_sdk_info(req) {
     const bucket = find_bucket(req);
+
     const system = req.system;
 
     const reply = {
         name: bucket.name,
         website: bucket.website,
+        s3_policy: bucket.s3_policy,
         active_triggers: _.map(
             _.filter(bucket.lambda_triggers, 'enabled'),
             trigger => _.pick(trigger, trigger_properties)
-        )
+        ),
+        system_owner: bucket.system.owner.email,
+        bucket_owner: bucket.owner_account.email,
     };
 
     if (bucket.namespace) {
@@ -1237,6 +1272,10 @@ function get_bucket_info({
     const last_update = Math.max(system_last_update, bucket_last_update);
     const info = {
         name: bucket.name,
+        owner_account: {
+            email: bucket.owner_account.email,
+            id: bucket.owner_account._id,
+        },
         namespace: bucket.namespace ? {
             write_resource: pool_server.get_namespace_resource_info(
                 bucket.namespace.write_resource).name,

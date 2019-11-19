@@ -9,20 +9,25 @@ class S3Error extends Error {
         super(err.message);
         this.code = err.reply_without_code ? undefined : err.code;
         this.http_code = err.http_code;
+        this.detail = err.detail;
         if (err.reply) {
             this.reply = err.reply;
         }
     }
 
     reply(resource, request_id) {
-        return xml_utils.encode_xml({
+        const xml = {
             Error: {
                 Code: this.code,
                 Message: this.message,
                 Resource: resource || '',
                 RequestId: request_id || ''
             }
-        });
+        };
+        if (this.detail) {
+            xml.Error.Detail = this.detail;
+        }
+        return xml_utils.encode_xml(xml);
     }
 
 }
@@ -383,6 +388,12 @@ const errors_defs = [{
     http_code: 400,
     // ClientComputedContentSHA256: '...',
     // S3ComputedContentSHA256: '...',
+}, {
+    // not defined in AWS docs but this is what they return
+    code: 'MalformedPolicy',
+    message: 'Invalid principal in policy',
+    http_code: 400,
+    detail: '...',
 }];
 
 for (const err_def of errors_defs) {

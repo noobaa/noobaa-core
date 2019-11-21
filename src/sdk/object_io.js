@@ -364,7 +364,7 @@ class ObjectIO {
         const coalescer = new CoalesceStream({
             objectMode: true,
             max_length: 50,
-            max_wait_ms: 10,
+            max_wait_ms: 1000,
         });
 
         // The uploader transformer takes chunks after processed by the coder and uploads them

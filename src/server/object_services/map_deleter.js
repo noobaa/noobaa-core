@@ -18,10 +18,10 @@ const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
  * delete_object_mappings
  * @param {nb.ObjectMD} obj
  */
-async function delete_object_mappings(obj) {
+async function delete_object_mappings(obj, none_deleted_only) {
     if (!obj || obj.delete_marker) return;
     const [chunk_ids] = await Promise.all([
-        MDStore.instance().find_parts_chunk_ids(obj),
+        MDStore.instance().find_parts_chunk_ids(obj, none_deleted_only),
         MDStore.instance().delete_parts_of_object(obj),
         MDStore.instance().delete_multiparts_of_object(obj),
     ]);

@@ -1058,10 +1058,12 @@ class MDStore {
      * @param {nb.ObjectMD} obj
      * @returns {Promise<nb.ID[]>}
      */
-    async find_parts_chunk_ids(obj) {
-        return this._parts.col().find({
-                obj: obj._id,
-            }, {
+    async find_parts_chunk_ids(obj, none_deleted_only) {
+        const find = {
+            obj: obj._id,
+        };
+        if (none_deleted_only) find.deleted = null;
+        return this._parts.col().find(find, {
                 projection: {
                     _id: 0,
                     chunk: 1

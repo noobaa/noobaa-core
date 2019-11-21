@@ -1396,7 +1396,7 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                 set_updates,
                 unset_updates,
             });
-            map_deleter.delete_object_mappings(obj);
+            map_deleter.delete_object_mappings(obj, true);
         } else {
             // 6
             await MDStore.instance().update_object_by_id(put_obj._id, set_updates, unset_updates);

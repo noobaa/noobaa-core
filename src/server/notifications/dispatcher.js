@@ -29,7 +29,10 @@ const NotificationTypes = Object.freeze({
 
 const NODE_POPULATE_FIELDS = Object.freeze(['name', 'os_info', 'host_seq']);
 const OBJECT_POPULATE_FIELDS = Object.freeze({
-    key: 1
+    bucket: 1,
+    key: 1,
+    version: 1,
+    deleted: 1
 });
 
 class Dispatcher {
@@ -176,7 +179,7 @@ class Dispatcher {
                 log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS))
             .then(() => MDStore.instance().populate_objects(
                 log_item, 'obj', OBJECT_POPULATE_FIELDS))
-            .then(() => {
+            .then(async () => {
                 if (log_item.node) {
                     const { name, pool, os_info, host_seq } = log_item.node;
                     l.node = {};
@@ -191,7 +194,18 @@ class Dispatcher {
                 }
 
                 if (log_item.obj) {
-                    l.obj = _.pick(log_item.obj, 'key', 'version', 'bucket');
+                    const { key, version = 'null', bucket: bucket_id, deleted } = log_item.obj;
+                    l.obj = { key, version };
+                    l.obj.linkable = !deleted;
+
+                    const bucket = system_store.data.get_by_id(bucket_id);
+                    if (bucket) {
+                        l.obj.bucket = bucket.name;
+                    } else {
+                        const { record } = await system_store.data.get_by_id_include_deleted(bucket_id, 'buckets');
+                        l.obj.bucket = record.name;
+                        l.obj.linkable = false;
+                    }
                 }
 
                 if (log_item.server) {

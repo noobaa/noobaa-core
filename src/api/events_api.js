@@ -114,16 +114,16 @@ module.exports = {
                                     type: 'object',
                                     required: ['key'],
                                     properties: {
-                                        bucket: {
-                                            type: 'string'
-                                        },
+                                        bucket: { $ref: 'common_api#/definitions/email' },
                                         key: {
                                             type: 'string'
                                         },
                                         version: {
                                             type: 'string'
+                                        },
+                                        linkable: {
+                                            type: 'boolean'
                                         }
-
                                     }
                                 },
                                 account: {

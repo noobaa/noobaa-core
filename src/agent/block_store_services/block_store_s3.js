@@ -294,6 +294,27 @@ class BlockStoreS3 extends BlockStoreBase {
         };
     }
 
+    // test cloud service availability and credentials. 
+    // uses delete (sinc it's free) with a dummy object
+    async _test_store_target() {
+        const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
+        try {
+            // in s3 there is no error for non-existing object
+            await this.s3cloud.deleteObject({
+                Bucket: this.cloud_info.target_bucket,
+                Key: block_key
+            }).promise();
+        } catch (err) {
+            dbg.error('in _test_cloud_service - deleteObject failed:', err, _.omit(this.cloud_info, 'access_keys'));
+            if (err.code === 'NoSuchBucket') {
+                throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+            } else if (err.code === 'AccessDenied') {
+                throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+            }
+            dbg.warn(`unexpected error (code=${err.code}) from deleteObject during test. ignoring..`);
+        }
+    }
+
     async _get_blocks_usage(block_ids) {
         const usage = {
             size: 0,

@@ -13,6 +13,14 @@ const KeysLock = require('../../util/keys_lock');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 
+const store_perf_tests_cache = new LRUCache({
+    name: 'StorePerfTestsCache',
+    max_usage: 100,
+    expiry_ms: 1 * 60 * 60000, // 1 hour expiry
+    make_key: params => `${params.block_store.cloud_info.endpoint_type}-${params.block_store.cloud_info.target_bucket}`,
+    load: async params => test_perf({ block_store: params.block_store, count: params.count }),
+});
+
 function _new_monitring_stats() {
     return {
         inflight_reads: 0,
@@ -34,6 +42,32 @@ function get_block_internal_dir(block_id) {
         'other.blocks';
     return internal_dir;
 }
+
+async function test_perf({ block_store, count }) {
+    const reply = {};
+    const delay_ms = 200;
+    const data = crypto.randomBytes(1024);
+    const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
+    const block_md = {
+        id: '_test_store_perf',
+        digest_type,
+        digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
+    };
+    reply.write = await test_average_latency(count, delay_ms, async () => {
+        await block_store._write_block(block_md, data, { ignore_usage: true });
+        block_store._update_write_stats(data.length);
+    });
+    reply.read = await test_average_latency(count, delay_ms, async () => {
+        const block = await block_store._read_block(block_md);
+        if (block.data) block_store._update_read_stats(block.data.length);
+        block_store._verify_block(block_md, block.data, block.block_md);
+        if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
+    });
+    // cleanup old versions for block stores that have versioning enabled
+    if (block_store._delete_block_past_versions) await block_store._delete_block_past_versions(block_md);
+    return reply;
+}
+
 
 class BlockStoreBase {
 
@@ -162,7 +196,16 @@ class BlockStoreBase {
      * @param {nb.BlockMD} block_md
      */
     async _read_block_and_verify(block_md) {
-        const block = await this._read_block(block_md);
+        let block;
+        try {
+            block = await this._read_block(block_md);
+        } catch (err) {
+            dbg.error(`got error from _read_block (${err.message}). invalidating store perf cache (key=${
+                store_perf_tests_cache.make_key({block_store: this})
+            })`);
+            this.invalidate_store_perf_cache();
+            throw err;
+        }
         this._update_read_stats(block.data.length);
         this._verify_block(block_md, block.data, block.block_md);
         return block;
@@ -242,7 +285,15 @@ class BlockStoreBase {
         try {
             const start = time_utils.millistamp();
             await this.block_modify_lock.surround_keys([String(block_md.id)], async () => {
-                await this._write_block(block_md, data);
+                try {
+                    await this._write_block(block_md, data);
+                } catch (err) {
+                    dbg.error(`got error from _write_block (${err.message}). invalidating store perf cache (key=${
+                        store_perf_tests_cache.make_key({block_store: this})
+                    })`);
+                    this.invalidate_store_perf_cache();
+                    throw err;
+                }
                 this.block_cache.put_in_cache(block_md, { block_md, data });
             });
             this.monitoring_stats.write_count += 1;
@@ -377,28 +428,42 @@ class BlockStoreBase {
     }
 
     async test_store_perf({ count }) {
-        const reply = {};
-        const delay_ms = 200;
-        const data = crypto.randomBytes(1024);
-        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE;
-        const block_md = {
-            id: '_test_store_perf',
-            digest_type,
-            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
-        };
-        reply.write = await test_average_latency(count, delay_ms, async () => {
-            await this._write_block(block_md, data, { ignore_usage: true });
-            this._update_write_stats(data.length);
-        });
-        reply.read = await test_average_latency(count, delay_ms, async () => {
-            const block = await this._read_block(block_md);
-            if (block.data) this._update_read_stats(block.data.length);
-            this._verify_block(block_md, block.data, block.block_md);
-            if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
-        });
-        // cleanup old versions for block stores that have versioning enabled
-        if (this._delete_block_past_versions) await this._delete_block_past_versions(block_md);
+        let reply = {};
+        if (this.cloud_info) {
+            reply = await this.test_cloud_perf({ count });
+        } else {
+            reply = await test_perf({ block_store: this, count });
+        }
+        dbg.log0(`store performance test for ${this.node_name}:`, reply);
         return reply;
+    }
+
+    async test_cloud_perf({ count }) {
+        const params = {
+            count,
+            block_store: this,
+        };
+        let reply = {};
+        try {
+            reply = await store_perf_tests_cache.get_with_cache(params);
+        } catch (err) {
+            dbg.error('got error when trying to get cached store test results.', err);
+            throw err;
+        }
+        try {
+            await this._test_store_target();
+        } catch (err) {
+            dbg.error('got error from _test_store_target. invalidate cache entry and rethrow');
+            this.invalidate_store_perf_cache();
+            throw err;
+        }
+        return reply;
+    }
+
+    invalidate_store_perf_cache() {
+        // skip non-cloud agents
+        if (!this.cloud_info) return;
+        store_perf_tests_cache.invalidate({ block_store: this });
     }
 
     /**

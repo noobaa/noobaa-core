@@ -13,11 +13,20 @@ ENV TEST_CONTAINER true
 ##############################################################
 
 # python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel -- these are required by ceph tests
-RUN yum install -y -q ntpdate vim centos-release-scl && \
-    yum install -y -q rh-mongodb36 && \
-    yum install -y -q python-virtualenv python-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel && \
-    yum install -y -q git && \
-    yum clean all
+# RUN dnf install -y ntpdate vim && \
+COPY ./src/deploy/NVA_build/set_mongo_repo.sh /tmp/
+RUN chmod +x /tmp/set_mongo_repo.sh && \
+    /bin/bash -xc "/tmp/set_mongo_repo.sh"
+
+RUN dnf install -y -q vim \
+    mongodb-org-3.6.3 \
+    mongodb-org-server-3.6.3 \
+    mongodb-org-shell-3.6.3 \
+    mongodb-org-mongos-3.6.3 \
+    mongodb-org-tools-3.6.3 \
+    which python2-virtualenv python2-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
+    git && \
+    dnf clean all
 
 ##############################################################
 # Layers:

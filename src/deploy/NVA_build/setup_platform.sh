@@ -22,7 +22,7 @@ function install_supervisor {
     then
         deploy_log install_supervisor start
         # easy_install is for Supervisord and comes from python-setuptools
-        easy_install supervisor
+        /usr/bin/easy_install-2 supervisor
 	    deploy_log install_supervisor done
     fi
 

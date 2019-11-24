@@ -28,7 +28,7 @@ module.exports = {
 
     rules: {
 
-         //////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////
         //                                                                  //
         // TODO FIX                                                         //
         //                                                                  //
@@ -110,8 +110,8 @@ module.exports = {
 
         'no-trailing-spaces': ['error', { ignoreComments: true }],
 
-        // do not allow code using varibles before they are defined and initialized,
-        // but ok for functions since function declerations are loaded before the code runs
+        // do not allow code using variables before they are defined and initialized,
+        // but ok for functions since function decelerations are loaded before the code runs
         'no-use-before-define': ['error', 'nofunc'],
 
         // break lines after operators, not before
@@ -148,7 +148,7 @@ module.exports = {
 
         'arrow-body-style': ['error', 'as-needed'],
 
-        // prefer to use function decleration (function foo() {})
+        // prefer to use function deceleration (function foo() {})
         // instead of expression (foo = function() {})
         'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
 
@@ -187,7 +187,7 @@ module.exports = {
         // This is not a relevant rule, we added it after the signature_utils query parsing errors
         'no-div-regex': 'off',
 
-        //not forcing u. as part of a uniocode regexp handling
+        //not forcing u. as part of a unicode regexp handling
         'require-unicode-regexp': 'off',
 
         'capitalized-comments': 'off',
@@ -315,7 +315,7 @@ module.exports = {
         'prefer-reflect': 'off',
         'prefer-rest-params': 'off',
 
-        // prefer using string template over string concatnation, but too much to fix
+        // prefer using string template over string concatenation, but too much to fix
         'prefer-template': 'off',
 
         // prefer using single quotes, but too much to fix
@@ -329,7 +329,7 @@ module.exports = {
         // don't verify the structure of jsdoc comments. let them be for now.
         'valid-jsdoc': ['off', { requireReturn: false }],
 
-        // accept var decleration in mid function, since we already check used before defined
+        // accept var deceleration in mid function, since we already check used before defined
         'vars-on-top': 'off',
 
         // Allow await in the body of loops.

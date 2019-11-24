@@ -159,10 +159,10 @@ function _getEntity(record) {
                 return;
             }
 
-            const { key, version, bucket } = record.obj;
+            const { key, version, bucket, linkable } = record.obj;
             return {
                 kind: 'object',
-                linkable: true,
+                linkable,
                 key,
                 version,
                 bucket

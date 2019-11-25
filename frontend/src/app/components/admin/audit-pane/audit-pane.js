@@ -73,7 +73,7 @@ function _mapEntity(entity, system) {
             const { linkable, key: object, bucket, version  } = entity;
             return {
                 text: object,
-                href: linkable ? realizeUri(routes.object, { bucket, object, version }) : ''
+                href: linkable ? realizeUri(routes.object, { system, bucket, object, version }) : ''
             };
         }
         case 'bucket': {

@@ -80,14 +80,6 @@
             # module
             'nb_native_nan.cpp',
             # n2n
-            'coding/dedup.h',
-            'coding/dedup.hpp',
-            'coding/dedup_chunker.cpp',
-            'coding/dedup_chunker.h',
-            'coding/dedup_config.cpp',
-            'coding/dedup_config.h',
-            'coding/object_coding.cpp',
-            'coding/object_coding.h',
             'n2n/ntcp.h',
             'n2n/ntcp.cpp',
             'n2n/nudp.h',
@@ -101,8 +93,6 @@
             'util/common.h',
             'util/compression.cpp',
             'util/compression.h',
-            'util/crypto.cpp',
-            'util/crypto.h',
             'util/gf2.h',
             'util/nan.h',
             'util/mutex.h',

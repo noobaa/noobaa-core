@@ -294,12 +294,13 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
 
 
 /**
- * @param {nb.Pool[]} pools
- * @param {string[]} avoid_nodes array of node ids to avoid
- * @param {string[]} allocated_hosts array of node ids to avoid
+ * @param {object} params
+ * @property {string[]} avoid_nodes array of node ids to avoid
+ * @property {string[]} allocated_hosts array of node ids to avoid
+ * @property {nb.Pool[]} pools
  * @returns {nb.NodeAPI}
  */
-function allocate_node(pools = [], avoid_nodes, allocated_hosts) {
+function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
     let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group = alloc_group_by_pool_set[pool_set];
 

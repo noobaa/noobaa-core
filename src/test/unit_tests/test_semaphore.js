@@ -50,6 +50,7 @@ mocha.describe('semaphore', function() {
         sem.release(1);
 
         await setImmediateAsync();
+        await setImmediateAsync(); //no real reason other than that it takes 1 more cycles for the items to awake
 
         assert.strictEqual(sem.length, 1);
         assert.strictEqual(sem.value, 0);

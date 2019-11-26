@@ -270,8 +270,8 @@ async function overwrite_system_address(system_name) {
     console.log('Waiting for system server to initalize');
     await promise_utils.wait_until(
         () => system_server.is_initialized(),
-        1000,
-        2 * 60 * 1000
+        2 * 60 * 1000,
+        1000
     );
 
     console.log('Overriding system, address with:', base_address);
@@ -328,7 +328,7 @@ async function init_test_pools(client, system_name, pools_to_create) {
         return pools_to_create.every(pool =>
             pool.host_count === (optimal_hosts_by_Pool[pool.name] || 0)
         );
-    }, 2500, 5 * 60 * 1000);
+    }, 5 * 60 * 1000, 2500);
 
     CREATED_POOLS = pools_to_create;
 
@@ -373,7 +373,7 @@ async function clear_test_pools() {
             const { pools } = await rpc_client.system.read_system({});
             const existing_pools = new Set(pools.map(pool => pool.name));
             return CREATED_POOLS.every(pool => !existing_pools.has(pool.name));
-        }, 2500, 5 * 60 * 1000);
+        }, 5 * 60 * 1000, 2500);
     }
 
     console.log('STOP MONITOR');

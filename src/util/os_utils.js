@@ -668,7 +668,7 @@ function get_iptables_rules() {
                 const info = last_attr_split[last_attr_split.length - 1].trim();
                 // get the port out of the additional information
                 let start_port = 0; // default to 0
-                let end_port = Math.pow(2, 16) - 1; // default to max port value
+                let end_port = (2 ** 16) - 1; // default to max port value
                 const dpt = 'dpt:';
                 const dports = 'dports ';
                 const dpt_index = info.indexOf(dpt);

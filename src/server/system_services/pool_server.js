@@ -48,8 +48,8 @@ const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
     by_service: {},
 });
 
-const NO_CAPAITY_LIMIT = Math.pow(1024, 2); // 1MB
-const LOW_CAPACITY_HARD_LIMIT = 30 * Math.pow(1024, 3); // 30GB
+const NO_CAPAITY_LIMIT = 1024 ** 2; // 1MB
+const LOW_CAPACITY_HARD_LIMIT = 30 * (1024 ** 3); // 30GB
 
 // These semaphore are used to serialize the underlaying aspects of
 // pool scaling and deletions.
@@ -1249,7 +1249,7 @@ async function wait_for_host_count_to_stabilize(system_id, pool_id, host_count, 
     return promise_utils.wait_until(async () => {
         const acutal_host_count = await get_initialized_hosts_count(pool_id, system_id);
         return acutal_host_count === host_count;
-    }, 2500, timeout);
+    }, timeout, 2500);
 }
 
 function calc_scale_up_timeout(host_count_diff) {

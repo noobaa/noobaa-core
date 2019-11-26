@@ -459,8 +459,8 @@ mocha.describe('md_aggregator', function() {
                         assert.strictEqual(item.storage_stats.last_update, last_update + CYCLE);
                     });
                     const changes1 = system_store.changes_list[2];
-                    assert.deepEqual(changes1.update.buckets[0].storage_stats.blocks_size, Math.pow(2, 49));
-                    assert.deepEqual(changes1.update.pools[0].storage_stats.blocks_size, Math.pow(2, 49));
+                    assert.deepEqual(changes1.update.buckets[0].storage_stats.blocks_size, (2 ** 49));
+                    assert.deepEqual(changes1.update.pools[0].storage_stats.blocks_size, (2 ** 49));
                     changes1.update.buckets.forEach(item => {
                         assert.strictEqual(item.storage_stats.last_update, last_update + (2 * CYCLE));
                     });

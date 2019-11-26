@@ -565,7 +565,7 @@ class S3OPS {
 
     // test if service is up by putting small object.
     // default timeout of 2 minutes
-    test_s3_put(timeout = 120000, tag) {
+    test_s3_put(tag, timeout = 120000) {
         return P.resolve()
             .then(async () => {
                 const now = Date.now();

@@ -167,7 +167,7 @@ class BucketFunctions {
         }
     }
 
-    async updateNamesapceBucket(name, read_resources = [], write_resource) {
+    async updateNamesapceBucket(name, write_resource, read_resources = []) {
         console.log(`updating bucket: ${name}, read_resources: ${read_resources}, write_resource: ${write_resource}`);
         try {
             await this._client.bucket.update_bucket({

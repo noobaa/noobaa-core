@@ -204,7 +204,7 @@ mocha.describe('system_servers', function() {
         await promise_utils.wait_until(async () => {
             const system = await rpc_client.system.read_system();
             return !system.pools.find(pool => pool.name === pool_name);
-        }, 2500, 10 * 60 * 1000);
+        }, 10 * 60 * 1000, 2500);
     });
 
     ////////////

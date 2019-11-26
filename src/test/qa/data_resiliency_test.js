@@ -73,16 +73,16 @@ const bucket_functions = new BucketFunctions(client);
 const baseUnit = 1024;
 const unit_mapping = {
     KB: {
-        data_multiplier: Math.pow(baseUnit, 1),
-        dataset_multiplier: Math.pow(baseUnit, 2)
+        data_multiplier: baseUnit ** 1,
+        dataset_multiplier: baseUnit ** 2
     },
     MB: {
-        data_multiplier: Math.pow(baseUnit, 2),
-        dataset_multiplier: Math.pow(baseUnit, 1)
+        data_multiplier: baseUnit ** 2,
+        dataset_multiplier: baseUnit ** 1
     },
     GB: {
-        data_multiplier: Math.pow(baseUnit, 3),
-        dataset_multiplier: Math.pow(baseUnit, 0)
+        data_multiplier: baseUnit ** 3,
+        dataset_multiplier: baseUnit ** 0
     }
 };
 

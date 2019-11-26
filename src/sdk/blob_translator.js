@@ -137,7 +137,7 @@ function process_block_list({ block_list, bucket, key, committed_list, uncommitt
     });
 }
 
-async function remove_block_lists({ bucket, key, uncommitted_list, remove_uncommitted, remove_committed, } = {}, object_sdk) {
+async function remove_block_lists(object_sdk, { bucket, key, uncommitted_list, remove_uncommitted, remove_committed}) {
     const uncommitted_path = get_uncommitted_blocks_path(bucket, key);
     const objects = remove_uncommitted ? uncommitted_list.map(block => ({ key: `${uncommitted_path}/${block.block_id}` })) : [];
     if (remove_committed) {
@@ -198,12 +198,13 @@ async function commit_blob_block_list(params, object_sdk) {
         })
     ]);
 
-    await remove_block_lists({
+    await remove_block_lists(object_sdk, {
         bucket,
         key,
         uncommitted_list,
         remove_uncommitted: true,
-    }, object_sdk);
+        remove_committed: false
+    });
 
     return res;
 }
@@ -227,7 +228,7 @@ async function get_blob_block_lists(params, object_sdk) {
 }
 
 
-async function delete_blocks({ bucket, keys } = {}, object_sdk) {
+async function delete_blocks(object_sdk, { bucket, keys } = {}) {
     // get all uncommitted\committed lists for all keys
     const block_lists = await P.map(keys, async key => {
         const lists = await get_blob_block_lists({

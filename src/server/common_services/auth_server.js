@@ -217,9 +217,9 @@ async function create_k8s_auth(req) {
 
     const token_review = await oauth_utils.review_token(
         KUBERNETES_SERVICE_HOST,
-        KUBERNETES_SERVICE_PORT,
         sa_token,
         access_token,
+        KUBERNETES_SERVICE_PORT,
         unauthorized_error
     );
 

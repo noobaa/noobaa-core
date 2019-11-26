@@ -55,9 +55,8 @@ class ChunkAPI {
     get cipher_auth_tag_b64() { return this.chunk_info.cipher_auth_tag_b64; }
     get chunk_coder_config() { return this.chunk_info.chunk_coder_config; }
 
-    set data(buf) { this.chunk_info.data = buf; }
     get data() { return this.chunk_info.data; }
-    get dup_chunk_id() { return parse_optional_id(this.chunk_info.dup_chunk); }
+    set data(buf) { this.chunk_info.data = buf; }
 
     /** @returns {nb.Bucket} */
     get bucket() { return this.system_store.data.get_by_id(this.chunk_info.bucket_id); }
@@ -70,11 +69,12 @@ class ChunkAPI {
     }
 
     get is_accessible() { return this.chunk_info.is_accessible; }
-    get is_building_blocks() { return this.chunk_info.is_building_blocks; }
-    get is_building_frags() { return this.chunk_info.is_building_frags; }
     set is_accessible(val) { this.chunk_info.is_accessible = val; }
+    get is_building_blocks() { return this.chunk_info.is_building_blocks; }
     set is_building_blocks(val) { this.chunk_info.is_building_blocks = val; }
+    get is_building_frags() { return this.chunk_info.is_building_frags; }
     set is_building_frags(val) { this.chunk_info.is_building_frags = val; }
+    get dup_chunk_id() { return parse_optional_id(this.chunk_info.dup_chunk); }
     set dup_chunk_id(val) { this.chunk_info.dup_chunk = val.toHexString(); }
 
     get frags() {

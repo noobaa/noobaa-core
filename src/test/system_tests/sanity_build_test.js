@@ -178,7 +178,7 @@ async function _create_resources_and_buckets() {
     //Create namespace bucket
     console.info('Creating NS Buckets');
     await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'NSv2');
-    await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, ['NSv2', 'NSv4'], 'NSv4');
+    await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, 'NSv4', ['NSv2', 'NSv4']);
 }
 
 async function _create_accounts() {

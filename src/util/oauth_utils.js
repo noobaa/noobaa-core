@@ -78,9 +78,9 @@ async function trade_grant_code_for_access_token(
 
 async function review_token(
     api_hostname,
-    api_port = '443',
     sa_token,
     oauth_access_token,
+    api_port = '443',
     make_error = _default_error_factory
 ) {
     let response;

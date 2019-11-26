@@ -90,7 +90,7 @@ async function load_required_scripts(server_version, container_version) {
     // get all dirs for versions newer than server_version
     const newer_versions = upgrade_dir_content.filter(ver =>
             version_compare(ver, server_version) > 0 &&
-            version_compare(ver, container_version) < 0)
+            version_compare(ver, container_version) <= 0)
         .sort(version_compare);
     dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${server_version}):`, newer_versions);
     // get all scripts under new_versions

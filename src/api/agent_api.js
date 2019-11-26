@@ -274,6 +274,10 @@ module.exports = {
             }
         },
 
+        test_store_validity: {
+            method: 'POST',
+        },
+
         test_network_perf: {
             method: 'POST',
             params: {

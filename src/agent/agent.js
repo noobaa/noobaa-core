@@ -171,6 +171,7 @@ class Agent {
             'update_rpc_config',
             'n2n_signal',
             'test_store_perf',
+            'test_store_validity',
             'test_network_perf',
             'test_network_perf_to_peer',
             'collect_diagnostics',
@@ -1046,6 +1047,11 @@ class Agent {
     async test_store_perf(req) {
         if (!this.block_store) return {};
         return this.block_store.test_store_perf(req.rpc_params);
+    }
+
+    async test_store_validity(req) {
+        if (!this.block_store) return;
+        await this.block_store.test_store_validity();
     }
 
     test_network_perf(req) {

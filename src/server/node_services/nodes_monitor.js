@@ -49,6 +49,7 @@ const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
 const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
 const MAX_DAYS_FOR_ENDPOINT_STATS = 30;
+const STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
 
 const AGENT_INFO_FIELDS = [
     'version',
@@ -1485,62 +1486,76 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _test_store_perf(item) {
+    async _test_store_validity(item) {
+        await promise_utils.timeout(() => this.client.agent.test_store_validity(null, {
+            connection: item.connection
+        }), AGENT_RESPONSE_TIMEOUT);
+    }
+
+    async _test_store_perf(item) {
+        const now = Date.now();
+        if (item.last_store_perf_test && now < item.last_store_perf_test + STORE_PERF_TEST_INTERVAL) return;
+
+
+        dbg.log0('running _test_store_perf::', item.node.name);
+        const res = await promise_utils.timeout(() => this.client.agent.test_store_perf({
+            count: 5
+        }, {
+            connection: item.connection
+        }), AGENT_RESPONSE_TIMEOUT);
+        item.last_store_perf_test = Date.now();
+        dbg.log0('_test_store_perf returned:', res);
+        this._set_need_update.add(item);
+        item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
+            item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
+        item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
+            item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
+    }
+
+    async _test_store(item) {
         if (!item.connection) return;
 
-        dbg.log2('_test_store_perf::', item.node.name);
-        return this.client.agent.test_store_perf({
-                count: 5
-            }, {
-                connection: item.connection
-            })
-            .timeout(AGENT_RESPONSE_TIMEOUT)
-            .then(res => {
-                this._set_need_update.add(item);
-                item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
-                    item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
-                item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
-                    item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
+        try {
+            await this._test_store_perf(item);
+            await this._test_store_validity(item);
 
-                dbg.log2('_test_store_perf:: success in test', item.node.name);
-                if (item.io_test_errors &&
-                    Date.now() - item.io_test_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                    item.io_test_errors = 0;
-                }
+            dbg.log2('_test_store:: success in test', item.node.name);
+            if (item.io_test_errors &&
+                Date.now() - item.io_test_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                item.io_test_errors = 0;
+            }
 
+            if (item.storage_not_exist) {
+                // storage test succeeds after the storage target (AWS bucket / azure container) was not available
+                dbg.warn('agent storage is available again after agent reported it does not exist. ', item.node.name);
+                delete item.storage_not_exist;
+            }
+            if (item.auth_failed) {
+                // authentication in aws\azure succeeded after it failed before
+                dbg.warn('authentication in aws\\azure succeeded after it failed before ', item.node.name);
+                delete item.auth_failed;
+            }
 
-                if (item.storage_not_exist) {
-                    // storage test succeeds after the storage target (AWS bucket / azure container) was not available
-                    dbg.warn('agent storage is available again after agent reported it does not exist. ', item.node.name);
-                    delete item.storage_not_exist;
-                }
-                if (item.auth_failed) {
-                    // authentication in aws\azure succeeded after it failed before
-                    dbg.warn('authentication in aws\\azure succeeded after it failed before ', item.node.name);
-                    delete item.auth_failed;
-                }
-            })
-            .then(() => {
-                item.num_io_test_errors = 0;
-            })
-            .catch(err => {
-                if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
-                    dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
-                    item.storage_not_exist = Date.now();
-                } else if (err.rpc_code === 'AUTH_FAILED' && !item.auth_failed) {
-                    dbg.error('got AUTH_FAILED error from node', item.node.name, err.message);
-                    item.auth_failed = Date.now();
-                } else if ((this._is_cloud_node(item)) &&
-                    // for cloud nodes allow some errors before putting to detention
-                    item.num_io_test_errors < config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS) {
-                    item.num_io_test_errors += 1;
-                    return;
-                }
-                if (!item.io_test_errors) {
-                    dbg.error('_test_store_perf:: node has io_test_errors', item.node.name, err);
-                    item.io_test_errors = Date.now();
-                }
-            });
+        } catch (err) {
+            if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
+                dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
+                item.storage_not_exist = Date.now();
+            } else if (err.rpc_code === 'AUTH_FAILED' && !item.auth_failed) {
+                dbg.error('got AUTH_FAILED error from node', item.node.name, err.message);
+                item.auth_failed = Date.now();
+            } else if ((this._is_cloud_node(item)) &&
+                // for cloud nodes allow some errors before putting to detention
+                item.num_io_test_errors < config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS) {
+                item.num_io_test_errors += 1;
+                return;
+            }
+            if (!item.io_test_errors) {
+                dbg.error('_test_store:: node has io_test_errors', item.node.name, err);
+                item.io_test_errors = Date.now();
+            }
+
+            item.num_io_test_errors = 0;
+        }
     }
 
 
@@ -1626,7 +1641,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => P.join(
                 this._test_network_perf(item),
-                this._test_store_perf(item),
+                this._test_store(item),
                 this._test_network_to_server(item)
             ))
             .then(() => {
@@ -2231,7 +2246,7 @@ class NodesMonitor extends EventEmitter {
         act.time = act.time || {};
         act.time.start = act.time.start || now;
         // TODO estimate all stages
-        act.time.end = act.stage.time.end;
+        act.time.end = act.stage && act.stage.time.end;
         act.progress = progress_by_time(act.time, now);
     }
 

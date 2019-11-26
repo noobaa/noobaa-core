@@ -235,6 +235,22 @@ class BlockStoreGoogle extends BlockStoreBase {
         };
     }
 
+    async test_store_validity() {
+        const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
+        try {
+            const file = this.bucket.file(block_key);
+            await file.delete();
+        } catch (err) {
+            if (err.code !== 404) {
+                dbg.error('in _test_cloud_service - delete failed:', err, _.omit(this.cloud_info, 'access_keys'));
+                if (err.code === 403) {
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+                }
+                dbg.warn(`unexpected error (code=${err.code}) from file.delete during test. ignoring..`);
+            }
+        }
+    }
+
 }
 
 // EXPORTS

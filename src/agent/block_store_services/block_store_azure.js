@@ -193,6 +193,28 @@ class BlockStoreAzure extends BlockStoreBase {
             }));
     }
 
+    async test_store_validity() {
+        const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
+        try {
+            await P.fromCallback(callback =>
+                this.blob.deleteBlob(
+                    this.container_name,
+                    block_key,
+                    callback)
+            );
+        } catch (err) {
+            if (err.code !== 'BlobNotFound') {
+                dbg.error('in _test_cloud_service - deleteBlob failed:', err, _.omit(this.cloud_info, 'access_keys'));
+                if (err.code === 'ContainerNotFound') {
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                } else if (err.code === 'AuthenticationFailed') {
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+                }
+                dbg.warn(`unexpected error (code=${err.code}) from deleteBlob during test. ignoring..`);
+            }
+        }
+    }
+
     _handle_delegator_error(err, usage, op_type) {
         if (usage) {
             if (op_type === 'WRITE') {

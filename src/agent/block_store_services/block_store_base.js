@@ -401,6 +401,11 @@ class BlockStoreBase {
         return reply;
     }
 
+    async test_store_validity() {
+        // default behavior for test store validity is test_store_perf({count:1})
+        await this.test_store_perf({ count: 1 });
+    }
+
     /**
      * @param {nb.BlockMD} block_md
      */

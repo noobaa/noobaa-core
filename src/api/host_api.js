@@ -119,9 +119,6 @@ module.exports = {
                         properties: {
                             storage: {
                                 type: 'boolean'
-                            },
-                            s3: {
-                                type: 'boolean'
                             }
                         }
                     },
@@ -274,7 +271,7 @@ module.exports = {
 
         host_info: {
             type: 'object',
-            required: ['name', 'storage_nodes_info', 's3_nodes_info'],
+            required: ['name', 'storage_nodes_info'],
             properties: {
                 name: {
                     type: 'string'
@@ -379,57 +376,6 @@ module.exports = {
                         }
                     }
                 },
-                s3_nodes_info: {
-                    type: 'object',
-                    properties: {
-                        mode: {
-                            $ref: '#/definitions/s3_nodes_mode'
-                        },
-                        enabled: {
-                            type: 'boolean'
-                        },
-                        nodes: {
-                            type: 'array',
-                            items: {
-                                $ref: 'node_api#/definitions/node_info'
-                            }
-                        },
-                        stats: {
-                            type: 'object',
-                            properties: {
-                                last_read: {
-                                    idate: true
-                                },
-                                last_write: {
-                                    idate: true
-                                },
-                                daily_stats: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'object',
-                                        properties: {
-                                            time: {
-                                                idate: true
-                                            },
-                                            read_count: {
-                                                type: 'integer'
-                                            },
-                                            write_count: {
-                                                type: 'integer'
-                                            },
-                                            read_bytes: {
-                                                type: 'integer'
-                                            },
-                                            write_bytes: {
-                                                type: 'integer'
-                                            },
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
                 untrusted_reasons: {
                     type: 'array',
                     items: {
@@ -490,27 +436,12 @@ module.exports = {
             ]
         },
 
-        s3_nodes_mode: {
-            type: 'string',
-            enum: [
-                'OFFLINE',
-                'DELETING',
-                'DECOMMISSIONED',
-                'UNTRUSTED',
-                'HTTP_SRV_ERRORS',
-                'HTTP_PORT_ACCESS_ERROR',
-                'INITIALIZING',
-                'OPTIMAL',
-            ]
-        },
-
         host_mode: {
             type: 'string',
             enum: [
                 'OFFLINE',
                 'DELETING',
                 'STORAGE_OFFLINE',
-                'S3_OFFLINE',
                 'DECOMMISSIONED',
                 'DECOMMISSIONING',
                 'IO_ERRORS',
@@ -531,8 +462,6 @@ module.exports = {
                 'SOME_STORAGE_DECOMMISSIONING',
                 'SOME_STORAGE_INITIALIZING',
                 'SOME_STORAGE_MIGRATING',
-                'HTTP_SRV_ERRORS',
-                'HTTP_PORT_ACCESS_ERROR',
                 'HAS_ERRORS',
                 'HAS_ISSUES'
             ]
@@ -603,9 +532,6 @@ module.exports = {
                 DELETING: {
                     type: 'integer'
                 },
-                S3_OFFLINE: {
-                    type: 'integer'
-                },
                 STORAGE_OFFLINE: {
                     type: 'integer'
                 },
@@ -667,12 +593,6 @@ module.exports = {
                     type: 'integer'
                 },
                 SOME_STORAGE_MIGRATING: {
-                    type: 'integer'
-                },
-                HTTP_SRV_ERRORS: {
-                    type: 'integer'
-                },
-                HTTP_PORT_ACCESS_ERROR: {
                     type: 'integer'
                 },
                 HAS_ERRORS: {

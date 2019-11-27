@@ -310,7 +310,6 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
             pool: pool._id,
             exclude_drives: [],
             use_storage: true,
-            use_s3: true,
             routing_hint
         };
 

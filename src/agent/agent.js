@@ -8,7 +8,6 @@ const http = require('http');
 const https = require('https');
 const assert = require('assert');
 const ip_module = require('ip');
-const child_process = require('child_process');
 const os = require('os');
 const util = require('util');
 
@@ -75,7 +74,6 @@ class Agent {
         this.location_info = params.location_info;
         this.test_hostname = params.test_hostname;
         this.host_name = os.hostname();
-        this.virtual_hosts = params.virtual_hosts || [];
 
         this.agent_conf = params.agent_conf || new json_utils.JsonObjectWrapper();
 
@@ -103,14 +101,7 @@ class Agent {
         if (this.storage_path) {
             assert(!this.token, 'unexpected param: token. ' +
                 'with storage_path the token is expected in the file <storage_path>/token');
-            if (params.s3_agent) {
-                this.node_type = 'ENDPOINT_S3';
-                dbg.log0(`this is a S3 agent`);
-                // TODO: currently ports are hard coded and not used anywhere.
-                this.endpoint_info = {
-                    stats: this._get_zeroed_stats_object()
-                };
-            } else if (params.cloud_info) {
+            if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 this.cloud_path = params.cloud_path;
                 block_store_options.cloud_info = params.cloud_info;
@@ -176,7 +167,6 @@ class Agent {
             'test_network_perf_to_peer',
             'collect_diagnostics',
             'set_debug_node',
-            'update_s3rver',
             'decommission',
             'recommission',
             'uninstall',
@@ -664,10 +654,7 @@ class Agent {
 
         dbg.log0('update_rpc_router: updating address to', address);
         this.rpc.router = api.new_router_from_base_address(address);
-        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
-            this._disable_service();
-            this._enable_service();
-        }
+
         // on close the agent should call do_heartbeat again when getting the close event
         if (this._server_connection) {
             this._server_connection.close();
@@ -708,138 +695,24 @@ class Agent {
     update_node_service(req) {
         this.location_info = req.rpc_params.location_info;
         if (req.rpc_params.enabled) {
-            this._ssl_certs = req.rpc_params.ssl_certs;
             return this._enable_service();
         } else {
             return this._disable_service();
         }
     }
 
-    _get_zeroed_stats_object() {
-        return {
-            read_count: 0,
-            read_bytes: 0,
-            write_count: 0,
-            write_bytes: 0
-        };
-    }
-
     _disable_service() {
         const dbg = this.dbg;
         dbg.log0(`got _disable_service`);
         this.enabled = false;
-        if (this.endpoint_info) {
-            if (!this.endpoint_info.s3rver_process) return;
-            // should we use a different signal?
-            this.endpoint_info.s3rver_process.kill('SIGTERM');
-            this.endpoint_info.s3rver_process = null;
-        } else {
-            dbg.warn('got _disable_service on storage agent');
-        }
+        dbg.warn('got _disable_service on storage agent');
     }
 
 
     _enable_service() {
         const dbg = this.dbg;
         this.enabled = true;
-        if (this.endpoint_info) {
-            dbg.log0(`got _enable_service`, this.endpoint_info);
-            try {
-                if (this.endpoint_info.s3rver_process) {
-                    dbg.warn('S3 server already started. process:', this.endpoint_info.s3rver_process);
-                    this.endpoint_info.s3rver_process.send({
-                        message: 'location_info',
-                        location_info: this.location_info,
-                    });
-                    return;
-                }
-
-                // run node process, inherit stdio and connect ipc channel for communication.
-                const s3rver_args = ['--s3_agent', '--address', this.master_address];
-                dbg.log0('starting s3 server with command: node ./src/s3/s3rver_starter', s3rver_args.join(' '));
-                const proc = child_process.fork('./src/s3/s3rver_starter', s3rver_args, {
-                        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-                    })
-                    .on('message', this._handle_s3rver_messages.bind(this))
-                    .on('error', err => {
-                        dbg.error('got error from s3rver:', err);
-                        this.endpoint_info.error_event = err;
-                    })
-                    .once('exit', (code, signal) => {
-                        const RETRY_PERIOD = 30000;
-                        dbg.warn(`s3rver process ${proc.pid} exited with code=${code} signal=${signal}`);
-                        if (!this.endpoint_info.s3rver_process ||
-                            this.endpoint_info.s3rver_process === proc) {
-                            dbg.warn(`active s3rver process exited and will retry in ${RETRY_PERIOD / 1000} seconds`);
-                            this.endpoint_info.s3rver_process = null;
-                            P.delay(RETRY_PERIOD)
-                                .then(() => {
-                                    if (this.enabled) {
-                                        this._enable_service();
-                                    }
-                                });
-                        }
-                    });
-                this.endpoint_info.s3rver_process = proc;
-                dbg.log0(`started s3rver process with pid ${proc.pid}`);
-            } catch (err) {
-                dbg.error('got error when spawning s3rver:', err);
-            }
-        } else {
-            dbg.log0('got _enable_service on storage agent');
-        }
-    }
-
-    _handle_s3rver_messages(message) {
-        const dbg = this.dbg;
-        dbg.log0(`got message from endpoint process:`, message);
-        switch (message.code) {
-            case 'WAITING_FOR_CERTS':
-                if (this.endpoint_info.s3rver_process) {
-                    this.endpoint_info.s3rver_process.send({
-                        message: 'run_server',
-                        base_address: this.master_address,
-                        certs: this._ssl_certs,
-                        location_info: this.location_info,
-                        routing_hint: this.rpc.routing_hint,
-                        virtual_hosts: this.virtual_hosts
-                    });
-                } else {
-                    dbg.warn('no active s3rver process. dropping message', message);
-                }
-                break;
-            case 'STATS':
-                // we also get here the name of the bucket and access key, but ignore it for now
-                // later on we will want to send this data as well to nodes_monitor
-                this.endpoint_info.stats = message.stats.reduce((sum, val) => ({
-                    read_count: sum.read_count + val.read_count,
-                    read_bytes: sum.read_bytes + val.read_bytes,
-                    write_count: sum.write_count + val.write_count,
-                    write_bytes: sum.write_bytes + val.write_bytes,
-                }), this.endpoint_info.stats);
-                break;
-            case 'SRV_ERROR':
-                dbg.error('got error from endpoint process: ', message);
-                this.endpoint_info.srv_error = {
-                    code: message.err_code,
-                    message: message.err_msg
-                };
-                // kill s3rver process on error
-                if (this.endpoint_info.s3rver_process && message.pid === this.endpoint_info.s3rver_process.pid) {
-                    dbg.error('killing s3rver process', this.endpoint_info.s3rver_process.pid);
-                    this.endpoint_info.s3rver_process.kill();
-                } else {
-                    dbg.warn('did not match a s3rver process to the relvant pid. got message:', message);
-                }
-                break;
-            case 'STARTED_SUCCESSFULLY':
-                dbg.log0('S3 server started successfully. clearing srv_error');
-                this.endpoint_info.srv_error = undefined;
-                break;
-            default:
-                dbg.error('got unknown message from endpoint - ', message);
-                break;
-        }
+        dbg.log0('got _enable_service on storage agent');
     }
 
     get_agent_info_and_update_masters(req) {
@@ -871,18 +744,12 @@ class Agent {
             cpu_usage: cpu_percent,
             location_info: this.location_info,
             io_stats: this.block_store && this.block_store.get_and_reset_io_stats(),
-            virtual_hosts: this.virtual_hosts
         };
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;
         }
         if (this.mongo_info && this.mongo_info.pool_name) {
             reply.pool_name = this.mongo_info.pool_name;
-        }
-
-        if (this.endpoint_info) {
-            reply.endpoint_info = _.pick(this.endpoint_info, ['stats', 'srv_error']);
-            this.endpoint_info.stats = this._get_zeroed_stats_object();
         }
 
         this._test_server_connection();
@@ -937,7 +804,7 @@ class Agent {
                 })
             )
             .then(drives => {
-                if (!drives || this.endpoint_info) return;
+                if (!drives) return;
                 // for now we only use a single drive,
                 // so mark the usage on the drive of our storage folder.
                 const used_size = reply.storage.used;
@@ -1023,21 +890,6 @@ class Agent {
             base_address,
             store_base_address: !_.isUndefined(base_address),
         });
-    }
-
-    async update_virtual_hosts(req) {
-        const { dbg } = this;
-        this.virtual_hosts = req.rpc_params.virtual_hosts || [];
-
-        dbg.log0('Writing virtual hosts to agent conf: ', this.virtual_hosts);
-        await this.agent_conf.update({ virtual_hosts: this.virtual_hosts });
-
-        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
-            this.endpoint_info.s3rver_process.send({
-                message: 'update_virtual_hosts',
-                virtual_hosts: this.virtual_hosts
-            });
-        }
     }
 
     n2n_signal(req) {
@@ -1159,27 +1011,13 @@ class Agent {
             });
     }
 
-    set_debug_node(req) {
+    async set_debug_node(req) {
         const dbg = this.dbg;
         dbg.log0('Recieved set debug req ', req.rpc_params.level);
         dbg.set_level(req.rpc_params.level, 'core');
-        if (this.endpoint_info && this.endpoint_info.s3rver_process) {
-            this.endpoint_info.s3rver_process.send({
-                message: 'set_debug',
-                level: req.rpc_params.level
-            });
-        }
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
-            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD)
-                .then(() => {
-                    dbg.set_level(0, 'core');
-                    if (this.endpoint_info.s3rver_process) {
-                        this.endpoint_info.s3rver_process.send({
-                            message: 'set_debug',
-                            level: 0
-                        });
-                    }
-                });
+            await promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD);
+            dbg.set_level(0, 'core');
         }
     }
 

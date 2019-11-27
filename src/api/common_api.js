@@ -484,8 +484,7 @@ module.exports = {
                 'BLOCK_STORE_MONGO',
                 'BLOCK_STORE_AZURE',
                 'BLOCK_STORE_GOOGLE',
-                'BLOCK_STORE_FS',
-                'ENDPOINT_S3',
+                'BLOCK_STORE_FS'
             ]
         },
 

@@ -655,9 +655,7 @@ module.exports = {
                 'LOW_CAPACITY',
                 'NO_CAPACITY',
                 'MEMORY_PRESSURE',
-                'OPTIMAL',
-                'HTTP_SRV_ERRORS',
-                'HTTP_PORT_ACCESS_ERROR'
+                'OPTIMAL'
             ]
         },
 
@@ -719,12 +717,6 @@ module.exports = {
                     type: 'integer'
                 },
                 HAS_ISSUES: {
-                    type: 'integer'
-                },
-                HTTP_SRV_ERRORS: {
-                    type: 'integer'
-                },
-                HTTP_PORT_ACCESS_ERROR: {
                     type: 'integer'
                 },
                 MEMORY_PRESSURE: {

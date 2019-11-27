@@ -8,183 +8,95 @@ require('../util/panic');
 console.log('loading .env file');
 require('../util/dotenv').load();
 
-const _ = require('lodash');
-const fs = require('fs');
-const url = require('url');
-const path = require('path');
-const util = require('util');
-const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
-const cluster = require('cluster');
-const size_utils = require('../util/size_utils');
 const FtpSrv = require('ftp-srv');
-const net = require('net');
-
+const url = require('url');
 const P = require('../util/promise');
-const promise_utils = require('../util/promise_utils');
 const dbg = require('../util/debug_module')(__filename);
-const api = require('../api');
-const config = require('../../config');
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
-const os_utils = require('../util/os_utils');
 const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
-
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
 const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
+const system_store = require('../server/system_services/system_store').get_instance();
+const md_server = require('../server/md_server');
+const server_rpc = require('../server/server_rpc.js');
 
-const ENDPOINT_BLOB_ENABLED = process.env.ENDPOINT_BLOB_ENABLED === 'true';
-const ENDPOINT_FTP_ENABLED = process.env.ENDPOINT_FTP_ENABLED === 'true';
+const {
+    ENDPOINT_BLOB_ENABLED,
+    ENDPOINT_FTP_ENABLED,
+    ENDPOINT_PORT,
+    ENDPOINT_SSL_PORT,
+    FTP_PORT,
+    LOCATION_INFO,
+    VIRTUAL_HOSTS,
+    RPC_ROUTER
+} = process_env(process.env);
 
-// this variable is used to save the dns hosts for virtual hosting of buckets
-// it will be updated using update_virtual_hosts when getting updated on new base_address if agent
-// or when a system store load was done if server
-let virtual_hosts = Object.freeze([]);
-// this "shared" object is used to save the location information on s3 agents
-// it will be updated using update_location_info when getting updated on a change of the pool-id the agent is part of
-const location_info = {};
+function process_env(env) {
+    const virtual_hosts = (env.VIRTUAL_HOSTS || '')
+        .split(' ')
+        .filter(suffix => net_utils.is_fqdn(suffix))
+        .sort();
+
+    return {
+        ENDPOINT_BLOB_ENABLE: env.ENDPOINT_BLOB_ENABLED === 'true',
+        ENDPOINT_FTP_ENABLED: env.ENDPOINT_FTP_ENABLED === 'true',
+        ENDPOINT_PORT: env.ENDPOINT_PORT || 6001,
+        ENDPOINT_SSL_PORT: env.ENDPOINT_SSL_PORT || 6443,
+        FTP_PORT: env.FTP_PORT || 21,
+        LOCATION_INFO: { region: env.REGION || '' },
+        VIRTUAL_HOSTS: Object.freeze(virtual_hosts),
+        RPC_ROUTER: get_rpc_router(env)
+    };
+}
+
+function get_rpc_router(env) {
+    const base_address = env.MGMT_URL || 'https://127.0.0.1';
+    const mgmt_port = env.NOOBAA_MGMT_SERVICE_PORT_MGMT_HTTPS || 8443;
+    const md_port = env.NOOBAA_MGMT_SERVICE_PORT_MD_HTTPS || 8444;
+    const bg_port = env.NOOBAA_MGMT_SERVICE_PORT_BG_HTTPS || 8445;
+    const hosted_agents_port = env.NOOBAA_MGMT_SERVICE_PORT_HOSTED_AGENTS_HTTPS || 8446;
+    const { hostname } = url.parse(base_address);
+
+    return {
+        default: `wss://${hostname}:${mgmt_port}`,
+        md: `wss://${hostname}:${md_port}`,
+        bg: `wss://${hostname}:${bg_port}`,
+        hosted_agents: `wss://${hostname}:${hosted_agents_port}`,
+        master: `wss://${hostname}:${mgmt_port}`,
+    };
+}
 
 function start_all() {
     dbg.set_process_name('Endpoint');
-    if (cluster.isMaster &&
-        config.ENDPOINT_FORKS_ENABLED &&
-        argv.address &&
-        !argv.s3_agent) {
 
-        let NUM_OF_FORKS;
-        if (isNaN(parseInt(process.env.ENDPOINT_FORKS_NUMBER, 10))) {
-            //Example for num of forks according to mem / cpu
-            // Mem  Forks
-            //  4    1
-            //  6    1
-            //  8    2
-            //  10   3
-            //  12   4
-            const numCPUs = os_utils.get_cpus();
-            const total_mem_mb = Math.floor(os_utils.get_memory() / size_utils.MEGABYTE);
-            const reserved_mem_mb = 4 * 1024;
-            const fork_mem_mb = 2 * 1024;
-            const FORKS_ACCORDING_TO_MEM = Math.max(1, Math.floor((total_mem_mb - reserved_mem_mb) / fork_mem_mb));
-            const FORKS_ACCORDING_TO_CPUS = Math.max(1, numCPUs - 1); // 1 CPU reserved for OS and web/bg/hosted
-            NUM_OF_FORKS = Math.min(FORKS_ACCORDING_TO_MEM, FORKS_ACCORDING_TO_CPUS);
-        } else {
-            NUM_OF_FORKS = parseInt(process.env.ENDPOINT_FORKS_NUMBER, 10);
-        }
-        // Fork workers
-        for (let i = 0; i < NUM_OF_FORKS; i++) {
-            console.warn('Spawning Endpoint Server', i + 1);
-            cluster.fork();
-        }
-        cluster.on('exit', function(worker, code, signal) {
-            console.log('worker ' + worker.process.pid + ' died');
-            // fork again on exit
-            cluster.fork();
-        });
-    } else if (argv.s3_agent) {
-        // for s3 agents, wait to get ssl certificates before running the server
-        if (!process.send) {
-            dbg.error('process.send function is undefiend. this process was probably not forked with ipc.');
-            process.exit(1);
-        }
-
-        let waiting = true;
-
-        process.on('message', params => {
-            switch (params.message) {
-                case 'location_info': {
-                    update_location_info(params.location_info);
-                    break;
-                }
-                case 'set_debug': {
-                    dbg.set_level(params.level, 'core');
-                    break;
-                }
-                case 'update_virtual_hosts': {
-                    update_virtual_hosts(params.virtual_hosts);
-                    break;
-                }
-                case 'run_server': {
-                    update_virtual_hosts(params.virtual_hosts);
-
-                    if (!waiting) {
-                        dbg.warn(`got ssl certificates, but already running server 8-O`);
-                        return;
-                    }
-
-                    waiting = false;
-                    dbg.log0(`got ssl certificates. running server`);
-                    if (params.location_info) {
-                        update_location_info(params.location_info);
-                    }
-
-                    run_server({
-                        s3: true,
-                        lambda: true,
-                        blob: ENDPOINT_BLOB_ENABLED,
-                        certs: params.certs,
-                        n2n_agent: true,
-                    });
-                    break;
-                }
-                default: {
-                    break;
-                }
-            }
-        });
-
-        // keep sending STARTED message until a response is returned
-        promise_utils.pwhile(() => waiting,
-            () => P.resolve()
-            .then(() => {
-                process.send({ code: 'WAITING_FOR_CERTS' });
-                dbg.log0(`waiting for ssl certificates`);
-            })
-            .delay(30 * 1000));
-    } else {
-        const system_store = require('../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
-        system_store.on('load', () => update_virtual_hosts_form_system(system_store.data.systems[0]));
-        system_store.refresh();
-        run_server({
-            s3: true,
-            lambda: true,
-            blob: ENDPOINT_BLOB_ENABLED,
-            n2n_agent: true,
-        });
-    }
+    run_server({
+        s3: true,
+        lambda: true,
+        blob: ENDPOINT_BLOB_ENABLED,
+        n2n_agent: true,
+    });
 }
 
 async function run_server(options) {
     try {
-        // Workers can share any TCP connection
-        // In this case its a HTTP server
-        const config_params = await read_config_file();
-        // Just in case part of the information is missing, add default params.
-        const { address, port, ssl_port, routing_hint } = _.defaults(argv, config_params, {
-            port: process.env.ENDPOINT_PORT || 80,
-            ssl_port: process.env.ENDPOINT_SSL_PORT || 443,
-        });
+        server_rpc.rpc.router = RPC_ROUTER;
 
-        let rpc;
-        const addr_url = url.parse(address || '');
-        const is_local_address = !address ||
-            addr_url.hostname === '127.0.0.1' ||
-            addr_url.hostname === 'localhost';
+        // Load a system store instance for the current process and register for changes.
+        // We do not wait for it in becasue the result or errors are not relevent at
+        // this point (and should not kill the process);
+        system_store.load();
 
-        if (is_local_address) {
-            dbg.log0('Initialize S3 RPC with MDServer');
-            const md_server = require('../server/md_server'); // eslint-disable-line global-require
-            rpc = await md_server.register_rpc();
-        } else {
-            dbg.log0('Initialize S3 RPC to address', address);
-            rpc = api.new_rpc_from_base_address(address, routing_hint);
-        }
+        // Register the process as an md_server.
+        const rpc = await md_server.register_rpc();
 
         const endpoint_request_handler = create_endpoint_handler(rpc, options);
         if (ENDPOINT_FTP_ENABLED) start_ftp_endpoint(rpc);
@@ -192,31 +104,21 @@ async function run_server(options) {
         const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, endpoint_request_handler);
-        dbg.log0('Starting HTTP', port);
-        await listen_http(port, http_server);
-        dbg.log0('Starting HTTPS', ssl_port);
-        await listen_http(ssl_port, https_server);
+        dbg.log0('Starting HTTP', ENDPOINT_PORT);
+        await listen_http(ENDPOINT_PORT, http_server);
+        dbg.log0('Starting HTTPS', ENDPOINT_SSL_PORT);
+        await listen_http(ENDPOINT_SSL_PORT, https_server);
         dbg.log0('S3 server started successfully');
-        if (process.send) process.send({ code: 'STARTED_SUCCESSFULLY' });
+        dbg.log0('Configured Virtual Hosts:', VIRTUAL_HOSTS);
+
     } catch (err) {
         handle_server_error(err);
     }
 }
 
-
 function handle_server_error(err) {
     dbg.error('ENDPOINT FAILED TO START on error:', err.code, err.message, err.stack || err);
-    // on error send message to parent process (agent) when running as endpoint agent
-    if (process.send) {
-        process.send({
-            code: 'SRV_ERROR',
-            err_code: err.code,
-            err_msg: err.message,
-            pid: process.pid,
-        });
-    } else {
-        process.exit(1);
-    }
+    process.exit(1);
 }
 
 function create_endpoint_handler(rpc, options) {
@@ -229,7 +131,7 @@ function create_endpoint_handler(rpc, options) {
         const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
-    const object_io = new ObjectIO(location_info);
+    const object_io = new ObjectIO(LOCATION_INFO);
     return endpoint_request_handler;
 
     function endpoint_request_handler(req, res) {
@@ -253,7 +155,7 @@ function create_endpoint_handler(rpc, options) {
             return blob_rest_handler(req, res);
         }
 
-        req.virtual_hosts = virtual_hosts;
+        req.virtual_hosts = VIRTUAL_HOSTS;
         req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
         return s3_rest_handler(req, res);
     }
@@ -261,16 +163,15 @@ function create_endpoint_handler(rpc, options) {
 
 async function start_ftp_endpoint(rpc) {
     try {
-        const port = process.env.FTP_PORT || 21;
         // ftp-srv calls log.debug in some cases. set it to dbg.trace
         dbg.debug = dbg.trace;
         dbg.child = () => dbg;
-        const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${port}`, {
+        const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${FTP_PORT}`, {
             pasv_range: process.env.FTP_PASV_RANGE || "8000-9000",
             anonymous: true,
             log: dbg
         });
-        const obj_io = new ObjectIO(location_info);
+        const obj_io = new ObjectIO(LOCATION_INFO);
         ftp_srv.on('login', (creds, resolve, reject) => {
             dbg.log0(`got a login request from user ${creds.username}`);
             // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
@@ -299,20 +200,6 @@ function unavailable_handler(req, res) {
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
-}
-
-
-function read_config_file() {
-    return fs.readFileAsync(path.join(os_utils.get_agent_platform_path(), 'agent_conf.json'))
-        .then(data => {
-            let agent_conf = JSON.parse(data);
-            dbg.log0('using agent_conf.json', util.inspect(agent_conf));
-            return agent_conf;
-        })
-        .catch(err => {
-            dbg.log0('cannot find/parse agent_conf.json file.', err.message);
-            return {};
-        });
 }
 
 function listen_http(port, server) {
@@ -372,48 +259,6 @@ function setup_http_server(server) {
     // socket.setNoDelay(true);
     // });
 }
-
-function update_virtual_hosts_form_system(system) {
-    if (!system || !system.system_address) {
-        return;
-    }
-
-    // TODO: Add custom virtual hosts (from system store) to the list.
-    const matching_hostnames = system.system_address
-        .filter(addr =>
-            // Use both s3 and mgmt services to account for the FE upload use case.
-            (addr.service === 's3' || addr.service === 'noobaa-mgmt') &&
-            addr.api === 's3' &&
-            !net.isIP(addr.hostname)
-        )
-        .map(addr => addr.hostname);
-
-    const virtual_hosts_list = _.uniq(matching_hostnames);
-    update_virtual_hosts(virtual_hosts_list);
-}
-
-function update_virtual_hosts(new_virtual_hosts) {
-    new_virtual_hosts = new_virtual_hosts
-        .filter(suffix => net_utils.is_fqdn(suffix))
-        .sort();
-
-    if (new_virtual_hosts.length !== virtual_hosts.length ||
-        new_virtual_hosts.some((host, i) => host !== virtual_hosts[i])) {
-
-        // Clone before freezing in order to prevent unwanted behavior to the calling code.
-        virtual_hosts = Object.freeze([...new_virtual_hosts]);
-        dbg.log0('The virtual hosts list of this agent was changed to:', virtual_hosts);
-    }
-}
-
-function update_location_info(new_location_info) {
-    if (!new_location_info) return;
-    const keys = Object.keys(location_info);
-    for (const key of keys) delete location_info[key];
-    Object.assign(location_info, new_location_info);
-    dbg.log0('The location information of this agent was changed to this:', location_info);
-}
-
 
 exports.start_all = start_all;
 exports.create_endpoint_handler = create_endpoint_handler;

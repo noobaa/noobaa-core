@@ -48,11 +48,11 @@ if (!process.env.PLATFORM) {
 }
 
 function get_memory() {
-    return Number(process.env.CONTAINER_MEM_REQUEST) || os.totalmem();
+    return Number(process.env.CONTAINER_MEM_LIMIT) || os.totalmem();
 }
 
 function get_cpus() {
-    return Number(process.env.CONTAINER_CPU_REQUEST) || os.cpus().length;
+    return Number(process.env.CONTAINER_CPU_LIMIT) || os.cpus().length;
 }
 
 

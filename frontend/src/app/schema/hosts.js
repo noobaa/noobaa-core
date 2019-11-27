@@ -154,7 +154,6 @@ const host = {
             enum: [
                 'DECOMMISSIONED',
                 'OFFLINE',
-                'S3_OFFLINE',
                 'STORAGE_OFFLINE',
                 'UNTRUSTED',
                 'STORAGE_NOT_EXIST',
@@ -174,8 +173,6 @@ const host = {
                 'SOME_STORAGE_IO_ERRORS',
                 'NO_CAPACITY',
                 'LOW_CAPACITY',
-                'HTTP_SRV_ERRORS',
-                'HTTP_PORT_ACCESS_ERROR',
                 'HAS_ERRORS',
                 'HAS_ISSUES',
                 'N2N_PORTS_BLOCKED',
@@ -263,65 +260,9 @@ const host = {
         services: {
             type: 'object',
             required: [
-                'storage',
-                'endpoint'
+                'storage'
             ],
             properties: {
-                endpoint: {
-                    type: 'object',
-                    required: [
-                        'enabled',
-                        'mode'
-                    ],
-                    properties: {
-                        enabled: {
-                            type: 'boolean'
-                        },
-                        mode: {
-                            type: 'string',
-                            enum: [
-                                'OFFLINE',
-                                'DECOMMISSIONED',
-                                'HTTP_SRV_ERRORS',
-                                'HTTP_PORT_ACCESS_ERROR',
-                                'INITIALIZING',
-                                'DELETING',
-                                'OPTIMAL'
-                            ]
-                        },
-                        usage: {
-                            type: 'object',
-                            required: [
-                                'last7Days',
-                                'lastRead',
-                                'lastWrite'
-                            ],
-                            properties: {
-                                last7Days: {
-                                    type: 'object',
-                                    required: [
-                                        'bytesRead',
-                                        'bytesWritten'
-                                    ],
-                                    properties: {
-                                        bytesRead: {
-                                            type: 'integer'
-                                        },
-                                        bytesWritten: {
-                                            type: 'integer'
-                                        }
-                                    }
-                                },
-                                lastRead: {
-                                    type: 'integer'
-                                },
-                                lastWrite: {
-                                    type: 'integer'
-                                }
-                            }
-                        }
-                    }
-                },
                 storage: {
                     type: 'object',
                     required: [
@@ -503,9 +444,6 @@ export default {
                                             OFFLINE: {
                                                 type: 'integer'
                                             },
-                                            S3_OFFLINE: {
-                                                type: 'integer'
-                                            },
                                             STORAGE_OFFLINE: {
                                                 type: 'integer'
                                             },
@@ -561,12 +499,6 @@ export default {
                                                 type: 'integer'
                                             },
                                             LOW_CAPACITY: {
-                                                type: 'integer'
-                                            },
-                                            HTTP_SRV_ERRORS: {
-                                                type: 'integer'
-                                            },
-                                            HTTP_PORT_ACCESS_ERROR: {
                                                 type: 'integer'
                                             },
                                             HAS_ERRORS: {

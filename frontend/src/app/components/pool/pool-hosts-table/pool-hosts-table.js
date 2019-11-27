@@ -38,11 +38,6 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'services',
-        type: 'service-indicators',
-        sortable: true
-    },
-    {
         name: 'capacity',
         label: 'used capacity',
         sortable: 'used',

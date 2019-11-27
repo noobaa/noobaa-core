@@ -8,8 +8,6 @@ import { toBytes } from 'utils/size-utils';
 import { stringifyAmount } from 'utils/string-utils';
 import moment from 'moment';
 import {
-    getStorageServiceStateIcon,
-    getEndpointServiceStateIcon,
     getHostStateIcon,
     getHostTrustIcon,
     getHostAccessibilityIcon,
@@ -22,8 +20,6 @@ const trustTooltip = `A reliability check that verifies that this node has no di
 
 function _mapStateAndStatus(host) {
     return {
-        storageServiceState: getStorageServiceStateIcon(host),
-        endpointServiceState: getEndpointServiceStateIcon(host),
         stateIcon: getHostStateIcon(host),
         trustIcon: getHostTrustIcon(host),
         accessibilityIcon: getHostAccessibilityIcon(host)

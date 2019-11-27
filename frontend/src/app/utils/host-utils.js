@@ -16,11 +16,6 @@ const modeToStateIcon = deepFreeze({
         css: 'error',
         tooltip: 'Offline'
     },
-    S3_OFFLINE: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'S3 Endpoint Offline'
-    },
     STORAGE_OFFLINE: {
         name: 'problem',
         css: 'error',
@@ -115,16 +110,6 @@ const modeToStateIcon = deepFreeze({
         name: 'problem',
         css: 'warning',
         tooltip: 'Low Available Capacity'
-    },
-    HTTP_SRV_ERRORS: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Cannot Start HTTP Server'
-    },
-    HTTP_PORT_ACCESS_ERROR: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Endpoint Cannot Use Ports 80/443'
     },
     HAS_ERRORS: {
         name: 'problem',
@@ -280,7 +265,6 @@ const stateToModes = deepFreeze({
     ],
     HAS_ISSUES: [
         'STORAGE_OFFLINE',
-        'S3_OFFLINE',
         'DECOMMISSIONED',
         'UNTRUSTED',
         'STORAGE_NOT_EXIST',
@@ -300,8 +284,6 @@ const stateToModes = deepFreeze({
         'SOME_STORAGE_IO_ERRORS',
         'NO_CAPACITY',
         'LOW_CAPACITY',
-        'HTTP_SRV_ERRORS',
-        'HTTP_PORT_ACCESS_ERROR',
         'HAS_ERRORS',
         'HAS_ISSUES',
         'N2N_PORTS_BLOCKED'
@@ -312,121 +294,7 @@ const stateToModes = deepFreeze({
 });
 
 const serviceToDisplayName = deepFreeze({
-    storage: 'Storage',
-    endpoint: 'S3 Endpoint'
-});
-
-const storageServiceModeToIcon = deepFreeze({
-    DECOMMISSIONED: {
-        name: 'healthy',
-        css: '',
-        tooltip: 'Disabled'
-    },
-    OFFLINE: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'All drives are offline'
-    },
-    UNTRUSTED: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Untrusted'
-    },
-    STORAGE_NOT_EXIST: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'All drives are unmounted'
-    },
-    IO_ERRORS: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'All drives have I/O errors'
-    },
-    N2N_ERRORS: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Node to node communication problems'
-    },
-    GATEWAY_ERRORS: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Server communication problems'
-    },
-    INITIALIZING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'All drives have no access'
-    },
-    DELETING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deleting'
-    },
-    DECOMMISSIONING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deactivating'
-    },
-    MIGRATING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Migrating'
-    },
-    IN_PROCESS: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'In process'
-    },
-    SOME_STORAGE_MIGRATING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Some drives are migrating'
-    },
-    SOME_STORAGE_INITIALIZING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Some drives are initializing'
-    },
-    SOME_STORAGE_DECOMMISSIONING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Some drives are deactivating'
-    },
-    SOME_STORAGE_OFFLINE: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Some drives are offline'
-    },
-    SOME_STORAGE_NOT_EXIST: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Some drives are unmounted'
-    },
-    SOME_STORAGE_IO_ERRORS: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Some drives have I/O errors'
-    },
-    NO_CAPACITY: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'No available capacity'
-    },
-    LOW_CAPACITY: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Low available capacity'
-    },
-    N2N_PORTS_BLOCKED: {
-        name: 'problem',
-        css: 'warning',
-        tooltip: 'Some ports might be blocked'
-    },
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    }
+    storage: 'Storage'
 });
 
 const storageNodeModeToStateIcon = deepFreeze({
@@ -499,44 +367,6 @@ const storageNodeModeToStateIcon = deepFreeze({
         name: 'problem',
         css:'error',
         tooltip: 'Drive is unmounted'
-    },
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    }
-});
-
-const endpointServiceModeToIcon = deepFreeze({
-    OFFLINE: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Offline'
-    },
-    DECOMMISSIONED: {
-        name: 'healthy',
-        css: '',
-        tooltip: 'Disabled'
-    },
-    HTTP_SRV_ERRORS: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Cannot Start HTTP server'
-    },
-    HTTP_PORT_ACCESS_ERROR: {
-        name: 'problem',
-        css: 'error',
-        tooltip: 'Endpoint Cannot Use Ports 80/443'
-    },
-    INITIALIZING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Initializing'
-    },
-    DELETING: {
-        name: 'working',
-        css: 'warning',
-        tooltip: 'Deleting'
     },
     OPTIMAL: {
         name: 'healthy',
@@ -637,18 +467,8 @@ export function getHostServiceDisplayName(service) {
     return serviceToDisplayName[service];
 }
 
-export function getStorageServiceStateIcon(host) {
-    const { mode } = host.services.storage;
-    return storageServiceModeToIcon[mode];
-}
-
 export function getStorageNodeStateIcon(host) {
     return storageNodeModeToStateIcon[host.mode];
-}
-
-export function getEndpointServiceStateIcon(host) {
-    const { mode } = host.services.endpoint;
-    return endpointServiceModeToIcon[mode];
 }
 
 export function getActivityName(activityType) {

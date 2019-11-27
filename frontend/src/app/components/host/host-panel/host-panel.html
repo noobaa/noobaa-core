@@ -10,12 +10,6 @@
             Details
         </a>
 
-        <a ko.css.selected="selectedTab.eq('endpoint')"
-            ko.attr.href="tabHref('endpoint')"
-        >
-            S3 Endpoint
-        </a>
-
         <a ko.css.selected="selectedTab.eq('diagnostics')"
             ko.attr.href="tabHref('diagnostics')"
         >
@@ -34,10 +28,6 @@
             ko.css.selected="selectedTab.eq('details')"
             params="name: host"
         ></host-details-form>
-        <host-endpoint-form class="tab"
-            ko.css.selected="selectedTab.eq('endpoint')"
-            params="name: host"
-        ></host-endpoint-form>
 
         <host-diagnostics-form class="tab"
             ko.css.selected="selectedTab.eq('diagnostics')"

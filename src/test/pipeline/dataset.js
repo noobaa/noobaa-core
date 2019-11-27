@@ -51,16 +51,16 @@ const TEST_STATE_INITIAL = {
 const BASE_UNIT = 1024;
 const UNIT_MAPPING = {
     KB: {
-        data_multiplier: Math.pow(BASE_UNIT, 1),
-        dataset_multiplier: Math.pow(BASE_UNIT, 2)
+        data_multiplier: BASE_UNIT ** 1,
+        dataset_multiplier: BASE_UNIT ** 2
     },
     MB: {
-        data_multiplier: Math.pow(BASE_UNIT, 2),
-        dataset_multiplier: Math.pow(BASE_UNIT, 1)
+        data_multiplier: BASE_UNIT ** 2,
+        dataset_multiplier: BASE_UNIT ** 1
     },
     GB: {
-        data_multiplier: Math.pow(BASE_UNIT, 3),
-        dataset_multiplier: Math.pow(BASE_UNIT, 0)
+        data_multiplier: BASE_UNIT ** 3,
+        dataset_multiplier: BASE_UNIT ** 0
     }
 };
 

@@ -555,7 +555,7 @@ function get_hist_label(pow) {
     if (pow === 0) {
         return "0 - " + size_utils.human_size(1);
     }
-    return `${size_utils.human_size(Math.pow(2, pow - 1))} - ${size_utils.human_size(Math.pow(2, pow))}`;
+    return `${size_utils.human_size(2 ** (pow - 1))} - ${size_utils.human_size(2 ** pow)}`;
 }
 
 function get_new_bin(existing, deleted, current) {

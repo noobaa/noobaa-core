@@ -870,9 +870,9 @@ function export_bucket_bandwidth_usage(req) {
 
     // generate csv file name:
     const since_str = (new Date(since)).toLocaleDateString()
-        .replace(new RegExp('/', 'g'), '-');
+        .replace(/\//g, '-');
     const till_str = (new Date(till)).toLocaleDateString()
-        .replace(new RegExp('/', 'g'), '-');
+        .replace(/\//g, '-');
     const file_name = `${name}_usage_${since_str}_to_${till_str}.csv`;
     const out_path = `/public/${file_name}`;
     const inner_path = `${process.cwd()}/build${out_path}`;

@@ -35,16 +35,16 @@ const YELLOW = "\x1b[33;1m";
 const base_unit = 1024;
 const unit_mapping = {
     KB: {
-        data_multiplier: Math.pow(base_unit, 1),
-        dataset_multiplier: Math.pow(base_unit, 2)
+        data_multiplier: base_unit ** 1,
+        dataset_multiplier: base_unit ** 2
     },
     MB: {
-        data_multiplier: Math.pow(base_unit, 2),
-        dataset_multiplier: Math.pow(base_unit, 1)
+        data_multiplier: base_unit ** 2,
+        dataset_multiplier: base_unit ** 1
     },
     GB: {
-        data_multiplier: Math.pow(base_unit, 3),
-        dataset_multiplier: Math.pow(base_unit, 0)
+        data_multiplier: base_unit ** 3,
+        dataset_multiplier: base_unit ** 0
     }
 };
 

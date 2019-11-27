@@ -153,16 +153,16 @@ const dataSet = [
 const baseUnit = 1024;
 const unit_mapping = {
     KB: {
-        data_multiplier: Math.pow(baseUnit, 1),
-        dataset_multiplier: Math.pow(baseUnit, 2)
+        data_multiplier: baseUnit ** 1,
+        dataset_multiplier: baseUnit ** 2
     },
     MB: {
-        data_multiplier: Math.pow(baseUnit, 2),
-        dataset_multiplier: Math.pow(baseUnit, 1)
+        data_multiplier: baseUnit ** 2,
+        dataset_multiplier: baseUnit ** 1
     },
     GB: {
-        data_multiplier: Math.pow(baseUnit, 3),
-        dataset_multiplier: Math.pow(baseUnit, 0)
+        data_multiplier: baseUnit ** 3,
+        dataset_multiplier: baseUnit ** 0
     }
 };
 
@@ -382,7 +382,7 @@ async function update_read_write_and_check(clouds, name, read_resources, write_r
     let should_fail;
     const run_on_clouds = _.clone(clouds);
     try {
-        await bucket_functions.updateNamesapceBucket(name, read_resources, write_resource);
+        await bucket_functions.updateNamesapceBucket(name, write_resource, read_resources);
         report.success('update namespace bucket w resource');
     } catch (e) {
         report.fail('update namespace bucket w resource');

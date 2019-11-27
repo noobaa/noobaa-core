@@ -11,7 +11,7 @@ function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
     // By limiting to a whole multiple of charset.length we make sure our modulo is aligned to the random range.
     // However we have to ignore values above that max, so we need to surround with another loop
     // to fill the entire desired length.
-    const max_uint32 = Math.pow(2, 32);
+    const max_uint32 = 2 ** 32;
     const max_random = max_uint32 - (max_uint32 % charset.length);
     let str = '';
     do {

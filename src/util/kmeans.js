@@ -31,7 +31,7 @@ function euclidianDistance(a, b) {
     }
     let d = 0.0;
     for (let i = 0, max = a.length; i < max; ++i) {
-        d += Math.pow((a[i] - b[i]), 2);
+        d += (a[i] - b[i]) ** 2;
     }
     return Math.sqrt(d);
 }
@@ -82,7 +82,7 @@ class Group {
             }
         }
         for (let i = 0, max = this.centroid.length; i < max; ++i) {
-            this.centroid[i] = this.centroid[i] / this.cluster.length; // average
+            this.centroid[i] /= this.cluster.length; // average
         }
         return this;
     }

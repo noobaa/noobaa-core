@@ -44,7 +44,7 @@
         "gulp-svgstore": "7.0.1",
         "gulp-uglify": "^3.0.0",
         "inquirer": "7.0.0",
-        "mocha": "6.2.0",
+        "mocha": "6.2.2",
         "module-alias": "2.2.1",
         "moment": "2.24.0",
         "path-exists": "4.0.0",

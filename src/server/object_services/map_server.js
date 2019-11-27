@@ -162,7 +162,7 @@ class GetMapping {
         const has_room = enough_room_in_tier(chunk.tier, chunk.bucket);
         for (const frag of chunk.frags) {
             for (const alloc of frag.allocations) {
-                const node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts);
+                const node = node_allocator.allocate_node({pools: alloc.pools, avoid_nodes, allocated_hosts});
                 if (!node) {
                     dbg.warn(`GetMapping allocate_blocks: no nodes for allocation ` +
                         `avoid_nodes ${avoid_nodes.join(',')} ` +

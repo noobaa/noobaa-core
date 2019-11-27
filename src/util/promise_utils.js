@@ -395,7 +395,7 @@ function timeout(task, ms) {
 * @param delay_ms - delay number of milliseconds between invocation of the condition.
 * @param timeout_ms.- A timeout to bail out of the loop, will throw timeout error.
 */
-async function wait_until(async_cond, delay_ms = 2500, timeout_ms) {
+async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
     if (_.isUndefined(timeout_ms)) {
         let condition_met = false;
         while (!condition_met) {
@@ -407,7 +407,7 @@ async function wait_until(async_cond, delay_ms = 2500, timeout_ms) {
 
     } else {
         return timeout(
-            () => wait_until(async_cond, delay_ms),
+            () => wait_until(async_cond, undefined, delay_ms),
             timeout_ms
         );
     }

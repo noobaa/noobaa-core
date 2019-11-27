@@ -2076,7 +2076,7 @@ class NodesMonitor extends EventEmitter {
 
 
     _get_item_mode(item) {
-        const MB = Math.pow(1024, 2);
+        const MB = 1024 ** 2;
         const storage = this._node_storage_info(item);
         const free = size_utils.json_to_bigint(storage.free);
         const used = size_utils.json_to_bigint(storage.used);
@@ -2604,7 +2604,7 @@ class NodesMonitor extends EventEmitter {
         const s3_nodes = host_item.s3_nodes;
 
         // aggregate storage nodes and s3 nodes info
-        const MB = Math.pow(1024, 2);
+        const MB = 1024 ** 2;
         const storage = host_item.node.storage;
         const free = size_utils.json_to_bigint(storage.free);
         const used = size_utils.json_to_bigint(storage.used);
@@ -3811,7 +3811,7 @@ class NodesMonitor extends EventEmitter {
 }
 
 function scale_number_token(num) {
-    return Math.pow(2, Math.round(Math.log2(num)));
+    return 2 ** Math.round(Math.log2(num));
 }
 
 function scale_size_token(size) {

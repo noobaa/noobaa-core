@@ -266,7 +266,7 @@ function invoke_func(req) {
             pool => node_allocator.refresh_pool_alloc(pool)))
         .then(() => {
             const func = req.func;
-            const node = node_allocator.allocate_node(func.pools);
+            const node = node_allocator.allocate_node({ pools: func.pools });
             const params = {
                 config: _get_func_info(func).config,
                 event: req.params.event,

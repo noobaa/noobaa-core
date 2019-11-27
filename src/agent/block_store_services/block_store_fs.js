@@ -31,7 +31,7 @@ class BlockStoreFs extends BlockStoreBase {
         // this is done to reduce the number of files in one directory which leads
         // to bad performance
         const num_digits = 3;
-        const num_dirs = Math.pow(16, num_digits);
+        const num_dirs = 16 ** num_digits;
         const dir_list = [];
         for (let i = 0; i < num_dirs; ++i) {
             let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';

@@ -46,7 +46,7 @@ const account_server = require('../../server/system_services/account_server');
 const system_server = require('../../server/system_services/system_server');
 const promise_utils = require('../../util/promise_utils');
 
-// Set the pools server pool conttroller factory to create pools with
+// Set the pools server pool controller factory to create pools with
 // backed by in process agents.
 const pool_server = require('../../server/system_services/pool_server');
 const pool_ctrls = require('../../server/system_services/pool_controllers');
@@ -231,11 +231,11 @@ function setup(options = {}) {
         let tries_left = 3;
         setInterval(function check_dangling_handles() {
             tries_left -= 1;
-            console.info(`Wating for dangling handles to release, re-sample in 30s (tries left: ${tries_left})`);
+            console.info(`Waiting for dangling handles to release, re-sample in 30s (tries left: ${tries_left})`);
             wtf.dump();
 
             if (tries_left === 0) {
-                console.error('Tests cannot complete successfuly, running tests resulted in dangling handles');
+                console.error('Tests cannot complete successfully, running tests resulted in dangling handles');
 
                 // Force the test suite to fail (ignoring the exist handle that mocha sets up in order to return a fail
                 // exit code)
@@ -267,7 +267,7 @@ async function overwrite_system_address(system_name) {
     // Waiting for system server to fully initialize to ensure
     // that this overwrite will not be undone when the system server
     // discover system addresses during it's init phase.
-    console.log('Waiting for system server to initalize');
+    console.log('Waiting for system server to initialize');
     await promise_utils.wait_until(
         () => system_server.is_initialized(),
         2 * 60 * 1000,
@@ -388,7 +388,7 @@ function get_https_address() {
     return https_address;
 }
 
-// This was coded for tests that create multiple systems (not nessesary parallel, could be creation of system after deletion of system)
+// This was coded for tests that create multiple systems (not necessary parallel, could be creation of system after deletion of system)
 // Webserver's init happens only one time (upon init of process), it is crucial in order to ensure internal storage structures
 // When we create systems without doing the init, we encounter a problem regarding failed internal storage structures
 // function init_internal_storage(system_name) {

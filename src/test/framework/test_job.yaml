@@ -8,6 +8,14 @@ spec:
       serviceAccount: noobaa-tests-account
       containers:
       - name: noobaa-test
+        resources:
+          # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "8Gi"
         image: TESTER_IMAGE_PLACEHOLDER
         imagePullPolicy: Always
         workingDir: /noobaa-core

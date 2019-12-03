@@ -3795,7 +3795,7 @@ class NodesMonitor extends EventEmitter {
 
     _is_kubernetes_node(item) {
         const kubernetes_node_types = [
-            'BLOCK_STORE_MONGO',
+            // 'BLOCK_STORE_MONGO',
             'BLOCK_STORE_FS',
         ];
         return kubernetes_node_types.includes(item.node.node_type);

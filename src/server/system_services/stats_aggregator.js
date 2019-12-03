@@ -292,6 +292,7 @@ async function get_partial_providers_stats(req) {
                 const pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(key));
                 // TODO: Handle deleted pools
                 if (!pool) continue;
+                if (pool.mongo_pool_info) continue;
                 let type = 'KUBERNETES';
                 if (pool.cloud_pool_info) {
                     type = (supported_cloud_types.includes(pool.cloud_pool_info.endpoint_type)) ?
@@ -509,18 +510,20 @@ const CLOUD_POOL_STATS_DEFAULTS = {
     pool_count: 0,
     unhealthy_pool_count: 0,
     cloud_pool_count: 0,
-    cloud_pool_target: {
+    pool_target: {
         amazon: 0,
         azure: 0,
         gcp: 0,
         s3_comp: 0,
+        kubernetes: 0,
         other: 0,
     },
-    unhealthy_cloud_pool_target: {
+    unhealthy_pool_target: {
         amazon_unhealthy: 0,
         azure_unhealthy: 0,
         gcp_unhealthy: 0,
         s3_comp_unhealthy: 0,
+        kubernetes_unhealthy: 0,
         other_unhealthy: 0,
     },
     compatible_auth_type: {
@@ -665,27 +668,27 @@ async function get_cloud_pool_stats(req) {
             cloud_pool_stats.cloud_pool_count += 1;
             switch (pool.cloud_pool_info.endpoint_type) {
                 case 'AWS':
-                    cloud_pool_stats.cloud_pool_target.amazon += 1;
+                    cloud_pool_stats.pool_target.amazon += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.unhealthy_cloud_pool_target.amazon_unhealthy += 1;
+                        cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;
                     }
                     break;
                 case 'AZURE':
-                    cloud_pool_stats.cloud_pool_target.azure += 1;
+                    cloud_pool_stats.pool_target.azure += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.unhealthy_cloud_pool_target.azure_unhealthy += 1;
+                        cloud_pool_stats.unhealthy_pool_target.azure_unhealthy += 1;
                     }
                     break;
                 case 'GOOGLE':
-                    cloud_pool_stats.cloud_pool_target.gcp += 1;
+                    cloud_pool_stats.pool_target.gcp += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.unhealthy_cloud_pool_target.gcp_unhealthy += 1;
+                        cloud_pool_stats.unhealthy_pool_target.gcp_unhealthy += 1;
                     }
                     break;
                 case 'S3_COMPATIBLE':
-                    cloud_pool_stats.cloud_pool_target.s3_comp += 1;
+                    cloud_pool_stats.pool_target.s3_comp += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.unhealthy_cloud_pool_target.s3_comp_unhealthy += 1;
+                        cloud_pool_stats.unhealthy_pool_target.s3_comp_unhealthy += 1;
                     }
                     if (pool.cloud_pool_info.auth_method === 'AWS_V2') {
                         cloud_pool_stats.compatible_auth_type.v2 += 1;
@@ -694,11 +697,16 @@ async function get_cloud_pool_stats(req) {
                     }
                     break;
                 default:
-                    cloud_pool_stats.cloud_pool_target.other += 1;
+                    cloud_pool_stats.pool_target.other += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
-                        cloud_pool_stats.unhealthy_cloud_pool_target.other_unhealthy += 1;
+                        cloud_pool_stats.unhealthy_pool_target.other_unhealthy += 1;
                     }
                     break;
+            }
+        } else if (!pool.mongo_pool_info) {
+            cloud_pool_stats.pool_target.kubernetes += 1;
+            if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                cloud_pool_stats.unhealthy_pool_target.kubernetes_unhealthy += 1;
             }
         }
 

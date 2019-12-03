@@ -347,22 +347,24 @@ class PrometheusReporting {
 
     set_cloud_types(types) {
         if (!this.enabled()) return;
-        this._metrics.cloud_types.set({ type: 'AWS' }, types.cloud_pool_target.amazon);
-        this._metrics.cloud_types.set({ type: 'Azure' }, types.cloud_pool_target.azure);
-        this._metrics.cloud_types.set({ type: 'GCP' }, types.cloud_pool_target.gcp);
+        this._metrics.cloud_types.set({ type: 'AWS' }, types.pool_target.amazon);
+        this._metrics.cloud_types.set({ type: 'Azure' }, types.pool_target.azure);
+        this._metrics.cloud_types.set({ type: 'GCP' }, types.pool_target.gcp);
+        this._metrics.cloud_types.set({ type: 'Kubernetes' }, types.pool_target.kubernetes);
         // TODO: Fill this up when we will know how to recognize
-        // this._metrics.cloud_types.set({ type: 'Ceph' }, types.cloud_pool_target.ceph);
-        this._metrics.cloud_types.set({ type: 'S3_Compatible' }, types.cloud_pool_target.s3_comp);
+        // this._metrics.cloud_types.set({ type: 'Ceph' }, types.pool_target.ceph);
+        this._metrics.cloud_types.set({ type: 'S3_Compatible' }, types.pool_target.s3_comp);
     }
 
     set_unhealthy_cloud_types(types) {
         if (!this.enabled()) return;
-        this._metrics.unhealthy_cloud_types.set({ type: 'AWS' }, types.unhealthy_cloud_pool_target.amazon_unhealthy);
-        this._metrics.unhealthy_cloud_types.set({ type: 'Azure' }, types.unhealthy_cloud_pool_target.azure_unhealthy);
-        this._metrics.unhealthy_cloud_types.set({ type: 'GCP' }, types.unhealthy_cloud_pool_target.gcp_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'AWS' }, types.unhealthy_pool_target.amazon_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'Azure' }, types.unhealthy_pool_target.azure_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'GCP' }, types.unhealthy_pool_target.gcp_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'Kubernetes' }, types.unhealthy_pool_target.kubernetes_unhealthy);
         // TODO: Fill this up when we will know how to recognize
-        // this._metrics.unhealthy_cloud_types.set({ type: 'Ceph' }, types.unhealthy_cloud_pool_target.ceph_unhealthy);
-        this._metrics.unhealthy_cloud_types.set({ type: 'S3_Compatible' }, types.unhealthy_cloud_pool_target.s3_comp_unhealthy);
+        // this._metrics.unhealthy_cloud_types.set({ type: 'Ceph' }, types.unhealthy_pool_target.ceph_unhealthy);
+        this._metrics.unhealthy_cloud_types.set({ type: 'S3_Compatible' }, types.unhealthy_pool_target.s3_comp_unhealthy);
     }
 
     set_bucket_class_capacity_usage(usage_info) {

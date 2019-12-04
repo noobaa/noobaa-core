@@ -331,7 +331,13 @@ class SystemStoreData {
         _.each(COLLECTIONS, col => {
             _.each(col.mem_indexes, index => {
                 _.each(this[col.name], item => {
-                    let key = _.get(item, index.key || '_id').valueOf();
+                    const field = _.get(item, index.key || '_id');
+                    if (!field) {
+                        dbg.error(`SystemStoreData: Item ${col.name}[${item._id}] could not be indexed for ${index.name}
+                            (Index field ${index.key} not found on item), skipping`);
+                        return;
+                    }
+                    const key = field.valueOf();
                     let val = index.val ? _.get(item, index.val) : item;
                     let context = index.context ? _.get(item, index.context) : this;
                     let map = context[index.name] || {};

@@ -341,7 +341,7 @@ module.exports = {
 
         cloud_pool_stats: {
             type: 'object',
-            required: ['pool_count', 'unhealthy_pool_count', 'cloud_pool_count', 'cloud_pool_target', 'unhealthy_cloud_pool_target', 'resources'],
+            required: ['pool_count', 'unhealthy_pool_count', 'cloud_pool_count', 'pool_target', 'unhealthy_pool_target', 'resources'],
             properties: {
                 pool_count: {
                     type: 'integer'
@@ -352,23 +352,25 @@ module.exports = {
                 cloud_pool_count: {
                     type: 'integer'
                 },
-                cloud_pool_target: {
+                pool_target: {
                     type: 'object',
                     properties: {
                         amazon: { type: 'integer' },
                         azure: { type: 'integer' },
                         gcp: { type: 'integer' },
                         s3_comp: { type: 'integer' },
+                        kubernetes: { type: 'integer' },
                         other: { type: 'integer' },
                     }
                 },
-                unhealthy_cloud_pool_target: {
+                unhealthy_pool_target: {
                     type: 'object',
                     properties: {
                         amazon_unhealthy: { type: 'integer' },
                         azure_unhealthy: { type: 'integer' },
                         gcp_unhealthy: { type: 'integer' },
                         s3_comp_unhealthy: { type: 'integer' },
+                        kubernetes_unhealthy: { type: 'integer' },
                         other_unhealthy: { type: 'integer' },
                     }
                 },

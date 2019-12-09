@@ -1272,7 +1272,7 @@ function validate_bucket_creation(req) {
         req.rpc_params.name.unwrap().length > 63 ||
         net.isIP(req.rpc_params.name.unwrap()) ||
         !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
-            throw new RpcError('INVALID_BUCKET_NAME');
+        throw new RpcError('INVALID_BUCKET_NAME');
     }
     if (req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
@@ -1409,9 +1409,13 @@ function get_bucket_info({
         };
     }
     // calc_bucket_aggregated_mode(metrics);
+    let ignore_quota = false;
     info.mode = bucket.namespace ?
         calc_namespace_mode() :
-        calc_bucket_mode(tiering.tiers, metrics);
+        calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
+
+    ignore_quota = true;
+    info.tiering.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
 
     info.triggers = _.map(bucket.lambda_triggers, trigger => {
         const ret_trigger = _.omit(trigger, '_id');
@@ -1613,7 +1617,7 @@ function calc_namespace_mode() {
     return 'OPTIMAL';
 }
 
-function calc_bucket_mode(tiers, metrics) {
+function calc_bucket_mode(tiers, metrics, ignore_quota) {
     const {
         NO_RESOURCES = 0,
             NOT_ENOUGH_RESOURCES = 0,
@@ -1634,21 +1638,21 @@ function calc_bucket_mode(tiers, metrics) {
         (INTERNAL_STORAGE_ISSUES && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
         (NO_CAPACITY === tiers.length && 'NO_CAPACITY') ||
         (issueCount === tiers.length && 'ALL_TIERS_HAVE_ISSUES') ||
-        (metrics.is_quota_enabled && metrics.is_quota_exceeded && 'EXCEEDING_QUOTA') ||
+        (!ignore_quota && metrics.is_quota_enabled && metrics.is_quota_exceeded && 'EXCEEDING_QUOTA') ||
         (NO_RESOURCES && 'TIER_NO_RESOURCES') ||
         (NOT_ENOUGH_RESOURCES && 'TIER_NOT_ENOUGH_RESOURCES') ||
         (NOT_ENOUGH_HEALTHY_RESOURCES && 'TIER_NOT_ENOUGH_HEALTHY_RESOURCES') ||
         (NO_CAPACITY && 'TIER_NO_CAPACITY') ||
         (metrics.is_storage_low && 'LOW_CAPACITY') ||
         (LOW_CAPACITY && 'TIER_LOW_CAPACITY') ||
-        return_bucket_issues_mode(metrics);
+        (ignore_quota && return_bucket_issues_mode(metrics)) ||
+        'OPTIMAL';
 }
 
 function return_bucket_issues_mode(metrics) {
     return (metrics.is_using_internal && 'NO_RESOURCES_INTERNAL') ||
         (metrics.is_quota_enabled && metrics.is_quota_low && 'APPROUCHING_QUOTA') ||
-        (metrics.any_rebuilds && 'DATA_ACTIVITY') ||
-        'OPTIMAL';
+        (metrics.any_rebuilds && 'DATA_ACTIVITY');
 }
 
 function calc_data_resiliency_status(metrics) {

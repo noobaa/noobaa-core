@@ -185,7 +185,8 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/tier_item'
                     },
-                }
+                },
+                mode: { $ref: 'common_api#/definitions/bucket_mode' }
             }
         },
         tier_item: {

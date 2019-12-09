@@ -81,7 +81,7 @@ function create_auth(req) {
             if (!authenticated_account || !target_account) {
                 // find the current authorized account and assign
                 if (!req.auth || !req.auth.account_id) {
-                    dbg.log0('no account_id in auth and no credetials', email, system_name);
+                    dbg.log0('no account_id in auth and no credentials', email, system_name);
                     throw new RpcError('UNAUTHORIZED', 'credentials not found');
                 }
 
@@ -167,7 +167,7 @@ function create_auth(req) {
 async function create_k8s_auth(req) {
     const { grant_code } = req.rpc_params;
 
-    // Curretly I have no means to get the system name in the FE witout an email and password.
+    // Currently I have no means to get the system name in the FE without an email and password.
     // So i default to the first (and currently only system)
     let system = system_store.data.systems[0];
     if (!system || system.deleted) {
@@ -705,11 +705,11 @@ function get_jwt_secret() {
     if (process.env.JWT_SECRET) {
         return process.env.JWT_SECRET;
     } else {
-        // in kubernets we must have JWT_SECRET loaded from a kubernetes secret
+        // in kubernetes we must have JWT_SECRET loaded from a kubernetes secret
         if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
             throw new Error('JWT_SECRET env variable not found. it must exist when running in kuberentes');
         }
-        // for all non kubernets platforms (docker, local, etc.) return a dummy secret
+        // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
         return 'abcdefgh';
     }
 }

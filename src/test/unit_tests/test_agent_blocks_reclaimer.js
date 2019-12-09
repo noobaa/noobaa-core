@@ -188,8 +188,8 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             });
     });
 
-    function upload_object(key, data, size) {
-        let params = {
+    async function upload_object(key, data, size) {
+        const params = {
             client: rpc_client,
             bucket,
             key,
@@ -197,12 +197,11 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             content_type: 'application/octet-stream',
             source_stream: new SliceReader(data),
         };
-        return P.resolve()
-            .then(() => object_io.upload_object(params))
-            .then(() => verify_read_data(key, data, params.obj_id))
-            .then(() => verify_read_mappings(key, size))
-            .then(() => verify_nodes_mapping())
-            .then(() => params.obj_id);
+        await object_io.upload_object(params);
+        await verify_read_data(key, data, params.obj_id);
+        await verify_read_mappings(key, size);
+        await verify_nodes_mapping();
+        return params.obj_id;
     }
 
     function verify_read_mappings(key, size) {
@@ -259,7 +258,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
 
 mocha.describe('mocked agent_blocks_reclaimer', function() {
 
-    mocha.it('should mark reclaimed on deleted nodes', function() {
+    mocha.it('should mark reclaimed on deleted nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
             _id: new mongodb.ObjectId(),
@@ -274,19 +273,17 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
         }];
         const reclaimer_mock =
             new ReclaimerMock(blocks, nodes, self.test.title);
-        return P.resolve()
-            .then(() => reclaimer_mock.run_agent_blocks_reclaimer())
-            .then(() => {
-                assert(reclaimer_mock.blocks[0].reclaimed, 'Block was not reclaimed');
-                assert(reclaimer_mock.reclaimed_blocks.length === 0, 'Reclaimer sent delete to deleted node');
-            })
-            .catch(err => {
-                console.error(err, err.stack);
-                throw err;
-            });
+        try {
+            await reclaimer_mock.run_agent_blocks_reclaimer();
+            assert(reclaimer_mock.blocks[0].reclaimed, 'Block was not reclaimed');
+            assert(reclaimer_mock.reclaimed_blocks.length === 0, 'Reclaimer sent delete to deleted node');
+        } catch (err) {
+            console.error(err, err.stack);
+            throw err;
+        }
     });
 
-    mocha.it('should not mark reclaimed on offline nodes', function() {
+    mocha.it('should not mark reclaimed on offline nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
             _id: new mongodb.ObjectId(),
@@ -301,19 +298,17 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
         }];
         const reclaimer_mock =
             new ReclaimerMock(blocks, nodes, self.test.title);
-        return P.resolve()
-            .then(() => reclaimer_mock.run_agent_blocks_reclaimer())
-            .then(() => {
-                assert(!reclaimer_mock.blocks[0].reclaimed, 'Block was reclaimed');
-                assert(reclaimer_mock.reclaimed_blocks.length === 1, 'Reclaimer did not try to delete on offline node');
-            })
-            .catch(err => {
-                console.error(err, err.stack);
-                throw err;
-            });
+        try {
+            await reclaimer_mock.run_agent_blocks_reclaimer();
+            assert(!reclaimer_mock.blocks[0].reclaimed, 'Block was reclaimed');
+            assert(reclaimer_mock.reclaimed_blocks.length === 1, 'Reclaimer did not try to delete on offline node');
+        } catch (err) {
+            console.error(err, err.stack);
+            throw err;
+        }
     });
 
-    mocha.it('should mark reclaimed on non existing nodes', function() {
+    mocha.it('should mark reclaimed on non existing nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
             _id: new mongodb.ObjectId(),
@@ -328,19 +323,17 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
         }];
         const reclaimer_mock =
             new ReclaimerMock(blocks, nodes, self.test.title);
-        return P.resolve()
-            .then(() => reclaimer_mock.run_agent_blocks_reclaimer())
-            .then(() => {
-                assert(reclaimer_mock.blocks[0].reclaimed, 'Block was not reclaimed');
-                assert(reclaimer_mock.reclaimed_blocks.length === 0, 'Reclaimer sent delete to non existing node');
-            })
-            .catch(err => {
-                console.error(err, err.stack);
-                throw err;
-            });
+        try {
+            await reclaimer_mock.run_agent_blocks_reclaimer();
+            assert(reclaimer_mock.blocks[0].reclaimed, 'Block was not reclaimed');
+            assert(reclaimer_mock.reclaimed_blocks.length === 0, 'Reclaimer sent delete to non existing node');
+        } catch (err) {
+            console.error(err, err.stack);
+            throw err;
+        }
     });
 
-    mocha.it('should not mark reclaimed on failure to delete', function() {
+    mocha.it('should not mark reclaimed on failure to delete', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [{
             _id: new mongodb.ObjectId(),
@@ -359,17 +352,15 @@ mocha.describe('mocked agent_blocks_reclaimer', function() {
         }];
         const reclaimer_mock =
             new ReclaimerMock(blocks, nodes, self.test.title);
-        return P.resolve()
-            .then(() => reclaimer_mock.run_agent_blocks_reclaimer())
-            .then(() => {
-                assert(reclaimer_mock.blocks[0].reclaimed && !reclaimer_mock.blocks[0].fail_to_delete, 'Block was not reclaimed');
-                assert(!reclaimer_mock.blocks[1].reclaimed && reclaimer_mock.blocks[1].fail_to_delete, 'Block was reclaimed on failure to delete');
-                assert(reclaimer_mock.reclaimed_blocks.length === 2, 'Reclaimer did not sent delete to nodes');
-            })
-            .catch(err => {
-                console.error(err, err.stack);
-                throw err;
-            });
+        try {
+            await reclaimer_mock.run_agent_blocks_reclaimer();
+            assert(reclaimer_mock.blocks[0].reclaimed && !reclaimer_mock.blocks[0].fail_to_delete, 'Block was not reclaimed');
+            assert(!reclaimer_mock.blocks[1].reclaimed && reclaimer_mock.blocks[1].fail_to_delete, 'Block was reclaimed on failure to delete');
+            assert(reclaimer_mock.reclaimed_blocks.length === 2, 'Reclaimer did not sent delete to nodes');
+        } catch (err) {
+            console.error(err, err.stack);
+            throw err;
+        }
     });
 
 });

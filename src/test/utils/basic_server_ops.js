@@ -5,7 +5,6 @@ const _ = require('lodash');
 const request = require('request');
 const fs = require('fs');
 const crypto = require('crypto');
-const os = require('os');
 const util = require('util');
 const P = require('../../util/promise');
 const ec2_wrap = require('../../deploy/ec2_wrapper');
@@ -170,9 +169,9 @@ function generate_random_file(size_mb, extension) {
     var fname = test_file + suffix;
     var dd_cmd;
 
-    if (os.type() === 'Darwin') {
+    if (process.platform === 'darwin') {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1m';
-    } else if (os.type() === 'Linux') {
+    } else if (process.platform === 'linux') {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
     }
 

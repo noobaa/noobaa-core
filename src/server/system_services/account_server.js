@@ -14,7 +14,6 @@ const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
 const { StorageError } = require('azure-storage/lib/common/errors/errors');
-const SensetiveString = require('../../util/sensitive_string');
 const server_rpc = require('../server_rpc');
 
 const config = require('../../../config');
@@ -195,7 +194,7 @@ function create_external_user_account(req) {
         internalStorage[0];
 
     Object.assign(req.rpc_params, {
-        password: new SensetiveString(chance.string({ length: 16 })),
+        password: new SensitiveString(chance.string({ length: 16 })),
         must_change_password: false,
         has_login: true,
         s3_access: true,
@@ -944,7 +943,7 @@ async function check_google_connection(params) {
         await storage.getBuckets();
         return { status: 'SUCCESS' };
     } catch (err) {
-        // Currently we treat all errors as invalid credientials errors,
+        // Currently we treat all errors as invalid credentials errors,
         // because all information should exists in the keys file.
         return {
             status: 'INVALID_CREDENTIALS',
@@ -988,7 +987,7 @@ function check_aws_connection(params) {
                     status,
                     error: {
                         code: err.code,
-                        message: err.message || 'Unkown Error'
+                        message: err.message || 'Unknown Error'
                     }
                 };
             }

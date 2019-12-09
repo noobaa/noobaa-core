@@ -5,13 +5,10 @@
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 
-// const _ = require('lodash');
 const AWS = require('aws-sdk');
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
-
-const P = require('../../util/promise');
 
 const SKIP_TEST = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY;
 
@@ -28,47 +25,42 @@ mocha.describe('s3_ops', function() {
 
     let s3;
 
-    mocha.before(function() {
+    mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
 
-        return P.resolve()
-            .then(() => rpc_client.account.read_account({
-                email: EMAIL,
-            }))
-            .then(account_info => {
-                s3 = new AWS.S3({
-                    endpoint: coretest.get_http_address(),
-                    accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-                    secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
-                    s3ForcePathStyle: true,
-                    signatureVersion: 'v4',
-                    computeChecksums: true,
-                    s3DisableBodySigning: false,
-                    region: 'us-east-1',
-                    httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-                });
-                coretest.log('S3 CONFIG', s3.config);
-            });
+        const account_info = await rpc_client.account.read_account({ email: EMAIL, });
+        s3 = new AWS.S3({
+            endpoint: coretest.get_http_address(),
+            accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            s3ForcePathStyle: true,
+            signatureVersion: 'v4',
+            computeChecksums: true,
+            s3DisableBodySigning: false,
+            region: 'us-east-1',
+            httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        });
+        coretest.log('S3 CONFIG', s3.config);
     });
 
     mocha.describe('bucket-ops', function() {
-        mocha.it('should create bucket', function() {
-            return s3.createBucket({ Bucket: BKT1 }).promise();
+        mocha.it('should create bucket', async function() {
+            await s3.createBucket({ Bucket: BKT1 }).promise();
         });
-        mocha.it('should head bucket', function() {
-            return s3.headBucket({ Bucket: BKT1 }).promise();
+        mocha.it('should head bucket', async function() {
+            await s3.headBucket({ Bucket: BKT1 }).promise();
         });
-        mocha.it('should list buckets with one bucket', function() {
-            return s3.listBuckets().promise()
-                .then(res => assert(res.Buckets.find(bucket => bucket.Name === BKT1)));
+        mocha.it('should list buckets with one bucket', async function() {
+            const res = await s3.listBuckets().promise();
+            assert(res.Buckets.find(bucket => bucket.Name === BKT1));
         });
-        mocha.it('should delete bucket', function() {
-            return s3.deleteBucket({ Bucket: BKT1 }).promise();
+        mocha.it('should delete bucket', async function() {
+            await s3.deleteBucket({ Bucket: BKT1 }).promise();
         });
-        mocha.it('should list buckets after no buckets left', function() {
-            return s3.listBuckets().promise()
-                .then(res => assert(!res.Buckets.find(bucket => bucket.Name === BKT1)));
+        mocha.it('should list buckets after no buckets left', async function() {
+            const res = await s3.listBuckets().promise();
+            assert(!res.Buckets.find(bucket => bucket.Name === BKT1));
         });
     });
 

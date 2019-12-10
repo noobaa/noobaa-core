@@ -133,6 +133,21 @@ class MDStore {
     }
 
     /**
+     * @param {nb.ID[]} object_ids
+     * @param {Object} [set_updates]
+     * @param {Object} [unset_updates]
+     */
+    async update_objects_by_ids(object_ids, set_updates, unset_updates) {
+        if (!object_ids || !object_ids.length) return;
+        dbg.log0('update_object_by_id:', object_ids.join(','), compact_updates(set_updates, unset_updates));
+        await this._objects.col().updateMany({
+            _id: {
+                $in: object_ids
+            }
+        }, compact_updates(set_updates, unset_updates));
+    }
+
+    /**
      * @param {nb.ID} obj_id
      * @returns {Promise<nb.ObjectMD>}
      */
@@ -494,6 +509,16 @@ class MDStore {
                 }
             }
         };
+    }
+
+    async find_unreclaimed_objects(limit) {
+        const results = await this._objects.col().find({
+            deleted: { $exists: true },
+            reclaimed: null
+        }, {
+            limit: Math.min(limit, 1000),
+        }).toArray();
+        return results;
     }
 
     async list_objects({
@@ -1058,15 +1083,15 @@ class MDStore {
      * @param {nb.ObjectMD} obj
      * @returns {Promise<nb.ID[]>}
      */
-    async find_parts_chunk_ids(obj, none_deleted_only) {
+    async find_parts_chunk_ids(obj) {
         const find = {
             obj: obj._id,
+            deleted: null,
         };
-        if (none_deleted_only) find.deleted = null;
         return this._parts.col().find(find, {
                 projection: {
                     _id: 0,
-                    chunk: 1
+                    chunk: 1,
                 }
             })
             .toArray()
@@ -1386,6 +1411,17 @@ class MDStore {
             $unset: {
                 dedup_key: true
             }
+        });
+    }
+
+    // Only for clean up in testing - Don't use unless you are sure!!!!
+    async delete_all_chunks_in_system() {
+        const delete_date = new Date();
+        return this._chunks.col().updateMany({}, {
+            $set: {
+                deleted: delete_date,
+                reclaimed: delete_date
+            },
         });
     }
 

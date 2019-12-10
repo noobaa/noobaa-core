@@ -65,7 +65,7 @@ class BucketsReclaimer {
 
     _can_run() {
         if (!system_store.is_finished_initial_load) {
-            dbg.log0('MirrorWriter: system_store did not finish initial load');
+            dbg.log0('BucketsReclaimer: system_store did not finish initial load');
             return false;
         }
 

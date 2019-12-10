@@ -15,6 +15,7 @@ module.exports = {
 
         _id: { objectid: true },
         deleted: { date: true },
+        reclaimed: { date: true },
         system: { objectid: true },
         bucket: { objectid: true },
 

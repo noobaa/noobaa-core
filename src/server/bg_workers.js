@@ -21,6 +21,7 @@ var cluster_hb = require('./bg_services/cluster_hb');
 var server_rpc = require('./server_rpc');
 var mongo_client = require('../util/mongo_client');
 var { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
+var { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
 var { MirrorWriter } = require('./bg_services/mirror_writer');
 var { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
 var { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
@@ -133,6 +134,15 @@ function run_master_workers() {
         }));
     } else {
         dbg.warn('BUCKET_RECLAIMER NOT ENABLED');
+    }
+
+    if (config.OBJECT_RECLAIMER_ENABLED) {
+        register_bg_worker(new ObjectsReclaimer({
+            name: 'object_reclaimer',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('OBJECT_RECLAIMER NOT ENABLED');
     }
 
     if (config.TIER_TTF_WORKER_ENABLED) {

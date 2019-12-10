@@ -93,8 +93,6 @@ class MapBuilder {
         const loaded_chunks = loaded_chunks_db.map(chunk_db => new ChunkDB(chunk_db));
         dbg.log1('MapBuilder.reload_chunks:', loaded_chunks);
 
-        const objects_to_delete = [];
-
         /** @type {nb.Block[]} */
         const blocks_to_delete = [];
 
@@ -138,42 +136,6 @@ class MapBuilder {
                     return;
                 }
 
-                // TODO JACKY handle objects in map_builder 
-                // chunk leading to a deleted bucket (uncompleted objects doesn't prevent bucket deletion) - chunk should be deleted 
-                // test - copy object between buckets - delete source bucket - verify chunks both source and target objects
-
-                // const objects = chunk.to_db().objects;
-                // if (!objects || !objects.length) throw new Error('No valid objects are pointing to chunk' + chunk._id);
-                // /** @type {nb.ID[]} */
-                // const object_bucket_ids = mongo_utils.uniq_ids(objects, 'bucket');
-                // /** @type {nb.Bucket[]} */
-                // const valid_buckets = _.compact(object_bucket_ids.map(bucket_id => system_store.data.get_by_id(bucket_id)));
-                // if (valid_buckets.length > 1) {
-                //     dbg.error(`Chunk ${chunk._id} is held by objects from ${object_bucket_ids.length} different buckets`);
-                // }
-                // if (!valid_buckets.length) {
-                //     const res = await system_store.data.get_by_id_include_deleted(chunk.bucket, 'buckets');
-                //     /** @type {nb.Bucket} */
-                //     const deleted_bucket = res.record;
-                //     if (!deleted_bucket) {
-                //         //We prefer to leave the option for manual fix if we'll need it
-                //         dbg.error(`Chunk ${chunk._id} is held by ${objects.length} invalid objects. The following objects have no valid bucket`, objects);
-                //         throw new Error('Chunk held by invalid objects');
-                //     }
-                //     dbg.warn(`Chunk ${chunk._id} is held by a deleted bucket ${deleted_bucket.name} marking for deletion`);
-                //     chunk.bucket = deleted_bucket._id;
-                //     objects_to_delete.push(...objects.filter(obj => _.isEqual(obj.bucket, deleted_bucket._id)));
-                // }
-                // if (!chunk.bucket || !object_bucket_ids.find(id => String(id) === String(chunk.bucket._id))) {
-                //     dbg.error('chunk', chunk._id, 'is holding an invalid bucket', chunk.bucket, 'fixing to', valid_buckets[0]);
-                //     const valid_bucket = valid_buckets[0]; // This is arbitrary, but there shouldn't be more than one in a healthy system
-                //     if (!valid_bucket) {
-                //         throw new Error('Could not fix chunk bucket. No suitable bucket found');
-                //     }
-                //     chunk.bucket = valid_bucket._id;
-                //     await MDStore.instance().update_chunk_by_id(chunk._id, { bucket: valid_bucket._id });
-                // }
-
                 chunks_to_build.push(chunk);
 
             } catch (err) {
@@ -181,27 +143,16 @@ class MapBuilder {
             }
         });
 
-        const objects_to_delete_uniq = _.uniqBy(objects_to_delete, obj => obj._id.toHexString());
         const chunks_to_delete_uniq = _.uniqBy(chunks_to_delete, chunk => chunk._id.toHexString());
 
         dbg.log1('MapBuilder.update_db:',
             'chunks_to_build', chunks_to_build.length,
-            'objects_to_delete_uniq', objects_to_delete_uniq.length,
             'chunks_to_delete_uniq', chunks_to_delete_uniq.length,
             'blocks_to_delete', blocks_to_delete.length);
 
         await Promise.all([
             map_deleter.delete_blocks(blocks_to_delete),
             map_deleter.delete_chunks(chunks_to_delete_uniq),
-            // We do not care about the latest flags for objects that do not have a bucket
-            objects_to_delete_uniq.map(async obj => {
-                try {
-                    await MDStore.instance().remove_object_and_unset_latest(obj);
-                    await map_deleter.delete_object_mappings(obj);
-                } catch (err) {
-                    dbg.error('Failed to delete object', obj, 'with error', err);
-                }
-            }),
         ]);
 
         return chunks_to_build;

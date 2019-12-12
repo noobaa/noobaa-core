@@ -17,6 +17,7 @@ const nodes_client = require('../node_services/nodes_client');
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
+const server_rpc = require('../server_rpc');
 
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
@@ -293,6 +294,62 @@ function update_policy(req) {
             return get_tiering_policy_info(created_policy);
         });
 
+}
+
+function _check_validity_of_configuration({ req, bucket_class_buckets }) {
+    const { tiers } = req.rpc_params;
+    if (!_.every(bucket_class_buckets, bucket => tiers.length >= bucket.tiering.tiers.length)) throw new RpcError('BAD_REQUEST', 'cannot remove tiers');
+    try {
+        tiers.forEach(tier => throw_on_invalid_pools_for_tier((tier.attached_pools || []).map(pool_name =>
+            req.system.pools_by_name[pool_name]
+        )));
+    } catch (error) {
+        dbg.error('_check_validity_of_configuration failed with', error);
+        throw new RpcError('BAD_REQUEST', 'invalid attached_pools in tiers');
+    }
+}
+
+async function update_bucket_class(req) {
+    const { name, policy, tiers } = req.rpc_params;
+    if (policy.tiers.length !== tiers.length) throw new RpcError('BAD_REQUEST', 'policy tiers and tiers length mismatch');
+    // Filter and pick buckets that were created via OBC
+    const bucket_class_buckets = _.filter(system_store.data.buckets, bucket =>
+        bucket.bucket_claim && (_.isEqual(bucket.bucket_claim.bucket_class, name)));
+    if (_.isEmpty(bucket_class_buckets)) return;
+    _check_validity_of_configuration({ req, bucket_class_buckets });
+    for (const bucket of bucket_class_buckets) {
+        const old_policy = bucket.tiering;
+        const old_tiers = old_policy.tiers
+            .map(obj => obj.tier.name);
+        for (const [index, tier] of tiers.entries()) {
+            const old_tier = old_tiers[index];
+            const new_name = `${bucket.name.unwrap()}.${Math.round(Date.now() / 1000)}.${index}`;
+            policy.tiers[index].tier = new_name;
+            if (old_tier) {
+                await server_rpc.client.tier.update_tier({
+                    name: old_tier,
+                    new_name,
+                    chunk_coder_config: tier.chunk_coder_config,
+                    attached_pools: tier.attached_pools,
+                    data_placement: tier.data_placement,
+                }, {
+                    auth_token: req.auth_token
+                });
+            } else {
+                await server_rpc.client.tier.create_tier({
+                    name: new_name,
+                    chunk_coder_config: tier.chunk_coder_config,
+                    attached_pools: tier.attached_pools,
+                    data_placement: tier.data_placement,
+                }, {
+                    auth_token: req.auth_token
+                });
+            }
+        }
+        await server_rpc.client.tiering_policy.update_policy(_.defaults({ name: old_policy.name }, policy), {
+            auth_token: req.auth_token
+        });
+    }
 }
 
 function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy
@@ -713,3 +770,4 @@ exports.add_tier_to_bucket = add_tier_to_bucket;
 exports.get_policy_pools = get_policy_pools;
 exports.read_policy = read_policy;
 exports.delete_policy = delete_policy;
+exports.update_bucket_class = update_bucket_class;

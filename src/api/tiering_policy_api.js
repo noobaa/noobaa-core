@@ -41,6 +41,39 @@ module.exports = {
             }
         },
 
+        update_bucket_class: {
+            doc: 'Update Bucket Class',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name', 'policy', 'tiers'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    policy: {
+                        $ref: '#/definitions/tiering_policy'
+                    },
+                    tiers: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name'],
+                            properties: {
+                                name: { $ref: 'common_api#/definitions/tier_name' },
+                                chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                                data_placement: { $ref: 'tier_api#/definitions/data_placement_enum' },
+                                attached_pools: { $ref: 'tier_api#/definitions/pool_info' },
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         add_tier_to_bucket: {
             doc: 'Adding Tier to Tiering Policy',
             method: 'POST',

@@ -291,7 +291,6 @@ async function abort_object_upload(req) {
     //while continuing to ul resulting in a partial file
     const obj = await find_object_upload(req);
     await MDStore.instance().delete_object_by_id(obj._id);
-    await map_deleter.delete_object_mappings(obj);
 }
 
 
@@ -1396,7 +1395,6 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                 set_updates,
                 unset_updates,
             });
-            map_deleter.delete_object_mappings(obj, true);
         } else {
             // 6
             await MDStore.instance().update_object_by_id(put_obj._id, set_updates, unset_updates);
@@ -1439,7 +1437,6 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                         set_updates,
                         unset_updates,
                     });
-                    map_deleter.delete_object_mappings(obj);
                 } else {
                     // 6
                     await MDStore.instance().update_object_by_id(put_obj._id, set_updates, unset_updates);
@@ -1451,7 +1448,6 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                     set_updates,
                     unset_updates,
                 });
-                map_deleter.delete_object_mappings(obj);
             }
         } else {
             const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
@@ -1487,7 +1483,6 @@ async function _delete_object_version(req) {
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         // 2, 3, 8
         await MDStore.instance().remove_object_and_unset_latest(obj);
-        await map_deleter.delete_object_mappings(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
 
@@ -1500,7 +1495,6 @@ async function _delete_object_version(req) {
         if (obj.version_past) {
             // 2, 8
             await MDStore.instance().delete_object_by_id(obj._id);
-            await map_deleter.delete_object_mappings(obj);
             return { obj, reply: _get_delete_obj_reply(obj) };
         } else {
             // deleting latest
@@ -1510,12 +1504,10 @@ async function _delete_object_version(req) {
                 check_md_conditions(req, req.rpc_params.md_conditions, prev_version);
                 // 2, 3, 4, 8
                 await MDStore.instance().remove_object_move_latest(obj, prev_version);
-                await map_deleter.delete_object_mappings(obj);
                 return { obj, reply: _get_delete_obj_reply(obj) };
             } else {
                 // 2, 3, 8
                 await MDStore.instance().remove_object_and_unset_latest(obj);
-                await map_deleter.delete_object_mappings(obj);
                 return { obj, reply: _get_delete_obj_reply(obj) };
             }
         }
@@ -1532,7 +1524,6 @@ async function _delete_object_only_key(req) {
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
         await MDStore.instance().remove_object_and_unset_latest(obj);
-        await map_deleter.delete_object_mappings(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
     }
 
@@ -1566,7 +1557,6 @@ async function _delete_object_only_key(req) {
                     check_md_conditions(req, req.rpc_params.md_conditions, latest_obj);
                     // 3, 5
                     const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj, latest_obj);
-                    await map_deleter.delete_object_mappings(obj);
                     return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
                 } else {
                     // TODO: Should not happen since it means that we do not have latest
@@ -1575,7 +1565,6 @@ async function _delete_object_only_key(req) {
             } else {
                 // 2, 3, 5
                 const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj);
-                await map_deleter.delete_object_mappings(obj);
                 return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
             }
         } else {

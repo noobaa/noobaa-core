@@ -7,6 +7,9 @@ const crypto = require('crypto');
 const P = require('../util/promise');
 const api = require('../api');
 const dbg = require('../util/debug_module')(__filename);
+const system_store = require('../server/system_services/system_store').get_instance();
+const node_allocator = require('../server/node_services/node_allocator');
+const { new_object_id } = require('../util/mongo_utils');
 
 const rpc = api.new_rpc();
 const client = rpc.new_client();
@@ -23,29 +26,35 @@ argv.key = argv.key || ('md_blow-' + Date.now().toString(36));
 
 main();
 
-function main() {
-    return client.create_auth_token({
+async function main() {
+    try {
+        await system_store.load();
+        await client.create_auth_token({
             email: argv.email,
             password: argv.password,
             system: argv.system,
-        })
-        .then(() => blow_objects())
-        .then(() => process.exit(0))
-        .catch(() => process.exit(1));
+        });
+        await blow_objects();
+        process.exit(0);
+    } catch (err) {
+        dbg.error('FATAL', err);
+        process.exit(1);
+    }
 }
 
-function blow_objects() {
+async function blow_objects() {
     let index = 0;
 
-    function blow_next() {
+    async function blow_next() {
         if (index >= argv.count) return;
         index += 1;
-        return blow_object(index).then(blow_next);
+        await blow_object(index);
+        await blow_next();
     }
-    return P.all(_.times(argv.concur, blow_next));
+    await P.all(_.times(argv.concur, blow_next));
 }
 
-function blow_object(index) {
+async function blow_object(index) {
     const params = {
         bucket: argv.bucket,
         key: argv.key + '-' + index,
@@ -53,58 +62,62 @@ function blow_object(index) {
         content_type: 'application/octet_stream'
     };
     dbg.log0('create_object_upload', params.key);
-    return client.object.create_object_upload(params)
-        .then(create_reply => {
-            params.obj_id = create_reply.obj_id;
-            return blow_parts(params);
-        })
-        .then(() => {
-            let complete_params = _.pick(params, 'bucket', 'key', 'size', 'obj_id');
-            complete_params.etag = 'bla';
-            dbg.log0('complete_object_upload', params.key);
-            return client.object.complete_object_upload(complete_params);
-        });
+    const create_reply = await client.object.create_object_upload(params);
+    params.obj_id = create_reply.obj_id;
+    await blow_parts(params);
+    let complete_params = _.pick(params, 'bucket', 'key', 'size', 'obj_id');
+    complete_params.etag = 'bla';
+    dbg.log0('complete_object_upload', params.key);
+    await client.object.complete_object_upload(complete_params);
 }
 
-function blow_parts(params) {
-    dbg.log0('allocate_object_parts', params.key);
-
-    return P.resolve()
-        .then(() => client.bucket.read_bucket({ name: params.bucket }))
-        .then(bucket => {
-            const [record] = bucket.tiering.tiers;
-            return client.tier.read_tier({ name: record.tier });
-        })
-        .then(tier => client.object.allocate_object_parts({
-            obj_id: params.obj_id,
-            bucket: params.bucket,
-            key: params.key,
-            parts: _.times(argv.chunks, i => ({
-                start: i * argv.chunk_size,
-                end: (i + 1) * argv.chunk_size,
-                seq: i,
-                chunk: {
-                    chunk_coder_config: tier.chunk_coder_config,
-                    size: argv.chunk_size,
-                    frag_size: argv.chunk_size,
-                    compress_size: argv.chunk_size,
-                    digest_b64: crypto.randomBytes(32).toString('base64'),
-                    cipher_key_b64: crypto.randomBytes(32).toString('base64'),
-                    cipher_iv_b64: crypto.randomBytes(32).toString('base64'),
-                    frags: _.times(6, data_index => ({
-                        data_index,
-                        digest_b64: crypto.randomBytes(32).toString('base64'),
-                    }))
-                }
-            }))
-        }))
-        .then(res => {
-            dbg.log0('finalize_object_parts', params.key);
-            return client.object.finalize_object_parts({
-                obj_id: params.obj_id,
-                bucket: params.bucket,
-                key: params.key,
-                parts: res.parts
-            });
+async function blow_parts(params) {
+    try {
+        dbg.log0('allocate_object_parts', params.key);
+        const bucket = await client.bucket.read_bucket({ name: params.bucket });
+        const bucket_db = _.find(system_store.data.buckets, b => (b.name.unwrap() === bucket.name.unwrap()));
+        const [record] = bucket.tiering.tiers;
+        const tier = await client.tier.read_tier({ name: record.tier });
+        const tier_db = _.find(system_store.data.tiers, t => (t.name.unwrap() === tier.name.unwrap()));
+        const pool_db = system_store.data.pools[0];
+        await node_allocator.refresh_pool_alloc(pool_db);
+        const node = node_allocator.allocate_node({
+            pools: [pool_db]
         });
+        await client.object.put_mapping({
+            chunks: _.times(argv.chunks, i => ({
+                bucket_id: bucket_db._id,
+                tier_id: tier_db._id,
+                chunk_coder_config: tier.chunk_coder_config,
+                size: argv.chunk_size,
+                frag_size: argv.chunk_size,
+                compress_size: argv.chunk_size,
+                digest_b64: crypto.randomBytes(32).toString('base64'),
+                cipher_key_b64: crypto.randomBytes(32).toString('base64'),
+                cipher_iv_b64: crypto.randomBytes(32).toString('base64'),
+                frags: _.times(6, data_index => ({
+                    data_index,
+                    digest_b64: crypto.randomBytes(32).toString('base64'),
+                    blocks: [],
+                    allocations: [{
+                        mirror_group: 'abc',
+                        block_md: {
+                            id: new_object_id().toHexString(),
+                            node: node._id,
+                            pool: pool_db._id,
+                            size: argv.chunk_size
+                        },
+                    }],
+                })),
+                parts: [{
+                    start: i * argv.chunk_size,
+                    end: (i + 1) * argv.chunk_size,
+                    seq: i,
+                    obj_id: params.obj_id,
+                }],
+            }))
+        });
+    } catch (err) {
+        dbg.error('Test failed with following error', err);
+    }
 }

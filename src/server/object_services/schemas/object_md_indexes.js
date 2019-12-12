@@ -115,6 +115,7 @@ module.exports = [
         // aggregate_objects_by_delete_dates()
         fields: {
             deleted: 1,
+            reclaimed: 1,
         },
         options: {
             unique: false,

@@ -16,6 +16,7 @@ process.env.MONGODB_URL = process.env.CORETEST_MONGODB_URL;
 
 const config = require('../../../config.js');
 const system_store = require('../../server/system_services/system_store').get_instance();
+const MDStore = require('../../server/object_services/md_store').MDStore;
 
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
@@ -339,8 +340,9 @@ async function init_test_pools(client, system_name, pools_to_create) {
 
 // delete all test pools (including hosts and agents)
 async function clear_test_pools() {
+    console.log('CLEANING ALL CHUNKS');
+    await MDStore.instance().delete_all_chunks_in_system();
     console.log('CLEANING POOLS');
-
     // Remove all connections between buckets and pools.
     await Promise.all(
         system_store.data.tiers.map(tier =>

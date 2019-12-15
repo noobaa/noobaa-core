@@ -39,7 +39,7 @@ class TieringSpillbackWorker {
         console.log('TieringSpillbackWorker: start running');
         const spillback_buckets = this._get_spillback_buckets();
         if (!spillback_buckets || !spillback_buckets.length) {
-            dbg.log0('no buckets with spillback tier. nothing to do');
+            dbg.log2('no buckets with spillback tier. nothing to do');
             return config.TIER_SPILLBACK_WORKER_EMPTY_DELAY;
         }
         const wait = await this._spillback_need_to_move_chunks(spillback_buckets);

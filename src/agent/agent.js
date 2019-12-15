@@ -809,7 +809,7 @@ class Agent {
                 // so mark the usage on the drive of our storage folder.
                 const used_size = reply.storage.used;
                 const used_drives = _.filter(drives, drive => {
-                    dbg.log0('used drives:', this.storage_path_mount, drive, used_size);
+                    dbg.log3('used drives:', this.storage_path_mount, drive, used_size);
                     //if there is no this.storage_path_mount, it's a memory agent for testing.
                     if (drive.temporary_drive) return false;
                     if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {

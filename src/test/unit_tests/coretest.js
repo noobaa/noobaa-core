@@ -339,6 +339,7 @@ async function init_test_pools(client, system_name, pools_to_create) {
 // delete all test pools (including hosts and agents)
 async function clear_test_pools() {
     console.log('CLEANING ALL CHUNKS');
+    // as we don't run object_reclaimer bg, some chunks can be left in system and rebuilds will never let the tests finish
     await MDStore.instance().delete_all_chunks_in_system();
     console.log('CLEANING POOLS');
     // Remove all connections between buckets and pools.

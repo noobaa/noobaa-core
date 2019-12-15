@@ -12,6 +12,7 @@ module.exports = [{
             start: 1,
         },
         options: {
+            name: 'obj_1_start_1',
             unique: false,
             partialFilterExpression: {
                 obj: { $exists: true },

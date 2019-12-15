@@ -45,13 +45,13 @@ async function main() {
 async function blow_objects() {
     let index = 0;
 
-    async function blow_next() {
-        if (index >= argv.count) return;
-        index += 1;
-        await blow_object(index);
-        await blow_next();
+    async function blow_serial() {
+        while (index < argv.count) {
+            index += 1;
+            await blow_object(index);
+        }
     }
-    await P.all(_.times(argv.concur, blow_next));
+    await P.all(_.times(argv.concur, blow_serial));
 }
 
 async function blow_object(index) {

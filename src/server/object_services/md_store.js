@@ -24,6 +24,7 @@ const data_chunk_schema = require('./schemas/data_chunk_schema');
 const data_chunk_indexes = require('./schemas/data_chunk_indexes');
 const data_block_schema = require('./schemas/data_block_schema');
 const data_block_indexes = require('./schemas/data_block_indexes');
+const config = require('../../../config');
 
 
 class MDStore {
@@ -517,6 +518,7 @@ class MDStore {
             reclaimed: null
         }, {
             limit: Math.min(limit, 1000),
+            hint: 'deleted_unreclaimed_index',
         }).toArray();
         return results;
     }
@@ -1092,7 +1094,8 @@ class MDStore {
                 projection: {
                     _id: 0,
                     chunk: 1,
-                }
+                },
+                hint: 'obj_1_start_1'
             })
             .toArray()
             .then(parts => mongo_utils.uniq_ids(parts, 'chunk'));
@@ -1416,11 +1419,11 @@ class MDStore {
 
     // Only for clean up in testing - Don't use unless you are sure!!!!
     async delete_all_chunks_in_system() {
+        assert(config.test_mode, 'This function should be called only in test mode!');
         const delete_date = new Date();
         return this._chunks.col().updateMany({}, {
             $set: {
                 deleted: delete_date,
-                reclaimed: delete_date
             },
         });
     }

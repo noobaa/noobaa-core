@@ -115,7 +115,6 @@ module.exports = [
         // aggregate_objects_by_delete_dates()
         fields: {
             deleted: 1,
-            reclaimed: 1,
         },
         options: {
             unique: false,
@@ -145,4 +144,24 @@ module.exports = [
         }
     },
 
+    //////////////////////
+    // OBJECT RECLAIMER //
+    //////////////////////
+
+    {
+        fields: {
+            deleted: 1,
+            // we include reclaimed as extra index field to separate from aggregate_objects_by_delete_dates index.
+            // note that reclaimed is always null here by partialFilterExpression.
+            reclaimed: 1
+        },
+        options: {
+            name: 'deleted_unreclaimed_index',
+            unique: false,
+            partialFilterExpression: {
+                deleted: { $exists: true },
+                reclaimed: null
+            }
+        }
+    },
 ];

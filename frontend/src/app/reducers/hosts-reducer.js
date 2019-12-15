@@ -27,7 +27,6 @@ import {
 
 const inMemoryQueryLimit = 10;
 const inMemoryHostLimit = paginationPageSize.default * inMemoryQueryLimit;
-const endpointUsageStatsTimeSpan = 7 * 24 * 60 * 60 * 1000; /* 7 days in miliseconds */
 const eventToReasonCode = deepFreeze({
     PERMISSION_EVENT: 'TEMPERING',
     DATA_EVENT: 'CORRUPTION'
@@ -58,12 +57,12 @@ function onFetchHosts(state, { payload, timestamp }) {
 }
 
 function onCompleteFetchHosts(state, { payload }) {
-    const { query, response } = payload;
+    const { response } = payload;
 
     const items = keyByProperty(
         response.hosts,
         'name',
-        data => _mapDataToHost(state.items[data.name], data, query.timestamp)
+        data => _mapDataToHost(state.items[data.name], data)
     );
 
     const counters = {
@@ -168,8 +167,8 @@ function onRemoveHost(state, { payload } ) {
 // Local util functions
 // ------------------------------
 
-function _mapDataToHost(host = {}, data, fetchTime) {
-    const { storage_nodes_info, s3_nodes_info, os_info, ports, debug } = data;
+function _mapDataToHost(host = {}, data) {
+    const { storage_nodes_info, os_info, ports, debug } = data;
     const { diagnostics = initialHostDiagnosticsState } = host;
 
     const reasonByMount = groupBy(
@@ -218,8 +217,7 @@ function _mapDataToHost(host = {}, data, fetchTime) {
         trusted: data.trusted,
         activities: activities,
         services: {
-            storage: _mapStorageService(storage_nodes_info, reasonByMount),
-            endpoint: _mapEndpointService(s3_nodes_info, fetchTime)
+            storage: _mapStorageService(storage_nodes_info, reasonByMount)
         },
         upTime: os_info.uptime,
         os: os_info.ostype,
@@ -267,36 +265,6 @@ function _mapStorageService({ mode, enabled, nodes }, reasonByMount) {
             };
         })
     };
-}
-
-function _mapEndpointService(endpointData, fetchTime) {
-    const { mode, enabled, stats } = endpointData;
-    const serviceState = {
-        mode,
-        enabled: Boolean(enabled)
-    };
-
-    if (stats) {
-        const sevenDaysAgo  = fetchTime - endpointUsageStatsTimeSpan;
-        const last7Days = stats.daily_stats
-            .filter(record => record.time >= sevenDaysAgo)
-            .reduce(
-                (sum, record) => {
-                    sum.bytesRead += record.read_bytes;
-                    sum.bytesWritten += record.write_bytes;
-                    return sum;
-                },
-                { bytesWritten: 0, bytesRead: 0 }
-            );
-
-        serviceState.usage = {
-            lastRead: stats.last_read,
-            lastWrite: stats.last_write,
-            last7Days
-        };
-    }
-
-    return serviceState;
 }
 
 // ------------------------------

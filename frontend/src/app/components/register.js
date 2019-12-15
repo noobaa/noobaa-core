@@ -187,7 +187,6 @@ import cloudResourcePropertiesForm from './cloud-resource/cloud-resource-propert
 import hostPanel from './host/host-panel/host-panel';
 import hostSummary from './host/host-summary/host-summary';
 import hostDetailsForm from './host/host-details-form/host-details-form';
-import hostEndpointForm from './host/host-endpoint-form/host-endpoint-form';
 import hostDiagnosticsForm from './host/host-diagnostics-form/host-diagnostics-form';
 /** INJECT:host.import **/
 
@@ -502,7 +501,6 @@ export default function register(ko, services) {
         hostPanel,
         hostSummary,
         hostDetailsForm,
-        hostEndpointForm,
         hostDiagnosticsForm,
         /** INJECT:host.list **/
 

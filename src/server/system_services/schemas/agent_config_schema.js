@@ -31,9 +31,6 @@ module.exports = {
         use_storage: {
             type: 'boolean'
         },
-        use_s3: {
-            type: 'boolean'
-        },
         routing_hint: {
             type: 'string',
             enum: ['INTERNAL', 'EXTERNAL']

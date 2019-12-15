@@ -90,19 +90,19 @@ run_agent_container() {
     echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
   fi
   node ./src/agent/agent_cli
-  # Providing an env variable with the name "LOOP_ON_FAIL=true" 
+  # Providing an env variable with the name "LOOP_ON_FAIL=true"
   # will trigger the condition below.
-  # Currently we will loop on any exit of the agent_cli 
+  # Currently we will loop on any exit of the agent_cli
   # regardless to the exit code
-  while [ "${LOOP_ON_FAIL}" == "true" ] 
+  while [ "${LOOP_ON_FAIL}" == "true" ]
   do
-    echo "$(date) Failed to run agent_cli" 
+    echo "$(date) Failed to run agent_cli"
     sleep 10
   done
 }
 
 prepare_server_pvs() {
-  # change ownership and permissions of /data and /log. 
+  # change ownership and permissions of /data and /log.
   ${KUBE_PV_CHOWN} server
   # when running in kubernetes\openshift we mount PV under /data and /log
   # ensure existence of folders such as mongo, supervisor, etc.
@@ -112,12 +112,24 @@ prepare_server_pvs() {
 prepare_mongo_pv() {
   local dir="/mongo_data/mongo/cluster/shard1"
 
-  # change ownership and permissions of mongo db path 
+  # change ownership and permissions of mongo db path
   ${KUBE_PV_CHOWN} mongo
 
   mkdir -p ${dir}
-  chgrp 0 ${dir} 
+  chgrp 0 ${dir}
   chmod g=u ${dir}
+}
+
+run_endpoint_container() {
+  /usr/local/bin/node ./src/s3/s3rver_starter.js
+}
+
+init_endpoint() {
+  fix_non_root_user
+  extract_noobaa_in_docker
+
+  cd /root/node_modules/noobaa-core/
+  run_endpoint_container
 }
 
 init_noobaa_server() {
@@ -131,7 +143,7 @@ init_noobaa_server() {
 init_noobaa_agent() {
   fix_non_root_user
   extract_noobaa_in_docker
-  
+
   mkdir -p /noobaa_storage
   ${KUBE_PV_CHOWN} agent
 
@@ -151,6 +163,9 @@ then
 elif [ "${RUN_INIT}" == "init_mongo" ]
 then
   init_pod
+elif [ "${RUN_INIT}" == "init_endpoint" ]
+then
+  init_endpoint
 else
   init_noobaa_server
 fi

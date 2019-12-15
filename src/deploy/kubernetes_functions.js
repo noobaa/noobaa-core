@@ -101,11 +101,13 @@ class KubernetesFunctions {
             if (statefulset.spec.template.spec.initContainers) {
                 statefulset.spec.template.spec.initContainers[0].image = image;
             }
+            statefulset.spec.template.spec.containers[2].image = image;
         }
 
         if (pull_always) {
             // change pull policy to always
             statefulset.spec.template.spec.containers[0].imagePullPolicy = 'Always';
+            statefulset.spec.template.spec.containers[2].imagePullPolicy = 'Always';
         }
 
         if (cpu) {

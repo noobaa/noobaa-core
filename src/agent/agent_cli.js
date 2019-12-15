@@ -30,8 +30,6 @@ const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to re
 const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;
 const DETECT_NEW_DRIVES_INTERVAL = 60 * 1000;
 
-const S3_AGENT_NAME_PREFIX = 's3-agent-';
-
 const hosts = {};
 
 /**
@@ -284,27 +282,6 @@ class AgentCLI {
                     });
             }))
             .then(storage_path_nodes => {
-                // no need to load s3 when adding new drives
-                if (added_storage_paths) return storage_path_nodes;
-                // if no s3 agent exist for root storage path, run one
-                let s3_started = _.find(_.flatten(storage_path_nodes), name => this._is_s3_agent(name));
-                if (!s3_started) {
-                    const root_storage_path = self.params.all_storage_paths.find(storage_path => storage_path.mount === '/noobaa_storage') ||
-                        self.params.all_storage_paths[0];
-                    // create path for s3 agent. it will be used if agent_conf contains s3 role
-                    dbg.log0(`creating s3 storage_path in ${root_storage_path}`);
-                    return self.create_node_helper(root_storage_path, {
-                            is_s3_agent: true
-                        })
-                        // return storage nodes that will be created according to scale
-                        .then(() => storage_path_nodes);
-                }
-                dbg.log0(`found started s3 node ${s3_started}. skipping creation`);
-                // remover s3 node name from storage_path_nodes[0] so scale will be calculated according to storage nodes only.
-                storage_path_nodes[0] = _.reject(storage_path_nodes[0], name => this._is_s3_agent(name));
-                return storage_path_nodes;
-            })
-            .then(storage_path_nodes => {
                 var nodes_scale = 0;
                 var number_of_new_paths = 0;
                 var existing_nodes_count = 0;
@@ -380,14 +357,12 @@ class AgentCLI {
         }
     }
 
-    create_node_helper(current_node_path_info, options) {
+    create_node_helper(current_node_path_info) {
         var self = this;
-        let { is_s3_agent } = (options || {});
         return P.fcall(function() {
             dbg.log0('create_node_helper called with self.params', self.params);
             var current_node_path = current_node_path_info.mount;
-            const name_prefix = is_s3_agent ? S3_AGENT_NAME_PREFIX : '';
-            var node_name = name_prefix + self.params.hostname;
+            var node_name = self.params.hostname;
             const noobaa_storage_dir_name = self.params.test_hostname ? 'noobaa_storage_' + self.params.test_hostname : 'noobaa_storage';
             var path_modification = current_node_path.replace('/' + noobaa_storage_dir_name + '/', '').replace(/\//g, '')
                 .replace('.', '');
@@ -571,7 +546,6 @@ class AgentCLI {
                 agent_conf: self.agent_conf,
                 token_wrapper: token_wrapper,
                 create_node_token_wrapper: create_node_token_wrapper,
-                s3_agent: this._is_s3_agent(node_name)
             });
             self.agents[node_name] = agent;
             dbg.log0('agent inited', node_name, self.params.address, self.params.port, self.params.secure_port, node_path);
@@ -651,14 +625,6 @@ class AgentCLI {
                 return P.delay(CREATE_TOKEN_RETRY_INTERVAL)
                     .then(() => this.create_auth_token(auth_params));
             });
-    }
-
-    _is_s3_agent(node_name) {
-        return node_name.startsWith(S3_AGENT_NAME_PREFIX);
-    }
-
-    _is_s3_enabled(node_name) {
-        return (this.params.roles && this.params.roles.indexOf('S3') >= 0);
     }
 
     list_agents() {

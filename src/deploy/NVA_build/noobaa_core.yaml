@@ -93,12 +93,6 @@ spec:
       name: bg-https
     - port: 8446
       name: hosted-agents-https
-    - port: 80
-      targetPort: 6001
-      name: s3
-    - port: 443
-      targetPort: 6443
-      name: s3-https
   selector:
     noobaa-mgmt: "true"
 ---
@@ -127,12 +121,6 @@ spec:
     spec:
       containers:
         - name: noobaa-server
-          readinessProbe:
-            # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
-            # ready when s3 port is open
-            tcpSocket:
-              port: 6001
-            timeoutSeconds: 5
           image: noobaa/noobaa-core:5.0.1
           imagePullPolicy: IfNotPresent
           resources:
@@ -144,8 +132,6 @@ spec:
               cpu: "2"
               memory: "4Gi"
           ports:
-            - containerPort: 80
-            - containerPort: 443
             - containerPort: 8080
             - containerPort: 8443
             - containerPort: 8444
@@ -234,6 +220,36 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: mongo-datadir
+        - name: endpoint
+          image: NOOBAA_CORE_IMAGE
+          imagePullPolicy: IfNotPresent
+          command:
+          - /noobaa_init_files/noobaa_init.sh
+          - init_endpoint
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "100Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          ports:
+          - containerPort: 6001
+          - containerPort: 6443
+          env:
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: noobaa-secrets
+                key: jwt
+          # - name: MGMT_URL
+          # - name: MONGODB_URL
+          # - name: VIRTUAL_HOSTS
+          # - name: REGION
+          # readinessProbe: # must be configured to support rolling updates
+          #   tcpSocket:
+          #     port: 6001 # ready when s3 port is open
+          #   timeoutSeconds: 5
       initContainers:
         - name: init-mongo
           image: noobaa/noobaa-core:5.0.1

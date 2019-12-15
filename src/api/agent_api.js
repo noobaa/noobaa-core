@@ -116,44 +116,8 @@ module.exports = {
                         }
                     },
 
-                    endpoint_info: {
-                        type: 'object',
-                        properties: {
-                            stats: {
-                                type: 'object',
-                                properties: {
-                                    read_count: {
-                                        type: 'integer'
-                                    },
-                                    write_count: {
-                                        type: 'integer'
-                                    },
-                                    read_bytes: {
-                                        type: 'integer'
-                                    },
-                                    write_bytes: {
-                                        type: 'integer'
-                                    },
-                                }
-                            },
-                            srv_error: {
-                                type: 'object',
-                                properties: {
-                                    code: {
-                                        type: 'string',
-                                    },
-                                    message: {
-                                        type: 'string',
-                                    }
-                                }
-                            }
-                        }
-                    },
                     location_info: {
                         $ref: 'common_api#/definitions/location_info'
-                    },
-                    virtual_hosts: {
-                        $ref: 'common_api#/definitions/hostname_list'
                     }
                 }
             },
@@ -221,18 +185,6 @@ module.exports = {
                 properties: {
                     enabled: {
                         type: 'boolean'
-                    },
-                    ssl_certs: {
-                        type: 'object',
-                        required: ['key', 'cert'],
-                        properties: {
-                            key: {
-                                type: 'string'
-                            },
-                            cert: {
-                                type: 'string'
-                            },
-                        }
                     },
                     location_info: {
                         $ref: 'common_api#/definitions/location_info'
@@ -336,17 +288,6 @@ module.exports = {
                     level: {
                         type: 'integer'
                     }
-                }
-            }
-        },
-
-        update_virtual_hosts: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['virtual_hosts'],
-                properties: {
-                    virtual_hosts: { $ref: 'common_api#/definitions/hostname_list' }
                 }
             }
         },

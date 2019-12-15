@@ -5,15 +5,12 @@
 const _ = require('lodash');
 const url = require('url');
 const util = require('util');
-const net = require('net');
 const chance = require('chance')();
 // const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
-const moment = require('moment');
 
 const kmeans = require('../../util/kmeans');
 const P = require('../../util/promise');
-const ssl_utils = require('../../util/ssl_utils');
 const api = require('../../api');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -48,7 +45,6 @@ const CLOUD_ALERT_GRACE_TIME = 3 * 60 * 1000; // 3 minutes grace period before d
 const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
 const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
-const MAX_DAYS_FOR_ENDPOINT_STATS = 30;
 const STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
 
 const AGENT_INFO_FIELDS = [
@@ -164,8 +160,6 @@ const MODE_COMPARE_ORDER = [
     'IO_ERRORS',
     'N2N_ERRORS',
     'GATEWAY_ERRORS',
-    'HTTP_PORT_ACCESS_ERROR',
-    'HTTP_SRV_ERRORS',
     'IN_PROCESS',
     'SOME_STORAGE_MIGRATING',
     'SOME_STORAGE_INITIALIZING',
@@ -193,39 +187,6 @@ const STAGE_WIPING = 'WIPING';
 const WAIT_NODE_OFFLINE = 'NODE_OFFLINE';
 const WAIT_SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE';
 
-
-// host modes consts
-const ERROR_PRI = 4;
-const IN_PROCESS_PRI = 3;
-const HAS_ISSUES_PRI = 2;
-const OPTIMAL_PRI = 1;
-const DECOMMISSIONED_PRI = 0;
-const mode_priority = Object.freeze({
-    OFFLINE: ERROR_PRI,
-    UNTRUSTED: ERROR_PRI,
-    STORAGE_NOT_EXIST: ERROR_PRI,
-    IO_ERRORS: ERROR_PRI,
-    N2N_ERRORS: ERROR_PRI,
-    GATEWAY_ERRORS: ERROR_PRI,
-    HTTP_PORT_ACCESS_ERROR: ERROR_PRI,
-    HTTP_SRV_ERRORS: ERROR_PRI,
-    INITIALIZING: IN_PROCESS_PRI,
-    DECOMMISSIONING: IN_PROCESS_PRI,
-    MIGRATING: IN_PROCESS_PRI,
-    IN_PROCESS: IN_PROCESS_PRI,
-    SOME_STORAGE_MIGRATING: IN_PROCESS_PRI,
-    SOME_STORAGE_INITIALIZING: IN_PROCESS_PRI,
-    SOME_STORAGE_DECOMMISSIONING: IN_PROCESS_PRI,
-    SOME_STORAGE_OFFLINE: HAS_ISSUES_PRI,
-    SOME_STORAGE_NOT_EXIST: HAS_ISSUES_PRI,
-    SOME_STORAGE_IO_ERRORS: HAS_ISSUES_PRI,
-    NO_CAPACITY: HAS_ISSUES_PRI,
-    LOW_CAPACITY: HAS_ISSUES_PRI,
-    OPTIMAL: OPTIMAL_PRI,
-    N2N_PORTS_BLOCKED: OPTIMAL_PRI,
-    DECOMMISSIONED: DECOMMISSIONED_PRI,
-});
-const mode_by_priority = ['DECOMMISIONED', 'OPTIMAL', 'HAS_ISSUES', 'IN_PROCESS', 'HAS_ERRORS'];
 
 class NodesMonitor extends EventEmitter {
 
@@ -255,7 +216,6 @@ class NodesMonitor extends EventEmitter {
         dbg.log0('starting nodes_monitor');
         this._started = true;
         this.n2n_rpc.set_disconnected_state(false);
-        this.ssl_certs = await ssl_utils.get_ssl_certificate('S3');
         await this._load_from_store();
 
         // initialize nodes stats in prometheus
@@ -517,10 +477,10 @@ class NodesMonitor extends EventEmitter {
 
         let updates;
         if (services) {
-            const { s3: s3_enabled, storage: storage_enabled } = services;
+            const { storage: storage_enabled } = services;
             updates = host_nodes.map(item => ({
                     item: item,
-                    enabled: item.node.node_type === 'ENDPOINT_S3' ? s3_enabled : storage_enabled
+                    enabled: storage_enabled
                 }))
                 .filter(item => !_.isUndefined(item.enabled));
 
@@ -529,14 +489,6 @@ class NodesMonitor extends EventEmitter {
                     host_nodes[0],
                     storage_enabled ? 'storage_enabled' : 'storage_disabled',
                     `Storage service was ${storage_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
-                    req.account && req.account._id
-                );
-            }
-            if (!_.isUndefined(s3_enabled)) {
-                this._dispatch_node_event(
-                    host_nodes[0],
-                    s3_enabled ? 'endpoint_enabled' : 'endpoint_disabled',
-                    `S3 Endpoint service was ${s3_enabled ? 'enabled' : 'disabled'} on node ${this._item_hostname(host_nodes[0])} by ${req.account && req.account.email}`,
                     req.account && req.account._id
                 );
             }
@@ -927,7 +879,6 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_node_service(item))
             .then(() => this._update_create_node_token(item))
             .then(() => this._update_rpc_config(item))
-            .then(() => this._update_virtual_hosts(item))
             .then(() => this._test_nodes_validity(item))
             .then(() => this._update_status(item))
             .then(() => this._handle_issues(item))
@@ -1039,17 +990,7 @@ class NodesMonitor extends EventEmitter {
 
     _set_decommission(item) {
         if (!item.node.decommissioning) {
-            if (item.node.node_type === 'ENDPOINT_S3') {
-                if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-                    delete item.node.decommissioning;
-                    delete item.node.decommissioned;
-                } else {
-                    item.node.decommissioning = Date.now();
-                    item.node.decommissioned = item.node.decommissioning;
-                }
-            } else {
-                item.node.decommissioning = Date.now();
-            }
+            item.node.decommissioning = Date.now();
         }
         this._set_need_update.add(item);
         this._update_status(item);
@@ -1169,16 +1110,6 @@ class NodesMonitor extends EventEmitter {
         }
         const updates = _.pick(info, AGENT_INFO_FIELDS);
         updates.heartbeat = Date.now();
-        if (info.endpoint_info) {
-            updates.endpoint_stats = this._accumulate_endpoint_stats(item, info.endpoint_info.stats);
-            if (info.endpoint_info.srv_error) {
-                updates.srv_error = info.endpoint_info.srv_error;
-            } else {
-                // Wanted to use delete but it is more efficient
-                item.node.srv_error = undefined;
-            }
-        }
-
         return updates;
     }
 
@@ -1238,7 +1169,7 @@ class NodesMonitor extends EventEmitter {
             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
             // on first call to get_agent_info enable\disable the node according to the configuration
             let should_start_service = this._should_enable_agent(info, agent_config);
-            dbg.log0(`first call to get_agent_info. ${info.node_type === 'ENDPOINT_S3' ? "s3 agent" : "storage agent"} ${item.node.name}. should_start_service=${should_start_service}. `);
+            dbg.log0(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
             if (!should_start_service) {
                 item.node.decommissioned = Date.now();
                 item.node.decommissioning = item.node.decommissioned;
@@ -1251,7 +1182,6 @@ class NodesMonitor extends EventEmitter {
         }
         _.extend(item.node, updates);
         this._set_need_update.add(item);
-        item.virtual_hosts = info.virtual_hosts;
         item.create_node_token = info.create_node_token;
     }
 
@@ -1266,35 +1196,6 @@ class NodesMonitor extends EventEmitter {
         return this._host_sequence_number;
     }
 
-
-    _accumulate_endpoint_stats(item, stats) {
-        const now = Date.now();
-        stats.time = moment().startOf('day')
-            .valueOf();
-        stats.last_read = stats.read_count ? now : 0;
-        stats.last_write = stats.write_count ? now : 0;
-        // if there are no previous stats, than return only current
-        if (!item.node.endpoint_stats) return [stats];
-
-        const last_day_stats = item.node.endpoint_stats[item.node.endpoint_stats.length - 1];
-        if (stats.time === last_day_stats.time) {
-            // if it's not a new day, add to current day stats
-            last_day_stats.read_count += stats.read_count;
-            last_day_stats.write_count += stats.write_count;
-            last_day_stats.read_bytes += stats.read_bytes;
-            last_day_stats.write_bytes += stats.write_bytes;
-            last_day_stats.last_read = Math.max(last_day_stats.last_read, stats.last_read);
-            last_day_stats.last_write = Math.max(last_day_stats.last_write, stats.last_write);
-        } else {
-            // it's a new day, so push it, and shift the array if needed
-            item.node.endpoint_stats.push(stats);
-            if (item.node.endpoint_stats.length > MAX_DAYS_FOR_ENDPOINT_STATS) {
-                item.node.endpoint_stats.shift();
-            }
-        }
-        return item.node.endpoint_stats;
-    }
-
     _remove_hideable_nodes(item) {
         if (item.node.force_hide) return;
         const host_nodes = this._get_nodes_by_host_id(item.node.host_id);
@@ -1305,7 +1206,6 @@ class NodesMonitor extends EventEmitter {
     }
 
     _uninstall_deleting_node(item) {
-        if (item.node.node_type === 'ENDPOINT_S3' && item.node.deleting) item.ready_to_uninstall = true; // S3 won't WIPE so will go directly to uninstall
         if (item.ready_to_uninstall && this._should_skip_uninstall(item)) item.ready_to_be_deleted = true; // No need to uninstall - skipping...
 
         if (!item.ready_to_uninstall) return;
@@ -1366,7 +1266,6 @@ class NodesMonitor extends EventEmitter {
 
         return this.client.agent.update_node_service({
             enabled: should_enable,
-            ssl_certs: item.node.node_type === 'ENDPOINT_S3' ? this.ssl_certs : undefined,
             location_info,
         }, {
             connection: item.connection
@@ -1397,34 +1296,6 @@ class NodesMonitor extends EventEmitter {
             })
             .timeout(AGENT_RESPONSE_TIMEOUT);
 
-    }
-
-    _update_virtual_hosts(item) {
-        if (item.node.deleted) return;
-        if (!item.connection) return;
-        if (!item.agent_info) return;
-        if (!item.node_from_store) return;
-
-        // TODO: should add custom virtual hosts to the list.
-        const system = system_store.data.get_by_id(item.node.system);
-        const virtual_hosts = _.uniq(system.system_address
-                .filter(addr =>
-                    addr.service === 's3' && // Only s3 service addresses
-                    addr.api === 's3' && // which serve the s3 api
-                    !net.isIP(addr.hostname) // and are not ips
-                )
-                .map(addr => addr.hostname))
-            .sort();
-
-        if (_.isEqual(item.virtual_hosts, virtual_hosts)) {
-            return;
-        }
-
-        dbg.log0('_update_virtual_hosts:', item.node.name, virtual_hosts);
-        return this.client.agent.update_virtual_hosts({ virtual_hosts }, {
-                connection: item.connection
-            })
-            .timeout(AGENT_RESPONSE_TIMEOUT);
     }
 
     _update_rpc_config(item) {
@@ -1881,15 +1752,8 @@ class NodesMonitor extends EventEmitter {
     }
 
     _should_enable_agent(info, agent_config) {
-        let { use_s3 = false, use_storage = true, exclude_drives = [] } = agent_config;
-        if (info.node_type === 'ENDPOINT_S3') {
-            // if endpoint than enable according to configuration
-            if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-                return true;
-            } else {
-                return use_s3;
-            }
-        } else if (info.node_type === 'BLOCK_STORE_FS') {
+        let { use_storage = true, exclude_drives = [] } = agent_config;
+        if (info.node_type === 'BLOCK_STORE_FS') {
             if (!use_storage) return false; // if storage disable if configured to exclud storage
             if (info.storage.total < config.MINIMUM_AGENT_TOTAL_STORAGE) return false; // disable if not enough storage
             return this._should_include_drives(info.drives[0].mount, info.os_info, exclude_drives);
@@ -2046,8 +1910,8 @@ class NodesMonitor extends EventEmitter {
             !item.io_detention &&
             !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
-            !item.node.deleted &&
-            item.node.node_type !== 'ENDPOINT_S3');
+            !item.node.deleted
+        );
     }
 
     _get_item_writable(item) {
@@ -2064,8 +1928,9 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&
-            !item.node.deleted &&
-            item.node.node_type !== 'ENDPOINT_S3');
+            !item.node.deleted
+        );
+
     }
 
     _get_item_accessibility(item) {
@@ -2092,17 +1957,14 @@ class NodesMonitor extends EventEmitter {
             (!item.trusted && 'UNTRUSTED') ||
             (item.node.deleted && 'DELETED') ||
             (item.storage_not_exist && 'STORAGE_NOT_EXIST') ||
-            ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error &&
-                (item.node.srv_error.code === 'EACCES' || item.node.srv_error.code === 'EADDRINUSE')) && 'HTTP_PORT_ACCESS_ERROR') ||
-            ((item.node.node_type === 'ENDPOINT_S3' && item.node.srv_error) && 'HTTP_SRV_ERRORS') ||
             (item.auth_failed && 'AUTH_FAILED') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
             (item.n2n_errors && 'N2N_ERRORS') ||
             (item.gateway_errors && 'GATEWAY_ERRORS') ||
             (item.io_test_errors && 'IO_ERRORS') ||
             (item.io_reported_errors && 'IO_ERRORS') ||
-            ((item.node.node_type !== 'ENDPOINT_S3' && free.lesserOrEquals(MB)) && 'NO_CAPACITY') ||
-            ((item.node.node_type !== 'ENDPOINT_S3' && free_ratio.lesserOrEquals(20)) && 'LOW_CAPACITY') ||
+            (free.lesserOrEquals(MB) && 'NO_CAPACITY') ||
+            (free_ratio.lesserOrEquals(20) && 'LOW_CAPACITY') ||
             'OPTIMAL';
     }
 
@@ -2130,7 +1992,6 @@ class NodesMonitor extends EventEmitter {
     _get_data_activity_reason(item) {
         if (!item.node_from_store) return '';
         if (item.node.deleted) return '';
-        if (item.node.node_type === 'ENDPOINT_S3') return '';
         if (item.node.deleting) return ACT_DELETING;
         if (item.node.decommissioned) return '';
         if (item.node.decommissioning) return ACT_DECOMMISSIONING;
@@ -2518,23 +2379,21 @@ class NodesMonitor extends EventEmitter {
 
     _consolidate_host(host_nodes) {
         host_nodes.forEach(item => this._update_status(item));
-        const [s3_nodes, storage_nodes] = _.partition(host_nodes, item => item.node.node_type === 'ENDPOINT_S3');
         // for now we take the first storage node, and use it as the host_item, with some modifications
         // TODO: once we have better understanding of what the host status should be
         // as a result of the status of the nodes we need to change it.
-        let root_item = storage_nodes.find(item =>
+        let root_item = host_nodes.find(item =>
             item.node.drives && item.node.drives[0] &&
             (item.node.drives[0].mount === '/' || item.node.drives[0].mount.toLowerCase() === 'c:')
         );
         if (!root_item) {
             // if for some reason root node not found, take the first one.
-            dbg.log0(`could not find node for root path, taking the first in the list. drives = ${storage_nodes.map(item => item.node.drives[0])}`);
-            root_item = storage_nodes.length ? storage_nodes[0] : s3_nodes[0];
+            dbg.log0(`could not find node for root path, taking the first in the list. drives = ${host_nodes.map(item => item.node.drives[0])}`);
+            root_item = host_nodes[0];
         }
         const host_item = _.clone(root_item);
         host_item.node = _.cloneDeep(host_item.node);
-        host_item.s3_nodes = s3_nodes;
-        host_item.storage_nodes = storage_nodes;
+        host_item.storage_nodes = host_nodes;
 
         // fix some of the fields:
         // host is online if at least one node is online
@@ -2550,7 +2409,7 @@ class NodesMonitor extends EventEmitter {
         host_item.trusted = host_nodes.every(item => item.trusted !== false);
         if (!host_item.trusted) {
             host_item.untrusted_reasons = _.map(
-                _.filter(host_nodes, item => (!item.trusted && item.node.node_type !== 'ENDPOINT_S3')),
+                _.filter(host_nodes, item => !item.trusted),
                 untrusted_item => {
                     let reason = {
                         events: [],
@@ -2584,12 +2443,12 @@ class NodesMonitor extends EventEmitter {
         host_item.has_issues = false; // if true it causes storage count to be 0. not used by the UI.
 
         // aggregate data used by suggested pools classification
-        host_item.avg_ping = _.mean(storage_nodes.map(item => item.avg_ping));
-        host_item.avg_disk_read = _.mean(storage_nodes.map(item => item.avg_disk_read));
-        host_item.avg_disk_write = _.mean(storage_nodes.map(item => item.avg_disk_write));
+        host_item.avg_ping = _.mean(host_nodes.map(item => item.avg_ping));
+        host_item.avg_disk_read = _.mean(host_nodes.map(item => item.avg_disk_read));
+        host_item.avg_disk_write = _.mean(host_nodes.map(item => item.avg_disk_write));
 
 
-        let host_aggragate = this._aggregate_nodes_list(storage_nodes);
+        let host_aggragate = this._aggregate_nodes_list(host_nodes);
         host_item.node.storage = host_aggragate.storage;
         host_item.storage_nodes.data_activities = host_aggragate.data_activities;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
@@ -2601,7 +2460,6 @@ class NodesMonitor extends EventEmitter {
 
     _calculate_host_mode(host_item) {
         const storage_nodes = host_item.storage_nodes;
-        const s3_nodes = host_item.s3_nodes;
 
         // aggregate storage nodes and s3 nodes info
         const MB = 1024 ** 2;
@@ -2657,47 +2515,7 @@ class NodesMonitor extends EventEmitter {
         }
 
         const storage_mode = host_item.storage_nodes_mode;
-
-        const s3_node_modes = [
-            'DELETING',
-            'OFFLINE',
-            'UNTRUSTED',
-            'INITIALIZING',
-            'DECOMMISSIONED',
-            'OPTIMAL',
-            'HTTP_PORT_ACCESS_ERROR',
-            'HTTP_SRV_ERRORS',
-        ];
-        s3_nodes.forEach(node => {
-            if (s3_node_modes.indexOf(node.mode) === -1) {
-                node.mode = 'HTTP_SRV_ERRORS';
-            }
-        });
-
-        const s3_mode = s3_nodes.length ? s3_nodes[0].mode : 'DECOMMISSIONED';
-        host_item.s3_nodes_mode = s3_mode;
-        const storage_priority = mode_priority[storage_mode];
-        const s3_priority = mode_priority[s3_mode];
-
-        if (s3_mode === 'DECOMMISSIONED') {
-            host_item.mode = storage_mode;
-        } else if (storage_mode === 'DECOMMISSIONED') {
-            host_item.mode = s3_mode;
-        } else if (s3_mode === 'DELETING' || storage_mode === 'DELETING') {
-            host_item.mode = 'DELETING';
-        } else if (s3_mode === storage_mode) {
-            host_item.mode = s3_mode;
-        } else if (s3_priority > storage_priority) {
-            host_item.mode = s3_mode === 'OFFLINE' ? 'S3_OFFLINE' : s3_mode;
-        } else if (storage_priority > s3_priority) {
-            host_item.mode = storage_mode === 'OFFLINE' ? 'STORAGE_OFFLINE' : storage_mode;
-        } else {
-            host_item.mode = mode_by_priority[s3_priority];
-            // in case the mode is optimal, check if there are blocked ports
-            if (host_item.mode === 'OPTIMAL' && storage_mode === 'N2N_PORTS_BLOCKED') {
-                host_item.mode = 'N2N_PORTS_BLOCKED';
-            }
-        }
+        host_item.mode = storage_mode;
     }
 
 
@@ -2795,14 +2613,10 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'healthy_drives') {
             list.sort(js_utils.sort_compare_by(item => _.countBy(item.storage_nodes, 'mode').OPTIMAL || 0, options.order));
         } else if (options.sort === 'services') {
-            list.sort(js_utils.sort_compare_by(item => {
-                // return a binary representation of the services in the following priority:
-                // [both, only storage, only s3, none]
-                const disabledModes = ['DECOMMISSIONED', 'DECOMMISSIONING'];
-                const storage_service = disabledModes.includes(item.storage_nodes_mode) ? 0 : 2;
-                const s3_service = disabledModes.includes(item.s3_nodes_mode) ? 0 : 1;
-                return storage_service + s3_service;
-            }, options.order));
+            list.sort(js_utils.sort_compare_by(item =>
+                (['DECOMMISSIONED', 'DECOMMISSIONING'].includes(item.storage_nodes_mode) ? 0 : 1),
+                options.order
+            ));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -3040,18 +2854,13 @@ class NodesMonitor extends EventEmitter {
         );
     }
 
-
-
     _aggregate_nodes_list(list, nodes_stats) {
         let count = 0;
         let storage_count = 0;
-        let s3_count = 0;
         let online = 0;
         let storage_online = 0;
-        let s3_online = 0;
         const by_mode = {};
         const storage_by_mode = {};
-        const s3_by_mode = {};
 
         const io_stats = {
             read_count: 0,
@@ -3075,15 +2884,9 @@ class NodesMonitor extends EventEmitter {
         const data_activities = {};
         _.each(list, item => {
             count += 1;
-            if (item.node.node_type === 'ENDPOINT_S3') {
-                if (item.node.enabled) s3_count += 1;
-                s3_by_mode[item.mode] = (s3_by_mode[item.mode] || 0) + 1;
-                if (item.online) s3_online += 1;
-            } else {
-                storage_count += 1;
-                storage_by_mode[item.mode] = (storage_by_mode[item.mode] || 0) + 1;
-                if (item.online) storage_online += 1;
-            }
+            storage_count += 1;
+            storage_by_mode[item.mode] = (storage_by_mode[item.mode] || 0) + 1;
+            if (item.online) storage_online += 1;
 
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             if (item.online) online += 1;
@@ -3131,11 +2934,6 @@ class NodesMonitor extends EventEmitter {
                 online: storage_online,
                 by_mode: storage_by_mode,
             },
-            s3_nodes: {
-                count: s3_count,
-                online: s3_online,
-                by_mode: s3_by_mode,
-            },
             storage,
             data_activities: _.map(data_activities, a => {
                 if (!Number.isFinite(a.time.end)) delete a.time.end;
@@ -3152,8 +2950,7 @@ class NodesMonitor extends EventEmitter {
         let online = 0;
         const by_mode = {};
         const storage_by_mode = {};
-        const s3_by_mode = {};
-        const by_service = { STORAGE: 0, GATEWAY: 0 };
+        const by_service = { STORAGE: 0 };
         let storage = {
             total: 0,
             free: 0,
@@ -3169,9 +2966,7 @@ class NodesMonitor extends EventEmitter {
             count += 1;
             by_mode[item.mode] = (by_mode[item.mode] || 0) + 1;
             storage_by_mode[item.storage_nodes_mode] = (storage_by_mode[item.storage_nodes_mode] || 0) + 1;
-            s3_by_mode[item.s3_nodes_mode] = (s3_by_mode[item.s3_nodes_mode] || 0) + 1;
             by_service.STORAGE += item.storage_nodes && item.storage_nodes.every(i => i.node.decommissioned) ? 0 : 1;
-            by_service.GATEWAY += item.s3_nodes && item.s3_nodes.every(i => i.node.decommissioned) ? 0 : 1;
             if (item.online) online += 1;
             let has_activity = false;
             for (const storage_item of item.storage_nodes || []) {
@@ -3211,7 +3006,6 @@ class NodesMonitor extends EventEmitter {
                 by_mode,
                 by_service,
                 storage_by_mode,
-                s3_by_mode,
                 data_activity_host_count
             },
             storage: storage,
@@ -3260,14 +3054,6 @@ class NodesMonitor extends EventEmitter {
 
     _get_host_info(host_item, adminfo) {
         let info = {
-            s3_nodes_info: {
-                nodes: host_item.s3_nodes
-                    .filter(item => Boolean(item.node_from_store))
-                    .map(item => {
-                        this._update_status(item);
-                        return this._get_node_info(item);
-                    })
-            },
             storage_nodes_info: {
                 nodes: host_item.storage_nodes
                     .filter(item => Boolean(item.node_from_store))
@@ -3277,8 +3063,6 @@ class NodesMonitor extends EventEmitter {
                     })
             }
         };
-        info.s3_nodes_info.mode = host_item.s3_nodes_mode;
-        info.s3_nodes_info.enabled = host_item.s3_nodes.some(item => !item.node.decommissioned && !item.node.decommissioning);
         info.storage_nodes_info.mode = host_item.storage_nodes_mode;
         info.storage_nodes_info.enabled = host_item.storage_nodes.some(item => !item.node.decommissioned && !item.node.decommissioning);
         info.storage_nodes_info.data_activities = host_item.storage_nodes.data_activities;
@@ -3329,16 +3113,6 @@ class NodesMonitor extends EventEmitter {
             };
         }
         info.base_address = host_item.node.base_address;
-        if (adminfo) {
-            const stats = _.get(host_item, 's3_nodes[0].node.endpoint_stats');
-            if (stats) {
-                info.s3_nodes_info.stats = {
-                    last_read: stats[stats.length - 1].last_read,
-                    last_write: stats[stats.length - 1].last_write,
-                    daily_stats: stats.map(stat => _.pick(stat, ['time', 'read_count', 'read_bytes', 'write_count', 'write_bytes']))
-                };
-            }
-        }
         return info;
     }
 

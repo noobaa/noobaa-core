@@ -210,7 +210,7 @@ class NodesMonitor extends EventEmitter {
 
     async start() {
         if (this._started) {
-            dbg.log0('NodesMonitor already started returning.');
+            dbg.log2('NodesMonitor already started returning.');
             return;
         }
         dbg.log0('starting nodes_monitor');
@@ -1078,7 +1078,7 @@ class NodesMonitor extends EventEmitter {
                     dbg.warn('got error in _get_agent_info on a deleting node, ignoring error. node name', item.node.name, err.message);
                     return;
                 }
-                dbg.error('got error in _get_agent_info:', err);
+                dbg.error(`got error in _get_agent_info ${item.node.name}:`, err);
                 throw err;
             });
     }
@@ -1886,7 +1886,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_item_has_issues(item) {
-        return !(
+        const stat = !(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1897,10 +1897,15 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
+        if (stat) {
+            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} 
+                ${item.io_detention} ${item.node.migrating_to_pool} ${item.node.decommissioning} ${item.node.decommissioned} ${item.node.deleting} ${item.node.deleted}`);
+        }
+        return stat;
     }
 
     _get_item_readable(item) {
-        return Boolean(
+        const readable = Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1912,10 +1917,15 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleting &&
             !item.node.deleted
         );
+        if (!readable) {
+            dbg.log0_throttled(`${item.node.name} not reasable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
+                ${!item.auth_failed} ${!item.io_detention} ${!item.node.decommissioned} ${!item.node.deleting} ${!item.node.deleted}`);
+        }
+        return readable;
     }
 
     _get_item_writable(item) {
-        return Boolean(
+        const writable = Boolean(
             item.online &&
             item.trusted &&
             item.node_from_store &&
@@ -1931,6 +1941,12 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleted
         );
 
+        if (!writable) {
+            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
+                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned} 
+                ${!item.node.deleting} ${!item.node.deleted}`);
+        }
+        return writable;
     }
 
     _get_item_accessibility(item) {

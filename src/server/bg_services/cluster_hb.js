@@ -56,7 +56,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     if (current_clustering.is_clusterized) {
                         return MongoCtrl.get_hb_rs_status();
                     } else {
-                        dbg.log0('server is not part of a cluster. skipping rs status');
+                        dbg.log2('server is not part of a cluster. skipping rs status');
                     }
                 }),
                 os_utils.read_drives(),

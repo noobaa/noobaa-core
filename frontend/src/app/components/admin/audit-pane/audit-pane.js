@@ -19,14 +19,14 @@ import {
 
 const categoryDisplayNames = deepFreeze({
     node: 'Nodes',
-    obj: 'Objects',
-    bucket: 'Buckets',
-    account: 'Accounts',
     resource:'Resources',
+    conf: 'Configuration',
+    account: 'Accounts',
     dbg: 'Debug',
     cluster: 'Cluster',
     functions: 'Functions',
-    conf: 'Configuration'
+    obj: 'Objects',
+    bucket: 'Buckets'
 });
 
 const categoryOptions = Object.entries(categoryDisplayNames)
@@ -160,9 +160,10 @@ class AuditPaneViewModel extends ConnectableViewModel {
 
     constructor(...args) {
         super(...args);
-
         this.dispatch(fetchAuditLog(
-            { categories: Object.keys(categoryDisplayNames) },
+            { categories: Object.keys(categoryDisplayNames).filter(
+                cat => (cat !== 'bucket' && cat !== 'obj')
+            ) },
             infinitScrollPageSize
         ));
     }

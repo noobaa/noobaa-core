@@ -45,12 +45,12 @@ function _get_request(dest_url, options) {
         method: 'GET',
         strictSSL: false, // means rejectUnauthorized: false
     });
-    dbg.log0('Sending Get Request:', options);
+    dbg.log1('Sending Get Request:', options);
     return P.fromCallback(callback => request(options, callback), {
             multiArgs: true
         })
         .spread(function(response, body) {
-            dbg.log0(`Received Response From ${dest_url}`, response.statusCode);
+            dbg.log1(`Received Response From ${dest_url}`, response.statusCode);
             return {
                 response: response,
                 body: body

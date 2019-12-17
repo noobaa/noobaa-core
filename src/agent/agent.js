@@ -845,7 +845,7 @@ class Agent {
         if (!this.is_started) return;
         const extended_hb = true;
         const ip = ip_module.address();
-        dbg.log0('Recieved potential servers list', req.rpc_params.addresses);
+        dbg.log0_throttled('Recieved potential servers list', req.rpc_params.addresses);
         const prev_cpu_usage = this.cpu_usage;
         this.cpu_usage = process.cpuUsage();
         this.cpu_usage.time_stamp = time_utils.microstamp();

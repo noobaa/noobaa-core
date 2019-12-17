@@ -5,12 +5,14 @@
 
 const api = require('../api');
 const { format_base_address } = require('../util/addr_utils');
+const jwt_utils = require('../util/jwt_utils');
 
 class ServerRpc {
 
     constructor() {
         this.rpc = api.new_rpc();
-        this.client = this.rpc.new_client();
+        this.client = this.rpc.new_client({ auth_token: jwt_utils.make_auth_token() });
+
         // n2n proxy allows any service reach n2n agents
         // without registering an n2n agent by proxying requests
         // using the node server

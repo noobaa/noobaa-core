@@ -12,6 +12,7 @@ const ip_module = require('ip');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const os_utils = require('./os_utils');
+const promise_utils = require('./promise_utils');
 
 const DEFAULT_PING_OPTIONS = {
     timeout: 5000,
@@ -87,15 +88,19 @@ function ip_to_long(ip) {
 }
 
 async function retrieve_public_ip() {
+    const IPIFY_TIMEOUT = 30 * 1000;
     try {
-        const res = await P.fromCallback(callback =>
-            request.get('http://api.ipify.org/', callback)
-        );
-        if (!is_ip(res.body)) {
-            return undefined;
-        }
-        return res.body;
+        await promise_utils.timeout(async () => {
+            const res = await P.fromCallback(callback =>
+                request.get('http://api.ipify.org/', callback)
+            );
+            if (!is_ip(res.body)) {
+                return undefined;
+            }
+            return res.body;
+        }, IPIFY_TIMEOUT);
     } catch (err) {
+        dbg.log0_throttled('failed to ipify', err);
         return undefined;
     }
 }

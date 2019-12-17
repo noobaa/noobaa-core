@@ -41,6 +41,7 @@ dbg.set_level(dbg_level, 'core');
 
 const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
+const auth_server = require('../../server/common_services/auth_server');
 const node_server = require('../../server/node_services/node_server');
 const mongo_client = require('../../util/mongo_client');
 const account_server = require('../../server/system_services/account_server');
@@ -64,7 +65,8 @@ let _setup = false;
 let _incomplete_rpc_coverage;
 const api_coverage = new Set();
 const rpc_client = server_rpc.rpc.new_client({
-    tracker: req => api_coverage.delete(req.srv)
+    auth_token: auth_server.make_auth_token({}),
+    tracker: req => api_coverage.delete(req.srv),
 });
 
 const SYSTEM = CORETEST;
@@ -112,7 +114,7 @@ function setup(options = {}) {
     _.each(server_rpc.rpc._services,
         (service, srv) => api_coverage.add(srv));
 
-    const endpoint_request_handler = endpoint.create_endpoint_handler(server_rpc.rpc, {
+    const endpoint_request_handler = endpoint.create_endpoint_handler(server_rpc.rpc, rpc_client, {
         s3: true,
         blob: true,
         lambda: true,

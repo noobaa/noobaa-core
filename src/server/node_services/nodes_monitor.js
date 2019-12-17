@@ -191,7 +191,7 @@ class NodesMonitor extends EventEmitter {
 
     constructor() {
         super();
-        this.client = server_rpc.rpc.new_client();
+        this.client = server_rpc.rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
         this._started = false;
         this._loaded = false;
         this._num_running_rebuilds = 0;
@@ -200,7 +200,7 @@ class NodesMonitor extends EventEmitter {
 
         // This is used in order to test n2n connection from node_monitor to agents
         this.n2n_rpc = api.new_rpc();
-        this.n2n_client = this.n2n_rpc.new_client();
+        this.n2n_client = this.n2n_rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
         this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
         this._host_sequence_number = 0;
         // Notice that this is a mock up address just to ensure n2n connection authorization

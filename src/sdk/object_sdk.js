@@ -39,8 +39,9 @@ const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_typ
 
 class ObjectSDK {
 
-    constructor(rpc_client, object_io) {
+    constructor(rpc_client, internal_rpc_client, object_io) {
         this.rpc_client = rpc_client;
+        this.internal_rpc_client = internal_rpc_client;
         this.object_io = object_io;
         this.namespace_nb = new NamespaceNB();
         this.accountspace_nb = new AccountSpaceNB({
@@ -89,14 +90,14 @@ class ObjectSDK {
 
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        const bucket = params.bucket || await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
+        const bucket = params.bucket || await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
         return this._setup_bucket_namespace(bucket);
     }
 
     async _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        const bucket = await this.rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
+        const bucket = await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
         if (_.isEqual(bucket, data.bucket)) {
             // namespace unchanged - extend validity for another period
             data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
@@ -309,7 +310,7 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         const reply = await ns.read_object_stream(params, this);
         // update bucket counters
-        stats_collector.instance(this.rpc_client).update_bucket_read_counters({
+        stats_collector.instance(this.internal_rpc_client).update_bucket_read_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -395,7 +396,7 @@ class ObjectSDK {
         if (params.copy_source) await this.fix_copy_source_params(params, ns);
         const reply = await ns.upload_object(params, this);
         // update bucket counters
-        stats_collector.instance(this.rpc_client).update_bucket_write_counters({
+        stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -411,7 +412,7 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         const reply = await ns.create_object_upload(params, this);
         // update bucket counters
-        stats_collector.instance(this.rpc_client).update_bucket_write_counters({
+        stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -591,7 +592,7 @@ class ObjectSDK {
             const dispatch_obj = _.pick(obj, required_obj_properties);
             // Dummy obj_id (not all flows return with obj_id and we need it for the API schema)
             dispatch_obj.obj_id = '10101010aaaabbbbccccdddd';
-            await this.rpc_client.object.dispatch_triggers({
+            await this.internal_rpc_client.object.dispatch_triggers({
                 bucket,
                 event_name: operation,
                 obj: dispatch_obj

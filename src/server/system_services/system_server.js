@@ -254,6 +254,9 @@ async function create_system(req) {
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
     }
+    if (system_store.data.systems.length > 0 && config.test_mode !== true) {
+        throw new Error('Cannot create multiple production systems');
+    }
 
     const {
         name,
@@ -1249,5 +1252,3 @@ exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;
-
-

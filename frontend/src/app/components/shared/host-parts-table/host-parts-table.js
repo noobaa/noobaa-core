@@ -93,7 +93,7 @@ class HostPartsTableViewModel extends ConnectableViewModel {
     mapStateToProps(resourceType, hostParts, location) {
         const subject =
             (resourceType === 'HOST' && 'node') ||
-            (resourceType === 'CLOUD_RESOURCE' && 'cloud resoruce');
+            (resourceType === 'CLOUD_RESOURCE' && 'cloud resource');
 
         if (!hostParts || !hostParts.parts) {
             ko.assignToProps(this, {

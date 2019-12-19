@@ -626,13 +626,6 @@ function set_maintenance_mode(req) {
 
 function set_webserver_master_state(req) {
     if (req.rpc_params.is_master) {
-        // If current server became master
-        promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-            .then(() => server_rpc.client.cluster_server.set_debug_level({
-                level: 0
-            }, {
-                auth_token: req.auth_token
-            }));
         //Going Master //TODO:: add this one we get back to HA
         node_server.start_monitor();
     } else {

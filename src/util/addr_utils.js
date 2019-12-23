@@ -8,7 +8,7 @@ const { construct_url } = require('./url_utils');
 const default_base_port = parseInt(process.env.SSL_PORT, 10) || 5443;
 const api_default_port_offset = {
     mgmt: 0,
-    md: 1,
+    md: 0,
     bg: 2,
     hosted_agents: 3
 };

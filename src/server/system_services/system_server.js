@@ -316,16 +316,12 @@ async function create_system(req) {
 async function _get_cluster_info() {
     const cluster_info = await cluster_server.new_cluster_info({ address: "127.0.0.1" });
     if (cluster_info) {
-        const res = await Promise.all([os_utils.get_dns_config()]);
-        if (res.length) {
-            const dns_config = res[0];
-            if (dns_config.dns_servers.length) {
-                dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
-                cluster_info.dns_servers = dns_config.dns_servers;
-            }
+        const dns_config = await os_utils.get_dns_config();
+        if (dns_config.dns_servers.length) {
+            dbg.log0(`create_system: DNS servers were already configured in first install to`, dns_config.dns_servers);
+            cluster_info.dns_servers = dns_config.dns_servers;
         }
     }
-
     return cluster_info;
 }
 

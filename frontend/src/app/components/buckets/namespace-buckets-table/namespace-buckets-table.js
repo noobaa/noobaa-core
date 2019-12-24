@@ -50,7 +50,7 @@ const columns = deepFreeze([
 
 const createButtonTooltips = deepFreeze({
     MISSING_PERMISSIONS: 'The current account is not allowed to create new buckets in the system. To grant permissions, edit the account\'s S3 access in the account page',
-    NO_RESOURCES: 'At least one namespace resoruce is needed. Please create a namespace resource in the resources section.'
+    NO_RESOURCES: 'At least one namespace resource is needed. Please create a namespace resource in the resources section.'
 });
 
 function _mapBucketToRow(bucket, selectedForDelete, system) {

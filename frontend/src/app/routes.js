@@ -20,3 +20,4 @@ export const server             = `${root}/systems/:system/cluster/servers/:serv
 export const funcs              = `${root}/systems/:system/functions`;
 export const func               = `${root}/systems/:system/functions/:func/:tab?`;
 export const analytics          = `${root}/systems/:system/analytics/:tab?`;
+export const endpoints          = `${root}/systems/:system/endpoints/:tab?`;

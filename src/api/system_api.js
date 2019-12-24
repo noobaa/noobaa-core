@@ -523,6 +523,7 @@ module.exports = {
                         type: 'object',
                         required: [
                             'group_name',
+                            'last_update',
                             'endpoint_count',
                             'cpu_count',
                             'cpu_usage',
@@ -530,6 +531,7 @@ module.exports = {
                         ],
                         properties: {
                             group_name: { type: 'string' },
+                            last_update: { idate: true },
                             endpoint_count: { type: 'number' },
                             cpu_count: { type: 'number' },
                             cpu_usage: { type: 'number' },

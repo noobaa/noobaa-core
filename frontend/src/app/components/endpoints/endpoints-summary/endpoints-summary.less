@@ -1,0 +1,20 @@
+/* Copyright (C) 2016 NooBaa */
+
+endpoints-summary {
+    .column();
+    position: relative;
+    height: 186px;
+
+    .summary  {
+        opacity: 0;
+
+        &.visible {
+            opacity: 1;
+            transition: opacity 250ms ease-out;
+        }
+    }
+
+    .groups-chart {
+        width: calc(100% - 1px);
+    }
+}

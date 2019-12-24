@@ -71,15 +71,15 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         const { accounts, system, location, session, forms } = state;
         return [
             accounts,
-            system && system.s3Endpoints,
+            system && system.s3Addresses,
             location.hostname,
             session && session.user,
             forms[this.formName]
         ];
     }
 
-    mapStateToProps(accounts, s3Endpoints, hostname, user, form) {
-        if (!accounts || !s3Endpoints || !user) {
+    mapStateToProps(accounts, s3Addresses, hostname, user, form) {
+        if (!accounts || !s3Addresses || !user) {
             return;
         }
 
@@ -87,13 +87,13 @@ class ConnectAppModalViewModel extends ConnectableViewModel {
         const accountList = Object.values(accounts)
             .filter(account =>!account.roles.includes('operator'));
         const accountOptions = accountList.map(account => account.name);
-        const endpointOptions = s3Endpoints.map((endpoint, i) => ({
+        const endpointOptions = s3Addresses.map((endpoint, i) => ({
             value: i + 1,
             label: endpointKindLabel[endpoint.kind],
             remark: endpoint.address
         }));
         const { name: accountName, accessKeys } = _getSelectedAccount(accountList, user, form);
-        const endpoint = s3Endpoints[form ? getFieldValue(form, 'selectedEndpoint') - 1 : 0];
+        const endpoint = s3Addresses[form ? getFieldValue(form, 'selectedEndpoint') - 1 : 0];
 
         ko.assignToProps(this, {
             accountOptions,

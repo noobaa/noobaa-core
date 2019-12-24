@@ -33,13 +33,13 @@ class VirtualHostingFormViewModel extends ConnectableViewModel {
     selectState(state) {
         const { system, location } = state;
         return [
-            system && system.s3Endpoints,
+            system && system.s3Addresses,
             location
         ];
     }
 
-    mapStateToProps(s3Endpoints, location) {
-        if (!s3Endpoints) {
+    mapStateToProps(s3Addresses, location) {
+        if (!s3Addresses) {
             ko.assignToProps(this, {
                 dataReady: false
             });
@@ -48,7 +48,7 @@ class VirtualHostingFormViewModel extends ConnectableViewModel {
             const { system, section } = location.params;
             const toggleSection = section === sectionName ? undefined : sectionName;
             const toggleUri = realizeUri(routes.management, { system, tab: 'settings', section: toggleSection });
-            const endpointByKind = keyByProperty(s3Endpoints, 'kind', endpoint => endpoint.address);
+            const endpointByKind = keyByProperty(s3Addresses, 'kind', endpoint => endpoint.address);
 
             ko.assignToProps(this, {
                 dataReady: true,

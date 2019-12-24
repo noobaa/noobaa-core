@@ -32,6 +32,7 @@ import lambdaUsageHistoryReducer from './lambda-usage-history-reducer';
 import objectsDistributionReducer from './objects-distribution-reducer';
 import cloudUsageStatsReducer  from './cloud-usage-stats-reducer';
 import bucketTriggersReducer from './bucket-triggers-reducer';
+import endpointGroupsReducer from './endpoint-groups-reducer';
 /** INJECT:import **/
 
 /* eslint-disable comma-dangle */
@@ -67,5 +68,6 @@ export default combineReducers({
     objectsDistribution: objectsDistributionReducer,
     cloudUsageStats: cloudUsageStatsReducer,
     bucketTriggers: bucketTriggersReducer,
+    endpointGroups: endpointGroupsReducer,
     /** INJECT:list **/
 });

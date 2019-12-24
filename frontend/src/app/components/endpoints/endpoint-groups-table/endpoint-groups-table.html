@@ -1,0 +1,21 @@
+<!-- Copyright (C) 2016 NooBaa -->
+<div class="card-shadow row pad content-middle">
+    <h2 class ="heading3 push-next">Endpoint Groups</h2>
+     <p class="remark content-middle" ko.visible="dataReady">
+        <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
+        Updated: {{lastUpdate}}
+    </p>
+</div>
+
+<data-table class="greedy" params="
+    columns: columns,
+    data: rows,
+    sorting: ko.pc(sorting, onSort, $component),
+    loading: !dataReady()
+"></data-table>
+
+<paginator params="
+    itemCount: groupCount,
+    pageSize: ko.pc(pageSize, onPageSize, $component),
+    page: ko.pc(page, onPage, $component)
+"></paginator>

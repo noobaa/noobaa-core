@@ -964,6 +964,7 @@ async function _get_endpoint_groups() {
         const ep_count = endpoints.length;
         return {
             group_name,
+            last_update: report.end_time,
             endpoint_count: ep_count,
             cpu_count: _.sumBy(endpoints, ep_info => ep_info.cpu.count),
             cpu_usage: _.sumBy(endpoints, ep_info => ep_info.cpu.usage), // Can add 1.0 per cpu.

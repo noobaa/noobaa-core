@@ -323,7 +323,7 @@ module.exports = {
         scale_hosts_pool: {
             doc: 'Change the pool\'s underlaying host count',
             method: 'POST',
-             params: {
+            params: {
                 type: 'object',
                 required: ['name', 'host_count'],
                 properties: {
@@ -605,6 +605,7 @@ module.exports = {
             enum: [
                 'HAS_NO_NODES',
                 'INITIALIZING',
+                'INITIALIZING_FAILED',
                 'DELETING',
                 'ALL_NODES_OFFLINE',
                 'SCALING',

@@ -32,6 +32,7 @@ export default {
                 enum: [
                     'BEING_CREATED',
                     'INITIALIZING',
+                    'INITIALIZING_FAILED',
                     'DELETING',
                     'HAS_NO_NODES',
                     'SCALING',
@@ -116,7 +117,7 @@ export default {
                 }
             },
             configuredHostCount: {
-                type:' integer'
+                type: 'integer'
             },
             storageNodeCount: {
                 type: 'integer'

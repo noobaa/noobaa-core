@@ -151,6 +151,9 @@ module.exports = {
                 initialized: {
                     type: 'boolean'
                 },
+                init_timeout: {
+                    idate: true,
+                },
                 host_count: {
                     type: 'integer',
                     minimum: 0

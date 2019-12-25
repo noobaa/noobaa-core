@@ -104,11 +104,22 @@ async function _init() {
             if (configured_host_count > actual_host_count) {
                 await pool_ctrl.scale(configured_host_count);
                 try {
+                    const timeout = calc_scale_up_timeout(configured_host_count - actual_host_count);
+                    if (!pool.hosts_pool_info.initialized) {
+                        await system_store.make_changes({
+                            update: {
+                                pools: [{
+                                    _id: pool._id,
+                                    'hosts_pool_info.init_timeout': Date.now() + timeout
+                                }]
+                            }
+                        });
+                    }
                     await wait_for_host_count_to_stabilize(
                         system._id,
                         pool._id,
                         configured_host_count,
-                        calc_scale_up_timeout(configured_host_count - actual_host_count)
+                        timeout
                     );
 
                     // This catch easure the release of the lock in case of a timeout
@@ -136,7 +147,8 @@ async function _init() {
                     update: {
                         pools: [{
                             _id: pool._id,
-                            'hosts_pool_info.initialized': true
+                            $set: { 'hosts_pool_info.initialized': true },
+                            $unset: { 'hosts_pool_info.init_timeout': 1 }
                         }]
                     }
                 });
@@ -255,11 +267,22 @@ async function create_hosts_pool(req) {
         // Lock farther scaling/delete operations until the pool stabilizes (or the operation timeout)
         pool_scaling_sem.surround_key(pool.name, async () => {
             try {
+                const timeout = calc_scale_up_timeout(hosts_pool_info.host_count);
+                if (!pool.hosts_pool_info.initialized) {
+                    await system_store.make_changes({
+                        update: {
+                            pools: [{
+                                _id: pool._id,
+                                'hosts_pool_info.init_timeout': Date.now() + timeout
+                            }]
+                        }
+                    });
+                }
                 await wait_for_host_count_to_stabilize(
                     system._id,
                     pool._id,
                     hosts_pool_info.host_count,
-                    calc_scale_up_timeout(hosts_pool_info.host_count)
+                    timeout
                 );
 
                 // Mark the pool as initialized.
@@ -267,7 +290,8 @@ async function create_hosts_pool(req) {
                     update: {
                         pools: [{
                             _id: pool._id,
-                            'hosts_pool_info.initialized': true
+                            $set: { 'hosts_pool_info.initialized': true },
+                            $unset: { 'hosts_pool_info.init_timeout': 1 }
                         }]
                     }
                 });
@@ -560,11 +584,22 @@ async function scale_hosts_pool_job(pool, system) {
         // Scale up (add more storage agents)
         try {
             await pool_ctrl.scale(configured_host_count);
+            const timeout = calc_scale_up_timeout(host_count_diff);
+            if (!pool.hosts_pool_info.initialized) {
+                await system_store.make_changes({
+                    update: {
+                        pools: [{
+                            _id: pool._id,
+                            'hosts_pool_info.init_timeout': Date.now() + timeout
+                        }]
+                    }
+                });
+            }
             await wait_for_host_count_to_stabilize(
                 system._id,
                 pool._id,
                 configured_host_count,
-                calc_scale_up_timeout(host_count_diff)
+                timeout
             );
 
         } catch (err) {
@@ -614,6 +649,17 @@ async function scale_hosts_pool_job(pool, system) {
         }
 
     } else if (host_count_diff < 0) {
+
+        // clear the init_timeout. the required nodes number is already up. just get out of init_failed state
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    $unset: { 'hosts_pool_info.init_timeout': 1 }
+                }]
+            }
+        });
+
         // Scale down (delete hosts)
         dbg.log0(`scale_hosts_pool: deleting ${-host_count_diff} hosts`);
         await nodes_client.instance().delete_hosts_by_pool(pool.name, system._id, -host_count_diff);
@@ -638,7 +684,8 @@ async function scale_hosts_pool_job(pool, system) {
             update: {
                 pools: [{
                     _id: pool._id,
-                    'hosts_pool_info.initialized': true
+                    $set: { 'hosts_pool_info.initialized': true },
+                    $unset: { 'hosts_pool_info.init_timeout': 1 }
                 }]
             }
         });
@@ -1134,7 +1181,11 @@ function calc_hosts_pool_mode(pool_info, is_initialized, storage_by_mode, s3_by_
         .reduce((sum, val) => sum + val.count, 0);
     const activity_ratio = (activity_count / host_count) * 100;
 
+    const now = Date.now();
+    const init_timeout = system_store.data.systems[0].pools_by_name[pool_info.name].hosts_pool_info.init_timeout || now;
+
     return (is_managed && hosts.configured_count === 0 && 'DELETING') ||
+        (is_managed && !is_initialized && (now > init_timeout) && 'INITIALIZING_FAILED') ||
         (is_managed && !is_initialized && 'INITIALIZING') ||
         (is_managed && host_count !== hosts.configured_count && 'SCALING') ||
         (host_count === 0 && 'HAS_NO_NODES') ||

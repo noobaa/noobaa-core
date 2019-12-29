@@ -11,7 +11,7 @@ RUN npm run clean && \
 COPY ./package*.json ./
 RUN npm install
 
-RUN tar -zcf build_deps.tar.gz /root/.npm/ /root/.node-gyp
+RUN tar -zcf build_deps.tar.gz /root/.npm/ /root/.cache/node-gyp
 
 COPY ./frontend/package*.json ./frontend/
 RUN cd frontend && \

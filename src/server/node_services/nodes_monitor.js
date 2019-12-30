@@ -4,7 +4,6 @@
 
 const _ = require('lodash');
 const url = require('url');
-const util = require('util');
 const chance = require('chance')();
 // const dclassify = require('dclassify');
 const EventEmitter = require('events').EventEmitter;
@@ -1682,7 +1681,7 @@ class NodesMonitor extends EventEmitter {
         if (!deleted_nodes.length) return;
         const items_to_update = [];
         return P.map(deleted_nodes, item => {
-                dbg.log0('_update_nodes_store deleted_node:', util.inspect(item));
+                dbg.log0('_update_nodes_store deleted_node:', item);
 
                 if (item.node.deleted) {
                     if (!item.node_from_store.deleted) {

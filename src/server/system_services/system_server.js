@@ -18,7 +18,8 @@ const restrict = require('../../../platform_restrictions.json');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
-const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
+const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
+const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const os_utils = require('../../util/os_utils');
 const { RpcError } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
@@ -432,6 +433,7 @@ function read_system(req) {
             .then(res => res.functions),
 
         buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id }),
+        endpoint_groups: _get_endpoint_groups()
 
     }).then(({
         nodes_aggregate_pool_no_cloud_and_mongo,
@@ -442,7 +444,8 @@ function read_system(req) {
         undeletable_buckets,
         rs_status,
         funcs,
-        buckets_stats
+        buckets_stats,
+        endpoint_groups
     }) => {
         const cluster_info = cutil.get_cluster_info(rs_status);
         const objects_sys = {
@@ -577,7 +580,10 @@ function read_system(req) {
                 }
             },
             platform_restrictions: restrict[process.env.PLATFORM || 'dev'], // dev will be default for now
-            s3_endpoints: _list_s3_endpoints(system)
+            s3_service: {
+                addresses: _list_s3_addresses(system)
+            },
+            endpoint_groups
         };
     });
 }
@@ -908,7 +914,7 @@ function find_account_by_email(req) {
     return account;
 }
 
-function _list_s3_endpoints(system) {
+function _list_s3_addresses(system) {
     if (process.platform === 'darwin') {
         return [{
             kind: 'LOOPBACK',
@@ -944,6 +950,29 @@ function _list_s3_endpoints(system) {
                 address: url.toString()
             };
         });
+}
+
+async function _get_endpoint_groups() {
+    const now = Date.now();
+    const reports = await EndpointStatsStore.instance.get_endpoint_group_reports({
+        // We go one full cycle behind a frame with data from all groups/endpoints.
+        since: now - (2 * config.ENDPOINT_MONITOR_INTERVAL),
+        till: now - config.ENDPOINT_MONITOR_INTERVAL
+    });
+    return reports.map(report => {
+        const { group_name, endpoints } = report;
+        const ep_count = endpoints.length;
+        return {
+            group_name,
+            endpoint_count: ep_count,
+            cpu_count: _.sumBy(endpoints, ep_info => ep_info.cpu.count),
+            cpu_usage: _.sumBy(endpoints, ep_info => ep_info.cpu.usage), // Can add 1.0 per cpu.
+            memory_usage: _.sumBy(endpoints, ep_info => {
+                const { used, total } = ep_info.memory;
+                return used / total;
+            }) / ep_count
+        };
+    });
 }
 
 // EXPORTS

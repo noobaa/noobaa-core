@@ -947,24 +947,38 @@ module.exports = {
             auth: { system: ['admin', 'user'] }
         },
 
-        add_endpoint_usage_report: {
+        add_endpoint_report: {
             method: 'PUT',
             params: {
                 type: 'object',
                 properties: {
-                    start_time: {
-                        idate: true,
+                    timestamp: {
+                        idate: true
                     },
-                    end_time: {
-                        idate: true,
+                    group_name: {
+                        type: 'string'
                     },
-                    s3_usage_info: {
-                        $ref: '#/definitions/s3_usage_info',
+                    hostname: {
+                        type: 'string'
                     },
-                    s3_errors_info: {
-                        $ref: '#/definitions/s3_errors_info'
+                    cpu: {
+                        $ref: '#/definitions/endpoint_cpu_info'
                     },
-                    bandwidth_usage_info: {
+                    memory: {
+                        $ref: '#/definitions/endpoint_memory_info'
+                    },
+                    s3_ops: {
+                        type: 'object',
+                        properties: {
+                            usage: {
+                                $ref: '#/definitions/s3_usage_info'
+                            },
+                            errors: {
+                                $ref: '#/definitions/s3_errors_info'
+                            }
+                        }
+                    },
+                    bandwidth: {
                         $ref: '#/definitions/bandwidth_usage_info'
                     }
                 }
@@ -1014,16 +1028,14 @@ module.exports = {
             }
         },
 
-
-
-        remove_endpoint_usage_reports: {
+        reset_s3_ops_counters: {
             method: 'DELETE',
             auth: {
                 system: 'admin',
             }
         },
 
-        read_endpoint_usage_report: {
+        read_s3_ops_counters: {
             method: 'GET',
             reply: {
                 type: 'object',
@@ -1336,19 +1348,15 @@ module.exports = {
 
         s3_usage_info: {
             type: 'object',
-            patternProperties: {
-                ".+": {
-                    type: 'integer'
-                }
+            additionalProperties: {
+                type: 'integer'
             }
         },
 
         s3_errors_info: {
             type: 'object',
-            patternProperties: {
-                ".+": {
-                    type: 'integer'
-                }
+            additionalProperties: {
+                type: 'integer'
             }
         },
 
@@ -1367,5 +1375,20 @@ module.exports = {
             }
         },
 
+        endpoint_cpu_info: {
+            type: 'object',
+            properties: {
+                count: { type: 'number' },
+                usage: { type: 'number' }
+            }
+        },
+
+        endpoint_memory_info: {
+            type: 'object',
+            properties: {
+                total: { type: 'number' },
+                used: { type: 'number' }
+            }
+        }
     },
 };

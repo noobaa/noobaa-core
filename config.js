@@ -59,9 +59,9 @@ config.N2N_OFFER_INTERNAL = false;
 // ENDPOINT CONFIG //
 /////////////////////
 
-config.ENDPOINT_FORKS_ENABLED = true;
-config.ENDPOINT_FORKS_COUNT = Number(process.env.CONTAINER_CPU_REQUEST) || os.cpus().length;
 config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
+config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
+
 
 ///////////////
 // MD CONFIG //
@@ -122,7 +122,7 @@ config.VIDEO_READ_STREAM_PRE_FETCH_LOAD_CAP = 5 * 1000;
 config.IO_SEMAPHORE_CAP = Math.floor(
     Math.max(config.IO_STREAM_SEMAPHORE_SIZE_CAP,
         Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) /
-        config.IO_MEM_SEMAPHORE / config.ENDPOINT_FORKS_COUNT)
+        config.IO_MEM_SEMAPHORE)
 );
 
 config.ERROR_INJECTON_ON_WRITE = 0;

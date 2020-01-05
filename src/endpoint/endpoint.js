@@ -12,6 +12,7 @@ const http = require('http');
 const https = require('https');
 const FtpSrv = require('ftp-srv');
 const url = require('url');
+const os = require('os');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const FuncSDK = require('../sdk/func_sdk');
@@ -21,13 +22,17 @@ const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
+const promise_utils = require('../util/promise_utils');
+const os_utils = require('../util/os_utils');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
 const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 const system_store = require('../server/system_services/system_store').get_instance();
 const md_server = require('../server/md_server');
-const server_rpc = require('../server/server_rpc.js');
+const auth_server = require('../server/common_services/auth_server');
+const server_rpc = require('../server/server_rpc');
+const { ENDPOINT_MONITOR_INTERVAL } = require('../../config');
 
 const {
     ENDPOINT_BLOB_ENABLED,
@@ -37,7 +42,8 @@ const {
     FTP_PORT,
     LOCATION_INFO,
     VIRTUAL_HOSTS,
-    RPC_ROUTER
+    RPC_ROUTER,
+    ENDPOINT_GROUP_ID
 } = process_env(process.env);
 
 function process_env(env) {
@@ -54,7 +60,8 @@ function process_env(env) {
         FTP_PORT: env.FTP_PORT || 21,
         LOCATION_INFO: { region: env.REGION || '' },
         VIRTUAL_HOSTS: Object.freeze(virtual_hosts),
-        RPC_ROUTER: get_rpc_router(env)
+        RPC_ROUTER: get_rpc_router(env),
+        ENDPOINT_GROUP_ID: env.ENDPOINT_GROUP_ID || 'default-endpoint-group'
     };
 }
 
@@ -111,8 +118,65 @@ async function run_server(options) {
         dbg.log0('S3 server started successfully');
         dbg.log0('Configured Virtual Hosts:', VIRTUAL_HOSTS);
 
+        // Start a monitor to send periodic endpoint reports about endpoint usage.
+        start_monitor();
+
     } catch (err) {
         handle_server_error(err);
+    }
+}
+
+async function start_monitor() {
+    await promise_utils.wait_until(() =>
+        system_store.is_finished_initial_load
+    );
+    const system = system_store.data.systems[0];
+    const auth_token = auth_server.make_auth_token({
+        system_id: system._id,
+        account_id: system.owner._id,
+        role: 'admin'
+    });
+
+    let start_time = process.hrtime.bigint() / 1000n;
+    let base_cpu_time = process.cpuUsage();
+    for (;;) {
+        try {
+            await promise_utils.delay_unblocking(ENDPOINT_MONITOR_INTERVAL);
+            const end_time = process.hrtime.bigint() / 1000n;
+            const cpu_time = process.cpuUsage();
+            const elap_cpu_time = (cpu_time.system + cpu_time.user) - (base_cpu_time.system + base_cpu_time.user);
+            const cpu_usage = elap_cpu_time / Number((end_time - start_time));
+            const rest_usage = s3_rest.consume_usage_report();
+
+            await server_rpc.client.object.add_endpoint_report({
+                timestamp: Date.now(),
+                group_name: ENDPOINT_GROUP_ID,
+                hostname: os.hostname(),
+                cpu: {
+                    count: os_utils.get_cpus(),
+                    usage: cpu_usage
+                },
+                memory: {
+                    total: os_utils.get_memory(),
+                    used: process.memoryUsage().rss,
+                },
+                s3_ops: {
+                    usage: rest_usage.s3_usage_info,
+                    errors: rest_usage.s3_errors_info
+                },
+                bandwidth: [
+                    ...rest_usage.bandwidth_usage_info.values()
+                ]
+            }, {
+                auth_token
+            });
+
+            // save the current values as base for next iteration.
+            start_time = end_time;
+            base_cpu_time = cpu_time;
+        } catch (err) {
+            dbg.error('Could not submit endpoint monitor report, got:', err);
+        }
     }
 }
 
@@ -122,7 +186,7 @@ function handle_server_error(err) {
 }
 
 function create_endpoint_handler(rpc, options) {
-    const s3_rest_handler = options.s3 ? s3_rest : unavailable_handler;
+    const s3_rest_handler = options.s3 ? s3_rest.handler : unavailable_handler;
     const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
     const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
 

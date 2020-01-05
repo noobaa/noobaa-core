@@ -28,7 +28,7 @@ const net_utils = require('../../util/net_utils');
 const fs_utils = require('../../util/fs_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
-const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
+const { HistoryDataStore } = require('../analytic_services/history_data_store');
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
@@ -624,21 +624,19 @@ function get_pool_stats(req) {
             ], 0)));
 }
 
-function get_object_usage_stats(req) {
-    let new_req = req;
-    new_req.rpc_params.from_time = req.system.last_stats_report;
-    return object_server.read_endpoint_usage_report(new_req)
-        .then(res => _.map(res.reports, report => ({
-            system: String(report.system),
-            time: report.time,
-            s3_usage_info: report.s3_usage_info,
-            s3_errors_info: report.s3_errors_info
-        })))
-        .catch(err => {
-            dbg.warn('Error in collecting object usage stats,',
-                'skipping current sampling point', err.stack || err);
-            throw err;
-        });
+async function get_object_usage_stats(req) {
+    try {
+        const res = await object_server.read_s3_ops_counters(req);
+        return {
+            system: String(res),
+            s3_usage_info: res.s3_usage_info,
+            s3_errors_info: res.s3_errors_info
+        };
+
+    } catch (err) {
+        dbg.warn('Error collecting s3 ops counters, skipping current sampling point', err);
+        throw err;
+    }
 }
 
 async function get_cloud_pool_stats(req) {
@@ -957,7 +955,7 @@ function add_sample_point(opname, duration) {
 async function object_usage_scrubber(req) {
     let new_req = req;
     new_req.rpc_params.till_time = req.system.last_stats_report;
-    await object_server.remove_endpoint_usage_reports(new_req);
+    await object_server.reset_s3_ops_counters(new_req);
     new_req.rpc_params.last_stats_report = Date.now();
     await system_server.set_last_stats_report_time(new_req);
 }

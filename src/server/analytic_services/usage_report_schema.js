@@ -25,6 +25,9 @@ module.exports = {
         account: {
             objectid: true
         },
+        endpoint_group: {
+            type: 'string'
+        },
         read_bytes: {
             type: 'integer',
         },
@@ -36,6 +39,6 @@ module.exports = {
         },
         write_count: {
             type: 'integer',
-        },
+        }
     }
 };

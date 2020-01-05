@@ -50,25 +50,25 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {Object} [chunk_split_config]
  * @property {Object} [chunk_coder_config]
  * @property {Object} [encryption]
- * 
+ *
  * @typedef {Object} ReadParams
  * @property {Object} client
  * @property {nb.ObjectInfo} object_md
  * @property {number} [start]
  * @property {number} [end]
  * @property {number} [watermark]
- * 
+ *
  * @typedef {Object} CachedRead
  * @property {nb.ObjectInfo} object_md
  * @property {Buffer} buffer
- * 
- * 
+ *
+ *
  */
 
 class ObjectReadable extends stream.Readable {
 
     /**
-     * 
+     *
      * @param {number} [start]
      * @param {(size:number) => void} read
      * @param {number} [watermark]
@@ -117,7 +117,7 @@ class ObjectReadable extends stream.Readable {
 class ObjectIO {
 
     /**
-     * 
+     *
      * @param {nb.LocationInfo} [location_info]
      */
     constructor(location_info) {
@@ -132,7 +132,6 @@ class ObjectIO {
         dbg.log0('ObjectIO Configurations:', util.inspect({
             location_info,
             totalmem: os_utils.get_memory(),
-            ENDPOINT_FORKS_COUNT: config.ENDPOINT_FORKS_COUNT,
             IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP
         }));
 
@@ -520,7 +519,7 @@ class ObjectIO {
             }
             const io_sem_size = _get_io_semaphore_size(requested_size);
 
-            // TODO we dont want to use requested_size as end, because we read entire chunks 
+            // TODO we dont want to use requested_size as end, because we read entire chunks
             // and we are better off return the data to the stream buffer
             // instead of getting multiple calls from the stream with small slices to return.
 
@@ -616,8 +615,8 @@ class ObjectIO {
 
     /**
      * @param {ReadParams} params
-     * @param {nb.BlockMD} block_md 
-     * @param {Error} err 
+     * @param {nb.BlockMD} block_md
+     * @param {Error} err
      */
     async _report_error_on_object_read(params, block_md, err) {
         try {
@@ -671,9 +670,9 @@ class ObjectIO {
 
 
 /**
- * 
- * @param {nb.Chunk[]} chunks 
- * @param {number} start 
+ *
+ * @param {nb.Chunk[]} chunks
+ * @param {number} start
  * @param {number} end
  * @return {Buffer[]}
  */

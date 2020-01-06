@@ -33,13 +33,21 @@ RUN tar \
 
 #####################################################################################################################################
 
+FROM centos:8
+
 ##############################################################
 #   Title: Start of the Server Image
 #   Size: ~ 841 MB
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM centos:8
+# Do not install docs and multiple languages.
+LANG="en_US"
+echo "%_install_lang $LANG" > /etc/rpm/macros.image-language-conf
+
+awk '(NF==0&&!done){print "override_install_langs='$LANG'\ntsflags=nodocs";done=1}{print}' \
+    < /etc/dnf/dnf.conf > /etc/dnf/dnf.conf.new
+mv /etc/dnf/dnf.conf.new /etc/dnf/dnf.conf
 
 ENV container docker
 ENV PORT 8080

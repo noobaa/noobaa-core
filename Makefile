@@ -61,6 +61,6 @@ noobaa: base
 
 clean:
 	@echo Stopping and Deleting containers
-	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs docker stop
-	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs docker rm
+	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs -r docker stop
+	@docker ps -a | grep noobaa_ | awk '{print $$NF}' | xargs -r docker rm
 .PHONY: clean

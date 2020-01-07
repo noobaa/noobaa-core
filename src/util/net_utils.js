@@ -90,7 +90,7 @@ function ip_to_long(ip) {
 async function retrieve_public_ip() {
     const IPIFY_TIMEOUT = 30 * 1000;
     try {
-        await promise_utils.timeout(async () => {
+        return promise_utils.timeout(async () => {
             const res = await P.fromCallback(callback =>
                 request.get('http://api.ipify.org/', callback)
             );

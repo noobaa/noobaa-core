@@ -159,7 +159,7 @@ async function handle_request(req, res) {
     await http_utils.read_and_parse_body(req, options);
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
-    submit_usage_report(op, req, res);
+    collect_bucket_usage(op, req, res);
 }
 
 async function populate_request_additional_info_or_redirect(req) {
@@ -557,11 +557,10 @@ function new_usage_report() {
             total_errors: 0,
         },
         bandwidth_usage_info: new Map(),
-        start_time: Date.now(),
     };
 }
 
-function submit_usage_report(op, req, res) {
+function collect_bucket_usage(op, req, res) {
     // We check we've passed authenticate_request and have a valid token.
     // Errors prior to authenticate_request or bad signature will not be reported and even fail on the report call itself
     // TODO use appropriate auth for usage report instead of piggybacking the s3 request
@@ -576,7 +575,7 @@ function submit_usage_report(op, req, res) {
             read_count = 0,
             write_count = 0,
         } = bucket_usage;
-        const bucket_and_access_key = bucket + '#' + access_key;
+        const bucket_and_access_key = `${bucket}#${access_key}`;
         let bucket_usage_info = usage_report.bandwidth_usage_info.get(bucket_and_access_key);
         if (!bucket_usage_info) {
             bucket_usage_info = {
@@ -594,45 +593,12 @@ function submit_usage_report(op, req, res) {
         bucket_usage_info.write_bytes += write_bytes;
         bucket_usage_info.write_count += write_count;
     }
+}
 
-    // if there is any information to send, and enough time passed (30 secs), then send report
-    const now = Date.now();
-    const time_since_last_report = now - usage_report.start_time;
-    const num_reports = usage_report.s3_usage_info.total_calls +
-        usage_report.s3_errors_info.total_errors +
-        usage_report.bandwidth_usage_info.size;
-
-    if (num_reports === 0 || time_since_last_report < 30000) return;
-
-    const report_to_send = usage_report;
-    report_to_send.end_time = now;
+function consume_usage_report() {
+    const report = usage_report;
     usage_report = new_usage_report();
-
-    const map_values = report_to_send.bandwidth_usage_info.values();
-    const bandwidth_usage_info = Array.from(map_values);
-    // submit to background
-    const rpc_req = {
-        start_time: report_to_send.start_time,
-        end_time: report_to_send.end_time,
-        s3_usage_info: report_to_send.s3_usage_info,
-        s3_errors_info: report_to_send.s3_errors_info,
-        bandwidth_usage_info
-    };
-    dbg.log0(`sending report`, rpc_req);
-    req.object_sdk.rpc_client.object.add_endpoint_usage_report(rpc_req)
-        .catch(err => {
-            console.log('add_endpoint_usage_report did not succeed:', err);
-        });
-
-    // maybe use a different indication that this is endpoint agent?
-    // if process.send exist assuming it is an endpoint agent. send stats to agent process
-    if (process.send) {
-        process.send({
-            code: 'STATS',
-            stats: bandwidth_usage_info,
-            time: report_to_send.end_time
-        });
-    }
+    return report;
 }
 
 function load_ops() {
@@ -648,4 +614,5 @@ function load_ops() {
 }
 
 // EXPORTS
-module.exports = s3_rest;
+module.exports.handler = s3_rest;
+module.exports.consume_usage_report = consume_usage_report;

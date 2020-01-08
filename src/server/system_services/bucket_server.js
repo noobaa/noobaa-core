@@ -895,7 +895,7 @@ function export_bucket_bandwidth_usage(req) {
 
 async function get_bucket_throughput_usage(req) {
     const { buckets, since, till, resolution } = req.rpc_params;
-    const report = await usage_aggregator.get_throughput_entries({
+    const report = await usage_aggregator.get_bandwith_over_time({
         buckets: buckets && buckets.map(bucket_name => req.system.buckets_by_name[bucket_name.unwrap()]._id),
         resolution,
         since,

@@ -455,26 +455,17 @@ module.exports = {
         },
 
         object_usage_stats: {
-            type: 'array',
-            items: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    system: {
-                        type: 'string',
-                    },
-                    time: {
-                        idate: true,
-                    },
-                    s3_usage_info: {
-                        $ref: 'object_api#/definitions/s3_usage_info',
-                    },
-                    s3_errors_info: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    }
+            type: 'object',
+            properties: {
+                system: {
+                    type: 'string',
                 },
+                s3_usage_info: {
+                    $ref: 'object_api#/definitions/s3_usage_info',
+                },
+                s3_errors_info: {
+                    $ref: 'object_api#/definitions/s3_errors_info',
+                }
             }
         },
 

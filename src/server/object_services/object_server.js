@@ -11,7 +11,7 @@ const glob_to_regexp = require('glob-to-regexp');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const MDStore = require('./md_store').MDStore;
+const { MDStore } = require('./md_store');
 const LRUCache = require('../../util/lru_cache');
 const size_utils = require('../../util/size_utils');
 const time_utils = require('../../util/time_utils');
@@ -26,10 +26,10 @@ const cloud_utils = require('../../util/cloud_utils');
 const system_utils = require('../utils/system_utils');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const BucketStatsStore = require('../analytic_services/bucket_stats_store').BucketStatsStore;
-const UsageReportStore = require('../analytic_services/usage_report_store').UsageReportStore;
+const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
+const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
 const events_dispatcher = require('./events_dispatcher');
-const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
+const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 
 // short living cache for objects
@@ -1065,44 +1065,46 @@ async function report_error_on_object(req) {
         req.system._id, req.rpc_params.blocks_report, bucket);
 }
 
+function reset_s3_ops_counters(req) {
+    return EndpointStatsStore.instance.reset_s3_ops_counters(req.system);
+}
 
-async function add_endpoint_usage_report(req) {
-    const start_time = new Date(req.rpc_params.start_time);
-    const reports = req.rpc_params.bandwidth_usage_info.map(record => {
-        /** @type {Object} */
-        const insert = _.pick(record, ['read_bytes', 'write_bytes', 'read_count', 'write_count']);
-        insert.system = req.system._id;
+function read_s3_ops_counters(req) {
+    return EndpointStatsStore.instance.get_s3_ops_counters(req.system);
+}
 
-        if (record.bucket) {
-            const bucket = req.system.buckets_by_name && req.system.buckets_by_name[record.bucket.unwrap()];
-            if (bucket) insert.bucket = bucket._id;
-        }
+async function add_endpoint_report(req) {
+    const params = req.rpc_params;
+    const bandwidth = params.bandwidth.map(record => {
+        const account = system_store.data.accounts.find(acc => {
+            const access_key = acc.access_keys &&
+                acc.access_keys[0] &&
+                acc.access_keys[0].access_key;
 
-        if (record.access_key) {
-            const account = system_store.data.accounts.find(acc => acc.access_keys &&
-                acc.access_keys[0].access_key.unwrap() === record.access_key.unwrap());
-            if (account) insert.account = account._id;
-        }
-
-        // truncate start time to the start of current hour
-        // set end_time to the end of the hour
-        const HOUR = 60 * 60 * 1000;
-        insert.start_time = Math.floor(start_time.getTime() / HOUR) * HOUR;
-        insert.end_time = insert.start_time + HOUR - 1;
-        return insert;
+            return access_key !== null && (access_key.unwrap() === record.access_key.unwrap());
+        });
+        const bucket = system_store.data.buckets.find(bkt =>
+            bkt.name.unwrap() === record.bucket.unwrap()
+        );
+        return {
+            bucket: bucket && bucket._id,
+            account: account && account._id,
+            read_bytes: record.read_bytes,
+            write_bytes: record.write_bytes,
+            read_count: record.read_count,
+            write_count: record.write_count
+        };
     });
-    await P.join(
-        UsageReportStore.instance().update_usage(req.system, req.rpc_params.s3_usage_info, req.rpc_params.s3_errors_info),
-        UsageReportStore.instance().insert_usage_reports(reports, { accumulate: true })
-    );
-}
 
-function remove_endpoint_usage_reports(req) {
-    return UsageReportStore.instance().reset_usage(req.system);
-}
-
-function read_endpoint_usage_report(req) {
-    return UsageReportStore.instance().get_usage(req.system);
+    return EndpointStatsStore.instance.accept_endpoint_report(req.system, {
+        timestamp: params.timestamp,
+        endpoint_group: params.group_name,
+        hostname: params.hostname,
+        cpu: params.cpu,
+        memory: params.memory,
+        s3_ops: params.s3_ops,
+        bandwidth
+    });
 }
 
 function report_endpoint_problems(req) {
@@ -1769,9 +1771,9 @@ exports.list_objects_admin = list_objects_admin;
 exports.report_error_on_object = report_error_on_object;
 exports.report_endpoint_problems = report_endpoint_problems;
 // stats
-exports.read_endpoint_usage_report = read_endpoint_usage_report;
-exports.add_endpoint_usage_report = add_endpoint_usage_report;
-exports.remove_endpoint_usage_reports = remove_endpoint_usage_reports;
+exports.add_endpoint_report = add_endpoint_report;
+exports.read_s3_ops_counters = read_s3_ops_counters;
+exports.reset_s3_ops_counters = reset_s3_ops_counters;
 exports.check_quota = check_quota;
 exports.update_endpoint_stats = update_endpoint_stats;
 exports.put_object_tagging = put_object_tagging;

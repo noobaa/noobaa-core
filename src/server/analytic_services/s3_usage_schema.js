@@ -14,18 +14,14 @@ module.exports = {
         },
         s3_usage_info: {
             type: 'object',
-            patternProperties: {
-                ".+": {
-                    type: 'integer'
-                }
+            additionalProperties: {
+                type: 'integer'
             }
         },
         s3_errors_info: {
             type: 'object',
-            patternProperties: {
-                ".+": {
-                    type: 'integer'
-                }
+            additionalProperties: {
+                type: 'integer'
             }
         }
     }

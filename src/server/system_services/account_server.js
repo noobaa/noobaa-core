@@ -528,7 +528,7 @@ function reset_password(req) {
 
 async function get_account_usage(req) {
     const { since, till, accounts } = req.rpc_params;
-    return usage_aggregator.get_accounts_report({
+    return usage_aggregator.get_accounts_bandwidth_usage({
         accounts: accounts.map(acc => _.get(system_store.data.accounts_by_email[acc.unwrap()], '_id')),
         since,
         till

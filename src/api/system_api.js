@@ -323,7 +323,8 @@ module.exports = {
                 'objects',
                 'owner',
                 'node_version',
-                's3_endpoints'
+                's3_service',
+                'endpoint_groups'
             ],
             properties: {
                 name: {
@@ -494,23 +495,49 @@ module.exports = {
                         $ref: '#/definitions/restriction_enum'
                     }
                 },
-                s3_endpoints: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['kind', 'address'],
-                        properties: {
-                            kind: {
-                                type: 'string',
-                                enum: ['EXTERNAL', 'INTERNAL', 'LOOPBACK']
-                            },
-                            address: {
-                                type: 'string'
+                s3_service: {
+                    type: 'object',
+                    required: ['addresses'],
+                    properties: {
+                        addresses: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                required: ['kind', 'address'],
+                                properties: {
+                                    kind: {
+                                        type: 'string',
+                                        enum: ['EXTERNAL', 'INTERNAL', 'LOOPBACK']
+                                    },
+                                    address: {
+                                        type: 'string'
+                                    }
+                                }
                             }
                         }
                     }
+                },
+                endpoint_groups: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: [
+                            'group_name',
+                            'endpoint_count',
+                            'cpu_count',
+                            'cpu_usage',
+                            'memory_usage'
+                        ],
+                        properties: {
+                            group_name: { type: 'string' },
+                            endpoint_count: { type: 'number' },
+                            cpu_count: { type: 'number' },
+                            cpu_usage: { type: 'number' },
+                            memory_usage: { type: 'number' }
+                        }
+                    }
                 }
-            },
+            }
         },
 
         restriction_enum: {

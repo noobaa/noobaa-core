@@ -10,7 +10,7 @@ module.exports = {
     },
 
     parserOptions: {
-        ecmaVersion: 2018,
+        ecmaVersion: 11, // 2020
     },
 
 

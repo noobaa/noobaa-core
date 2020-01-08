@@ -50,7 +50,7 @@ function onCompleteFetchSystemInfo(state, { payload, timestamp }) {
         releaseNotes: state && state.releaseNotes,
         diagnostics: state ? state.diagnostics : diagnosticsInitialState,
         internalStorage,
-        s3Endpoints: payload.s3_endpoints
+        s3Endpoints: payload.s3_service.addresses
     };
 }
 

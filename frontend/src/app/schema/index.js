@@ -1,6 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 
-import { deepFreeze } from 'utils/core-utils';
+import { deepFreeze, mapValues } from 'utils/core-utils';
 import { strictify } from 'utils/schema-utils';
 import * as common from './common';
 import location from './location';
@@ -34,10 +34,9 @@ import lambdaUsageHistory from './lambda-usage-history';
 import objectsDistribution from './objects-distribution';
 import cloudUsageStats from './cloud-usage-stats';
 import bucketTriggers from './bucket-triggers';
-import state from './state.js';
+import endpointGroups from './endpoint-groups';
 
 const schemas = {
-    common,
     location,
     session,
     namespaceResources,
@@ -69,15 +68,21 @@ const schemas = {
     objectsDistribution,
     cloudUsageStats,
     bucketTriggers,
-    state
+    endpointGroups
 };
 
 export default deepFreeze(
     strictify({
-        def: schemas,
-
-        // Define that root schema for the validator will be the state schema.
-        $ref: '#/def/state'
+        def: {
+            common,
+            ...schemas
+        },
+        ...mapValues(
+            schemas,
+            (_, name) => ({
+                $ref: `#/def/${name}`
+            })
+        )
     })
 );
 

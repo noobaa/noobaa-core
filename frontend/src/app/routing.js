@@ -48,6 +48,7 @@ export default function routing(page) {
     registerRouteHandler(page, routes.funcs);
     registerRouteHandler(page, routes.func);
     registerRouteHandler(page, routes.analytics);
+    registerRouteHandler(page, routes.endpoints);
 
     // Catch unknown routes handler
     registerRouteHandler(page, '*');

@@ -1,0 +1,29 @@
+<!-- Copyright (C) 2016 NooBaa -->
+
+<endpoints-summary class="push-next"></endpoints-summary>
+
+<div class="column tabs greedy">
+    <nav>
+<!--         <a ko.css.selected="selectedTab.eq('statistics')"
+            ko.attr.href="tabHref('statistics')"
+        >
+            Statistics
+        </a> -->
+        <a ko.css.selected="selectedTab.eq('info')"
+            ko.attr.href="tabHref('info')"
+        >
+            Endpoints
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+<!--         <div class="tab"
+            ko.css.selected="selectedTab.eq('statistics')">
+        </div> -->
+
+        <endpoint-groups-table class="tab column"
+            ko.css.selected="selectedTab.eq('info')"
+        ></endpoint-groups-table>
+    </div>
+</div>
+

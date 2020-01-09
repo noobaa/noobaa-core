@@ -13,7 +13,7 @@ export default {
         'debug',
         'diagnostics',
         'internalStorage',
-        's3Endpoints'
+        's3Addresses'
     ],
     properties: {
         name: {
@@ -161,7 +161,7 @@ export default {
                 $ref: '#/def/common/size'
             }
         },
-        s3Endpoints: {
+        s3Addresses: {
             type: 'array',
             items: {
                 type: 'object',

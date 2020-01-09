@@ -268,6 +268,14 @@ import dataBreakdownForm from './analytics/data-breakdown-form/data-breakdown-fo
 /** INJECT:analytics.import **/
 
 // -------------------------------
+// Analytics page components
+// -------------------------------
+import endpointsPanel from './endpoints/endpoints-panel/endpoints-panel';
+import endpointsSummary from './endpoints/endpoints-summary/endpoints-summary';
+import endpointGroupsTable from './endpoints/endpoint-groups-table/endpoint-groups-table';
+/** INJECT:endpoints.import **/
+
+// -------------------------------
 // Admin components
 // -------------------------------
 import auditPane from './admin/audit-pane/audit-pane';
@@ -556,6 +564,12 @@ export default function register(ko, services) {
         cloudUsageStatsForm,
         dataBreakdownForm,
         /** INJECT:analytics.list **/
+
+        endpointsPanel,
+        endpointsSummary,
+        endpointGroupsTable,
+        /** INJECT:endpoints.list **/
+
 
         auditPane,
         alertsPane,

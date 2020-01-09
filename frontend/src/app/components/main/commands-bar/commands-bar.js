@@ -4,6 +4,8 @@ import template from './commands-bar.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { sumBy } from 'utils/core-utils';
+import { realizeUri } from 'utils/browser-utils';
+import * as routes from 'routes';
 import {
     openAuditDrawer,
     openAlertsDrawer,
@@ -14,7 +16,7 @@ import {
 class CommandBarViewModel extends ConnectableViewModel {
     isRefreshSpinning = ko.observable();
     unreadAlertsCount = ko.observable();
-    location = '';
+    settingsHref = ko.observable();
 
     constructor(...args) {
         super(...args);
@@ -24,17 +26,21 @@ class CommandBarViewModel extends ConnectableViewModel {
 
     selectState(state) {
         return [
-            state.alerts.unreadCounts
+            state.alerts.unreadCountsm,
+            state.location.params.system
         ];
     }
 
-    mapStateToProps(counters) {
+    mapStateToProps(counters, system) {
         const unreadAlertsCount = counters ?
             sumBy(Object.values(counters)) :
             0;
 
+        const settingsHref = realizeUri(routes.management, { system });
+
         ko.assignToProps(this, {
-            unreadAlertsCount
+            unreadAlertsCount,
+            settingsHref
         });
     }
 

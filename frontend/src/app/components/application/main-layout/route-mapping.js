@@ -90,6 +90,11 @@ export default deepFreeze({
         area: 'analytics',
         panel: 'analytics',
         crumbsGenerator: _generateAnalyticsCrumbs
+    },
+    [routes.endpoints]: {
+        area: 'endpoints',
+        panel: 'endpoints',
+        crumbsGenerator: _generateEndpointCrumbs
     }
 });
 
@@ -337,11 +342,23 @@ function _generateFunctionCrumbs(params) {
 function _generateAnalyticsCrumbs(params) {
     return [
         {
-            url:realizeUri(
+            url: realizeUri(
                 routes.analytics,
                 pick(params, ['system'])
             ),
             label: 'Analytics'
+        }
+    ];
+}
+
+function _generateEndpointCrumbs(params) {
+    return [
+        {
+            url: realizeUri(
+                routes.endpoints,
+                pick(params, ['system'])
+            ),
+            label: 'Endpoints'
         }
     ];
 }

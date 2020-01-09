@@ -46,14 +46,14 @@ const navItems = deepFreeze([
         label: 'Functions'
     },
     {
+        route: 'endpoints',
+        icon: 'endpoints',
+        label: 'Endpoints'
+    },
+    {
         route: 'cluster',
         icon: 'cluster',
         label: 'Cluster'
-    },
-    {
-        route: 'management',
-        icon: 'manage',
-        label: 'Management'
     },
     {
         route: 'accounts',

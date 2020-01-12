@@ -16,7 +16,7 @@ DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"
 # using a fixed version (commit) of ceph tests to avoid sudden changes. 
 # we should retest and update the version once in a while
-CEPH_TESTS_VERSION=6b553efbe16a7f74acdedc13ab2cae3b5949b6e8
+CEPH_TESTS_VERSION=13452bd25fdc5307afba9e93599fbfc87b4669c1
 if [ ! -d $DIRECTORY ]; then
     echo "Downloading Ceph S3 Tests..."
     git clone $CEPH_LINK
@@ -31,6 +31,6 @@ current_date=$(date +%s)
 
 if [ $((current_date-commit_date)) -gt $((3600*24*180)) ]
 then
-    echo "ceph tests were not updated for 180, Exiting"
+    echo "ceph tests were not updated for 180 days, Exiting"
     exit 1
 fi

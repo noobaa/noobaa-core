@@ -48,7 +48,7 @@ class MapBuilder {
 
     async run() {
         this.start_run = Date.now();
-        dbg.log0('MapBuilder.run:', 'batch start', this.chunk_ids, 'move_to_tier', this.move_to_tier && this.move_to_tier.name);
+        dbg.log1('MapBuilder.run:', 'batch start', this.chunk_ids, 'move_to_tier', this.move_to_tier && this.move_to_tier.name);
         if (!this.chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(this.chunk_ids, String), async () => {

@@ -73,7 +73,7 @@ class GetMapping {
         try {
             await this.find_dups();
             await this.do_allocations();
-            dbg.log0('GetMapping: DONE. chunks', this.chunks.length,
+            dbg.log1('GetMapping: DONE. chunks', this.chunks.length,
                 'took', time_utils.millitook(millistamp));
             return this.chunks;
         } catch (err) {
@@ -259,11 +259,11 @@ class PutMapping {
 
     async run() {
         const millistamp = time_utils.millistamp();
-        dbg.log0('PutMapping: start');
+        dbg.log1('PutMapping: Start.');
         try {
             this.add_chunks();
             await this.update_db();
-            dbg.log0('PutMapping: DONE. chunks', this.chunks.length,
+            dbg.log1('PutMapping: DONE. chunks', this.chunks.length,
                 'took', time_utils.millitook(millistamp));
             return this.chunks;
         } catch (err) {

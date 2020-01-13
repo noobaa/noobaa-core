@@ -22,6 +22,9 @@ let errors = [];
 const {
     mgmt_ip,
     mgmt_port_https,
+    email = 'demo@noobaa.com',
+    password = 'DeMo1',
+    system = 'demo',
     skip_report = false,
     help = false
 } = argv;
@@ -30,6 +33,9 @@ function usage() {
     console.log(`
     --mgmt_ip               -   noobaa server management ip.
     --mgmt_port_https       -   noobaa server management https port
+    --email                 -   noobaa management Credentials (email)
+    --password              -   noobaa management Credentials (password)
+    --system                -   noobaa management Credentials (system)
     --skip_report           -   will skip sending report to mongo
     --id                    -   an id that is attached to the agents name
     --help                  -   show this help.
@@ -183,7 +189,7 @@ async function set_diagnose_system_and_check() {
         console.log(`Setting Diagnostic`);
         const diagnose_system = await client.cluster_server.diagnose_system({});
         await P.delay(40 * 1000);
-        if (diagnose_system.includes('/public/demo_cluster_diagnostics.tgz')) {
+        if (diagnose_system.includes(`/public/${system}_cluster_diagnostics.tgz`)) {
             console.log(`The diagnose system file is: ${diagnose_system} - as should `);
             await report.success(`set_diagnose_system`);
         } else {
@@ -199,10 +205,10 @@ async function set_diagnose_system_and_check() {
 async function set_rpc_and_create_auth_token() {
     rpc = api.new_rpc_from_base_address('wss://' + mgmt_ip + ':' + mgmt_port_https, 'EXTERNAL');
     client = rpc.new_client({});
-    let auth_params = {
-        email: 'demo@noobaa.com',
-        password: 'DeMo1',
-        system: 'demo'
+    const auth_params = {
+        email,
+        password,
+        system
     };
     return client.create_auth_token(auth_params);
 }

@@ -37,14 +37,14 @@ async function background_worker() {
         // update the marker for next time
         this.marker = marker;
         if (chunk_ids.length) {
-            dbg.log0('SCRUBBER:', 'WORKING ON', chunk_ids.length, 'CHUNKS');
+            dbg.log1('SCRUBBER:', 'WORKING ON', chunk_ids.length, 'CHUNKS');
             const builder = new MapBuilder(chunk_ids);
             await builder.run();
         }
 
         // return the delay before next batch
         if (this.marker) {
-            dbg.log0('SCRUBBER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
+            dbg.log1('SCRUBBER:', 'CONTINUE', this.marker, this.marker.getTimestamp());
             return config.SCRUBBER_BATCH_DELAY;
         } else {
             dbg.log0('SCRUBBER:', 'END');

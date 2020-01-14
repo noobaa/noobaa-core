@@ -49,6 +49,8 @@ var failed_sent = 0;
 // Also in case of failures with sending the phone home we won't perform the partial cycles
 // TODO: Maybe add some sort of a timeout mechanism to the failures in order to perform partial cycles?
 var current_cycle = 0;
+var last_partial_stats_requested = 0;
+const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
 
 /*
  * Stats Collction API
@@ -809,6 +811,13 @@ async function get_all_stats(req) {
 }
 
 async function get_partial_stats(req) {
+    const { requester } = req.rpc_params;
+    if (requester) {
+        const now = Date.now();
+        if (now - last_partial_stats_requested < PARTIAL_STATS_REQUESTED_GRACE_TIME) return null;
+        last_partial_stats_requested = now;
+    }
+
     const stats_payload = {
         systems_stats: null,
         cloud_pool_stats: null,
@@ -816,7 +825,7 @@ async function get_partial_stats(req) {
         providers_stats: null,
     };
 
-    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
+    dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN', requester);
 
     try {
         dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Partial System Stats');

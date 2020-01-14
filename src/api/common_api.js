@@ -725,6 +725,27 @@ module.exports = {
         hostname_list: {
             type: 'array',
             items: { type: 'string' }
+        },
+        bucket_mode: {
+            type: 'string',
+            enum: [
+                'OPTIMAL',
+                'DATA_ACTIVITY',
+                'APPROUCHING_QUOTA',
+                'NO_RESOURCES_INTERNAL',
+                'TIER_LOW_CAPACITY',
+                'LOW_CAPACITY',
+                'TIER_NO_CAPACITY',
+                'TIER_NOT_ENOUGH_HEALTHY_RESOURCES',
+                'TIER_NOT_ENOUGH_RESOURCES',
+                'TIER_NO_RESOURCES',
+                'EXCEEDING_QUOTA',
+                'ALL_TIERS_HAVE_ISSUES',
+                'NO_CAPACITY',
+                'NOT_ENOUGH_HEALTHY_RESOURCES',
+                'NOT_ENOUGH_RESOURCES',
+                'NO_RESOURCES'
+            ]
         }
     }
 };

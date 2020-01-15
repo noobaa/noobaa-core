@@ -21,7 +21,7 @@ matrix:
         - docker
 
       script:
-        - make tester NO_CACHE=true SUPPRESS_LOGS=true
+        - make tester NO_CACHE=true
         - make test SUPPRESS_LOGS=true
 
     - language: node_js

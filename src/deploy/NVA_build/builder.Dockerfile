@@ -8,7 +8,6 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN cat /etc/os-release
 RUN dnf install -y wget 
 RUN dnf install -y unzip 
 RUN dnf install -y which 

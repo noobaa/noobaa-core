@@ -232,7 +232,7 @@ async function create_hosts_pool(req) {
             }
         })
     );
-
+    pool.hosts_pool_info.backingstore = req.rpc_params.backingstore || undefined;
     dbg.log0('create_hosts_pool: Creating new pool', pool);
     await system_store.make_changes({
         insert: {
@@ -425,7 +425,8 @@ async function create_cloud_pool(req) {
             secret_key: connection.secret_key,
             account_id: req.account._id
         },
-        endpoint_type: connection.endpoint_type || 'AWS'
+        endpoint_type: connection.endpoint_type || 'AWS',
+        backingstore: req.rpc_params.backingstore || undefined
     }, _.isUndefined);
 
 
@@ -1251,11 +1252,15 @@ function check_pool_deletion(pool) {
             return 'BEING_DELETED';
         }
     }
+
+    //Verify pool's origin is not backingstore 
+    if (pool.hosts_pool_info && pool.hosts_pool_info.backingstore !== null && pool.hosts_pool_info.backingstore !== undefined) {
+        return 'IS_BACKINGSTORE';
+    }
 }
 
 
 function check_resrouce_pool_deletion(pool) {
-
     //Verify pool is not used by any bucket/tier
     if (has_associated_buckets_int(pool, { exclude_deleting_buckets: true })) {
         return 'IN_USE';
@@ -1270,6 +1275,11 @@ function check_resrouce_pool_deletion(pool) {
     var accounts = get_associated_accounts(pool);
     if (accounts.length) {
         return 'DEFAULT_RESOURCE';
+    }
+
+    //Verify pool's origin is not backingstore 
+    if (pool.cloud_pool_info && pool.cloud_pool_info.backingstore !== null && pool.cloud_pool_info.backingstore !== undefined) {
+        return 'IS_BACKINGSTORE';
     }
 }
 

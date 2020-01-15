@@ -20,7 +20,7 @@ module.exports = {
                 required: [
                     'name',
                     'is_managed',
-                    'host_count'
+                    'host_count',
                 ],
                 properties: {
                     name: {
@@ -40,7 +40,10 @@ module.exports = {
                                 $ref: 'common_api#/definitions/bigint'
                             }
                         }
-                    }
+                    },
+                    backingstore: {
+                        $ref: '#/definitions/backingstore_definition'
+                    },
                 }
             },
             reply: {
@@ -66,7 +69,10 @@ module.exports = {
                     },
                     target_bucket: {
                         type: 'string',
-                    }
+                    },
+                    backingstore: {
+                        $ref: '#/definitions/backingstore_definition'
+                    },
                 }
             },
             auth: {
@@ -342,6 +348,18 @@ module.exports = {
     },
 
     definitions: {
+        backingstore_definition: {
+            type: 'object',
+            required: ['name', 'namespace'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                namespace: {
+                    type: 'string',
+                }
+            }
+        },
         pool_definition: {
             type: 'object',
             required: ['name', 'nodes'],

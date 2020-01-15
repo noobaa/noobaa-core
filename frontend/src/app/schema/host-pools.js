@@ -150,7 +150,8 @@ export default {
                     'NOT_EMPTY',
                     'IN_USE',
                     'DEFAULT_RESOURCE',
-                    'BEING_DELETED'
+                    'BEING_DELETED',
+                    'IS_BACKINGSTORE'
                 ]
             },
             hostConfig: {

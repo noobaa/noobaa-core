@@ -99,6 +99,17 @@ module.exports = {
                     type: 'string',
                     enum: ['AWS_V2', 'AWS_V4']
                 },
+                backingstore: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        namespace: {
+                            type: 'string'
+                        }
+                    }
+                },
                 access_keys: {
                     type: 'object',
                     required: ['access_key', 'secret_key', 'account_id'],
@@ -165,7 +176,18 @@ module.exports = {
                             $ref: 'common_api#/definitions/bigint'
                         },
                     }
-                }
+                },
+                backingstore: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        namespace: {
+                            type: 'string'
+                        }
+                    }
+                },
             }
         }
     }

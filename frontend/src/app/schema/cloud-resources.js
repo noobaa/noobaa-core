@@ -63,7 +63,8 @@ export default {
                     'NOT_EMPTY',
                     'IN_USE',
                     'DEFAULT_RESOURCE',
-                    'CONNECTED_BUCKET_DELETING'
+                    'CONNECTED_BUCKET_DELETING',
+                    'IS_BACKINGSTORE'
                 ]
             },
             usedBy: {

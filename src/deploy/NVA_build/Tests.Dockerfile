@@ -24,7 +24,7 @@ RUN dnf install -y -q vim \
     mongodb-org-shell-3.6.3 \
     mongodb-org-mongos-3.6.3 \
     mongodb-org-tools-3.6.3 \
-    which python2-virtualenv python2-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
+    which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
     git && \
     dnf clean all
 
@@ -48,8 +48,7 @@ WORKDIR /noobaa-core/
 
 RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
 RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
-    ./bootstrap && \
-    touch ./s3tests/tests/__init__.py
+    ./bootstrap
 COPY .eslintrc.js /noobaa-core
 COPY .eslintignore /noobaa-core
 

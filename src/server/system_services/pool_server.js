@@ -206,6 +206,16 @@ function new_namespace_resource_defaults(name, system_id, account_id, connection
 }
 
 async function create_hosts_pool(req) {
+    try {
+        // Trigger partial aggregation for the Prometheus metrics
+        server_rpc.client.stats.get_partial_stats({
+            requester: 'create_hosts_pool',
+        }, {
+            auth_token: req.auth_token
+        });
+    } catch (error) {
+        dbg.error('create_hosts_pool: get_partial_stats failed with', error);
+    }
     const { system, rpc_params, account } = req;
     const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const PV_SIZE_GB = 20;
@@ -403,7 +413,7 @@ function create_namespace_resource(req) {
     // })
 }
 
-function create_cloud_pool(req) {
+async function create_cloud_pool(req) {
     var name = req.rpc_params.name;
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var cloud_info = _.omitBy({
@@ -428,6 +438,17 @@ function create_cloud_pool(req) {
         throw new RpcError('IN_USE', 'Target already in use');
     }
 
+    try {
+        // Trigger partial aggregation for the Prometheus metrics
+        server_rpc.client.stats.get_partial_stats({
+            requester: 'create_cloud_pool',
+        }, {
+            auth_token: req.auth_token
+        });
+    } catch (error) {
+        dbg.error('create_cloud_pool: get_partial_stats failed with', error);
+    }
+
     const map_pool_type = {
         AWS: 'BLOCK_STORE_S3',
         S3_COMPATIBLE: 'BLOCK_STORE_S3',
@@ -443,26 +464,27 @@ function create_cloud_pool(req) {
     pool.cloud_pool_info = cloud_info;
 
     dbg.log0('got connection for cloud pool:', connection);
-    return system_store.make_changes({
-            insert: {
-                pools: [pool]
-            }
-        })
-        .then(res => server_rpc.client.hosted_agents.create_pool_agent({
-            pool_name: req.rpc_params.name,
-        }, {
-            auth_token: req.auth_token
-        }))
-        .then(() => {
-            Dispatcher.instance().activity({
-                event: 'resource.cloud_create',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                pool: pool._id,
-                desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
-            });
-        });
+
+    await system_store.make_changes({
+        insert: {
+            pools: [pool]
+        }
+    });
+
+    await server_rpc.client.hosted_agents.create_pool_agent({
+        pool_name: req.rpc_params.name,
+    }, {
+        auth_token: req.auth_token
+    });
+
+    Dispatcher.instance().activity({
+        event: 'resource.cloud_create',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        pool: pool._id,
+        desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
+    });
 }
 
 function create_mongo_pool(req) {

@@ -135,8 +135,18 @@ module.exports = {
 
         get_partial_stats: {
             method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    requester: { type: 'string' },
+                }
+            },
             reply: {
-                $ref: '#/definitions/partial_stats'
+                anyOf: [{
+                    type: 'null'
+                }, {
+                    $ref: '#/definitions/partial_stats'
+                }]
             },
             auth: {
                 system: 'admin'

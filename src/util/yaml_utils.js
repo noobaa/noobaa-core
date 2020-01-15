@@ -21,14 +21,15 @@ function parse(yaml_string) {
 }
 
 function stringify(json) {
-    if (json.kind === 'List') {
-        return (json.items || [])
-            .map(item => yaml.stringify(item))
-            .join('---\n');
+    const docs =
+        (!json && []) ||
+        (Array.isArray(json) && json) ||
+        (json.kind === 'List' && (json.items || [])) ||
+        [json];
 
-    } else {
-        return yaml.strinify(json);
-    }
+    return docs
+        .map(doc => yaml.stringify(doc))
+        .join('---\n');
 }
 
 exports.parse = parse;

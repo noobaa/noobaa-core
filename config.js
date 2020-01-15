@@ -423,6 +423,11 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
     ui_theme: 'DARK'
 };
 
+///////////////////////////////////
+// REMOTE NOOBAA DEPLOYMENT INFO //
+///////////////////////////////////
+config.REMOTE_NOOAA_NAMESPACE = '';
+
 //Load overrides if exist
 try {
     // load a local config file that overwrites some of the config

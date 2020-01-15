@@ -804,8 +804,8 @@ class RPC extends EventEmitter {
             method_api: api.id,
             method_name: method.name,
             target: options.address,
-            request_params: params,
-            [RPC_BUFFERS]: params[RPC_BUFFERS],
+            request_params: params || undefined,
+            [RPC_BUFFERS]: params && params[RPC_BUFFERS],
         };
 
         return P.resolve()

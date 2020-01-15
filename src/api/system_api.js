@@ -295,6 +295,34 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        get_join_cluster_yaml: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    endpoints: {
+                        type: 'object',
+                        properties: {
+                            min_count: {
+                                type: 'integer',
+                                minimum: 1
+                            },
+                            max_count: {
+                                type: 'integer',
+                                minimum: 1
+                            }
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'string'
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
     },
 
     definitions: {

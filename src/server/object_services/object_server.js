@@ -1075,7 +1075,7 @@ function read_s3_ops_counters(req) {
 
 async function add_endpoint_report(req) {
     const params = req.rpc_params;
-    const bandwidth = params.bandwidth.map(record => {
+    const bandwidth = (params.bandwidth || []).map(record => {
         const account = system_store.data.accounts.find(acc => {
             const access_key = acc.access_keys &&
                 acc.access_keys[0] &&

@@ -11,7 +11,6 @@ require('../util/dotenv').load();
 const http = require('http');
 const https = require('https');
 const FtpSrv = require('ftp-srv');
-const url = require('url');
 const os = require('os');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -28,7 +27,7 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
 const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
-const system_store = require('../server/system_services/system_store').get_instance();
+const system_store = require('../server/system_services/system_store');
 const md_server = require('../server/md_server');
 const auth_server = require('../server/common_services/auth_server');
 const server_rpc = require('../server/server_rpc');
@@ -43,7 +42,9 @@ const {
     LOCATION_INFO,
     VIRTUAL_HOSTS,
     RPC_ROUTER,
-    ENDPOINT_GROUP_ID
+    ENDPOINT_GROUP_ID,
+    LOCAL_MD_SERVER,
+    LOCAL_N2N_AGENT
 } = process_env(process.env);
 
 function process_env(env) {
@@ -61,24 +62,20 @@ function process_env(env) {
         LOCATION_INFO: { region: env.REGION || '' },
         VIRTUAL_HOSTS: Object.freeze(virtual_hosts),
         RPC_ROUTER: get_rpc_router(env),
-        ENDPOINT_GROUP_ID: env.ENDPOINT_GROUP_ID || 'default-endpoint-group'
+        ENDPOINT_GROUP_ID: env.ENDPOINT_GROUP_ID || 'default-endpoint-group',
+        LOCAL_MD_SERVER: env.LOCAL_MD_SERVER === "true",
+        LOCAL_N2N_AGENT: env.LOCAL_N2N_AGENT === "true"
     };
 }
 
 function get_rpc_router(env) {
-    const base_address = env.MGMT_URL || 'https://127.0.0.1';
-    const mgmt_port = env.NOOBAA_MGMT_SERVICE_PORT_MGMT_HTTPS || 8443;
-    const md_port = env.NOOBAA_MGMT_SERVICE_PORT_MD_HTTPS || 8444;
-    const bg_port = env.NOOBAA_MGMT_SERVICE_PORT_BG_HTTPS || 8445;
-    const hosted_agents_port = env.NOOBAA_MGMT_SERVICE_PORT_HOSTED_AGENTS_HTTPS || 8446;
-    const { hostname } = url.parse(base_address);
-
+    const default_base_addr = 'wss://127.0.0.1';
     return {
-        default: `wss://${hostname}:${mgmt_port}`,
-        md: `wss://${hostname}:${md_port}`,
-        bg: `wss://${hostname}:${bg_port}`,
-        hosted_agents: `wss://${hostname}:${hosted_agents_port}`,
-        master: `wss://${hostname}:${mgmt_port}`,
+        default: env.MGMT_ADDR || `${default_base_addr}:8443`,
+        md: env.MD_ADDR || `${default_base_addr}:8444`,
+        bg: env.BG_ADDR || `${default_base_addr}:8445`,
+        hosted_agents: env.HOSTED_AGENTS_ADDR || `${default_base_addr}:8446`,
+        master: env.MGMT_ADDR || `${default_base_addr}:8443`
     };
 }
 
@@ -89,24 +86,30 @@ function start_all() {
         s3: true,
         lambda: true,
         blob: ENDPOINT_BLOB_ENABLED,
-        n2n_agent: true,
+        ftp: ENDPOINT_FTP_ENABLED,
+        md_server: LOCAL_MD_SERVER,
+        n2n_agent: LOCAL_N2N_AGENT
     });
 }
 
 async function run_server(options) {
     try {
-        server_rpc.rpc.router = RPC_ROUTER;
+        const rpc = server_rpc.rpc;
+        rpc.router = RPC_ROUTER;
 
-        // Load a system store instance for the current process and register for changes.
-        // We do not wait for it in becasue the result or errors are not relevent at
-        // this point (and should not kill the process);
-        system_store.load();
+        // Register the process as an md_server if needed.
+        if (options.md_server) {
+            // Load a system store instance for the current process and register for changes.
+            // We do not wait for it in becasue the result or errors are not relevent at
+            // this point (and should not kill the process);
+            system_store.get_instance().load();
 
-        // Register the process as an md_server.
-        const rpc = await md_server.register_rpc();
+            // Register the process as an md_server.
+            await md_server.register_rpc();
+        }
 
         const endpoint_request_handler = create_endpoint_handler(rpc, options);
-        if (ENDPOINT_FTP_ENABLED) start_ftp_endpoint(rpc);
+        if (options.ftp) start_ftp_endpoint(rpc);
 
         const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
@@ -126,19 +129,33 @@ async function run_server(options) {
     }
 }
 
-async function start_monitor() {
-    await promise_utils.wait_until(() =>
-        system_store.is_finished_initial_load
-    );
-    const system = system_store.data.systems[0];
-    const auth_token = auth_server.make_auth_token({
-        system_id: system._id,
-        account_id: system.owner._id,
-        role: 'admin'
-    });
+async function get_auth_token(env) {
+    if (env.NOOBAA_AUTH_TOKEN) {
+        return env.NOOBAA_AUTH_TOKEN;
 
+    } else if (env.JWT_SECRET) {
+        const system_store_inst = system_store.get_instance();
+        await promise_utils.wait_until(() =>
+            system_store_inst.is_finished_initial_load
+        );
+        const system = system_store_inst.data.systems[0];
+        return auth_server.make_auth_token({
+            system_id: system._id,
+            account_id: system.owner._id,
+            role: 'admin'
+        });
+
+    } else {
+        throw new Error('NooBaa auth token is unavailable');
+    }
+}
+
+async function start_monitor() {
+    const auth_token = await get_auth_token(process.env);
     let start_time = process.hrtime.bigint() / 1000n;
     let base_cpu_time = process.cpuUsage();
+
+    dbg.log0('Endpoint monitor started');
     for (;;) {
         try {
             await promise_utils.delay_unblocking(ENDPOINT_MONITOR_INTERVAL);
@@ -147,11 +164,14 @@ async function start_monitor() {
             const elap_cpu_time = (cpu_time.system + cpu_time.user) - (base_cpu_time.system + base_cpu_time.user);
             const cpu_usage = elap_cpu_time / Number((end_time - start_time));
             const rest_usage = s3_rest.consume_usage_report();
+            const group_name = ENDPOINT_GROUP_ID;
+            const hostname = os.hostname();
 
+            dbg.log0('Sending endpoint report:', { group_name, hostname });
             await server_rpc.client.object.add_endpoint_report({
                 timestamp: Date.now(),
-                group_name: ENDPOINT_GROUP_ID,
-                hostname: os.hostname(),
+                group_name,
+                hostname,
                 cpu: {
                     count: os_utils.get_cpus(),
                     usage: cpu_usage
@@ -195,6 +215,7 @@ function create_endpoint_handler(rpc, options) {
         const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
+
     const object_io = new ObjectIO(LOCATION_INFO);
     return endpoint_request_handler;
 

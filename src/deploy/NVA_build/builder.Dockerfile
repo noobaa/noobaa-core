@@ -8,10 +8,14 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN dnf install -y -q wget unzip which vim && \
-    dnf group install -y -q "Development Tools" && \
-    dnf install -y -q python2 && \
-    dnf clean all
+RUN cat /etc/os-release
+RUN dnf install -y wget 
+RUN dnf install -y unzip 
+RUN dnf install -y which 
+RUN dnf install -y vim
+RUN dnf group install -y "Development Tools" 
+RUN dnf install -y python2 
+#RUN dnf clean all
 RUN alternatives --set python /usr/bin/python2
 RUN version="1.3.0" && \
     wget -q -O yasm-${version}.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \

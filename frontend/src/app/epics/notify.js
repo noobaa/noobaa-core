@@ -518,6 +518,11 @@ const actionToNotification = deepFreeze({
     [types.FAIL_EXPORT_AUDIT_LOG]: () => ({
         message: 'Exporting audit log failed',
         severity: 'error'
+    }),
+
+    [types.FAIL_GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML]: () => ({
+        message: 'Generating endpoint group deployment YAML failed',
+        severity: 'error'
     })
 });
 

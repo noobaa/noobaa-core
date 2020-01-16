@@ -19,5 +19,6 @@ export * from './namespace-actions';
 export * from './object-actions';
 export * from './topology-actions';
 export * from './func-actions';
+export * from './endpoint-actions';
 export * from './support-actions';
 export * from './analytics-actions';

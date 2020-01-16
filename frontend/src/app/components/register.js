@@ -99,6 +99,7 @@ import confirmDangerousScalingModal from './modals/confirm-dangerous-scaling-mod
 import editCloudConnectionModal from './modals/edit-cloud-connection-modal/edit-cloud-connection-modal';
 import cloudConnectionUpdateWarningModal from './modals/cloud-connection-update-warning-modal/cloud-connection-update-warning-modal';
 import completeSslCertificateInstallationModal from './modals/complete-ssl-certificate-installation-modal/complete-ssl-certificate-installation-modal';
+import deployRemoteEndpointGroupModal from './modals/deploy-remote-endpoint-group-modal/deploy-remote-endpoint-group-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -448,6 +449,7 @@ export default function register(ko, services) {
         editCloudConnectionModal,
         cloudConnectionUpdateWarningModal,
         completeSslCertificateInstallationModal,
+        deployRemoteEndpointGroupModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

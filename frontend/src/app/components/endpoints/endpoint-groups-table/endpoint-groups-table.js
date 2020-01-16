@@ -7,8 +7,11 @@ import numeral from 'numeral';
 import moment from 'moment';
 import { createCompareFunc } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
-import { requestLocation } from 'action-creators';
 import { paginationPageSize } from 'config';
+import {
+    requestLocation,
+    openDeployRemoteEndpointGroupModal
+} from 'action-creators';
 
 
 const columns = Object.freeze([
@@ -102,6 +105,10 @@ class EndpointsTableViewModel extends ConnectableViewModel {
                 }))
             });
         }
+    }
+
+    onDeployRemoteEndpointGroup() {
+        this.dispatch(openDeployRemoteEndpointGroupModal());
     }
 
     onSort(sorting) {

@@ -6,6 +6,7 @@ import {
     COMPLETE_COLLECT_HOST_DIAGNOSTICS,
     COMPLETE_COLLECT_SYSTEM_DIAGNOSTICS,
     COMPLETE_EXPORT_AUDIT_LOG,
+    COMPLETE_GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML,
     COMPLETE_CREATE_HOSTS_POOL
 } from 'action-types';
 
@@ -22,7 +23,11 @@ const actionToFileInfo = deepFreeze({
             uri: payload.deployYAMLUri,
             name: `${payload.name}.yaml`
         };
-    }
+    },
+    [COMPLETE_GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML]: payload => ({
+        uri: payload.deployYAMLUri,
+        name: 'deploy.yaml'
+    })
 });
 
 export default function(action$, { browser }) {

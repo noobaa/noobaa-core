@@ -45,6 +45,7 @@ const chunk_config_utils = require('../utils/chunk_config_utils');
 const addr_utils = require('../../util/addr_utils');
 const url_utils = require('../../util/url_utils');
 const ssl_utils = require('../../util/ssl_utils');
+const yaml_utils = require('../../util/yaml_utils');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -896,6 +897,69 @@ async function _ensure_internal_structure(system_id) {
     }
 }
 
+async function get_join_cluster_yaml(req) {
+    const { endpoints = {} } = req.rpc_params;
+    const ep_min_count = endpoints.min_count || 1;
+    const ep_max_count = endpoints.max_count || ep_min_count;
+    if (ep_max_count < ep_min_count) {
+        throw new RpcError('BAD_REQUEST', 'endpoints.max_count cannot be lower then endpoints.min_count');
+    }
+
+    const secret = {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: _.omitBy({
+            name: 'join-secret',
+            namespace: config.REMOTE_NOOAA_NAMESPACE || undefined,
+            labels: {
+                app: 'noobaa'
+            }
+        }, _.isUndefined),
+        type: 'Opaque',
+        stringData: {
+            auth_token: await auth_server.make_auth_token({
+                system_id: req.system._id,
+                account_id: req.system.owner._id,
+                role: 'admin'
+            }),
+            ...Object.fromEntries(
+                ['mgmt', 'bg', 'md', 'hosted_agents'].map(api_name => [
+                    `${api_name}_addr`,
+                    addr_utils.get_base_address(req.system.system_address, {
+                        api: api_name,
+                        hint: 'EXTERNAL',
+                        protocol: 'https',
+                        secure: true
+                    }).toString()
+                ])
+            )
+        }
+    };
+
+    const noobaa = {
+        apiVersion: 'noobaa.io/v1alpha1',
+        kind: 'NooBaa',
+        metadata: _.omitBy({
+            name: 'noobaa',
+            namespace: config.REMOTE_NOOAA_NAMESPACE || undefined,
+            labels: {
+                app: 'noobaa'
+            }
+        }, _.isUndefined),
+        spec: {
+            endpoints: {
+                minCount: ep_min_count,
+                maxCount: ep_max_count
+            }
+        }
+    };
+
+    return yaml_utils.stringify([
+        secret,
+        noobaa
+    ]);
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 function get_system_info(system, get_id) {
@@ -1001,3 +1065,4 @@ exports.update_n2n_config = update_n2n_config;
 exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
+exports.get_join_cluster_yaml = get_join_cluster_yaml;

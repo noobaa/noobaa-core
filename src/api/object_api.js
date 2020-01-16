@@ -951,6 +951,11 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
+                required: [
+                    'timestamp',
+                    'group_name',
+                    'hostname'
+                ],
                 properties: {
                     timestamp: {
                         idate: true

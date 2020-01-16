@@ -452,6 +452,7 @@ module.exports = {
                 'CONNECTED_BUCKET_DELETING',
                 'DEFAULT_RESOURCE',
                 'BEING_DELETED',
+                'IS_BACKINGSTORE'
             ],
             type: 'string',
         },

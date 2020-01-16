@@ -12,6 +12,10 @@
 <p class="highlight">Cannot delete a {{subject}} that is assigned to a bucket policy</p>
 <!-- /ko -->
 
+<!-- ko if: reason === 'IS_BACKINGSTORE' -->
+<p class="highlight">Cannot delete a {{subject}} that was created as a backingstore</p>
+<!-- /ko -->
+
 <!-- ko if: reason === 'CONNECTED_BUCKET_DELETING' -->
 <p class="highlight">Cannot delete a {{subject}} that is assigned to a bucket which is being deleted</p>
 <!-- /ko -->

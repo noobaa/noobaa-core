@@ -17,11 +17,16 @@ const initialState = undefined;
 function onCompleteFetchSystemInfo(state, { payload }) {
     return keyByProperty(payload.endpoint_groups, 'group_name', group => ({
         name: group.group_name,
-        lastUpdate: group.last_update,
+        isRemote: group.is_remote,
         endpointCount: group.endpoint_count,
+        endpointRange: {
+            min: group.min_endpoint_count,
+            max: group.max_endpoint_count
+        },
         cpuCount: group.cpu_count,
         cpuUsage: group.cpu_usage,
-        memoryUsage: group.memory_usage
+        memoryUsage: group.memory_usage,
+        lastReportTime: group.last_report_time
     }));
 }
 

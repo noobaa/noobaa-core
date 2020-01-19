@@ -905,6 +905,13 @@ async function get_join_cluster_yaml(req) {
         throw new RpcError('BAD_REQUEST', 'endpoints.max_count cannot be lower then endpoints.min_count');
     }
 
+    const operator_account = system_store.data.accounts.find(account =>
+        (account.roles_by_system[req.system._id] || []).includes('operator')
+    );
+    if (!operator_account) {
+        throw new RpcError('NO_OPERATOR_ACCOUNT', 'Cannot find operator account');
+    }
+
     const joinSecret = {
         apiVersion: 'v1',
         kind: 'Secret',
@@ -919,8 +926,8 @@ async function get_join_cluster_yaml(req) {
         stringData: {
             auth_token: await auth_server.make_auth_token({
                 system_id: req.system._id,
-                account_id: req.system.owner._id,
-                role: 'admin'
+                account_id: operator_account._id,
+                role: 'operator'
             }),
             ...Object.fromEntries(
                 ['mgmt', 'bg', 'md', 'hosted_agents'].map(api_name => [
@@ -928,7 +935,7 @@ async function get_join_cluster_yaml(req) {
                     addr_utils.get_base_address(req.system.system_address, {
                         api: api_name,
                         hint: 'EXTERNAL',
-                        protocol: 'https',
+                        protocol: 'wss',
                         secure: true
                     }).toString()
                 ])
@@ -959,6 +966,57 @@ async function get_join_cluster_yaml(req) {
         joinSecret,
         noobaa
     ]);
+}
+
+
+async function update_endpoint_group(req) {
+    const { group_name, is_remote, endpoint_range } = req.rpc_params;
+
+    const cluster = system_store.get_local_cluster_info();
+    const exists = (cluster.endpoint_groups || [])
+        .some(group => group.name === group_name);
+
+    if (exists) {
+        if (!_.isUndefined(is_remote)) {
+            const group = cluster.endpoint_groups.find(grp => grp.name === group_name);
+            if (group.is_remote !== is_remote) {
+                // We do not throw in order to not fail the noobaa operator.
+                dbg.warn('update_endpoint_group: Conflicted is_remote value of ',
+                    is_remote, ' for group: ', group, ' - aborting request');
+                return;
+            }
+        }
+
+        return system_store.make_changes({
+            update: {
+                clusters: [{
+                    $find: {
+                        _id: cluster._id,
+                        'endpoint_groups.name': group_name
+                    },
+                    $set: {
+                        'endpoint_groups.$.endpoint_range': endpoint_range
+                    }
+                }]
+            }
+        });
+
+    } else {
+        return system_store.make_changes({
+            update: {
+                clusters: [{
+                    _id: cluster._id,
+                    $push: {
+                        endpoint_groups: {
+                            name: group_name,
+                            is_remote,
+                            endpoint_range
+                        }
+                    }
+                }]
+            }
+        });
+    }
 }
 
 // UTILS //////////////////////////////////////////////////////////
@@ -1018,25 +1076,34 @@ function _list_s3_addresses(system) {
 }
 
 async function _get_endpoint_groups() {
+    const { endpoint_groups = [] } = system_store.get_local_cluster_info();
     const now = Date.now();
     const reports = await EndpointStatsStore.instance.get_endpoint_group_reports({
+        // Get information for group that are still registered (ignoring legacy groups)
+        groups: endpoint_groups.map(group => group.name),
         // We go one full cycle behind a frame with data from all groups/endpoints.
         since: now - (2 * config.ENDPOINT_MONITOR_INTERVAL),
         till: now - config.ENDPOINT_MONITOR_INTERVAL
     });
-    return reports.map(report => {
-        const { group_name, endpoints } = report;
+
+    const reports_by_group = _.keyBy(reports, report => report.group_name);
+    return endpoint_groups.map(group => {
+        const { end_time = -1, endpoints = [] } = reports_by_group[group.name] || {};
         const ep_count = endpoints.length;
+        const memory_usage = ep_count > 0 ?
+            (_.sumBy(endpoints, ep_info => ep_info.memory.used / ep_info.memory.total) / ep_count) :
+            0;
+
         return {
-            group_name,
-            last_update: report.end_time,
+            group_name: group.name,
+            is_remote: group.is_remote,
             endpoint_count: ep_count,
+            min_endpoint_count: group.endpoint_range.min,
+            max_endpoint_count: group.endpoint_range.max,
             cpu_count: _.sumBy(endpoints, ep_info => ep_info.cpu.count),
             cpu_usage: _.sumBy(endpoints, ep_info => ep_info.cpu.usage), // Can add 1.0 per cpu.
-            memory_usage: _.sumBy(endpoints, ep_info => {
-                const { used, total } = ep_info.memory;
-                return used / total;
-            }) / ep_count
+            memory_usage,
+            last_report_time: end_time
         };
     });
 }
@@ -1067,3 +1134,6 @@ exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
+exports.update_endpoint_group = update_endpoint_group;
+
+

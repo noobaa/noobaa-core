@@ -244,6 +244,38 @@ module.exports = {
                     }]
                 }
             }
+        },
+        endpoint_groups: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'name',
+                    'endpoint_range'
+                ],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    is_remote: {
+                        type: 'boolean'
+                    },
+                    endpoint_range: {
+                        type: 'object',
+                        required: ['min', 'max'],
+                        properties: {
+                            min: {
+                                type: 'integer',
+                                minimum: 1
+                            },
+                            max: {
+                                type: 'integer',
+                                minimum: 1
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 };

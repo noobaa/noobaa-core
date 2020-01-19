@@ -905,16 +905,16 @@ async function get_join_cluster_yaml(req) {
         throw new RpcError('BAD_REQUEST', 'endpoints.max_count cannot be lower then endpoints.min_count');
     }
 
-    const secret = {
+    const joinSecret = {
         apiVersion: 'v1',
         kind: 'Secret',
-        metadata: _.omitBy({
+        metadata: {
             name: 'join-secret',
-            namespace: config.REMOTE_NOOAA_NAMESPACE || undefined,
+            namespace: config.REMOTE_NOOAA_NAMESPACE,
             labels: {
                 app: 'noobaa'
             }
-        }, _.isUndefined),
+        },
         type: 'Opaque',
         stringData: {
             auth_token: await auth_server.make_auth_token({
@@ -939,14 +939,15 @@ async function get_join_cluster_yaml(req) {
     const noobaa = {
         apiVersion: 'noobaa.io/v1alpha1',
         kind: 'NooBaa',
-        metadata: _.omitBy({
+        metadata: {
             name: 'noobaa',
-            namespace: config.REMOTE_NOOAA_NAMESPACE || undefined,
+            namespace: config.REMOTE_NOOAA_NAMESPACE,
             labels: {
                 app: 'noobaa'
             }
-        }, _.isUndefined),
+        },
         spec: {
+            joinSecret: _.pick(joinSecret.metadata, ['name', 'namespace']),
             endpoints: {
                 minCount: ep_min_count,
                 maxCount: ep_max_count
@@ -955,7 +956,7 @@ async function get_join_cluster_yaml(req) {
     };
 
     return yaml_utils.stringify([
-        secret,
+        joinSecret,
         noobaa
     ]);
 }

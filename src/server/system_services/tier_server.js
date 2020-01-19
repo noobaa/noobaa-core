@@ -17,8 +17,6 @@ const nodes_client = require('../node_services/nodes_client');
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
-const server_rpc = require('../server_rpc');
-
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
     return {
@@ -300,56 +298,153 @@ function _check_validity_of_configuration({ req, bucket_class_buckets }) {
     const { tiers } = req.rpc_params;
     if (!_.every(bucket_class_buckets, bucket => tiers.length >= bucket.tiering.tiers.length)) throw new RpcError('BAD_REQUEST', 'cannot remove tiers');
     try {
-        tiers.forEach(tier => throw_on_invalid_pools_for_tier((tier.attached_pools || []).map(pool_name =>
-            req.system.pools_by_name[pool_name]
-        )));
+        const pools = [];
+        tiers.forEach(tier => {
+            if (tier.data_placement === 'MIRROR' && tier.attached_pools.length < 2) throw new RpcError('BAD_REQUEST', 'cannot mirror on less than 2 pools');
+            throw_on_invalid_pools_for_tier((tier.attached_pools || []).map(pool_name =>
+                req.system.pools_by_name[pool_name]
+            ));
+            if (_.some(tier.attached_pools, pool => _.includes(pools, pool))) {
+                throw new RpcError('BAD_REQUEST', 'can\'t use pool for more than one tier');
+            } else {
+                pools.push(...tier.attached_pools);
+            }
+        });
     } catch (error) {
         dbg.error('_check_validity_of_configuration failed with', error);
+        if (error instanceof RpcError) throw error;
         throw new RpcError('BAD_REQUEST', 'invalid attached_pools in tiers');
     }
 }
 
 async function update_bucket_class(req) {
     const { name, policy, tiers } = req.rpc_params;
-    if (policy.tiers.length !== tiers.length) throw new RpcError('BAD_REQUEST', 'policy tiers and tiers length mismatch');
-    // Filter and pick buckets that were created via OBC
-    const bucket_class_buckets = _.filter(system_store.data.buckets, bucket =>
-        bucket.bucket_claim && (_.isEqual(bucket.bucket_claim.bucket_class, name)));
-    if (_.isEmpty(bucket_class_buckets)) return;
-    _check_validity_of_configuration({ req, bucket_class_buckets });
-    for (const bucket of bucket_class_buckets) {
-        const old_policy = bucket.tiering;
-        const old_tiers = old_policy.tiers
-            .map(obj => obj.tier.name);
-        for (const [index, tier] of tiers.entries()) {
-            const old_tier = old_tiers[index];
-            const new_name = `${bucket.name.unwrap()}.${Math.round(Date.now() / 1000)}.${index}`;
-            policy.tiers[index].tier = new_name;
-            if (old_tier) {
-                await server_rpc.client.tier.update_tier({
-                    name: old_tier,
+    const result = {
+        error_message: "",
+        should_revert: false,
+        revert_to_policy: _.cloneDeep(req.rpc_params)
+    };
+    const changes = {
+        insert: {
+            tiers: [],
+            chunk_configs: [],
+        },
+        update: {
+            tieringpolicies: [],
+            tiers: []
+        },
+    };
+    let revert_to_policy;
+    try {
+        // Filter and pick buckets that were created via OBC
+        const bucket_class_buckets = _.filter(system_store.data.buckets, bucket =>
+            bucket.bucket_claim && (_.isEqual(bucket.bucket_claim.bucket_class, name)));
+        if (_.isEmpty(bucket_class_buckets)) return result; // TODO what should we do if pools is bad but nothing to revert to?
+        revert_to_policy = _calc_revert_policy(name, bucket_class_buckets[0].tiering);
+        _check_validity_of_configuration({ req, bucket_class_buckets });
+        if (policy.tiers.length !== tiers.length) throw new RpcError('BAD_REQUEST', 'policy tiers and tiers length mismatch');
+        let policy_changed = false;
+        for (const bucket of bucket_class_buckets) {
+            let tiers_changed = false;
+            const old_policy = bucket.tiering;
+            const old_tiers = old_policy.tiers
+                .map(obj => obj.tier.name);
+            for (const [index, tier] of tiers.entries()) {
+                const old_tier = old_tiers[index];
+                const new_name = `${bucket.name.unwrap()}.${Math.round(Date.now() / 1000)}.${index}`;
+                policy.tiers[index].tier = new_name;
+                const pool_ids = _.map(tier.attached_pools,
+                    pool_name => req.system.pools_by_name[pool_name]._id
+                );
+                const mirrors = _convert_pools_to_data_placement_structure(pool_ids, tier.data_placement);
+                const chunk_config = chunk_config_utils.resolve_chunk_config(
+                    tier.chunk_coder_config, req.account, req.system);
+                if (!chunk_config._id) {
+                    chunk_config._id = system_store.new_system_store_id();
+                    changes.insert.chunk_configs.push(chunk_config);
+                }
+                const new_tier = new_tier_defaults(
                     new_name,
-                    chunk_coder_config: tier.chunk_coder_config,
-                    attached_pools: tier.attached_pools,
-                    data_placement: tier.data_placement,
-                }, {
-                    auth_token: req.auth_token
-                });
-            } else {
-                await server_rpc.client.tier.create_tier({
-                    name: new_name,
-                    chunk_coder_config: tier.chunk_coder_config,
-                    attached_pools: tier.attached_pools,
-                    data_placement: tier.data_placement,
-                }, {
-                    auth_token: req.auth_token
-                });
+                    req.system._id,
+                    chunk_config._id,
+                    mirrors
+                );
+                if (tier.data_placement) new_tier.data_placement = tier.data_placement;
+                if (old_tier) {
+                    const old_tier_full = req.system.tiers_by_name[old_tier.unwrap()];
+                    if (_is_change_in_tier(old_tier_full, new_tier)) {
+                        new_tier._id = old_tier_full._id;
+                        changes.update.tiers.push(new_tier);
+                    } else {
+                        tiers_changed = true;
+                    }
+                } else {
+                    changes.insert.tiers.push(new_tier);
+                    tiers_changed = true;
+                }
+                policy.tiers[index].tier_id = new_tier._id;
+            }
+            const new_policy = new_policy_defaults(
+                old_policy.name,
+                req.system._id,
+                policy.chunk_split_config,
+                _.map(policy.tiers, t => ({
+                    order: t.order,
+                    tier: t.tier_id,
+                    spillover: t.spillover || false,
+                    disabled: t.disabled || false
+                }))
+            );
+            new_policy._id = req.system.tiering_policies_by_name[old_policy.name.unwrap()]._id;
+            if (tiers_changed) {
+                changes.update.tieringpolicies.push(new_policy);
+                policy_changed = true;
             }
         }
-        await server_rpc.client.tiering_policy.update_policy(_.defaults({ name: old_policy.name }, policy), {
-            auth_token: req.auth_token
-        });
+        if (policy_changed) await system_store.make_changes(changes);
+    } catch (err) {
+        if (err instanceof RpcError) {
+            if (err.rpc_code !== 'BAD_REQUEST') throw err;
+            result.error_message = err.message;
+            result.should_revert = true;
+            result.revert_to_policy = revert_to_policy;
+        } else {
+            throw err;
+        }
     }
+    return result;
+}
+
+function _calc_revert_policy(policy_name, tiering) {
+    const revert_to_tiers = tiering.tiers.map(t => ({
+        order: t.order,
+        tier: t.tier.name,
+    }));
+    return {
+        name: policy_name,
+        policy: {
+            name: tiering.name,
+            tiers: revert_to_tiers,
+        },
+        tiers: tiering.tiers.map(t => ({
+            name: t.tier.name,
+            data_placement: t.tier.data_placement,
+            attached_pools: _.map(_.flatMap(t.tier.mirrors, 'spread_pools'), pool => pool.name)
+        }))
+    };
+}
+
+function _is_change_in_tier(old_tier, new_tier) {
+    let has_changed = false;
+    for (const [mirror_index, mirror] of old_tier.mirrors.entries()) {
+        for (const [pool_index, pool] of mirror.spread_pools.entries()) {
+            if (String(pool) !== String(new_tier.mirrors[mirror_index].spread_pools[pool_index])) {
+                has_changed = true;
+            }
+
+        }
+    }
+    return has_changed;
 }
 
 function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy

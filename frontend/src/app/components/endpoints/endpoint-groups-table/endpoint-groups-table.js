@@ -17,6 +17,7 @@ import {
 const columns = Object.freeze([
     {
         name: 'name',
+        type: 'nameAndLocality',
         label: 'Endpoint Group',
         sortable: true,
         compareKey: group => group.name
@@ -25,6 +26,11 @@ const columns = Object.freeze([
         name: 'count',
         sortable: true,
         compareKey: group => group.endpointCount
+    },
+    {
+        name: 'range',
+        label: 'Endpoint Range',
+        sortable: false
     },
     {
         name: 'region',
@@ -48,6 +54,7 @@ const columns = Object.freeze([
 class EndpointGroupRowViewModel {
     name = ko.observable();
     count = ko.observable();
+    range = ko.observable();
     region = ko.observable();
     cpuUsage = ko.observable();
     memoryUsage = ko.observable();
@@ -86,23 +93,30 @@ class EndpointsTableViewModel extends ConnectableViewModel {
             const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const { compareKey } = columns.find(column => column.name === sortBy);
             const groupList = Object.values(groups).sort(createCompareFunc(compareKey, order));
-            const lastUpdate = Math.min(...groupList.map(group => group.lastUpdate));
+            const lastUpdate = Math.min(...groupList.map(group => group.lastReportTime));
 
             ko.assignToProps(this, {
                 dataReady: true,
                 pathname,
-                lastUpdate: moment(lastUpdate).fromNow(),
+                lastUpdate: lastUpdate > 0 ? moment(lastUpdate).fromNow() : null,
                 sorting: { sortBy, order },
                 pageSize,
                 page,
                 groupCount: groupList.length,
-                rows: groupList.map(group => ({
-                    name: group.name,
-                    count: group.endpointCount,
-                    region: '(Not Set)',
-                    cpuUsage: numeral(group.cpuUsage).format('%'),
-                    memoryUsage: numeral(group.memoryUsage).format('%')
-                }))
+                rows: groupList.map(group => {
+                    const { min, max } = group.endpointRange;
+                    return {
+                        name: {
+                            name: group.name,
+                            localGroup: !group.isRemote
+                        },
+                        count: group.endpointCount,
+                        range: `${min} - ${max}`,
+                        region: '(Not Set)',
+                        cpuUsage: numeral(group.cpuUsage).format('%'),
+                        memoryUsage: numeral(group.memoryUsage).format('%')
+                    };
+                })
             });
         }
     }

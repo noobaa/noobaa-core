@@ -73,7 +73,7 @@ class EndpointsSummaryViewModel extends ConnectableViewModel {
             const cpuCount = sumBy(groupList, group => group.cpuCount);
             const cpuUsage = sumBy(groupList, group => group.cpuUsage);
             const memoryUsage = sumBy(groupList, group => group.memoryUsage);
-            const lastUpdate = Math.min(...groupList.map(group => group.lastUpdate));
+            const lastUpdate = Math.min(...groupList.map(group => group.lastReportTime));
 
             const chartData = {
                 labels: [
@@ -95,7 +95,7 @@ class EndpointsSummaryViewModel extends ConnectableViewModel {
                 endpointCount: numeral(endpointCount).format(','),
                 cpuUsage: `${numeral(cpuUsage).format('%')} (${stringifyAmount('core', cpuCount)})`,
                 memoryUsage: numeral(memoryUsage).format('%'),
-                lastUpdate: moment(lastUpdate).fromNow(),
+                lastUpdate: lastUpdate > 0 ? moment(lastUpdate).fromNow() : '',
                 chart: { data: chartData }
             });
         }

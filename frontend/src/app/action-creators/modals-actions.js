@@ -847,5 +847,21 @@ export function openCompleteSSLCertificateInstallationModal() {
         }
     };
 }
+
+export function openDeployRemoteEndpointGroupModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'deploy-remote-endpoint-group-modal',
+                params: { }
+            },
+            options: {
+                title: 'Deploy Remote Endpoint Group',
+                size: 'small'
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

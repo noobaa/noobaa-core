@@ -426,7 +426,7 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
 ///////////////////////////////////
 // REMOTE NOOBAA DEPLOYMENT INFO //
 ///////////////////////////////////
-config.REMOTE_NOOAA_NAMESPACE = '';
+config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 
 //Load overrides if exist
 try {

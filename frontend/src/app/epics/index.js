@@ -92,6 +92,7 @@ import updateAccountPreferedTheme from './update-account-prefered-theme';
 import updateServerDetails from './update-server-details';
 import redirectAfterSignOut from './redirect-after-sign-out';
 import uploadSSLCertificate from './upload-ssl-certificate';
+import generateEndpointGroupDeploymentYAML from './generate-endpoint-group-deployment-yaml';
 
 const epics = [
     // General epics
@@ -204,6 +205,9 @@ const epics = [
     updateLambdaFuncCode,
     loadLambdaFuncCode,
     invokeLambdaFunc,
+
+    // Endpoint related epics
+    generateEndpointGroupDeploymentYAML,
 
     // Analytics related epics
     fetchBucketUsageHistory,

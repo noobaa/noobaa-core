@@ -252,6 +252,13 @@ class Agent {
         }
     }
 
+    // cleanup of all residues before deleting the agent
+    // for now only relevant for cloud resources
+    async cleanup_target_path() {
+        if (!this.cloud_info) return;
+        this.block_store.cleanup_target_path();
+    }
+
     async update_credentials(access_keys) {
         if (!this.cloud_info) return;
         this.cloud_info.access_keys = access_keys;

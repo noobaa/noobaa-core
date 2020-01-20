@@ -279,6 +279,45 @@ class BlockStoreS3 extends BlockStoreBase {
         }
     }
 
+
+    async cleanup_target_path() {
+        let total = 0;
+        try {
+            let done = false;
+            let key_marker;
+            let version_marker;
+            dbg.log0(`cleaning up all objects with prefix ${this.base_path}`);
+            while (!done) {
+                const list_res = await this.s3cloud.listObjectVersions({
+                    Prefix: this.base_path,
+                    Bucket: this.cloud_info.target_bucket,
+                    KeyMarker: key_marker,
+                    VersionIdMarker: version_marker
+                }).promise();
+                const del_objs = list_res.Versions.map(ver => ({ Key: ver.Key, VersionId: ver.VersionId }));
+                if (del_objs.length > 0) {
+                    await this.s3cloud.deleteObjects({
+                        Bucket: this.cloud_info.target_bucket,
+                        Delete: {
+                            Objects: del_objs,
+                        }
+                    }).promise();
+                    total += del_objs.length;
+                }
+
+                version_marker = list_res.NextVersionIdMarker;
+                key_marker = list_res.NextKeyMarker;
+
+                if (!list_res.IsTruncated || del_objs.length === 0) {
+                    done = true;
+                }
+            }
+        } catch (err) {
+            dbg.error('got error on cleanup_target_path', this.base_path, err);
+        }
+        dbg.log0(`completed cleanup of ${total} objects with perfix ${this.base_path}`);
+    }
+
     async _delete_blocks(block_ids) {
         let deleted_storage = {
             size: 0,

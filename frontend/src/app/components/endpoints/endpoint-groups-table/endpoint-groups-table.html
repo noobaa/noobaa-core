@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2016 NooBaa -->
 <div class="card-shadow row pad content-middle">
     <h2 class ="heading3 push-next">Endpoint Groups</h2>
-     <p class="remark content-middle push-next" ko.visible="dataReady">
+     <p class="remark content-middle push-next" ko.visible="lastUpdate">
         <svg-icon class="icon-small" params="name: 'clock'"></svg-icon>
         Updated: {{lastUpdate}}
     </p>
@@ -20,7 +20,16 @@
     data: rows,
     sorting: ko.pc(sorting, onSort, $component),
     loading: !dataReady()
-"></data-table>
+">
+    <template name="nameAndLocality">
+        <p class="row content-middle">
+            {{$data().name}}
+            <span class="tag push-prev-half" ko.visible="$data().localGroup">
+                Local Group
+            </span>
+        </p>
+    </template>
+</data-table>
 
 <paginator params="
     itemCount: groupCount,

@@ -16,11 +16,28 @@ export default {
             name: {
                 type: 'string'
             },
-            lastUpdate: {
-                type: 'integer'
+            isRemote: {
+                type: 'boolean'
             },
             endpointCount: {
                 type: 'integer'
+            },
+            endpointRange: {
+                type: 'object',
+                required: [
+                    'min',
+                    'max'
+                ],
+                properties: {
+                    min: {
+                        type: 'integer',
+                        minimum: 1
+                    },
+                    max: {
+                        type: 'integer',
+                        minimum: 1
+                    }
+                }
             },
             cpuCount: {
                 type: 'integer'
@@ -30,6 +47,9 @@ export default {
             },
             memoryUsage: {
                 type: 'number'
+            },
+            lastUpdate: {
+                type: 'integer'
             }
         }
     }

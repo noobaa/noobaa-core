@@ -334,6 +334,8 @@ class BlockStoreBase {
         }
     }
 
+    async cleanup_target_path() { _.noop(); }
+
     _handle_delegator_error() {
         throw new Error('this block store does not delegate');
     }

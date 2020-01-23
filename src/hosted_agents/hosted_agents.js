@@ -234,7 +234,7 @@ class HostedAgents {
     }
 
 
-    _stop_agent(node_name, should_clean) {
+    async _stop_agent(node_name, should_clean) {
         dbg.log0(`Stopping agent for pool id ${node_name}`);
         if (!this._started_agents[node_name]) {
             dbg.warn(`${node_name} is not started. ignoring stop`);
@@ -244,21 +244,22 @@ class HostedAgents {
         let agent_pool = this._started_agents[node_name].pool;
         if (agent) {
             agent.stop();
+            try {
+                await agent.cleanup_target_path();
+            } catch (err) {
+                // don't fail on cleanup error
+                dbg.error('failed on agent cleanup. continue with agent deletion', err);
+            }
         }
-        return P.resolve()
-            .then(() => {
-                if (agent_pool && should_clean) {
-                    dbg.log0(`delete agent_pool ${agent_pool.name} ${agent_pool._id}`);
-                    return system_store.make_changes({
-                        remove: {
-                            pools: [agent_pool._id]
-                        }
-                    });
+        if (agent_pool && should_clean) {
+            dbg.log0(`delete agent_pool ${agent_pool.name} ${agent_pool._id}`);
+            await system_store.make_changes({
+                remove: {
+                    pools: [agent_pool._id]
                 }
-            })
-            .then(() => {
-                delete this._started_agents[node_name];
             });
+        }
+        delete this._started_agents[node_name];
     }
 
     update_agents_credentials({ pool_ids, access_keys }) {

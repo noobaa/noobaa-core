@@ -906,7 +906,9 @@ async function get_join_cluster_yaml(req) {
     }
 
     const operator_account = system_store.data.accounts.find(account =>
-        (account.roles_by_system[req.system._id] || []).includes('operator')
+        account.roles_by_system && // This will protect against support account
+        account.roles_by_system[req.system._id] &&
+        account.roles_by_system[req.system._id].includes('operator')
     );
     if (!operator_account) {
         throw new RpcError('NO_OPERATOR_ACCOUNT', 'Cannot find operator account');

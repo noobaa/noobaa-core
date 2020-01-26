@@ -224,7 +224,8 @@ async function create_hosts_pool(req) {
         _.defaultsDeep(_.pick(rpc_params, [
             'is_managed',
             'host_count',
-            'host_config'
+            'host_config',
+            'backingstore'
         ]), {
             initialized: !rpc_params.is_managed,
             host_config: {
@@ -232,7 +233,6 @@ async function create_hosts_pool(req) {
             }
         })
     );
-    pool.hosts_pool_info.backingstore = req.rpc_params.backingstore || undefined;
     dbg.log0('create_hosts_pool: Creating new pool', pool);
     await system_store.make_changes({
         insert: {
@@ -426,7 +426,7 @@ async function create_cloud_pool(req) {
             account_id: req.account._id
         },
         endpoint_type: connection.endpoint_type || 'AWS',
-        backingstore: req.rpc_params.backingstore || undefined
+        backingstore: req.rpc_params.backingstore
     }, _.isUndefined);
 
 
@@ -746,7 +746,12 @@ async function delete_hosts_pool(req, pool) {
     dbg.log0('delete_hosts_pool: deleting hosts pool', pool.name);
 
     const reason = check_pool_deletion(pool);
-    if (reason) {
+    if (reason === 'IS_BACKINGSTORE') {
+        const account_roles = req.account.roles_by_system[req.system._id];
+        if (!account_roles.includes('operator')) {
+            throw new RpcError(reason, 'Cannot delete pool');
+        }
+    } else if (reason) {
         throw new RpcError(reason, 'Cannot delete pool');
     }
 
@@ -797,11 +802,17 @@ async function delete_hosts_pool(req, pool) {
 
 function delete_resource_pool(req, pool) {
     dbg.log0('Deleting resource pool', pool.name);
+
     var pool_name = pool.name;
     return P.resolve()
         .then(() => {
             const reason = check_resrouce_pool_deletion(pool);
-            if (reason) {
+            if (reason === 'IS_BACKINGSTORE') {
+                const account_roles = req.account.roles_by_system[req.system._id];
+                if (!account_roles.includes('operator')) {
+                    throw new RpcError(reason, 'Cannot delete pool');
+                }
+            } else if (reason) {
                 throw new RpcError(reason, 'Cannot delete pool');
             }
             return nodes_client.instance().list_nodes_by_pool(pool.name, req.system._id);
@@ -1254,7 +1265,7 @@ function check_pool_deletion(pool) {
     }
 
     //Verify pool's origin is not backingstore 
-    if (pool.hosts_pool_info && pool.hosts_pool_info.backingstore !== null && pool.hosts_pool_info.backingstore !== undefined) {
+    if (pool.hosts_pool_info && pool.hosts_pool_info.backingstore) {
         return 'IS_BACKINGSTORE';
     }
 }
@@ -1278,7 +1289,7 @@ function check_resrouce_pool_deletion(pool) {
     }
 
     //Verify pool's origin is not backingstore 
-    if (pool.cloud_pool_info && pool.cloud_pool_info.backingstore !== null && pool.cloud_pool_info.backingstore !== undefined) {
+    if (pool.cloud_pool_info && pool.cloud_pool_info.backingstore) {
         return 'IS_BACKINGSTORE';
     }
 }

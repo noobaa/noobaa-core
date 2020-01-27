@@ -303,6 +303,9 @@ module.exports = {
                 properties: {
                     endpoints: {
                         type: 'object',
+                        required: [
+                            'min_count'
+                        ],
                         properties: {
                             min_count: {
                                 type: 'integer',
@@ -321,6 +324,42 @@ module.exports = {
             },
             auth: {
                 system: 'admin',
+            }
+        },
+
+        update_endpoint_group: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [
+                    'group_name',
+                    'endpoint_range'
+                ],
+                properties: {
+                    group_name: {
+                        type: 'string'
+                    },
+                    is_remote: {
+                        type: 'boolean'
+                    },
+                    endpoint_range: {
+                        type: 'object',
+                        required: ['min', 'max'],
+                        properties: {
+                            min: {
+                                type: 'integer',
+                                minimum: 1
+                            },
+                            max: {
+                                type: 'integer',
+                                minimum: 1
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
             }
         }
     },
@@ -551,19 +590,25 @@ module.exports = {
                         type: 'object',
                         required: [
                             'group_name',
-                            'last_update',
+                            'is_remote',
                             'endpoint_count',
+                            'min_endpoint_count',
+                            'max_endpoint_count',
                             'cpu_count',
                             'cpu_usage',
-                            'memory_usage'
+                            'memory_usage',
+                            'last_report_time'
                         ],
                         properties: {
                             group_name: { type: 'string' },
-                            last_update: { idate: true },
+                            is_remote: { type: 'boolean' },
                             endpoint_count: { type: 'number' },
+                            min_endpoint_count: { type: 'integer' },
+                            max_endpoint_count: { type: 'integer' },
                             cpu_count: { type: 'number' },
                             cpu_usage: { type: 'number' },
-                            memory_usage: { type: 'number' }
+                            memory_usage: { type: 'number' },
+                            last_report_time: { idate: true },
                         }
                     }
                 }

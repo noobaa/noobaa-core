@@ -142,6 +142,50 @@ class BlockStoreAzure extends BlockStoreBase {
             });
     }
 
+    async cleanup_target_path() {
+        let total = 0;
+        let continuation_token;
+        try {
+            let done = false;
+            dbg.log0(`cleaning up all objects with prefix ${this.base_path}`);
+            while (!done) {
+                const prev_continuation_token = continuation_token;
+                const list_res = await P.fromCallback(callback => this.blob.listBlobsSegmentedWithPrefix(
+                    this.container_name,
+                    this.base_path,
+                    prev_continuation_token,
+                    callback));
+                if (list_res.entries.length !== 0) {
+                    await P.map(list_res.entries, async entry => {
+                        try {
+                            await P.fromCallback(callback =>
+                                this.blob.deleteBlob(
+                                    this.container_name,
+                                    entry.name,
+                                    callback)
+                            );
+                        } catch (err) {
+                            dbg.warn('BlockStoreAzure _delete_blocks failed for block',
+                                this.container_name, entry.name, err);
+                        }
+                    }, {
+                        // limit concurrency to 10
+                        concurrency: 10
+                    });
+                }
+
+                total += list_res.entries.length;
+                continuation_token = list_res.continuationToken;
+
+                if (!continuation_token || list_res.entries.length === 0) {
+                    done = true;
+                }
+            }
+        } catch (err) {
+            dbg.error('got error on cleanup_target_path', this.base_path, err);
+        }
+        dbg.log0(`completed cleanup of ${total} objects with perfix ${this.base_path}`);
+    }
 
     _delete_blocks(block_ids) {
         // Todo: Assuming that all requested blocks were deleted, which a bit naive

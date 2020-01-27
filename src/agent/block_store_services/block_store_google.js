@@ -201,6 +201,23 @@ class BlockStoreGoogle extends BlockStoreBase {
         });
     }
 
+    async cleanup_target_path() {
+        try {
+            dbg.log0(`cleaning up all objects with prefix ${this.base_path}`);
+            // delete files will delete all files with the given prefix
+            // deletion is done by the sdk in the client side in batvhes of 10
+            // force=true to avoid breaking on the first error
+            await this.bucket.deleteFiles({
+                prefix: this.base_path,
+                force: true
+            });
+        } catch (err) {
+            dbg.error('got error on cleanup_target_path', this.base_path, err);
+        }
+        dbg.log0(`completed cleanup of objects with perfix ${this.base_path}`);
+    }
+
+
     async _delete_blocks(block_ids) {
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
         let deleted_storage = {

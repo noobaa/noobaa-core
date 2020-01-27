@@ -1197,7 +1197,7 @@ function is_support_or_admin_or_me(system, account, target_account) {
         (target_account && String(target_account._id) === String(account._id)) ||
         (
             system && account.roles_by_system[system._id].some(
-                role => role === 'admin'
+                role => role === 'admin' || role === 'operator'
             )
         );
 }

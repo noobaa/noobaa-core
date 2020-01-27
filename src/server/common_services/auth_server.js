@@ -126,6 +126,8 @@ function create_auth(req) {
                     String(system.owner._id) === String(authenticated_account._id) ||
                     // system admin can do anything
                     _.includes(roles, 'admin') ||
+                    // operator can do anything
+                    _.includes(roles, 'operator') ||
                     // non admin is not allowed to delegate roles to other accounts
                     (role_name && _.includes(roles, role_name) &&
                         String(target_account._id) === String(authenticated_account._id))) {

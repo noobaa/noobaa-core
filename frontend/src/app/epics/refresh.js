@@ -52,7 +52,8 @@ export default function(action$) {
             types.COMPLETE_ASSIGN_REGION_TO_RESOURCE,
             types.COMPLETE_UPDATE_P2P_SETTINGS,
             types.COMPLETE_SET_SYSTEM_DEBUG_LEVEL,
-            types.COMPLETE_UPDATE_SERVER_DETAILS
+            types.COMPLETE_UPDATE_SERVER_DETAILS,
+            types.COMPLETE_UPDATE_ENDPOINT_GROUP
         ),
         map(() => refreshLocation())
     );

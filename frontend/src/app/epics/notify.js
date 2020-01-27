@@ -523,7 +523,18 @@ const actionToNotification = deepFreeze({
     [types.FAIL_GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML]: () => ({
         message: 'Generating endpoint group deployment YAML failed',
         severity: 'error'
+    }),
+
+    [types.COMPLETE_UPDATE_ENDPOINT_GROUP]: ({ name }) => ({
+        message: `Endpoint group ${name} updated successfuly`,
+        severity: 'success'
+    }),
+
+    [types.FAIL_UPDATE_ENDPOINT_GROUP]: ({ name }) => ({
+        message: `Updating endpoint group ${name} failed`,
+        severity: 'error'
     })
+
 });
 
 export default function(action$) {

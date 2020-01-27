@@ -852,12 +852,25 @@ export function openDeployRemoteEndpointGroupModal() {
     return {
         type: OPEN_MODAL,
         payload: {
-            component: {
-                name: 'deploy-remote-endpoint-group-modal',
-                params: { }
-            },
+            component: 'deploy-remote-endpoint-group-modal',
             options: {
                 title: 'Deploy Remote Endpoint Group',
+                size: 'small'
+            }
+        }
+    };
+}
+
+export function openEditEndpointGroupModal(groupName) {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'edit-endpoint-group-modal',
+                params: { groupName }
+            },
+            options: {
+                title: 'Edit Endpoint Group ',
                 size: 'small'
             }
         }

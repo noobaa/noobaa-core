@@ -46,6 +46,7 @@ const addr_utils = require('../../util/addr_utils');
 const url_utils = require('../../util/url_utils');
 const ssl_utils = require('../../util/ssl_utils');
 const yaml_utils = require('../../util/yaml_utils');
+const { KubeStore } = require('../kube-store.js');
 
 const SYSLOG_INFO_LEVEL = 5;
 const SYSLOG_LOG_LOCAL1 = 'LOG_LOCAL1';
@@ -989,7 +990,7 @@ async function update_endpoint_group(req) {
             }
         }
 
-        return system_store.make_changes({
+        await system_store.make_changes({
             update: {
                 clusters: [{
                     $find: {
@@ -1004,7 +1005,7 @@ async function update_endpoint_group(req) {
         });
 
     } else {
-        return system_store.make_changes({
+        await system_store.make_changes({
             update: {
                 clusters: [{
                     _id: cluster._id,
@@ -1018,6 +1019,23 @@ async function update_endpoint_group(req) {
                 }]
             }
         });
+    }
+
+    // Update the noobaa CRD if request was not originated from the operator
+    const account_roles = req.account.roles_by_system[req.system._id];
+    if (!account_roles.includes('operator')) {
+        try {
+            await KubeStore.instance.patch_noobaa({
+                spec: {
+                    endpoints: {
+                        minCount: endpoint_range.min,
+                        maxCount: endpoint_range.max
+                    }
+                }
+            });
+        } catch (err) {
+            dbg.error('update_endpoint_group: Could not update noobaa CRD, got', err);
+        }
     }
 }
 

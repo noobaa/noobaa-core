@@ -10,7 +10,8 @@ import { realizeUri } from 'utils/browser-utils';
 import { paginationPageSize } from 'config';
 import {
     requestLocation,
-    openDeployRemoteEndpointGroupModal
+    openDeployRemoteEndpointGroupModal,
+    openEditEndpointGroupModal
 } from 'action-creators';
 
 
@@ -48,6 +49,11 @@ const columns = Object.freeze([
         label: 'Memory %',
         sortable: true,
         compareKey: group => group.memoryUsage
+    },
+    {
+        name: 'edit',
+        label: '',
+        type: 'iconButton'
     }
 ]);
 
@@ -58,6 +64,17 @@ class EndpointGroupRowViewModel {
     region = ko.observable();
     cpuUsage = ko.observable();
     memoryUsage = ko.observable();
+    edit = {
+        id: ko.observable(),
+        icon: 'edit',
+        tooltip: 'Edit Endpoint Group',
+        disabled: ko.observable(),
+        onClick: name => this.table.onEditEndpointGroup(name)
+    };
+
+    constructor({ table }) {
+        this.table = table;
+    }
 }
 
 class EndpointsTableViewModel extends ConnectableViewModel {
@@ -70,7 +87,7 @@ class EndpointsTableViewModel extends ConnectableViewModel {
     pageSize = ko.observable();
     page = ko.observable();
     rows = ko.observableArray()
-        .ofType(EndpointGroupRowViewModel);
+        .ofType(EndpointGroupRowViewModel, { table: this });
 
     selectState(state) {
         return [
@@ -114,7 +131,11 @@ class EndpointsTableViewModel extends ConnectableViewModel {
                         range: `${min} - ${max}`,
                         region: '(Not Set)',
                         cpuUsage: numeral(group.cpuUsage).format('%'),
-                        memoryUsage: numeral(group.memoryUsage).format('%')
+                        memoryUsage: numeral(group.memoryUsage).format('%'),
+                        edit: {
+                            id: group.name,
+                            disabled: group.isRemote
+                        }
                     };
                 })
             });
@@ -144,6 +165,10 @@ class EndpointsTableViewModel extends ConnectableViewModel {
         this._query({
             page
         });
+    }
+
+    onEditEndpointGroup(name) {
+        this.dispatch(openEditEndpointGroupModal(name));
     }
 
     _query(query) {

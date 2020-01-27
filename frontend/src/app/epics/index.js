@@ -93,6 +93,7 @@ import updateServerDetails from './update-server-details';
 import redirectAfterSignOut from './redirect-after-sign-out';
 import uploadSSLCertificate from './upload-ssl-certificate';
 import generateEndpointGroupDeploymentYAML from './generate-endpoint-group-deployment-yaml';
+import updateEndpointGroup from './update-endpoint-group';
 
 const epics = [
     // General epics
@@ -208,6 +209,7 @@ const epics = [
 
     // Endpoint related epics
     generateEndpointGroupDeploymentYAML,
+    updateEndpointGroup,
 
     // Analytics related epics
     fetchBucketUsageHistory,

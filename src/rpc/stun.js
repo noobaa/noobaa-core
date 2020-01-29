@@ -538,6 +538,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
  * encode ERROR-CODE attribute
  */
 function encode_attr_error_code(err, buffer, start, end) {
+    // eslint-disable-next-line no-bitwise
     var code = (((err.code / 100) | 0) << 8) | ((err.code % 100) & 0xff);
     buffer.writeUInt32BE(code, start);
     buffer.writeUInt32BE(err.reason, start + 4);

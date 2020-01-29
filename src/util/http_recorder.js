@@ -32,6 +32,7 @@ class HTTPRecorder extends stream.Writable {
         // `url` is not set for response parsers but that's not applicable here since
         // all our parsers are request parsers.
         // eslint-disable-next-line max-params
+        // eslint-disable-next-line no-bitwise
         this._parser[HTTPParser.kOnHeadersComplete | 0] = (
             versionMajor, versionMinor, headers, method, url,
             //eslint-disable-next-line max-params
@@ -70,6 +71,7 @@ class HTTPRecorder extends stream.Writable {
         // processed in a single run. This method is also
         // called to process trailing HTTP headers.
         // Once we exceeded headers limit - stop collecting them
+        // eslint-disable-next-line no-bitwise
         this._parser[HTTPParser.kOnHeaders | 0] = (headers, url) => {
             console.log('kOnHeaders', headers, url);
             slow_url += url;
@@ -77,10 +79,12 @@ class HTTPRecorder extends stream.Writable {
             _cached_array_push.apply(slow_headers, add);
         };
 
+        // eslint-disable-next-line no-bitwise
         this._parser[HTTPParser.kOnBody | 0] = (buf, start, len) => {
             // console.log('kOnBody', buf.length, start, len);
         };
 
+        // eslint-disable-next-line no-bitwise
         this._parser[HTTPParser.kOnMessageComplete | 0] = () => {
             // console.log('kOnMessageComplete');
             this._start_message();

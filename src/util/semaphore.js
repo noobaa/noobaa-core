@@ -206,7 +206,7 @@ class Semaphore {
 // if count is not a number (like undefined) or negative, we assume count of 1.
 // NOTE that count===0 is a special case for wait/release - see comments above.
 function to_sem_count(count) {
-    return (typeof(count) === 'number' && count >= 0) ? (count | 0) : 1;
+    return (typeof(count) === 'number' && count >= 0) ? Math.floor(count) : 1;
 }
 
 module.exports = Semaphore;

@@ -31,7 +31,7 @@ class EditEndpointGroupModalViewModel extends ConnectableViewModel {
 
         const { endpointRange } = group;
         const {
-            useAutoScaling = endpointRange.min === endpointRange.max,
+            useAutoScaling = endpointRange.min !== endpointRange.max,
             minCount = endpointRange.min,
             maxCount = endpointRange.max
         } = form ? getFormValues(form) : {};

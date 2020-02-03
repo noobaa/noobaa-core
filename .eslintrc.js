@@ -152,9 +152,6 @@ module.exports = {
         // instead of expression (foo = function() {})
         'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
 
-        // use only x|0 for int casting, but avoid other bitwise operators
-        'no-bitwise': ['error', { int32Hint: true }],
-
         //////////////////////////////////////////////////////////////////////
         //                                                                  //
         // WARN                                                             //

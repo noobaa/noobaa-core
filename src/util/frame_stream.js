@@ -27,6 +27,7 @@ class FrameStream {
         this._magic = (config && config.magic) || DEFAULT_MSG_MAGIC;
         this._magic_len = this._magic.length;
         this._max_len = (config && config.max_len) || DEFAULT_MAX_MSG_LEN;
+        // eslint-disable-next-line no-bitwise
         this._send_seq = (MAX_SEQ * Math.random()) | 0;
         this._recv_seq = NaN;
         this._header_len = this._magic_len + 8;

@@ -9,10 +9,10 @@ import {
     FAIL__UPDATE_ENDPOINT_GROUP
 } from 'action-types';
 
-export function generateEndpointGroupDeploymentYAML(endpointConf) {
+export function generateEndpointGroupDeploymentYAML(region, endpointConf) {
     return {
         type: GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML,
-        payload: { endpointConf }
+        payload: { region, endpointConf }
     };
 }
 
@@ -32,11 +32,12 @@ export function failGenerateEndpointGroupDeploymentYAML(error) {
     };
 }
 
-export function updateEndpointGroup(name, endpointConf) {
+export function updateEndpointGroup(name, region, endpointConf) {
     return {
         type: UPDATE_ENDPOINT_GROUP,
         payload: {
             name,
+            region,
             endpointConf
         }
     };

@@ -301,6 +301,7 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
+                    region: { type: 'string' },
                     endpoints: {
                         type: 'object',
                         required: [
@@ -333,6 +334,7 @@ module.exports = {
                 type: 'object',
                 required: [
                     'group_name',
+                    'region',
                     'endpoint_range'
                 ],
                 properties: {
@@ -341,6 +343,9 @@ module.exports = {
                     },
                     is_remote: {
                         type: 'boolean'
+                    },
+                    region: {
+                        type: 'string'
                     },
                     endpoint_range: {
                         type: 'object',
@@ -602,6 +607,7 @@ module.exports = {
                         properties: {
                             group_name: { type: 'string' },
                             is_remote: { type: 'boolean' },
+                            region: { type: 'string' },
                             endpoint_count: { type: 'number' },
                             min_endpoint_count: { type: 'integer' },
                             max_endpoint_count: { type: 'integer' },

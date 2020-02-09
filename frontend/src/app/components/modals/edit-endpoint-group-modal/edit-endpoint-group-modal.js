@@ -31,6 +31,7 @@ class EditEndpointGroupModalViewModel extends ConnectableViewModel {
 
         const { endpointRange } = group;
         const {
+            region = group.region || '',
             useAutoScaling = endpointRange.min !== endpointRange.max,
             minCount = endpointRange.min,
             maxCount = endpointRange.max
@@ -50,7 +51,8 @@ class EditEndpointGroupModalViewModel extends ConnectableViewModel {
             formFields: !form ? {
                 useAutoScaling,
                 minCount,
-                maxCount
+                maxCount,
+                region
             } : undefined
         });
     }
@@ -72,7 +74,7 @@ class EditEndpointGroupModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { useAutoScaling, minCount, maxCount } = values;
+        const { region = '', useAutoScaling, minCount, maxCount } = values;
         const endpointConf = {
             minCount: minCount,
             maxCount: useAutoScaling ? maxCount : minCount
@@ -80,7 +82,7 @@ class EditEndpointGroupModalViewModel extends ConnectableViewModel {
 
         this.dispatch(
             closeModal(),
-            updateEndpointGroup(this.groupName, endpointConf)
+            updateEndpointGroup(this.groupName, region.trim(), endpointConf)
         );
     }
 

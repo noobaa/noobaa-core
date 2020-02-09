@@ -899,7 +899,7 @@ async function _ensure_internal_structure(system_id) {
 }
 
 async function get_join_cluster_yaml(req) {
-    const { endpoints = {} } = req.rpc_params;
+    const { region = '', endpoints = {} } = req.rpc_params;
     const ep_min_count = endpoints.min_count || 1;
     const ep_max_count = endpoints.max_count || ep_min_count;
     if (ep_max_count < ep_min_count) {
@@ -958,6 +958,7 @@ async function get_join_cluster_yaml(req) {
         },
         spec: {
             joinSecret: _.pick(joinSecret.metadata, ['name', 'namespace']),
+            region,
             endpoints: {
                 minCount: ep_min_count,
                 maxCount: ep_max_count
@@ -973,7 +974,7 @@ async function get_join_cluster_yaml(req) {
 
 
 async function update_endpoint_group(req) {
-    const { group_name, is_remote, endpoint_range } = req.rpc_params;
+    const { group_name, is_remote, region, endpoint_range } = req.rpc_params;
 
     const cluster = system_store.get_local_cluster_info();
     const exists = (cluster.endpoint_groups || [])
@@ -998,6 +999,7 @@ async function update_endpoint_group(req) {
                         'endpoint_groups.name': group_name
                     },
                     $set: {
+                        'endpoint_groups.$.region': region,
                         'endpoint_groups.$.endpoint_range': endpoint_range
                     }
                 }]
@@ -1013,6 +1015,7 @@ async function update_endpoint_group(req) {
                         endpoint_groups: {
                             name: group_name,
                             is_remote,
+                            region,
                             endpoint_range
                         }
                     }
@@ -1023,10 +1026,11 @@ async function update_endpoint_group(req) {
 
     // Update the noobaa CRD if request was not originated from the operator
     const account_roles = req.account.roles_by_system[req.system._id];
-    if (!account_roles.includes('operator')) {
+    if (!account_roles.includes('operator') && !is_remote) {
         try {
             await KubeStore.instance.patch_noobaa({
                 spec: {
+                    region,
                     endpoints: {
                         minCount: endpoint_range.min,
                         maxCount: endpoint_range.max
@@ -1117,6 +1121,7 @@ async function _get_endpoint_groups() {
         return {
             group_name: group.name,
             is_remote: group.is_remote,
+            region: group.region,
             endpoint_count: ep_count,
             min_endpoint_count: group.endpoint_range.min,
             max_endpoint_count: group.endpoint_range.max,

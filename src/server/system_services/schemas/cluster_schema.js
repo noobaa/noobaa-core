@@ -260,6 +260,9 @@ module.exports = {
                     is_remote: {
                         type: 'boolean'
                     },
+                    region: {
+                        type: 'string'
+                    },
                     endpoint_range: {
                         type: 'object',
                         required: ['min', 'max'],

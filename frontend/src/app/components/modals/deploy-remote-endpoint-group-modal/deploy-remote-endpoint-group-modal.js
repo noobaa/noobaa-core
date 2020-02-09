@@ -15,6 +15,7 @@ class DeployRemoteEndpointGroupModalViewModel extends ConnectableViewModel {
     toggleRemark = ko.observable();
     endpointCountLabel = ko.observable();
     formFields = {
+        region: '',
         useAutoScaling: true,
         minCount: 1,
         maxCount: 10
@@ -60,14 +61,14 @@ class DeployRemoteEndpointGroupModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { useAutoScaling, minCount, maxCount } = values;
+        const { region, useAutoScaling, minCount, maxCount } = values;
         const endpointConf = {
             minCount: minCount,
             maxCount: useAutoScaling ? maxCount : minCount
         };
 
         this.dispatch(
-            generateEndpointGroupDeploymentYAML(endpointConf),
+            generateEndpointGroupDeploymentYAML(region, endpointConf),
             closeModal()
         );
     }

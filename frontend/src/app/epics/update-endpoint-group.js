@@ -10,11 +10,12 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(UPDATE_ENDPOINT_GROUP),
         mergeMap(async action => {
-            const { name, endpointConf } = action.payload;
+            const { name, region, endpointConf } = action.payload;
 
             try {
                 await api.system.update_endpoint_group({
                     group_name: name,
+                    region,
                     endpoint_range: {
                         min: endpointConf.minCount,
                         max: endpointConf.maxCount

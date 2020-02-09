@@ -18,6 +18,7 @@ function onCompleteFetchSystemInfo(state, { payload }) {
     return keyByProperty(payload.endpoint_groups, 'group_name', group => ({
         name: group.group_name,
         isRemote: group.is_remote,
+        region: group.region,
         endpointCount: group.endpoint_count,
         endpointRange: {
             min: group.min_endpoint_count,

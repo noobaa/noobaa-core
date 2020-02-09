@@ -7,6 +7,12 @@
     onSubmit: onSubmit
 ">
     <div class="column pad greedy">
+        <editor params="label: 'Region'">
+            <input type="text"
+                class="push-next-half"
+                ko.value="$form.region"
+            />
+        </editor>
         <editor params="label: 'Auto-scaling'">
             <toggle-switch params="
                 onLabel: 'Enabled',

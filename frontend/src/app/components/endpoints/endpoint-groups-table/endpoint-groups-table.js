@@ -36,7 +36,7 @@ const columns = Object.freeze([
     {
         name: 'region',
         sortable: true,
-        compareKey: () => ''
+        compareKey: group => group.region
     },
     {
         name: 'cpuUsage',
@@ -129,7 +129,7 @@ class EndpointsTableViewModel extends ConnectableViewModel {
                         },
                         count: group.endpointCount,
                         range: `${min} - ${max}`,
-                        region: '(Not Set)',
+                        region: group.region || '(Not Set)',
                         cpuUsage: numeral(group.cpuUsage).format('%'),
                         memoryUsage: numeral(group.memoryUsage).format('%'),
                         edit: {

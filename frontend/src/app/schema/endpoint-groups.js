@@ -19,6 +19,9 @@ export default {
             isRemote: {
                 type: 'boolean'
             },
+            region: {
+                type: 'string'
+            },
             endpointCount: {
                 type: 'integer'
             },

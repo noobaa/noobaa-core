@@ -972,6 +972,9 @@ async function object_usage_scrubber(req) {
 //_.noop(send_stats_payload); // lint unused bypass
 
 function send_stats_payload(payload) {
+    if (!config.central_stats.send_stats) {
+        return P.resolve();
+    }
     var system = system_store.data.systems[0];
     var options = {
         url: config.PHONE_HOME_BASE_URL + '/phdata',

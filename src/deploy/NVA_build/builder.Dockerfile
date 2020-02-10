@@ -10,9 +10,9 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ENV container docker
 RUN dnf install -y -q wget unzip which vim && \
     dnf group install -y -q "Development Tools" && \
-    dnf install -y -q python2 && \
+    dnf install -y -q python3 && \
     dnf clean all
-RUN alternatives --set python /usr/bin/python2
+RUN alternatives --set python /usr/bin/python3
 RUN version="1.3.0" && \
     wget -q -O yasm-${version}.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \
     tar -xf yasm-${version}.tar.gz && \

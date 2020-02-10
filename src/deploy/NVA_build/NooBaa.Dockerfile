@@ -68,8 +68,10 @@ RUN dnf install -y -q bash \
     nc \
     less \
     bash-completion \
-    python2-setuptools && \
+    python3-setuptools && \
     dnf clean all
+
+RUN mkdir -p /usr/local/lib/python3.6/site-packages
 
 ##############################################################
 # Layers:

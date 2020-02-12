@@ -4,11 +4,11 @@
 
 <div class="column tabs greedy">
     <nav>
-<!--         <a ko.css.selected="selectedTab.eq('statistics')"
+        <a ko.css.selected="selectedTab.eq('statistics')"
             ko.attr.href="tabHref('statistics')"
         >
             Statistics
-        </a> -->
+        </a>
         <a ko.css.selected="selectedTab.eq('info')"
             ko.attr.href="tabHref('info')"
         >
@@ -17,9 +17,13 @@
     </nav>
 
     <div class="tabs-row">
-<!--         <div class="tab"
-            ko.css.selected="selectedTab.eq('statistics')">
-        </div> -->
+        <div class="tab"
+            ko.css.selected="selectedTab.eq('statistics')"
+        >
+            <endpoint-groups-scaling-form class="column"
+            ></endpoint-groups-scaling-form>
+            <hr>
+        </div>
 
         <endpoint-groups-table class="tab column"
             ko.css.selected="selectedTab.eq('info')"

@@ -62,7 +62,6 @@ config.N2N_OFFER_INTERNAL = false;
 config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 
-
 ///////////////
 // MD CONFIG //
 ///////////////

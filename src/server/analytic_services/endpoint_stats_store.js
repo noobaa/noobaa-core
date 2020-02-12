@@ -130,9 +130,8 @@ class EndpointStatsStore {
         if (buckets) _.set(query, ['bucket', '$in'], _.castArray(buckets));
         if (accounts) _.set(query, ['account', '$in'], _.castArray(accounts));
         if (since) _.set(query, ['start_time', '$gte'], since);
-        if (till) _.set(query, ['start_time', '$lte'], till);
+        if (till) _.set(query, ['start_time', '$lt'], till);
         return query;
-
     }
 
     async _update_bandwidth_reports(system, report) {
@@ -171,7 +170,7 @@ class EndpointStatsStore {
     }
 
     //--------------------------------------------
-    // Endpoimnt Group Reports
+    // Endpoint Group Reports
     //--------------------------------------------
 
     async get_endpoint_group_reports(params) {
@@ -193,7 +192,7 @@ class EndpointStatsStore {
         const query = {};
         if (groups) _.set(query, ['group_name', '$in'], _.castArray(groups));
         if (since) _.set(query, ['start_time', '$gte'], since);
-        if (till) _.set(query, ['start_time', '$lte'], till);
+        if (till) _.set(query, ['end_time', '$lte'], till);
         return query;
     }
 

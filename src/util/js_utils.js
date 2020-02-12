@@ -168,13 +168,32 @@ function inspect_lazy(obj, ...inspect_args) {
  * to provide the item's value based on the item's position in the array.
  * If not item initializer is not provided an array where each item contain
  * the index of the item will be created.
-  */
+ */
 function make_array(length, item_initializer) {
     if (!_.isFunction(item_initializer)) {
         item_initializer = _.identity;
     }
 
     return Array.from({ length }, (_unused_, i) => item_initializer(i));
+}
+
+/**
+ * Get the value indexed by a key from a map. If the key is not present in the
+ * map, create a new value using the item_initializer, set it to the ket in the map
+ * and return it.
+ */
+function map_get_or_create(map, key, item_initializer) {
+    if (!_.isFunction(item_initializer)) {
+        item_initializer = () => ({});
+    }
+
+    if (map.has(key)) {
+        return map.get(key);
+    } else {
+        const val = item_initializer();
+        map.set(key, val);
+        return val;
+    }
 }
 
 exports.self_bind = self_bind;
@@ -188,3 +207,4 @@ exports.sort_compare_by = sort_compare_by;
 exports.PackedObject = PackedObject;
 exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
+exports.map_get_or_create = map_get_or_create;

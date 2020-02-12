@@ -275,6 +275,7 @@ import dataBreakdownForm from './analytics/data-breakdown-form/data-breakdown-fo
 import endpointsPanel from './endpoints/endpoints-panel/endpoints-panel';
 import endpointsSummary from './endpoints/endpoints-summary/endpoints-summary';
 import endpointGroupsTable from './endpoints/endpoint-groups-table/endpoint-groups-table';
+import endpointGroupsScalingForm from './endpoints/endpoint-groups-scaling-form/endpoint-groups-scaling-form';
 /** INJECT:endpoints.import **/
 
 // -------------------------------
@@ -572,6 +573,7 @@ export default function register(ko, services) {
         endpointsPanel,
         endpointsSummary,
         endpointGroupsTable,
+        endpointGroupsScalingForm,
         /** INJECT:endpoints.list **/
 
 

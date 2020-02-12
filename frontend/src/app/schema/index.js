@@ -35,6 +35,7 @@ import objectsDistribution from './objects-distribution';
 import cloudUsageStats from './cloud-usage-stats';
 import bucketTriggers from './bucket-triggers';
 import endpointGroups from './endpoint-groups';
+import endpointsHistory from './endpoints-history';
 
 const schemas = {
     location,
@@ -68,7 +69,8 @@ const schemas = {
     objectsDistribution,
     cloudUsageStats,
     bucketTriggers,
-    endpointGroups
+    endpointGroups,
+    endpointsHistory
 };
 
 export default deepFreeze(

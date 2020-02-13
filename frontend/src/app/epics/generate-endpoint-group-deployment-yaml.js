@@ -13,10 +13,11 @@ export default function(action$, { api, browser }) {
     return action$.pipe(
         ofType(GENERATE_ENDPOINT_GROUP_DEPLOYMENT_YAML),
         mergeMap(async action => {
-            const { endpointConf } = action.payload;
+            const { region, endpointConf } = action.payload;
 
             try {
                 const yaml = await api.system.get_join_cluster_yaml({
+                    region,
                     endpoints: {
                         min_count: endpointConf.minCount,
                         max_count: endpointConf.maxCount

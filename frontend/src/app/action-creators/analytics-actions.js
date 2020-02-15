@@ -48,10 +48,14 @@ export function dropBucketUsageHistory() {
     return { type: DROP_BUCKET_USAGE_HISTORY };
 }
 
-export function fetchAccountUsageHistory(accounts, duration) {
+export function fetchAccountUsageHistory(duration, endpointGroups) {
     return {
         type: FETCH_ACCOUNT_USAGE_HISTORY,
-        payload: { accounts, duration }
+        payload: {
+            timestamp: Date.now(),
+            endpointGroups,
+            duration
+        }
     };
 }
 

@@ -130,7 +130,7 @@ class EndpointStatsStore {
         if (buckets) _.set(query, ['bucket', '$in'], _.castArray(buckets));
         if (accounts) _.set(query, ['account', '$in'], _.castArray(accounts));
         if (since) _.set(query, ['start_time', '$gte'], since);
-        if (till) _.set(query, ['start_time', '$lt'], till);
+        if (till) _.set(query, ['end_time', '$lte'], till);
         return query;
     }
 

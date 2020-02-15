@@ -2,7 +2,7 @@
 
 import template from './endpoint-groups-scaling-form.html';
 import ConnectableViewModel from 'components/connectable';
-import { deepFreeze, get } from 'utils/core-utils';
+import { deepFreeze, get, equalItems } from 'utils/core-utils';
 import { getFormValues, getFieldValue } from 'utils/form-utils';
 import { sumSize, toBytes, formatSize, unitsInBytes } from 'utils/size-utils';
 import ko from 'knockout';
@@ -275,8 +275,7 @@ class EndpointGroupsScalingFormViewModel extends ConnectableViewModel {
             !query ||
             (Date.now() - query.timestamp > FETCH_THRESHOLD) ||
             selectedTimespan != query.timespan ||
-            selectedGroups.length != query.groups.length ||
-            !selectedGroups.every(g => query.groups.includes(g))
+            !equalItems(selectedGroups, query.groups)
         ) {
             this.dispatch(
                 fetchEndpointsHistory(selectedGroups, selectedTimespan)

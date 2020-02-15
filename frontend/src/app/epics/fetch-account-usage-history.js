@@ -39,7 +39,7 @@ export default function(action$, { api }) {
 
             try {
                 const usageHistory = await api.account.get_account_usage({
-                    accounts: query.accounts,
+                    endpoint_groups: query.endpointGroups,
                     since,
                     till
                 });

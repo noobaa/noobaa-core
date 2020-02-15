@@ -6,18 +6,16 @@
 ">
     <div class="card-shadow hpad pad-top column">
         <div class="column">
-            <h2 class="heading3">NooBaa S3 Accounts R/W</h2>
-            <p>States how connected applications utilizes the system resources</p>
+            <h2 class="heading3">Top 10 Consumer Accounts</h2>
+            <p>Present how connected applications utilizes the system</p>
         </div>
         <div class="row vpad content-middle">
             <dropdown class="push-next" params="
-                options: accountOptions,
+                options: endpointGroupOptions,
                 multiselect: true,
-                filter: true,
-                selected: $form.selectedAccounts,
+                selected: $form.selectedEndpointGroups,
                 disabled: !dataReady(),
-                placeholder: 'Select Accounts',
-                subject: 'account'
+                subject: 'endpoint group'
             "></dropdown>
             <dropdown class="push-next" params="
                 options: durationOptions,
@@ -30,26 +28,11 @@
             ></svg-icon>
         </div>
     </div>
-
-    <div class="row pad">
-        <counter class="push-next" params="
-            label: 'Total Data Reads',
-            value: totalReads,
-            color: 'rgb(var(--color20))',
-            format: 'size'
-        "></counter>
-        <counter class="push-prev" params="
-            label: 'Total Data Writes',
-            value: totalWrites,
-            color: 'rgb(var(--color28))',
-            format: 'size'
-        "></counter>
-    </div>
-
     <chartjs class="pad push-next" params="
         type: chart.type,
         options: chart.options,
         data: chart.data,
+        forceEmptyMessage: true,
         emptyMessage: chart.emptyMessage
     "></chartjs>
 </managed-form>

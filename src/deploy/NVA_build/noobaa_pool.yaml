@@ -1,21 +1,3 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: s3
-  labels:
-    app: noobaa
-spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
-      targetPort: 6001
-      name: s3
-    - port: 443
-      targetPort: 6443
-      name: s3-https
-  selector:
-    noobaa-s3: "true"
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -36,16 +18,9 @@ spec:
       labels:
         app: noobaa
         noobaa-module: noobaa-agent
-        noobaa-s3: "true"
     spec:
       containers:
         - name: noobaa-agent
-          # readinessProbe:
-          #   # https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
-          #   # ready when s3 port is open
-          #   tcpSocket:
-          #     port: 6001
-          #   timeoutSeconds: 5
           imagePullPolicy: IfNotPresent
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -61,10 +36,6 @@ spec:
               value: KUBERNETES
             - name: AGENT_CONFIG
               value: "AGENT_CONFIG_VALUE"
-            - name: ENDPOINT_PORT
-              value: "6001"
-            - name: ENDPOINT_SSL_PORT
-              value: "6443"
           command: ["/noobaa_init_files/noobaa_init.sh", "agent"]
           # Insert the relevant image for the agent
           ports:
@@ -96,4 +67,3 @@ spec:
             storage: 30Gi
         # storageClassName if needed will be added by the pool controller (via pool server),
         # Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
-

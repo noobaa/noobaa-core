@@ -3,15 +3,20 @@
 import template from './account-usage-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
-import { deepFreeze, equalItems, sumBy, createCompareFunc, makeArray } from 'utils/core-utils';
+import { deepFreeze, equalItems, createCompareFunc, makeArray } from 'utils/core-utils';
 import { getFieldValue, getFormValues } from 'utils/form-utils';
-import { toBytes, formatSize, sumSize } from 'utils/size-utils';
+import { toBytes, formatSize, sumSize, unitsInBytes } from 'utils/size-utils';
 import themes from 'themes';
+import moment from 'moment';
 import {
     updateForm,
     fetchAccountUsageHistory,
     dropAccountUsageHistory
 } from 'action-creators';
+
+const FETCH_THRESHOLD = moment
+    .duration(10, 'minute')
+    .asMilliseconds();
 
 const placeholderBar = {
     account: '',
@@ -43,6 +48,46 @@ const durations = deepFreeze({
     }
 });
 
+const chartOptions =  {
+    scales: {
+        yAxes: [{
+            scaleLabel: {
+                display: true,
+                labelString: 'Aggregated R/W'
+            },
+            ticks: {
+                suggestedMax: unitsInBytes.MB,
+                // Using space for visual padding.
+                callback: size => `${
+                    size && formatSize(size)
+                }${
+                    ' '.repeat(5)
+                }`
+            }
+        }],
+        xAxes: [{
+            categoryPercentage: .4
+        }]
+    },
+    tooltips: {
+        position: 'nearest',
+        mode: 'x',
+        custom: tooltip => {
+            if (!tooltip.title || tooltip.title.length === 0) {
+                tooltip.opacity = 0;
+            }
+        },
+        callbacks: {
+            title: items => items[0].xLabel,
+            label: item => `Total ${
+                item.datasetIndex === 0 ? 'reads' : 'writes'
+            }: ${
+                formatSize(item.yLabel)
+            }`
+        }
+    }
+};
+
 const durationOptions = deepFreeze(
     Object.entries(durations).map(pair => ({
         value: pair[0],
@@ -58,11 +103,10 @@ const compareBySize = createCompareFunc(
 function _perpareChartParams(samples, theme) {
     const bars = [
         ...samples,
-        ...makeArray(6 - samples.length, () => placeholderBar)
-    ].sort(compareBySize);
+        ...makeArray(10 - samples.length, () => placeholderBar)
+    ];
 
     return {
-        type: 'bar',
         data: {
             labels: bars.map(bar => bar.account),
             datasets: [
@@ -72,72 +116,31 @@ function _perpareChartParams(samples, theme) {
                     data: bars.map(bar => toBytes(bar.readSize))
                 },
                 {
-                    backgroundColor: theme.color28,
+                    backgroundColor: theme.color14,
                     data: bars.map(bar => toBytes(bar.writeSize))
                 }
             ]
         },
-        options: {
-            scales: {
-                yAxes: [{
-                    scaleLabel: {
-                        display: true,
-                        labelString: 'Aggregated R/W'
-                    },
-                    stacked: true,
-                    ticks: {
-                        suggestedMax: 10,
-                        // Using space for visual padding.
-                        callback: size => `${
-                            size && formatSize(size)
-                        }${
-                            ' '.repeat(5)
-                        }`
-                    }
-                }],
-                xAxes: [{
-                    stacked: true,
-                    categoryPercentage: .4
-                }]
-            },
-            tooltips: {
-                position: 'nearest',
-                mode: 'x',
-                custom: tooltip => {
-                    if (!tooltip.title || tooltip.title.length === 0) {
-                        tooltip.opacity = 0;
-                    }
-                },
-                callbacks: {
-                    title: items => items[0].xLabel,
-                    label: item => `Total ${
-                        item.datasetIndex === 0 ? 'reads' : 'writes'
-                    }: ${
-                        formatSize(item.yLabel)
-                    }`
-                }
-            }
-        },
-        emptyMessage: ''
+        emptyMessage: samples.length === 0 ?
+            'No data to display' :
+            ''
     };
 }
 
 class AccountUsageFormViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     dataReady = ko.observable();
-    accountOptions = ko.observableArray();
+    endpointGroupOptions = ko.observableArray();
     durationOptions = durationOptions;
-    totalReads = ko.observable();
-    totalWrites = ko.observable();
     formFields = {
         initialized: false,
-        selectedAccounts: [],
+        selectedEndpointGroups: [],
         selectedDuration: durationOptions[0].value
     };
     colors = ko.observableArray();
     chart = {
-        type: ko.observable(),
-        options: ko.observable(),
+        type: 'bar',
+        options: chartOptions,
         data: ko.observable(),
         emptyMessage: ko.observable()
     };
@@ -152,9 +155,13 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
         const form = state.forms[this.formName];
         if (!form) return;
 
-        if (state.accounts && !getFieldValue(form, 'initialized')) {
+        if (
+            state.accounts &&
+            state.endpointGroups &&
+            !getFieldValue(form, 'initialized')
+        ) {
             const update = {
-                selectedAccounts: Object.keys(state.accounts),
+                selectedEndpointGroups: Object.keys(state.endpointGroups),
                 initialized: true
             };
 
@@ -166,28 +173,34 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
         const form = state.forms[this.formName];
         if (!form) return;
 
-        const { accounts = [], duration } = state.accountUsageHistory.query || {};
-        const { selectedAccounts, selectedDuration } = getFormValues(form);
+        const { query } = state.accountUsageHistory;
+        const { selectedEndpointGroups, selectedDuration } = getFormValues(form);
 
         if (
-            duration !== selectedDuration ||
-            !equalItems(accounts, selectedAccounts)
+            !query ||
+            (Date.now() - query.timestamp > FETCH_THRESHOLD) ||
+            query.duration !== selectedDuration ||
+            !equalItems(query.endpointGroups, selectedEndpointGroups)
         ) {
-            this.dispatch(fetchAccountUsageHistory(selectedAccounts, selectedDuration));
+            this.dispatch(fetchAccountUsageHistory(
+                selectedDuration,
+                selectedEndpointGroups
+            ));
         }
     }
 
     selectState(state) {
-        const { forms, accounts, accountUsageHistory, session } = state;
+        const { forms, accounts, endpointGroups, accountUsageHistory, session } = state;
         return [
             forms[this.formName],
             accounts,
+            endpointGroups,
             accountUsageHistory,
             session && themes[session.uiTheme]
         ];
     }
 
-    mapStateToProps(form, accounts, usageHistory, theme) {
+    mapStateToProps(form, accounts, endpointGroups, usageHistory, theme) {
         if (!accounts || !usageHistory.samples || !theme || !getFieldValue(form, 'initialized')) {
             ko.assignToProps(this, {
                 dataReady: false,
@@ -199,16 +212,15 @@ class AccountUsageFormViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { samples } = usageHistory;
-            const totalReads = sumBy(samples, sample => toBytes(sample.readSize));
-            const totalWrites = sumBy(samples, sample => toBytes(sample.writeSize));
+            // Take the top 10 samples
+            const samples = [...usageHistory.samples]
+                .sort(compareBySize)
+                .slice(0, 10);
 
             ko.assignToProps(this, {
                 dataReady: true,
                 pathname: location.pathname,
-                accountOptions: Object.keys(accounts),
-                totalReads: totalReads,
-                totalWrites: totalWrites,
+                endpointGroupOptions: Object.keys(endpointGroups),
                 chart: _perpareChartParams(samples, theme)
             });
         }

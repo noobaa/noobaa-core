@@ -10,10 +10,9 @@ export function parseQueryString(str) {
     return str
         .replace(/(^\?)/,'')
         .split('&')
-        .map(part => decodeURIComponent(part))
-        .filter(part => part)
+        .filter(Boolean)
         .reduce( (result, part) => {
-            const [name, value] = part.split('=');
+            const [name, value] = part.split('=').map(decodeURIComponent);
             result[toCammelCase(name)] = value || true;
             return result;
         }, {});

@@ -22,7 +22,7 @@ function install_supervisor {
     then
         deploy_log install_supervisor start
         # easy_install is for Supervisord and comes from python-setuptools
-        /usr/bin/easy_install-3.6 supervisor
+        /usr/bin/easy_install-2 supervisor
 	    deploy_log install_supervisor done
     fi
 
@@ -40,8 +40,7 @@ function install_supervisor {
 
     # Autostart supervisor
     deploy_log "setup_supervisors autostart"
-    bin_supervisord=$(find / -name supervisord | grep bin)
-    mv ${bin_supervisord} /usr/bin/supervisord_orig
+    mv /usr/bin/supervisord /usr/bin/supervisord_orig
     mv /tmp/supervisord /usr/bin/supervisord
 
     # Add NooBaa services configuration to supervisor

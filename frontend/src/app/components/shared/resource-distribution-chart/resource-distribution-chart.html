@@ -6,7 +6,7 @@
 
 <div class="row push-both">
     <div class="row pad align-start borders content-box push-both"
-        ko.if="dataReady"
+        ko.visible="dataReady()"
     >
         <chart-legend class="push-next" params="
             caption: 'Usage Distribution',

@@ -3,7 +3,7 @@
 import template from './buckets-summary.html';
 import ConnectableViewModel from 'components/connectable';
 import { sumBy } from 'utils/core-utils';
-import { formatSize, sumSize, toBigInteger, toBytes, fromBigInteger } from 'utils/size-utils';
+import { formatSize, sumSize, toBigInteger, toBytes, fromBigInteger, bigInteger } from 'utils/size-utils';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -39,7 +39,7 @@ class BucketsSummaryViewModel extends ConnectableViewModel {
             const objectCount = sumBy(bucketList, bucket => bucket.objects.count);
             const dataSize = sumSize(...bucketList.map(bucket => bucket.data.size));
             const reducedSize = sumSize(...bucketList.map(bucket => bucket.data.sizeReduced));
-            const savings = fromBigInteger(toBigInteger(dataSize).subtract(reducedSize));
+            const savings = fromBigInteger(bigInteger.max(toBigInteger(dataSize).subtract(reducedSize), 0));
             const savingsRatio = dataSize > 0 ? toBytes(savings) / toBytes(dataSize) : 0;
             const nsBucketList = Object.values(nsBuckets);
             const nsBucketCount = nsBucketList.length;

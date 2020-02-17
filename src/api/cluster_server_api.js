@@ -162,6 +162,7 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+                anonymous: true,
             }
         },
 

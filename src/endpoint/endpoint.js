@@ -108,8 +108,11 @@ async function run_server(options) {
             await md_server.register_rpc();
         }
 
-        const endpoint_request_handler = create_endpoint_handler(rpc, options);
-        if (options.ftp) start_ftp_endpoint(rpc);
+        const auth_token = await get_auth_token(process.env);
+        const internal_rpc_client = server_rpc.rpc.new_client({ auth_token });
+
+        const endpoint_request_handler = create_endpoint_handler(rpc, internal_rpc_client, options);
+        if (options.ftp) start_ftp_endpoint(rpc, internal_rpc_client);
 
         const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
@@ -122,7 +125,7 @@ async function run_server(options) {
         dbg.log0('Configured Virtual Hosts:', VIRTUAL_HOSTS);
 
         // Start a monitor to send periodic endpoint reports about endpoint usage.
-        start_monitor();
+        start_monitor(internal_rpc_client);
 
     } catch (err) {
         handle_server_error(err);
@@ -133,7 +136,7 @@ async function get_auth_token(env) {
     if (env.NOOBAA_AUTH_TOKEN) {
         return env.NOOBAA_AUTH_TOKEN;
 
-    } else if (env.JWT_SECRET) {
+    } else if (env.JWT_SECRET && LOCAL_MD_SERVER) {
         const system_store_inst = system_store.get_instance();
         await promise_utils.wait_until(() =>
             system_store_inst.is_finished_initial_load
@@ -150,8 +153,7 @@ async function get_auth_token(env) {
     }
 }
 
-async function start_monitor() {
-    const auth_token = await get_auth_token(process.env);
+async function start_monitor(internal_rpc_client) {
     let start_time = process.hrtime.bigint() / 1000n;
     let base_cpu_time = process.cpuUsage();
 
@@ -168,7 +170,7 @@ async function start_monitor() {
             const hostname = os.hostname();
 
             dbg.log0('Sending endpoint report:', { group_name, hostname });
-            await server_rpc.client.object.add_endpoint_report({
+            await internal_rpc_client.object.add_endpoint_report({
                 timestamp: Date.now(),
                 group_name,
                 hostname,
@@ -187,8 +189,6 @@ async function start_monitor() {
                 bandwidth: [
                     ...rest_usage.bandwidth_usage_info.values()
                 ]
-            }, {
-                auth_token
             });
 
             // save the current values as base for next iteration.
@@ -205,13 +205,13 @@ function handle_server_error(err) {
     process.exit(1);
 }
 
-function create_endpoint_handler(rpc, options) {
+function create_endpoint_handler(rpc, internal_rpc_client, options) {
     const s3_rest_handler = options.s3 ? s3_rest.handler : unavailable_handler;
     const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
     const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
 
     if (options.n2n_agent) {
-        const signal_client = rpc.new_client();
+        const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
         const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
@@ -236,17 +236,17 @@ function create_endpoint_handler(rpc, options) {
         }
 
         if (req.headers['x-ms-version']) {
-            req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
+            req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
             return blob_rest_handler(req, res);
         }
 
         req.virtual_hosts = VIRTUAL_HOSTS;
-        req.object_sdk = new ObjectSDK(rpc.new_client(), object_io);
+        req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
         return s3_rest_handler(req, res);
     }
 }
 
-async function start_ftp_endpoint(rpc) {
+async function start_ftp_endpoint(rpc, internal_rpc_client) {
     try {
         // ftp-srv calls log.debug in some cases. set it to dbg.trace
         dbg.debug = dbg.trace;
@@ -262,7 +262,7 @@ async function start_ftp_endpoint(rpc) {
             // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
             resolve({
                 fs: new FtpFileSystemNB({
-                    object_sdk: new ObjectSDK(rpc.new_client(), obj_io)
+                    object_sdk: new ObjectSDK(rpc.new_client(), internal_rpc_client, obj_io)
                 })
             });
         });

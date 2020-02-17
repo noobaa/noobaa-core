@@ -306,7 +306,6 @@ module.exports = {
             },
             auth: {
                 system: ['admin', 'user'],
-                anonymous: true,
             }
         },
 

@@ -533,6 +533,11 @@ const actionToNotification = deepFreeze({
     [types.FAIL_UPDATE_ENDPOINT_GROUP]: ({ name }) => ({
         message: `Updating endpoint group ${name} failed`,
         severity: 'error'
+    }),
+
+    [types.FAIL_FETCH_ENDPOINTS_HISTORY]: () => ({
+        message: 'Fetching endpoint groups history failed',
+        severity: 'error'
     })
 
 });

@@ -94,6 +94,7 @@ import redirectAfterSignOut from './redirect-after-sign-out';
 import uploadSSLCertificate from './upload-ssl-certificate';
 import generateEndpointGroupDeploymentYAML from './generate-endpoint-group-deployment-yaml';
 import updateEndpointGroup from './update-endpoint-group';
+import fetchEndpointsHistory from './fetch-endpoints-history';
 
 const epics = [
     // General epics
@@ -210,6 +211,7 @@ const epics = [
     // Endpoint related epics
     generateEndpointGroupDeploymentYAML,
     updateEndpointGroup,
+    fetchEndpointsHistory,
 
     // Analytics related epics
     fetchBucketUsageHistory,

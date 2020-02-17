@@ -8,9 +8,9 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN dnf install -y -q wget unzip which vim && \
+RUN dnf update -y -q && \
+    dnf install -y -q wget unzip which vim python3 && \
     dnf group install -y -q "Development Tools" && \
-    dnf install -y -q python3 && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3
 RUN version="1.3.0" && \

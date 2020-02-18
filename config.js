@@ -220,7 +220,7 @@ config.CHUNK_SPLIT_DELTA_CHUNK = config.CHUNK_SPLIT_AVG_CHUNK / 4;
 // CODER
 config.CHUNK_CODER_DIGEST_TYPE = 'sha384';
 config.CHUNK_CODER_FRAG_DIGEST_TYPE = 'sha1';
-config.CHUNK_CODER_COMPRESS_TYPE = 'snappy';
+config.CHUNK_CODER_COMPRESS_TYPE = process.env.NOOBAA_DISABLE_COMPRESSION === 'true' ? undefined : 'snappy';
 config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
 
 // ERASURE CODES

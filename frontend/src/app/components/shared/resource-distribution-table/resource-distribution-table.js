@@ -86,8 +86,8 @@ class ResourceDistributionTableViewModel extends ConnectableViewModel {
 
         } else {
             const subject = getResourceTypeDisplayName(resourceType);
-            const sortBy = query.sortBy || 'name';
-            const order = Number(query.order) || 1;
+            const sortBy = query.sortBy || 'usage';
+            const order = Number(query.order) || -1;
             const page = Number(query.page) || 0;
             const pageSize = Number(query.pageSize) || paginationPageSize.default;
             const pageStart = page * pageSize;

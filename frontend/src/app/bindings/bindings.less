@@ -60,7 +60,13 @@
         }
 
         > .tooltip-content {
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+            max-height: 300px;
+
+            &::-webkit-scrollbar-thumb  {
+                border: 3px solid @bg-color;
+            };
         }
     }
 

@@ -58,6 +58,7 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+                anonymous: true,
             }
         },
 
@@ -366,6 +367,65 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        get_endpoints_history: {
+             method: 'GET',
+             params: {
+                 type: 'object',
+                 required: [
+                     'since'
+                 ],
+                 properties: {
+                     since: {
+                         idate: true
+                     },
+                     till: {
+                         idate: true
+                     },
+                     step: {
+                         type: 'integer'
+                     },
+                     groups: {
+                         type: 'array',
+                         items: {
+                             type: 'string'
+                         }
+                     }
+                 }
+             },
+             reply: {
+                 type: 'array',
+                 items: {
+                     type: 'object',
+                     properties: {
+                        timestamp: {
+                            idate: true
+                        },
+                        endpoint_count: {
+                            type: 'number'
+                        },
+                        cpu_count: {
+                            type: 'number'
+                        },
+                        cpu_usage: {
+                            type: 'number'
+                        },
+                        memory_usage: {
+                            type: 'number'
+                        },
+                        read_bytes: {
+                            type: 'number'
+                        },
+                        write_bytes: {
+                            type: 'number'
+                        }
+                     }
+                 }
+             },
+             auth: {
+                 system: 'admin'
+             }
         }
     },
 

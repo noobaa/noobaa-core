@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const ip_module = require('ip');
 
@@ -17,9 +16,8 @@ const SensitiveString = require('../../util/sensitive_string');
 const oauth_utils = require('../../util/oauth_utils');
 const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
+const jwt_utils = require('../../util/jwt_utils');
 
-
-const JWT_SECRET = get_jwt_secret();
 
 /**
  *
@@ -419,15 +417,21 @@ function authorize(req) {
             _authorize_jwt_token(req);
         }
     }
+    // This check is only for to pass RPC tests
     if (req.method_api.auth !== false) {
         req.load_auth();
+        if (req.auth) {
+            req.check_auth();
+        } else {
+            req.check_anonymous();
+        }
     }
 }
 
 
 function _authorize_jwt_token(req) {
     try {
-        req.auth = jwt.verify(req.auth_token, JWT_SECRET);
+        req.auth = jwt_utils.authorize_jwt_token(req.auth_token);
     } catch (err) {
         dbg.error('AUTH JWT VERIFY FAILED', req, err);
         throw new RpcError('UNAUTHORIZED', 'verify auth failed');
@@ -488,67 +492,71 @@ function _authorize_signature_token(req) {
  */
 function _prepare_auth_request(req) {
 
+    const options = req.method_api.auth || {};
+    // when the account field in method_api.auth is missing
+    // we consider as if account is implicitly not mandatory for the method.
+    // this is because in many internal paths we do not have an account.
+    // TODO reconsider if allow_missing_account should be explicit instead
+    const allow_missing_account = !options.account;
+    // for system in order to make it optional we require to pass explicit false.
+    const allow_missing_system = (options.system === false);
+    // for anonymous access operations
+    const allow_anonymous_access = (options.anonymous === true);
+
     /**
-     *
-     * req.load_auth()
-     *
-     * verifies that the request auth has a valid account and sets req.account.
-     * verifies that the request auth has a valid system
-     * and sets req.system and req.role.
-     *
-     * @param <Object> options:
-     *      - <Boolean> account: if false don't fail if there is no account in req.auth
-     *      - <Boolean> system: if false don't fail if there is no system in req.auth
-     *      - <Array> roles: acceptable roles
+     * req.load_auth() sets req.account, req.system and req.role.
      */
     req.load_auth = function() {
-        const options = this.method_api.auth || {};
-
-        dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
-            req.account = system_store.data.get_by_id(req.auth.account_id);
-            req.system = system_store.data.get_by_id(req.auth.system_id);
+            if (req.auth.account_id) req.account = system_store.data.get_by_id(req.auth.account_id);
+            if (req.auth.system_id) req.system = system_store.data.get_by_id(req.auth.system_id);
             req.role = req.auth.role;
         }
+    };
 
-        // when the account field in method_api.auth is missing
-        // we consider as if account is implicitly not mandatory for the method.
-        // this is because in many internal paths we do not have an account.
-        // TODO reconsider if ignore_missing_account should be explicit instead
-        const ignore_missing_account = !options.account;
-        // for system in order to make it optional we require to pass explicit false.
-        const ignore_missing_system = (options.system === false);
-        // for anonymous access operations
-        const allow_anonymous_access = (options.anonymous === true);
+    req.check_anonymous = function() {
+        if (!allow_anonymous_access) throw new RpcError('UNAUTHORIZED', 'not anonymous method ' + (req.method_api.name));
+        // Currently authorize anonymous with the system that we have
+        // Notice that we only authorize if system doesn't exist
+        // Since the anonymous methods can be called authenticated as well
+        if (!req.system) req.system = system_store.data.systems[0];
+    };
 
-        if (allow_anonymous_access) {
-            req.anonymous = true;
-            // Currently authorize anonymous with the system that we have
-            if (!ignore_missing_system) {
-                req.system = system_store.data.systems[0];
-            }
-            return;
-        }
-
+    /**
+     * req.check_auth() verifies that the request auth has a valid account, system and role
+     */
+    req.check_auth = function() {
+        dbg.log1('load_auth:', options, req.auth);
         // check that auth has account
-        if (!ignore_missing_account || (req.auth && req.auth.account_id)) {
-            if (!req.account) {
-                throw new RpcError('UNAUTHORIZED', 'account not found ' + (req.auth && req.auth.account_id));
+        if (!req.account) {
+            if (!allow_missing_account || req.auth.account_id) {
+                throw new RpcError('UNAUTHORIZED', 'account not found ' + req.auth.account_id);
             }
         }
 
         // check that auth contains system
-        if (!ignore_missing_system || (req.auth && req.auth.system_id)) {
-            if (!req.system) {
-                throw new RpcError('UNAUTHORIZED', 'system not found ' + (req.auth && req.auth.system_id));
+        if (!req.system) {
+            if (!allow_missing_system || req.auth.system_id) {
+                throw new RpcError('UNAUTHORIZED', 'system not found ' + req.auth.system_id);
             }
         }
 
         // check that auth contains valid system role or the account is support
-        if (!ignore_missing_system) {
-            if (!(req.account && req.account.is_support) &&
-                !_.includes(options.system, req.auth.role) &&
-                req.auth.role !== 'operator') {
+        // We should not check for roles and accounts in anonymous access
+        // if (req.system && req.account) {
+        if (req.system) {
+            let allowed_role;
+            if ((req.account && req.account.is_support) || req.auth.role === 'operator') {
+                allowed_role = true;
+            } else if (typeof options.system === 'string') {
+                allowed_role = options.system === req.auth.role;
+            } else if (Array.isArray(options.system)) {
+                allowed_role = _.includes(options.system, req.auth.role);
+            } else {
+                allowed_role = allow_missing_system;
+            }
+
+            if (!allowed_role) {
                 dbg.warn('role not allowed in system', options, req.auth, req.account, req.system);
                 throw new RpcError('UNAUTHORIZED', 'role not allowed in system');
             }
@@ -573,6 +581,7 @@ function _prepare_auth_request(req) {
                 }
             }
         }
+
         dbg.log3('load auth system:', req.system);
     };
 
@@ -591,19 +600,24 @@ function _prepare_auth_request(req) {
     };
 
     req.has_s3_bucket_permission = function(bucket) {
-        const options = this.method_api.auth || {};
-        if (req.anonymous) {
+        // Since this method can be called both authorized and unauthorized
+        // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
+        // In case of anonymous function but with authentication flow we roll back to previous code and not return here
+        if (req.auth_token && typeof req.auth_token === 'object') {
+            return req.has_bucket_permission(bucket);
+        }
+        // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
+        // There is nothing specific to bucket permissions for the management credentials
+        // So we allow bucket access to any valid auth token
+        if (req.auth && req.system && req.account) {
             return true;
         }
 
-        // If the token includes S3 data, then we check for permissions
-        if (req.auth_token && typeof req.auth_token === 'object') {
-            return req.has_bucket_permission(bucket);
-        } else if (options.anonymous === true) {
+        if (options.anonymous === true) {
             return req.has_bucket_anonymous_permission(bucket);
-        } else {
-            return true;
         }
+
+        return false;
     };
 
     req.check_s3_bucket_permission = function(bucket) {
@@ -677,7 +691,7 @@ function has_bucket_anonymous_permission(bucket) {
  *
  * make jwt token (json web token) used for authorization.
  *
- * @param <Object> options:
+ * @param {Object} options
  *      - account_id
  *      - system_id
  *      - role
@@ -686,8 +700,8 @@ function has_bucket_anonymous_permission(bucket) {
  * @return <String> token
  */
 function make_auth_token(options) {
-    var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
-    auth.authorized_by = options.authorized_by || 'noobaa';
+    var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 'authorized_by');
+    auth.authorized_by = auth.authorized_by || 'noobaa';
 
     // don't incude keys if value is falsy, to minimize the token size
     auth = _.omitBy(auth, value => !value);
@@ -698,22 +712,7 @@ function make_auth_token(options) {
         jwt_options.expiresIn = options.expiry;
     }
     // create and return the signed token
-    return jwt.sign(auth, JWT_SECRET, jwt_options);
-}
-
-
-
-function get_jwt_secret() {
-    if (process.env.JWT_SECRET) {
-        return process.env.JWT_SECRET;
-    } else {
-        // in kubernetes we must have JWT_SECRET loaded from a kubernetes secret
-        if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-            throw new Error('JWT_SECRET env variable not found. it must exist when running in kuberentes');
-        }
-        // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
-        return 'abcdefgh';
-    }
+    return jwt_utils.make_auth_token(auth, jwt_options);
 }
 
 

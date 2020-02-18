@@ -131,8 +131,8 @@ async function handle_request(req, res) {
     }
 
     const op_name = parse_op_name(req);
-    authenticate_request(req);
     req.op_name = op_name;
+    authenticate_request(req);
     await authorize_request(req);
 
     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
@@ -171,7 +171,9 @@ async function populate_request_additional_info_or_redirect(req) {
 
 async function _get_redirection_bucket(req, bucket) {
     const bucket_website_info = await req.object_sdk.read_bucket_sdk_website_info(bucket);
-    const redirect = bucket_website_info && bucket_website_info.website_configuration.redirect_all_requests_to;
+    if (!bucket_website_info) return;
+    req.bucket_website_info = bucket_website_info;
+    const redirect = bucket_website_info.website_configuration.redirect_all_requests_to;
     if (redirect) {
         const dest = redirect.host_name;
         const protocol = redirect.protocol || req.secure ? 'https' : 'http';
@@ -393,8 +395,7 @@ function parse_bucket_and_key(req) {
 function get_bucket_and_key(req) {
     let { bucket, key, is_virtual_hosted_bucket } = parse_bucket_and_key(req);
     if (req.bucket_website_info) {
-        bucket = req.bucket_website_info.bucket;
-        const suffix = req.bucket_website_info.website.website_configuration.index_document.suffix;
+        const suffix = req.bucket_website_info.website_configuration.index_document.suffix;
         if (key) {
             key = key.endsWith('/') ? key.concat(suffix) : key;
         } else {
@@ -523,7 +524,7 @@ async function _handle_html_response(req, res, err) {
 }
 
 async function handle_website_error(req, res, err) {
-    const error_document = _.get(req, 'bucket_website_info.website.website_configuration.error_document');
+    const error_document = _.get(req, 'bucket_website_info.website_configuration.error_document');
     if (error_document) {
         try {
             const object_md = await req.object_sdk.read_object_md({

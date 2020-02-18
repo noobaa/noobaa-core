@@ -5,22 +5,22 @@
     fields: formFields
 ">
     <div class="card-shadow hpad pad-top column">
-        <div class="column">
-            <h2 class="heading3">Top 10 Consumer Accounts</h2>
-            <p>Present how connected applications utilizes the system</p>
-        </div>
-        <div class="row vpad content-middle">
+        <h2 class="heading3">Endpoint Auto-Scale</h2>
+        <p class="push-next">
+            Present the endpoint's scaling behavior according to configured Kubernetes metrics
+        </p>
+        <div class="row content-middle push-next">
             <dropdown class="push-next" params="
-                options: endpointGroupOptions,
+                options: groupOptions,
                 multiselect: true,
-                selected: $form.selectedEndpointGroups,
+                selected: $form.selectedGroups,
                 disabled: !dataReady(),
-                subject: 'endpoint group'
+                subject: 'group'
             "></dropdown>
             <dropdown class="push-next" params="
-                options: durationOptions,
-                selected: $form.selectedDuration,
-                disabled: !dataReady(),
+                options: timespanOptions,
+                selected: $form.selectedTimespan,
+                disabled: !dataReady()
             "></dropdown>
             <svg-icon class="spin match-theme"
                 params="name: 'in-progress'"
@@ -28,11 +28,20 @@
             ></svg-icon>
         </div>
     </div>
+
+    <div class="row pad content-middle push-next">
+        <span class="heading3">Compare To:</span>
+        <radio-group class="push-prev" params="
+            options: metricOptions,
+            selected: $form.selectedMetric
+        "></radio-group>
+    </div>
+
     <chartjs class="pad push-next" params="
         type: chart.type,
         options: chart.options,
         data: chart.data,
-        forceEmptyMessage: true,
         emptyMessage: chart.emptyMessage
     "></chartjs>
+
 </managed-form>

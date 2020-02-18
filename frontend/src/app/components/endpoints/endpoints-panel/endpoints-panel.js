@@ -16,7 +16,7 @@ class EndpointsPanelViewModel extends ConnectableViewModel {
     }
 
     mapStateToProps(location) {
-        const { system, tab = 'info' } = location.params;
+        const { system, tab = 'statistics' } = location.params;
 
         ko.assignToProps(this, {
             baseRoute: realizeUri(location.route, { system }, {}, true),

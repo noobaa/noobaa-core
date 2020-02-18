@@ -87,6 +87,7 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+                anonymous: true,
             }
         },
 
@@ -307,6 +308,7 @@ module.exports = {
             auth: {
                 account: false,
                 system: false,
+                anonymous: true,
             }
         },
 
@@ -442,7 +444,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['accounts', 'since', 'till'],
+                required: ['since', 'till'],
                 properties: {
                     since: { idate: true },
                     till: { idate: true },
@@ -450,6 +452,12 @@ module.exports = {
                         type: 'array',
                         items: {
                             $ref: 'common_api#/definitions/email'
+                        }
+                    },
+                    endpoint_groups: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
                         }
                     }
                 }

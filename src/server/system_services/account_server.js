@@ -527,9 +527,15 @@ function reset_password(req) {
 
 
 async function get_account_usage(req) {
-    const { since, till, accounts } = req.rpc_params;
+    const { since, till, accounts, endpoint_groups } = req.rpc_params;
+
+    const account_ids = accounts && accounts.map(acc =>
+        _.get(system_store.data.accounts_by_email[acc.unwrap()], '_id')
+    );
+
     return usage_aggregator.get_accounts_bandwidth_usage({
-        accounts: accounts.map(acc => _.get(system_store.data.accounts_by_email[acc.unwrap()], '_id')),
+        accounts: account_ids,
+        endpoint_groups,
         since,
         till
     });
@@ -644,7 +650,9 @@ function get_system_roles(req) {
 
 async function add_external_connection(req) {
     dbg.log0('add_external_connection:', req.rpc_params);
-    const res = await check_external_connection(req);
+    const res = await server_rpc.client.account.check_external_connection(req.rpc_params, {
+        auth_token: req.auth_token
+    });
     if (res.status !== 'SUCCESS') {
         throw new RpcError(res.error.code, res.error.message);
     }

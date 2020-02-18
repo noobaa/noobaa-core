@@ -84,27 +84,23 @@ async function get_bandwith_over_time(params) {
     }, time_slots);
 }
 
-async function get_accounts_bandwidth_usage(params) {
-    const query = _.pick(params, ['since', 'till', 'accounts']);
+async function get_accounts_bandwidth_usage(query) {
     const reports = await EndpointStatsStore.instance.get_bandwidth_reports(query);
-    const by_account = reports.reduce((mapping, report) => {
-        const account = system_store.data.get_by_id(report.account);
-        if (!account) return mapping;
+    const by_account = _.groupBy(reports, report => report.account);
+    return Object.entries(by_account)
+        .map(pair => {
+            const [account_id, reportList] = pair;
+            const account = system_store.get_by_id(account_id);
+            if (!account) {
+                return null;
+            }
 
-        let record = mapping.get(report.account);
-        if (!record) {
-            record = {
-                account: account.email,
-                ...ZERO_STATS
-            };
-            mapping.set(report.account, record);
-        }
-
-        _accumulate_bandwidth(record, report);
-        return mapping;
-    }, new Map());
-
-    return [...by_account.values()];
+            return reportList.reduce(
+                (acc, report) => _accumulate_bandwidth(acc, report),
+                { account: account.email, ...ZERO_STATS }
+            );
+        })
+        .filter(Boolean);
 }
 
 async function background_worker() {

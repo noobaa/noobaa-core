@@ -208,7 +208,12 @@ spec:
         - name: mongodb
           image: centos/mongodb-36-centos7
           imagePullPolicy: IfNotPresent
-          command: ['/bin/bash', '-c', '/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip 127.0.0.1 --dbpath /data/mongo/cluster/shard1']
+          command:
+            [
+              "/bin/bash",
+              "-c",
+              "/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip 127.0.0.1 --dbpath /data/mongo/cluster/shard1",
+            ]
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
             requests:
@@ -224,8 +229,8 @@ spec:
           image: NOOBAA_CORE_IMAGE
           imagePullPolicy: IfNotPresent
           command:
-          - /noobaa_init_files/noobaa_init.sh
-          - init_endpoint
+            - /noobaa_init_files/noobaa_init.sh
+            - init_endpoint
           resources:
             requests:
               cpu: "100m"
@@ -234,14 +239,16 @@ spec:
               cpu: "1"
               memory: "1Gi"
           ports:
-          - containerPort: 6001
-          - containerPort: 6443
+            - containerPort: 6001
+            - containerPort: 6443
           env:
-          - name: JWT_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: noobaa-secrets
-                key: jwt
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: noobaa-secrets
+                  key: jwt
+            - name: LOCAL_MD_SERVER
+              value: "true"
           # - name: MGMT_URL
           # - name: MONGODB_URL
           # - name: VIRTUAL_HOSTS
@@ -255,7 +262,7 @@ spec:
           image: noobaa/noobaa-core:5.0.1
           imagePullPolicy: IfNotPresent
           # command: ['/noobaa_init_files/kube_pv_chown', 'server']
-          command: ['/noobaa_init_files/noobaa_init.sh', 'init_mongo']
+          command: ["/noobaa_init_files/noobaa_init.sh", "init_mongo"]
           volumeMounts:
             - mountPath: /mongo_data
               name: mongo-datadir

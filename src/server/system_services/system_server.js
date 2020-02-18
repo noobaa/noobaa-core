@@ -46,6 +46,7 @@ const addr_utils = require('../../util/addr_utils');
 const url_utils = require('../../util/url_utils');
 const ssl_utils = require('../../util/ssl_utils');
 const yaml_utils = require('../../util/yaml_utils');
+const js_utils = require('../../util/js_utils');
 const { KubeStore } = require('../kube-store.js');
 
 const SYSLOG_INFO_LEVEL = 5;
@@ -252,6 +253,9 @@ async function create_system(req) {
     dbg.log0('create_system: got create_system with params:', util.inspect(req.rpc_params, { depth: null }));
     if (system_store.data.systems.length > 20) {
         throw new Error('Too many created systems');
+    }
+    if (system_store.data.systems.length > 0 && config.test_mode !== true) {
+        throw new Error('Cannot create multiple production systems');
     }
 
     const {
@@ -1043,6 +1047,93 @@ async function update_endpoint_group(req) {
     }
 }
 
+const _get_group_accumulator = (group_map, group_name) =>
+    js_utils.map_get_or_create(group_map, group_name, () => ({
+        count: 0,
+        endpoint_count: 0,
+        cpu_count: 0,
+        cpu_usage: 0,
+        memory_usage: 0,
+        read_bytes: 0,
+        write_bytes: 0
+    }));
+
+async function get_endpoints_history(req) {
+    const monitor_interval = config.ENDPOINT_MONITOR_INTERVAL;
+    const { groups, step = 1 } = req.rpc_params;
+    const since = Math.ceil(req.rpc_params.since / monitor_interval) * monitor_interval;
+    const till = Math.floor(Math.min(req.rpc_params.till || Infinity, Date.now()) / monitor_interval) * monitor_interval;
+    const stepInMili = moment.duration(step || 1, 'hour').asMilliseconds(); // the rpc params unit is hours.
+    const [group_reports, bandwidth_reports] = await Promise.all([
+        EndpointStatsStore.instance.get_endpoint_group_reports({ since, till, groups }),
+        EndpointStatsStore.instance.get_bandwidth_reports({ since, till, endpoint_groups: groups })
+    ]);
+
+    // Sort by time.
+    group_reports.sort((a, b) => a.end_time - b.end_time);
+    bandwidth_reports.sort((a, b) => a.end_time - b.end_time);
+
+    let i = 0;
+    let j = 0;
+    const bins = [];
+    for (let start_time = since; start_time < till; start_time += stepInMili) {
+        const end_time = start_time + stepInMili;
+        const by_groups = new Map();
+        for (; i < group_reports.length; ++i) {
+            const report = group_reports[i];
+            if (report.end_time >= end_time) break;
+
+            const { endpoints, group_name } = report;
+            const acc = _get_group_accumulator(by_groups, group_name);
+            const memory_usage = _.sumBy(endpoints, ep_info =>
+                ep_info.memory.used / ep_info.memory.total
+            ) / endpoints.length;
+            acc.count += 1;
+            acc.endpoint_count += endpoints.length;
+            acc.cpu_count += _.sumBy(endpoints, ep_info => ep_info.cpu.count);
+            acc.cpu_usage += _.sumBy(endpoints, ep_info => ep_info.cpu.usage);
+            acc.memory_usage += memory_usage;
+        }
+
+        for (; j < bandwidth_reports.length; ++j) {
+            const report = bandwidth_reports[j];
+            if (report.end_time >= end_time) break;
+
+            const acc = _get_group_accumulator(by_groups, report.group_name);
+            acc.bandwidth_reports += 1;
+            acc.read_bytes += report.read_bytes;
+            acc.write_bytes += report.write_bytes;
+        }
+
+        const bin = {
+            timestamp: end_time,
+            endpoint_count: 0,
+            cpu_count: 0,
+            cpu_usage: 0,
+            memory_usage: 0,
+            read_bytes: 0,
+            write_bytes: 0
+        };
+
+        const desired_report_count = end_time <= till ?
+            (stepInMili / monitor_interval) :
+            ((till - start_time) / monitor_interval);
+
+        for (const acc of by_groups.values()) {
+            bin.endpoint_count += acc.endpoint_count / desired_report_count;
+            bin.cpu_count += acc.cpu_count / desired_report_count;
+            bin.cpu_usage += acc.cpu_usage / desired_report_count;
+            bin.memory_usage += (acc.memory_usage / desired_report_count) / by_groups.size;
+            bin.read_bytes += acc.read_bytes;
+            bin.write_bytes += acc.write_bytes;
+        }
+
+        bins.push(bin);
+    }
+
+    return bins;
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 function get_system_info(system, get_id) {
@@ -1101,13 +1192,13 @@ function _list_s3_addresses(system) {
 
 async function _get_endpoint_groups() {
     const { endpoint_groups = [] } = system_store.get_local_cluster_info();
-    const now = Date.now();
+    const till = Math.floor(Date.now() / config.ENDPOINT_MONITOR_INTERVAL) * config.ENDPOINT_MONITOR_INTERVAL;
     const reports = await EndpointStatsStore.instance.get_endpoint_group_reports({
         // Get information for group that are still registered (ignoring legacy groups)
         groups: endpoint_groups.map(group => group.name),
         // We go one full cycle behind a frame with data from all groups/endpoints.
-        since: now - (2 * config.ENDPOINT_MONITOR_INTERVAL),
-        till: now - config.ENDPOINT_MONITOR_INTERVAL
+        since: till - config.ENDPOINT_MONITOR_INTERVAL,
+        till: till
     });
 
     const reports_by_group = _.keyBy(reports, report => report.group_name);
@@ -1160,5 +1251,4 @@ exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
-
-
+exports.get_endpoints_history = get_endpoints_history;

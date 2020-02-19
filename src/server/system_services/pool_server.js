@@ -523,11 +523,11 @@ function create_mongo_pool(req) {
     // })
 }
 
-function read_pool(req) {
+async function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return P.resolve()
-        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id))
-        .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
+    const nodes_aggregate_pool = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id);
+    const hosts_aggregate_pool = await nodes_client.instance().aggregate_hosts_by_pool([pool.name], req.system._id);
+    return get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool);
 }
 
 function read_namespace_resource(req) {

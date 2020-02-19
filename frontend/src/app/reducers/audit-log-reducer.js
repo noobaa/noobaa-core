@@ -232,7 +232,6 @@ function _getEntity(record) {
             };
         }
 
-        case 'dbg.diagnose_server':
         case 'dbg.set_server_debug_level':
         case 'cluster.added_member_to_cluster':
         case 'cluster.set_server_conf': {

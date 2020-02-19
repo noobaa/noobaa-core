@@ -480,3 +480,10 @@ config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
 ///////////////////////////////
 
 config.INLINE_MAX_SIZE = 4096;
+
+
+///////////////////////////////
+//        WORM RELATED       //
+///////////////////////////////
+
+config.WORM_ENABLED = false;

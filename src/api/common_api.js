@@ -747,6 +747,24 @@ module.exports = {
                 'NOT_ENOUGH_RESOURCES',
                 'NO_RESOURCES'
             ]
-        }
+        },
+        lock_settings: {
+            type: 'object',
+            properties: {
+                retention: {
+                    type: 'object',
+                    properties: {
+                        mode: { type: 'string' },
+                        retain_until_date: { date: true },
+                    }
+                },
+                legal_hold: {
+                    type: 'object',
+                    properties: {
+                        status: { type: 'string' },
+                    },
+                }
+            }
+        },
     }
 };

@@ -31,6 +31,7 @@ const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_stor
 const events_dispatcher = require('./events_dispatcher');
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
+const config = require('../../../config');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -70,6 +71,10 @@ async function create_object_upload(req) {
         tagging: req.rpc_params.tagging,
         encryption
     };
+
+    const lock_settings = config.WORM_ENABLED ? calc_retention(req) : undefined;
+    if (lock_settings) info.lock_settings = lock_settings;
+
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
@@ -161,6 +166,164 @@ async function delete_object_tagging(req) {
     return {
         version_id: info.version_id,
     };
+}
+
+function calc_retention(req) {
+    dbg.log0('calc_retention:', req.rpc_params);
+    let obj_settings = req.rpc_params.lock_settings;
+
+    if (!obj_settings) {
+        const retention_conf = get_default_lock_config(req.bucket);
+        if (!retention_conf) return;
+
+        let today = new Date();
+        const retain_until_date = retention_conf.days ? new Date(today.setDate(today.getDate() + retention_conf.days)) :
+            new Date(today.setFullYear(today.getFullYear() + retention_conf.years));
+
+        obj_settings = { retention: { mode: retention_conf.mode, retain_until_date } };
+
+    } else if (obj_settings.retention && obj_settings.retention.retain_until_date) {
+        obj_settings.retention.retain_until_date = new Date(obj_settings.retention.retain_until_date);
+    }
+    return obj_settings;
+}
+
+function get_default_lock_config(bucket) {
+    dbg.log0('get_default_lock_config:', bucket.object_lock_configuration);
+    const bucket_info = bucket.object_lock_configuration;
+    if (bucket_info.object_lock_enabled !== 'Enabled') {
+        return;
+    }
+    if (bucket_info.rule) return bucket_info.rule.default_retention;
+}
+/**
+ * 
+ * get_object_legal_hold
+ *
+ */
+
+async function get_object_legal_hold(req) {
+    dbg.log0('get_object_legal_hold:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (!info.lock_settings || !info.lock_settings.legal_hold) {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    return {
+        legal_hold: { status: info.lock_settings.legal_hold.status }
+    };
+}
+/**
+ * 
+ * put_object_legal_hold
+ * 
+ */
+async function put_object_legal_hold(req) {
+    dbg.log0('put_object_legal_hold:', req.rpc_params);
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    let retention;
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    if (info.lock_settings && info.lock_settings.retention) {
+        retention = {
+            mode: info.lock_settings.retention.mode,
+            retain_until_date: info.lock_settings.retention.retain_until_date,
+        };
+    }
+    await MDStore.instance().update_object_by_id(
+        obj._id, {
+            lock_settings: {
+                legal_hold: {
+                    status: req.params.legal_hold.status
+                },
+                retention,
+            }
+        }, undefined, undefined
+    );
+
+}
+/**
+ * 
+ * get_object_retention
+ * 
+ */
+async function get_object_retention(req) {
+    dbg.log0('get_object_retention:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') throw new RpcError('INVALID_REQUEST');
+    if (!info.lock_settings || !info.lock_settings.retention) throw new RpcError('NO_SUCH_OBJECT_LOCK_CONFIGURATION');
+
+    return {
+        retention: {
+            retain_until_date: info.lock_settings.retention.retain_until_date,
+            mode: info.lock_settings.retention.mode
+        }
+    };
+}
+/**
+ * 
+ * put_object_retention
+ * 
+ */
+async function put_object_retention(req) {
+    dbg.log0('put_object_retention:', req.rpc_params);
+
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    if (info.lock_settings && info.lock_settings.retention &&
+        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
+            !req.rpc_params.retention)) {
+
+        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
+            info.lock_settings.retention.mode === 'COMPLIANCE') {
+            dbg.error('put object retention failed due object retention mode', obj);
+            throw new RpcError('UNAUTHORIZED');
+        }
+    }
+    let legal_hold;
+    if (info.lock_settings && info.lock_settings.legal_hold) {
+        legal_hold = { status: info.lock_settings.legal_hold.status };
+    }
+    await MDStore.instance().update_object_by_id(
+        obj._id, {
+            lock_settings: {
+                retention: {
+                    mode: req.rpc_params.retention.mode,
+                    retain_until_date: req.rpc_params.retention.retain_until_date,
+                },
+                legal_hold,
+            }
+        }, undefined, undefined
+    );
 }
 
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
@@ -579,8 +742,7 @@ async function read_object_md(req) {
 
     const obj = await find_object_md(req);
     check_md_conditions(req, md_conditions, obj);
-    const info = get_object_info(obj);
-
+    const info = get_object_info(obj, { role: req.role });
     _check_encryption_permissions(obj.encryption, encryption);
 
     if (adminfo) {
@@ -1082,7 +1244,6 @@ async function add_endpoint_report(req) {
             const access_key = acc.access_keys &&
                 acc.access_keys[0] &&
                 acc.access_keys[0].access_key;
-
             return access_key !== null && (access_key.unwrap() === record.access_key.unwrap());
         });
         const bucket = system_store.data.buckets.find(bkt =>
@@ -1146,7 +1307,7 @@ function report_endpoint_problems(req) {
  * @param {nb.ObjectMD} md
  * @returns {nb.ObjectInfo}
  */
-function get_object_info(md) {
+function get_object_info(md, options = {}) {
     var bucket = system_store.data.get_by_id(md.bucket);
     return {
         obj_id: md._id.toHexString(),
@@ -1162,6 +1323,7 @@ function get_object_info(md) {
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
+        lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
@@ -1495,6 +1657,27 @@ async function _delete_object_version(req) {
             await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key) :
             await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, version_seq);
         if (!obj) return { reply: {} };
+
+        if (config.WORM_ENABLED && obj.lock_settings) {
+            if (obj.lock_settings.legal_hold && obj.lock_settings.legal_hold.status === 'ON') {
+                dbg.error('object is locked, can not delete object', obj);
+                throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+            }
+            if (obj.lock_settings.retention) {
+                const now = new Date();
+                const retain_until_date = new Date(obj.lock_settings.retention.retain_until_date);
+
+                if (obj.lock_settings.retention.mode === 'COMPLIANCE' && retain_until_date > now) {
+                    dbg.error('object is locked, can not delete object', obj);
+                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+                }
+                if (obj.lock_settings.retention.mode === 'GOVERNANCE' &&
+                    (!req.rpc_params.bypass_governance || req.role !== 'admin') && retain_until_date > now) {
+                    dbg.error('object is locked, can not delete object', obj);
+                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+                }
+            }
+        }
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         if (obj.version_past) {
             // 2, 8
@@ -1782,3 +1965,9 @@ exports.put_object_tagging = put_object_tagging;
 exports.get_object_tagging = get_object_tagging;
 exports.delete_object_tagging = delete_object_tagging;
 exports.dispatch_triggers = dispatch_triggers;
+// object lock
+exports.put_object_legal_hold = put_object_legal_hold;
+exports.get_object_legal_hold = get_object_legal_hold;
+exports.put_object_retention = put_object_retention;
+exports.get_object_retention = get_object_retention;
+exports.calc_retention = calc_retention;

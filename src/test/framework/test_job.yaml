@@ -23,13 +23,13 @@ spec:
         - node
         - ./src/test/framework/test_env_builder_kubernetes.js
         - --image
-        - NOOBAA_IMAGE_PLACEHOLDER
+        - "NOOBAA_IMAGE_PLACEHOLDER"
         - --namespace_prefix 
-        - NAMESPACE_PREFIX_PLACEHOLDER
+        - "NAMESPACE_PREFIX_PLACEHOLDER"
         - --tests_list
-        - TESTS_LIST_PLACEHOLDER
+        - "TESTS_LIST_PLACEHOLDER"
         - --concurrency
-        - TESTS_CONCURRENCY_PLACEHOLDER
+        - "TESTS_CONCURRENCY_PLACEHOLDER"
         - --DELETE_ON_FAIL_PLACEHOLDER
         env:
           - name: CONTAINER_PLATFORM

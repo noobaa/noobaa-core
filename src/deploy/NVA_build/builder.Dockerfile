@@ -10,18 +10,19 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ENV container docker
 RUN dnf update -y -q && \
     dnf install -y -q wget unzip which vim python3 && \
+    dnf --enablerepo=PowerTools install -y -q yasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3
-RUN version="1.3.0" && \
-    wget -q -O yasm-${version}.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \
-    tar -xf yasm-${version}.tar.gz && \
-    pushd yasm-${version} && \
-    ./autogen.sh && \
-    make && \
-    make install && \
-    popd && \
-    rm -rf yasm-${version} yasm-${version}.tar.gz
+# RUN version="1.3.0" && \
+#     wget -q -O yasm-${version}.tar.gz https://github.com/yasm/yasm/archive/v${version}.tar.gz && \
+#     tar -xf yasm-${version}.tar.gz && \
+#     pushd yasm-${version} && \
+#     ./autogen.sh && \
+#     make && \
+#     make install && \
+#     popd && \
+#     rm -rf yasm-${version} yasm-${version}.tar.gz
 
 ##############################################################
 # Layers:

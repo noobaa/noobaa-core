@@ -459,8 +459,20 @@ async function _partial_buckets_info(req) {
 
             const OPTIMAL_MODES = [
                 'LOW_CAPACITY',
-                'HIGH_DATA_ACTIVITY',
+                'DATA_ACTIVITY',
                 'OPTIMAL',
+            ];
+
+            const CAPACITY_MODES = [
+                'OPTIMAL',
+                'NO_RESOURCES_INTERNAL',
+                'DATA_ACTIVITY',
+                'APPROUCHING_QUOTA',
+                'TIER_LOW_CAPACITY',
+                'LOW_CAPACITY',
+                'TIER_NO_CAPACITY',
+                'EXCEEDING_QUOTA',
+                'NO_CAPACITY',
             ];
 
             if (bucket_info.bucket_claim) {
@@ -476,10 +488,11 @@ async function _partial_buckets_info(req) {
             const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
             const bucket_available = size_utils.json_to_bigint(_.get(bucket_info, 'data.free') || 0);
             const bucket_total = bucket_used.plus(bucket_available);
+            const is_capacity_relevant = _.includes(CAPACITY_MODES, bucket_info.mode);
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
                 quota_precent: system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota),
-                capacity_precent: bucket_total > 0 ? size_utils.bigint_to_json(bucket_used.multiply(100)
+                capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
             });

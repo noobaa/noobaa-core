@@ -209,6 +209,18 @@ function make_object_diff(current, prev) {
     return diff;
 }
 
+async function get_db_stats(client) {
+    if (!client.promise) {
+        throw new Error('get_db_stats: client is not connected');
+    }
+
+    // Wait for the client to connect.
+    await client.promise;
+
+    // return the stats.
+    return client.db().command({ dbStats: 1 });
+}
+
 // EXPORTS
 exports.mongo_operators = mongo_operators;
 exports.obj_ids_difference = obj_ids_difference;
@@ -227,3 +239,4 @@ exports.check_entity_not_found = check_entity_not_found;
 exports.check_entity_not_deleted = check_entity_not_deleted;
 exports.check_update_one = check_update_one;
 exports.make_object_diff = make_object_diff;
+exports.get_db_stats = get_db_stats;

@@ -155,12 +155,10 @@ async function create_bucket(req) {
             write_resource
         };
     }
-
     if (req.rpc_params.bucket_claim) {
         // TODO: Should implement validity checks
         bucket.bucket_claim = req.rpc_params.bucket_claim;
     }
-
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -183,6 +181,18 @@ async function create_bucket(req) {
 
     await system_store.make_changes(changes);
     req.load_auth();
+    if (req.rpc_params.bucket_claim) {
+        try {
+            // Trigger partial aggregation for the Prometheus metrics
+            server_rpc.client.stats.get_partial_stats({
+                requester: 'create_bucket',
+            }, {
+                auth_token: req.auth_token
+            });
+        } catch (error) {
+            dbg.error('create_bucket: get_partial_stats failed with', error);
+        }
+    }
     let created_bucket = find_bucket(req);
     return get_bucket_info({ bucket: created_bucket });
 }

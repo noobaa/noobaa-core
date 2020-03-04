@@ -16,6 +16,10 @@ html, body {
     background-color: rgb(var(--color05));
 }
 
+body:not(.preview) .preview-only {
+    display: none !important;
+}
+
 a {
     text-decoration: none;
     color: inherit;
@@ -663,4 +667,3 @@ body,
 .warning-box {
     transition: background-color 300ms ease-out;
 }
-

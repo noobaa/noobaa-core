@@ -12,6 +12,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const phone_home_utils = require('../../util/phone_home');
 const clustering_utils = require('../utils/clustering_utils.js');
 const ssl_utils = require('../../util/ssl_utils');
+const mongo_utils = require('../../util/mongo_utils.js');
+const mongo_client = require('../../util/mongo_client');
 
 const dotenv = require('../../util/dotenv');
 
@@ -58,7 +60,7 @@ async function run_monitors() {
     await _check_dns_and_phonehome();
     await _check_internal_ips();
     await _verify_ssl_certs();
-    _check_disk_space();
+    await _check_db_disk_usage();
 
     // Address auto detection should only run on master machine.
     if (is_master) {
@@ -150,18 +152,17 @@ async function _verify_ssl_certs() {
     }
 }
 
-function _check_disk_space() {
-    dbg.log2('_check_disk_space');
-    //Alert on low disk space
-    if (server_conf.heartbeat &&
-        server_conf.heartbeat.health &&
-        server_conf.heartbeat.health.storage &&
-        server_conf.heartbeat.health.storage.free < 10 * 1024 * 1024 * 1024) { // Free is lower than 10GB
-        Dispatcher.instance().alert('MAJOR',
+async function _check_db_disk_usage() {
+    dbg.log2('_check_db_disk_usage');
+    const client = mongo_client.instance();
+    const { fsUsedSize, fsTotalSize } = await mongo_utils.get_db_stats(client);
+    if (fsTotalSize - fsUsedSize < 10 * (1024 ** 3)) { // Free is lower than 10GB
+        Dispatcher.instance().alert(
+            'MAJOR',
             system_store.data.systems[0]._id,
-            `Server ${server_conf.heartbeat.health.os_info.hostname} is running low on disk space, it is recommended
-            to increase the disk size of the VM and then perform the increase option from the linux installer by logging into the machine with the noobaa user`,
-            Dispatcher.rules.once_weekly);
+            `NooBaa DB is running low on disk space, it is recommended to increase the disk size of the persistent volume (PV) backing the database`,
+            Dispatcher.rules.once_weekly
+        );
     }
 }
 

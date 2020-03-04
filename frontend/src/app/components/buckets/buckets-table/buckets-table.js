@@ -236,6 +236,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
     isCreateBucketDisabled = ko.observable();
     isObjectStatsVisible = ko.observable();
     objectStatsLastUpdate = ko.observable();
+    emptyMessage = ko.observable();
     rows = ko.observableArray()
         .ofType(RowViewModel, { table: this });
 
@@ -256,6 +257,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 isCreateBucketDisabled: true,
                 isObjectStatsVisible: false,
+                emptyMessage: '',
                 dataReady: false
             });
 
@@ -268,7 +270,8 @@ class BucketsTableViewModel extends ConnectableViewModel {
             const { compareKey } = columns.find(column => column.name === sortBy);
             const { canCreateBuckets = false } = userAccount;
             const createBucketTooltip = canCreateBuckets ? '' : createButtondDisabledTooltip;
-            const bucketList = Object.values(buckets)
+            const allBuckets = Object.values(buckets);
+            const bucketList = allBuckets
                 .filter(bucket => includesIgnoreCase(bucket.name, filter));
             const rows = bucketList
                 .sort(createCompareFunc(compareKey, order))
@@ -278,6 +281,10 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 ...bucketList.map(bucket => bucket.objects.lastUpdate),
                 0
             );
+            const emptyMessage =
+                (allBuckets.length === 0 && 'There are no object buckets in the system') ||
+                (bucketList.length === 0 && 'The current filter does not match any object bucket') ||
+                '';
 
             ko.assignToProps(this, {
                 pathname,
@@ -292,6 +299,7 @@ class BucketsTableViewModel extends ConnectableViewModel {
                 isCreateBucketDisabled: !canCreateBuckets,
                 isObjectStatsVisible: bucketList.length > 0,
                 objectStatsLastUpdate: moment(objectStatsLastUpdate).fromNow(),
+                emptyMessage,
                 dataReady: true
             });
         }

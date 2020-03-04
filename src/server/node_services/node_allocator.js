@@ -52,6 +52,12 @@ let alloc_group_by_tiering = {};
  * refreshs_pools_allocs for the same pools.
   */
 async function refresh_system_alloc(system) {
+    // Bail out if the index does not exists (in case there are
+    // no buckets in the system)
+    if (!system.buckets_by_name) {
+        return;
+    }
+
     const tiering_list = [];
     const pool_set = new Set();
 

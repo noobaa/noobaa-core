@@ -6,7 +6,7 @@ export default {
         type: 'object',
         required: [
             'name',
-            'lastUpdate',
+            'lastReportTime',
             'endpointCount',
             'cpuCount',
             'cpuUsage',
@@ -51,7 +51,7 @@ export default {
             memoryUsage: {
                 type: 'number'
             },
-            lastUpdate: {
+            lastReportTime: {
                 type: 'integer'
             }
         }

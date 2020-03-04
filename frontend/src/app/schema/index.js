@@ -79,7 +79,8 @@ export default deepFreeze(
             common,
             ...schemas
         },
-        ...mapValues(
+        type: 'object',
+        properties: mapValues(
             schemas,
             (_, name) => ({
                 $ref: `#/def/${name}`

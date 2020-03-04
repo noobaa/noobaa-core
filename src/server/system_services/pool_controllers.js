@@ -281,7 +281,7 @@ function _get_statefulset_name(system_name, pool_name) {
 async function _get_k8s_conf(params) {
     const yaml_path = path.resolve(__dirname, '../../deploy/NVA_build/noobaa_pool.yaml');
     const yaml = (await fs.readFileAsync(yaml_path)).toString();
-    const conf_template = await yaml_utils.parse(yaml);
+    const conf_template = await yaml_utils.parse(yaml, true);
 
      // Find the noobaa-agent stateful set.
     const statefulset = conf_template.items

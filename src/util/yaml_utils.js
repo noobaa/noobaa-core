@@ -3,20 +3,20 @@
 
 const yaml = require('yamljs');
 
-function parse(yaml_string) {
+function parse(yaml_string, forceListResult = false) {
     const docs = yaml_string.split(/\n\s*---\s*\n/g)
         .filter(Boolean)
         .map(yaml.parse);
 
-    if (docs.length === 1) {
-        return docs[0];
-    } else {
+    if (forceListResult || docs.length !== 1) {
         return {
             kind: 'List',
             apiVersion: 'v1',
             metadata: {},
             items: docs
         };
+    } else {
+        return docs[0];
     }
 }
 

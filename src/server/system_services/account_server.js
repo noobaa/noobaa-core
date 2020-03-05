@@ -219,7 +219,14 @@ function read_account(req) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
 
-    return get_account_info(account);
+    const is_self = req.account === account;
+    const self_roles = req.account.roles_by_system[req.system._id];
+    const is_operator = self_roles && self_roles.includes('operator');
+
+    return get_account_info(
+        account,
+        is_self || is_operator
+    );
 }
 
 

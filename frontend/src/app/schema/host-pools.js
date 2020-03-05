@@ -151,6 +151,7 @@ export default {
                     'IN_USE',
                     'DEFAULT_RESOURCE',
                     'BEING_DELETED',
+                    'CONNECTED_BUCKET_DELETING',
                     'IS_BACKINGSTORE'
                 ]
             },

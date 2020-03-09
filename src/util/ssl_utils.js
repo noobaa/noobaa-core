@@ -76,7 +76,7 @@ function get_ssl_certificate(service) {
 async function update_certs_from_disk() {
     const promiseList = Object.values(certs).map(cert_info =>
         cert_info.sem.surround(async () => {
-            if (!cert_info.is_loaded || cert_info.is_generated) {
+            if (!cert_info.is_loaded) {
                 return false;
             }
 

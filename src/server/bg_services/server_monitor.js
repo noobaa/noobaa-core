@@ -146,8 +146,7 @@ async function _verify_ssl_certs() {
     if (updated) {
         dbg.log0('_verify_ssl_certs: SSL certificates changed, restarting relevant services');
         await os_utils.restart_services([
-            'webserver',
-            's3rver'
+            'webserver'
         ]);
     }
 }

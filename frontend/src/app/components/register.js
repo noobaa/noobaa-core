@@ -101,6 +101,7 @@ import cloudConnectionUpdateWarningModal from './modals/cloud-connection-update-
 import completeSslCertificateInstallationModal from './modals/complete-ssl-certificate-installation-modal/complete-ssl-certificate-installation-modal';
 import deployRemoteEndpointGroupModal from './modals/deploy-remote-endpoint-group-modal/deploy-remote-endpoint-group-modal';
 import editEndpointGroupModal from './modals/edit-endpoint-group-modal/edit-endpoint-group-modal';
+import oauthAccessDeniedModal from './modals/oauth-access-denied-modal/oauth-access-denied-modal';
 /** INJECT:modals.import **/
 
 // -------------------------------
@@ -453,6 +454,7 @@ export default function register(ko, services) {
         completeSslCertificateInstallationModal,
         deployRemoteEndpointGroupModal,
         editEndpointGroupModal,
+        oauthAccessDeniedModal,
         /** INJECT:modals.list **/
 
         overviewPanel,

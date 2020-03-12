@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const ssh_functions = require('./ssh_functions');
 
 // Environment Setup
-const shasum = crypto.createHash('sha1');
+const shasum = crypto.createHash('sha512-256');
 shasum.update(Date.now().toString());
 const auth_params = {
     email: 'demo@noobaa.com',

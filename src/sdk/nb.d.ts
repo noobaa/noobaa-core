@@ -8,7 +8,7 @@ type SensitiveString = import('../util/sensitive_string');
 
 type BigInt = number | { n: number; peta: number; };
 type Region = string;
-type DigestType = 'sha1' | 'sha256' | 'sha384' | 'sha512';
+type DigestType = 'sha1' | 'sha256' | 'sha384' | 'sha512' | 'sha512-256' | 'sha512-224';
 type CompressType = 'snappy' | 'zlib';
 type CipherType = 'aes-256-gcm';
 type ParityType = 'isa-c1' | 'isa-rs' | 'cm256';

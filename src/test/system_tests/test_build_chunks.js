@@ -481,7 +481,7 @@ async function test_rebuild_two_unavailable_blocks() {
 //     }
 //     return Promise.all(block_mds.map(block_md => {
 //         console.log(`corrupt_a_block: corrupted block_md:`, block_md);
-//         block_md.digest_type = 'sha1';
+//         block_md.digest_type = 'sha512-256';
 //         block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
 //         return client.block_store.write_block({
 //             [RPC_BUFFERS]: { data },

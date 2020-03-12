@@ -47,7 +47,7 @@ const DIGEST_TYPES = [
     undefined,
 ];
 const FRAG_DIGEST_TYPES = [
-    'sha1',
+    'sha512-256',
     undefined,
 ];
 const COMPRESS_TYPES = [

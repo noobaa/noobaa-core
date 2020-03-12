@@ -8,7 +8,7 @@ const test_utils = require('../system_tests/test_utils');
 const { AgentFunctions } = require('../utils/agent_functions');
 
 // Environment Setup
-const shasum = crypto.createHash('sha1');
+const shasum = crypto.createHash('sha512-256');
 shasum.update(Date.now().toString());
 
 const testName = 'agents_matrix';

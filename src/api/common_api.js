@@ -599,7 +599,7 @@ module.exports = {
 
         digest_type: {
             type: 'string',
-            enum: ['sha1', 'sha256', 'sha384', 'sha512']
+            enum: ['sha1', 'sha256', 'sha384', 'sha512', 'sha512-256', 'sha512-224']
         },
 
         compress_type: {

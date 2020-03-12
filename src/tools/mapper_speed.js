@@ -41,7 +41,7 @@ async function main() {
         parity_frags: 0,
         lrc_frags: 0,
         digest_type: 'sha384',
-        frag_digest_type: 'sha1',
+        frag_digest_type: 'sha512-256',
         cipher_type: 'aes-256-gcm',
         compress_type: 'snappy',
         parity_type: 'isa-c1',

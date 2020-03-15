@@ -2,7 +2,11 @@
 
 import template from './oauth-callback.html';
 import ConnectableViewModel from 'components/connectable';
-import { requestLocation, signInWithOAuth } from 'action-creators';
+import {
+    requestLocation,
+    signInWithOAuth,
+    openOAuthAccessDeniedModal
+} from 'action-creators';
 
 class OAuthCallbackViewModel extends ConnectableViewModel {
     selectState(state) {
@@ -22,6 +26,12 @@ class OAuthCallbackViewModel extends ConnectableViewModel {
             // Sign in with the outh grant code.
             this.dispatch(signInWithOAuth(query.code));
         }
+
+        if (query.error === 'access_denied') {
+            this.dispatch(openOAuthAccessDeniedModal());
+        }
+
+
     }
 }
 

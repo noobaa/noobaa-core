@@ -90,7 +90,7 @@ async function get_accounts_bandwidth_usage(query) {
     return Object.entries(by_account)
         .map(pair => {
             const [account_id, reportList] = pair;
-            const account = system_store.get_by_id(account_id);
+            const account = system_store.data.get_by_id(account_id);
             if (!account) {
                 return null;
             }

@@ -335,6 +335,7 @@ async function update_bucket_class(req) {
         },
     };
     let revert_to_policy;
+    let update_db = false;
     try {
         // Filter and pick buckets that were created via OBC
         const bucket_class_buckets = _.filter(system_store.data.buckets, bucket =>
@@ -343,9 +344,8 @@ async function update_bucket_class(req) {
         revert_to_policy = _calc_revert_policy(name, bucket_class_buckets[0].tiering);
         _check_validity_of_configuration({ req, bucket_class_buckets });
         if (policy.tiers.length !== tiers.length) throw new RpcError('BAD_REQUEST', 'policy tiers and tiers length mismatch');
-        let policy_changed = false;
         for (const bucket of bucket_class_buckets) {
-            let tiers_changed = false;
+            let added_tier = false;
             const old_policy = bucket.tiering;
             const old_tiers = old_policy.tiers
                 .map(obj => obj.tier.name);
@@ -362,6 +362,7 @@ async function update_bucket_class(req) {
                 if (!chunk_config._id) {
                     chunk_config._id = system_store.new_system_store_id();
                     changes.insert.chunk_configs.push(chunk_config);
+                    update_db = true;
                 }
                 const new_tier = new_tier_defaults(
                     new_name,
@@ -375,12 +376,12 @@ async function update_bucket_class(req) {
                     if (_is_change_in_tier(old_tier_full, new_tier)) {
                         new_tier._id = old_tier_full._id;
                         changes.update.tiers.push(new_tier);
-                    } else {
-                        tiers_changed = true;
+                        update_db = true;
                     }
                 } else {
                     changes.insert.tiers.push(new_tier);
-                    tiers_changed = true;
+                    added_tier = true;
+                    update_db = true;
                 }
                 policy.tiers[index].tier_id = new_tier._id;
             }
@@ -396,12 +397,12 @@ async function update_bucket_class(req) {
                 }))
             );
             new_policy._id = req.system.tiering_policies_by_name[old_policy.name.unwrap()]._id;
-            if (tiers_changed) {
+            if (added_tier) {
                 changes.update.tieringpolicies.push(new_policy);
-                policy_changed = true;
+                update_db = true;
             }
         }
-        if (policy_changed) await system_store.make_changes(changes);
+        if (update_db) await system_store.make_changes(changes);
     } catch (err) {
         if (err instanceof RpcError) {
             if (err.rpc_code !== 'BAD_REQUEST') throw err;
@@ -435,16 +436,16 @@ function _calc_revert_policy(policy_name, tiering) {
 }
 
 function _is_change_in_tier(old_tier, new_tier) {
-    let has_changed = false;
+    if (new_tier.mirrors.length !== old_tier.mirrors.length) return true;
     for (const [mirror_index, mirror] of old_tier.mirrors.entries()) {
         for (const [pool_index, pool] of mirror.spread_pools.entries()) {
             if (String(pool) !== String(new_tier.mirrors[mirror_index].spread_pools[pool_index])) {
-                has_changed = true;
+                return true;
             }
 
         }
     }
-    return has_changed;
+    return false;
 }
 
 function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy

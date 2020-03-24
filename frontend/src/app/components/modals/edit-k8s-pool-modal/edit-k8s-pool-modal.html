@@ -22,6 +22,7 @@
             />
             <validation-message params="field: $form.nodeCount">
             </validation-message>
+            <p class="remark" ko.visible="$form.nodeCount.isValid()">Maximal number of nodes is 20</p>
         </editor>
         <editor class="editor-large-label push-next"
             params="

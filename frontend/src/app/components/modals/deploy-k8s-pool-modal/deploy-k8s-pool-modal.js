@@ -119,7 +119,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
     );
 
     onValidate(values) {
-        const { step, poolName, nodeCount, pvSize } = values;
+        const { step, poolName, nodeCount, pvSize, pvSizeUnit } = values;
         const errors = {};
 
         if (step === 0) {
@@ -135,8 +135,9 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
                 errors.nodeCount = 'Please enter a whole number greater then 0';
             }
 
-            if (pvSize < 1 || !Number.isInteger(pvSize)) {
-                errors.pvSize = 'Please enter a whole number greater then 0';
+            const minSize = pvSizeUnit === 'GB' ? 16 : 1;
+            if (pvSize < minSize || !Number.isInteger(pvSize)) {
+                errors.pvSize = `Please enter a whole number greater then ${minSize}`;
             }
         }
 

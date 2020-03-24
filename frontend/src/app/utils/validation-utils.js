@@ -1,6 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 
-export function validateName(name = '', existing, disallowPeriods = false) {
+export function validateName(name = '', existing, options = {}) {
+    const {
+        disallowPeriods = false,
+        minLength = 3, 
+        maxLength = 63
+    } = options;
     const symbolsRule = disallowPeriods ? {
         valid: name && /^[a-z0-9-]*$/.test(name) &&
             !name.includes(' ') &&
@@ -18,8 +23,8 @@ export function validateName(name = '', existing, disallowPeriods = false) {
 
     return [
         {
-            valid: 3 <= name.length && name.length <= 63,
-            message: '3-63 characters'
+            valid: minLength <= name.length && name.length <= maxLength,
+            message: `${minLength}-${maxLength} characters`
         },
         {
             valid: /^[a-z0-9](.*[a-z0-9])?$/.test(name),

@@ -206,8 +206,8 @@ class EditK8SPoolModalViewModel extends ConnectableViewModel {
         const errors = {};
         const { nodeCount, pvSize, pvSizeUnit } = values;
 
-        if (nodeCount < 1 || !Number.isInteger(nodeCount)) {
-            errors.nodeCount = 'Please enter a whole number greater than 0';
+        if (nodeCount < 1 || nodeCount > 20 || !Number.isInteger(nodeCount) ) {
+            errors.nodeCount = 'Please enter a whole number between 1-20';
         }
 
         const minSize = pvSizeUnit === 'GB' ? 16 : 1;

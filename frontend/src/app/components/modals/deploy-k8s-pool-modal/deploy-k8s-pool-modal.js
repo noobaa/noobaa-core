@@ -4,8 +4,8 @@ import template from './deploy-k8s-pool-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { isFormValid, getFormValues, isFieldTouched } from 'utils/form-utils';
-import { validateName } from 'utils/validation-utils';
 import { deepFreeze, throttle } from 'utils/core-utils';
+import { validateName } from 'utils/validation-utils';
 import { fromSizeAndUnit, unitsInBytes, formatSize } from 'utils/size-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { inputThrottle } from 'config';
@@ -82,7 +82,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             ...Object.keys(hostPools),
             ...Object.keys(cloudResources)
         ];
-        const nameRestrictionList = validateName(poolName, existingNames, true)
+        const nameRestrictionList = validateName(poolName, existingNames, { disallowPeriods : true, maxLength : 47})
             .map(record => ({
                 label: record.message,
                 css: isPoolNameTouched ? (record.valid ? 'success' : 'error') : ''
@@ -117,13 +117,13 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
         inputThrottle,
         this
     );
-
+    
     onValidate(values) {
         const { step, poolName, nodeCount, pvSize, pvSizeUnit } = values;
         const errors = {};
 
         if (step === 0) {
-            const hasNameErrors = validateName(poolName, this.existingNames)
+            const hasNameErrors = validateName(poolName, this.existingNames, { maxLength : 47})
                 .some(({ valid }) => !valid);
 
             if (hasNameErrors) {
@@ -131,16 +131,14 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             }
 
         } else if (step === 1) {
-            if (nodeCount < 1 || !Number.isInteger(nodeCount)) {
-                errors.nodeCount = 'Please enter a whole number greater then 0';
+            if (nodeCount < 1 || nodeCount > 20|| !Number.isInteger(nodeCount) ) {
+                errors.nodeCount = 'Please enter a whole number between 1-20';
             }
-
             const minSize = pvSizeUnit === 'GB' ? 16 : 1;
             if (pvSize < minSize || !Number.isInteger(pvSize)) {
                 errors.pvSize = `Please enter a whole number greater then ${minSize}`;
             }
         }
-
         return errors;
     }
 
@@ -176,6 +174,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
     onCancel() {
         this.dispatch(closeModal());
     }
+
 }
 
 export default {

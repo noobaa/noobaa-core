@@ -3,7 +3,8 @@
 <!-- ko if: hasModals -->
 <div class="modals-backdrop fixed fade-in"
     ko.event.keydown="onKeyDown"
-    ko.click="(_, evt) => (evt.target === $element && onBackdrop(), true)"
+    ko.event.mousedown="(_, evt) => (evt.target === $element && onBackdropDown(), true)"
+    ko.event.mouseup="(_, evt) => (evt.target === $element && onBackdropUp(), true)"
 >
     <!-- ko foreach: modals -->
     <div class="modal column text-left pop-centered card-shadow"
@@ -26,8 +27,7 @@
                 ko.visible="xButton.visible"
                 ko.disable="xButton.disabled"
                 ko.click="onX"
-
-            ">
+            >
                 <svg-icon params="name: 'x'"></svg-icon>
             </button>
         </h1>

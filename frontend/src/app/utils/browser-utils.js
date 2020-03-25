@@ -3,6 +3,7 @@
 import { isUndefined, runAsync } from './core-utils';
 import { toCammelCase, toDashedCase, randomString } from './string-utils';
 import { sleep } from './promise-utils';
+import { root } from 'routes';
 
 export const XMLHttpRequest = global.XMLHttpRequest;
 
@@ -80,15 +81,23 @@ export function copyTextToClipboard(text) {
     input.remove();
 }
 
-export function downloadFile(url, name = '') {
-    let body = window.document.body;
+export function downloadFile(url, name = '', useDownloadHelper = false) {
+    if (useDownloadHelper) {
+        const u = new URL(window.location.origin);
+        u.pathname = `${root}/download.html`;
+        u.searchParams.set('uri', url);
+        u.searchParams.set('name', name);
+        return window.open(u.toString(), '_blank');
 
-    let link = window.document.createElement('a');
-    link.download = name;
-    link.href = url;
-    body.appendChild(link);
-    link.click();
-    runAsync(() => body.removeChild(link));
+    } else {
+        const body = window.document.body;
+        const link = window.document.createElement('a');
+        link.download = name;
+        link.href = url;
+        body.appendChild(link);
+        link.click();
+        runAsync(() => body.removeChild(link));
+    }
 }
 
 export function domFromHtml(html) {

@@ -35,7 +35,8 @@ const staticAssetsSelector = [
     '!src/assets/icons/*.svg'
 ];
 
-const libs = [{
+const libs = [
+    {
         name: 'knockout',
         module: 'dist/knockout.debug.js'
     },
@@ -366,6 +367,7 @@ const watch = gulp.series(
         watchDebug,
         watchStyles,
         watchSVGIcons,
+        watchAssets
     )
 );
 

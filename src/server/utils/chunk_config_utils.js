@@ -46,8 +46,8 @@ function resolve_chunk_config(chunk_coder_config, account, system) {
 
     // Look for an existing config item in the system store
     // by matching the properties of the coder config
-    const existing_chunk_config = _.find(system.chunk_configs_by_id,
-        _.matches({ chunk_coder_config: chunk_coder_config_full }));
+    const existing_chunk_config = _.find(system.chunk_configs_by_id, conf =>
+        _.isEqual(conf.chunk_coder_config, chunk_coder_config_full));
 
     if (existing_chunk_config) return existing_chunk_config;
 

@@ -15,9 +15,9 @@ require('../util/console_wrapper').original_console();
 argv.port = Number(argv.port) || 50505;
 argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
-argv.framing = Boolean(argv.framing);
+argv.frame = Boolean(argv.frame);
 // client
-argv.buf = argv.buf || 64 * 1024; // in Bytes
+argv.buf = argv.buf || 128 * 1024; // in Bytes
 argv.concur = argv.concur || 1;
 // server
 argv.hash = argv.hash ? String(argv.hash) : '';
@@ -53,9 +53,9 @@ function main() {
 
 function usage() {
     console.log(`
-    Client Usage: --client <host> [--port X] [--ssl] [--forks X] [--framing] [--buf X (Bytes)] [--concur X]
+    Client Usage: --client <host> [--port X] [--ssl] [--forks X] [--frame] [--buf X (Bytes)] [--concur X]
 
-    Server Usage: --server        [--port X] [--ssl] [--forks X] [--framing] [--hash sha256]
+    Server Usage: --server        [--port X] [--ssl] [--forks X] [--frame] [--hash sha256]
     `);
 }
 
@@ -75,14 +75,17 @@ function run_server() {
         .on('listening', () => {
             console.log('TCP server listening on port', argv.port, '...');
         })
-        .on('connection', conn => {
+        .on(argv.ssl ? 'secureConnection' : 'connection', conn => {
             const fd = conn._handle.fd;
             console.log(`TCP connection accepted from ${conn.remoteAddress}:${conn.remotePort} (fd ${fd})`);
             conn.once('close', () => {
                 console.log(`TCP connection closed from ${conn.remoteAddress}:${conn.remotePort} (fd ${fd})`);
             });
-            if (argv.framing) {
-                run_receiver_framing(conn);
+            conn.once('error', err => {
+                console.log(`TCP connection error from ${conn.remoteAddress}:${conn.remotePort} (fd ${fd}):`, err);
+            });
+            if (argv.frame) {
+                run_receiver_frame(conn);
             } else {
                 run_receiver(conn);
             }
@@ -112,8 +115,8 @@ function run_client_conn() {
             process.exit();
         })
         .once('connect', () => {
-            if (argv.framing) {
-                run_sender_framing(conn);
+            if (argv.frame) {
+                run_sender_frame(conn);
             } else {
                 run_sender(conn);
             }
@@ -125,7 +128,7 @@ function run_client_conn() {
 function run_sender(conn) {
     const buf = Buffer.allocUnsafe(argv.buf);
     conn.on('drain', () => {
-        var ok = true;
+        let ok = true;
         while (ok) {
             ok = conn.write(buf);
             send_speedometer.update(buf.length);
@@ -134,11 +137,11 @@ function run_sender(conn) {
     conn.emit('drain');
 }
 
-function run_sender_framing(conn) {
+function run_sender_frame(conn) {
     const buf = Buffer.allocUnsafe(argv.buf);
     const hdr = Buffer.allocUnsafe(4);
     conn.on('drain', () => {
-        var ok = true;
+        let ok = true;
         while (ok) {
             hdr.writeUInt32BE(buf.length, 0);
             const w1 = conn.write(hdr);
@@ -153,9 +156,9 @@ function run_sender_framing(conn) {
 function run_receiver(conn) {
     const hasher = argv.hash && crypto.createHash(argv.hash);
     conn.on('readable', () => {
-        var ok = true;
+        let ok = true;
         while (ok) {
-            let data = conn.read();
+            const data = conn.read();
             if (data) {
                 if (hasher) hasher.update(data);
                 recv_speedometer.update(data.length);
@@ -166,11 +169,11 @@ function run_receiver(conn) {
     });
 }
 
-function run_receiver_framing(conn) {
+function run_receiver_frame(conn) {
     const hasher = argv.hash && crypto.createHash(argv.hash);
-    var hdr = null;
+    let hdr = null;
     conn.on('readable', () => {
-        var ok = true;
+        let ok = true;
         while (ok) {
             if (hdr) {
                 const len = hdr.readUInt32BE(0);

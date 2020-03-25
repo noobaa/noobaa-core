@@ -78,7 +78,7 @@ const operations = [
 
     async () => {
         try {
-            await promise_utils.exec(`chkconfig &> ${TMP_WORK_DIR}'/chkconfig.out`, {
+            await promise_utils.exec(`chkconfig &> ${TMP_WORK_DIR}/chkconfig.out`, {
                 ignore_rc: false,
                 return_stdout: false,
                 timeout: LONG_EXEC_TIMEOUT
@@ -230,7 +230,7 @@ function collect_statistics(req) {
 
 function diag_log(msg) {
     console.log('writing to diag log:', msg);
-    return fs.promises.writeFile(DIAG_LOG_FILE, msg + '\n\n');
+    return fs.promises.appendFile(DIAG_LOG_FILE, `${msg}\n\n`);
 }
 
 // EXPORTS

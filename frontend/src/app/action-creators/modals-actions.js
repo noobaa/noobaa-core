@@ -876,5 +876,22 @@ export function openEditEndpointGroupModal(groupName) {
         }
     };
 }
+
+export function openOAuthAccessDeniedModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'oauth-access-denied-modal',
+                params: { }
+            },
+            options: {
+                title: 'Access Denied',
+                size: 'xsmall',
+                severity: 'info'
+            }
+        }
+    };
+}
 /** INJECT:actionCreator **/
 

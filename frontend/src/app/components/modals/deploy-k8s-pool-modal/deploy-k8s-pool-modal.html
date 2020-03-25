@@ -6,7 +6,7 @@
     onValidate: onValidate,
     onSubmit: onSubmit
 ">
-      <wizard class="column greedy" params="
+    <wizard class="column greedy" params="
         steps: steps,
         step: $form.step,
         renderControls: false,
@@ -66,6 +66,7 @@
                     />
                     <validation-message params="field: $form.nodeCount">
                     </validation-message>
+                    <p class="remark" ko.visible="$form.nodeCount.isValid()">Maximal number of nodes is 20</p>
                 </editor>
                 <editor class="editor-large-label"
                     params="label: 'Node PV Size'"
@@ -85,7 +86,7 @@
                     </div>
                     <validation-message params="field: $form.pvSize">
                     </validation-message>
-                    <p class="remark" ko.visible="$form.isValid()">This cannot be changed later on</p>
+                    <p class="remark" ko.visible="$form.pvSize.isValid()">This cannot be changed later on</p>
                 </editor>
             </div>
             <div class="content-box pad row content-middle">

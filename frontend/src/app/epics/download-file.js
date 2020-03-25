@@ -39,7 +39,7 @@ export default function(action$, { browser }) {
             const fileInfo = getFileInfo(action.payload);
             if (!fileInfo) return;
 
-            browser.downloadFile(fileInfo.uri, fileInfo.name);
+            browser.downloadFile(fileInfo.uri, fileInfo.name, true);
         })
     );
 }

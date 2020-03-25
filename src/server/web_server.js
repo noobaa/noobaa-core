@@ -359,11 +359,10 @@ app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
 app.get('/fe', handle_upgrade, serve_fe('index.html'));
 app.get('/fe/debug', handle_upgrade, serve_fe('debug.html'));
+app.use('/fe/download', serve_fe('download.html'));
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', handle_upgrade, serve_fe('index.html'));
 app.use('/', express.static(path.join(rootdir, 'public')));
-
-
 
 // error handlers should be last
 // roughly based on express.errorHandler from connect's errorHandler.js

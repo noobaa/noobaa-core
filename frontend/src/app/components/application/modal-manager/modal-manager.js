@@ -54,6 +54,7 @@ class ModalViewModel {
 class ModalManagerViewModel extends ConnectableViewModel {
     hasModals = ko.observable();
     allowBackdropClose = ko.observable();
+    isMousePressedOnBackdrop = false
     modals = ko.observableArray()
         .ofType(ModalViewModel, { manager: this });
 
@@ -92,10 +93,19 @@ class ModalManagerViewModel extends ConnectableViewModel {
         });
     }
 
-    onBackdrop() {
+    onBackdropDown() {
+        this.isMousePressedOnBackdrop = true;
+    }
+
+    onBackdropUp() {
+        if (!this.isMousePressedOnBackdrop) {
+            return;
+        }
+
         if (this.allowBackdropClose()) {
             this.dispatch(closeModal());
         }
+        this.isMousePressedOnBackdrop = false;
     }
 
     onModalX() {

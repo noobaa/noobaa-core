@@ -15,11 +15,16 @@ const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 
 require('../../util/dotenv').load();
+const os = require('os');
 
 const {
-    mgmt_ip = '127.0.0.1',
+    pass = '',
+        protocol = 'ws',
+        mgmt_ip = '127.0.0.1',
         mgmt_port = '8080',
         s3_ip = '127.0.0.1',
+        s3_acc_key = 123,
+        s3_sec_key = 'abc',
 } = argv;
 
 
@@ -27,14 +32,15 @@ const api = require('../../api');
 let rpc = api.new_rpc();
 
 let client = rpc.new_client({
-    address: `ws://${mgmt_ip}:${mgmt_port}`
+    address: `${protocol}://${mgmt_ip}:${mgmt_port}`
 });
+let auth_params;
+if (os.platform() === 'darwin') {
+    auth_params = { email: 'demo@noobaa.com', password: 'DeMo1', system: 'demo' };
+} else {
+    auth_params = { email: 'admin@noobaa.io', password: `${pass}`, system: 'noobaa' };
+}
 
-let auth_params = {
-    email: 'demo@noobaa.com',
-    password: 'DeMo1',
-    system: 'demo'
-};
 
 const CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
@@ -499,8 +505,16 @@ async function ceph_test_setup() {
     await promise_utils.exec(`echo secret_key = ${secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 
     const { access_key: access_key_tenant, secret_key: secret_key_tenant } = ceph_account_tenant.access_keys[0];
-    await promise_utils.exec(`sed -i "" "s|tenant_access_key|${access_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await promise_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    if (os.platform() === 'darwin') {
+        await promise_utils.exec(`sed -i "" "s|tenant_access_key|${access_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await promise_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+
+    } else {
+        await promise_utils.exec(`sed -i -e 's:tenant_access_key:${access_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await promise_utils.exec(`sed -i -e 's:tenant_secret_key:${secret_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await promise_utils.exec(`sed -i -e 's:s3_access_key:${s3_acc_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await promise_utils.exec(`sed -i -e 's:s3_secret_key:${s3_sec_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    }
 }
 
 // async function deploy_ceph() {

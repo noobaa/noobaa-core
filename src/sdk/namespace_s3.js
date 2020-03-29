@@ -507,11 +507,12 @@ class NamespaceS3 {
         const xattr = _.extend(res.Metadata, {
             'noobaa-namespace-s3-bucket': this.bucket,
         });
+        const ranges = res.ContentRange ? Number(res.ContentRange.split('/')[1]) : 0;
         return {
             obj_id: res.UploadId || etag,
             bucket: bucket,
             key: res.Key,
-            size: res.ContentLength || res.Size || 0,
+            size: ranges || res.ContentLength || res.Size || 0,
             etag,
             create_time: new Date(res.LastModified),
             version_id: res.VersionId,
@@ -525,6 +526,7 @@ class NamespaceS3 {
     }
 
     _translate_error_code(err) {
+        if (err.code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
     }
 

@@ -270,7 +270,7 @@ class AgentCLI {
                         const ignore_names = ['agent_conf.json', 'lost+found'];
                         // filter out cloud and mongo agents:
                         const regular_node_names = _.reject(nodes_names, name =>
-                            (name.startsWith(internal_agent_prefix) || ignore_names.includes(name)));
+                            (name.startsWith('.') || name.startsWith(internal_agent_prefix) || ignore_names.includes(name)));
                         dbg.log0('nodes_names:', regular_node_names);
                         return P.map(regular_node_names, node_name => {
                             dbg.log0('node_name', node_name, 'storage_path', storage_path);

@@ -7,7 +7,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const P = require('../../util/promise');
 const auth_server = require('../common_services/auth_server');
-const _ = require('lodash');
 
 class BucketsReclaimer {
 
@@ -19,7 +18,7 @@ class BucketsReclaimer {
     async run_batch() {
         if (!this._can_run()) return;
 
-        const support_account = _.find(system_store.data.accounts, account => account.is_support);
+        const system = system_store.data.systems[0];
         const deleting_buckets = this._get_deleting_buckets();
         if (!deleting_buckets || !deleting_buckets.length) {
             dbg.log0('no buckets in "deleting" state. nothing to do');
@@ -37,8 +36,8 @@ class BucketsReclaimer {
                     limit: config.BUCKET_RECLAIMER_BATCH_SIZE
                 }, {
                     auth_token: auth_server.make_auth_token({
-                        system_id: system_store.data.systems[0]._id,
-                        account_id: support_account._id,
+                        system_id: system._id,
+                        account_id: system.owner,
                         role: 'admin'
                     })
                 });
@@ -46,8 +45,8 @@ class BucketsReclaimer {
                     dbg.log0(`bucket ${bucket.name} is empty. calling delete_bucket`);
                     await this.client.bucket.delete_bucket({ name: bucket.name, internal_call: true }, {
                         auth_token: auth_server.make_auth_token({
-                            system_id: system_store.data.systems[0]._id,
-                            account_id: support_account._id,
+                            system_id: system._id,
+                            account_id: system.owner,
                             role: 'admin'
                         })
                     });
@@ -75,9 +74,6 @@ class BucketsReclaimer {
 
         const system = system_store.data.systems[0];
         if (!system || system_utils.system_in_maintenance(system._id)) return false;
-
-        const support_account = _.find(system_store.data.accounts, account => account.is_support);
-        if (!support_account) return false;
 
         return true;
     }

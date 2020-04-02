@@ -123,6 +123,13 @@ export default {
                     }
                 }
             },
+            undeletable: {
+                type: 'string',
+                enum: [
+                    'OWNER',
+                    'OWN_BUCKET'
+                ]
+            },
             hasAccessToAllBuckets: {
                 type: 'boolean'
             },

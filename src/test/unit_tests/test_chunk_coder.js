@@ -37,6 +37,10 @@ const FRAG_SPECS = [
     //{ data_frags: 4, parity_frags: 2, parity_type: 'isa-c1', },
     //{ data_frags: 6, parity_frags: 2, parity_type: 'isa-c1', },
     //{ data_frags: 8, parity_frags: 4, parity_type: 'isa-c1', },
+    { data_frags: 2, parity_frags: 2, parity_type: 'cm256', },
+    { data_frags: 4, parity_frags: 2, parity_type: 'cm256', },
+    { data_frags: 6, parity_frags: 2, parity_type: 'cm256', },
+    { data_frags: 8, parity_frags: 4, parity_type: 'cm256', },
 ];
 const DIGEST_TYPES = [
     'sha384',
@@ -228,7 +232,7 @@ mocha.describe('nb_native chunk_coder', function() {
                     const frags_by_index = _.keyBy(chunk.frags, _frag_index);
                     const max_parity_frags = 32;
                     for (let i = 0; i < max_parity_frags; ++i) {
-                        const chunk_coder_config2 = _.defaults({ parity_frags: i, parity_type: 'isa-c1' }, chunk_coder_config);
+                        const chunk_coder_config2 = _.defaults({ parity_frags: i, }, chunk_coder_config);
                         const chunk2 = prepare_chunk(chunk_coder_config2, chunk);
                         call_chunk_coder_must_succeed('dec', chunk2);
                         chunk2.frags.forEach(frag2 => {

@@ -227,7 +227,7 @@ config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
 config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_REPLICAS = 1;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
-config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
+config.CHUNK_CODER_EC_PARITY_TYPE = 'cm256';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
 
 //////////////////////////

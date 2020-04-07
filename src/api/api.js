@@ -117,14 +117,14 @@ function client_factory_from_schema(schema) {
 
 function new_router_from_base_address(base_address) {
     const { protocol, hostname, port, slashes } = url.parse(base_address);
-    const ports = get_default_ports(Number(port));
+    const ports = get_default_ports(Number(port) || undefined);
 
     return {
-        default: url.format({ protocol, slashes, hostname, port: port }),
+        default: url.format({ protocol, slashes, hostname, port: ports.mgmt }),
         md: url.format({ protocol, slashes, hostname, port: ports.md }),
         bg: url.format({ protocol, slashes, hostname, port: ports.bg }),
         hosted_agents: url.format({ protocol, slashes, hostname, port: ports.hosted_agents }),
-        master: url.format({ protocol, slashes, hostname, port: port })
+        master: url.format({ protocol, slashes, hostname, port: ports.mgmt })
     };
 }
 

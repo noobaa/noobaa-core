@@ -1,22 +1,20 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/binary"
 	"encoding/pem"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -27,8 +25,8 @@ var client = flag.Bool("client", false, "run client")
 var ssl = flag.Bool("ssl", false, "use ssl")
 var port = flag.Int("port", 50505, "tcp port to use")
 var prof = flag.String("prof", "", "write cpu profile to file")
-var bufsize = flag.Int("size", 128*1024, "memory buffer size")
-var frame = flag.Bool("frame", false, "send/receive framed messages")
+var reqsizeMB = flag.Int("size", 1024, "request size in MB")
+var bufsize = flag.Int("buf", 128*1024, "memory buffer size")
 
 func main() {
 	flag.Parse()
@@ -47,88 +45,88 @@ func main() {
 	}
 }
 
-func runSender() {
-	var conn net.Conn
-	var err error
-	if *ssl {
-		config := &tls.Config{InsecureSkipVerify: true}
-		conn, err = tls.Dial("tcp", "127.0.0.1:"+strconv.Itoa(*port), config)
-	} else {
-		conn, err = net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(*port))
-	}
-	fatal(err)
-	buf := make([]byte, *bufsize)
-	var speedometer Speedometer
-	speedometer.Init()
-	for {
-		if *frame {
-			n := uint32(len(buf)) // uint32(float64(len(buf))*(1+rand.Float64())/8) * 4
-			err := binary.Write(conn, binary.BigEndian, n)
-			fatal(err)
-			// nwrite, err := conn.Write(buf[0:n])
-			nwrite, err := conn.Write(buf)
-			if err == io.EOF {
-				break
-			}
-			fatal(err)
-			speedometer.Update(uint64(nwrite))
+type reqBodyReader struct {
+	io.ReadCloser
+	n           uint64
+	reqsize     uint64
+	speedometer *Speedometer
+}
 
-		} else {
-			nwrite, err := conn.Write(buf)
-			if err == io.EOF {
-				break
-			}
-			fatal(err)
-			speedometer.Update(uint64(nwrite))
-		}
+func (r *reqBodyReader) Read(p []byte) (n int, err error) {
+	if r.n > r.reqsize {
+		return 0, io.EOF
 	}
-	conn.Close()
+	l := uint64(len(p))
+	r.n += l
+	r.speedometer.Update(l)
+	return len(p), nil
+}
+
+func (r *reqBodyReader) Close() error {
+	return nil
+}
+
+func runSender() {
+	var addr string
+	var client *http.Client
+	var speedometer Speedometer
+
+	if *ssl {
+		addr = "https://127.0.0.1:" + strconv.Itoa(*port)
+		client = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	} else {
+		addr = "http://127.0.0.1:" + strconv.Itoa(*port)
+		client = &http.Client{}
+	}
+
+	speedometer.Init()
+
+	for {
+		req, err := http.NewRequest("PUT", addr, &reqBodyReader{
+			reqsize:     uint64(*reqsizeMB * 1024 * 1024),
+			speedometer: &speedometer,
+		})
+		fatal(err)
+		res, err := client.Do(req)
+		fatal(err)
+		err = res.Body.Close()
+		fatal(err)
+	}
 }
 
 func runReceiver() {
-	var listener net.Listener
-	var err error
-	if *ssl {
-		config := &tls.Config{Certificates: []tls.Certificate{GenerateCert()}}
-		listener, err = tls.Listen("tcp", ":"+strconv.Itoa(*port), config)
-	} else {
-		listener, err = net.Listen("tcp", ":"+strconv.Itoa(*port))
-	}
-	fatal(err)
-	fmt.Println("Listening on port", *port)
-	conn, err := listener.Accept()
-	fatal(err)
-	listener.Close()
-	// reader := conn
-	reader := bufio.NewReaderSize(conn, *bufsize)
-	buf := make([]byte, *bufsize)
 	var speedometer Speedometer
+
 	speedometer.Init()
-	for {
-		if *frame {
-			var n uint32
-			err := binary.Read(reader, binary.BigEndian, &n)
-			if err == io.EOF {
-				break
+
+	server := &http.Server{
+		Addr: ":" + strconv.Itoa(*port),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for {
+				buf := make([]byte, *bufsize)
+				nread, err := r.Body.Read(buf)
+				if err == io.EOF {
+					break
+				}
+				fatal(err)
+				speedometer.Update(uint64(nread))
 			}
-			fatal(err)
-			if int(n) > len(buf) {
-				fatal(errors.New("Frame too big"))
-			}
-			nread, err := io.ReadAtLeast(reader, buf, int(n))
-			if err == io.EOF {
-				break
-			}
-			fatal(err)
-			speedometer.Update(uint64(nread))
-		} else {
-			nread, err := reader.Read(buf)
-			if err == io.EOF {
-				break
-			}
-			fatal(err)
-			speedometer.Update(uint64(nread))
-		}
+			w.WriteHeader(200)
+		}),
+	}
+
+	if *ssl {
+		server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{GenerateCert()}}
+		server.ListenAndServeTLS("", "")
+	} else {
+		fmt.Println("Listening on port", *port)
+		server.ListenAndServe()
 	}
 }
 

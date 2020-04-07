@@ -4,6 +4,7 @@
 const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
+const stream = require('stream');
 const crypto = require('crypto');
 const cluster = require('cluster');
 const ssl_utils = require('../util/ssl_utils');
@@ -18,18 +19,17 @@ argv.forks = argv.forks || 1;
 // client
 argv.client = argv.client === true ? '127.0.0.1' : argv.client;
 argv.size = argv.size || 1024; // in MB
-argv.buf = argv.buf || 64 * 1024; // in Bytes
+argv.buf = argv.buf || 128 * 1024; // in Bytes
 argv.concur = argv.concur || 1;
 // server
 argv.server = Boolean(argv.server);
 argv.hash = argv.hash ? String(argv.hash) : '';
 
-
+// set keep alive to make sure we don't reconnect between requests
 http.globalAgent.keepAlive = true;
-
-const http_agent = new http.Agent({
-    keepAlive: true
-});
+const http_agent = argv.ssl ?
+    new https.Agent({ keepAlive: true }) :
+    new http.Agent({ keepAlive: true });
 
 const send_speedometer = new Speedometer('Send Speed');
 const recv_speedometer = new Speedometer('Receive Speed');
@@ -94,6 +94,11 @@ function run_server() {
         .listen(argv.port);
 }
 
+/**
+ * 
+ * @param {http.IncomingMessage} req 
+ * @param {http.ServerResponse} res 
+ */
 function run_server_request(req, res) {
     req.on('error', err => {
         console.error('HTTP server request error', err.message);
@@ -148,8 +153,10 @@ function run_client_request() {
     run_sender(req);
 }
 
+/**
+ * @param {http.ClientRequest} writable 
+ */
 function run_sender(writable) {
-    const buf = Buffer.allocUnsafe(argv.buf);
     const size = argv.size * 1024 * 1024;
     var n = 0;
 
@@ -157,6 +164,7 @@ function run_sender(writable) {
     send();
 
     function send() {
+        const buf = Buffer.allocUnsafe(argv.buf);
         var ok = true;
         while (ok && n < size) {
             ok = writable.write(buf);
@@ -167,10 +175,52 @@ function run_sender(writable) {
     }
 }
 
+/**
+ * @param {http.IncomingMessage} readable 
+ */
 function run_receiver(readable) {
     const hasher = argv.hash && crypto.createHash(argv.hash);
-    readable.on('data', data => {
-        if (hasher) hasher.update(data);
-        recv_speedometer.update(data.length);
-    });
+    if (argv.client) {
+        const req = (argv.ssl ? https : http)
+            .request({
+                agent: http_agent,
+                port: argv.port + 1,
+                hostname: argv.client,
+                path: '/upload',
+                method: 'PUT',
+                headers: {
+                    'content-type': 'application/octet-stream',
+                },
+                // we allow self generated certificates to avoid public CA signing:
+                rejectUnauthorized: false,
+            })
+            .once('error', err => {
+                console.error('HTTP client request error', err.message);
+                process.exit();
+            })
+            .once('response', res => {
+                if (res.statusCode !== 200) {
+                    console.error('HTTP client response status', res.statusCode);
+                    process.exit();
+                }
+                res.once('error', err => {
+                        console.error('HTTP client response error', err.message);
+                        process.exit();
+                    })
+                    .on('data', data => { /* noop */ });
+            });
+
+        readable.pipe(new stream.Transform({
+            transform(data, encoding, callback) {
+                if (hasher) hasher.update(data);
+                recv_speedometer.update(data.length);
+                callback(null, data);
+            }
+        })).pipe(req);
+    } else {
+        readable.on('data', data => {
+            if (hasher) hasher.update(data);
+            recv_speedometer.update(data.length);
+        });
+    }
 }

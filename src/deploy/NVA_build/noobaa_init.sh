@@ -121,7 +121,11 @@ prepare_mongo_pv() {
 }
 
 run_endpoint_container() {
-  /usr/local/bin/node ./src/s3/s3rver_starter.js
+  while true
+  do
+    echo "$(date) Running endpoint container ..."
+    /usr/local/bin/node ./src/s3/s3rver_starter.js
+  done
 }
 
 init_endpoint() {

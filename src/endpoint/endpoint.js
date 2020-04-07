@@ -70,12 +70,13 @@ function process_env(env) {
 
 function get_rpc_router(env) {
     const default_base_addr = 'wss://127.0.0.1';
+    const default_base_port = Number(env.SSL_PORT) || 8443;
     return {
-        default: env.MGMT_ADDR || `${default_base_addr}:8443`,
-        md: env.MD_ADDR || `${default_base_addr}:8444`,
-        bg: env.BG_ADDR || `${default_base_addr}:8445`,
-        hosted_agents: env.HOSTED_AGENTS_ADDR || `${default_base_addr}:8446`,
-        master: env.MGMT_ADDR || `${default_base_addr}:8443`
+        default: env.MGMT_ADDR || `${default_base_addr}:${default_base_port}`,
+        md: env.MD_ADDR || `${default_base_addr}:${default_base_port + 1}`,
+        bg: env.BG_ADDR || `${default_base_addr}:${default_base_port + 2}`,
+        hosted_agents: env.HOSTED_AGENTS_ADDR || `${default_base_addr}:${default_base_port + 3}`,
+        master: env.MGMT_ADDR || `${default_base_addr}:${default_base_port}`
     };
 }
 

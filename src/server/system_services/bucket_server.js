@@ -1284,9 +1284,16 @@ function validate_bucket_creation(req) {
         !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name.unwrap())) {
         throw new RpcError('INVALID_BUCKET_NAME');
     }
-    if (req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()]) {
-        throw new RpcError('BUCKET_ALREADY_EXISTS');
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
+
+    if (bucket) {
+        if (system_store.has_same_id(bucket.owner_account, req.account)) {
+            throw new RpcError('BUCKET_ALREADY_OWNED_BY_YOU');
+        } else {
+            throw new RpcError('BUCKET_ALREADY_EXISTS');
+        }
     }
+
     if (req.account.allow_bucket_creation === false) {
         throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
     }

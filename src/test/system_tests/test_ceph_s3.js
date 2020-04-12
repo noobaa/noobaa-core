@@ -239,7 +239,6 @@ const S3_CEPH_TEST_BLACKLIST = [
     's3tests_boto3.functional.test_s3.test_bucket_create_naming_dns_dot_dot',
     's3tests_boto3.functional.test_s3.test_bucket_create_naming_dns_dot_dash',
     's3tests_boto3.functional.test_s3.test_bucket_create_naming_dns_dash_dot',
-    's3tests_boto3.functional.test_s3.test_bucket_create_exists',
     's3tests_boto3.functional.test_s3.test_bucket_acl_default',
     's3tests_boto3.functional.test_s3.test_bucket_acl_canned_during_create',
     's3tests_boto3.functional.test_s3.test_bucket_acl_canned',

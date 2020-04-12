@@ -65,6 +65,7 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_BUCKET_NAME: S3Error.InvalidBucketName,
     NOT_EMPTY: S3Error.BucketNotEmpty,
     BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
+    BUCKET_ALREADY_OWNED_BY_YOU: S3Error.BucketAlreadyOwnedByYou,
     NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
     BAD_DIGEST_MD5: S3Error.BadDigest,
     BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,

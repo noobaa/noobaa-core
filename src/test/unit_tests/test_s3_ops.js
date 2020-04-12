@@ -48,6 +48,15 @@ mocha.describe('s3_ops', function() {
         mocha.it('should create bucket', async function() {
             await s3.createBucket({ Bucket: BKT1 }).promise();
         });
+        mocha.it('should not recreate bucket', async function() {
+            const func = async () => s3.createBucket({ Bucket: BKT1 }).promise();
+            const expected_err_props = {
+                name: 'BucketAlreadyOwnedByYou',
+                code: 'BucketAlreadyOwnedByYou',
+                statusCode: 409,
+            };
+            await assert.rejects(func, expected_err_props);
+        });
         mocha.it('should head bucket', async function() {
             await s3.headBucket({ Bucket: BKT1 }).promise();
         });

@@ -236,10 +236,12 @@ async function complete_object_upload(req) {
     }
 
     set_updates.create_time = new Date();
+    set_updates.cache_valid_time = new Date();
     set_updates.version_seq = await MDStore.instance().alloc_object_version_seq();
     if (req.bucket.versioning === 'ENABLED') {
         set_updates.version_enabled = true;
     }
+    dbg.log0('======object_server.complete_object_upload:', set_updates);
 
     await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });
 
@@ -568,7 +570,7 @@ async function read_node_mapping(req) {
  *
  */
 async function read_object_md(req) {
-    dbg.log0('read_object_md:', req.rpc_params);
+    dbg.log0('======object_server.read_object_md:', req.rpc_params);
     const { bucket, key, md_conditions, adminfo, encryption } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
@@ -636,11 +638,15 @@ function _check_encryption_permissions(src_enc, req_enc) {
  *
  */
 async function update_object_md(req) {
-    dbg.log0('update object md', req.rpc_params);
+    dbg.log0('======object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_valid_time');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
+    }
+    if (set_updates.cache_valid_time) {
+        // TODO hack!!!
+        set_updates.cache_valid_time = new Date();
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
@@ -793,7 +799,7 @@ async function delete_multiple_objects_by_prefix(req) {
 // In this case we just upload the objects and write the folder hierarchy in it's key
 // So to we just upload a file with key /tmp/object.mp4 and the list_objects will resolve it
 async function list_objects(req) {
-    dbg.log0('list_objects', req.rpc_params);
+    dbg.log0('======object_server.list_objects', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -811,6 +817,7 @@ async function list_objects(req) {
         is_truncated: false,
         done: false,
     };
+    dbg.log0('======object_server.list_objects', { state: state });
 
     while (!state.done) {
         const results = await MDStore.instance().list_objects(state);
@@ -1156,6 +1163,7 @@ function get_object_info(md) {
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
+        cache_valid_time: md.cache_valid_time ? md.cache_valid_time.getTime() : undefined,
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
@@ -1211,6 +1219,7 @@ async function find_object_md(req) {
         obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
     }
     check_object_mode(req, obj, 'NO_SUCH_OBJECT');
+    dbg.log0('======object_server.find_object_md: return obj', obj);
     return obj;
 }
 
@@ -1223,6 +1232,7 @@ async function find_object_upload(req) {
     const obj_id = get_obj_id(req, 'NO_SUCH_UPLOAD');
     const obj = await MDStore.instance().find_object_by_id(obj_id);
     check_object_mode(req, obj, 'NO_SUCH_UPLOAD');
+    dbg.log0('======object_server.find_object_upload: return obj', obj);
     return obj;
 }
 
@@ -1384,6 +1394,8 @@ function _get_delete_obj_reply(deleted_obj, created_obj) {
 
 
 async function _put_object_handle_latest({ req, put_obj, set_updates, unset_updates }) {
+    dbg.log0('======object_server._put_object_handle_latest:', put_obj, set_updates);
+
     const bucket_versioning = req.bucket.versioning;
 
     if (bucket_versioning === 'DISABLED') {

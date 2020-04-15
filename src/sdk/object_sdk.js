@@ -124,6 +124,7 @@ class ObjectSDK {
                         ns: new NamespaceCache({
                             namespace_hub: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                             namespace_nb: this.namespace_nb,
+                            rpc_client: this.rpc_client,
                             active_triggers: bucket.namespace.write_resource,
                         }),
                         bucket,

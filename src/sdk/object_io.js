@@ -178,7 +178,7 @@ class ObjectIO {
             'md_conditions',
         );
         try {
-            dbg.log0('upload_object: start upload', create_params);
+            dbg.log0('======object_io.upload_object: start upload', _.omit(_.omit(params, 'source_stream'), 'client'), create_params);
             const create_reply = await params.client.object.create_object_upload(create_params);
             params.obj_id = create_reply.obj_id;
             params.tier_id = create_reply.tier_id;

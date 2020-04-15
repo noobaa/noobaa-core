@@ -4,13 +4,15 @@
 const _ = require('lodash');
 const stream = require('stream');
 const assert = require('assert');
+const dbg = require('../util/debug_module')(__filename);
 
 class NamespaceCache {
 
-    constructor({ namespace_hub, namespace_nb, active_triggers }) {
+    constructor({ namespace_hub, namespace_nb, rpc_client, active_triggers }) {
         this.namespace_hub = namespace_hub;
         this.namespace_nb = namespace_nb;
         this.active_triggers = active_triggers;
+        this.rpc_client = rpc_client;
     }
 
     get_write_resource() {
@@ -41,31 +43,73 @@ class NamespaceCache {
     /////////////////
 
     async read_object_md(params, object_sdk) {
+        let object_info_cache = null;
         try {
-            const object_info = await this.namespace_nb.read_object_md(params, object_sdk);
+            object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
 
-            // TODO this is the wrong condition - object create_time should be preserved 
+            // TODO this is the wrong condition - object create_time should be preserved
             // from hub so not the validation time, so we need a custom cache metadata for that.
-            const cache_validation_time = object_info.create_time;
+            dbg.log0('======NamespaceCache.read_object_md from cache', object_info_cache);
+
+            const cache_validation_time = object_info_cache.cache_valid_time;
             const time_since_validation = Date.now() - cache_validation_time;
 
-            const CACHE_TTL = 60000; // 1 minute
+            const CACHE_TTL = 20000; // 2 minutes in milliseconds
             if (time_since_validation <= CACHE_TTL) {
-                object_info.from_cache = true; // mark it for read_object_stream
-                console.log('NamespaceCache.read_object_md: from cache', object_info);
-                return object_info;
+                object_info_cache.from_cache = true; // mark it for read_object_stream
+                dbg.log0('======NamespaceCache.read_object_md use md from cache', object_info_cache);
+                return object_info_cache;
             }
 
         } catch (err) {
-            console.warn('NamespaceCache.read_object_md: cache error', err);
+            dbg.log0('======NamespaceCache.read_object_md: error in cache', err);
         }
 
-        // TODO do we have any benefit in caching just object mds?
-        return this.namespace_hub.read_object_md(params, object_sdk);
+        let object_info_hub = null;
+        try {
+            object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
+            dbg.log0('======NamespaceCache.read_object_md from hub', object_info_hub);
+            if (object_info_cache && object_info_hub.etag === object_info_cache.etag) {
+                dbg.log0('======NamespaceCache.read_object_md: same etags: updating cache valid time', object_info_hub);
+                process.nextTick(() => {
+                    const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
+                    update_params.cache_valid_time = (new Date()).getTime();
+                    this.rpc_client.object.update_object_md(update_params)
+                        .then(() => {
+                            dbg.log0('======NamespaceCache.read_object_md: updated cache valid time', update_params);
+                        })
+                        .catch(err => {
+                            dbg.error('======NamespaceCache.read_object_md: error in updating cache valid time', err);
+                        });
+                });
+            } else {
+                dbg.log0('======NamespaceCache.read_object_md: etags different',
+                    params, object_sdk, {hub_tag: object_info_hub.etag, cache_etag: object_info_cache.etag});
+            }
+        } catch (err) {
+            if (err.code === 'NotFound') {
+                if (object_info_cache) {
+                    process.nextTick(() => {
+                        const delete_params = _.pick(params, 'bucket', 'key', 'obj_id');
+                        this.namespace_nb.delete_object(delete_params, object_sdk)
+                        .then(() => {
+                            dbg.log0('======NamespaceCache.read_object_md: deleted object from cache', object_sdk);
+                        })
+                        .catch(err => {
+                            dbg.error('======NamespaceCache.read_object_md: error in deleting object from cache', params, err);
+                        });
+                    });
+                }
+            } else {
+                dbg.log0('======NamespaceCache.read_object_md: NOT NoSuchKey in hub', err);
+            }
+            throw (err);
+        }
+        return object_info_hub;
     }
 
     async read_object_stream(params, object_sdk) {
-
+        dbg.log0('======NamespaceCache.read_object_stream', {params: params});
         if (params.object_md.from_cache) {
             try {
                 return this.namespace_nb.read_object_stream(params, object_sdk);
@@ -90,8 +134,7 @@ class NamespaceCache {
             xattr: params.object_md.xattr,
         };
 
-        console.log('NamespaceCache.read_object_stream: put to cache',
-            _.omit(upload_params, 'source_stream'));
+        dbg.log0('======NamespaceCache.read_object_stream: put to cache', _.omit(upload_params, 'source_stream'));
 
         this.namespace_nb.upload_object(upload_params, object_sdk);
 
@@ -103,6 +146,7 @@ class NamespaceCache {
     ///////////////////
 
     async upload_object(params, object_sdk) {
+        dbg.log0("======NamespaceCache.upload_object====", {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb});
 
         if (params.size > 1024 * 1024) {
             return this.namespace_hub.upload_object(params, object_sdk);

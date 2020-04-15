@@ -10,6 +10,7 @@ const http_utils = require('../../../util/http_utils');
  */
 async function head_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
+    console.log("====s3.head_object:", { params: req.params });
     const object_md = await req.object_sdk.read_object_md({
         bucket: req.params.bucket,
         key: req.params.key,
@@ -17,6 +18,9 @@ async function head_object(req, res) {
         md_conditions: http_utils.get_md_conditions(req),
         encryption
     });
+
+    console.log("======s3.head_object:", { object_md: object_md });
+
     s3_utils.set_response_object_md(res, object_md);
     s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
 }

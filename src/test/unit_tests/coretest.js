@@ -367,14 +367,17 @@ async function clear_test_pools() {
 
     // Delete all pools (will stop all agents managed by the pool)
     if (CREATED_POOLS) {
-        await Promise.all(CREATED_POOLS.map(pool =>
-            rpc_client.pool.delete_pool({ name: pool.name })
-        ));
-
-        console.log('Waiting until all pools are deleted (including hosts)');
         await promise_utils.wait_until(async () => {
+            try {
+                await Promise.all(CREATED_POOLS.map(pool =>
+                    rpc_client.pool.delete_pool({ name: pool.name })
+                ));
+            } catch (err) {
+                if (err.rpc_code !== 'BEING_DELETED') throw err;
+            }
             const { pools } = await rpc_client.system.read_system({});
             const existing_pools = new Set(pools.map(pool => pool.name));
+            console.log('Waiting until all pools are deleted (including hosts)', existing_pools);
             return CREATED_POOLS.every(pool => !existing_pools.has(pool.name));
         }, 5 * 60 * 1000, 2500);
     }

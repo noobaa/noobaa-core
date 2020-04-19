@@ -324,11 +324,6 @@ class NodesClient {
 
         const { hosts } = await this.list_hosts_by_pool(pool_name, system_id, auth_token);
         const promise_list = hosts
-            .sort((host1, host2) => {
-                const host1_seq = Number(host1.name.match(/-(\d+)#/)[1]);
-                const host2_seq = Number(host2.name.match(/-(\d+)#/)[1]);
-                return host1_seq - host2_seq;
-            })
             .slice(-count)
             .map(async host => {
                 if (host.mode === 'DELETING') {
@@ -336,7 +331,7 @@ class NodesClient {
                 }
 
                 try {
-                   await server_rpc.client.host.delete_host({ name: host.name }, { auth_token });
+                    await server_rpc.client.host.delete_host({ name: host.name }, { auth_token });
                 } catch (err) {
                     console.error(`delete_hosts_by_pool: could not initiate delete for host ${host.name}, got: ${err.message}`);
                 }

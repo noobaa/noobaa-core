@@ -1241,8 +1241,8 @@ class NodesMonitor extends EventEmitter {
             node_id: String(item.node._id),
             host_id: String(item.node.host_id),
             pool_id: String(item.node.pool),
-            region: item_pool.region
         };
+        if (item_pool) location_info.region = item_pool.region;
         const service_enabled_not_changed = (item.node.enabled && should_enable) || (!item.node.enabled && !should_enable);
         const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);
         if (service_enabled_not_changed && location_info_not_changed) {
@@ -1904,7 +1904,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleted
         );
         if (!readable) {
-            dbg.log0_throttled(`${item.node.name} not reasable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
+            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
                 ${!item.auth_failed} ${!item.io_detention} ${!item.node.decommissioned} ${!item.node.deleting} ${!item.node.deleted}`);
         }
         return readable;

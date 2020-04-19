@@ -37,7 +37,7 @@ class BucketsReclaimer {
                 }, {
                     auth_token: auth_server.make_auth_token({
                         system_id: system._id,
-                        account_id: system.owner,
+                        account_id: system.owner._id,
                         role: 'admin'
                     })
                 });
@@ -46,7 +46,7 @@ class BucketsReclaimer {
                     await this.client.bucket.delete_bucket({ name: bucket.name, internal_call: true }, {
                         auth_token: auth_server.make_auth_token({
                             system_id: system._id,
-                            account_id: system.owner,
+                            account_id: system.owner._id,
                             role: 'admin'
                         })
                     });

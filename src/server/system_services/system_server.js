@@ -985,30 +985,36 @@ async function update_endpoint_group(req) {
         .some(group => group.name === group_name);
 
     if (exists) {
+        const group = cluster.endpoint_groups.find(grp => grp.name === group_name);
         if (!_.isUndefined(is_remote)) {
-            const group = cluster.endpoint_groups.find(grp => grp.name === group_name);
             if (group.is_remote !== is_remote) {
                 // We do not throw in order to not fail the noobaa operator.
                 dbg.warn('update_endpoint_group: Conflicted is_remote value of ',
                     is_remote, ' for group: ', group, ' - aborting request');
                 return;
             }
+
         }
 
-        await system_store.make_changes({
-            update: {
-                clusters: [{
-                    $find: {
-                        _id: cluster._id,
-                        'endpoint_groups.name': group_name
-                    },
-                    $set: {
-                        'endpoint_groups.$.region': region,
-                        'endpoint_groups.$.endpoint_range': endpoint_range
-                    }
-                }]
-            }
-        });
+        // call make_changes only if there are actual changes to make.
+        // this check fixes a bug where make_changes sends a load_system_store notification 
+        // to the operator, which in its own reconcile sends back update_endpoint_group, and so forth
+        if (group.region !== region || !_.isEqual(group.endpoint_range, endpoint_range)) {
+            await system_store.make_changes({
+                update: {
+                    clusters: [{
+                        $find: {
+                            _id: cluster._id,
+                            'endpoint_groups.name': group_name
+                        },
+                        $set: {
+                            'endpoint_groups.$.region': region,
+                            'endpoint_groups.$.endpoint_range': endpoint_range
+                        }
+                    }]
+                }
+            });
+        }
 
     } else {
         await system_store.make_changes({

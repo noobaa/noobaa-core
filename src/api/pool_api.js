@@ -344,6 +344,23 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        update_hosts_pool: {
+            doc: 'Update the pool\'s underlaying host count from the operator',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

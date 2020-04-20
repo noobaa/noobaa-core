@@ -84,7 +84,7 @@ class NamespaceCache {
                 });
             } else {
                 dbg.log0('======NamespaceCache.read_object_md: etags different',
-                    params, object_sdk, {hub_tag: object_info_hub.etag, cache_etag: object_info_cache.etag});
+                    params, {hub_tag: object_info_hub.etag, cache_etag: object_info_cache.etag});
             }
         } catch (err) {
             if (err.code === 'NotFound') {
@@ -93,7 +93,7 @@ class NamespaceCache {
                         const delete_params = _.pick(params, 'bucket', 'key', 'obj_id');
                         this.namespace_nb.delete_object(delete_params, object_sdk)
                         .then(() => {
-                            //dbg.log0('======NamespaceCache.read_object_md: deleted object from cache', object_sdk);
+                            //dbg.log0('======NamespaceCache.read_object_md: deleted object from cache');
                         })
                         .catch(err => {
                             dbg.error('======NamespaceCache.read_object_md: error in deleting object from cache', params, err);

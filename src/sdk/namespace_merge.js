@@ -25,18 +25,18 @@ class NamespaceMerge {
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params, object_sdk) {
-        return this._ns_map(ns => ns.list_objects(params, object_sdk))
+    async list_objects(params, object_sdk) {
+        return this._ns_map(ns => ns.list_objects(params, object_sdk), ['NoSuchBucket', 'ContainerNotFound'], this.cast_err_to_s3err)
             .then(res => this._handle_list(res, params));
     }
 
     list_uploads(params, object_sdk) {
-        return this._ns_map(ns => ns.list_uploads(params, object_sdk))
+        return this._ns_map(ns => ns.list_uploads(params, object_sdk), ['NoSuchBucket', 'ContainerNotFound'], this.cast_err_to_s3err)
             .then(res => this._handle_list(res, params));
     }
 
     list_object_versions(params, object_sdk) {
-        return this._ns_map(ns => ns.list_object_versions(params, object_sdk))
+        return this._ns_map(ns => ns.list_object_versions(params, object_sdk), ['NoSuchBucket', 'ContainerNotFound'], this.cast_err_to_s3err)
             .then(res => this._handle_list(res, params));
     }
 
@@ -304,7 +304,8 @@ class NamespaceMerge {
         return P.try(() => func(ns));
     }
 
-    async _ns_map(func, except_reasons) {
+
+    async _ns_map(func, except_reasons, cast_error_func) {
         const replies = await P.map(this.namespaces.read_resources, ns =>
             P.try(() => func(ns))
             .then(reply => ({
@@ -312,7 +313,7 @@ class NamespaceMerge {
                 success: true
             }))
             .catch(error => ({
-                error,
+                error: cast_error_func ? cast_error_func(error) : error,
                 success: false
             }))
         );
@@ -326,7 +327,7 @@ class NamespaceMerge {
     _get_failed_responses(reply_array, except_reasons) {
         return reply_array.filter(
                 res => !res.success &&
-                !_.includes(except_reasons || [], res.error.rpc_code || 'UNKNOWN_ERR')
+                !_.includes(except_reasons || [], res.error.rpc_code || res.error.code || 'UNKNOWN_ERR')
             )
             .map(rec => rec.error);
     }
@@ -407,6 +408,16 @@ class NamespaceMerge {
             next_version_id_marker,
             next_upload_id_marker
         };
+    }
+    cast_err_to_s3err(err) {
+        if (!err) return;
+        const err_to_s3err_map = {
+            'NoSuchBucket': S3Error.NoSuchBucket,
+            'ContainerNotFound': S3Error.NoSuchBucket,
+        };
+        let s3error = new S3Error(err_to_s3err_map[err.code]);
+        s3error.message = err.message;
+        return s3error;
     }
 }
 

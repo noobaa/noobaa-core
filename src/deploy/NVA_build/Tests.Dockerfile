@@ -18,7 +18,7 @@ COPY ./src/deploy/NVA_build/set_mongo_repo.sh /tmp/
 RUN chmod +x /tmp/set_mongo_repo.sh && \
     /bin/bash -xc "/tmp/set_mongo_repo.sh"
 
-RUN dnf install -y -q vim \
+RUN dnf install -y -q --nogpgcheck vim \
     mongodb-org-3.6.3 \
     mongodb-org-server-3.6.3 \
     mongodb-org-shell-3.6.3 \

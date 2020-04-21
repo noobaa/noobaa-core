@@ -567,6 +567,9 @@ function delete_account(req) {
     if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
         throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
     }
+    if (system_store.data.buckets.find(b => String(b.owner_account) === String(account_to_delete._id))) {
+        throw new RpcError('UNAUTHORIZED', 'Cannot delete account that is owner of buckets');
+    }
 
     let roles_to_delete = system_store.data.roles
         .filter(

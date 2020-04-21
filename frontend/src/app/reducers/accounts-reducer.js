@@ -17,16 +17,17 @@ const initialState = undefined;
 function onCompleteFetchSystemInfo(_, { payload }) {
     const { name: systemName, buckets, accounts, owner, pools } = payload;
     const allBuckets = buckets.map(bucket => bucket.name);
+    const accountsOwningBuckets = new Set(buckets.map(b => b.owner_account.email));
 
     return keyByProperty(accounts, 'email', account =>
-        _mapAccount(account, owner, systemName, pools, allBuckets)
+        _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwningBuckets)
     );
 }
 
 // ------------------------------
 // Local util functions
 // ------------------------------
-function _mapAccount(account, owner, systemName, pools, allBuckets) {
+function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwningBuckets) {
     const {
         email,
         has_login,
@@ -59,11 +60,16 @@ function _mapAccount(account, owner, systemName, pools, allBuckets) {
         system.name === systemName
     );
 
+    const isOwner = Boolean(email === owner.email);
+    const undeletable =  (isOwner && 'OWNER') || 
+        (accountsOwningBuckets.has(email) && 'OWN_BUCKET') || 
+        undefined;
+
 
     return {
         name: email,
         isAdmin: has_login,
-        isOwner: email === owner.email,
+        isOwner,
         hasAccessToAllBuckets,
         allowedBuckets,
         canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
@@ -73,6 +79,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets) {
         accessKeys: { accessKey, secretKey },
         allowedIps: allowed_ips,
         externalConnections,
+        undeletable,
         roles
     };
 }

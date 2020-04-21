@@ -9,6 +9,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
+const auth_server = require('../common_services/auth_server');
 
 
 var LIFECYCLE = {
@@ -16,7 +17,8 @@ var LIFECYCLE = {
 };
 
 function background_worker() {
-    if (!system_store.data.systems[0]) return P.resolve();
+    const system = system_store.data.systems[0];
+    if (!system) return P.resolve();
     return P.fcall(function() {
             dbg.log0('LIFECYCLE READ BUCKETS configuration:', 'BEGIN');
             return system_store.refresh()
@@ -56,7 +58,13 @@ function background_worker() {
                                             lifecycle_rule.id, ' Days:', lifecycle_rule.expiration.days, '==', deletion_params.create_time,
                                             '(', moment().subtract(lifecycle_rule.expiration.days, 'min'), ')');
                                     }
-                                    return server_rpc.client.object.delete_multiple_objects_by_prefix(deletion_params).then(function() {
+                                    return server_rpc.client.object.delete_multiple_objects_by_prefix(deletion_params, {
+                                        auth_token: auth_server.make_auth_token({
+                                            system_id: system._id,
+                                            account_id: system.owner,
+                                            role: 'admin'
+                                        })
+                                    }).then(function() {
                                         bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
                                         dbg.log0('LIFECYCLE Done bucket:', bucket.name, ' done deletion of objects per prefix ',
                                             lifecycle_rule.prefix, ' time:', bucket.lifecycle_configuration_rules[j].last_sync);

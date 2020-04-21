@@ -39,7 +39,7 @@ const columns = deepFreeze([
 ]);
 
 function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
-    const { name, isOwner, defaultResource } = account;
+    const { name, defaultResource, undeletable } = account;
     const isCurrentUser = name === currentUser;
     const accountNameText = `${name} ${isCurrentUser ? '(Current user)' : ''}`;
     const usingInternalStorage = defaultResource === 'INTERNAL_STORAGE';
@@ -64,12 +64,21 @@ function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
         deleteButton: {
             id: name,
             active: selectedForDelete === name,
-            disabled: isOwner,
-            tooltip: isOwner ?
-                'Cannot delete system owner' :
-                'Delete account'
+            disabled: Boolean(undeletable),
+            tooltip: _getDeleteBucketTooltip(undeletable)
         }
     };
+}
+
+function _getDeleteBucketTooltip(undeletable) {
+    switch (undeletable) {
+        case 'OWNER':
+            return 'Cannot delete system owner';
+        case 'OWN_BUCKET':
+            return 'Cannot delete buckets owner';
+        default:
+            return 'Delete account';
+    }
 }
 
 class AccountRowViewModel {

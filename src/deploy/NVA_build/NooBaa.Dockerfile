@@ -57,7 +57,7 @@ ENV ENDPOINT_NODE_OPTIONS ''
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-# RUN dnf install -y -q bash \
+
 RUN dnf install -y -q bash \
     lsof \
     openssl \

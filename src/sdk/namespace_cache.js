@@ -8,10 +8,11 @@ const dbg = require('../util/debug_module')(__filename);
 
 class NamespaceCache {
 
-    constructor({ namespace_hub, namespace_nb, rpc_client, active_triggers }) {
+    constructor({ namespace_hub, namespace_nb, rpc_client, caching, active_triggers }) {
         this.namespace_hub = namespace_hub;
         this.namespace_nb = namespace_nb;
         this.active_triggers = active_triggers;
+        this.caching = caching;
         this.rpc_client = rpc_client;
     }
 
@@ -54,8 +55,7 @@ class NamespaceCache {
             const cache_validation_time = object_info_cache.cache_valid_time;
             const time_since_validation = Date.now() - cache_validation_time;
 
-            const CACHE_TTL = 20000; // 2 minutes in milliseconds
-            if (time_since_validation <= CACHE_TTL) {
+            if (time_since_validation <= this.caching.ttl) {
                 object_info_cache.from_cache = true; // mark it for read_object_stream
                 dbg.log0('======NamespaceCache.read_object_md use md from cache', object_info_cache);
                 return object_info_cache;
@@ -95,8 +95,8 @@ class NamespaceCache {
                         .then(() => {
                             dbg.log0('======NamespaceCache.read_object_md: deleted object from cache', delete_params);
                         })
-                        .catch(err => {
-                            dbg.error('======NamespaceCache.read_object_md: error in deleting object from cache', params, err);
+                        .catch(errDelete => {
+                            dbg.error('======NamespaceCache.read_object_md: error in deleting object from cache', params, errDelete);
                         });
                     });
                 }

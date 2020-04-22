@@ -241,6 +241,9 @@ module.exports = {
                 },
             }
         },
+        caching: {
+            $ref: 'common_api#/definitions/bucket_cache_config'
+        },
         encryption: {
             $ref: 'common_api#/definitions/bucket_encryption',
         },

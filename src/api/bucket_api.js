@@ -42,6 +42,7 @@ module.exports = {
                         }
                     },
                     bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                    caching: { $ref: 'common_api#/definitions/bucket_cache_config' }
                 }
             },
             reply: {
@@ -1085,6 +1086,9 @@ module.exports = {
                 },
                 policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
                 }
             }
         },
@@ -1177,6 +1181,9 @@ module.exports = {
                 },
                 s3_policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
                 },
             }
         },

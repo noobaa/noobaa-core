@@ -159,6 +159,11 @@ async function create_bucket(req) {
         // TODO: Should implement validity checks
         bucket.bucket_claim = req.rpc_params.bucket_claim;
     }
+    if (req.rpc_params.caching) {
+        bucket.caching = req.rpc_params.caching;
+        // Convert ttl from seconds to milliseconds
+        bucket.caching.ttl *= 1000;
+    }
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -444,6 +449,7 @@ async function read_bucket_sdk_info(req) {
         ),
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
+        caching: bucket.caching,
     };
 
     if (bucket.namespace) {
@@ -1405,7 +1411,8 @@ function get_bucket_info({
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
-        policy: bucket.policy
+        policy: bucket.policy,
+        caching: bucket.caching
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });

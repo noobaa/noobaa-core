@@ -65,7 +65,10 @@ module.exports = {
                 },
                 write_resource: {
                     objectid: true // namespace resource id
-                }
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
+                },
             }
         },
         tiering: {
@@ -240,9 +243,6 @@ module.exports = {
                     type: 'string',
                 },
             }
-        },
-        caching: {
-            $ref: 'common_api#/definitions/bucket_cache_config'
         },
         encryption: {
             $ref: 'common_api#/definitions/bucket_encryption',

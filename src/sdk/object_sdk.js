@@ -117,17 +117,14 @@ class ObjectSDK {
         try {
             if (bucket.namespace && bucket.namespace.read_resources && bucket.namespace.write_resource) {
 
-                // TODO: NAMESPACE CACHE TEMP CODE
-                // bucket.namespace.cache = true;
-                // if (bucket.namespace.cache) {
-                if (bucket.caching) {
+                if (bucket.namespace.caching && bucket.namespace.caching.ttl) {
                         return {
                         ns: new NamespaceCache({
                             namespace_hub: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                             namespace_nb: this.namespace_nb,
                             rpc_client: this.rpc_client,
-                            caching: bucket.caching,
                             active_triggers: bucket.namespace.write_resource,
+                            caching: bucket.namespace.caching,
                         }),
                         bucket,
                         valid_until: time + NAMESPACE_CACHE_EXPIRY,

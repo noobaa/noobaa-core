@@ -55,7 +55,8 @@ class NamespaceCache {
             const cache_validation_time = object_info_cache.cache_valid_time;
             const time_since_validation = Date.now() - cache_validation_time;
 
-            if (time_since_validation <= this.caching.ttl) {
+            // caching.ttl is in seconds
+            if (time_since_validation <= this.caching.ttl * 1000) {
                 object_info_cache.from_cache = true; // mark it for read_object_stream
                 dbg.log0('======NamespaceCache.read_object_md use md from cache', object_info_cache);
                 return object_info_cache;

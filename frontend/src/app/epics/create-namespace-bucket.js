@@ -15,7 +15,10 @@ export default function(action$, { api }) {
             try {
                 const namespace = {
                     read_resources: readFrom,
-                    write_resource: writeTo
+                    write_resource: writeTo,
+                    caching: {
+                        ttl: 120
+                    }
                 };
 
                 await api.bucket.create_bucket({ name, namespace });

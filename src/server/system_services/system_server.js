@@ -209,7 +209,6 @@ function new_system_changes(name, owner_account_id) {
             parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
         }),
     };
-    system.default_chunk_config = default_chunk_config._id;
     const tier_mirrors = [{
         _id: system_store.new_system_store_id(),
         spread_pools: [mongo_pool._id]

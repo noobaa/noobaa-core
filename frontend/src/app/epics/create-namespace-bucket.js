@@ -10,14 +10,14 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(CREATE_NAMESPACE_BUCKET),
         mergeMap(async action => {
-            const { name, readFrom, writeTo } = action.payload;
+            const { name, readFrom, writeTo, cacheTTL } = action.payload;
 
             try {
                 const namespace = {
                     read_resources: readFrom,
                     write_resource: writeTo,
                     caching: {
-                        ttl: 120
+                        ttl: parseInt(cacheTTL)
                     }
                 };
 

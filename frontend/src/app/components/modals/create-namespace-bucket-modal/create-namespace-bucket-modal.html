@@ -86,6 +86,32 @@
                 <wizard-controls></wizard-controls>
             </div>
         </section>
+
+        <section class="column greedy">
+            <div class="column greedy pad">
+                <p class="push-next">
+                    Caching configuration controls how data is cached in local storage
+                </p>
+                <editor class="greedy" params="label: 'Cache TTL'">
+                    <input type="number" min="0" max="172800"
+                        class="push-next-half"
+                        ko.textInput="ko.pc($form.cacheTTL, onCacheTTL)"
+                        ko.validationCss="$form.cacheTTL"
+                        ko.hasFocus="true"
+                    />
+                </editor>
+            </div>
+            <div class="row content-middle pad content-box">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    The cache TTL cannot be changed after set
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+
     </wizard>
 </managed-form>
 

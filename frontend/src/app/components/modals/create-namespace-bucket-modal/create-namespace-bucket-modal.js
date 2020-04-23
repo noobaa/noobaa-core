@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
 import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
-import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
+import { getFieldValue, isFieldTouched, isFormValid, getFormValues } from 'utils/form-utils';
 import { inputThrottle } from 'config';
 import {
     updateForm,
@@ -18,7 +18,8 @@ import { createNamespaceBucket as learnMoreHref } from 'knowledge-base-articles'
 
 const steps = deepFreeze([
     'Choose Name',
-    'Set Placement'
+    'Set Placement',
+    'Set Caching Policy'
 ]);
 
 const readPolicyTableColumns = deepFreeze([
@@ -47,7 +48,8 @@ const readPolicyTableColumns = deepFreeze([
 
 const fieldsByStep = deepFreeze({
     0: [ 'bucketName' ],
-    1: [ 'readPolicy', 'writePolicy' ]
+    1: [ 'readPolicy', 'writePolicy' ],
+    2: [ 'cacheTTL' ]
 });
 
 class ResourceRowViewModel {
@@ -91,7 +93,8 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         step: 0,
         bucketName: '',
         readPolicy: [],
-        writePolicy: undefined
+        writePolicy: undefined,
+        cacheTTL: 0
     };
 
     selectState(state) {
@@ -111,6 +114,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         const bucketName = getFieldValue(form, 'bucketName');
         const readPolicy = getFieldValue(form, 'readPolicy');
         const writePolicy = getFieldValue(form, 'writePolicy');
+        const cacheTTL = getFormValues(form).cacheTTL;
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
@@ -161,13 +165,20 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
             resourceServiceMapping,
             isStepValid: isFormValid(form),
             readPolicy,
-            writePolicy
+            writePolicy,
+            cacheTTL
         });
 
     }
 
     onBucketName = throttle(
         bucketName => this.dispatch(updateForm(this.formName, { bucketName })),
+        inputThrottle,
+        this
+    );
+
+    onCacheTTL = throttle(
+        cacheTTL => this.dispatch(updateForm(this.formName, { cacheTTL })),
         inputThrottle,
         this
     );
@@ -188,7 +199,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     }
 
     onValidate(values) {
-        const { step, bucketName, readPolicy, writePolicy } = values;
+        const { step, bucketName, readPolicy, writePolicy, cacheTTL } = values;
         const errors = {};
 
         if (step === 0) {
@@ -205,6 +216,13 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
 
             } else if (!writePolicy) {
                 errors.writePolicy = 'Please select a namespace resource';
+            }
+        } else if (step === 2) {
+            if (cacheTTL < 0) {
+                errors.cacheTTL = 'Cache TTL must be non-negative integer';
+
+            } else if (!cacheTTL > 172800) {
+                errors.cacheTTL = 'Cache TTL must be less than 172800 seconds';
             }
         }
 
@@ -237,10 +255,10 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { bucketName, readPolicy, writePolicy } = values;
+        const { bucketName, readPolicy, writePolicy, cacheTTL } = values;
         this.dispatch(
             closeModal(),
-            createNamespaceBucket(bucketName, readPolicy, writePolicy)
+            createNamespaceBucket(bucketName, readPolicy, writePolicy, cacheTTL)
         );
     }
 

@@ -1,10 +1,10 @@
 CONTAINER_ENGINE?=$(shell docker version >/dev/null 2>&1 && echo docker)
-ifeq ($(CONTAINER_ENGINE), "")
-	CONTAINER_ENGINE==$(shell podman version >/dev/null 2>&1 && echo podman)
+ifeq ($(CONTAINER_ENGINE),)
+	CONTAINER_ENGINE=$(shell podman version >/dev/null 2>&1 && echo podman)
 endif
 
 GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
-NAME_POSTFIX?="$(shell docker ps -a | wc -l | xargs)"
+NAME_POSTFIX?="$(shell ${CONTAINER_ENGINE} ps -a | wc -l | xargs)"
 BUILDER_TAG?="noobaa-builder"
 TESTER_TAG?="noobaa-tester"
 NOOBAA_TAG?="noobaa"

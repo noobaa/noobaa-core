@@ -30,9 +30,10 @@ Remove NooBaa deployment can be done with:
 
 ## Tutorial
 
-[![Watch the video](https://i9.ytimg.com/vi/QXr2pSL3AVY/mqdefault.jpg?time=1571731217087&sqp=CIDuuu0F&rs=AOn4CLDX9Blgb22Wr4vhU1Su202p1GoP3g)](https://www.youtube.com/watch?v=QXr2pSL3AVY)
+[![YOUTUBE](https://img.youtube.com/vi/QXr2pSL3AVY/0.jpg)](https://www.youtube.com/watch?v=QXr2pSL3AVY)
 
-Watch on YouTube https://www.youtube.com/watch?v=QXr2pSL3AVY
+(Click the image or the link to open the [noobaa install demo on YouTube](https://www.youtube.com/watch?v=QXr2pSL3AVY))
+
 
 ## Help
 

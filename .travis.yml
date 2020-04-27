@@ -21,7 +21,7 @@ matrix:
         - docker
 
       script:
-        - make tester NO_CACHE=true SUPPRESS_LOGS=true
+        - make tester NO_CACHE=true SUPPRESS_LOGS=true || exit 1
         - make test SUPPRESS_LOGS=true
 
     - language: node_js
@@ -38,5 +38,5 @@ matrix:
         - "./.travis/deploy_minikube.sh 1 >& /dev/null"
 
       script:
-        - make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} NO_CACHE=true SUPPRESS_LOGS=true
+        - make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} NO_CACHE=true SUPPRESS_LOGS=true || exit 1
         - "cd ./src/test/framework/ && ./run_test_job.sh --name ${TRAVIS_COMMIT} --image ${IMAGE_TAG} --tester_image ${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait"

@@ -149,7 +149,8 @@ class NamespaceCache {
     async upload_object(params, object_sdk) {
         dbg.log0("======NamespaceCache.upload_object====", {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb});
 
-        if (params.size > 1024 * 1024) {
+        // TODO: Create a config for the max size of object to be cached
+        if (params.size > 8 * 1024 * 1024) {
             return this.namespace_hub.upload_object(params, object_sdk);
         }
 
@@ -157,23 +158,68 @@ class NamespaceCache {
         const cache_stream = new stream.PassThrough({
             final(callback) {
                 // defer the finalizer of the cache stream until the hub ack
-                callback();
+                if (hub_stream.writableFinished) {
+                    dbg.log0("======NamespaceCache.upload_object: upload hub has been completed",
+                        {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb});
+
+                    return callback();
+                } else {
+                    dbg.log0("======NamespaceCache.upload_object: waiting for hub to complete",
+                        {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb});
+                    hub_stream.on('finish', callback);
+                }
             }
         });
+
         const hub_params = { ...params, source_stream: hub_stream };
         const cache_params = { ...params, source_stream: cache_stream };
+        // One important caveat is that if the Readable stream emits an error during processing,
+        // the Writable destination is not closed automatically. If an error occurs, it will be
+        // necessary to manually close each stream in order to prevent memory leaks.
+        params.source_stream.on('error', err => {
+            dbg.log0("======NamespaceCache.upload_object: error in read source",
+                {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb, error: err});
+            hub_stream.destroy();
+            cache_stream.destroy();
+        });
+        params.source_stream.on('close', () => {
+            dbg.log0("======NamespaceCache.upload_object: closing in read source",
+                {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb });
+                if (!params.source_stream.readableEnded) {
+                    dbg.log0("======NamespaceCache.upload_object: closing in read source - NOT readableEnded - Should be error",
+                    {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb });
+                hub_stream.destroy();
+                cache_stream.destroy();
+            }
+        });
         params.source_stream.pipe(hub_stream);
         params.source_stream.pipe(cache_stream);
 
-        // TODO keep last bytes hostage until hub ack
-        const [hub_res, cache_res] = await Promise.all([
+        /*const [hub_res, cache_res] = await Promise.all([
             this.namespace_hub.upload_object(hub_params, object_sdk),
             this.namespace_nb.upload_object(cache_params, object_sdk),
         ]);
 
         assert.strictEqual(hub_res.etag, cache_res.etag);
 
-        return hub_res;
+        return hub_res;*/
+
+        const hub_res1 = await Promise.all([
+            this.namespace_hub.upload_object(hub_params, object_sdk),
+            this.namespace_nb.upload_object(cache_params, object_sdk),
+        ])
+        .then(([hub_res, cache_res]) => {
+            assert.strictEqual(hub_res.etag, cache_res.etag);
+            return hub_res;
+        })
+        .catch(err => {
+            dbg.log0("======NamespaceCache.upload_object: error in upload",
+                {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb, error: err});
+            // If error is from cache, we should probably ignore and let hub upload continue. Change Promise.all to Promise.allSettled?
+            throw err;
+        });
+
+        return hub_res1;
     }
 
     //////////////////////

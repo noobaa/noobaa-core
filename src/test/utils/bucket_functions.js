@@ -151,15 +151,19 @@ class BucketFunctions {
         }
     }
 
-    async createNamespaceBucket(name, namespace) {
+    async createNamespaceBucket(name, namespace, caching) {
         console.log(`Creating namespace bucket with namespace ${namespace}`);
         try {
+            let namespaceConfig = {
+                read_resources: [namespace],
+                write_resource: namespace
+            };
+            if (caching) {
+                namespaceConfig.caching = caching;
+            }
             await this._client.bucket.create_bucket({
                 name,
-                namespace: {
-                    read_resources: [namespace],
-                    write_resource: namespace
-                }
+                namespace: namespaceConfig
             });
         } catch (e) {
             console.error('Failed to create Namespace bucket', e);

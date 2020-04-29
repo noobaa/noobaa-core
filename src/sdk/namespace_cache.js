@@ -47,9 +47,11 @@ class NamespaceCache {
         let object_info_cache = null;
         try {
             object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
+            if (params.get_from_cache) {
+                dbg.log0('======NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
+                return object_info_cache;
+            }
 
-            // TODO this is the wrong condition - object create_time should be preserved
-            // from hub so not the validation time, so we need a custom cache metadata for that.
             dbg.log0('======NamespaceCache.read_object_md from cache', object_info_cache);
 
             const cache_validation_time = object_info_cache.cache_valid_time;
@@ -111,7 +113,7 @@ class NamespaceCache {
 
     async read_object_stream(params, object_sdk) {
         dbg.log0('======NamespaceCache.read_object_stream', {params: params});
-        if (params.object_md.from_cache) {
+        if (params.object_md.from_cache || params.get_from_cache) {
             try {
                 return this.namespace_nb.read_object_stream(params, object_sdk);
             } catch (err) {
@@ -119,6 +121,7 @@ class NamespaceCache {
             }
         }
 
+        params = _.remove()
         const read_stream = await this.namespace_hub.read_object_stream(params, object_sdk);
 
         // we use a pass through stream here because we have to start piping immediately

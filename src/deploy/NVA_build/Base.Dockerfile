@@ -54,4 +54,5 @@ COPY ./src/rpc/ ./src/rpc/
 COPY ./src/api/ ./src/api/
 COPY ./src/util/ ./src/util/
 COPY ./config.js ./
-RUN npm run build:fe
+RUN cd frontend && \
+    npm run build

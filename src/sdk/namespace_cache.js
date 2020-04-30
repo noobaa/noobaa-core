@@ -46,8 +46,13 @@ class NamespaceCache {
     async read_object_md(params, object_sdk) {
         let object_info_cache = null;
         try {
+            const get_from_cache = params.get_from_cache;
+            if (get_from_cache) {
+                // Remove get_from_cache if exists for maching RPC schema
+                params = _.omit(params, 'get_from_cache');
+            }
             object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
-            if (params.get_from_cache) {
+            if (get_from_cache) {
                 dbg.log0('======NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
                 return object_info_cache;
             }
@@ -113,7 +118,12 @@ class NamespaceCache {
 
     async read_object_stream(params, object_sdk) {
         dbg.log0('======NamespaceCache.read_object_stream', {params: params});
-        if (params.object_md.from_cache || params.get_from_cache) {
+        const get_from_cache = params.get_from_cache;
+        if (get_from_cache) {
+            // Remove get_from_cache if exists for maching RPC schema
+            params = _.omit(params, 'get_from_cache');
+        }
+        if (params.object_md.from_cache || get_from_cache) {
             try {
                 return this.namespace_nb.read_object_stream(params, object_sdk);
             } catch (err) {
@@ -121,7 +131,6 @@ class NamespaceCache {
             }
         }
 
-        params = _.remove()
         const read_stream = await this.namespace_hub.read_object_stream(params, object_sdk);
 
         // we use a pass through stream here because we have to start piping immediately

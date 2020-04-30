@@ -30,8 +30,8 @@ class CloudFunction {
             COS_SECRET_ACCESS_KEY,
         } = process.env;
         const COSConnections = {
-            name: 'COS',
-            endpoint: "https://s3.us-east.cloud-object-storage.appdomain.cloud",
+            name: 'COSConnection',
+            endpoint: "https://s3.us-south.cloud-object-storage.appdomain.cloud",
             endpoint_type: "IBM_COS",
             identity: COS_ACCESS_KEY_ID,
             secret: COS_SECRET_ACCESS_KEY

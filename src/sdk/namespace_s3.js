@@ -24,7 +24,7 @@ class NamespaceS3 {
         this.rpc_client = rpc_client;
     }
 
-    // check if copy can be done server side on AWS.
+    // check if copy can be done server side on AWS. 
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
     // and fall back to read\write copy if access is denied
@@ -121,22 +121,21 @@ class NamespaceS3 {
 
     async read_object_md(params, object_sdk) {
         try {
-            dbg.log0('======NamespaceS3.read_object_md:', this.bucket, inspect(params));
+            dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
             const request = { Key: params.key, Range: `bytes=0-${config.INLINE_MAX_SIZE - 1}` };
             this._assign_encryption_to_request(params, request);
-            //const res = await this.s3.getObject(request).promise();
-            const res = await this.s3.headObject(request).promise();
-            dbg.log0('======NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
+            const res = await this.s3.getObject(request).promise();
+            dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
             this._translate_error_code(err);
-            dbg.warn('======NamespaceS3.read_object_md:', inspect(err));
+            dbg.warn('NamespaceS3.read_object_md:', inspect(err));
             throw err;
         }
     }
 
     async read_object_stream(params, object_sdk) {
-        dbg.log0('======NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
+        dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         return new P((resolve, reject) => {
             const request = {
                 Key: params.key,
@@ -181,7 +180,7 @@ class NamespaceS3 {
     ///////////////////
 
     async upload_object(params, object_sdk) {
-        dbg.log0('======NamespaceS3.upload_object:', this.bucket, inspect(params), object_sdk.namespace_nb);
+        dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
         let res;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {

@@ -45,7 +45,6 @@ class NamespaceNB {
 
     list_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        console.log("======NamespaceNB.list_objects:", _.omit(_.omit(params, 'source_stream'), 'client'));
         return object_sdk.rpc_client.object.list_objects(params);
     }
 
@@ -64,7 +63,6 @@ class NamespaceNB {
     /////////////////
 
     read_object_md(params, object_sdk) {
-        console.log("======NamespaceNB.read_object_md:", {params: params});
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         return object_sdk.rpc_client.object.read_object_md(params);
     }
@@ -72,7 +70,6 @@ class NamespaceNB {
     async read_object_stream(params, object_sdk) {
         const operation = 'ObjectRead';
         let obj = { key: params.key };
-        console.log("======NamespaceNB.read_object_stream:", { params: params });
         params = _.defaults({
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
@@ -101,13 +98,11 @@ class NamespaceNB {
     ///////////////////
 
     async upload_object(params, object_sdk) {
-        console.log("======NamespaceNB.upload_object:", {bucket: params.bucket, xattr: params.xattr, object_sdk: object_sdk.namespace_nb});
         const operation = 'ObjectCreated';
         params = _.defaults({
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        console.log('=======NamespaceNB.upload_object:', _.omit(_.omit(params, 'source_stream'), 'client'));
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
         const load_for_trigger = object_sdk.should_run_triggers({
             active_triggers,

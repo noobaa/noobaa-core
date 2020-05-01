@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const api = require('../../api');
 const crypto = require('crypto');
-const P = require('../../util/promise');
+//const P = require('../../util/promise');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
@@ -160,12 +160,12 @@ const namespace_mapping = {
     }
 };
 
-const dataSet = [
+/*const dataSet = [
     { size_units: 'KB', data_size: 1 },
-    /*{ size_units: 'KB', data_size: 500 },
+    { size_units: 'KB', data_size: 500 },
     { size_units: 'MB', data_size: 1 },
-    { size_units: 'MB', data_size: 100 },*/
-];
+    { size_units: 'MB', data_size: 100 },
+];*/
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -213,7 +213,7 @@ async function compereMD5betweenCloudAndNooBaa(type, cloud_bucket, noobaa_bucket
             noobaaMD5} instead of ${cloudProperties} for file ${file_name}`);
     }
 }
-
+/*
 async function uploadDataSetToCloud(type, bucket) {
     for (const size of dataSet) {
         const { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
@@ -252,7 +252,7 @@ async function isFilesAvailableInNooBaaBucket(gateway, files, type) {
     if (!report_fail) {
         report.success(`verify list files ${type}`);
     }
-}
+}*/
 
 async function uploadFileToNoobaaS3(bucket, file_name) {
     let { data_multiplier } = unit_mapping.KB;
@@ -319,7 +319,7 @@ async function _create_resource(type) {
     }
 }
 
-async function _upload_check_cache_and_cloud(type) {
+/*async function _upload_check_cache_and_cloud(type) {
     //upload dataset
     await uploadDataSetToCloud(type, namespace_mapping[type].bucket2);
     await upload_directly_to_cloud(type);
@@ -333,7 +333,7 @@ async function _upload_check_cache_and_cloud(type) {
             throw err;
         }
     }
-}
+}*/
 
 async function upload_via_noobaa({ type, file_name, bucket }) {
     //Try to upload a file to noobaa s3 server
@@ -383,7 +383,7 @@ async function _upload_via_noobaa_check_via_cache_and_cloud({ type, file_name, b
         namespace_mapping[type].gateway, false, uploaded_file_name);
 }
 
-async function update_read_write_and_check(clouds, name, read_resources, write_resource) {
+/*async function update_read_write_and_check(clouds, name, read_resources, write_resource) {
     let should_fail;
     const run_on_clouds = _.clone(clouds);
     try {
@@ -423,7 +423,7 @@ async function list_cloud_files_read_via_noobaa(type, noobaa_bucket) {
             throw err;
         }
     }
-}
+}*/
 
 async function _clean_namespace_bucket(bucket, type) {
     const list_files = await s3ops.get_list_files(bucket);

@@ -17,7 +17,7 @@ async function head_object(req, res) {
         md_conditions: http_utils.get_md_conditions(req),
         encryption
     };
-    if (req.query && req.query.get_from_cache === 'true') {
+    if (req.query.get_from_cache === 'true') {
         params.get_from_cache = true;
     }
     const object_md = await req.object_sdk.read_object_md(params);

@@ -16,7 +16,7 @@ async function get_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
 
     let get_from_cache = false;
-    if (req.query && req.query.get_from_cache === 'true') {
+    if (req.query.get_from_cache === 'true') {
         get_from_cache = true;
     }
     let md_params = {

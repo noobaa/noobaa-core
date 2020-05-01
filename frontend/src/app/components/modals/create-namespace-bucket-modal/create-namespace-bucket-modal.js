@@ -221,7 +221,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
             if (cacheTTL < 0) {
                 errors.cacheTTL = 'Cache TTL must be non-negative integer';
 
-            } else if (!cacheTTL > 172800) {
+            } else if (cacheTTL > 172800) {
                 errors.cacheTTL = 'Cache TTL must be less than 172800 seconds';
             }
         }

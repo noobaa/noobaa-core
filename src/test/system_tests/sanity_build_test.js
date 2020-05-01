@@ -175,13 +175,12 @@ async function _create_resources_and_buckets() {
     console.info('Creating NS Resources');
     await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v2.name, 'NSv2', 'first-bucket');
     await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v4.name, 'NSv4', 'first-bucket');
-    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v4.name, 'ns_cache', 'first-bucket');
 
     //Create namespace bucket
     console.info('Creating NS Buckets');
     await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'NSv2');
     await TEST_CTX.bucketfunc.updateNamesapceBucket(TEST_CTX.ns_bucket, 'NSv4', ['NSv2', 'NSv4']);
-    await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_bucket, 'ns_cache', { caching: { ttl: 60 } });
+    await TEST_CTX.bucketfunc.createNamespaceBucket(TEST_CTX.ns_cache_bucket, 'NSv2', { ttl: 60 });
 }
 
 async function _create_accounts() {

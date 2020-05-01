@@ -213,8 +213,8 @@ async function compereMD5betweenCloudAndNooBaa(type, cloud_bucket, noobaa_bucket
             noobaaMD5} instead of ${cloudProperties} for file ${file_name}`);
     }
 }
-/*
-async function uploadDataSetToCloud(type, bucket) {
+
+/*async function uploadDataSetToCloud(type, bucket) {
     for (const size of dataSet) {
         const { data_multiplier } = unit_mapping[size.size_units.toUpperCase()];
         const file_name = 'file_' + size.data_size + size.size_units + (Math.floor(Date.now() / 1000));

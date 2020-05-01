@@ -25,7 +25,7 @@ const TEST_CTX = {
     bucket_mirror: 'ec.no.quota',
     bucket_spread: 'replica.with.quota',
     ns_bucket: 'ns.over.azure.aws',
-    ns_cache_bucket: 'ns_cache.over.azure.aws'
+    ns_cache_bucket: 'ns.cache.over.azure.aws'
 };
 
 async function main() {

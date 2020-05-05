@@ -2,6 +2,7 @@
 'use strict';
 
 const s3_utils = require('../s3_utils');
+const mime = require('mime');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html
@@ -13,7 +14,7 @@ async function post_object_uploads(req, res) {
     const reply = await req.object_sdk.create_object_upload({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['content-type'],
+        content_type: req.headers['content-type'] || mime.getType(req.params.key) || 'application/octet-stream',
         xattr: s3_utils.get_request_xattr(req),
         tagging,
         encryption

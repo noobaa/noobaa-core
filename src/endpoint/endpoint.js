@@ -23,6 +23,7 @@ const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
 const promise_utils = require('../util/promise_utils');
 const os_utils = require('../util/os_utils');
+const { ObjectPool } = require('../util/object_pool');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
@@ -31,7 +32,10 @@ const system_store = require('../server/system_services/system_store');
 const md_server = require('../server/md_server');
 const auth_server = require('../server/common_services/auth_server');
 const server_rpc = require('../server/server_rpc');
-const { ENDPOINT_MONITOR_INTERVAL } = require('../../config');
+const {
+    ENDPOINT_MONITOR_INTERVAL,
+    ENDPOINT_PRE_ALLOCATED_RPC_CLIENTS
+} = require('../../config');
 
 const {
     ENDPOINT_BLOB_ENABLED,
@@ -210,6 +214,12 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
     const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
     const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
 
+    const rpc_client_pool = new ObjectPool(ENDPOINT_PRE_ALLOCATED_RPC_CLIENTS, {
+        allocator: () => rpc.new_client(),
+        initializer: client => { client.options.auth_token = null; },
+        resize_policy: ObjectPool.resize_policy.GROW_AND_SHRINK
+    });
+
     if (options.n2n_agent) {
         const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
         const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
@@ -219,7 +229,10 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
     const object_io = new ObjectIO(LOCATION_INFO);
     return endpoint_request_handler;
 
-    function endpoint_request_handler(req, res) {
+    async function endpoint_request_handler(req, res) {
+        // Allocate an rpc client for the request.
+        const rpc_client = rpc_client_pool.alloc();
+
         // generate request id, this is lighter than uuid
         req.request_id = `${
             Date.now().toString(36)
@@ -231,18 +244,21 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
         http_utils.parse_url_query(req);
 
         if (req.url.startsWith('/2015-03-31/functions')) {
-            req.func_sdk = new FuncSDK(rpc.new_client());
+            req.func_sdk = new FuncSDK(rpc_client);
             return lambda_rest_handler(req, res);
         }
 
         if (req.headers['x-ms-version']) {
-            req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
+            req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
             return blob_rest_handler(req, res);
         }
 
         req.virtual_hosts = VIRTUAL_HOSTS;
-        req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
-        return s3_rest_handler(req, res);
+        req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
+        const ret = await s3_rest_handler(req, res);
+
+        rpc_client_pool.release(rpc_client);
+        return ret;
     }
 }
 

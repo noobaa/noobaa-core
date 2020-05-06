@@ -119,7 +119,9 @@ module.exports = {
                 properties: {
                     etag: { type: 'string' },
                     version_id: { type: 'string' },
-                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    content_type: { type: 'string' },
+                    size: { type: 'integer' },
                 }
             },
             auth: { system: ['admin', 'user'] }

@@ -263,7 +263,9 @@ async function complete_object_upload(req) {
     return {
         etag: set_updates.etag,
         version_id: MDStore.instance().get_object_version_id(set_updates),
-        encryption: obj.encryption
+        encryption: obj.encryption,
+        size: set_updates.size,
+        content_type: obj.content_type,
     };
 }
 

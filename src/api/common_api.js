@@ -754,7 +754,7 @@ module.exports = {
             // In seconds, 0 means caching is disabled ???
             minimum: 0,
             // 15 days
-            maximum: 1296000
+            maximum: 3600
         },
 
         bucket_cache_config: {

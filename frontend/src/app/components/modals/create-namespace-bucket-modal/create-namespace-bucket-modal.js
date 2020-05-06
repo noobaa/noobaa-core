@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
 import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
-import { getFieldValue, isFieldTouched, isFormValid, getFormValues } from 'utils/form-utils';
+import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { inputThrottle } from 'config';
 import {
     updateForm,
@@ -114,7 +114,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         const bucketName = getFieldValue(form, 'bucketName');
         const readPolicy = getFieldValue(form, 'readPolicy');
         const writePolicy = getFieldValue(form, 'writePolicy');
-        const cacheTTL = getFormValues(form).cacheTTL;
+        const cacheTTL = getFieldValue(form, 'cacheTTL');
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
@@ -177,12 +177,6 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         this
     );
 
-    onCacheTTL = throttle(
-        cacheTTL => this.dispatch(updateForm(this.formName, { cacheTTL })),
-        inputThrottle,
-        this
-    );
-
     onToggleReadPolicyResource(resource, select) {
         const { readPolicy, writePolicy, formName } = this;
         if (!select) {
@@ -218,11 +212,9 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
                 errors.writePolicy = 'Please select a namespace resource';
             }
         } else if (step === 2) {
-            if (cacheTTL < 0) {
-                errors.cacheTTL = 'Cache TTL must be non-negative integer';
-
-            } else if (cacheTTL > 172800) {
-                errors.cacheTTL = 'Cache TTL must be less than 172800 seconds';
+            let maxCacheTTL = 3600;
+            if (cacheTTL < 0 || cacheTTL > maxCacheTTL ) {
+                errors.cacheTTL = 'Please enter a number between 0 and ${maxCacheTTL}.';
             }
         }
 

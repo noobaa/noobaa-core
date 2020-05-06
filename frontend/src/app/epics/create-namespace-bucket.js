@@ -17,7 +17,7 @@ export default function(action$, { api }) {
                     read_resources: readFrom,
                     write_resource: writeTo,
                     caching: {
-                        ttl: parseInt(cacheTTL)
+                        ttl: cacheTTL
                     }
                 };
 

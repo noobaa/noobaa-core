@@ -95,7 +95,7 @@
                 <editor class="greedy" params="label: 'Cache TTL'">
                     <input type="number" min="0" max="172800"
                         class="push-next-half"
-                        ko.textInput="ko.pc($form.cacheTTL, onCacheTTL)"
+                        ko.value="$form.cacheTTL"
                         ko.validationCss="$form.cacheTTL"
                         ko.hasFocus="true"
                     />
@@ -106,7 +106,7 @@
                     <svg-icon class="icon-small valign-bottom"
                         params="name: 'notif-info'"
                     ></svg-icon>
-                    The cache TTL cannot be changed after set
+                    This cache TTL value cannot be changed after the creation of the bucket.
                 </p>
                 <wizard-controls></wizard-controls>
             </div>

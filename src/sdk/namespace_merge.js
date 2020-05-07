@@ -415,7 +415,9 @@ class NamespaceMerge {
             'NoSuchBucket': S3Error.NoSuchBucket,
             'ContainerNotFound': S3Error.NoSuchBucket,
         };
-        let s3error = new S3Error(err_to_s3err_map[err.code]);
+        let exist = err_to_s3err_map[err.code];
+        if (!exist) return err;
+        let s3error = new S3Error(exist);
         s3error.message = err.message;
         return s3error;
     }

@@ -89,6 +89,8 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     resourceServiceMapping = {};
     readPolicy = [];
     writePolicy = '';
+    maxCacheTTL = 3600;
+
     fields = {
         step: 0,
         bucketName: '',
@@ -212,9 +214,9 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
                 errors.writePolicy = 'Please select a namespace resource';
             }
         } else if (step === 2) {
-            let maxCacheTTL = 3600;
+            let maxCacheTTL = this.maxCacheTTL;
             if (cacheTTL < 0 || cacheTTL > maxCacheTTL ) {
-                errors.cacheTTL = 'Please enter a number between 0 and ${maxCacheTTL}.';
+                errors.cacheTTL = `Please enter a number between 0 and ${maxCacheTTL}.`;
             }
         }
 

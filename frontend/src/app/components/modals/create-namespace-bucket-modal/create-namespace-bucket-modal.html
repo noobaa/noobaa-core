@@ -89,17 +89,19 @@
 
         <section class="column greedy">
             <div class="column greedy pad">
+                <h2 class="heading3">Caching Configuration</h2>
                 <p class="push-next">
                     Caching configuration controls how data is cached in local storage
                 </p>
                 <editor class="greedy" params="label: 'Cache TTL'">
-                    <input type="number" min="0" max="172800"
+                    <input type="number" min="0" ko.attr.max=maxCacheTTL
                         class="push-next-half"
                         ko.value="$form.cacheTTL"
                         ko.validationCss="$form.cacheTTL"
                         ko.hasFocus="true"
                     />
                 </editor>
+                <validation-message params="field: $form.cacheTTL"></validation-message>
             </div>
             <div class="row content-middle pad content-box">
                 <p class="remark greedy push-next">

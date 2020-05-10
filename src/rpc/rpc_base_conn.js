@@ -58,7 +58,8 @@ class RpcBaseConnection extends EventEmitter {
 
         // connections are closed on error, and once closed will not be reopened again.
         this.on('error', err => {
-            dbg.log0('RPC CONN CLOSE ON ERROR', this.connid, err.stack || err);
+            // RPC connecteion closed after an error event received from the connection
+            dbg.log0('RPC CONNECTION CLOSED. got event from connection:', this.connid, err.stack || err.message || err);
             this.close(err);
         });
 

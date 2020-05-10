@@ -224,11 +224,19 @@ class BlockStoreS3 extends BlockStoreBase {
     async test_store_validity() {
         const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
         try {
-            // in s3 there is no error for non-existing object
-            await this.s3cloud.deleteObject({
-                Bucket: this.cloud_info.target_bucket,
-                Key: block_key
-            }).promise();
+            const endpoint = this.cloud_info.endpoint;
+            if (cloud_utils.is_aws_endpoint(endpoint)) {
+                // in s3 there is no error for non-existing object
+                await this.s3cloud.deleteObjectTagging({
+                    Bucket: this.cloud_info.target_bucket,
+                    Key: block_key
+                }).promise();
+            } else {
+                await this.s3cloud.deleteObject({
+                    Bucket: this.cloud_info.target_bucket,
+                    Key: block_key
+                }).promise();
+            }
         } catch (err) {
             dbg.error('in _test_cloud_service - deleteObject failed:', err, _.omit(this.cloud_info, 'access_keys'));
             if (err.code === 'NoSuchBucket') {

@@ -160,9 +160,26 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.list_multiparts(params);
     }
 
-    complete_object_upload(params, object_sdk) {
+    async complete_object_upload(params, object_sdk) {
+        const operation = 'ObjectCreated';
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return object_sdk.rpc_client.object.complete_object_upload(params);
+        const active_triggers = this.get_triggers_for_bucket(params.bucket);
+        const load_for_trigger = object_sdk.should_run_triggers({
+            active_triggers,
+            operation
+        });
+        const reply = await object_sdk.rpc_client.object.complete_object_upload(params);
+        if (load_for_trigger) {
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: reply.size,
+                content_type: reply.content_type,
+                etag: reply.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers, operation, obj, bucket: params.bucket });
+        }
+        return reply;
     }
 
     abort_object_upload(params, object_sdk) {

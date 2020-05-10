@@ -4,6 +4,7 @@
 const dbg = require('../../../util/debug_module')(__filename);
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const mime = require('mime');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
@@ -27,7 +28,7 @@ async function put_object(req, res) {
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['content-type'],
+        content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.getType(req.params.key) || 'application/octet-stream')),
         chunked_content: req.chunked_content,
         copy_source,
         source_stream: req,

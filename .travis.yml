@@ -11,6 +11,12 @@ env:
     - IMAGE_TAG="noobaa-${TRAVIS_COMMIT}"
     - TESTER_TAG="noobaa-tester-${TRAVIS_COMMIT}"
 
+    - NO_CACHE="NO_CACHE=true"
+    - SUPPRESS_LOGS="SUPPRESS_LOGS=true"
+    - DEPLOY_MINIKUBE_REDIRECT="/dev/null"
+
+    - PR_TITLE=$(curl https://github.com/${TRAVIS_REPO_SLUG}/pull/${TRAVIS_PULL_REQUEST} 2> /dev/null | grep "title" | head -1)
+
 matrix:
   include:
     - language: generic
@@ -20,9 +26,13 @@ matrix:
       services:
         - docker
 
+      before_install:
+        # When the PR headline contains the string "dbg" it will run in dbg mode:
+        # Will not call to "SUPPRESS_LOGS=true"
+        - if [[ "${PR_TITLE}" =~ "dbg" ]] ; then export export SUPPRESS_LOGS=" " ; fi
       script:
-        - make tester NO_CACHE=true SUPPRESS_LOGS=true || exit 1
-        - make test SUPPRESS_LOGS=true
+        - make tester ${NO_CACHE} ${SUPPRESS_LOGS} || exit 1
+        - make test ${SUPPRESS_LOGS}
 
     - language: node_js
       node_js:
@@ -34,9 +44,14 @@ matrix:
 
       dist: xenial #seems like running trusty fails minukube deployment
 
+      before_install:
+        # When the PR headline contains the string "dbg" it will run in dbg mode:
+        # Will not call to "SUPPRESS_LOGS=true, and will not redirect the output of deploy_minikube.sh"
+        - if [[ "${PR_TITLE}" =~ "dbg" ]] ; then export export SUPPRESS_LOGS=" " ; export DEPLOY_MINIKUBE_REDIRECT="/dev/stdout" ; fi
+
       install:
-        - "./.travis/deploy_minikube.sh 1 >& /dev/null"
+        - "./.travis/deploy_minikube.sh 1 >& ${DEPLOY_MINIKUBE_REDIRECT}"
 
       script:
-        - make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} NO_CACHE=true SUPPRESS_LOGS=true || exit 1
+        - make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} ${NO_CACHE} ${SUPPRESS_LOGS} || exit 1
         - "cd ./src/test/framework/ && ./run_test_job.sh --name ${TRAVIS_COMMIT} --image ${IMAGE_TAG} --tester_image ${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait"

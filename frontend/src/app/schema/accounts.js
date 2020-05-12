@@ -11,6 +11,7 @@ export default {
             'externalConnections',
             'isAdmin',
             'isOwner',
+            'isExternal',
             'name',
             'roles'
         ],
@@ -137,6 +138,9 @@ export default {
                 type: 'boolean'
             },
             isOwner: {
+                type: 'boolean'
+            },
+            isExternal: {
                 type: 'boolean'
             },
             name: {

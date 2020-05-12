@@ -23,7 +23,28 @@ module.exports = {
         key: { type: 'string' },
 
         version_seq: { type: 'integer' },
-
+        // lock_settings are the settings of the locked object version
+        lock_settings: {
+            type: 'object',
+            properties: {
+                retention: {
+                    type: 'object',
+                    properties: {
+                        mode: { type: 'string' },
+                        retain_until_date: { date: true },
+                    }
+                },
+                legal_hold: {
+                    type: 'object',
+                    properties: {
+                        status: {
+                            type: 'string',
+                            enum: ['ON', 'OFF'],
+                        },
+                    },
+                }
+            }
+        },
         // version_past = undefined  means latest version.
         // version_past = true       means non latest.
         // version_past = false      unused!

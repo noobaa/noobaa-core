@@ -9,6 +9,7 @@ const http_utils = require('../../util/http_utils');
 const time_utils = require('../../util/time_utils');
 const endpoint_utils = require('../endpoint_utils');
 const crypto = require('crypto');
+const config = require('../../.././config');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -264,6 +265,15 @@ function set_response_object_md(res, object_md) {
     res.setHeader('Content-Type', object_md.content_type);
     res.setHeader('Content-Length', object_md.size);
     res.setHeader('Accept-Ranges', 'bytes');
+    if (config.WORM_ENABLED && object_md.lock_settings) {
+        if (object_md.lock_settings.legal_hold) {
+            res.setHeader('x-amz-object-lock-legal-hold', object_md.lock_settings.legal_hold.status);
+        }
+        if (object_md.lock_settings.retention) {
+            res.setHeader('x-amz-object-lock-mode', object_md.lock_settings.retention.mode);
+            res.setHeader('x-amz-object-lock-retain-until-date', object_md.lock_settings.retention.retain_until_date);
+        }
+    }
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);
     set_response_xattr(res, object_md.xattr);
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
@@ -299,6 +309,48 @@ function _is_valid_tag_values(tag) {
     if (tag.key.length > 128 || tag.value.length > 256) return false;
     return true;
 }
+
+function _is_valid_retention(mode, retain_until_date) {
+    if (new Date(retain_until_date) <= new Date()) {
+        const err = new S3Error(S3Error.InvalidArgument);
+        err.message = 'The retain until date must be in the future!';
+        throw err;
+    }
+    if (mode !== 'GOVERNANCE' && mode !== 'COMPLIANCE') {
+        throw new S3Error(S3Error.MalformedXML);
+    }
+    return true;
+}
+
+function _is_valid_legal_hold(legal_hold) {
+    return legal_hold === 'ON' || legal_hold === 'OFF';
+}
+
+function parse_lock_header(req) {
+    const lock_settings = {};
+    const status = req.headers['x-amz-object-lock-legal-hold'];
+    const mode = req.headers['x-amz-object-lock-mode'];
+    const retain_until_date = req.headers['x-amz-object-lock-retain-until-date'] && new Date(req.headers['x-amz-object-lock-retain-until-date']);
+
+    if (!status && !retain_until_date && !mode) return;
+
+    if (mode || retain_until_date) {
+        if (!(retain_until_date && mode)) {
+            const err = new S3Error(S3Error.InvalidArgument);
+            err.message = 'x-amz-object-lock-retain-until-date and x-amz-object-lock-mode must both be supplied';
+            throw err;
+        }
+        if (_is_valid_retention(mode, retain_until_date)) {
+            lock_settings.retention = { mode, retain_until_date };
+        }
+    }
+    if (status) {
+        if (!_is_valid_legal_hold(status)) throw new S3Error(S3Error.InvalidArgument);
+        lock_settings.legal_hold = { status };
+    }
+    return lock_settings;
+}
+
 
 function parse_tagging_header(req) {
     const tagging_header = req.headers['x-amz-tagging'];
@@ -365,6 +417,39 @@ function parse_body_encryption_xml(req) {
     };
 }
 
+function parse_body_object_lock_conf_xml(req) {
+    const configuration = req.body.ObjectLockConfiguration;
+    const retention = configuration.Rule[0].DefaultRetention[0];
+
+    if ((retention.Days && retention.Years) || (!retention.Days && !retention.Years) ||
+        (retention.Mode[0] !== 'GOVERNANCE' && retention.Mode[0] !== 'COMPLIANCE')) throw new S3Error(S3Error.MalformedXML);
+
+    const conf = {
+        object_lock_enabled: configuration.ObjectLockEnabled[0],
+        rule: { default_retention: { mode: retention.Mode[0], } }
+    };
+
+    if (retention.Days) {
+        let days = parseInt(retention.Days[0], 10);
+        if (days <= 0) {
+            let err = new S3Error(S3Error.InvalidArgument);
+            err.message = 'Default retention period must be a positive integer value';
+            throw err;
+        }
+        conf.rule.default_retention.days = days;
+    }
+    if (retention.Years) {
+        let years = parseInt(retention.Years[0], 10);
+        if (years <= 0) {
+            let err = new S3Error(S3Error.InvalidArgument);
+            err.message = 'Default retention period must be a positive integer value';
+            throw err;
+        }
+        conf.rule.default_retention.years = years;
+    }
+    return conf;
+}
+
 function parse_body_website_xml(req) {
     const website = {
         website_configuration: {}
@@ -420,6 +505,25 @@ function parse_body_website_xml(req) {
     }
 }
 
+function parse_to_camel_case(obj_lock, root_key) {
+    const keys_func = key => _.upperFirst(_.camelCase(key));
+    const rename_keys = variable => {
+        if (_.isArray(variable)) {
+            return _.map(variable, obj => rename_keys(obj));
+        } else if (_.isObject(variable)) {
+            return Object.keys(variable).reduce((acc, key) => ({
+                ...acc,
+                ...{
+                    [keys_func(key)]: rename_keys(variable[key])
+                }
+            }), {});
+        }
+        return variable;
+    };
+    const reply = root_key ? { root_key: rename_keys(obj_lock) } : rename_keys(obj_lock);
+    return reply;
+}
+
 function parse_website_to_body(website) {
     const keys_func = key => _.upperFirst(_.camelCase(key));
     const rename_keys = variable => {
@@ -463,3 +567,7 @@ exports.parse_body_encryption_xml = parse_body_encryption_xml;
 exports.set_encryption_response_headers = set_encryption_response_headers;
 exports.parse_body_website_xml = parse_body_website_xml;
 exports.parse_website_to_body = parse_website_to_body;
+exports.parse_lock_header = parse_lock_header;
+exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
+exports.parse_to_camel_case = parse_to_camel_case;
+exports._is_valid_retention = _is_valid_retention;

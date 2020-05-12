@@ -169,7 +169,8 @@ class ObjectIO {
             'sha256_b64',
             'xattr',
             'tagging',
-            'encryption'
+            'encryption',
+            'lock_settings'
         );
         const complete_params = _.pick(params,
             'obj_id',

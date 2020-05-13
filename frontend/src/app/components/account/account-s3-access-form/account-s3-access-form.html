@@ -5,18 +5,23 @@
         Account S3 Access
     </h2>
 
-    <button class="btn push-next"
-        ko.click="onSetIPRestrictions"
-    >
-        Set IP Restrictions
-    </button>
+    <div class="push-next" ko.tooltip="actionsTooltip">
+        <button class="btn"
+            ko.click="onSetIPRestrictions"
+            ko.enable="canEdit"
+        >
+            Set IP Restrictions
+        </button>
+    </div>
 
-    <button class="btn"
-        ko.click="onEditS3Access"
-        ko.disable="!dataReady()"
-    >
-        Edit S3 Access
-    </button>
+    <div ko.tooltip="actionsTooltip">
+        <button class="btn"
+            ko.click="onEditS3Access"
+            ko.enable="canEdit"
+        >
+            Edit S3 Access
+        </button>
+    </div>
 </div>
 
 <property-sheet class="s3-access-details pad push-next " params="
@@ -39,9 +44,14 @@
         Account Security Credentials
     </h2>
 
-    <button class="btn" ko.click="onRegenerateAccountCredentials">
-        Regenerate Credentials
-    </button>
+    <div ko.tooltip="actionsTooltip">
+        <button class="btn"
+            ko.click="onRegenerateAccountCredentials"
+            ko.enable="canEdit"
+        >
+            Regenerate Credentials
+        </button>
+    </div>
 </div>
 
 <loading-indicator class="align-start pad"

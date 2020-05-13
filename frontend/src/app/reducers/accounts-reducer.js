@@ -31,6 +31,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
     const {
         email,
         has_login,
+        is_external,
         access_keys,
         has_s3_access,
         default_pool,
@@ -61,8 +62,9 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
     );
 
     const isOwner = Boolean(email === owner.email);
-    const undeletable =  (isOwner && 'OWNER') || 
-        (accountsOwningBuckets.has(email) && 'OWN_BUCKET') || 
+    const undeletable =
+        (isOwner && 'OWNER') ||
+        (accountsOwningBuckets.has(email) && 'OWN_BUCKET') ||
         undefined;
 
 
@@ -70,6 +72,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         name: email,
         isAdmin: has_login,
         isOwner,
+        isExternal: Boolean(is_external), // is_external might be undefined
         hasAccessToAllBuckets,
         allowedBuckets,
         canCreateBuckets: Boolean(has_s3_access && can_create_buckets),

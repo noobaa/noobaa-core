@@ -150,6 +150,17 @@ class AccountSpaceNB {
         });
     }
 
+    /////////////////////////
+    // DEFAULT OBJECT LOCK //
+    /////////////////////////
+
+    get_object_lock_configuration(params) {
+        return this.rpc_client.bucket.get_object_lock_configuration(params);
+    }
+
+    put_object_lock_configuration(params) {
+        return this.rpc_client.bucket.put_object_lock_configuration(params);
+    }
 }
 
 module.exports = AccountSpaceNB;

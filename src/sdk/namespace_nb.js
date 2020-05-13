@@ -287,6 +287,25 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.get_object_tagging(params);
     }
 
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    get_object_legal_hold(params, object_sdk) {
+        return object_sdk.rpc_client.object.get_object_legal_hold(params);
+    }
+
+    put_object_legal_hold(params, object_sdk) {
+        return object_sdk.rpc_client.object.put_object_legal_hold(params);
+    }
+
+    get_object_retention(params, object_sdk) {
+        return object_sdk.rpc_client.object.get_object_retention(params);
+    }
+
+    put_object_retention(params, object_sdk) {
+        return object_sdk.rpc_client.object.put_object_retention(params);
+    }
 }
 
 module.exports = NamespaceNB;

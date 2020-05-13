@@ -13,7 +13,6 @@ module.exports = {
     id: 'object_api',
 
     methods: {
-
         create_object_upload: {
             method: 'POST',
             params: {
@@ -45,6 +44,9 @@ module.exports = {
                     },
                     encryption: {
                         $ref: 'common_api#/definitions/object_encryption'
+                    },
+                    lock_settings: {
+                        $ref: 'common_api#/definitions/lock_settings'
                     }
                 }
             },
@@ -57,7 +59,7 @@ module.exports = {
                     tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
-                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -590,6 +592,7 @@ module.exports = {
                     obj_id: { objectid: true },
                     version_id: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
+                    bypass_governance: { type: 'boolean' },
                 }
             },
             reply: {
@@ -1092,7 +1095,131 @@ module.exports = {
             },
             auth: { system: 'admin' }
         },
-
+        put_object_legal_hold: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket',
+                    'legal_hold'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: { type: 'string' },
+                    legal_hold: {
+                        type: 'object',
+                        properties: {
+                            status: {
+                                type: 'string',
+                                enum: ['ON', 'OFF'],
+                            },
+                        },
+                    }
+                }
+            },
+            auth: { system: 'admin' }
+        },
+        get_object_legal_hold: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    legal_hold: {
+                        type: 'object',
+                        properties: {
+                            status: {
+                                type: 'string',
+                                enum: ['ON', 'OFF'],
+                            },
+                        },
+                    }
+                }
+            },
+            auth: { system: 'admin' }
+        },
+        put_object_retention: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket',
+                    'retention'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: { type: 'string' },
+                    retention: {
+                        type: 'object',
+                        properties: {
+                            mode: {
+                                type: 'string',
+                                enum: ['GOVERNANCE', 'COMPLIANCE'],
+                            },
+                            retain_until_date: { date: true },
+                        },
+                    },
+                    bypass_governance: {
+                        type: 'boolean',
+                    },
+                }
+            },
+            auth: { system: 'admin' }
+        },
+        get_object_retention: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'key',
+                    'bucket'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: {
+                        type: 'string',
+                    },
+                    version_id: { type: 'string' },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    retention: {
+                        type: 'object',
+                        properties: {
+                            mode: {
+                                type: 'string',
+                                enum: ['GOVERNANCE', 'COMPLIANCE'],
+                            },
+                            retain_until_date: { date: true },
+                        },
+                    }
+                }
+            },
+            auth: { system: 'admin' }
+        },
         put_object_tagging: {
             method: 'PUT',
             params: {
@@ -1222,7 +1349,8 @@ module.exports = {
                 // This is the physical size (aggregation of all blocks)
                 // It does not pay attention to dedup
                 capacity_size: { type: 'integer' },
-                s3_signed_url: { type: 'string' }
+                s3_signed_url: { type: 'string' },
+                lock_settings: { $ref: 'common_api#/definitions/lock_settings' }
             }
         },
 

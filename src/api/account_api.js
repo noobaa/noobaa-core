@@ -502,6 +502,9 @@ module.exports = {
                 is_support: {
                     type: 'boolean',
                 },
+                is_external: {
+                    type: 'boolean'
+                },
                 has_login: {
                     type: 'boolean',
                 },

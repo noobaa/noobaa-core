@@ -616,7 +616,37 @@ class ObjectSDK {
             });
         }
     }
+    ////////////////////
+    //  OBJECT LOCK   //
+    ////////////////////
 
+    async get_object_lock_configuration(params) {
+        const ns = this._get_account_namespace();
+        return ns.get_object_lock_configuration(params, this);
+    }
+
+    async put_object_lock_configuration(params) {
+        const ns = this._get_account_namespace();
+        return ns.put_object_lock_configuration(params, this);
+    }
+    async get_object_legal_hold(params) {
+        const ns = this.namespace_nb;
+        return ns.get_object_legal_hold(params, this);
+    }
+
+    async put_object_legal_hold(params) {
+        const ns = this.namespace_nb;
+        return ns.put_object_legal_hold(params, this);
+    }
+    async get_object_retention(params) {
+        const ns = this.namespace_nb;
+        return ns.get_object_retention(params, this);
+    }
+
+    async put_object_retention(params) {
+        const ns = this.namespace_nb;
+        return ns.put_object_retention(params, this);
+    }
 }
 
 module.exports = ObjectSDK;

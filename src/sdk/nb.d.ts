@@ -350,6 +350,7 @@ interface ObjectMD {
     version_seq: number;
     version_past: boolean;
     version_enabled: boolean;
+    lock_enabled: boolean;
     delete_marker?: boolean;
     size: number;
     num_parts: number;
@@ -365,6 +366,7 @@ interface ObjectMD {
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
     tagging: { key: string; value: string; }[],
+    lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
 }
 
 interface ObjectInfo {
@@ -372,6 +374,7 @@ interface ObjectInfo {
     bucket: string;
     key: string;
     version_id: string;
+    lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
     is_latest: boolean;
     delete_marker?: boolean;
     size: number;

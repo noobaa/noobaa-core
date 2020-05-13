@@ -49,12 +49,13 @@ async function create_account(req) {
     const account = {
         _id: (
             req.rpc_params.new_system_parameters ?
-            system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
-            system_store.new_system_store_id()
+                system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
+                system_store.new_system_store_id()
         ),
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
+        is_external: req.rpc_params.is_external,
         access_keys: undefined,
     };
 
@@ -194,6 +195,7 @@ function create_external_user_account(req) {
         internalStorage[0];
 
     Object.assign(req.rpc_params, {
+        is_external: true,
         password: new SensitiveString(chance.string({ length: 16 })),
         must_change_password: false,
         has_login: true,
@@ -1089,10 +1091,14 @@ function delete_external_connection(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_account_info(account, include_connection_cache) {
-    var info = _.pick(account, 'name', 'email', 'access_keys');
-
-    info.has_login = account.has_login;
-    info.allowed_ips = account.allowed_ips;
+    var info = _.pick(account,
+        'name',
+        'email',
+        'is_external',
+        'access_keys',
+        'has_login',
+        'allowed_ips',
+    );
 
     if (account.is_support) {
         info.is_support = true;

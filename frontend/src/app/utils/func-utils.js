@@ -27,7 +27,8 @@ export const memorySizeOptions = deepFreeze([
     },
     {
         value: 128,
-        label: '128 MB'
+        label: '128 MB',
+        default: true
     },
     {
         value: 256,

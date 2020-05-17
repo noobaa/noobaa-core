@@ -15,10 +15,9 @@ const P = require('../../util/promise');
 const promise_utils = require('../../util/promise_utils');
 
 require('../../util/dotenv').load();
-const os = require('os');
 
 const {
-    pass = '',
+    pass = 'DeMo1',
         protocol = 'ws',
         mgmt_ip = '127.0.0.1',
         mgmt_port = '8080',
@@ -27,20 +26,24 @@ const {
         s3_sec_key = 'abc',
 } = argv;
 
+let {
+    email = 'demo@noobaa.com',
+        system_name = 'demo',
+} = argv;
 
 const api = require('../../api');
-let rpc = api.new_rpc();
+const rpc = api.new_rpc();
 
-let client = rpc.new_client({
+const client = rpc.new_client({
     address: `${protocol}://${mgmt_ip}:${mgmt_port}`
 });
-let auth_params;
-if (os.platform() === 'darwin') {
-    auth_params = { email: 'demo@noobaa.com', password: 'DeMo1', system: 'demo' };
-} else {
-    auth_params = { email: 'admin@noobaa.io', password: `${pass}`, system: 'noobaa' };
-}
 
+// if (process.platform !== 'darwin') {
+//     email = 'admin@noobaa.io';
+//     system_name = 'noobaa';
+// }
+
+const auth_params = { email, password: `${pass}`, system: `${system_name}` };
 
 const CEPH_TEST = {
     test_dir: 'src/test/system_tests/',
@@ -504,7 +507,7 @@ async function ceph_test_setup() {
     await promise_utils.exec(`echo secret_key = ${secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 
     const { access_key: access_key_tenant, secret_key: secret_key_tenant } = ceph_account_tenant.access_keys[0];
-    if (os.platform() === 'darwin') {
+    if (process.platform === 'darwin') {
         await promise_utils.exec(`sed -i "" "s|tenant_access_key|${access_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await promise_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 
@@ -600,7 +603,12 @@ async function main() {
 }
 
 async function run_test() {
-    await client.create_auth_token(auth_params);
+    try {
+        await client.create_auth_token(auth_params);
+    } catch (err) {
+        console.error('Failed create auth token', err);
+        throw new Error('Failed create auth token');
+    }
 
     try {
         await ceph_test_setup();

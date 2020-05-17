@@ -232,33 +232,34 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
     async function endpoint_request_handler(req, res) {
         // Allocate an rpc client for the request.
         const rpc_client = rpc_client_pool.alloc();
+        try {
+            // generate request id, this is lighter than uuid
+            req.request_id = `${
+                Date.now().toString(36)
+            }-${
+                process.hrtime()[1].toString(36)
+            }-${
+                Math.trunc(Math.random() * 65536).toString(36)
+            }`;
+            http_utils.parse_url_query(req);
 
-        // generate request id, this is lighter than uuid
-        req.request_id = `${
-            Date.now().toString(36)
-        }-${
-            process.hrtime()[1].toString(36)
-        }-${
-            Math.trunc(Math.random() * 65536).toString(36)
-        }`;
-        http_utils.parse_url_query(req);
+            if (req.url.startsWith('/2015-03-31/functions')) {
+                req.func_sdk = new FuncSDK(rpc_client);
+                return lambda_rest_handler(req, res);
+            }
 
-        if (req.url.startsWith('/2015-03-31/functions')) {
-            req.func_sdk = new FuncSDK(rpc_client);
-            return lambda_rest_handler(req, res);
-        }
+            if (req.headers['x-ms-version']) {
+                req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
+                return blob_rest_handler(req, res);
+            }
 
-        if (req.headers['x-ms-version']) {
+            req.virtual_hosts = VIRTUAL_HOSTS;
             req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
-            return blob_rest_handler(req, res);
+            return s3_rest_handler(req, res);
+
+        } finally {
+            rpc_client_pool.release(rpc_client);
         }
-
-        req.virtual_hosts = VIRTUAL_HOSTS;
-        req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
-        const ret = await s3_rest_handler(req, res);
-
-        rpc_client_pool.release(rpc_client);
-        return ret;
     }
 }
 

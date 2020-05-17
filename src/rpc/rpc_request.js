@@ -107,7 +107,7 @@ class RpcRequest {
                 return { name, len: buf.length };
             });
         }
-        return RpcRequest.encode_message(body, buffers);
+        return this.constructor.encode_message(body, buffers);
     }
 
     _set_request(msg, api, method_api) {
@@ -149,7 +149,7 @@ class RpcRequest {
                 });
             }
         }
-        return RpcRequest.encode_message(body, buffers);
+        return this.constructor.encode_message(body, buffers);
     }
 
     _set_response(msg) {

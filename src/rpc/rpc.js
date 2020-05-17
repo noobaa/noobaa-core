@@ -12,7 +12,6 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const RpcError = require('./rpc_error');
 const url_utils = require('../util/url_utils');
-const RpcRequest = require('./rpc_request');
 const RpcWsServer = require('./rpc_ws_server');
 const RpcN2NAgent = require('./rpc_n2n_agent');
 const RpcTcpServer = require('./rpc_tcp_server');
@@ -25,7 +24,7 @@ const RpcHttpConnection = require('./rpc_http');
 const RpcNudpConnection = require('./rpc_nudp');
 const RpcNtcpConnection = require('./rpc_ntcp');
 const RpcFcallConnection = require('./rpc_fcall');
-const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
+const RPC_BUFFERS = require('./rpc_request').RPC_BUFFERS;
 
 // dbg.set_level(5, __dirname);
 
@@ -52,6 +51,7 @@ class RPC extends EventEmitter {
         this.RPC_BUFFERS = RPC_BUFFERS;
         this._routing_authority = null;
         this._error_handler = null;
+        this.routing_hint = undefined;
     }
 
     /**
@@ -162,22 +162,26 @@ class RPC extends EventEmitter {
         options = options || {};
 
         // initialize the request
-        const req = new RpcRequest();
+        if (!this._disable_validation) {
+            method_api.validate_params(params, 'CLIENT');
+        }
+
+        // Assign a connection to the request
+        const conn = this._assign_connection(api, method_api, options);
+        if (!conn) {
+            // proxying
+            return this._proxy(api, method_api, params, options);
+        }
+
+        const req = new conn.RpcRequestType();
+        req.connection = conn;
+        req.reqid = conn._alloc_reqid();
+        conn._sent_requests.set(req.reqid, req);
         req._new_request(api, method_api, params, options.auth_token);
         req._response_defer = P.defer();
         req._response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
         if (options.tracker) {
             options.tracker(req);
-        }
-
-        if (!this._disable_validation) {
-            req.method_api.validate_params(req.params, 'CLIENT');
-        }
-
-        // assign a connection to the request
-        const conn = this._assign_connection(req, options);
-        if (!conn) { // proxying
-            return this._proxy(api, method_api, params, options);
         }
 
         let request_promise = P.resolve()
@@ -296,7 +300,7 @@ class RPC extends EventEmitter {
      */
     _on_request(conn, msg) {
         // const millistamp = time_utils.millistamp();
-        const req = new RpcRequest();
+        const req = new conn.RpcRequestType();
         req.connection = conn;
         req.reqid = msg.body.reqid;
 
@@ -418,10 +422,10 @@ class RPC extends EventEmitter {
     }
 
 
-    _get_remote_address(req, options) {
+    _get_remote_address(api, options) {
         var address = options.address;
         if (!address) {
-            const domain = options.domain || this.api_routes[req.api.id] || 'default';
+            const domain = options.domain || this.api_routes[api.id] || 'default';
             address = this.router[domain];
             dbg.log3('RPC ROUTER', domain, '=>', address);
         }
@@ -440,17 +444,15 @@ class RPC extends EventEmitter {
      * _assign_connection
      *
      */
-    _assign_connection(req, options) {
+    _assign_connection(api, method_api, options) {
         var conn = options.connection;
         if (!conn) {
-            const addr_url = this._get_remote_address(req, options);
-            conn = this._get_connection(addr_url, req.srv);
+            const srv = `${api.id}.${method_api.name}`;
+            const addr_url = this._get_remote_address(api, options);
+            conn = this._get_connection(addr_url, srv);
         }
-        if (conn) {
-            if (options.connect_timeout) conn._connect_timeout_ms = options.connect_timeout;
-            req.connection = conn;
-            req.reqid = conn._alloc_reqid();
-            conn._sent_requests.set(req.reqid, req);
+        if (conn && options.connect_timeout) {
+            conn._connect_timeout_ms = options.connect_timeout;
         }
         return conn;
     }
@@ -573,7 +575,7 @@ class RPC extends EventEmitter {
         conn.once('connect', () => {
             if (this.routing_hint) {
                 dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
-                conn.send(RpcRequest.encode_message({
+                conn.send(conn.RpcRequestType.encode_message({
                     op: 'routing_req',
                     reqid: conn._alloc_reqid(),
                     routing_hint: this.routing_hint,
@@ -606,10 +608,12 @@ class RPC extends EventEmitter {
                     return null;
                 }
                 P.resolve()
-                    .then(() => conn.send(RpcRequest.encode_message({
-                        op: 'ping',
-                        reqid: reqid
-                    })))
+                    .then(() => {
+                        conn.send(conn.RpcRequestType.encode_message({
+                            op: 'ping',
+                            reqid: reqid
+                        }));
+                    })
                     .catch(_.noop); // already means the conn is closed
                 return null;
             }, config.RPC_PING_INTERVAL_MS);
@@ -722,7 +726,7 @@ class RPC extends EventEmitter {
      *
      */
     _on_message(conn, msg_buffer) {
-        const msg = RpcRequest.decode_message(msg_buffer);
+        const msg = conn.RpcRequestType.decode_message(msg_buffer);
         if (!msg || !msg.body) {
             conn.emit('error', new Error('RPC._on_message: BAD MESSAGE' +
                 ' typeof(msg) ' + typeof(msg) +
@@ -753,7 +757,7 @@ class RPC extends EventEmitter {
                 const routing = this._routing_authority ? this._routing_authority(msg.body.routing_hint) : undefined;
 
                 dbg.log0('RPC ROUTING RES SEND', routing, conn.connid, conn.url.href);
-                conn.send(RpcRequest.encode_message({
+                conn.send(conn.RpcRequestType.encode_message({
                     op: 'routing_res',
                     reqid: msg.body.reqid,
                     routing,
@@ -770,7 +774,7 @@ class RPC extends EventEmitter {
             case 'ping': {
                 dbg.log4('RPC PONG', conn.connid);
                 P.resolve()
-                    .then(() => conn.send(RpcRequest.encode_message({
+                    .then(() => conn.send(conn.RpcRequestType.encode_message({
                         op: 'pong',
                         reqid: msg.body.reqid
                     })))

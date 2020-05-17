@@ -1,12 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let RpcBaseConnection = require('./rpc_base_conn');
+const _ = require('lodash');
+const RpcBaseConnection = require('./rpc_base_conn');
+const InMemoryRpcRequest = require('./in_memory_rpc_request');
 
 require('setimmediate');
 
 class RpcFcallConnection extends RpcBaseConnection {
+
+    get RpcRequestType() {
+        return InMemoryRpcRequest;
+    }
 
     constructor(addr_url) {
         super(addr_url);

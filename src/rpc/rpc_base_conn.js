@@ -9,6 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const time_utils = require('../util/time_utils');
 const RpcError = require('./rpc_error');
+const RpcRequest = require('./rpc_request');
 
 const STATE_INIT = 'init';
 const STATE_CONNECTING = 'connecting';
@@ -16,6 +17,10 @@ const STATE_CONNECTED = 'connected';
 const STATE_CLOSED = 'closed';
 
 class RpcBaseConnection extends EventEmitter {
+
+    get RpcRequestType() {
+        return RpcRequest;
+    }
 
     constructor(addr_url) {
         super();

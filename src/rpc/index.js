@@ -9,5 +9,4 @@ const RpcRequest = require('./rpc_request');
 exports.RPC = RPC;
 exports.RpcError = RpcError;
 exports.RpcSchema = RpcSchema;
-exports.RpcRequest = RpcRequest;
 exports.RPC_BUFFERS = RpcRequest.RPC_BUFFERS;

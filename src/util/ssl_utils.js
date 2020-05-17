@@ -99,7 +99,7 @@ async function update_certs_from_disk() {
         })
     );
 
-    const updatedList = Promise.all(promiseList);
+    const updatedList = await Promise.all(promiseList);
     return updatedList.some(Boolean);
 }
 

@@ -16,7 +16,7 @@ class ServerRpc {
         // n2n proxy allows any service reach n2n agents
         // without registering an n2n agent by proxying requests
         // using the node server
-        this.rpc.register_n2n_proxy(this.client.node.n2n_proxy);
+        this.rpc.register_n2n_proxy((...args) => this.client.node.n2n_proxy(...args));
     }
 
     get_base_address(base_hostname) {

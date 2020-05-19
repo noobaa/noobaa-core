@@ -110,14 +110,12 @@ prepare_server_pvs() {
 }
 
 prepare_mongo_pv() {
-  local dir="/mongo_data/mongo/cluster/shard1"
+  local dir="/data/mongo/cluster/shard1"
 
   # change ownership and permissions of mongo db path
   ${KUBE_PV_CHOWN} mongo
 
   mkdir -p ${dir}
-  chgrp 0 ${dir}
-  chmod g=u ${dir}
 }
 
 run_endpoint_container() {

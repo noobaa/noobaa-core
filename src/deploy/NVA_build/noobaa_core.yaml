@@ -264,7 +264,7 @@ spec:
           # command: ['/noobaa_init_files/kube_pv_chown', 'server']
           command: ["/noobaa_init_files/noobaa_init.sh", "init_mongo"]
           volumeMounts:
-            - mountPath: /mongo_data
+            - mountPath: /data
               name: mongo-datadir
       serviceAccountName: noobaa-account
   volumeClaimTemplates:

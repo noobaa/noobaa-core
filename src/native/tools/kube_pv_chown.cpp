@@ -1,11 +1,13 @@
 #ifndef WIN32
 #include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
 #include <stdlib.h>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
+using std::cerr;
 using std::cout;
 using std::endl;
 
@@ -35,6 +37,29 @@ change_path_permissions(const char* path, long uid)
     return 0;
 }
 
+void
+change_path_permissions_recursive(std::string path, long uid)
+{
+    change_path_permissions(path.c_str(), uid);
+    DIR* dir = opendir(path.c_str());
+    if (!dir) {
+        if (errno != ENOTDIR) {
+            cerr << "Error: opendir(" << path << ") failed " << strerror(errno) << endl;
+            exit(1);
+        }
+        return;
+    }
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != NULL) {
+        std::string entry_name = entry->d_name;
+        std::string entry_path = path + "/" + entry_name;
+        if (entry_name != "." && entry_name != "..") {
+            change_path_permissions_recursive(entry_path, uid);
+        }
+    }
+    closedir(dir);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -52,8 +77,7 @@ main(int argc, char* argv[])
     if (deployment_type == "server") {
         change_path_permissions("/log", uid);
     } else if (deployment_type == "mongo") {
-        change_path_permissions("/mongo_data", uid);
-        change_path_permissions("/log", uid);
+        change_path_permissions_recursive("/data", uid);
     } else if (deployment_type == "agent") {
         change_path_permissions("/noobaa_storage", uid);
     } else {

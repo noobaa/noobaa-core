@@ -8,7 +8,6 @@
 
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
-const request = require('request');
 const fs = require('fs');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -42,7 +41,6 @@ const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 const ALERT_LOW_TRESHOLD = 10;
 const ALERT_HIGH_TRESHOLD = 20;
 
-var failed_sent = 0;
 // This value is non persistent on process restarts
 // This means that there might be a situation when we won't get phone home data
 // If the process will always crash prior to reaching the required amount of cycles (full_cycle_ratio)
@@ -982,36 +980,6 @@ async function object_usage_scrubber(req) {
     await system_server.set_last_stats_report_time(new_req);
 }
 
-//_.noop(send_stats_payload); // lint unused bypass
-
-function send_stats_payload(payload) {
-    if (!config.central_stats.send_stats) {
-        return P.resolve();
-    }
-    var system = system_store.data.systems[0];
-    var options = {
-        url: config.PHONE_HOME_BASE_URL + '/phdata',
-        method: 'POST',
-        body: {
-            time_stamp: new Date(),
-            system: String(system._id),
-            payload: payload
-        },
-        strictSSL: false, // means rejectUnauthorized: false
-        json: true,
-        gzip: true,
-    };
-
-    dbg.log0('Phone Home Sending Post Request To Server:', options);
-    return P.fromCallback(callback => request(options, callback), {
-            multiArgs: true
-        })
-        .spread(function(response, body) {
-            dbg.log0('Phone Home Received Response From Server', body);
-            return body;
-        });
-}
-
 
 function get_empty_nodes_histo() {
     //TODO: Add histogram for limit, once implemented
@@ -1074,48 +1042,16 @@ function get_empty_nodes_histo() {
     return empty_nodes_histo;
 }
 
-function _handle_payload(payload) {
-    return P.resolve()
-        .then(() => {
-            if (DEV_MODE) {
-                dbg.log('Central Statistics payload send is disabled in DEV_MODE');
-                return P.resolve();
-            }
-            return send_stats_payload(payload);
+function _handle_payload() {
+    let system = system_store.data.systems[0];
+    let support_account = _.find(system_store.data.accounts, account => account.is_support);
+    return server_rpc.client.stats.object_usage_scrubber({}, {
+        auth_token: auth_server.make_auth_token({
+            system_id: system._id,
+            role: 'admin',
+            account_id: support_account._id
         })
-        .catch(err => {
-            failed_sent += 1;
-            if (failed_sent > 5) {
-                let updates = {
-                    _id: system_store.data.systems[0]._id.toString(),
-                    freemium_cap: {
-                        phone_home_unable_comm: true
-                    }
-                };
-                return system_store.make_changes({
-                        update: {
-                            systems: [updates]
-                        }
-                    })
-                    .then(() => {
-                        throw err;
-                    });
-            }
-            throw err;
-        })
-        .then(() => {
-            let system = system_store.data.systems[0];
-            let support_account = _.find(system_store.data.accounts, account => account.is_support);
-            return server_rpc.client.stats.object_usage_scrubber({}, {
-                auth_token: auth_server.make_auth_token({
-                    system_id: system._id,
-                    role: 'admin',
-                    account_id: support_account._id
-                })
-            });
-        })
-        .then(() => dbg.log('Phone Home data was sent successfuly'));
-
+    });
 }
 
 async function background_worker() {
@@ -1157,7 +1093,7 @@ async function _perform_full_cycle() {
         })
     });
 
-    await _handle_payload(payload);
+    await _handle_payload();
 
     const free_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].free_space);
     const total_bytes = size_utils.bigint_to_bytes(payload.systems_stats.systems[0].total_space);

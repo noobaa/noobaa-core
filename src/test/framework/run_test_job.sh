@@ -6,7 +6,7 @@ SCRIPT_NAME=$(basename $0)
 JOB_YAML="./test_job.yaml"
 NAMESPACE="noobaa-tests"
 TESTS_LIST="./pipeline_tests_list.js"
-TESTS_CONCURRENCY="\"1\""
+TESTS_CONCURRENCY="1"
 TESTS_DELETE_ON_FAIL="DELETE_ON_FAIL_PLACEHOLDER"
 
 function usage(){
@@ -40,7 +40,7 @@ do
                             shift 2;;
 		--tests_list)       TESTS_LIST=${2}
 						    shift 2;;
-        --concurrency)      TESTS_CONCURRENCY=\"${2}\"
+        --concurrency)      TESTS_CONCURRENCY=${2}
                             shift 2;;
         --wait)             WAIT_COMPLETION=true
                             shift 1;;

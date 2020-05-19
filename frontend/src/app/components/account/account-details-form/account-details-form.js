@@ -3,6 +3,7 @@
 import template from './account-details-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
+import { canEditAccount } from 'utils/account-utils';
 import {
     openChangePasswordModal,
     openResetPasswordModal
@@ -29,16 +30,18 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
     ];
 
     selectState(state, params) {
-        const { accounts, session } = state;
+        const { accounts = {}, session } = state;
 
         return [
-            accounts && accounts[params.accountName],
-            session
+            accounts[params.accountName],
+            session && accounts[session.user],
+            session && session.authorizedBy
+
         ];
     }
 
-    mapStateToProps(account, session) {
-        if (!account || !session) {
+    mapStateToProps(account, user, authorizedBy) {
+        if (!account || !user) {
             ko.assignToProps(this, {
                 button: {
                     label: 'Reset Password',
@@ -48,11 +51,12 @@ class AccountDetailsFormViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const { user, authorizedBy } = session;
             const { isAdmin } = account;
-            const isCurrentUser = user === account.name;
-            const allowResetPassword = authorizedBy === 'noobaa';
+            const isCurrentUser = user === account;
             const role  = isAdmin ? 'Administator' : 'Application';
+            const allowResetPassword =
+                authorizedBy === 'noobaa' &&
+                canEditAccount(user, account);
 
             ko.assignToProps(this, {
                 accountName: account.name,

@@ -43,7 +43,7 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
-function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag) {
+function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
@@ -64,7 +64,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
                 (2 * config.MD_GRACE_IN_MILLISECONDS),
         },
         lambda_triggers: [],
-        versioning: 'DISABLED'
+        versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
+        object_lock_configuration: config.WORM_ENABLED ? {
+            object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
+        } : undefined
     };
 }
 
@@ -128,7 +131,8 @@ async function create_bucket(req) {
         req.system._id,
         tiering_policy._id,
         req.account._id,
-        req.rpc_params.tag);
+        req.rpc_params.tag,
+        req.rpc_params.lock_enabled);
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
@@ -463,7 +467,13 @@ async function read_bucket_sdk_info(req) {
  * UPDATE_BUCKET
  *
  */
-function update_bucket(req) {
+async function update_bucket(req) {
+    const bucket = find_bucket(req, req.name);
+    const conf = bucket.object_lock_configuration;
+    if (config.WORM_ENABLED && conf && conf.object_lock_enabled === 'Enabled' && req.rpc_params.versioning === 'SUSPENDED') {
+        throw new RpcError('INVALID_BUCKET_STATE', 'An Object Lock configuration is present on this bucket, so the versioning state cannot be changed.');
+    }
+
     const new_req = { ...req, rpc_params: [req.rpc_params] };
     return update_buckets(new_req);
 }
@@ -1401,6 +1411,7 @@ function get_bucket_info({
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
+        object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
         tagging: bucket.tagging,
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
@@ -1727,6 +1738,33 @@ async function list_undeletable_buckets() {
     return MDStore.instance().all_buckets_with_completed_objects();
 }
 
+async function get_object_lock_configuration(req) {
+    const bucket = find_bucket(req);
+    dbg.log0('get object lock configuration of bucket', req.rpc_params);
+
+    if (!bucket.object_lock_configuration || bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR');
+    }
+    return bucket.object_lock_configuration;
+}
+
+async function put_object_lock_configuration(req) {
+    dbg.log0('add object lock configuration to bucket', req.rpc_params);
+    const bucket = find_bucket(req);
+
+    if (bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_BUCKET_STATE');
+    }
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                object_lock_configuration: req.rpc_params.object_lock_configuration
+            }]
+        }
+    });
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -1775,3 +1813,6 @@ exports.put_bucket_policy = put_bucket_policy;
 exports.get_bucket_policy = get_bucket_policy;
 
 exports.update_all_buckets_default_pool = update_all_buckets_default_pool;
+
+exports.get_object_lock_configuration = get_object_lock_configuration;
+exports.put_object_lock_configuration = put_object_lock_configuration;

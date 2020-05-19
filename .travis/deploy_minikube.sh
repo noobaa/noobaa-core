@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 # exit immediately when a command fails
 set -e
 # only exit with zero if all commands of the pipeline exit successfully
@@ -13,10 +15,10 @@ set -x
 # https://github.com/jaegertracing/jaeger-operator/blob/master/.travis/setupMinikube.sh
 
 # socat is needed for port forwarding
-sudo apt-get update && sudo apt-get install socat
+sudo apt-get update && sudo apt-get install socat && sudo apt-get install conntrack
 
-export MINIKUBE_VERSION=v1.2.0
-export KUBERNETES_VERSION=v1.15.0
+export MINIKUBE_VERSION=v1.8.2
+export KUBERNETES_VERSION=v1.17.3
 
 sudo mount --make-rshared /
 sudo mount --make-rshared /proc
@@ -38,16 +40,12 @@ minikube config set WantNoneDriverWarning false
 minikube config set vm-driver none
 
 minikube version
-sudo minikube start --kubernetes-version=$KUBERNETES_VERSION --extra-config=apiserver.authorization-mode=RBAC #--insecure-registry="${LOCAL_IP}:5000" #TODO Remove insecure
+sudo minikube start --kubernetes-version=$KUBERNETES_VERSION #--insecure-registry="${LOCAL_IP}:5000" #TODO Remove insecure
 sudo chown -R travis: /home/travis/.minikube/
 
 minikube update-context
 
-# waiting for node(s) to be ready
-JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
-
-# waiting for kube-addon-manager to be ready
-JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl -n kube-system get pods -lcomponent=kube-addon-manager -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1;echo "waiting for kube-addon-manager to be available"; kubectl get pods --all-namespaces; done
-
-# waiting for kube-dns to be ready
+# Following is just to demo that the kubernetes cluster works.
+kubectl cluster-info
+# Wait for kube-dns to be ready.
 JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl -n kube-system get pods -lk8s-app=kube-dns -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1;echo "waiting for kube-dns to be available"; kubectl get pods --all-namespaces; done

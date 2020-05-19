@@ -394,6 +394,17 @@ const errors_defs = [{
     message: 'Invalid principal in policy',
     http_code: 400,
     detail: '...',
+}, {
+    // not defined in AWS docs but this is what they return
+    code: 'NoSuchObjectLockConfiguration',
+    message: 'The specified object does not have a ObjectLock configuration',
+    http_code: 404,
+}, {
+    // not defined in AWS docs but this is what they return
+    code: 'ObjectLockConfigurationNotFoundError',
+    message: 'Object Lock configuration does not exist for this bucket',
+    http_code: 404,
+
 }];
 
 for (const err_def of errors_defs) {

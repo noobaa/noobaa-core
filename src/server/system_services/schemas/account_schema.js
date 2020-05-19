@@ -20,6 +20,7 @@ module.exports = {
         name: { wrapper: SensitiveString },
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
+        is_external: { type: 'boolean' },
 
         // password login
         has_login: { type: 'boolean' },

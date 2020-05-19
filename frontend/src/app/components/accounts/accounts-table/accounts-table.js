@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, throttle, createCompareFunc } from 'utils/core-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import { realizeUri } from 'utils/browser-utils';
+import { canDeleteAccount } from 'utils/account-utils';
 import * as routes from 'routes';
 import {
     requestLocation,
@@ -40,9 +41,10 @@ const columns = deepFreeze([
 
 function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
     const { name, defaultResource, undeletable } = account;
-    const isCurrentUser = name === currentUser;
+    const isCurrentUser = account === currentUser;
     const accountNameText = `${name} ${isCurrentUser ? '(Current user)' : ''}`;
     const usingInternalStorage = defaultResource === 'INTERNAL_STORAGE';
+    const undeletableByUser = !canDeleteAccount(currentUser, account);
 
     return {
         isCurrentUser,
@@ -64,20 +66,24 @@ function _mapAccountToRow(account, currentUser, baseRoute, selectedForDelete) {
         deleteButton: {
             id: name,
             active: selectedForDelete === name,
-            disabled: Boolean(undeletable),
-            tooltip: _getDeleteBucketTooltip(undeletable)
+            disabled: undeletableByUser,
+            tooltip: _getDeleteAccountTooltip(
+                undeletable || (undeletableByUser ? 'NO_PERMISSIONS' : '')
+            )
         }
     };
 }
 
-function _getDeleteBucketTooltip(undeletable) {
-    switch (undeletable) {
+function _getDeleteAccountTooltip(reason) {
+    switch (reason) {
         case 'OWNER':
             return 'Cannot delete system owner';
         case 'OWN_BUCKET':
-            return 'Cannot delete buckets owner';
+            return 'Cannot delete an account that own buckets';
+        case 'NO_PERMISSIONS':
+            return 'User has no permissions to delete this account';
         default:
-            return 'Delete account';
+            return 'Delete Account';
     }
 }
 
@@ -171,7 +177,7 @@ class AccountsTableViewModel extends ConnectableViewModel {
                     .slice(pageStart, pageStart + pageSize)
                     .map(account => _mapAccountToRow(
                         account,
-                        session.user,
+                        accounts[session.user],
                         realizeUri(routes.account, { system }, {}, true),
                         selectedForDelete
                     ))

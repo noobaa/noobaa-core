@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {import('./rpc_request')} RpcRequest **/
+
 const _ = require('lodash');
 const EventEmitter = require('events').EventEmitter;
 
@@ -9,6 +11,8 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const time_utils = require('../util/time_utils');
 const RpcError = require('./rpc_error');
+const RpcMessage = require('./rpc_message');
+
 
 const STATE_INIT = 'init';
 const STATE_CONNECTING = 'connecting';
@@ -39,6 +43,8 @@ class RpcBaseConnection extends EventEmitter {
 
         this._connect_timeout_ms = config.RPC_CONNECT_TIMEOUT;
 
+        this._ping_reqid_set = undefined;
+
         // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
         // and is expected after calling _connect() or when a connection is accepted
         // and already considered connected.
@@ -61,6 +67,16 @@ class RpcBaseConnection extends EventEmitter {
             // RPC connecteion closed after an error event received from the connection
             dbg.log0('RPC CONNECTION CLOSED. got event from connection:', this.connid, err.stack || err.message || err);
             this.close(err);
+        });
+
+        this.on('message', encoded_msg => {
+            try {
+                var decoded_message = this._decode_message(encoded_msg);
+                this.emit('decoded_message', decoded_message);
+            } catch (err) {
+                dbg.error(`RPC decode message failed, got: ${err.message}`);
+                this.emit_error(err);
+            }
         });
 
         // on send failures we handle by closing and rethrowing to the caller
@@ -101,13 +117,19 @@ class RpcBaseConnection extends EventEmitter {
      *
      * send message
      *
+     * @param {RpcMessage} msg
+     * @param {RpcRequest} [req]
+     * @returns Promise
      */
-    send(msg, op, req) {
+    send(msg, req) {
         if (this._state !== STATE_CONNECTED) {
             throw new Error('RPC CONN NOT CONNECTED ' + this._state + ' ' + this.connid);
         }
         return P.resolve()
-            .then(() => this._send(msg, op, req))
+            .then(() => {
+                const encoded_message = this._encode_message(msg);
+                return this._send(encoded_message, msg.body && msg.body.op, req);
+            })
             .timeout(config.RPC_SEND_TIMEOUT)
             .catch(P.TimeoutError, () => this.emit_error(new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')))
             .catch(this.emit_error);
@@ -129,10 +151,43 @@ class RpcBaseConnection extends EventEmitter {
         return this._state === STATE_CLOSED;
     }
 
+    /**
+     * @param {RpcMessage} msg
+     * @returns {object}
+     */
+    _encode_message(msg) {
+        return msg.encode();
+    }
+
+     /**
+     * @param {object} encoded_message
+     * @returns {RpcMessage}
+     */
+    _decode_message(encoded_message) {
+        return RpcMessage.decode(encoded_message);
+    }
+
     _alloc_reqid() {
         let reqid = this._rpc_req_seq + '@' + this.connid;
         this._rpc_req_seq += 1;
         return reqid;
+    }
+
+    /* ----------------------------------------------------------------
+     * The following methods should be overriden by every concrete type
+     * extending RpcBaseConnection
+     * ----------------------------------------------------------------
+     */
+    _connect() {
+        throw new Error("Not Implemented");
+    }
+
+    _send(msg, op, req) {
+        throw new Error("Not Implemented");
+    }
+
+    _close() {
+        throw new Error("Not Implemented");
     }
 
 }

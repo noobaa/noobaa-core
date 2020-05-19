@@ -3279,7 +3279,7 @@ class NodesMonitor extends EventEmitter {
                 }
             )
             .then(reply => ({
-                proxy_reply: reply,
+                proxy_reply: js_utils.omit_symbol(reply, RPC_BUFFERS),
                 [RPC_BUFFERS]: reply && reply[RPC_BUFFERS],
             }));
     }

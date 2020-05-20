@@ -88,7 +88,8 @@ class NamespaceCache {
         let object_info_hub = null;
         try {
             object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
-            if (object_info_hub.etag === cache_etag) {
+            // If cache_etag is not defined or if etas are the same, then upload to hub 
+            if (!cache_etag || object_info_hub.etag === cache_etag) {
                 dbg.log0('NamespaceCache.read_object_md: same etags: updating cache valid time', object_info_hub);
                 process.nextTick(() => {
                     const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');

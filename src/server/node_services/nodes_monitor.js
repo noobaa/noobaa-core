@@ -201,7 +201,7 @@ class NodesMonitor extends EventEmitter {
         // This is used in order to test n2n connection from node_monitor to agents
         this.n2n_rpc = api.new_rpc();
         this.n2n_client = this.n2n_rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-        this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
+        this.n2n_agent = this.n2n_rpc.register_n2n_agent((...args) => this.n2n_client.node.n2n_signal(...args));
         this._host_sequence_number = 0;
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
@@ -1884,7 +1884,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleting &&
             !item.node.deleted);
         if (stat) {
-            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} 
+            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address}
                 ${item.io_detention} ${item.node.migrating_to_pool} ${item.node.decommissioning} ${item.node.decommissioned} ${item.node.deleting} ${item.node.deleted}`);
         }
         return stat;
@@ -1904,7 +1904,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleted
         );
         if (!readable) {
-            dbg.log0_throttled(`${item.node.name} not reasable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
+            dbg.log0_throttled(`${item.node.name} not reasable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
                 ${!item.auth_failed} ${!item.io_detention} ${!item.node.decommissioned} ${!item.node.deleting} ${!item.node.deleted}`);
         }
         return readable;
@@ -1928,8 +1928,8 @@ class NodesMonitor extends EventEmitter {
         );
 
         if (!writable) {
-            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
-                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned} 
+            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
+                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned}
                 ${!item.node.deleting} ${!item.node.deleted}`);
         }
         return writable;

@@ -558,3 +558,41 @@ interface PartSchemaDB {
     uncommitted?: boolean;
 }
 
+/**********************************************************
+ *
+ * API CLIENT - client interface based on default schema
+ *
+ **********************************************************/
+
+interface APIClient {
+    RPC_BUFFERS: Symbol;
+
+    create_auth_token(params: object): Promise<object>;
+    create_access_key_auth(params: object): Promise<object>;
+    create_k8s_auth(params: object): Promise<object>;
+
+    readonly auth: object;
+    readonly account: object;
+    readonly system: object;
+    readonly tier: object;
+    readonly node: object;
+    readonly host: object;
+    readonly bucket: object;
+    readonly events: object;
+    readonly object: object;
+    readonly agent: object;
+    readonly block_store: object;
+    readonly stats: object;
+    readonly scrubber: object;
+    readonly debug: object;
+    readonly redirector: object;
+    readonly tiering_policy: object;
+    readonly pool: object;
+    readonly cluster_server: object;
+    readonly cluster_internal: object;
+    readonly server_inter_process: object;
+    readonly hosted_agents: object;
+    readonly frontend_notifications: object;
+    readonly func: object;
+    readonly func_node: object;
+}

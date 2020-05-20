@@ -11,35 +11,36 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../rpc');
+const { client_factory_from_schema } = require('../../api/api');
 
 function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
     console.log(...args);
 }
 
-class APIClient {
-    constructor(rpc, default_options) {
-        this.rpc = rpc;
-        this.options = _.create(default_options);
-        this.RPC_BUFFERS = RPC_BUFFERS;
+// class APIClient {
+//     constructor(rpc, default_options) {
+//         this.rpc = rpc;
+//         this.options = _.create(default_options);
+//         this.RPC_BUFFERS = RPC_BUFFERS;
 
-        this.test = undefined;
-        this.common_test = undefined;
+//         this.test = undefined;
+//         this.common_test = undefined;
 
-        _.each(rpc.schema, api => {
-            if (!api || !api.id || api.id[0] === '_') return;
-            const name = api.id.replace(/_api$/, '');
-            if (name === 'rpc' || name === 'options') throw new Error('ILLEGAL API ID');
-            this[name] = {};
-            _.each(api.methods, (method_api, method_name) => {
-                this[name][method_name] = (params, options) => {
-                    options = _.create(this.options, options);
-                    return rpc._request(api, method_api, params, options);
-                };
-            });
-        });
-    }
-}
+//         _.each(rpc.schema, api => {
+//             if (!api || !api.id || api.id[0] === '_') return;
+//             const name = api.id.replace(/_api$/, '');
+//             if (name === 'rpc' || name === 'options') throw new Error('ILLEGAL API ID');
+//             this[name] = {};
+//             _.each(api.methods, (method_api, method_name) => {
+//                 this[name][method_name] = (params, options) => {
+//                     options = _.create(this.options, options);
+//                     return rpc._request(api, method_api, params, options);
+//                 };
+//             });
+//         });
+//     }
+// }
 
 mocha.describe('RPC', function() {
 
@@ -235,6 +236,7 @@ mocha.describe('RPC', function() {
     schema.register_api(test_api);
     schema.register_api(common_test_api);
     schema.compile();
+    const client_factory = client_factory_from_schema(schema);
 
     var rpc;
     var client;
@@ -268,10 +270,8 @@ mocha.describe('RPC', function() {
     }
 
     mocha.beforeEach('test_rpc.beforeEach', function() {
-
-
         rpc = new RPC({
-            APIClient,
+            client_factory,
             schema: schema,
             router: {
                 default: 'fcall://fcall'
@@ -535,9 +535,7 @@ mocha.describe('RPC', function() {
             rpc.register_service(test_api, make_server());
             let tcp_server;
             const ADDR = 'n2n://testrpc';
-            let n2n_agent = rpc.register_n2n_agent(
-                params => rpc.accept_n2n_signal(params)
-            );
+            let n2n_agent = rpc.register_n2n_agent(params => rpc.accept_n2n_signal(params));
             n2n_agent.set_rpc_address(ADDR);
             n2n_agent.update_n2n_config(n2n_config);
             return rpc.register_tcp_transport(0)

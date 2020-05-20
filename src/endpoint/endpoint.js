@@ -213,7 +213,7 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
 
     if (options.n2n_agent) {
         const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-        const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
         n2n_agent.set_any_rpc_address();
     }
 

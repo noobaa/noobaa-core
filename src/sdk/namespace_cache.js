@@ -17,7 +17,17 @@ class NamespaceCache {
     }
 
     get_write_resource() {
-        return this.namespace_hub;
+        return this;
+    }
+
+    get_bucket() {
+        return this.namespace_hub.get_bucket();
+    }
+
+    is_same_namespace(other) {
+        return other instanceof NamespaceCache &&
+            this.namespace_hub === other.namespace_hub &&
+            this.namespace_nb === other.namespace_nb;
     }
 
     /////////////////
@@ -55,6 +65,7 @@ class NamespaceCache {
             object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
             if (get_from_cache) {
                 dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
+                object_info_cache.ns = this;
                 return object_info_cache;
             }
 
@@ -64,6 +75,7 @@ class NamespaceCache {
             // caching.ttl is in seconds
             if (time_since_validation <= this.caching.ttl * 1000) {
                 object_info_cache.from_cache = true; // mark it for read_object_stream
+                object_info_cache.ns = this;
                 dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
                 return object_info_cache;
             }
@@ -112,6 +124,7 @@ class NamespaceCache {
             }
             throw (err);
         }
+        object_info_hub.ns = this;
         return object_info_hub;
     }
 
@@ -158,7 +171,7 @@ class NamespaceCache {
     async upload_object(params, object_sdk) {
 
         // TODO: Create a config for the max size of object to be cached
-        if (params.size > 8 * 1024 * 1024) {
+        if (params.copy_source || params.size > 8 * 1024 * 1024) {
             return this.namespace_hub.upload_object(params, object_sdk);
         }
 

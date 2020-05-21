@@ -36,7 +36,7 @@ class NamespaceCache {
 
     async list_objects(params, object_sdk) {
         // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_objects(params, object_sdk);
+        return this.namespace_hub.list_objects(params, object_sdk);
     }
 
     async list_uploads(params, object_sdk) {
@@ -92,15 +92,18 @@ class NamespaceCache {
             if (!cache_etag || object_info_hub.etag === cache_etag) {
                 dbg.log0('NamespaceCache.read_object_md: same etags: updating cache valid time', object_info_hub);
                 process.nextTick(() => {
-                    const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
-                    update_params.cache_valid_time = (new Date()).getTime();
-                    this.rpc_client.object.update_object_md(update_params)
-                        .then(() => {
-                            dbg.log0('NamespaceCache.read_object_md: updated cache valid time', update_params);
-                        })
-                        .catch(err => {
-                            dbg.error('NamespaceCache.read_object_md: error in updating cache valid time', err);
-                        });
+                    // If cache object is null, then an update to md will fail. 
+                    if (object_info_cache) {
+                        const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
+                        update_params.cache_valid_time = (new Date()).getTime();
+                        this.rpc_client.object.update_object_md(update_params)
+                            .then(() => {
+                                dbg.log0('NamespaceCache.read_object_md: updated cache valid time', update_params);
+                            })
+                            .catch(err => {
+                                dbg.error('NamespaceCache.read_object_md: error in updating cache valid time', err);
+                            });
+                    }
                 });
             } else {
                 dbg.log0('NamespaceCache.read_object_md: etags different',

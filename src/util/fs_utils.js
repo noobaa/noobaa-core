@@ -265,18 +265,6 @@ function write_file_from_stream(file_path, read_stream) {
     );
 }
 
-function get_md5_of_file(file_path) {
-    // the file you want to get the hash    
-    var fd = fs.createReadStream(file_path);
-    var hash = crypto.createHash('md5');
-    return new P((resolve, reject) =>
-        fd.on('data', function(data) {
-            hash.update(data);
-        })
-        .on('end', () => resolve(hash.digest('hex')))
-    );
-}
-
 // lock per full file path, to avoid parallel replace to same path, at least from the same process
 const process_file_locks = new Map();
 
@@ -335,7 +323,6 @@ exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
 exports.write_file_from_stream = write_file_from_stream;
-exports.get_md5_of_file = get_md5_of_file;
 exports.replace_file = replace_file;
 exports.ignore_eexist = ignore_eexist;
 exports.ignore_enoent = ignore_enoent;

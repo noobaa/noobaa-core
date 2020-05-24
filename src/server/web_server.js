@@ -336,16 +336,6 @@ function serve_fe(filename) {
     };
 }
 
-// setup static files
-//use versioned executables
-var setup_filename = 'noobaa-setup-' + pkg.version;
-var s3_rest_setup_filename = 'noobaa-s3rest-' + pkg.version;
-app.use('/public/noobaa-setup.exe', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.exe')));
-app.use('/public/noobaa-setup', express.static(path.join(rootdir, 'build', 'public', setup_filename)));
-app.use('/public/noobaa-setup.exe.md5', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.exe.md5')));
-app.use('/public/noobaa-setup.md5', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.md5')));
-app.use('/public/noobaa-s3rest.exe', express.static(path.join(rootdir, 'build', 'public', s3_rest_setup_filename + 'exe')));
-
 app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours

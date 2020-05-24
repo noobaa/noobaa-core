@@ -8,21 +8,22 @@ class SensitiveString {
     constructor(val) {
         const type = typeof val;
         if (val instanceof SensitiveString) {
-            this.md5 = val.md5;
+            this.hash = val.hash;
             this.val = val.unwrap();
         } else if (type === 'string') {
             this.val = val;
-            this.md5 = crypto.createHash('md5').update(this.val).digest('hex');
+            const sha = crypto.createHash('sha512').update(this.val).digest('hex');
+            this.hash = sha.slice(0, 16);
         } else if (type === 'undefined') {
             this.val = undefined;
-            this.md5 = 'undefined';
+            this.hash = 'undefined';
         } else {
             throw new TypeError(`SensitiveString should be a string, got ${type}`);
         }
         if (process.env.DISABLE_SENSITIVE_STRING === 'true') {
             this.sensitive_val = this.val;
         } else {
-            this.sensitive_val = 'SENSITIVE-' + this.md5;
+            this.sensitive_val = 'SENSITIVE-' + this.hash;
         }
     }
 

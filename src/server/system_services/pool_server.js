@@ -219,7 +219,14 @@ async function create_hosts_pool(req) {
     const { system, rpc_params, account } = req;
     const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const PV_SIZE_GB = 20;
+    const MIN_PV_SIZE_GB = 16;
     const GB = 1024 ** 3;
+
+    if (rpc_params.backingstore && _.get(rpc_params, 'host_config.volume_size', 0) < MIN_PV_SIZE_GB * GB) {
+        dbg.error(`BackingStore ${rpc_params.backingstore.name} does not meet the minimum volume size requirement`);
+        throw new RpcError('INVALID_VOLUME_SIZE', `Minimum supported volume size is ${MIN_PV_SIZE_GB} gigabytes`);
+    }
+
     pool.hosts_pool_info = _.cloneDeep(
         _.defaultsDeep(_.pick(rpc_params, [
             'is_managed',

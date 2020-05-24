@@ -136,10 +136,10 @@ const PARTIAL_SINGLE_SYS_DEFAULTS = {
     },
     buckets_stats: PARTIAL_BUCKETS_STATS_DEFAULTS,
     usage_by_project: {
-        Others: 0,
+        'Cluster-wide': 0,
     },
     usage_by_bucket_class: {
-        Others: 0,
+        'Cluster-wide': 0,
     },
 };
 
@@ -412,10 +412,10 @@ async function _partial_buckets_info(req) {
         logical_size: size_utils.BigInteger.zero,
     };
     const usage_by_project = {
-        Others: size_utils.BigInteger.zero,
+        'Cluster-wide': size_utils.BigInteger.zero,
     };
     const usage_by_bucket_class = {
-        Others: size_utils.BigInteger.zero,
+        'Cluster-wide': size_utils.BigInteger.zero,
     };
 
     try {
@@ -444,12 +444,12 @@ async function _partial_buckets_info(req) {
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
 
-            const bucket_project = (bucket_info.bucket_claim && bucket_info.bucket_claim.namespace) || 'Others';
+            const bucket_project = (bucket_info.bucket_claim && bucket_info.bucket_claim.namespace) || 'Cluster-wide';
             const existing_project = usage_by_project[bucket_project] || size_utils.BigInteger.zero;
             usage_by_project[bucket_project] = existing_project.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
-            const bucket_class = (bucket_info.bucket_claim && bucket_info.bucket_claim.bucket_class) || 'Others';
+            const bucket_class = (bucket_info.bucket_claim && bucket_info.bucket_claim.bucket_class) || 'Cluster-wide';
             const existing_bucket_class = usage_by_bucket_class[bucket_class] || size_utils.BigInteger.zero;
             usage_by_bucket_class[bucket_class] = existing_bucket_class.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
@@ -904,6 +904,12 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     const { unhealthy_pool_count, pool_count, resources } = cloud_pool_stats;
     const { logical_size, physical_size } = savings;
 
+    let percentage_of_unhealthy_buckets = unhealthy_buckets / buckets_num;
+    let health_status = (unhealthy_pool_count === pool_count && 1) ||
+        (unhealthy_buckets === 1 && 2) ||
+        (percentage_of_unhealthy_buckets > 0.5 && 4) ||
+        (percentage_of_unhealthy_buckets > 0.3 && 3) || 0;
+
     prom_report.instance().set_providers_physical_logical(providers_stats);
     prom_report.instance().set_cloud_types(cloud_pool_stats);
     prom_report.instance().set_num_unhealthy_pools(unhealthy_pool_count);
@@ -916,6 +922,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_resource_status(resources);
     prom_report.instance().set_num_objects(objects_in_buckets);
     prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
+    prom_report.instance().set_health_status(health_status);
     prom_report.instance().set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
     prom_report.instance().set_num_buckets_claims(bucket_claims);
     prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);

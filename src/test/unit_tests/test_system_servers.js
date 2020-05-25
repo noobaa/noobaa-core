@@ -193,10 +193,6 @@ mocha.describe('system_servers', function() {
             name: pool_name,
             host_count: 3
         });
-        await rpc_client.pool.scale_hosts_pool({
-            name: pool_name,
-            host_count: 2
-        });
         await rpc_client.system.read_system();
         await rpc_client.pool.delete_pool({ name: pool_name });
 

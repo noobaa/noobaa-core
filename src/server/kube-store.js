@@ -9,6 +9,7 @@ const config = require('../../config');
 
 // Supported APIs
 const NOOBAA_IO_API = 'noobaa.io/v1alpha1';
+const V1_IO_API = 'v1';
 
 const {
     KUBERNETES_SERVICE_HOST,
@@ -18,6 +19,16 @@ const {
 // Build an rest path for a noobaa api call.
 function get_noobaa_path(namespace, noobaa_name) {
     return `/apis/${NOOBAA_IO_API}/namespaces/${namespace}/noobaas/${noobaa_name}`;
+}
+
+// Build an rest path for a backingstore api call.
+function get_backingstores_path(namespace) {
+    return `/apis/${NOOBAA_IO_API}/namespaces/${namespace}/backingstores`;
+}
+
+// Build an rest path for a secret api call.
+function get_secrets_path(namespace) {
+    return `/api/${V1_IO_API}/namespaces/${namespace}/secrets`;
 }
 
 class KubeStore {
@@ -72,8 +83,7 @@ class KubeStore {
                 'application/merge-patch+json' :
                 'application/json';
 
-            const response = await make_http_request(
-                {
+            const response = await make_http_request({
                     method: method,
                     hostname: this._service_host,
                     port: this._service_port,
@@ -98,7 +108,7 @@ class KubeStore {
             };
 
         } catch (err) {
-            throw new Error(`${method} ${path} did not responed`);
+            throw new Error(`${method} ${path} did not responed or returned with an error ${err}`);
         }
     }
 
@@ -114,7 +124,7 @@ class KubeStore {
                 return null;
             }
             default: {
-                throw new Error(`Could not retrive noobaa, got ${JSON.stringify(body)}`);
+                throw new Error(`Could not retrive noobaa, (status code: ${status_code}) got ${JSON.stringify(body)}`);
             }
         }
     }
@@ -128,7 +138,83 @@ class KubeStore {
                 return;
             }
             default: {
-                throw new Error(`Could not patch noobaa, got ${JSON.stringify(body)}`);
+                throw new Error(`Could not patch noobaa, (status code: ${status_code}) got ${JSON.stringify(body)}`);
+            }
+        }
+    }
+
+    async create_backingstore(new_store) {
+        await this._init();
+        const path = get_backingstores_path(this._k8s_namespace);
+        const { status_code, body } = await this._make_k8s_api_request('POST', path, new_store);
+        switch (status_code) {
+            case 201: {
+                return;
+            }
+            default: {
+                throw new Error(`Could not create backingstore, (status code: ${status_code}) got ${JSON.stringify(body)}`);
+            }
+        }
+    }
+
+    async delete_backingstore(name) {
+        await this._init();
+        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
+        const { status_code, body } = await this._make_k8s_api_request('DELETE', path);
+        switch (status_code) {
+            case 200: {
+                return;
+            }
+            case 404: { // couldn't find - already deleted
+                return;
+            }
+            default: {
+                throw new Error(`Could not delete backingstore, (status code: ${status_code}) got ${JSON.stringify(body)}`);
+            }
+        }
+    }
+
+    async read_backingstore(name) {
+        await this._init();
+        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
+        const { status_code, body } = await this._make_k8s_api_request('GET', path);
+        switch (status_code) {
+            case 200: {
+                return body;
+            }
+            case 404: {
+                return null;
+            }
+            default: {
+                throw new Error(`Could not retrive backingstore, (status code: ${status_code}) got ${JSON.stringify(body)}`);
+            }
+        }
+    }
+
+    async patch_backingstore(name, patch) {
+        await this._init();
+        const path = get_backingstores_path(this._k8s_namespace) + `/${name}`;
+        const { status_code, body } = await this._make_k8s_api_request('PATCH', path, patch);
+        switch (status_code) {
+            case 200: {
+                return;
+            }
+            default: {
+                throw new Error(`Could not patch backingstore, (status code: ${status_code}) got ${JSON.stringify(body)}`);
+            }
+        }
+    }
+
+    async create_secret(new_secret) {
+        await this._init();
+        const path = get_secrets_path(this._k8s_namespace);
+        const { status_code, body } = await this._make_k8s_api_request('POST', path, new_secret);
+        switch (status_code) {
+            case 201: {
+                return;
+            }
+            default: {
+                throw new Error(`Could not create secret, (status code: ${status_code}) got ${JSON.stringify(body)}`);
             }
         }
     }

@@ -189,8 +189,8 @@ async function _get_redirection_bucket(req, bucket) {
     const redirect = bucket_website_info.website_configuration.redirect_all_requests_to;
     if (redirect) {
         const dest = redirect.host_name;
-        const protocol = redirect.protocol || req.secure ? 'https' : 'http';
-        return `${protocol}//${dest}`;
+        const protocol = redirect.protocol || (req.secure ? 'https' : 'http');
+        return `${protocol.toLowerCase()}://${dest}`;
     }
 }
 

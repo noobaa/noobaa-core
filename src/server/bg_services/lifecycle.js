@@ -61,7 +61,7 @@ function background_worker() {
                                     return server_rpc.client.object.delete_multiple_objects_by_prefix(deletion_params, {
                                         auth_token: auth_server.make_auth_token({
                                             system_id: system._id,
-                                            account_id: system.owner,
+                                            account_id: system.owner._id,
                                             role: 'admin'
                                         })
                                     }).then(function() {

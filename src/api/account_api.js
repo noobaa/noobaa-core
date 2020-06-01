@@ -140,6 +140,23 @@ module.exports = {
             }
         },
 
+        read_account_by_access_key: {
+            doc: 'Read the info of access_key account',
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/account_info'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_account: {
             doc: 'Update the info of the authorized account',
             method: 'PUT',

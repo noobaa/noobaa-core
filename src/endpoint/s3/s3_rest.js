@@ -88,6 +88,9 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
     OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,
     INVALID_REQUEST: S3Error.InvalidRequest,
+    NOT_IMPLEMENTED: S3Error.NotImplemented,
+    INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
+    SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
 });
 
 const S3_OPS = load_ops();
@@ -186,8 +189,8 @@ async function _get_redirection_bucket(req, bucket) {
     const redirect = bucket_website_info.website_configuration.redirect_all_requests_to;
     if (redirect) {
         const dest = redirect.host_name;
-        const protocol = redirect.protocol || req.secure ? 'https' : 'http';
-        return `${protocol}//${dest}`;
+        const protocol = redirect.protocol || (req.secure ? 'https' : 'http');
+        return `${protocol.toLowerCase()}://${dest}`;
     }
 }
 
@@ -283,6 +286,13 @@ function authenticate_request(req, res) {
 }
 
 async function authorize_request(req) {
+    await Promise.all([
+        req.object_sdk.authorize_request_account(req.params.bucket),
+        authorize_request_policy(req)
+    ]);
+}
+
+async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
     const policy_info = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);

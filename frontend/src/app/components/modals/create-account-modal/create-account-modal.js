@@ -88,18 +88,19 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             state.hostPools,
             state.cloudResources,
             state.buckets,
+            state.namespaceBuckets,
             state.forms[this.formName]
         ];
     }
 
-    mapStateToProps(accounts, hostPools, cloudResources, buckets, form) {
+    mapStateToProps(accounts, hostPools, cloudResources, buckets, namespaceBuckets, form) {
         if (!accounts || !hostPools || !cloudResources || !buckets) {
             ko.assignToProps(this, {
                 accountNameProps: {}
             });
 
         } else {
-            const bucketList = Object.keys(buckets);
+            const bucketList = [...Object.keys(buckets), ...Object.keys(namespaceBuckets)];
             const {
                 accessType = 'ADMIN',
                 allowAccessToFutureBuckets = false,

@@ -232,6 +232,19 @@ function read_account(req) {
 }
 
 
+function read_account_by_access_key(req) {
+    const { access_key } = req.rpc_params;
+
+    const account = _.find(system_store.data.accounts, acc =>
+        acc.access_keys && acc.access_keys[0].access_key.unwrap() === access_key.unwrap()
+    );
+
+    if (!account) throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with credentials: ' + access_key);
+
+    return get_account_info(account);
+}
+
+
 /**
  *
  * GENERATE_ACCOUNT_KEYS
@@ -1371,3 +1384,4 @@ exports.get_account_info = get_account_info;
 exports.ensure_support_account = ensure_support_account;
 exports.verify_authorized_account = verify_authorized_account;
 exports.get_account_usage = get_account_usage;
+exports.read_account_by_access_key = read_account_by_access_key;

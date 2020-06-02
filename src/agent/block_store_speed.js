@@ -40,7 +40,7 @@ async function main() {
     const rpc = api.new_rpc();
     const client = rpc.new_client();
     const signal_client = rpc.new_client();
-    const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
+    const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
     n2n_agent.set_any_rpc_address();
     await client.create_auth_token({
         email: argv.email,

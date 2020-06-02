@@ -829,14 +829,6 @@ function get_associated_tiering_policies(tier) {
 }
 
 function throw_on_invalid_pools_for_tier(pools) {
-    const uninitialized_pools = pools.filter(pool =>
-        pool.hosts_pool_info &&
-        !pool.hosts_pool_info.initialized
-    );
-    if (uninitialized_pools.length > 0) {
-        throw new Error(`Invalid attached pools, ${uninitialized_pools.join(', ')} are not initialized yet`);
-    }
-
     const deleting_pools = pools.filter(pool =>
         pool.hosts_pool_info &&
         pool.hosts_pool_info.host_count === 0

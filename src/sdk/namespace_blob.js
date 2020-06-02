@@ -86,7 +86,7 @@ class NamespaceBlob {
         );
         const cont_token = blobs.continuationToken || dirs.continuationToken || undefined;
         const is_truncated = Boolean(cont_token);
-        //Merge both lists (prefixes and keys) and slice according to deired size
+        //Merge both lists (prefixes and keys) and slice according to desired size
         //TODO continuationToken is not synced according to the sliced combined list, we should handle it in the future
         const combined_reply = _.sortBy(blobs.entries.concat(dirs.entries), entry => entry.name)
             .slice(0, params.limit);
@@ -326,7 +326,7 @@ class NamespaceBlob {
     }
 
     async commit_blob_block_list(params) {
-        // node sdk does not support the full rest api capability to mix committed\uncommited blocks
+        // node sdk does not support the full rest api capability to mix committed\uncommitted blocks
         // if we send both committed and uncommitted lists we can't control the order.
         // for now if there is a mix sent by the client, convert all to latest which is the more common case.
         const is_mix = _.uniqBy(params.block_list, 'type').length > 1;
@@ -376,7 +376,7 @@ class NamespaceBlob {
     async upload_multipart(params, object_sdk) {
         // generating block ids in the form: '95342c3f-000005'
         // this is needed mostly since azure requires all the block_ids to have the same fixed length
-        const block_id = this.blob.getBlockId(this.blob.generateBlockIdPrefix(), params.num);
+        const block_id = this.blob.getBlockId(params.obj_id, params.num);
         dbg.log0('NamespaceBlob.upload_multipart:',
             this.container,
             inspect(_.omit(params, 'source_stream')),
@@ -412,10 +412,9 @@ class NamespaceBlob {
             'block_id', block_id,
             'res', inspect(res)
         );
-        const md5_b64 = res.headers['content-md5'];
-        const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
+        const block_id_hex = Buffer.from(block_id).toString('hex');
         return {
-            etag: md5_hex,
+            etag: block_id_hex,
         };
     }
 
@@ -443,7 +442,7 @@ class NamespaceBlob {
             multiparts: _.map(res.UncommittedBlocks, b => ({
                 num: parseInt(b.Name.split('-')[1], 10),
                 size: b.Size,
-                etag: b.Name,
+                etag: Buffer.from(b.Name).toString('hex'),
                 last_modified: new Date(),
             }))
         };
@@ -459,15 +458,16 @@ class NamespaceBlob {
         const md5_hash = crypto.createHash('md5');
         const block_list = _.times(num_parts, num => {
             const part = part_by_num[num + 1];
-            md5_hash.update(part.etag);
-            return part.etag;
+            const block_id = Buffer.from(part.etag, 'hex').toString('ascii');
+            md5_hash.update(block_id);
+            return block_id;
         });
-
+        const block_obj = { UncommittedBlocks: block_list };
         const obj = await P.fromCallback(callback =>
             this.blob.commitBlocks(
                 this.container,
                 params.key,
-                block_list,
+                block_obj,
                 callback)
         );
 

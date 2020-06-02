@@ -11,6 +11,7 @@ const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
 const http_utils = require('../util/http_utils');
 const size_utils = require('../util/size_utils');
+const signature_utils = require('../util/signature_utils');
 const NamespaceNB = require('./namespace_nb');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
@@ -20,6 +21,7 @@ const NamespaceNetStorage = require('./namespace_net_storage');
 const AccountSpaceNetStorage = require('./accountspace_net_storage');
 const AccountSpaceNB = require('./accountspace_nb');
 const stats_collector = require('./endpoint_stats_collector');
+const { RpcError } = require('../rpc');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -28,6 +30,14 @@ const bucket_namespace_cache = new LRUCache({
     make_key: params => params.name,
     load: params => params.sdk._load_bucket_namespace(params),
     validate: (data, params) => params.sdk._validate_bucket_namespace(data, params),
+});
+
+const account_cache = new LRUCache({
+    name: 'AccountCache',
+    // TODO: Decide on a time that we want to invalidate
+    expiry_ms: 10 * 60 * 1000,
+    make_key: ({ access_key }) => access_key,
+    load: async ({ rpc_client, access_key }) => rpc_client.account.read_account_by_access_key({ access_key }),
 });
 
 const NAMESPACE_CACHE_EXPIRY = 60000;
@@ -78,6 +88,11 @@ class ObjectSDK {
         return bucket.website;
     }
 
+    async read_bucket_sdk_namespace_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket.namespace;
+    }
+
     async read_bucket_sdk_policy_info(name) {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
@@ -92,6 +107,37 @@ class ObjectSDK {
         // params.bucket might be added by _validate_bucket_namespace
         const bucket = params.bucket || await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
         return this._setup_bucket_namespace(bucket);
+    }
+
+    async authorize_request_account({ bucket, op_name }) {
+        const ns = bucket && await this.read_bucket_sdk_namespace_info(bucket);
+        const token = this.get_auth_token();
+        if (!token) {
+            // TODO: Anonymous access to namespace buckets not supported
+            if (ns) throw new RpcError('NOT_IMPLEMENTED', `Anonymous access to namespace buckets not supported`);
+            // TODO: Handle accountspace operations / RPC auth (i.e system, account, anonymous) and anonymous access
+            else return;
+        }
+        let account;
+        try {
+            account = await account_cache.get_with_cache({
+                rpc_client: this.internal_rpc_client,
+                access_key: token.access_key
+            });
+        } catch (error) {
+            dbg.error('authorize_request_account error:', error);
+            throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+        }
+        const signature = signature_utils.get_signature_from_auth_token(token, account.access_keys[0].secret_key.unwrap());
+        if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+        if (bucket) {
+            const bucket_allowed = _.get(account, 'allowed_buckets.full_permission', false) ||
+                _.find(
+                    _.get(account, 'allowed_buckets.permission_list') || [],
+                    name => name.unwrap() === bucket
+                );
+            if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
+        }
     }
 
     async _validate_bucket_namespace(data, params) {

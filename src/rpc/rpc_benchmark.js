@@ -177,7 +177,7 @@ function start() {
             target_addresses = _.times(argv.nconn, i => 'n2n://conn' + i);
 
             // register n2n and accept any peer_id
-            const n2n_agent = rpc.register_n2n_agent(client.rpcbench.n2n_signal);
+            const n2n_agent = rpc.register_n2n_agent((...args) => client.rpcbench.n2n_signal(...args));
             n2n_agent.set_any_rpc_address();
         })
         .then(() => {

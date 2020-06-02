@@ -49,7 +49,7 @@ let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
 });
-let n2n_agent = rpc.register_n2n_agent(client.node.n2n_signal);
+let n2n_agent = rpc.register_n2n_agent((...args) => client.node.n2n_signal(...args));
 n2n_agent.set_any_rpc_address();
 
 /////// Aux Functions ////////

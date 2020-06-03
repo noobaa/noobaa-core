@@ -5,6 +5,7 @@
 
 namespace noobaa
 {
+
 #define SPLITTER_JS_SIGNATURE "function chunk_splitter(state, buffers, callback?)"
 
 static Napi::Value _chunk_splitter(const Napi::CallbackInfo& info);
@@ -60,7 +61,7 @@ public:
     virtual void OnOK()
     {
         auto result = _splitter_result(Env(), _splitter);
-        Callback().MakeCallback(Env().Global(), {Env().Null(), result});
+        Callback().MakeCallback(Env().Global(), { Env().Null(), result });
     }
 
 private:
@@ -167,4 +168,5 @@ _splitter_result(Napi::Env env, Splitter* splitter)
     }
     return arr;
 }
-}
+
+} // namespace noobaa

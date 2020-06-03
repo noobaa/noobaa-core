@@ -32,17 +32,28 @@ Splitter::Splitter(
     , _hash(0)
     , _md5_ctx(0)
     , _sha256_ctx(0)
+    , _md5_mb_ctx(0)
+    , _md5_mb_mgr(0)
 {
     assert(_min_chunk > 0);
     assert(_min_chunk <= _max_chunk);
     assert(_avg_chunk_bits >= 0);
     nb_buf_init_alloc(&_window, NB_RABIN_WINDOW_LEN);
     memset(_window.data, 0, _window.len);
-    if (calc_md5) {
-        _md5_ctx = EVP_MD_CTX_new();
-        EVP_DigestInit_ex(_md5_ctx, EVP_md5(), NULL);
+    if (_calc_md5) {
+        extern bool fips_mode;
+        if (fips_mode) {
+            posix_memalign((void**)&_md5_mb_mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+            posix_memalign((void**)&_md5_mb_ctx, 16, sizeof(MD5_HASH_CTX));
+            md5_ctx_mgr_init(_md5_mb_mgr);
+            hash_ctx_init(_md5_mb_ctx);
+            md5_mb_submit_and_flush(0, 0, HASH_FIRST);
+        } else {
+            _md5_ctx = EVP_MD_CTX_new();
+            EVP_DigestInit_ex(_md5_ctx, EVP_md5(), NULL);
+        }
     }
-    if (calc_sha256) {
+    if (_calc_sha256) {
         _sha256_ctx = EVP_MD_CTX_new();
         EVP_DigestInit_ex(_sha256_ctx, EVP_sha256(), NULL);
     }
@@ -51,15 +62,18 @@ Splitter::Splitter(
 Splitter::~Splitter()
 {
     nb_buf_free(&_window);
-    if (_calc_md5) EVP_MD_CTX_free(_md5_ctx);
-    if (_calc_sha256) EVP_MD_CTX_free(_sha256_ctx);
+    if (_md5_ctx) EVP_MD_CTX_free(_md5_ctx);
+    if (_sha256_ctx) EVP_MD_CTX_free(_sha256_ctx);
+    if (_md5_mb_ctx) free(_md5_mb_ctx);
+    if (_md5_mb_mgr) free(_md5_mb_mgr);
 }
 
 void
 Splitter::push(const uint8_t* data, int len)
 {
-    if (_calc_md5) EVP_DigestUpdate(_md5_ctx, data, len);
-    if (_calc_sha256) EVP_DigestUpdate(_sha256_ctx, data, len);
+    if (_md5_ctx) EVP_DigestUpdate(_md5_ctx, data, len);
+    if (_sha256_ctx) EVP_DigestUpdate(_sha256_ctx, data, len);
+    if (_md5_mb_ctx) md5_mb_submit_and_flush(data, len, HASH_UPDATE);
     while (_next_point(&data, &len)) {
         _split_points.push_back(_chunk_pos);
         _chunk_pos = 0;
@@ -69,8 +83,23 @@ Splitter::push(const uint8_t* data, int len)
 void
 Splitter::finish(uint8_t* md5, uint8_t* sha256)
 {
-    if (md5 && _calc_md5) EVP_DigestFinal_ex(_md5_ctx, md5, 0);
-    if (sha256 && _calc_sha256) EVP_DigestFinal_ex(_sha256_ctx, sha256, 0);
+    if (md5) {
+        if (_md5_mb_ctx) {
+            md5_mb_submit_and_flush(0, 0, HASH_LAST);
+            memcpy(md5, hash_ctx_digest(_md5_mb_ctx), MD5_DIGEST_NWORDS * 4);
+        } else if (_md5_ctx) {
+            EVP_DigestFinal_ex(_md5_ctx, md5, 0);
+        } else {
+            PANIC("no md5 context");
+        }
+    }
+    if (sha256) {
+        if (_sha256_ctx) {
+            EVP_DigestFinal_ex(_sha256_ctx, sha256, 0);
+        } else {
+            PANIC("no sha256 context");
+        }
+    }
 }
 
 bool
@@ -142,4 +171,5 @@ Splitter::_next_point(const uint8_t** const p_data, int* const p_len)
         return false;
     }
 }
-}
+
+} // namespace noobaa

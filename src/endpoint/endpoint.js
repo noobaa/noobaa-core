@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-require('../util/panic');
-
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('../util/dotenv').load();
+require('../util/panic');
+require('../util/fips');
 
 const http = require('http');
 const https = require('https');

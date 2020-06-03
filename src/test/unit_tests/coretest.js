@@ -3,11 +3,10 @@
 
 const wtf = require("wtfnode");
 
-const panic = require('../../util/panic');
-panic.enable_heapdump('coretest');
-
 console.log('loading .env file');
 require('../../util/dotenv').load();
+require('../../util/panic').enable_heapdump('coretest');
+require('../../util/fips');
 
 const CORETEST = 'coretest';
 process.env.JWT_SECRET = CORETEST;

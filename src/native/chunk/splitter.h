@@ -7,6 +7,7 @@
 
 #include "../util/rabin.h"
 #include "../util/struct_buf.h"
+#include "../third_party/isa-l_crypto/include/md5_mb.h"
 
 namespace noobaa
 {
@@ -46,11 +47,23 @@ private:
     Points _split_points;
     Point _chunk_pos;
     Rabin::Hash _hash;
-    EVP_MD_CTX *_md5_ctx;
-    EVP_MD_CTX *_sha256_ctx;
+
+    EVP_MD_CTX* _md5_ctx;
+    EVP_MD_CTX* _sha256_ctx;
+    MD5_HASH_CTX* _md5_mb_ctx;
+    MD5_HASH_CTX_MGR* _md5_mb_mgr;
+
+    void md5_mb_submit_and_flush(const void* data, uint32_t size, HASH_CTX_FLAG flag)
+    {
+        md5_ctx_mgr_submit(_md5_mb_mgr, _md5_mb_ctx, data, size, flag);
+        while (hash_ctx_processing(_md5_mb_ctx)) {
+            md5_ctx_mgr_flush(_md5_mb_mgr);
+        }
+    }
 
     static Rabin _rabin;
 
     bool _next_point(const uint8_t** const p_data, int* const p_len);
 };
-}
+
+} // namespace noobaa

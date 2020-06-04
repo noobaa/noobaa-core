@@ -8,6 +8,10 @@
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 #include <openssl/x509v3.h>
+
+#include "../third_party/isa-l_crypto/include/md5_mb.h"
+#include "../third_party/isa-l_crypto/include/sha1_mb.h"
+
 // Under Win32 these are defined in wincrypt.h
 #ifdef OPENSSL_SYS_WIN32
 #undef X509_NAME
@@ -21,14 +25,17 @@
 namespace noobaa
 {
 
+bool fips_mode = false;
+
+static Napi::Value set_fips_mode(const Napi::CallbackInfo& info);
+static Napi::Value rand_seed(const Napi::CallbackInfo& info);
+
 /**
  * X509 certificate
  */
-static napi_value _nb_rand_seed(napi_env env, napi_callback_info info);
 static napi_value _nb_x509(napi_env env, napi_callback_info info);
 static napi_value _nb_x509_verify(napi_env env, napi_callback_info info);
 static napi_value _nb_rsa(napi_env env, napi_callback_info info);
-
 static void write_pem_private(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey);
 static void write_pem_public(napi_env env, napi_value result, const char* name, EVP_PKEY* pkey);
 static void write_pem_x509(napi_env env, napi_value result, const char* name, X509* x509);
@@ -36,8 +43,100 @@ static X509_NAME* x509_name_from_entries(napi_env env, napi_value entries);
 static napi_value x509_name_to_entries(napi_env env, X509_NAME* x509_name);
 static int no_password_callback(char* buf, int size, int rwflag, void* u);
 
+#define HASHER_TEMPLATE const char ALG[],                                                 \
+                        size_t LEN,                                                       \
+                        typename MGR,                                                     \
+                        typename CTX,                                                     \
+                        void (*INIT)(MGR*),                                               \
+                        CTX *(*SUBMIT)(MGR*, CTX*, const void*, uint32_t, HASH_CTX_FLAG), \
+                        CTX *(*FLUSH)(MGR*)
+
+#define HASHER_ARGS Hasher<ALG, LEN, MGR, CTX, INIT, SUBMIT, FLUSH>
+
+template <HASHER_TEMPLATE>
+class Hasher : public Napi::ObjectWrap<HASHER_ARGS>
+{
+private:
+    DECLARE_ALIGNED(MGR _mgr, 16);
+    DECLARE_ALIGNED(CTX _ctx, 16);
+
+public:
+    Hasher(const Napi::CallbackInfo& info)
+        : Napi::ObjectWrap<Hasher>(info)
+    {
+        Napi::Env env = info.Env();
+        Napi::HandleScope scope(env);
+        hash_ctx_init(&_ctx);
+        INIT(&_mgr);
+        submit_and_flush(0, 0, HASH_FIRST);
+    }
+
+    Napi::Value update(const Napi::CallbackInfo& info)
+    {
+        Napi::Env env = info.Env();
+        if (!info[0].IsBuffer()) {
+            Napi::TypeError::New(env, XSTR() << "Hasher<" << ALG << ">.update: expected buffer").ThrowAsJavaScriptException();
+            return Napi::Value();
+        }
+        Napi::Buffer<uint8_t> buf = info[0].As<Napi::Buffer<uint8_t>>();
+        submit_and_flush(buf.Data(), buf.Length(), HASH_UPDATE);
+        return info.This();
+    }
+
+    Napi::Value digest(const Napi::CallbackInfo& info)
+    {
+        Napi::Env env = info.Env();
+        submit_and_flush(0, 0, HASH_LAST);
+        return Napi::Buffer<uint8_t>::Copy(env, reinterpret_cast<const uint8_t*>(&hash_ctx_digest(&_ctx)[0]), LEN);
+    }
+
+    void submit_and_flush(const void* data, uint32_t size, HASH_CTX_FLAG flag)
+    {
+        SUBMIT(&_mgr, &_ctx, data, size, flag);
+        while (hash_ctx_processing(&_ctx)) {
+            FLUSH(&_mgr);
+        }
+    }
+
+public:
+    static Napi::FunctionReference constructor;
+    static void init(Napi::Env env)
+    {
+        Napi::HandleScope scope(env);
+        Napi::Function func = HASHER_ARGS::DefineClass(env, ALG, { HASHER_ARGS::InstanceMethod("update", &HASHER_ARGS::update), HASHER_ARGS::InstanceMethod("digest", &HASHER_ARGS::digest) });
+        constructor = Napi::Persistent(func);
+        constructor.SuppressDestruct();
+    }
+};
+
+template <HASHER_TEMPLATE>
+Napi::FunctionReference HASHER_ARGS::constructor;
+
+const char MD5_MB_ALG[] = "MD5_MB";
+const char SHA1_MB_ALG[] = "SHA1_MB";
+
+typedef Hasher<
+    MD5_MB_ALG,
+    MD5_DIGEST_NWORDS * 4,
+    MD5_HASH_CTX_MGR,
+    MD5_HASH_CTX,
+    md5_ctx_mgr_init,
+    md5_ctx_mgr_submit,
+    md5_ctx_mgr_flush>
+    MD5_MB;
+
+typedef Hasher<
+    SHA1_MB_ALG,
+    SHA1_DIGEST_NWORDS * 4,
+    SHA1_HASH_CTX_MGR,
+    SHA1_HASH_CTX,
+    sha1_ctx_mgr_init,
+    sha1_ctx_mgr_submit,
+    sha1_ctx_mgr_flush>
+    SHA1_MB;
+
 void
-ssl_napi(napi_env env, napi_value exports)
+ssl_napi(Napi::Env env, Napi::Object exports)
 {
     printf("%s setting up\n", SSLeay_version(SSLEAY_VERSION));
     OpenSSL_add_all_algorithms();
@@ -45,9 +144,15 @@ ssl_napi(napi_env env, napi_value exports)
     OpenSSL_add_all_digests();
     ERR_load_crypto_strings();
 
+    MD5_MB::init(env);
+    SHA1_MB::init(env);
+
+    exports["rand_seed"] = Napi::Function::New(env, rand_seed);
+    exports["set_fips_mode"] = Napi::Function::New(env, set_fips_mode);
+    exports["MD5_MB"] = MD5_MB::constructor.Value();
+    exports["SHA1_MB"] = SHA1_MB::constructor.Value();
+
     napi_value func = 0;
-    napi_create_function(env, "rand_seed", NAPI_AUTO_LENGTH, _nb_rand_seed, NULL, &func);
-    napi_set_named_property(env, exports, "rand_seed", func);
     napi_create_function(env, "x509", NAPI_AUTO_LENGTH, _nb_x509, NULL, &func);
     napi_set_named_property(env, exports, "x509", func);
     napi_create_function(env, "x509_verify", NAPI_AUTO_LENGTH, _nb_x509_verify, NULL, &func);
@@ -56,37 +161,35 @@ ssl_napi(napi_env env, napi_value exports)
     napi_set_named_property(env, exports, "rsa", func);
 }
 
-// https://wiki.openssl.org/index.php/Random_Numbers#Entropy
-static napi_value
-_nb_rand_seed(napi_env env, napi_callback_info info)
+static Napi::Value
+set_fips_mode(const Napi::CallbackInfo& info)
 {
-    printf("%s seeding randomness\n", SSLeay_version(SSLEAY_VERSION));
+    fips_mode = info[0].ToBoolean().Value();
+    return Napi::Value();
+}
 
-    size_t argc = 1;
-    napi_value argv[] = { 0 };
-    napi_get_cb_info(env, info, &argc, argv, 0, 0);
+// https://wiki.openssl.org/index.php/Random_Numbers#Entropy
+static Napi::Value
+rand_seed(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
 
-    napi_value v_buf = argv[0];
-    bool is_buffer = false;
-    napi_is_buffer(env, v_buf, &is_buffer);
+    printf("rand_seed: %s seeding randomness\n", SSLeay_version(SSLEAY_VERSION));
 
-    if (!is_buffer) {
-        napi_throw_type_error(env, 0, "rand_seed(Buffer) - 1st argument should be Buffer");
-        return 0;
+    if (!info[0].IsBuffer()) {
+        Napi::TypeError::New(env, "rand_seed: expected buffer").ThrowAsJavaScriptException();
+        return Napi::Value();
     }
 
-    void* data = 0;
-    size_t len = 0;
-    napi_get_buffer_info(env, v_buf, &data, &len);
-
-    RAND_seed(data, len);
+    Napi::Buffer<uint8_t> buf = info[0].As<Napi::Buffer<uint8_t>>();
+    RAND_seed(buf.Data(), buf.Length());
 
     if (!RAND_status()) {
-        napi_throw_error(env, 0, "rand_seed - rand status is not good");
-        return 0;
+        Napi::Error::New(env, "rand_seed: rand status is not good").ThrowAsJavaScriptException();
+        return Napi::Value();
     }
 
-    return 0;
+    return Napi::Value();
 }
 
 static napi_value
@@ -94,9 +197,9 @@ _nb_x509(napi_env env, napi_callback_info info)
 {
     napi_value result = 0;
     int days = 2 * 365; // limit by new clients to 825 days
-    char *dns_buf = NULL;
-    X509_EXTENSION *ext_key_usage = NULL;
-    X509_EXTENSION *ext_subject_alt_name = NULL;
+    char* dns_buf = NULL;
+    X509_EXTENSION* ext_key_usage = NULL;
+    X509_EXTENSION* ext_subject_alt_name = NULL;
     X509_NAME* owner_x509_name = NULL;
     X509_NAME* issuer_x509_name = NULL;
     EVP_PKEY* issuer_private_key = NULL;
@@ -142,7 +245,7 @@ _nb_x509(napi_env env, napi_callback_info info)
             napi_get_value_string_utf8(env, v, 0, 0, &dns_len);
             dns_len += 5; // for null terminator + "DNS:" prefix
             dns_buf = (char*)malloc(dns_len);
-            napi_get_value_string_utf8(env, v, dns_buf+4, dns_len-4, 0);
+            napi_get_value_string_utf8(env, v, dns_buf + 4, dns_len - 4, 0);
             dns_buf[0] = 'D';
             dns_buf[1] = 'N';
             dns_buf[2] = 'S';
@@ -198,14 +301,14 @@ _nb_x509(napi_env env, napi_callback_info info)
         }
     }
 
-    const char *dns_str = dns_buf != NULL ? dns_buf : "DNS:selfsigned.noobaa.io";
+    const char* dns_str = dns_buf != NULL ? dns_buf : "DNS:selfsigned.noobaa.io";
     ext_key_usage = X509V3_EXT_conf_nid(NULL, NULL, NID_ext_key_usage, "serverAuth");
     ext_subject_alt_name = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, dns_str);
     if (!owner_x509_name) {
         // the minimal name should have an organization
         owner_x509_name = X509_NAME_new();
         X509_NAME_add_entry_by_txt(
-            owner_x509_name, "CN", MBSTRING_UTF8, (const unsigned char*)(dns_str+4), -1, -1, 0);
+            owner_x509_name, "CN", MBSTRING_UTF8, (const unsigned char*)(dns_str + 4), -1, -1, 0);
         X509_NAME_add_entry_by_txt(
             owner_x509_name, "C", MBSTRING_UTF8, (const unsigned char*)"US", -1, -1, 0);
         X509_NAME_add_entry_by_txt(
@@ -499,4 +602,4 @@ no_password_callback(char* buf, int size, int rwflag, void* u)
 {
     return 0;
 }
-}
+} // namespace noobaa

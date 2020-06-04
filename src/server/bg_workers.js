@@ -5,9 +5,9 @@
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('../util/dotenv').load();
-
 require('../util/coverage_utils');
 require('../util/panic');
+require('../util/fips');
 
 var _ = require('lodash');
 var url = require('url');

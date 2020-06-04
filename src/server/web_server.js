@@ -9,6 +9,7 @@ dotenv.load();
 
 require('../util/coverage_utils');
 require('../util/panic');
+require('../util/fips');
 
 const _ = require('lodash');
 const path = require('path');

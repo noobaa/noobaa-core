@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+require('../util/fips');
+
 // const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const stream = require('stream');

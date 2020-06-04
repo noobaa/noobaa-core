@@ -2,6 +2,7 @@
 'use strict';
 
 require('../util/panic');
+require('../util/fips');
 
 const _ = require('lodash');
 const fs = require('fs');

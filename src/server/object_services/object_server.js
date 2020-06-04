@@ -1244,7 +1244,7 @@ async function add_endpoint_report(req) {
             const access_key = acc.access_keys &&
                 acc.access_keys[0] &&
                 acc.access_keys[0].access_key;
-            return access_key !== null && (access_key.unwrap() === record.access_key.unwrap());
+            return access_key && (access_key.unwrap() === record.access_key.unwrap());
         });
         const bucket = system_store.data.buckets.find(bkt =>
             bkt.name.unwrap() === record.bucket.unwrap()

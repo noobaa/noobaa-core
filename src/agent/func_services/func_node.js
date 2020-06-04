@@ -35,9 +35,9 @@ class FuncNode {
                 const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
                         execArgv: [
-                        process.execArgv,
+                        ...process.execArgv,
                         // We set the fork's args *after* the parent args to override its flags (last flags wins)
-                        `--max-heap-size=${max_heap_size_mb}`,
+                        `--max-heap-size=${max_heap_size_mb}`
                         ],
                         stdio: 'inherit',
                         // main node root modules library for the forked lambda function, so function can use modules (like aws-s3)

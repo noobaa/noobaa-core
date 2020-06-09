@@ -38,6 +38,7 @@ function onCompleteSignIn(payload) {
 function onFailSignIn({ error }) {
     if (error.rpc_code === 'UNAUTHORIZED') {
         model.loginInfo({
+            unauthorized: error.message,
             retryCount: model.loginInfo().retryCount + 1
         });
 

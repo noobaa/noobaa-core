@@ -109,6 +109,9 @@ module.exports = {
                         }
                     }
                 },
+                storage_limit: {
+                    $ref: 'common_api#/definitions/bigint'
+                },
                 access_keys: {
                     type: 'object',
                     required: ['access_key', 'secret_key', 'account_id'],

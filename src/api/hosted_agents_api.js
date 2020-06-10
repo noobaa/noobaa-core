@@ -110,6 +110,28 @@ module.exports = {
             }
         },
 
+        update_storage_limit: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['pool_ids'],
+                properties: {
+                    pool_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    },
+                    storage_limit: {
+                        $ref: 'common_api#/definitions/bigint'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         remove_agent: {
             method: 'POST',
             params: {

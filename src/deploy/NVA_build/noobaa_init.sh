@@ -1,12 +1,5 @@
 #!/bin/bash
 
-if [ "${LOOP_ON_FAIL}" == "true" ]
-then
-  debug="bash -x"
-  export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
-  set -x
-fi
-
 RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
@@ -76,7 +69,65 @@ extract_noobaa_in_docker() {
   fi
 }
 
-run_agent_container() {
+# run_internal_process runs a process and handles NOOBAA_INIT_MODE.
+#
+# NOOBAA_INIT_MODE allows devs to set how the container behaves when the process exits.
+# Possible mode values are:
+# - "" (no env/file or empty string) is the default and means to exit the container
+# - "auto" restart the process without letting the container die to allow reloading code.
+# - "manual" the container will loop and wait for manual intervention to change the mode.
+#
+# Usage: set env NOOBAA_INIT_MODE on the deployment pod spec
+#   or write the value to /root/node_modules/noobaa-core/NOOBAA_INIT_MODE
+#   (the file will override the env).
+#
+run_internal_process() {
+  while true
+  do
+    echo "Running: $*"
+    $*
+    rc=$?
+    echo -e "\n\n\n"
+    echo "######################################################################"
+    echo "$(date) NooBaa: Process exited RIP (RC=$rc)"
+    echo "######################################################################"
+    echo -e "\n\n\n"
+
+    mode="manual" # initial value just to start the loop
+    while [ "$mode" == "manual" ]
+    do
+      # load mode from file/env
+      if [ -f "./NOOBAA_INIT_MODE" ]
+      then
+        mode="$(cat ./NOOBAA_INIT_MODE)"
+      else
+        mode="$NOOBAA_INIT_MODE"
+      fi
+
+      if [ "$mode" == "auto" ]
+      then
+        echo "######################################################################"
+        echo "$(date) NooBaa: Restarting process (NOOBAA_INIT_MODE=auto)"
+        echo "######################################################################"
+        echo -e "\n\n\n"
+        # will break from the inner loop and re-run the process
+      elif [ "$mode" == "manual" ]
+      then
+        echo "######################################################################"
+        echo "$(date) NooBaa: Waiting for manual intervention (NOOBAA_INIT_MODE=manual)"
+        echo "######################################################################"
+        echo -e "\n"
+        sleep 10
+        # will re-enter the inner loop and reload the mode
+      else
+        [ ! -z "$mode" ] && echo "NooBaa: unrecognized NOOBAA_INIT_MODE = $mode"
+        return $rc
+      fi
+    done
+  done
+}
+
+prepare_agent_conf() {
   AGENT_CONF_FILE="/noobaa_storage/agent_conf.json"
   if [ -z ${AGENT_CONFIG} ]
   then
@@ -89,16 +140,6 @@ run_agent_container() {
     fi
     echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
   fi
-  node ./src/agent/agent_cli
-  # Providing an env variable with the name "LOOP_ON_FAIL=true"
-  # will trigger the condition below.
-  # Currently we will loop on any exit of the agent_cli
-  # regardless to the exit code
-  while [ "${LOOP_ON_FAIL}" == "true" ]
-  do
-    echo "$(date) Failed to run agent_cli"
-    sleep 10
-  done
 }
 
 prepare_server_pvs() {
@@ -120,16 +161,12 @@ prepare_mongo_pv() {
   chmod g=u ${dir}
 }
 
-run_endpoint_container() {
-  /usr/local/bin/node ./src/s3/s3rver_starter.js
-}
-
 init_endpoint() {
   fix_non_root_user
   extract_noobaa_in_docker
 
   cd /root/node_modules/noobaa-core/
-  run_endpoint_container
+  run_internal_process node ./src/s3/s3rver_starter.js
 }
 
 init_noobaa_server() {
@@ -148,7 +185,8 @@ init_noobaa_agent() {
   ${KUBE_PV_CHOWN} agent
 
   cd /root/node_modules/noobaa-core/
-  run_agent_container
+  prepare_agent_conf
+  run_internal_process node ./src/agent/agent_cli
 }
 
 

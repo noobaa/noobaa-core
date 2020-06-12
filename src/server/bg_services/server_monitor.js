@@ -124,7 +124,7 @@ async function _check_address_changes(container_platform) {
         const [system] = system_store.data.systems;
         const system_address = container_platform === 'KUBERNETES' ?
             await os_utils.discover_k8s_services() :
-            await os_utils.discover_virtual_appliance_address();
+            [];
 
         // This works because the lists are always sorted, see discover_k8s_services().
         if (!_.isEqual(system.system_address, system_address)) {

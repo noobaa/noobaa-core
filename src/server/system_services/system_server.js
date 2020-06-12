@@ -361,7 +361,7 @@ async function _create_owner_account(
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
         await os_utils.discover_k8s_services() :
-        await os_utils.discover_virtual_appliance_address();
+        [];
 
     // This works because the lists are always sorted, see discover_k8s_services().
     const { system_address: curr_address } = system_store.data.systems[0] || {};
@@ -996,7 +996,7 @@ async function update_endpoint_group(req) {
         }
 
         // call make_changes only if there are actual changes to make.
-        // this check fixes a bug where make_changes sends a load_system_store notification 
+        // this check fixes a bug where make_changes sends a load_system_store notification
         // to the operator, which in its own reconcile sends back update_endpoint_group, and so forth
         if (group.region !== region || !_.isEqual(group.endpoint_range, endpoint_range)) {
             await system_store.make_changes({

@@ -45,12 +45,8 @@ module.exports = {
                 target_bucket: {
                     type: 'string'
                 },
-                access_key: {
-                    type: 'string'
-                },
-                secret_key: {
-                    type: 'string'
-                },
+                access_key: { $ref: 'common_api#/definitions/access_key' },
+                secret_key: { $ref: 'common_api#/definitions/secret_key' },
                 cp_code: {
                     type: 'string'
                 }

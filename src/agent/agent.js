@@ -115,8 +115,8 @@ class Agent {
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
                     let connection_string = cloud_utils.get_azure_connection_string({
                         endpoint: params.cloud_info.endpoint,
-                        access_key: params.cloud_info.access_keys.access_key.unwrap(),
-                        secret_key: params.cloud_info.access_keys.secret_key.unwrap()
+                        access_key: params.cloud_info.access_keys.access_key,
+                        secret_key: params.cloud_info.access_keys.secret_key
                     });
                     block_store_options.cloud_info.azure = {
                         connection_string: connection_string,
@@ -276,8 +276,8 @@ class Agent {
         } else if (this.node_type === 'BLOCK_STORE_AZURE') {
             const connection_string = cloud_utils.get_azure_connection_string({
                 endpoint: block_store_options.cloud_info.endpoint,
-                access_key: this.cloud_info.access_keys.access_key.unwrap(),
-                secret_key: this.cloud_info.access_keys.secret_key.unwrap(),
+                access_key: this.cloud_info.access_keys.access_key,
+                secret_key: this.cloud_info.access_keys.secret_key,
             });
             block_store_options.cloud_info.azure = {
                 connection_string: connection_string,

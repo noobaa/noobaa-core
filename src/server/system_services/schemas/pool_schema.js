@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const SensitiveString = require('../../../util/sensitive_string');
 const node_schema = require('../../node_services/node_schema');
 const bigint = {
     oneOf: [{
@@ -114,12 +113,8 @@ module.exports = {
                     type: 'object',
                     required: ['access_key', 'secret_key', 'account_id'],
                     properties: {
-                        access_key: {
-                            wrapper: SensitiveString
-                        },
-                        secret_key: {
-                            wrapper: SensitiveString
-                        },
+                        access_key: { $ref: 'common_api#/definitions/access_key' },
+                        secret_key: { $ref: 'common_api#/definitions/secret_key' },
                         account_id: {
                             objectid: true
                         }

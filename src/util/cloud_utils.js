@@ -53,8 +53,8 @@ function get_azure_connection_string(params) {
     let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http:');
     protocol = protocol.slice(0, protocol.length - 1);
     let connection_string = 'DefaultEndpointsProtocol=' + protocol + ';';
-    connection_string += 'AccountName=' + params.access_key + ';';
-    connection_string += 'AccountKey=' + params.secret_key + ';';
+    connection_string += 'AccountName=' + params.access_key.unwrap() + ';';
+    connection_string += 'AccountKey=' + params.secret_key.unwrap() + ';';
 
     const AZURE_BLOB_ENDPOINT = 'blob.core.windows.net';
     if (endpoint_url.host !== AZURE_BLOB_ENDPOINT) {

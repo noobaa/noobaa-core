@@ -416,7 +416,7 @@ module.exports = {
                     type: 'string'
                 },
                 identity: {
-                    type: 'string'
+                    $ref: 'common_api#/definitions/access_key'
                 },
                 mode: {
                     type: 'string',

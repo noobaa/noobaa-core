@@ -91,6 +91,7 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     NOT_IMPLEMENTED: S3Error.NotImplemented,
     INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
     SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
+    SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
 });
 
 const S3_OPS = load_ops();

@@ -43,6 +43,8 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
+let optimal_pool_existed = false;
+
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
     return {
@@ -79,6 +81,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
 async function create_bucket(req) {
 
     validate_bucket_creation(req);
+    await validate_pool_constraints();
 
     let tiering_policy;
     const changes = {
@@ -199,6 +202,14 @@ async function create_bucket(req) {
     }
     let created_bucket = find_bucket(req);
     return get_bucket_info({ bucket: created_bucket });
+}
+
+async function validate_pool_constraints() {
+    if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true && !optimal_pool_existed) {
+        const non_mongo_optimal_pool_id = await pool_server.get_optimal_non_mongo_pool_id();
+        if (!non_mongo_optimal_pool_id) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
+        optimal_pool_existed = true;
+    }
 }
 
 /**

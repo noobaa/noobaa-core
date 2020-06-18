@@ -43,6 +43,8 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
+let optimal_pool_existed = false;
+
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
     return {
@@ -79,6 +81,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
 async function create_bucket(req) {
 
     validate_bucket_creation(req);
+    await validate_pool_constraints();
 
     let tiering_policy;
     const changes = {
@@ -199,6 +202,14 @@ async function create_bucket(req) {
     }
     let created_bucket = find_bucket(req);
     return get_bucket_info({ bucket: created_bucket });
+}
+
+async function validate_pool_constraints() {
+    if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true && !optimal_pool_existed) {
+        const non_mongo_optimal_pool_id = await pool_server.get_optimal_non_mongo_pool_id();
+        if (!non_mongo_optimal_pool_id) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
+        optimal_pool_existed = true;
+    }
 }
 
 /**
@@ -1030,8 +1041,8 @@ function get_cloud_buckets(req) {
 
                 const ns = new NetStorage({
                     hostname: connection.endpoint,
-                    keyName: connection.access_key,
-                    key: connection.secret_key,
+                    keyName: connection.access_key.unwrap(),
+                    key: connection.secret_key.unwrap(),
                     cpCode: connection.cp_code,
                     // Just used that in order to not handle certificate mess
                     // TODO: Should I use SSL with HTTPS instead of HTTP?
@@ -1051,7 +1062,7 @@ function get_cloud_buckets(req) {
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 let key_file;
                 try {
-                    key_file = JSON.parse(connection.secret_key);
+                    key_file = JSON.parse(connection.secret_key.unwrap());
                 } catch (err) {
                     throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
                 }
@@ -1068,8 +1079,8 @@ function get_cloud_buckets(req) {
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 var s3 = new AWS.S3({
                     endpoint: connection.endpoint,
-                    accessKeyId: connection.access_key,
-                    secretAccessKey: connection.secret_key,
+                    accessKeyId: connection.access_key.unwrap(),
+                    secretAccessKey: connection.secret_key.unwrap(),
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
                     httpOptions: {

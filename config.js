@@ -490,3 +490,6 @@ config.INLINE_MAX_SIZE = 4096;
 ///////////////////////////////
 
 config.WORM_ENABLED = false;
+
+// Should we allow the creation of buckets on internal storage
+config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;

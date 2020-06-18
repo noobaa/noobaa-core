@@ -1114,23 +1114,25 @@ function get_internal_mongo_pool(system) {
     return system.pools_by_name[`${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`];
 }
 
+async function get_optimal_non_mongo_pool_id() {
+    for (const pool of system_store.data.pools) {
+        // skip mongo pools.
+        if (_is_mongo_pool(pool)) {
+            continue;
+        }
+
+        const aggr = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
+        const { mode = '' } = get_pool_info(pool, aggr);
+        if (mode === 'OPTIMAL') {
+            return pool._id;
+        }
+    }
+}
+
 async function update_account_default_resource() {
     for (;;) {
         try {
-            let optimal_pool_id = null;
-            for (const pool of system_store.data.pools) {
-                // skip mongo pools.
-                if (_is_mongo_pool(pool)) {
-                    continue;
-                }
-
-                const aggr = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
-                const { mode = '' } = get_pool_info(pool, aggr);
-                if (mode === 'OPTIMAL') {
-                    optimal_pool_id = pool._id;
-                    break;
-                }
-            }
+            const optimal_pool_id = await get_optimal_non_mongo_pool_id();
 
             if (optimal_pool_id) {
                 const updates = system_store.data.accounts
@@ -1186,3 +1188,4 @@ exports.get_namespace_resource_extended_info = get_namespace_resource_extended_i
 exports.assign_pool_to_region = assign_pool_to_region;
 exports.scale_hosts_pool = scale_hosts_pool;
 exports.update_hosts_pool = update_hosts_pool;
+exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;

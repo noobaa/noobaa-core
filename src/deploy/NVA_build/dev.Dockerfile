@@ -1,3 +1,4 @@
+# dev.Dockerfile is meant to be used manually for developer testing
 FROM centos:8 
 
 ENV container docker

@@ -44,6 +44,10 @@
             'sources': [
                 'isa-l/erasure_code/ec_base.c',
                 'isa-l/erasure_code/ec_highlevel_func.c',
+            ],
+            # compile asm only for x64 until we have support for ppc
+            # see https://github.com/intel/isa-l/issues/7
+            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
                 'isa-l/erasure_code/ec_multibinary.asm',
                 'isa-l/erasure_code/gf_vect_mul_sse.asm',
                 'isa-l/erasure_code/gf_vect_dot_prod_sse.asm',
@@ -91,7 +95,7 @@
                 'isa-l/erasure_code/gf_2vect_mad_avx512.asm',
                 'isa-l/erasure_code/gf_3vect_mad_avx512.asm',
                 'isa-l/erasure_code/gf_4vect_mad_avx512.asm',
-            ],
+            ]}]],
         },
 
         {

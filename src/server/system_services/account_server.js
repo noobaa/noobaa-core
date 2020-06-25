@@ -49,8 +49,8 @@ async function create_account(req) {
     const account = {
         _id: (
             req.rpc_params.new_system_parameters ?
-                system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
-                system_store.new_system_store_id()
+            system_store.parse_system_store_id(req.rpc_params.new_system_parameters.account_id) :
+            system_store.new_system_store_id()
         ),
         name: req.rpc_params.name,
         email: req.rpc_params.email,
@@ -684,8 +684,8 @@ async function add_external_connection(req) {
 
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
-    info.access_key = req.rpc_params.identity.unwrap();
-    info.secret_key = req.rpc_params.secret.unwrap();
+    info.access_key = req.rpc_params.identity;
+    info.secret_key = req.rpc_params.secret;
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -699,7 +699,7 @@ async function add_external_connection(req) {
     const conn = _.find(req.account.sync_credentials_cache, function(cred) {
         return cred.endpoint === info.endpoint &&
             cred.endpoint_type === info.endpoint_type &&
-            cred.access_key === info.access_key;
+            cred.access_key.unwrap() === info.access_key.unwrap();
     });
     if (conn) {
         throw new RpcError('External Connection Already Exists');
@@ -733,7 +733,7 @@ async function update_external_connection(req) {
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.name);
     const {
         name,
-        identity = new SensitiveString(connection.access_key),
+        identity = connection.access_key,
         secret
     } = req.rpc_params;
 
@@ -778,7 +778,7 @@ async function update_external_connection(req) {
             pool.cloud_pool_info.endpoint_type === connection.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === req.account._id &&
-            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(pool => ({
             _id: pool._id,
@@ -791,7 +791,7 @@ async function update_external_connection(req) {
             ns_resource.connection.endpoint_type === connection.endpoint_type &&
             ns_resource.connection.endpoint === connection.endpoint &&
             ns_resource.account._id === req.account._id &&
-            ns_resource.connection.access_key === connection.access_key
+            ns_resource.connection.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(ns_resource => ({
             _id: ns_resource._id,
@@ -890,8 +890,8 @@ async function _check_external_connection(connection) {
 function check_azure_connection(params) {
     const conn_str = cloud_utils.get_azure_connection_string({
         endpoint: params.endpoint,
-        access_key: params.identity.unwrap(),
-        secret_key: params.secret.unwrap()
+        access_key: params.identity,
+        secret_key: params.secret
     });
 
     function err_to_status(err, status) {
@@ -1072,7 +1072,7 @@ function delete_external_connection(req) {
             pool.cloud_pool_info.endpoint_type === connection_to_delete.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
-            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key.unwrap()
         ))) {
         throw new RpcError('IN_USE', 'Cannot delete connection as it is being used for a cloud pool');
     }

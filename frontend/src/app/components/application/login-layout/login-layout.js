@@ -4,11 +4,11 @@ import template from './login-layout.html';
 import BaseViewModel from 'components/base-view-model';
 import ko from 'knockout';
 import { supportedBrowsers, logo } from 'config';
-import { sessionInfo, serverInfo } from 'model';
+import { sessionInfo, serverInfo, loginInfo } from 'model';
 import { recognizeBrowser } from 'utils/browser-utils';
 import { loadServerInfo } from 'actions';
 import { isUndefined } from 'utils/core-utils';
-import { requestLocation } from 'action-creators';
+import { requestLocation, openOAuthUnauthorizedModal } from 'action-creators';
 import { action$ } from 'state';
 import * as routes from 'routes';
 
@@ -19,6 +19,7 @@ class LoginLayoutViewModel extends BaseViewModel {
         this.logo = logo;
         this.form = ko.pureComputed(
             () => {
+                console.warn('OMOMOM HERE', loginInfo());
                 if (!supportedBrowsers.includes(recognizeBrowser())) {
                     return 'unsupported-form';
                 }
@@ -40,8 +41,14 @@ class LoginLayoutViewModel extends BaseViewModel {
                         // Specific params to force login screen (to allow login using local users)
                         const skipOAuth = new URLSearchParams(location.search).get('skip-oauth');
                         if (serverInfo().supportOAuth && skipOAuth == null) {
-                            this.signInWithOAuth();
-                            return 'splash-screen';
+                            if (loginInfo().unauthorized) {
+                                action$.next(openOAuthUnauthorizedModal());
+                                return 'splash-screen';
+
+                            } else {
+                                this.signInWithOAuth();
+                                return 'splash-screen';
+                            }
                         }
 
                         return 'signin-form';

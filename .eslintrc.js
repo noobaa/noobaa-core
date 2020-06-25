@@ -48,7 +48,10 @@ module.exports = {
 
 
         // verify every file contains our copyright header
-        'header/header': ['error', 'block', [' Copyright (C) 2016 NooBaa ']],
+        'header/header': ['error', 'block', [{
+            template: " Copyright (C) 2020 NooBaa ",
+            pattern: " Copyright \\(C\\) 20\\d{2} NooBaa ",
+        }]],
 
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],

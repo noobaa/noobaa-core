@@ -21,6 +21,7 @@ const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
+const addr_utils = require('../util/addr_utils');
 const promise_utils = require('../util/promise_utils');
 const os_utils = require('../util/os_utils');
 const s3_rest = require('./s3/s3_rest');
@@ -69,13 +70,19 @@ function process_env(env) {
 }
 
 function get_rpc_router(env) {
-    const default_base_addr = 'wss://127.0.0.1';
+    const hostname = '127.0.0.1';
+    const ports = addr_utils.get_default_ports();
+
+    // for dev (when env.MD_ADDR is not set) we increment md port to
+    // make it route to the s3 endpoints port rather than the default web server.
+    ports.md += 1;
+
     return {
-        default: env.MGMT_ADDR || `${default_base_addr}:8443`,
-        md: env.MD_ADDR || `${default_base_addr}:8444`,
-        bg: env.BG_ADDR || `${default_base_addr}:8445`,
-        hosted_agents: env.HOSTED_AGENTS_ADDR || `${default_base_addr}:8446`,
-        master: env.MGMT_ADDR || `${default_base_addr}:8443`
+        default: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
+        md: env.MD_ADDR || addr_utils.format_base_address(hostname, ports.md),
+        bg: env.BG_ADDR || addr_utils.format_base_address(hostname, ports.bg),
+        hosted_agents: env.HOSTED_AGENTS_ADDR || addr_utils.format_base_address(hostname, ports.hosted_agents),
+        master: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
     };
 }
 

@@ -70,7 +70,7 @@ function client_factory_from_schema(schema) {
 
     for (const api of Object.values(schema)) {
         if (!api || !api.id || api.id[0] === '_') {
-             continue;
+            continue;
         }
 
         // Skip common api and other apis that do not define methods.
@@ -115,9 +115,31 @@ function client_factory_from_schema(schema) {
     };
 }
 
+function get_protocol_port(protocol) {
+    switch (protocol.toLowerCase()) {
+        case 'http:':
+        case 'ws:': {
+            return '80';
+        }
+        case 'https:':
+        case 'wss:': {
+            return '443';
+        }
+        default: {
+            return '';
+        }
+    }
+}
+
 function new_router_from_base_address(base_address) {
-    const { protocol, hostname, port, slashes } = url.parse(base_address);
-    const ports = get_default_ports(Number(port) || undefined);
+    const {
+        protocol,
+        hostname,
+        port,
+        slashes,
+    } = url.parse(base_address);
+
+    const ports = get_default_ports(Number(port || get_protocol_port(protocol)) || undefined);
 
     return {
         default: url.format({ protocol, slashes, hostname, port: ports.mgmt }),

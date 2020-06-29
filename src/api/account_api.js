@@ -49,6 +49,9 @@ module.exports = {
                             enum: ['admin', 'user', 'viewer', 'operator']
                         }
                     },
+                    bucket_claim_owner: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
                     //Special handling for the first account created with create_system
                     new_system_parameters: {
                         type: 'object',
@@ -561,6 +564,9 @@ module.exports = {
                 },
                 default_pool: {
                     type: 'string',
+                },
+                bucket_claim_owner: {
+                    $ref: 'common_api#/definitions/bucket_name',
                 },
                 external_connections: {
                     type: 'object',

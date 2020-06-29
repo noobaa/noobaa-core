@@ -133,6 +133,16 @@ async function create_account(req) {
 
             account.allow_bucket_creation = _.isUndefined(req.rpc_params.allow_bucket_creation) ?
                 true : req.rpc_params.allow_bucket_creation;
+
+            const bucket_claim_owner = req.rpc_params.bucket_claim_owner;
+            if (bucket_claim_owner) {
+                const creator_roles = req.account.roles_by_system[req.system._id];
+                if (creator_roles.includes('operator')) { // Not allowed to create claim owner outside of the operator
+                    account.bucket_claim_owner = req.system.buckets_by_name[bucket_claim_owner.unwrap()]._id;
+                } else {
+                    dbg.warn('None operator user was trying to set a bucket-claim-owner for account', req.account);
+                }
+            }
         }
     }
 
@@ -1143,6 +1153,9 @@ function get_account_info(account, include_connection_cache) {
         info.allowed_buckets = allowed_buckets;
         info.default_pool = account.default_pool.name;
         info.can_create_buckets = account.allow_bucket_creation;
+        if (account.bucket_claim_owner) {
+            info.bucket_claim_owner = account.bucket_claim_owner.name;
+        }
     }
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {

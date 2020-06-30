@@ -54,7 +54,7 @@ module.exports = {
         // version_enabled = undefined  means 'null' version (backward compatible for objects that existed before introducing versioning)
         // version_enabled = false      unused!
         // We defined it instead of version_null for backward compatibility on upgrades.
-        // The reason we have to separate it from version_seq is that 'null' version 
+        // The reason we have to separate it from version_seq is that 'null' version
         // also has to be sorted by creation order when listing versions.
         version_enabled: { type: 'boolean' },
 
@@ -76,6 +76,7 @@ module.exports = {
         upload_size: { type: 'integer' },
         upload_started: { objectid: true },
         create_time: { date: true },
+        cache_last_valid_time: { date: true },
 
         // etag is the object md5 hex for objects uploaded in single action.
         // for multipart upload etag is a special aggregated md5 of the parts md5's.

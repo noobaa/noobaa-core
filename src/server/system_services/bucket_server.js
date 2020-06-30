@@ -154,12 +154,18 @@ async function create_bucket(req) {
             throw new RpcError('INVALID_WRITE_RESOURCES');
         }
 
+        const caching = req.rpc_params.namespace.caching && {
+            ttl_ms: config.NAMESPACE_CACHING.DEFAULT_CACHE_TTL_MS,
+            ...req.rpc_params.namespace.caching,
+        };
+
         // reorder read resources so that the write resource is the first in the list
         const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
 
         bucket.namespace = {
             read_resources: ordered_read_resources,
-            write_resource
+            write_resource,
+            caching
         };
     }
     if (req.rpc_params.bucket_claim) {
@@ -466,7 +472,8 @@ async function read_bucket_sdk_info(req) {
             write_resource: pool_server.get_namespace_resource_extended_info(
                 system.namespace_resources_by_name[bucket.namespace.write_resource.name]
             ),
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs)),
+            caching: bucket.namespace.caching,
         };
     }
 
@@ -1400,7 +1407,8 @@ function get_bucket_info({
         namespace: bucket.namespace ? {
             write_resource: pool_server.get_namespace_resource_info(
                 bucket.namespace.write_resource).name,
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name)
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name),
+            caching: bucket.namespace.caching
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',
@@ -1429,7 +1437,7 @@ function get_bucket_info({
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
-        policy: bucket.policy
+        policy: bucket.policy,
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });

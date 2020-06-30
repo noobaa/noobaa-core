@@ -18,7 +18,8 @@ import { createNamespaceBucket as learnMoreHref } from 'knowledge-base-articles'
 
 const steps = deepFreeze([
     'Choose Name',
-    'Set Placement'
+    'Set Placement',
+    'Set Caching Policy'
 ]);
 
 const readPolicyTableColumns = deepFreeze([
@@ -47,7 +48,8 @@ const readPolicyTableColumns = deepFreeze([
 
 const fieldsByStep = deepFreeze({
     0: [ 'bucketName' ],
-    1: [ 'readPolicy', 'writePolicy' ]
+    1: [ 'readPolicy', 'writePolicy' ],
+    2: [ 'cacheTTL' ]
 });
 
 class ResourceRowViewModel {
@@ -87,11 +89,15 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     resourceServiceMapping = {};
     readPolicy = [];
     writePolicy = '';
+    enableCaching = ko.observable(false);
+
     fields = {
         step: 0,
         bucketName: '',
         readPolicy: [],
-        writePolicy: undefined
+        writePolicy: undefined,
+        cacheTTL: 60000,
+        enableCaching: false
     };
 
     selectState(state) {
@@ -111,6 +117,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         const bucketName = getFieldValue(form, 'bucketName');
         const readPolicy = getFieldValue(form, 'readPolicy');
         const writePolicy = getFieldValue(form, 'writePolicy');
+        const cacheTTL = getFieldValue(form, 'cacheTTL');
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
@@ -161,7 +168,8 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
             resourceServiceMapping,
             isStepValid: isFormValid(form),
             readPolicy,
-            writePolicy
+            writePolicy,
+            cacheTTL
         });
 
     }
@@ -237,10 +245,13 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { bucketName, readPolicy, writePolicy } = values;
+        const { bucketName, readPolicy, writePolicy, cacheTTL } = values;
         this.dispatch(
             closeModal(),
-            createNamespaceBucket(bucketName, readPolicy, writePolicy)
+            createNamespaceBucket(bucketName, readPolicy, writePolicy,
+                this.enableCaching() ? {
+                    ttl_ms: cacheTTL
+                } : undefined)
         );
     }
 

@@ -748,6 +748,25 @@ module.exports = {
                 'NO_RESOURCES'
             ]
         },
+
+        bucket_cache_ttl: {
+            type: 'integer',
+            // In milliseconds
+            // -1 means infinite ttl
+            // 0 means always re-validate
+            minimum: -1,
+        },
+
+        bucket_cache_config: {
+            type: 'object',
+            required: [ ],
+            properties: {
+                ttl_ms: {
+                    $ref: '#/definitions/bucket_cache_ttl'
+                }
+            }
+        },
+
         lock_settings: {
             type: 'object',
             properties: {

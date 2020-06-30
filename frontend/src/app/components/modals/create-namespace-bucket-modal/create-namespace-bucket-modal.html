@@ -86,6 +86,42 @@
                 <wizard-controls></wizard-controls>
             </div>
         </section>
+
+        <section class="column greedy">
+            <div class="column greedy pad">
+                <h2 class="heading3">Caching Configuration</h2>
+                <p class="push-next">
+                    Caching configuration controls how data is cached in local storage
+                </p>
+                <checkbox params="label: 'Enable caching', checked: enableCaching">
+                </checkbox>
+                <editor params="label: 'Cache TTL in ms', disabled: !enableCaching()">
+                    <input type="number" min="-1"
+                        class="push-next-half"
+                        ko.value="$form.cacheTTL"
+                        ko.validationCss="$form.cacheTTL"
+                        ko.hasFocus="true"
+                        ko.disable="!enableCaching()"
+                    />
+                </editor>
+                <validation-message params="field: $form.cacheTTL"></validation-message>
+            </div>
+            <div class="row content-middle pad content-box">
+                <p class="remark greedy push-next">
+                    <svg-icon class="icon-small valign-bottom"
+                        params="name: 'notif-info'"
+                    ></svg-icon>
+                    Learn more about
+                    <a class="link"
+                        target=_blank"
+                        ko.attr.href="learnMoreHref">
+                        Namespace Buckets
+                    </a>
+                </p>
+                <wizard-controls></wizard-controls>
+            </div>
+        </section>
+
     </wizard>
 </managed-form>
 

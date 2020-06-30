@@ -119,15 +119,14 @@ function get_protocol_port(protocol) {
     switch (protocol.toLowerCase()) {
         case 'http:':
         case 'ws:': {
-            return '80';
+            return 80;
         }
         case 'https:':
         case 'wss:': {
-            return '443';
+            return 443;
         }
-        default: {
-            return '';
-        }
+        default:
+            return undefined;
     }
 }
 
@@ -139,7 +138,7 @@ function new_router_from_base_address(base_address) {
         slashes,
     } = url.parse(base_address);
 
-    const ports = get_default_ports(Number(port || get_protocol_port(protocol)) || undefined);
+    const ports = get_default_ports(Number(port) || get_protocol_port(protocol));
 
     return {
         default: url.format({ protocol, slashes, hostname, port: ports.mgmt }),

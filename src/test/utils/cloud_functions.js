@@ -24,6 +24,21 @@ class CloudFunction {
         return AWSConnections;
     }
 
+    getCOSConnection() {
+        const {
+            COS_ACCESS_KEY_ID,
+            COS_SECRET_ACCESS_KEY,
+        } = process.env;
+        const COSConnections = {
+            name: 'COSConnection',
+            endpoint: "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+            endpoint_type: "IBM_COS",
+            identity: COS_ACCESS_KEY_ID,
+            secret: COS_SECRET_ACCESS_KEY
+        };
+        return COSConnections;
+    }
+
     getAzureConnection() {
         const {
             AZURE_STORAGE_ACCOUNT_NAME,

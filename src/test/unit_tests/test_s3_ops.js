@@ -73,7 +73,7 @@ mocha.describe('s3_ops', function() {
         });
     });
 
-    function test_object_ops(bucket_name, bucket_type) {
+    function test_object_ops(bucket_name, bucket_type, caching) {
         const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
         const sliced_file_body = "TEXT-F";
         const sliced_file_body1 = "_COOL";
@@ -101,7 +101,7 @@ mocha.describe('s3_ops', function() {
                     connection: CONNECTION_NAME,
                     target_bucket: AWS_TARGET_BUCKET
                 });
-                await rpc_client.bucket.create_bucket({ name: bucket_name, namespace: { read_resources, write_resource } });
+                await rpc_client.bucket.create_bucket({ name: bucket_name, namespace: { read_resources, write_resource, caching } });
             }
             await s3.putObject({ Bucket: bucket_name, Key: text_file1, Body: file_body, ContentType: 'text/plain' }).promise();
         });
@@ -222,6 +222,9 @@ mocha.describe('s3_ops', function() {
     });
     mocha.describe('namespace-bucket-object-ops', function() {
         test_object_ops(BKT3, "namespace");
+    });
+    mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
+        test_object_ops(BKT3, "namespace", { ttl_ms: 60000 });
     });
 
 });

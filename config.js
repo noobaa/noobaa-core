@@ -253,6 +253,13 @@ config.DB_CLEANER = {
     MAX_TOTAL_DOCS: 10000
 };
 
+///////////////////////
+// NAMESPACE CACHING //
+///////////////////////
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+};
+
 /////////////////////
 // CLOUD RESOURCES //
 /////////////////////

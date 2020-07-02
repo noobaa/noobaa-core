@@ -145,7 +145,9 @@ function setup(options = {}) {
         await server_rpc.client.redirector.publish_to_cluster({
             method_api: 'server_inter_process_api',
             method_name: 'load_system_store',
-            target: ''
+            target: '',
+            request_params: {}
+
         });
         await announce('ensure_support_account()');
         await account_server.ensure_support_account();

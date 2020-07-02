@@ -14,6 +14,12 @@ module.exports = {
     methods: {
         load_system_store: {
             method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    since: { idate: true }
+                }
+            },
             auth: {
                 system: false
             }

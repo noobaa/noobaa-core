@@ -467,12 +467,20 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async load() {
+    async load(since) {
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
                 dbg.log3('SystemStore: loading ...');
+
+                // If we get a load request with an timestamp older then our last update time
+                // we ensure we load everyting from that timestamp by updating our last_update_time.
+                if (!_.isUndefined(since) && since < this.last_update_time) {
+                    dbg.log0('SystemStore.load: Got load request with a timestamp older then my last update time');
+                    this.last_update_time = since;
+                }
+
                 let new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
@@ -658,6 +666,28 @@ class SystemStore extends EventEmitter {
      *
      */
     async make_changes(changes) {
+        const { any_news, last_update } = await this._load_serial.surround(
+            () => this._make_changes_internal(changes)
+        );
+
+        // Reloading must be done outside the semapore lock because the load is
+        // locking on the same semaphore.
+        if (any_news) {
+            if (this.is_standalone) {
+                await this.load(last_update);
+            } else {
+                // notify all the cluster (including myself) to reload
+                await server_rpc.client.redirector.publish_to_cluster({
+                    method_api: 'server_inter_process_api',
+                    method_name: 'load_system_store',
+                    target: '',
+                    request_params: { since: last_update }
+                });
+            }
+        }
+    }
+
+    async _make_changes_internal(changes) {
         const bulk_per_collection = {};
         const now = new Date();
         const last_update = now.getTime();
@@ -768,18 +798,7 @@ class SystemStore extends EventEmitter {
             bulk => bulk.length && bulk.execute({ j: true })
         ));
 
-        if (any_news) {
-            if (this.is_standalone) {
-                await this.load();
-            } else {
-                // notify all the cluster (including myself) to reload
-                await server_rpc.client.redirector.publish_to_cluster({
-                    method_api: 'server_inter_process_api',
-                    method_name: 'load_system_store',
-                    target: ''
-                });
-            }
-        }
+        return { any_news, last_update };
     }
 
     make_changes_in_background(changes) {

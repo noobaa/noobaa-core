@@ -14,6 +14,31 @@ module.exports = {
     id: 'system_api',
 
     methods: {
+        get_system_status: {
+            doc: 'Query for the status of a system',
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['state', 'last_state_change'],
+                properties: {
+                    state: {
+                        type: 'string',
+                        enum: [
+                            'DOES_NOT_EXIST',
+                            'INITIALIZING',
+                            'COULD_NOT_INITIALIZE',
+                            'READY',
+                        ]
+                    },
+                    last_state_change: { idate: true }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+                anonymous: true,
+            },
+        },
 
         create_system: {
             doc: 'Create a new system',

@@ -142,6 +142,10 @@ function new_system_defaults(name, owner_account_id) {
         _id: system_store.new_system_store_id(),
         name: name,
         owner: owner_account_id,
+        state: {
+            mode: 'INITIALIZING',
+            last_update: Date.now()
+        },
 
         /*access_keys: (name === 'demo') ? [{
             access_key: '123',
@@ -245,6 +249,52 @@ function new_system_changes(name, owner_account_id) {
 
 /**
  *
+ * GET_SYSTEM_STATUS
+ *
+ */
+function get_system_status(req) {
+    if (!req.system) {
+        return {
+            state: 'DOES_NOT_EXIST',
+            last_state_change: config.NOOBAA_EPOCH
+        };
+    }
+
+    // This is here to prevent the need for DB update for old systems.
+    const { state } = req.system;
+    if (!state) {
+        return {
+            state: 'READY',
+            last_state_change: config.NOOBAA_EPOCH
+        };
+    }
+
+    return {
+        state: state.mode,
+        last_state_change: state.last_update
+    };
+}
+
+
+async function _update_system_state(system_id, mode) {
+    const update = {
+        _id: system_id,
+        $set: {
+            state: {
+                mode,
+                last_update: Date.now()
+            }
+        }
+    };
+
+    await system_store.make_changes({
+        update: {
+            systems: [update]
+        }
+    });
+}
+/**
+ *
  * CREATE_SYSTEM
  *
  */
@@ -257,6 +307,7 @@ async function create_system(req) {
         throw new Error('Cannot create multiple production systems');
     }
 
+    let system_id;
     const {
         name,
         email,
@@ -267,7 +318,7 @@ async function create_system(req) {
     try {
         const account_id = system_store.new_system_store_id();
         const changes = new_system_changes(name, account_id);
-        const system_id = changes.insert.systems[0]._id;
+        system_id = changes.insert.systems[0]._id;
         const cluster_info = await _get_cluster_info();
         if (cluster_info) {
             changes.insert.clusters = [cluster_info];
@@ -307,6 +358,9 @@ async function create_system(req) {
         await _configure_system_address(system_id, account_id);
         await _init_system(system_id);
 
+        // Mark the system as ready
+        await _update_system_state(system_id, 'READY');
+
         dbg.log0(`create_system: sending first stats to phone home`);
         await server_rpc.client.stats.send_stats(null, auth);
 
@@ -315,7 +369,12 @@ async function create_system(req) {
 
     } catch (err) {
         dbg.error('create_system: got error during create_system', err);
-        throw err;
+
+        if (system_id) {
+            // Mark the system as not initialized
+            await _update_system_state(system_id, 'COULD_NOT_INITIALIZE');
+            throw err;
+        }
     }
 }
 
@@ -1235,6 +1294,7 @@ exports.is_initialized = is_initialized;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 
+exports.get_system_status = get_system_status;
 exports.create_system = create_system;
 exports.read_system = read_system;
 exports.update_system = update_system;

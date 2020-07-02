@@ -15,6 +15,26 @@ module.exports = {
         deleted: { date: true },
         name: { type: 'string' },
         owner: { objectid: true }, // account id
+        state: {
+            type: 'object',
+            required: [
+                'mode',
+                'last_update'
+            ],
+            properties: {
+                mode: {
+                    type: 'string',
+                    enum: [
+                        'INITIALIZING',
+                        'COULD_NOT_INITIALIZE',
+                        'READY',
+                    ],
+                },
+                last_update: {
+                    idate: true
+                }
+            }
+        },
         default_chunk_config: { objectid: true },
 
         // links to system resources used for storing install packages

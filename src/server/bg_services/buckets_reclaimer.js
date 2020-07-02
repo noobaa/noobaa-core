@@ -26,6 +26,7 @@ class BucketsReclaimer {
         }
 
         let has_errors = false;
+        this._reset_delete_lists();
         dbg.log0('bucket_reclaimer: starting batch work on buckets: ', deleting_buckets.map(b => b.name).join(', '));
         await P.all(deleting_buckets.map(async bucket => {
             try {
@@ -43,13 +44,7 @@ class BucketsReclaimer {
                 });
                 if (is_empty) {
                     dbg.log0(`bucket ${bucket.name} is empty. calling delete_bucket`);
-                    await this.client.bucket.delete_bucket({ name: bucket.name, internal_call: true }, {
-                        auth_token: auth_server.make_auth_token({
-                            system_id: system._id,
-                            account_id: system.owner._id,
-                            role: 'admin'
-                        })
-                    });
+                    this._add_bucket_to_delete_lists(bucket);
                 } else {
                     dbg.log0(`bucket ${bucket.name} is not empty yet`);
                 }
@@ -58,6 +53,26 @@ class BucketsReclaimer {
                 has_errors = true;
             }
         }));
+        if (this.buckets_to_delete.length > 0) {
+            const changes = {
+                remove: {
+                    buckets: this.buckets_to_delete,
+                    tieringpolicies: this.tiering_to_delete,
+                    tiers: this.tiers_to_delete,
+                },
+            };
+            if (this.account_updates.length > 0) {
+                changes.update = {
+                    accounts: this.account_updates,
+                };
+            }
+            try {
+                await system_store.make_changes(changes);
+            } catch (err) {
+                dbg.error(`got error when trying to update DB :`, err);
+                has_errors = true;
+            }
+        }
 
         if (has_errors) {
             return config.BUCKET_RECLAIMER_ERROR_DELAY;
@@ -81,6 +96,30 @@ class BucketsReclaimer {
     _get_deleting_buckets() {
         // return buckets that has the deleting flag set
         return system_store.data.buckets.filter(bucket => Boolean(bucket.deleting));
+    }
+
+    _add_bucket_to_delete_lists(bucket) {
+        this.buckets_to_delete.push(bucket._id);
+        const tiering_policy = bucket.tiering;
+        this.tiering_to_delete.push(tiering_policy._id);
+        this.tiers_to_delete.push(...tiering_policy.tiers.map(t => t.tier._id));
+        system_store.data.accounts.forEach(account => {
+            if (!account.allowed_buckets || (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
+            if (!account.allowed_buckets.permission_list.includes(bucket)) return;
+            this.account_updates.push({
+                _id: account._id,
+                $pullAll: {
+                    'allowed_buckets.permission_list': [bucket._id]
+                }
+            });
+        });
+    }
+
+    _reset_delete_lists() {
+        this.buckets_to_delete = [];
+        this.tiering_to_delete = [];
+        this.tiers_to_delete = [];
+        this.account_updates = [];
     }
 
 }

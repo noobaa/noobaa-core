@@ -728,8 +728,10 @@ class SystemStore extends EventEmitter {
                 data.check_indexes(col, item);
                 let dont_change_last_update = Boolean(item.dont_change_last_update);
                 let updates = _.omit(item, '_id', '$find', 'dont_change_last_update');
-                let finds = item.$find || _.pick(item, '_id');
+                let find_id = _.pick(item, '_id');
+                let finds = item.$find || (mongo_utils.is_object_id(find_id._id) && find_id);
                 if (_.isEmpty(updates)) return;
+                if (!finds) throw new Error(`SystemStore: make_changes id is not of type object_id: ${find_id._id}`);
                 let keys = _.keys(updates);
 
                 if (_.first(keys)[0] === '$') {
@@ -768,6 +770,7 @@ class SystemStore extends EventEmitter {
         _.each(changes.remove, (list, name) => {
             get_collection(name);
             _.each(list, id => {
+                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
                 any_news = true;
                 get_bulk(name)
                     .find({
@@ -785,6 +788,7 @@ class SystemStore extends EventEmitter {
         _.each(changes.db_delete, (list, name) => {
             get_collection(name);
             _.each(list, id => {
+                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
                 get_bulk(name)
                     .find({
                         _id: id,

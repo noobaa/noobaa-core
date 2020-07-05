@@ -12,7 +12,7 @@ const blob_utils = require('../endpoint/blob/blob_utils');
 const azure_storage = require('../util/azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const stats_collector = require('./endpoint_stats_collector');
-
+const mongodb = require('mongodb');
 
 const MAP_BLOCK_LIST_TYPE = Object.freeze({
     uncommitted: 'UncommittedBlocks',
@@ -22,12 +22,13 @@ const MAP_BLOCK_LIST_TYPE = Object.freeze({
 
 class NamespaceBlob {
 
-    constructor({ namespace_resource_id, rpc_client, connection_string, container }) {
+    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name }) {
         this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
         this.blob = azure_storage.createBlobService(connection_string);
         this.rpc_client = rpc_client;
+        this.account_name = account_name;
     }
 
     is_same_namespace(other) {
@@ -48,35 +49,12 @@ class NamespaceBlob {
             inspect(params)
         );
 
-        const options = {
-            delimiter: params.delimiter,
-            maxResults: params.limit === 0 ? 1 : params.limit
-        };
-        const request_token = params.key_marker && {
-            targetLocation: 0,
-            nextMarker: params.key_marker
-        };
-
-        // TODO the sdk forces us to send two separate requests for blobs and dirs
-        // although the api returns both, so we might want to bypass the sdk
-        const [blobs, dirs] = await P.join(
-            P.fromCallback(callback =>
-                this.blob.listBlobsSegmentedWithPrefix(
-                    this.container,
-                    params.prefix || null,
-                    request_token,
-                    options,
-                    callback)
-            ),
-            P.fromCallback(callback =>
-                this.blob.listBlobDirectoriesSegmentedWithPrefix(
-                    this.container,
-                    params.prefix || null,
-                    request_token,
-                    options,
-                    callback)
-            )
-        );
+        const sasToken = await this._get_sas_token(this.container, undefined, azure_storage.BlobUtilities.SharedAccessPermissions.LIST);
+        // Azure blob SDK does not allow list blobs and dirs in one request but it is possible when calling directly to the API.
+        // https://github.com/Azure/azure-storage-node/blob/8afb26eda981581381e3358cbb3a5c0ddb51465d/lib/services/blob/blobservice.core.js#L5757
+        // calling list blobs and list directories seperatley may cause 0-2 unsynced continuation tokens.
+        // because of the descripted problem we call directly to the blob API.
+        const { blobs, dirs, next_marker } = await blob_utils.list_objects(params, this.account_name, this.container, sasToken);
 
         dbg.log2('NamespaceBlob.list_objects:',
             this.container,
@@ -84,18 +62,11 @@ class NamespaceBlob {
             'blobs', inspect(blobs),
             'dirs', inspect(dirs)
         );
-        const cont_token = blobs.continuationToken || dirs.continuationToken || undefined;
-        const is_truncated = Boolean(cont_token);
-        //Merge both lists (prefixes and keys) and slice according to desired size
-        //TODO continuationToken is not synced according to the sliced combined list, we should handle it in the future
-        const combined_reply = _.sortBy(blobs.entries.concat(dirs.entries), entry => entry.name)
-            .slice(0, params.limit);
-        const next_marker = cont_token && cont_token.nextMarker;
+
         return {
-            objects: _.map(_.filter(combined_reply, ent => !_.isUndefined(ent.etag)), obj =>
-                this._get_blob_object_info(obj, params.bucket)),
-            common_prefixes: _.map(_.filter(combined_reply, ent => _.isUndefined(ent.etag)), obj => obj.name),
-            is_truncated,
+            objects: _.map(blobs, obj => this._get_blob_object_info(obj, params.bucket)),
+            common_prefixes: _.map(dirs, dir => dir.Name[0]),
+            is_truncated: Boolean(next_marker),
             next_marker
         };
     }
@@ -266,20 +237,27 @@ class NamespaceBlob {
                 // clear count for next updates
                 count = 0;
             });
-            obj = await P.fromCallback(callback =>
-                this.blob.createBlockBlobFromStream(
-                    this.container,
-                    params.key,
-                    params.source_stream.pipe(count_stream),
-                    params.size, // streamLength really required ???
-                    {
-                        // TODO setting metadata fails with error on illegal characters when sending just letters and hyphens
-                        // metadata: params.xattr,
-                        contentSettings: {
-                            contentType: params.content_type,
-                        }
-                    },
-                    callback));
+
+            this._check_valid_xattr(params);
+            try {
+                obj = await P.fromCallback(callback =>
+                    this.blob.createBlockBlobFromStream(
+                        this.container,
+                        params.key,
+                        params.source_stream.pipe(count_stream),
+                        params.size, // streamLength really required ???
+                        {
+                            metadata: params.xattr,
+                            contentSettings: {
+                                contentType: params.content_type,
+                            }
+                        },
+                        callback));
+            } catch (err) {
+                this._translate_error_code(err);
+                dbg.warn('NamespaceBlob.upload_object:', inspect(err));
+                throw err;
+            }
         }
 
         dbg.log0('NamespaceBlob.upload_object:',
@@ -363,14 +341,40 @@ class NamespaceBlob {
     async create_object_upload(params, object_sdk) {
         // azure blob does not have start upload operation
         // instead starting multipart upload is implicit
-        // TODO how to handle xattr that s3 sends in the create command
-        const obj_id = crypto.randomBytes(24).toString('base64');
+        let upload;
+        if (params.xattr && Object.keys(params.xattr).length > 0) {
+            try {
+                this._check_valid_xattr(params);
+                upload = await object_sdk.rpc_client.object.create_object_upload(params);
+                dbg.log0('NamespaceBlob: creating multipart upload object md', inspect(params), upload.obj_id);
+            } catch (err) {
+                this._translate_error_code(err);
+                dbg.error('NamespaceBlob: error in creating multipart upload object md', err);
+                throw err;
+            }
+        }
+        // obj_id contains the upload obj_id that is stored in db OR  obj_id contains a random string of bytes
+        // using the first option when need to store xattr and set it after complete multipart upload phase  
+        const obj_id = upload ? Buffer.from(upload.obj_id).toString('base64') : crypto.randomBytes(24).toString('base64');
+
         dbg.log0('NamespaceBlob.create_object_upload:',
             this.container,
             inspect(params),
             'obj_id', obj_id
         );
         return { obj_id };
+    }
+
+    _check_valid_xattr(params) {
+        // This md validation check is a part of namespace blob because but Azure Blob 
+        // accepts C# identifiers only but S3 accepts other xattr too.
+        const is_invalid_attr = ([key, val]) => !(/^[A-Za-z_][A-Za-z0-9_]+$/).test(key);
+        const invalid_attr = Object.entries(params.xattr).find(is_invalid_attr);
+        if (invalid_attr) {
+            const err = new Error('InvalidMetadata: metadata keys are invalid.');
+            err.rpc_code = 'INVALID_REQUEST';
+            throw err;
+        }
     }
 
     async upload_multipart(params, object_sdk) {
@@ -514,6 +518,31 @@ class NamespaceBlob {
             inspect(params),
             'obj', inspect(obj)
         );
+
+        const obj_id = Buffer.from(params.obj_id, 'base64').toString();
+        if (mongodb.ObjectId.isValid(obj_id)) {
+            let obj_md = await object_sdk.rpc_client.object.read_object_md({
+                obj_id,
+                bucket: params.bucket,
+                key: params.key
+            });
+            dbg.log0('NamespaceBlob.complete_object_upload:',
+                this.container,
+                inspect(params),
+                'obj_md', inspect(obj_md)
+            );
+            if (obj_md && obj_md.xattr) {
+                await P.fromCallback(callback => this.blob.setBlobMetadata(this.container,
+                    params.key, obj_md.xattr, callback));
+
+                await object_sdk.rpc_client.object.abort_object_upload({
+                    key: params.key,
+                    bucket: params.bucket,
+                    obj_id
+                });
+            }
+        }
+
         const res = this._get_blob_object_info(obj, params.bucket);
         res.etag = md5_hash.digest('hex') + '-' + num_parts;
         return res;
@@ -592,6 +621,7 @@ class NamespaceBlob {
 
     _translate_error_code(err) {
         if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
     }
 
 }

@@ -12,6 +12,7 @@ const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
+const util = require('util');
 
 function parse_url_query(req) {
     req.originalUrl = req.url;
@@ -201,12 +202,14 @@ function read_request_body(req, options) {
     });
 }
 
+const parse_xml_to_js = util.promisify(xml2js.parseString);
+
 function parse_request_body(req, options) {
     if (!req.body && !options.body.optional) {
         throw new options.ErrorClass(options.error_missing_body);
     }
     if (options.body.type === 'xml') {
-        return P.fromCallback(callback => xml2js.parseString(req.body, options.body.xml_options, callback))
+        return parse_xml_to_js(req.body, options.body.xml_options)
             .then(data => {
                 req.body = data;
             })
@@ -330,3 +333,4 @@ exports.send_reply = send_reply;
 exports.get_unsecured_http_agent = get_unsecured_http_agent;
 exports.should_reject_unauthorized = should_reject_unauthorized;
 exports.make_http_request = make_http_request;
+exports.parse_xml_to_js = parse_xml_to_js;

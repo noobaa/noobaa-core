@@ -6,6 +6,8 @@ const url = require('url');
 const _ = require('lodash');
 const time_utils = require('../../util/time_utils');
 const endpoint_utils = require('../endpoint_utils');
+const { make_http_request, parse_xml_to_js } = require('../../util/http_utils');
+const { read_stream_join } = require('../../util/buffer_utils');
 
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
@@ -53,6 +55,60 @@ function parse_copy_source(req) {
 }
 
 
+
+
+//////// BLOB API UTILS ////////
+
+// https://docs.microsoft.com/en-us/rest/api/storageservices/list-blobs
+// This API called directly because of an inefficient matching function of the Azure blob SDK.
+async function list_objects(params, account_name, container, sasToken) {
+
+    const hostname = `${account_name}.blob.core.windows.net`;
+    const delimiter = params.delimiter || '/';
+    const maxResults = params.limit === 0 ? 1 : params.limit;
+
+    let path = `https://${account_name}.blob.core.windows.net/${container}?restype=container&comp=list&delimiter=${delimiter}` +
+        `&maxresults=${maxResults}&${sasToken}`;
+    if (params.key_marker) path += `&marker=${params.key_marker}`;
+
+    let response;
+    try {
+        response = await make_http_request({ hostname, port: 443, path, method: 'GET' });
+    } catch (err) {
+        throw new Error(`GET ${path} did not responed or returned with an error ${err}`);
+    }
+    const status_code = response.statusCode;
+    const buffer = await read_stream_join(response);
+    const body = buffer.toString('utf8');
+    if (status_code !== 200) {
+        throw new Error(`Could not get blobs and diresctories list, (status code: ${status_code}) got ${body}`);
+    }
+
+    let blobs;
+    let dirs;
+    let next_marker;
+    try {
+        const parsed = await parse_xml_to_js(body);
+        blobs = parsed.EnumerationResults.Blobs[0].Blob;
+        dirs = parsed.EnumerationResults.Blobs[0].BlobPrefix;
+        next_marker = parsed.EnumerationResults.NextMarker[0];
+        let parse_blobs = key => {
+            const props = key.Properties[0];
+            let obj = Object.keys(props).reduce((acc, p) => {
+                acc[(_.lowerFirst(_.camelCase(p)))] = props[p][0];
+                return acc;
+            }, { name: key.Name[0] });
+            return obj;
+        };
+        blobs = _.map(blobs, obj => parse_blobs(obj));
+    } catch (err) {
+        throw new Error(`could not parse body ${body} got error ${err}`);
+    }
+    return { blobs, dirs, next_marker };
+}
+
+
+exports.list_objects = list_objects;
 exports.set_response_object_md = set_response_object_md;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;

@@ -61,11 +61,6 @@ async function _init() {
         system_store.is_finished_initial_load
     );
 
-    const system = system_store.data.systems[0];
-    if (!system) {
-        return;
-    }
-
     // Ensure that all account are not using mongo pool as default resource after
     // at least one pool is in optimal state.
     update_account_default_resource();
@@ -1132,36 +1127,37 @@ async function get_optimal_non_mongo_pool_id() {
 async function update_account_default_resource() {
     for (;;) {
         try {
-            const optimal_pool_id = await get_optimal_non_mongo_pool_id();
+            const system = system_store.data.systems[0];
+            if (system) {
+                const optimal_pool_id = await get_optimal_non_mongo_pool_id();
 
-            if (optimal_pool_id) {
-                const updates = system_store.data.accounts
-                    .filter(account =>
-                        account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
-                        account.default_pool &&
-                        _is_mongo_pool(account.default_pool)
-                    )
-                    .map(account => ({
-                        _id: account._id,
-                        $set: {
-                            'default_pool': optimal_pool_id
-                        }
-                    }));
+                if (optimal_pool_id) {
+                    const updates = system_store.data.accounts
+                        .filter(account =>
+                            account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
+                            account.default_pool &&
+                            _is_mongo_pool(account.default_pool)
+                        )
+                        .map(account => ({
+                            _id: account._id,
+                            $set: {
+                                'default_pool': optimal_pool_id
+                            }
+                        }));
 
-                if (updates.length > 0) {
-                    await system_store.make_changes({
-                        update: { accounts: updates }
-                    });
+                    if (updates.length > 0) {
+                        await system_store.make_changes({
+                            update: { accounts: updates }
+                        });
+                    }
+
+                    return;
                 }
-
-                return;
             }
-
         } catch (error) {
             // Ignore errors so we could continue with another iteration of the loop.
             _.noop();
         }
-
         await promise_utils.delay_unblocking(5000);
     }
 }

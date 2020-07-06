@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var js_utils = require('../util/js_utils');
+var js_utils = require('../../util/js_utils');
 
 function Clazz() { /* Clazz? */ }
 
@@ -17,7 +17,7 @@ Clazz.prototype.measure = function() {
     var count = 0;
     var run = true;
     while (run) {
-        for (var i = 0; i < 100000; ++i) {
+        for (var i = 0; i < 1000000; ++i) {
             if (self.func() !== self) {
                 throw new Error('HUH');
             }

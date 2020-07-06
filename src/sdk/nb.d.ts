@@ -1,6 +1,6 @@
 export as namespace nb;
 
-import { ObjectId as MongoID, Binary as MongoBinary } from 'mongodb';
+import { Binary as MongoBinary, ObjectId as MongoID } from 'mongodb';
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -20,10 +20,13 @@ type NodeType =
     'BLOCK_STORE_GOOGLE' |
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
-type MapByID<T> = { [id: string]: T };
+
+interface MapByID<T> {
+    [id: string]: T;
+}
 
 interface Base {
-    toJSON?(): Object | string;
+    toJSON?(): object | string;
     toString?(): string;
 }
 
@@ -51,11 +54,11 @@ interface Account extends Base {
     allowed_buckets: {
         full_permission: boolean;
         permission_list: Bucket[];
-    },
-    access_keys: {
+    };
+    access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;
-    }[];
+    }>;
 }
 
 interface NodeAPI extends Base {
@@ -75,14 +78,16 @@ interface NodeAPI extends Base {
     heartbeat: number;
     os_info: {
         hostname: string,
-    },
+    };
     drive: {
         mount: string,
-    },
+    };
     // incomplete...
 }
 
-type NodesById = { [node_id: string]: NodeAPI };
+interface NodesById {
+    [node_id: string]: NodeAPI;
+}
 
 interface Pool extends Base {
     _id: ID;
@@ -126,12 +131,12 @@ interface Tiering extends Base {
         avg_chunk: number;
         delta_chunk: number;
     };
-    tiers: {
+    tiers: Array<{
         order: number;
         tier: Tier;
         spillover?: boolean;
         disabled?: boolean;
-    }[];
+    }>;
 }
 
 interface TierStatus {
@@ -140,7 +145,7 @@ interface TierStatus {
 }
 
 interface TieringStatus {
-    [tier_id: string]: TierStatus
+    [tier_id: string]: TierStatus;
 }
 
 interface PoolsStatus {
@@ -148,7 +153,7 @@ interface PoolsStatus {
         valid_for_allocation: boolean;
         num_nodes: number;
         resource_type: ResourceType;
-    }
+    };
 }
 
 interface MirrorStatus {
@@ -170,12 +175,12 @@ interface Bucket extends Base {
         read_resources: NamespaceResource[];
         write_resource: NamespaceResource;
     };
-    quota?: Object;
+    quota?: object;
     storage_stats: {
         last_update: number;
     };
-    lifecycle_configuration_rules?: Object;
-    lambda_triggers?: Object;
+    lifecycle_configuration_rules?: object;
+    lambda_triggers?: object;
 }
 
 interface NamespaceResource {
@@ -183,7 +188,7 @@ interface NamespaceResource {
     name: string;
     system: System;
     account: Account;
-    connection: Object;
+    connection: object;
 }
 
 interface ChunkConfig extends Base {
@@ -365,7 +370,7 @@ interface ObjectMD {
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
-    tagging: { key: string; value: string; }[],
+    tagging: Array<{ key: string; value: string; }>;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
 }
 
@@ -390,7 +395,7 @@ interface ObjectInfo {
     xattr: {};
     stats: { reads: number; last_read: number; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
-    tagging: { key: string; value: string; }[],
+    tagging: Array<{ key: string; value: string; }>;
     tag_count: number;
     s3_signed_url?: string;
     capacity_size?: number;
@@ -564,35 +569,53 @@ interface PartSchemaDB {
  *
  **********************************************************/
 
+type APIMethod = (params: object, options?: object) => Promise<any>;
+
+interface APIGroup {
+    [key: string]: APIMethod;
+}
+
 interface APIClient {
-    RPC_BUFFERS: Symbol;
+    readonly auth: APIGroup;
+    readonly account: APIGroup;
+    readonly system: APIGroup;
+    readonly tier: APIGroup;
+    readonly node: APIGroup;
+    readonly host: APIGroup;
+    readonly bucket: APIGroup;
+    readonly events: APIGroup;
+    readonly object: APIGroup;
+    readonly agent: APIGroup;
+    readonly block_store: APIGroup;
+    readonly stats: APIGroup;
+    readonly scrubber: APIGroup;
+    readonly debug: APIGroup;
+    readonly redirector: APIGroup;
+    readonly tiering_policy: APIGroup;
+    readonly pool: APIGroup;
+    readonly cluster_server: APIGroup;
+    readonly cluster_internal: APIGroup;
+    readonly server_inter_process: APIGroup;
+    readonly hosted_agents: APIGroup;
+    readonly frontend_notifications: APIGroup;
+    readonly func: APIGroup;
+    readonly func_node: APIGroup;
+
+    RPC_BUFFERS: symbol;
 
     create_auth_token(params: object): Promise<object>;
     create_access_key_auth(params: object): Promise<object>;
     create_k8s_auth(params: object): Promise<object>;
+}
 
-    readonly auth: object;
-    readonly account: object;
-    readonly system: object;
-    readonly tier: object;
-    readonly node: object;
-    readonly host: object;
-    readonly bucket: object;
-    readonly events: object;
-    readonly object: object;
-    readonly agent: object;
-    readonly block_store: object;
-    readonly stats: object;
-    readonly scrubber: object;
-    readonly debug: object;
-    readonly redirector: object;
-    readonly tiering_policy: object;
-    readonly pool: object;
-    readonly cluster_server: object;
-    readonly cluster_internal: object;
-    readonly server_inter_process: object;
-    readonly hosted_agents: object;
-    readonly frontend_notifications: object;
-    readonly func: object;
-    readonly func_node: object;
+
+/**********************************************************
+ *
+ * SDK / NAMESPACE
+ *
+ **********************************************************/
+
+interface ObjectNamespace {
+    get_write_resource(): ObjectNamespace;
+    is_same_namespace(other: ObjectNamespace): boolean;
 }

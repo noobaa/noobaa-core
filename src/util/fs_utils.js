@@ -11,6 +11,7 @@ const crypto = require('crypto');
 
 const P = require('./promise');
 const Semaphore = require('./semaphore');
+const sort_utils = require('./sort_utils');
 const promise_utils = require('./promise_utils');
 const get_folder_size = P.promisify(require('get-folder-size'));
 
@@ -307,6 +308,41 @@ function ignore_enoent(err) {
     if (err.code !== 'ENOENT') throw err;
 }
 
+
+/**
+ * @param {fs.Dirent} entry 
+ * @returns {string}
+ */
+function get_dirent_name(entry) {
+    return entry.name;
+}
+
+/**
+ * @param {object} params
+ * @property {string} [params.dir_path]
+ * @property {string} [params.prefix]
+ * @property {string} [params.marker]
+ * @property {number} [params.limit]
+ * @property {number} [params.buffer]
+ * @returns {Promise<fs.Dirent[]>}
+ */
+async function read_dir_sorted_limit({
+    dir_path = '.',
+    prefix = '',
+    marker = '',
+    limit = 1000,
+    buffer = 1000,
+}) {
+    const dir = await fs.promises.opendir(dir_path, { bufferSize: buffer });
+    const sorter = new sort_utils.SortedLimitSplice(limit, get_dirent_name);
+    for await (const entry of dir) {
+        if (!entry.name.startsWith(prefix)) continue;
+        if (entry.name < marker) continue;
+        sorter.push(entry);
+    }
+    return sorter.end();
+}
+
 // EXPORTS
 exports.file_must_not_exist = file_must_not_exist;
 exports.file_must_exist = file_must_exist;
@@ -329,3 +365,4 @@ exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
 exports.get_folder_size = get_folder_size;
 exports.file_exists = file_exists;
+exports.read_dir_sorted_limit = read_dir_sorted_limit;

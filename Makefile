@@ -74,6 +74,12 @@ noobaa: base
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
 
+nbdev:
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	@echo "\033[1;32mImage 'nbdev' is ready.\033[0m"
+	@echo "Usage: docker run -it nbdev"
+.PHONY: nbdev
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

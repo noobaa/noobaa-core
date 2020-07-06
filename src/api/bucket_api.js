@@ -14,36 +14,6 @@ module.exports = {
 
     methods: {
 
-        put_object_lock_configuration: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name', 'object_lock_configuration'],
-                properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
-                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
-                },
-            },
-            auth: {
-                system: 'admin'
-            },
-        },
-        get_object_lock_configuration: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
-                },
-            },
-            reply: {
-                $ref: '#/definitions/object_lock_configuration'
-            },
-            auth: {
-                system: 'admin'
-            },
-        },
         create_bucket: {
             method: 'POST',
             params: {
@@ -916,7 +886,40 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        }
+        },
+
+        put_object_lock_configuration: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'object_lock_configuration'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
+                },
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+
+        get_object_lock_configuration: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                },
+            },
+            reply: {
+                $ref: '#/definitions/object_lock_configuration'
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+
     },
 
     definitions: {

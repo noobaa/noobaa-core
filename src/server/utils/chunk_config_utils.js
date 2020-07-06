@@ -33,12 +33,9 @@ function new_chunk_code_config_defaults(chunk_coder_config) {
 function resolve_chunk_config(chunk_coder_config, account, system) {
 
     // Default config can be specified in the account / system level too
-    // It will only be used if no specific config was requested
-    const global_chunk_config = chunk_coder_config ?
-        undefined :
-        account.default_chunk_config || system.default_chunk_config;
-
-    if (global_chunk_config) return global_chunk_config;
+    // Only used if no specific config was requested
+    const global_chunk_config = account.default_chunk_config || system.default_chunk_config;
+    if (!chunk_coder_config && global_chunk_config) return global_chunk_config;
 
     // Fill the config with default values we assume the caller
     // to send only the values that it want to change from the default

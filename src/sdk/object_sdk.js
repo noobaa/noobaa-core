@@ -13,6 +13,7 @@ const http_utils = require('../util/http_utils');
 const size_utils = require('../util/size_utils');
 const signature_utils = require('../util/signature_utils');
 const NamespaceNB = require('./namespace_nb');
+const NamespaceFS = require('./namespace_fs');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
 const NamespaceMerge = require('./namespace_merge');
@@ -54,6 +55,9 @@ class ObjectSDK {
         this.rpc_client = rpc_client;
         this.internal_rpc_client = internal_rpc_client;
         this.object_io = object_io;
+        if (process.env.NAMESPACE_FS) {
+            this.namespace_fs = new NamespaceFS({ data_path: process.env.NAMESPACE_FS });
+        }
         this.namespace_nb = new NamespaceNB();
         this.accountspace_nb = new AccountSpaceNB({
             rpc_client
@@ -161,9 +165,17 @@ class ObjectSDK {
         const time = Date.now();
         dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
         try {
-            if (bucket.namespace && bucket.namespace.read_resources && bucket.namespace.write_resource) {
 
-                dbg.log0('_setup_bucket_namespace', bucket.namespace);
+            if (this.namespace_fs) {
+                return {
+                    ns: this.namespace_fs,
+                    bucket,
+                    valid_until: time + NAMESPACE_CACHE_EXPIRY,
+                };
+            }
+
+            if (bucket.namespace) {
+
                 if (bucket.namespace.caching) {
                     return {
                         ns: new NamespaceCache({
@@ -184,9 +196,11 @@ class ObjectSDK {
                     valid_until: time + NAMESPACE_CACHE_EXPIRY,
                 };
             }
+
         } catch (err) {
             dbg.error('Failed to setup bucket namespace (fallback to no namespace)', err);
         }
+
         this.namespace_nb.set_triggers_for_bucket(bucket.name.unwrap(), bucket.active_triggers);
         return {
             ns: this.namespace_nb,

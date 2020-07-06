@@ -5,7 +5,6 @@
 var mocha = require('mocha');
 var assert = require('assert');
 
-var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 
 function log(...args) {
@@ -21,41 +20,50 @@ mocha.describe('fs_utils', function() {
 
     mocha.describe('disk_usage', function() {
 
-        mocha.it('should work on the src', function() {
-            return P.join(
-                fs_utils.disk_usage('src/server'),
-                fs_utils.disk_usage('src/test')
-            ).spread((server_usage, test_usage) => {
-                log('disk_usage of src:', server_usage);
-                log('disk_usage of src/test:', test_usage);
-                assert(test_usage.size / server_usage.size > 0.50,
-                    'disk usage size of src/test is less than 50% of src/server,',
-                    'what about some quality :)');
-                assert(test_usage.count / server_usage.count > 0.50,
-                    'disk usage count of src/test is less than 50% of src/server,',
-                    'what about some quality :)');
-            });
+        mocha.it('should work on the src', async function() {
+            const server_usage = await fs_utils.disk_usage('src/server');
+            const test_usage = await fs_utils.disk_usage('src/test');
+            log('disk_usage of src:', server_usage);
+            log('disk_usage of src/test:', test_usage);
+            assert(test_usage.size / server_usage.size > 0.50,
+                'disk usage size of src/test is less than 50% of src/server,',
+                'what about some quality :)');
+            assert(test_usage.count / server_usage.count > 0.50,
+                'disk usage count of src/test is less than 50% of src/server,',
+                'what about some quality :)');
         });
 
     });
 
     mocha.describe('read_dir_recursive', function() {
 
-        mocha.it('should find this entry in source dir', function() {
+        mocha.it('should find this entry in source dir', async function() {
             let found = false;
-            return fs_utils.read_dir_recursive({
-                    root: 'src/test',
-                    on_entry: entry => {
-                        if (entry.path.endsWith('test_fs_utils.js')) {
-                            found = true;
-                        }
+            await fs_utils.read_dir_recursive({
+                root: 'src/test',
+                on_entry: entry => {
+                    if (entry.path.endsWith('test_fs_utils.js')) {
+                        found = true;
                     }
-                })
-                .then(() => {
-                    assert(found, 'Failed to find this test file in the src/test');
-                });
+                }
+            });
+            assert(found, 'Failed to find this test file in the src/test');
         });
 
+    });
+
+
+    mocha.describe('read_dir_sorted_limit', async function() {
+        mocha.it('should find this entry in source dir', async function() {
+            const res = await fs_utils.read_dir_sorted_limit({
+                dir_path: 'src/test/unit_tests',
+                prefix: 'test_',
+                marker: 'test_fs',
+                limit: 3,
+            });
+            console.log(res);
+            assert.strict.equal(res[0].name, 'test_fs_utils.js');
+        });
     });
 
 });

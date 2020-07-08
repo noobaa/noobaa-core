@@ -15,6 +15,7 @@ require('./test_job_queue');
 require('./test_linked_list');
 require('./test_keys_lock');
 require('./test_lru');
+require('./test_lru_cache');
 require('./test_prefetch');
 require('./test_promise_utils');
 require('./test_rpc');

@@ -24,10 +24,17 @@ class LRUItem {
 
 class LRU {
 
+    /**
+     * @param {{
+     *  max_usage?: number,
+     *  expiry_ms?: number,
+     *  name?: string,
+     * }} params
+     */
     constructor(params) {
         this.params = _.defaults(_.pick(params, _.keys(DEFAULT_PARAMS)), DEFAULT_PARAMS);
         this.list = new LinkedList(this.params.name);
-        this.map = {};
+        this.map = new Map();
         this.usage = 0;
     }
 
@@ -45,7 +52,7 @@ class LRU {
 
     // return the item from the LRU cache, create it if missing.
     find_item(id) {
-        let item = this.map[id];
+        let item = this.map.get(id);
         let now = this.params.expiry_ms ? Date.now() : 0;
         if (item) {
             // check if not expired
@@ -64,7 +71,7 @@ class LRU {
     }
 
     remove_item(id) {
-        return this._remove_item(this.map[id]);
+        return this._remove_item(this.map.get(id));
     }
 
     set_usage(item, usage) {
@@ -95,7 +102,7 @@ class LRU {
 
     _add_item(item) {
         // make room for 1 new item
-        this.map[item.id] = item;
+        this.map.set(item.id, item);
         this.list.push_front(item);
         this._update_usage(item.usage);
     }
@@ -103,7 +110,7 @@ class LRU {
     _remove_item(item) {
         if (!item) return;
         this.list.remove(item);
-        delete this.map[item.id];
+        this.map.delete(item.id);
         this._update_usage(-item.usage);
         return item;
     }
@@ -114,7 +121,7 @@ class LRU {
         let item = this.list.get_front();
         while (item) {
             usage += item.usage;
-            assert.strictEqual(this.map[item.id], item);
+            assert.strictEqual(this.map.get(item.id), item);
             item = this.list.get_next(item);
         }
         assert.strictEqual(this.usage, usage);

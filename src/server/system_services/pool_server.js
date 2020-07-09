@@ -285,7 +285,8 @@ async function create_cloud_pool(req) {
             account_id: req.account._id
         },
         endpoint_type: connection.endpoint_type || 'AWS',
-        backingstore: req.rpc_params.backingstore
+        backingstore: req.rpc_params.backingstore,
+        storage_limit: req.rpc_params.storage_limit,
     }, _.isUndefined);
 
 
@@ -296,6 +297,10 @@ async function create_cloud_pool(req) {
     if (already_used_by) {
         dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
         throw new RpcError('IN_USE', 'Target already in use');
+    }
+
+    if (req.rpc_params.storage_limit < config.ENOUGH_ROOM_IN_TIER_THRESHOLD) {
+        throw new RpcError('INVALID_STORAGE_LIMIT', 'new storage limit is smaller than the minimum allowed');
     }
 
     try {
@@ -344,6 +349,46 @@ async function create_cloud_pool(req) {
         actor: req.account && req.account._id,
         pool: pool._id,
         desc: `${pool.name} was created by ${req.account && req.account.email.unwrap()}`,
+    });
+}
+
+async function update_cloud_pool_limit(req) {
+    const pool = find_pool_by_name(req);
+    if (!pool.cloud_pool_info) {
+        throw new RpcError('INVALID_POOL_TYPE', `pool ${pool.name} is not a cloud pool`);
+    }
+    const new_storage_limit = req.rpc_params.storage_limit;
+    if (new_storage_limit) {
+        const pool_info = await read_pool(req);
+        const storage_minimum = Math.max(pool_info.storage.used, config.ENOUGH_ROOM_IN_TIER_THRESHOLD);
+        if (new_storage_limit < storage_minimum) {
+            throw new RpcError('INVALID_STORAGE_LIMIT', 'new storage limit is smaller than size already used by pool or the minimum allowed');
+        }
+        dbg.log0(`update_cloud_pool_limit: updating ${pool.name} size limit to ${new_storage_limit}, current usage is ${storage_minimum}`);
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    'cloud_pool_info.storage_limit': new_storage_limit
+                }]
+            }
+        });
+    } else if (pool.cloud_pool_info.storage_limit) {
+        dbg.log0(`update_cloud_pool_limit: removing ${pool.name} size limit`);
+        await system_store.make_changes({
+            update: {
+                pools: [{
+                    _id: pool._id,
+                    $unset: { 'cloud_pool_info.storage_limit': 1 },
+                }]
+            }
+        });
+    }
+    await server_rpc.client.hosted_agents.update_storage_limit({
+        pool_ids: [String(pool._id)],
+        storage_limit: new_storage_limit
+    }, {
+        auth_token: req.auth_token
     });
 }
 
@@ -1184,4 +1229,5 @@ exports.get_namespace_resource_extended_info = get_namespace_resource_extended_i
 exports.assign_pool_to_region = assign_pool_to_region;
 exports.scale_hosts_pool = scale_hosts_pool;
 exports.update_hosts_pool = update_hosts_pool;
+exports.update_cloud_pool_limit = update_cloud_pool_limit;
 exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;

@@ -301,6 +301,13 @@ class Agent {
         await this.block_store.init();
     }
 
+    update_storage_limit(storage_limit) {
+        this.storage_limit = storage_limit;
+        if (this.block_store) {
+            return this.block_store.update_storage_limit(storage_limit);
+        }
+    }
+
     sample_stats() {
         if (this.block_store) {
             return this.block_store.sample_stats();

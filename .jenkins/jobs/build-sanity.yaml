@@ -1,6 +1,6 @@
 ---
 - job:
-    name: noobaa-core
+    name: noobaa-core_build-sanity
     project-type: pipeline
     sandbox: true
     concurrent: true
@@ -15,15 +15,15 @@
         - git:
             name: origin
             url: https://github.com/noobaa/noobaa-core
-            refspec: '+refs/pull/*:refs/remotes/origin/pr/*'
+            refspec: '+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head'
             branches:
               - origin/pr/${ghprbPullId}/head
-      script-path: .jenkins/noobaa-core.groovy
+      script-path: .jenkins/build-sanity.groovy
       lightweight-checkout: true
     triggers:
       - github-pull-request:
-          status-context: ci/centos/noobaa-core
-          trigger-phrase: '/(re)?test ((all)|(ci/centos/noobaa-core))'
+          status-context: ci/centos/build-sanity
+          trigger-phrase: '/(re)?test ((all)|(ci/centos/build-sanity))'
           permit-all: true
           # TODO: set github-hooks to true when it is configured in GitHub
           github-hooks: false

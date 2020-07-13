@@ -51,4 +51,7 @@ coretest.describe_mapper_test_case({
         return map_deleter.delete_blocks_from_nodes();
     });
 
+    mocha.it('delete_parts_by_chunks', function() {
+        return map_deleter.delete_parts_by_chunks();
+    });
 });

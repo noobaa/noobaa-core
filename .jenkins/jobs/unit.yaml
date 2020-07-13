@@ -1,0 +1,34 @@
+---
+- job:
+    name: noobaa-core_unit
+    project-type: pipeline
+    sandbox: true
+    concurrent: true
+    properties:
+      - github:
+          url: https://github.com/noobaa/noobaa-core
+      - build-discarder:
+          days-to-keep: 7
+          artifact-days-to-keep: 7
+    pipeline-scm:
+      scm:
+        - git:
+            name: origin
+            url: https://github.com/noobaa/noobaa-core
+            refspec: '+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head'
+            branches:
+              - origin/pr/${ghprbPullId}/head
+      script-path: .jenkins/unit.groovy
+      lightweight-checkout: true
+    triggers:
+      - github-pull-request:
+          status-context: ci/centos/unit
+          trigger-phrase: '/(re)?test ((all)|(ci/centos/unit))'
+          permit-all: true
+          # TODO: set github-hooks to true when it is configured in GitHub
+          github-hooks: false
+          cron: 'H/5 * * * *'
+          admin-list:
+            - liranmauda
+          org-list:
+            - noobaa

@@ -5,6 +5,8 @@ def ci_git_ref = 'master' // default, will be overwritten for PRs
 
 def HASH = '0123abcd' // default, will be overwritten
 def NO_CACHE = 'NO_CACHE=true'
+// building with Docker fails in the CI due to network restrictions
+def CONTAINER_ENGINE = 'CONTAINER_ENGINE=podman'
 
 node('cico-workspace') {
 	if (params.ghprbPullId != null) {
@@ -46,23 +48,14 @@ node('cico-workspace') {
 			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} ./prepare.sh --workdir=/opt/build/noobaa-core --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
 		}
 
-		// real tests start here, and they run in parallel
-		parallel unit: {
-			stage ('Unit Tests') {
-				node ('cico-workspace') {
-					sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester ${NO_CACHE}'"
-					sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make test'"
-				}
-			}
-		},
-		build: {
-			stage ('Build & Sanity Integration Tests') {
-				node ('cico-workspace') {
-					sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && ./.travis/deploy_minikube.sh'"
-					sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} ${NO_CACHE}'"
-					sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && cd ./src/test/framework/ && ./run_test_job.sh --name ${HASH} --image ${IMAGE_TAG} --tester_image ${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait'"
-				}
-			}
+		// real test start here
+		stage('Build & Sanity Integration Tests') {
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && ./.travis/deploy_minikube.sh'"
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} ${NO_CACHE} ${CONTAINER_ENGINE}'"
+			// images were built with podman, import them in Docker for use with minikube
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${IMAGE_TAG} | docker image load'"
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${TESTER_TAG} | docker image load'"
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && cd ./src/test/framework/ && ./run_test_job.sh --name ${HASH} --image localhost/${IMAGE_TAG} --tester_image localhost/${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait'"
 		}
 	}
 

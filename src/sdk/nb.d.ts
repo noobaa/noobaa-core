@@ -169,6 +169,7 @@ interface Bucket extends Base {
     namespace?: {
         read_resources: NamespaceResource[];
         write_resource: NamespaceResource;
+        caching?: CacheConfig;
     };
     quota?: Object;
     storage_stats: {
@@ -178,6 +179,9 @@ interface Bucket extends Base {
     lambda_triggers?: Object;
 }
 
+interface CacheConfig {
+    ttl?: number;
+}
 interface NamespaceResource {
     _id: ID;
     name: string;

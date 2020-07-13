@@ -12,7 +12,7 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
-// const util = require('util');
+const config = require('../../../config');
 
 const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
@@ -68,6 +68,45 @@ coretest.describe_mapper_test_case({
     ///////////
     // TESTS //
     ///////////
+
+    mocha.it('evict object', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        config.NAMESPACE_CACHING.MIN_OBJECT_AGE_FOR_GC = 1;
+        const obj = await make_object();
+
+        const builder = new MapBuilder(obj.chunk_ids, undefined, true);
+        await builder.run();
+
+        const object_id = MDStore.instance().make_md_id(obj.obj_id);
+        const afterObject = await MDStore.instance().find_object_by_id(object_id);
+        const chunks = await MDStore.instance().find_chunks_by_ids(obj.chunk_ids);
+        const parts = await MDStore.instance().find_all_parts_of_object(afterObject);
+
+        assert.notStrictEqual(afterObject.deleted, undefined, 'Object should be marked deleted');
+        assert.equal(chunks.filter(chunk => !chunk.deleted).length, 0, 'All chunks should be gone');
+        assert.strictEqual(parts.length, 0, 'All parts should be deleted');
+    });
+    mocha.it('evict object partial', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+        config.NAMESPACE_CACHING.MIN_OBJECT_AGE_FOR_GC = 1;
+        const obj = await make_object();
+        const object_id = MDStore.instance().make_md_id(obj.obj_id);
+
+        const beforeObject = await MDStore.instance().find_object_by_id(object_id);
+        const beforeParts = await MDStore.instance().find_all_parts_of_object(beforeObject);
+        const chunks_to_delete = obj.chunk_ids.slice(obj.chunk_ids.length - 1);
+
+        const builder = new MapBuilder(chunks_to_delete, undefined, true);
+        await builder.run();
+
+        const afterObject = await MDStore.instance().find_object_by_id(object_id);
+        const chunks = await MDStore.instance().find_chunks_by_ids(obj.chunk_ids);
+        const afterParts = await MDStore.instance().find_all_parts_of_object(afterObject);
+
+        assert.strictEqual(afterObject.deleted, undefined, 'Object is not deleted');
+        assert.equal(chunks.filter(chunk => chunk.deleted).length, 1, 'One chunk is deleted');
+        assert.strictEqual(afterParts.length, beforeParts.length - 1, 'All parts should be deleted');
+    });
 
     mocha.it('builds missing frags', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this

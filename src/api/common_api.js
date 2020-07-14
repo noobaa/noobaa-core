@@ -599,17 +599,17 @@ module.exports = {
 
         digest_type: {
             type: 'string',
-            enum: ['sha1', 'sha256', 'sha384', 'sha512']
+            enum: ['sha1', 'sha256', 'sha384', 'sha512', 'none']
         },
 
         compress_type: {
             type: 'string',
-            enum: ['snappy', 'zlib']
+            enum: ['snappy', 'zlib', 'none']
         },
 
         cipher_type: {
             type: 'string',
-            enum: ['aes-256-gcm']
+            enum: ['aes-256-gcm', 'none']
         },
 
         parity_type: {

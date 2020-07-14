@@ -128,7 +128,7 @@ class MapBuilder {
                 //     chunk.tier = mapper.select_tier_for_write(chunk.bucket.tiering, tiering_status);
                 // }
 
-                if (!chunk.parts || !chunk.parts.length) {
+                if (!chunk.parts || !chunk.parts.length || !chunk.bucket) {
                     const last_hour = this.start_run - (60 * 60 * 1000); // chunks that were created in the last hour will not be deleted
                     dbg.log0('unreferenced chunk to delete', chunk);
                     if (chunk._id.getTimestamp().getTime() > last_hour) return;

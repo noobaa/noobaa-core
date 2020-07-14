@@ -43,7 +43,6 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
-let optimal_pool_existed = false;
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
@@ -81,7 +80,6 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
 async function create_bucket(req) {
 
     validate_bucket_creation(req);
-    await validate_pool_constraints();
 
     let tiering_policy;
     const changes = {
@@ -98,6 +96,8 @@ async function create_bucket(req) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
         const default_pool = req.account.default_pool;
+        // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
+        validate_pool_constraints({ mongo_pool, default_pool });
         const chunk_config = chunk_config_utils.resolve_chunk_config(
             req.rpc_params.chunk_coder_config, req.account, req.system);
         if (!chunk_config._id) {
@@ -210,11 +210,10 @@ async function create_bucket(req) {
     return get_bucket_info({ bucket: created_bucket });
 }
 
-async function validate_pool_constraints() {
-    if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true && !optimal_pool_existed) {
-        const non_mongo_optimal_pool_id = await pool_server.get_optimal_non_mongo_pool_id();
-        if (!non_mongo_optimal_pool_id) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
-        optimal_pool_existed = true;
+function validate_pool_constraints({ mongo_pool, default_pool }) {
+    if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true) {
+        if (!(mongo_pool && mongo_pool._id) || !(default_pool && default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Non existing pool');
+        if (String(mongo_pool._id) === String(default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
     }
 }
 

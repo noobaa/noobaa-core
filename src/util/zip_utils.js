@@ -91,9 +91,10 @@ function unzip_to_mem(zipfile) {
 
 function unzip_to_dir(zipfile, dir) {
     return unzip_to_callback(zipfile, (entry, stream) => {
-        const path_name = path.resolve(dir, '.' + path.sep + entry.fileName.toString());
+        const filename = entry.fileName.toString();
+        const path_name = path.resolve(dir, '.' + path.sep + filename);
         // directory ends with '/'
-        if (path_name.endsWith('/')) {
+        if (filename.endsWith('/')) {
             return fs_utils.create_path(path_name);
         }
         return P.resolve()

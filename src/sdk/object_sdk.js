@@ -583,7 +583,10 @@ class ObjectSDK {
     ///////////////////////
     // BUCKET ENCRYPTION //
     ///////////////////////
-
+    async get_bucket_caching(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.caching;
+    }
     async put_bucket_encryption(params) {
         const ns = this._get_account_namespace();
         return ns.put_bucket_encryption(params);

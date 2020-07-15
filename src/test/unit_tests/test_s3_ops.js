@@ -105,24 +105,19 @@ mocha.describe('s3_ops', function() {
             }
             await s3.putObject({ Bucket: bucket_name, Key: text_file1, Body: file_body, ContentType: 'text/plain' }).promise();
         });
-
-
         mocha.it('should head text-file', async function() {
             await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
 
-        mocha.it('should versioned head text-file', async function() {
-            // if (caching) {
+        mocha.it('should version head text-file', async function() {
+            if (caching) {
                 try {
-                    await s3.headObject({ Bucket: bucket_name, Key: text_file1, VersionId: "abc" }).promise();
-                } catch (err) {
-                    console.log(err);
-                    assert.equal(err.code, 501);
-
+                    await s3.headObject({ Bucket: bucket_name, Key: text_file1, VersionId: "rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf"}).promise();
+                } catch (error) {
+                    assert.equal(error.statusCode, 501);
                 }
-            //}
-         });
-
+            }
+        });
         mocha.it('should get text-file', async function() {
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
             assert.strictEqual(res.Body.toString(), file_body);

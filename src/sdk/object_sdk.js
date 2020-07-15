@@ -94,6 +94,15 @@ class ObjectSDK {
         return bucket.namespace;
     }
 
+    async read_bucket_sdk_caching_info(name) {
+        try {
+            const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+            return bucket.caching;
+        } catch (error) {
+            dbg.log1('read_bucket_sdk_caching_info error', error);
+        }
+    }
+
     async read_bucket_sdk_policy_info(name) {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
@@ -581,10 +590,7 @@ class ObjectSDK {
     ///////////////////////
     // BUCKET ENCRYPTION //
     ///////////////////////
-    async get_bucket_caching(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        return ns.caching;
-    }
+
     async put_bucket_encryption(params) {
         const ns = this._get_account_namespace();
         return ns.put_bucket_encryption(params);

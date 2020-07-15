@@ -151,7 +151,6 @@ async function handle_request(req, res) {
     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
-    var was_thrown = false;
 
     if (req.object_sdk.get_bucket_caching(req.params) && req.query.versionId) {
         dbg.error('S3 TODO (NotImplemented)', op_name, req.method, req.originalUrl);

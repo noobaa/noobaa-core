@@ -113,11 +113,13 @@ mocha.describe('s3_ops', function() {
             if (caching) {
                 try {
                     await s3.headObject({ Bucket: bucket_name, Key: text_file1, VersionId: "rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf"}).promise();
+                    throw new Error('version request should fail for cache buckets');
                 } catch (error) {
                     assert.equal(error.statusCode, 501);
                 }
             }
         });
+
         mocha.it('should get text-file', async function() {
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
             assert.strictEqual(res.Body.toString(), file_body);

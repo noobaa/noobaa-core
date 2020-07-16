@@ -13,6 +13,7 @@ const { Pool } = require('pg');
 const dbg = require('./debug_module')(__filename);
 const common_api = require('../api/common_api');
 const schema_utils = require('./schema_utils');
+const promise_utils = require('./promise_utils');
 const { ObjectId } = require('mongodb');
 const mongo_to_pg = require('mongo-query-to-postgres-jsonb');
 
@@ -22,6 +23,10 @@ let query_counter = 0;
 
 function pg_log(...args) {
     dbg.log0(...args);
+}
+
+function pg_error(...args) {
+    dbg.error(...args);
 }
 
 async function _do_query(client, q, transaction_counter) {
@@ -40,41 +45,103 @@ async function _do_query(client, q, transaction_counter) {
 }
 
 
-// class PgTransaction {
+class PgTransaction {
 
-//     constructor(pool) {
-//         this.counter = 0;
-//         this.should_begin = true;
-//         this.pool = pool;
-//     }
+    constructor(table) {
+        this.table = table;
+        this.length = 0;
+        this.pool = table.pool;
+        this.operations = [];
+        this._init = this._begin();
+    }
 
-//     async _begin() {
-//         this.client = await this.pool.connect();
-//         await this.query('BEGIN TRANSACTION');
-//     }
+    async _begin() {
+        this.client = await this.pool.connect();
+        await _do_query(this.client, { text: 'BEGIN TRANSACTION' });
+        // await this._query('BEGIN TRANSACTION');
+        this._init = null;
+    }
 
-//     async query(text, values) {
-//         if (this.should_begin) {
-//             this.should_begin = false;
-//             await this._begin();
-//         }
-//         const q = { text, values };
-//         this.counter += 1;
-//         await this.begin_transaction;
-//         return _do_query(this.client, q, this.counter);
-//     }
+    async insert(data) {
+        // await this.wait_for_table_init();
+        const _id = this.table.get_id(data);
+        return this._query(`INSERT INTO ${this.table.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]);
+        // this.operations.push([`INSERT INTO ${this.table.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]]);
+    }
 
-//     async commit() {
-//         await this.query('COMMIT TRANSACTION');
-//         this.client.release();
-//     }
+    async findAndUpdateOne(find, update) { // selector, update) {
+        const pg_update = mongo_to_pg.convertUpdate('data', update);
+        const pg_selector = mongo_to_pg('data', find);
+        const query = `UPDATE ${this.table.name} SET data = ${pg_update} WHERE ${pg_selector}`;
+        return this._query(query);
+        // this.operations.push([query]);
+        // return Promise.resolve()
+        //     .then(async () => {
+        //         try {
+        //             const { rowCount } = await this._query(query);
+        //             assert(rowCount <= 1, `_id must be unique. found ${rowCount} rows with _id=${find._id} in table ${this.table.name}`);
+        //         } catch (err) {
+        //             dbg.error(`update_one failed`, find, update, query, err);
+        //             throw err;
+        //         }
+        //     });
+    }
 
-//     async rollback() {
-//         await this.query('ROLLBACK TRANSACTION');
-//         this.client.release();
-//     }
+    async findAndRemoveOne(find) { // selector, update) {
+        const pg_selector = mongo_to_pg('data', find);
+        const query = `DELETE FROM ${this.table.name} WHERE ${pg_selector}`;
+        return this._query(query);
+        // this.operations.push([query]);
+        // return Promise.resolve()
+        //     .then(async () => {
+        //         try {
+        //             const { rowCount } = await this._query(query);
+        //             assert(rowCount <= 1, `_id must be unique. found ${rowCount} rows with _id=${find._id} in table ${this.table.name}`);
+        //         } catch (err) {
+        //             dbg.error(`update_one failed`, find, update, query, err);
+        //             throw err;
+        //         }
+        //     });
+    }
 
-// }
+    async _query(text, values) {
+        // if (this.should_begin) {
+        //     this.should_begin = false;
+        //     await this._begin();
+        // }
+        const q = { text, values };
+        this.length += 1;
+        this.operations.push({ q, length: this.length });
+        // await this.begin_transaction;
+        // return _do_query(this.client, q, this.length);
+    }
+
+    async execute() {
+        try {
+            await promise_utils.wait_until(() => this._init === null);
+            await Promise.all(this.operations.map(args => _do_query(this.client, args.q, args.length)));
+            await this._commit();
+        } catch (err) {
+            pg_error('PgTransaction execute error', err);
+            await this._rollback();
+            throw err;
+        } finally {
+            this.client.release();
+        }
+    }
+
+    async _commit() {
+        await _do_query(this.client, { text: 'COMMIT TRANSACTION' });
+        // this.client.release();
+    }
+
+    async _rollback() {
+        await _do_query(this.client, { text: 'ROLLBACK TRANSACTION' });
+        // await this._query('ROLLBACK TRANSACTION');
+        // this.client.release();
+    }
+
+}
 
 
 // function update_data(data, set_updates, unset_updates, inc_updates) {
@@ -129,17 +196,20 @@ class PostgresTable {
         });
     }
 
-    async _init_table() {
+    initializeUnorderedBulkOp() {
+        return new PgTransaction(this);
+    }
+
+    async _init_table(table_params) {
         try {
             // DZDZ - consider what should the id type be, check dependency in mongo objectid
-            pg_log(`creating table ${this.name}`);
-            await this.single_query(`CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb )`);
+            pg_log(`creating table ${table_params.name}`);
+            await this.single_query(`CREATE TABLE IF NOT EXISTS ${table_params.name} (_id char(24) PRIMARY KEY, data jsonb)`);
         } catch (err) {
             dbg.error('got error on _init_table:', err);
             throw err;
         }
         //DZDZ TODO: create indexes
-
     }
 
     async wait_for_table_init() {
@@ -147,8 +217,6 @@ class PostgresTable {
             await this._init;
         }
     }
-
-
 
     async single_query(text, values) {
         const q = { text, values };
@@ -162,6 +230,18 @@ class PostgresTable {
             throw new Error('data does not contain _id field');
         }
         return data._id;
+    }
+
+    async countDocuments(query) {
+        let query_string = `SELECT COUNT(*) FROM ${this.name}`;
+        if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', query)}`;
+        try {
+            const count = await this.single_query(query_string);
+            return count;
+        } catch (err) {
+            dbg.error('countDocuments failed', query, query_string, err);
+            throw err;
+        }
     }
 
     async insert_one(data) {
@@ -223,6 +303,18 @@ class PostgresTable {
         }
 
     }
+
+    async findOne(query) {
+        const query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', query)} LIMIT 1`;
+        try {
+            const res = await this.single_query(query_string);
+            return res.rows.map(row => this.decode_json(this.schema, row.data))[0];
+        } catch (err) {
+            dbg.error('findOne failed', query, query_string, err);
+            throw err;
+        }
+    }
+
 
     // table.find_equal = async eq_query => {
     //     await this.wait_for_table_init(table);
@@ -362,6 +454,7 @@ class PostgresClient extends EventEmitter {
         };
         //DZDZ - check if we need to listen for events from pool (https://node-postgres.com/api/pool#events)
         this.pool = new Pool(new_pool_params);
+        // this.emit('reconnect');
     }
 
     /**
@@ -370,6 +463,10 @@ class PostgresClient extends EventEmitter {
     static instance() {
         if (!PostgresClient._instance) PostgresClient._instance = new PostgresClient();
         return PostgresClient._instance;
+    }
+
+    define_collection(table_params) {
+        return this.define_table(table_params);
     }
 
     define_table(table_params) {
@@ -386,8 +483,6 @@ class PostgresClient extends EventEmitter {
     async wait_for_tables_init() {
         await Promise.all(this.tables.map(table => table.wait_for_table_init()));
     }
-
-
 
     validate(table_name, doc, warn) {
         const validator = this._ajv.getSchema(table_name);
@@ -411,6 +506,25 @@ class PostgresClient extends EventEmitter {
         return new ObjectId();
     }
 
+    collection(name) {
+        return this.table(name);
+    }
+
+    table(name) {
+        const table = _.find(this.tables, t => t.name === name);
+        if (!table) {
+            throw new Error('table: table not defined ' + name);
+        }
+        return table;
+    }
+
+    is_connected() {
+        return true;
+    }
+
+    connect() {
+        return Promise.resolve(true);
+    }
 }
 
 

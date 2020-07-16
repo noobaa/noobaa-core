@@ -2,6 +2,8 @@
 'use strict';
 
 require('../util/dotenv').load();
+require('../util/panic');
+require('../util/fips');
 
 const url = require('url');
 

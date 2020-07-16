@@ -9,7 +9,7 @@ process.on('uncaughtException', err => panic('process uncaughtException', err));
 
 function panic(message, err) {
     console.error('PANIC:', message, err.stack || err);
-    while (process.env.LOOP_ON_FAIL === 'true') {
+    while (process.env.LOOP_ON_PANIC === 'true') {
         console.warn('Encountered an error, holding the process on an infinite loop');
         child_process.execSync('sleep 10');
     }

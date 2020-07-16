@@ -599,17 +599,17 @@ module.exports = {
 
         digest_type: {
             type: 'string',
-            enum: ['sha1', 'sha256', 'sha384', 'sha512']
+            enum: ['sha1', 'sha256', 'sha384', 'sha512', 'none']
         },
 
         compress_type: {
             type: 'string',
-            enum: ['snappy', 'zlib']
+            enum: ['snappy', 'zlib', 'none']
         },
 
         cipher_type: {
             type: 'string',
-            enum: ['aes-256-gcm']
+            enum: ['aes-256-gcm', 'none']
         },
 
         parity_type: {
@@ -748,6 +748,25 @@ module.exports = {
                 'NO_RESOURCES'
             ]
         },
+
+        bucket_cache_ttl: {
+            type: 'integer',
+            // In milliseconds
+            // -1 means infinite ttl
+            // 0 means always re-validate
+            minimum: -1,
+        },
+
+        bucket_cache_config: {
+            type: 'object',
+            required: [ ],
+            properties: {
+                ttl_ms: {
+                    $ref: '#/definitions/bucket_cache_ttl'
+                }
+            }
+        },
+
         lock_settings: {
             type: 'object',
             properties: {

@@ -42,6 +42,14 @@ const tests = [{
     agent_cpu: '250m',
     agent_mem: '150Mi',
 }, {
+}, {
+    name: 'namespace-cache-test',
+    test: './src/test/pipeline/namespace_cache_test.js',
+    server_cpu: '400m',
+    server_mem: '400Mi',
+    agent_cpu: '250m',
+    agent_mem: '150Mi',
+}, {
     name: 'dataset-test',
     test: './src/test/pipeline/run_dataset.js',
     server_cpu: '400m',

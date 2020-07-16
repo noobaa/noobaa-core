@@ -105,6 +105,11 @@ class BlockStoreBase {
         }
     }
 
+    update_storage_limit(storage_limit) {
+        this.storage_limit = storage_limit;
+        this.usage_limit = this.storage_limit || Infinity;
+    }
+
     _get_block_store_info() {
         throw new Error('this block store does not support block_store_info');
     }

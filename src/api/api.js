@@ -70,7 +70,7 @@ function client_factory_from_schema(schema) {
 
     for (const api of Object.values(schema)) {
         if (!api || !api.id || api.id[0] === '_') {
-             continue;
+            continue;
         }
 
         // Skip common api and other apis that do not define methods.
@@ -115,16 +115,37 @@ function client_factory_from_schema(schema) {
     };
 }
 
+function get_protocol_port(protocol) {
+    switch (protocol.toLowerCase()) {
+        case 'http:':
+        case 'ws:': {
+            return 80;
+        }
+        case 'https:':
+        case 'wss:': {
+            return 443;
+        }
+        default:
+            return undefined;
+    }
+}
+
 function new_router_from_base_address(base_address) {
-    const { protocol, hostname, port, slashes } = url.parse(base_address);
-    const ports = get_default_ports(Number(port));
+    const {
+        protocol,
+        hostname,
+        port,
+        slashes,
+    } = url.parse(base_address);
+
+    const ports = get_default_ports(Number(port) || get_protocol_port(protocol));
 
     return {
-        default: url.format({ protocol, slashes, hostname, port: port }),
+        default: url.format({ protocol, slashes, hostname, port: ports.mgmt }),
         md: url.format({ protocol, slashes, hostname, port: ports.md }),
         bg: url.format({ protocol, slashes, hostname, port: ports.bg }),
         hosted_agents: url.format({ protocol, slashes, hostname, port: ports.hosted_agents }),
-        master: url.format({ protocol, slashes, hostname, port: port })
+        master: url.format({ protocol, slashes, hostname, port: ports.mgmt })
     };
 }
 

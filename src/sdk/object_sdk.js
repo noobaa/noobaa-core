@@ -16,6 +16,7 @@ const NamespaceNB = require('./namespace_nb');
 const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
 const NamespaceMerge = require('./namespace_merge');
+const NamespaceCache = require('./namespace_cache');
 const NamespaceMultipart = require('./namespace_multipart');
 const NamespaceNetStorage = require('./namespace_net_storage');
 const AccountSpaceNetStorage = require('./accountspace_net_storage');
@@ -161,6 +162,22 @@ class ObjectSDK {
         dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
         try {
             if (bucket.namespace && bucket.namespace.read_resources && bucket.namespace.write_resource) {
+
+                dbg.log0('_setup_bucket_namespace', bucket.namespace);
+                if (bucket.namespace.caching) {
+                    return {
+                        ns: new NamespaceCache({
+                            namespace_hub: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
+                            namespace_nb: this.namespace_nb,
+                            active_triggers: bucket.active_triggers,
+                            caching: bucket.namespace.caching,
+                        }),
+                        bucket,
+                        valid_until: time + NAMESPACE_CACHE_EXPIRY,
+                    };
+                }
+
+                // MERGE NAMESPACE
                 return {
                     ns: this._setup_merge_namespace(bucket),
                     bucket,

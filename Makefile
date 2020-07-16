@@ -40,7 +40,7 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\033[1;34mStarting Builder $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) -t noobaa-builder . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) -t noobaa-builder .
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "\033[1;32mBuilder done.\033[0m"
 .PHONY: builder

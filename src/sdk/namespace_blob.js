@@ -377,35 +377,57 @@ class NamespaceBlob {
         // generating block ids in the form: '95342c3f-000005'
         // this is needed mostly since azure requires all the block_ids to have the same fixed length
         const block_id = this.blob.getBlockId(params.obj_id, params.num);
+        let res;
         dbg.log0('NamespaceBlob.upload_multipart:',
             this.container,
             inspect(_.omit(params, 'source_stream')),
             'block_id', block_id
         );
         if (params.copy_source) {
-            throw new Error('NamespaceBlob.upload_multipart: copy part not yet supported');
-        }
 
-        let count = 1;
-        const count_stream = stream_utils.get_tap_stream(data => {
-            stats_collector.instance(this.rpc_client).update_namespace_write_stats({
-                namespace_resource_id: this.namespace_resource_id,
-                size: data.length,
-                count
+            const start = params.copy_source.ranges ? params.copy_source.ranges[0].start : 0;
+            const end = params.copy_source.ranges ? params.copy_source.ranges[0].end : params.size;
+
+            const maxCopySource = 100 * 1024 * 1024;
+            if (end - start > maxCopySource) {
+                throw new Error('The specified copy source is larger than the maximum allowable size for a copy source (100mb).');
+            }
+
+            const sasToken = await this._get_sas_token(this.container, params.copy_source.key,
+                azure_storage.BlobUtilities.SharedAccessPermissions.READ);
+            const url = this.blob.getUrl(params.copy_source.bucket, params.copy_source.key, sasToken);
+
+            res = await P.fromCallback(callback =>
+                this.blob.createBlockFromURL(
+                    block_id,
+                    this.container,
+                    params.key,
+                    url,
+                    start,
+                    end - 1,
+                    callback)
+            );
+        } else {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
             });
-            // clear count for next updates
-            count = 0;
-        });
-        const res = await P.fromCallback(callback =>
-            this.blob.createBlockFromStream(
-                block_id,
-                this.container,
-                params.key,
-                params.source_stream.pipe(count_stream),
-                params.size, // streamLength really required ???
-                callback)
-        );
-
+            res = await P.fromCallback(callback =>
+                this.blob.createBlockFromStream(
+                    block_id,
+                    this.container,
+                    params.key,
+                    params.source_stream.pipe(count_stream),
+                    params.size, // streamLength really required ???
+                    callback)
+            );
+        }
         dbg.log0('NamespaceBlob.upload_multipart:',
             this.container,
             inspect(_.omit(params, 'source_stream')),
@@ -416,6 +438,22 @@ class NamespaceBlob {
         return {
             etag: block_id_hex,
         };
+    }
+
+    async _get_sas_token(container, block_key, permission) {
+
+        const start_date = new Date();
+        const expiry_date = new Date(start_date);
+        expiry_date.setMinutes(start_date.getMinutes() + 10);
+        start_date.setMinutes(start_date.getMinutes() - 10);
+        const shared_access_policy = {
+            AccessPolicy: {
+                Permissions: permission,
+                Start: start_date,
+                Expiry: expiry_date
+            },
+        };
+        return this.blob.generateSharedAccessSignature(container, block_key, shared_access_policy);
     }
 
     async list_multiparts(params, object_sdk) {

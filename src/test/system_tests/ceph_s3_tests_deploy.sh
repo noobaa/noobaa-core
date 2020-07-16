@@ -29,8 +29,8 @@ commit_epoch=$(git show -s --format=%ci ${CEPH_TESTS_VERSION} | awk '{print $1}'
 commit_date=$(date -d ${commit_epoch} +%s)
 current_date=$(date +%s)
 
-if [ $((current_date-commit_date)) -gt $((3600*24*180)) ]
+if [ $((current_date-commit_date)) -gt $((3600*24*240)) ]
 then
-    echo "ceph tests were not updated for 180 days, Exiting"
+    echo "ceph tests were not updated for 240 days, Exiting"
     exit 1
 fi

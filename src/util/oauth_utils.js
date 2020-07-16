@@ -45,7 +45,7 @@ async function trade_grant_code_for_access_token(
             'utf8'
         );
     } catch (err) {
-        throw make_error('OpenShift api endpoint does not response');
+        throw make_error(`OpenShift api endpoint does not response, got: ${err.message}`);
     }
 
     const status_code = response.statusCode;

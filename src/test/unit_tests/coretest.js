@@ -3,11 +3,10 @@
 
 const wtf = require("wtfnode");
 
-const panic = require('../../util/panic');
-panic.enable_heapdump('coretest');
-
 console.log('loading .env file');
 require('../../util/dotenv').load();
+require('../../util/panic').enable_heapdump('coretest');
+require('../../util/fips');
 
 const CORETEST = 'coretest';
 process.env.JWT_SECRET = CORETEST;
@@ -146,7 +145,9 @@ function setup(options = {}) {
         await server_rpc.client.redirector.publish_to_cluster({
             method_api: 'server_inter_process_api',
             method_name: 'load_system_store',
-            target: ''
+            target: '',
+            request_params: {}
+
         });
         await announce('ensure_support_account()');
         await account_server.ensure_support_account();

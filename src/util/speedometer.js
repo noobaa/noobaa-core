@@ -7,10 +7,21 @@ class Speedometer {
 
     constructor(name) {
         this.name = name || 'Speed';
-        this.num_bytes = 0;
-        this.last_bytes = 0;
+
         this.start_time = Date.now();
         this.last_time = this.start_time;
+
+        this.num_bytes = 0;
+        this.last_bytes = 0;
+
+        this.num_ops = 0;
+        this.last_ops = 0;
+
+        this.sum_latency = 0;
+        this.last_latency = 0;
+        this.min_latency = Infinity;
+        this.max_latency = -Infinity;
+
         this.worker_mode = cluster.isWorker;
         if (cluster.isMaster) {
             cluster.on('message', (worker, bytes) => this.update(bytes));
@@ -34,6 +45,13 @@ class Speedometer {
     update(bytes) {
         this.num_bytes += bytes;
         if (!this.interval) this.set_interval();
+    }
+
+    add_op(took_ms) {
+        this.num_ops += 1;
+        this.sum_latency += took_ms;
+        if (took_ms > this.max_latency) this.max_latency = took_ms;
+        if (took_ms < this.min_latency) this.min_latency = took_ms;
     }
 
     set_interval(delay_ms) {
@@ -61,12 +79,26 @@ class Speedometer {
                 (now - this.last_time) * 1000 / 1024 / 1024;
             const avg_speed = this.num_bytes /
                 (now - this.start_time) * 1000 / 1024 / 1024;
-            console.log(this.name + ': ' +
+            const ops = this.num_ops - this.last_ops;
+            const avg_latency = this.sum_latency - this.last_latency;
+            console.log(
+                this.name + ': ' +
                 speed.toFixed(1) + ' MB/sec' +
-                ' (average ' + avg_speed.toFixed(1) + ')');
+                ' (average ' + avg_speed.toFixed(1) + ')' +
+                (ops ? (
+                    ' | OPS: ' + ops +
+                    ' min:' + this.min_latency.toFixed(1) + 'ms' +
+                    ' max:' + this.max_latency.toFixed(1) + 'ms' +
+                    ' avg:' + (avg_latency / ops).toFixed(1) + 'ms'
+                ) : '')
+            );
         }
-        this.last_bytes = this.num_bytes;
         this.last_time = now;
+        this.last_bytes = this.num_bytes;
+        this.last_ops = this.num_ops;
+        this.last_latency = this.sum_latency;
+        this.min_latency = Infinity;
+        this.max_latency = -Infinity;
     }
 }
 

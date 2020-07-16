@@ -8,7 +8,7 @@ class OAuthAccessDeniedModalViewModel extends ConnectableViewModel {
 
     onBack() {
         // Using navigateTo instead of requestLocation action because
-        // login layout was not full moved to new arch and will not react
+        // login layout was not fully moved to new arch and will not react
         // to state location changes
         // TODO: move to requestLocation action after login layout rewrite
         navigateTo('/fe');

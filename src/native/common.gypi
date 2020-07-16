@@ -1,5 +1,11 @@
 # Copyright (C) 2016 NooBaa
 {
+    'variables': {
+        # see https://nodejs.org/docs/latest-v12.x/api/process.html#process_process_arch
+        # Possible values are: 
+        # 'arm', 'arm64', 'ia32', 'mips','mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
+        'node_arch': '''<!(node -p process.arch)''',
+    },
     'target_defaults': {
 
         'conditions' : [
@@ -13,7 +19,6 @@
                 ],
                 'cflags': [
                     '-std=c99',
-                    '-msse4.1', # tell the compiler we use SSE4.1 in cm256
                 ],
                 'cflags_cc': [
                     '-std=c++11'

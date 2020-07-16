@@ -18,7 +18,7 @@ argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
 // client
 argv.client = argv.client === true ? '127.0.0.1' : argv.client;
-argv.size = argv.size || 1024; // in MB
+argv.size = argv.size === undefined ? (1024 ** 3) : argv.size; // in bytes
 argv.buf = argv.buf || 128 * 1024; // in Bytes
 argv.concur = argv.concur || 1;
 // server
@@ -100,6 +100,7 @@ function run_server() {
  * @param {http.ServerResponse} res 
  */
 function run_server_request(req, res) {
+    const op_start_time = process.hrtime.bigint();
     req.on('error', err => {
         console.error('HTTP server request error', err.message);
         process.exit();
@@ -108,7 +109,12 @@ function run_server_request(req, res) {
         console.error('HTTP server response error', err.message);
         process.exit();
     });
-    req.once('end', () => res.end());
+    req.once('end', () => {
+        recv_speedometer.add_op(
+            Number(process.hrtime.bigint() - op_start_time) / 1000000
+        );
+        res.end();
+    });
     run_receiver(req);
 }
 
@@ -119,6 +125,7 @@ function run_client() {
 }
 
 function run_client_request() {
+    const op_start_time = process.hrtime.bigint();
     const req = (argv.ssl ? https : http)
         .request({
             agent: http_agent,
@@ -145,6 +152,9 @@ function run_client_request() {
                     console.error('HTTP client response error', err.message);
                     process.exit();
                 })
+                .once('end', () => send_speedometer.add_op(
+                    Number(process.hrtime.bigint() - op_start_time) / 1000000
+                ))
                 .once('end', run_client_request)
                 .on('data', data => { /* noop */ });
             // setImmediate(run_client_request);
@@ -157,21 +167,20 @@ function run_client_request() {
  * @param {http.ClientRequest} writable 
  */
 function run_sender(writable) {
-    const size = argv.size * 1024 * 1024;
     var n = 0;
 
     writable.on('drain', send);
     send();
 
     function send() {
-        const buf = Buffer.allocUnsafe(argv.buf);
+        const buf = Buffer.allocUnsafe(Math.min(argv.buf, argv.size - n));
         var ok = true;
-        while (ok && n < size) {
+        while (ok && n < argv.size) {
             ok = writable.write(buf);
             n += buf.length;
             send_speedometer.update(buf.length);
         }
-        if (n >= size) writable.end();
+        if (n >= argv.size) writable.end();
     }
 }
 

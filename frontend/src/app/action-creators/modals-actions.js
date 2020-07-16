@@ -888,7 +888,28 @@ export function openOAuthAccessDeniedModal() {
             options: {
                 title: 'Access Denied',
                 size: 'xsmall',
-                severity: 'info'
+                severity: 'info',
+                closeButton: 'hidden',
+                backdropClose: false
+            }
+        }
+    };
+}
+
+export function openOAuthUnauthorizedModal() {
+    return {
+        type: OPEN_MODAL,
+        payload: {
+            component: {
+                name: 'oauth-unauthorized-modal',
+                params: { }
+            },
+            options: {
+                title: 'Access Denied',
+                size: 'xsmall',
+                severity: 'info',
+                closeButton: 'hidden',
+                backdropClose: false
             }
         }
     };

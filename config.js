@@ -253,6 +253,13 @@ config.DB_CLEANER = {
     MAX_TOTAL_DOCS: 10000
 };
 
+///////////////////////
+// NAMESPACE CACHING //
+///////////////////////
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+};
+
 /////////////////////
 // CLOUD RESOURCES //
 /////////////////////
@@ -402,6 +409,9 @@ config.PROMETHEUS_PREFIX = 'NooBaa_';
 
 config.OAUTH_REDIRECT_ENDPOINT = 'fe/oauth/callback';
 config.OAUTH_REQUIRED_SCOPE = 'user:info';
+config.OAUTH_REQUIRED_GROUPS = [
+    'system:cluster-admins'
+];
 
 //////////////////////////////
 // KUBERNETES RELATES       //
@@ -487,3 +497,9 @@ config.INLINE_MAX_SIZE = 4096;
 ///////////////////////////////
 
 config.WORM_ENABLED = false;
+
+// Should we allow the creation of buckets on internal storage
+config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
+
+// Temporary flag to turn PostgreSQL as DB
+config.USE_POSTGRESQL = false;

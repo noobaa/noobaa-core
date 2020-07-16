@@ -31,7 +31,7 @@ class FuncNode {
     invoke_func(req) {
         return this._load_func_code(req)
             .then(func => new P((resolve, reject) => {
-                const max_heap_size_mb = Math.min(8, func.config.memory_size);
+                const max_heap_size_mb = Math.max(8, func.config.memory_size);
                 const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
                         execArgv: [

@@ -91,7 +91,7 @@
     "ip": "1.1.5",
     "jsonwebtoken": "8.5.1",
     "linux-blockutils": "0.1.0",
-    "lodash": "4.17.15",
+    "lodash": "4.17.19",
     "mime": "2.4.4",
     "minimist": "1.2.5",
     "mkdirp": "0.5.1",

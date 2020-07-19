@@ -10,25 +10,8 @@ export const funcSizeLimit = unitsInBytes.MEGABYTE * 100;
 export const handlerFileSuffix = '.js';
 export const memorySizeOptions = deepFreeze([
     {
-        value: 8,
-        label: '8 MB'
-    },
-    {
-        value: 16,
-        label: '16 MB'
-    },
-    {
-        value: 32,
-        label: '32 MB'
-    },
-    {
-        value: 64,
-        label: '64 MB'
-    },
-    {
         value: 128,
-        label: '128 MB',
-        default: true
+        label: '128 MB'
     },
     {
         value: 256,

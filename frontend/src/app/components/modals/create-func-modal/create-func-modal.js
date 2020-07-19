@@ -111,7 +111,7 @@ class CreateFuncModalViewModel extends ConnectableViewModel {
         codePackage: null,
         handlerFile: '',
         handlerFunc: '',
-        memorySize: memorySizeOptions.find(opt => opt.default).value,
+        memorySize: memorySizeOptions[0].value,
         timeoutMinutes: 0,
         timeoutSeconds: 30
     };

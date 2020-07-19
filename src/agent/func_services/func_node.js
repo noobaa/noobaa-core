@@ -31,14 +31,8 @@ class FuncNode {
     invoke_func(req) {
         return this._load_func_code(req)
             .then(func => new P((resolve, reject) => {
-                const max_heap_size_mb = Math.max(8, func.config.memory_size);
                 const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
-                        execArgv: [
-                        ...process.execArgv,
-                        // We set the fork's args *after* the parent args to override its flags (last flags wins)
-                        `--max-heap-size=${max_heap_size_mb}`,
-                        ],
                         stdio: 'inherit',
                         // main node root modules library for the forked lambda function, so function can use modules (like aws-s3)
                         // from wherever located (func.code_dir)

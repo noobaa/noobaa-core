@@ -128,6 +128,12 @@
                 'isa-l_crypto/include/md5_mb.h',
                 'isa-l_crypto/include/types.h',
                 'isa-l_crypto/include/multi_buffer.h',
+                'isa-l_crypto/md5_mb/md5_ctx_base.c',
+                'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
+            ],
+            # compile asm only for x64 until we have support for ppc
+            # see https://github.com/intel/isa-l/issues/7
+            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
                 'isa-l_crypto/include/intrinreg.h',
                 'isa-l_crypto/include/reg_sizes.asm',
                 'isa-l_crypto/include/multibinary.asm',
@@ -137,7 +143,6 @@
                 'isa-l_crypto/md5_mb/md5_job.asm',
                 'isa-l_crypto/md5_mb/md5_mb_mgr_datastruct.asm',
                 # ctx
-                # 'isa-l_crypto/md5_mb/md5_ctx_base.c',
                 'isa-l_crypto/md5_mb/md5_ctx_sse.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx2.c',
@@ -161,7 +166,7 @@
                 'isa-l_crypto/md5_mb/md5_mb_x4x2_avx.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x8x2_avx2.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x16x2_avx512.asm',
-            ],
+            ]}]],
         },
 
         {
@@ -173,6 +178,12 @@
                 'isa-l_crypto/sha1_mb/',
             ],
             'sources': [
+                'isa-l_crypto/sha1_mb/sha1_ctx_base.c',
+                'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
+            ],
+            # compile asm only for x64 until we have support for ppc
+            # see https://github.com/intel/isa-l/issues/7
+            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
                 'isa-l_crypto/sha1_mb/sha1_ctx_sse.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx2.c',
@@ -200,7 +211,7 @@
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_submit_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_avx512_ni.asm',
-            ],
+            ]}]],
         },
 
         {

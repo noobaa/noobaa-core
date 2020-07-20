@@ -37,12 +37,19 @@
 #ifndef _MEMCPY_H_
 #define _MEMCPY_H_
 
+#if defined(__i386__) || defined(__x86_64__) || defined( _M_X64) \
+	|| defined(_M_IX86)
 #include "intrinreg.h"
+#endif
+#include <string.h>
 #include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#if defined(__i386__) || defined(__x86_64__) || defined( _M_X64) \
+	|| defined(_M_IX86)
 
 #define memcpy_varlen   memcpy_sse_varlen
 #define memcpy_fixedlen memcpy_sse_fixedlen
@@ -352,7 +359,14 @@ static inline void memclr_sse_varlen(void *dst, size_t nbytes)
 	else
 		memclr_lte32_sse_varlen(dst, nbytes);
 }
+#else
+#define memcpy_varlen   memcpy
+#define memcpy_fixedlen memcpy
 
+#define memclr_varlen(dst,n)   memset(dst,0,n)
+#define memclr_fixedlen(dst,n) memset(dst,0,n)
+
+#endif
 
 #ifdef __cplusplus
 }

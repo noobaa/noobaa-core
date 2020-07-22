@@ -313,6 +313,10 @@ config.AWS_METERING_ENABLED = true;
 config.AWS_METERING_INTERVAL = 60 * 60 * 1000; // 1 hour
 config.AWS_METERING_USAGE_DIMENSION = 'noobaa_usage';
 
+/////////////////////
+// CACHE PREFETCH  //
+/////////////////////
+config.CACHE_PREFETCH_ENABLED = true;
 
 //////////////////
 // DEBUG CONFIG //

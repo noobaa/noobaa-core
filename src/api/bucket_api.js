@@ -1275,7 +1275,10 @@ module.exports = {
                             items: {
                                 type: 'string'
                             },
-                        }
+                        },
+                        caching: {
+                            $ref: 'common_api#/definitions/bucket_cache_config'
+                        },
                     }
                 },
                 versioning: { $ref: '#/definitions/versioning' },

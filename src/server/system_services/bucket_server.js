@@ -578,6 +578,10 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
         throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
     }
 
+    if (update_request.namespace.caching && update_request.namespace.caching.fetched === true) {
+        const caching = update_request.namespace.caching;
+        _.set(single_bucket_update, 'namespace.caching', caching);
+    }
     // reorder read resources so that the write resource is the first in the list
     const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
 

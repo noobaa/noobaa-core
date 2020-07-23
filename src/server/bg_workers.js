@@ -32,6 +32,7 @@ var stats_aggregator = require('./system_services/stats_aggregator');
 var aws_usage_metering = require('./system_services/aws_usage_metering');
 var usage_aggregator = require('./bg_services/usage_aggregator');
 var md_aggregator = require('./bg_services/md_aggregator');
+var { CachePrefetcher } = require('./bg_services/cache_prefetcher');
 var background_scheduler = require('../util/background_scheduler').get_instance();
 var stats_collector = require('./bg_services/stats_collector');
 var dedup_indexer = require('./bg_services/dedup_indexer');
@@ -48,7 +49,8 @@ const MASTER_BG_WORKERS = [
     'db_cleaner',
     'aws_usage_metering',
     'agent_blocks_verifier',
-    'agent_blocks_reclaimer'
+    'agent_blocks_reclaimer',
+    'cache_prefetcher'
 ];
 
 dbg.set_process_name('BGWorkers');
@@ -108,6 +110,14 @@ function run_master_workers() {
         delay: config.USAGE_AGGREGATOR_INTERVAL
     }, usage_aggregator.background_worker);
 
+    if (config.CACHE_PREFETCH_ENABLED) {
+        register_bg_worker(new CachePrefetcher({
+            name: 'cache_prefetcher',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('CACHE_PREFETCHER NOT ENABLED');
+    }
     if (config.SCRUBBER_ENABLED) {
         register_bg_worker({
             name: 'scrubber',

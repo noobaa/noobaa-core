@@ -4,16 +4,15 @@
 const _ = require('lodash');
 const mongodb = require('mongodb');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const node_schema = require('./node_schema');
-const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
+const P = require('../../util/promise');
 
 class NodesStore {
 
     constructor(test_suffix = '') {
-        this._nodes = mongo_client.instance().define_collection({
+        this._nodes = db_client.instance().define_collection({
             name: 'nodes' + test_suffix,
             schema: node_schema,
         });
@@ -29,7 +28,7 @@ class NodesStore {
     }
 
     is_connected() {
-        return mongo_client.instance().is_connected();
+        return db_client.instance().is_connected();
     }
 
     _validate_all(nodes, warn) {
@@ -45,20 +44,24 @@ class NodesStore {
     /////////////
 
     create_node(req, node) {
-        if (!node._id) {
-            node._id = this.make_node_id();
-        }
-        return P.resolve()
-            .then(() => this._nodes.validate(node))
-            .then(() => this._nodes.col().insertOne(node))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'node'))
-            .return(node);
+        return P.resolve().then(async () => {
+            if (!node._id) {
+                node._id = this.make_node_id();
+            }
+            try {
+                this._nodes.validate(node);
+                await this._nodes.insertOne(node);
+            } catch (err) {
+                db_client.instance().check_duplicate_key_conflict(err, 'node');
+            }
+            return node;
+        });
     }
 
-    db_delete_nodes(node_ids) {
+    async db_delete_nodes(node_ids) {
         if (!node_ids || !node_ids.length) return;
         dbg.warn('Removing the following nodes from DB:', node_ids);
-        return this._nodes.col().deleteMany({
+        return this._nodes.deleteMany({
             _id: {
                 $in: node_ids
             },
@@ -67,22 +70,23 @@ class NodesStore {
     }
 
     update_node_by_id(node_id, updates, options) {
-        return P.resolve(this._nodes.col().updateOne({
+        return P.resolve().then(async () => {
+            const res = await this._nodes.updateOne({
                 _id: this.make_node_id(node_id)
-            }, updates, options))
-            .then(res => mongo_utils.check_update_one(res, 'node'));
+            }, updates, options);
+            db_client.instance().check_update_one(res, 'node');
+        });
     }
 
-    bulk_update(items) {
-        const bulk = this._nodes.col().initializeUnorderedBulkOp();
+    async _bulk_update(items, nodes_to_store) {
+        const bulk = this._nodes.initializeUnorderedBulkOp();
         let num_update = 0;
         let num_insert = 0;
-        const nodes_to_store = new Map();
         for (const item of items) {
             nodes_to_store.set(item, _.cloneDeep(item.node));
             if (item.node_from_store) {
                 this._nodes.validate(item.node, 'warn');
-                const diff = mongo_utils.make_object_diff(
+                const diff = db_client.instance().make_object_diff(
                     item.node, item.node_from_store);
                 if (_.isEmpty(diff)) continue;
                 bulk.find({
@@ -103,60 +107,58 @@ class NodesStore {
         dbg.log0('bulk_update:',
             'executing bulk with', num_update, 'updates',
             'and', num_insert, 'inserts');
-        return P.resolve()
-            .then(() => new P(resolve => {
-                // execute returns both the err and a result with details on the error
-                // we use the result with details for fine grain error handling per bulk item
-                // returning which items were updated and which failed
-                // but in any case we always resolve the promise and not rejecting
-                bulk.execute((err, result) => {
-                    if (result) {
-                        if (result.getWriteConcernError()) {
-                            dbg.warn('bulk_update: WriteConcernError', result.getWriteConcernError());
-                            return resolve({
-                                updated: null,
-                                failed: items
-                            });
-                        }
-                        if (result.hasWriteErrors()) {
-                            const failed = _.map(result.getWriteErrors(), e => items[e.index]);
-                            dbg.warn('bulk_update:', result.getWriteErrorCount(), 'WriteErrors',
-                                _.map(result.getWriteErrors(), e => ({
-                                    code: e.code,
-                                    index: e.index,
-                                    errmsg: e.errmsg,
-                                    item: items[e.index]
-                                })));
-                            return resolve({
-                                updated: _.difference(items, failed),
-                                failed: failed
-                            });
-                        }
-                    }
-                    if (err) {
-                        dbg.warn('bulk_update: ERROR', err);
-                        return resolve({
-                            updated: null,
-                            failed: items
-                        });
-                    }
-                    dbg.log0('bulk_update: success', _.pick(result, 'nInserted', 'nModified'));
-                    return resolve({
-                        updated: items,
-                        failed: null
-                    });
-                });
-            }))
-            .then(res => {
-                if (res.updated) {
-                    for (const item of res.updated) {
-                        item.node_from_store = nodes_to_store.get(item);
-                    }
-                }
-                return res;
-            });
+        // execute returns both the err and a result with details on the error
+        // we use the result with details for fine grain error handling per bulk item
+        // returning which items were updated and which failed
+        // but in any case we always resolve the promise and not rejecting
+        try {
+            const result = await bulk.execute();
+            if (result && result.getWriteConcernError()) {
+                dbg.warn('bulk_update: WriteConcernError', result.getWriteConcernError());
+                return {
+                    updated: null,
+                    failed: items
+                };
+            }
+            if (result && result.hasWriteErrors()) {
+                const write_errors = /** @type {mongodb.WriteError[]} */ (result.getWriteErrors());
+                const failed = _.map(write_errors, e => items[e.index]);
+                dbg.warn('bulk_update:', result.getWriteErrorCount(), 'WriteErrors',
+                    _.map(write_errors, e => ({
+                        code: e.code,
+                        index: e.index,
+                        errmsg: e.errmsg,
+                        item: items[e.index]
+                    })));
+                return {
+                    updated: _.difference(items, failed),
+                    failed: failed
+                };
+            }
+            dbg.log0('bulk_update: success', _.pick(result, 'nInserted', 'nModified'));
+            return {
+                updated: items,
+                failed: null
+            };
+        } catch (err) {
+            dbg.warn('bulk_update: ERROR', err);
+            return {
+                updated: null,
+                failed: items
+            };
+        }
     }
 
+    async bulk_update(items) {
+        const nodes_to_store = new Map();
+        const res = await this._bulk_update(items, nodes_to_store);
+        if (res.updated) {
+            for (const item of res.updated) {
+                item.node_from_store = nodes_to_store.get(item);
+            }
+        }
+        return res;
+    }
 
     /////////////
     // queries //
@@ -168,14 +170,13 @@ class NodesStore {
      * @param {number} [limit]
      * @param {Object} [fields] 
      */
-    find_nodes(query, limit, fields) {
-        return this._nodes.col().find(query, { limit, projection: fields })
-            .toArray()
-            .then(nodes => this._validate_all(nodes, 'warn'));
+    async find_nodes(query, limit, fields) {
+        const nodes = await this._nodes.find(query, { limit, projection: fields });
+        return this._validate_all(nodes, 'warn');
     }
 
-    get_hidden_by_id(id) {
-        return this._nodes.col().findOne({
+    async get_hidden_by_id(id) {
+        return this._nodes.findOne({
             _id: id,
             $or: [
                 { 'deleted': { $ne: null } },
@@ -184,15 +185,15 @@ class NodesStore {
         });
     }
 
-    has_any_nodes_for_pool(pool_id) {
-        return this._nodes.col().findOne({
-                pool: pool_id,
-            })
-            .then(obj => Boolean(obj));
+    async has_any_nodes_for_pool(pool_id) {
+        const obj = await this._nodes.findOne({
+            pool: pool_id,
+        });
+        return Boolean(obj);
     }
 
-    count_total_nodes() {
-        return this._nodes.col().countDocuments({}); // maybe estimatedDocumentCount()
+    async count_total_nodes() {
+        return this._nodes.countDocuments({}); // maybe estimatedDocumentCount()
     }
 
 }

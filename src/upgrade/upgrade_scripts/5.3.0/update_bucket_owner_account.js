@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 
-async function run({ dbg, mongo_client, system_store }) {
+async function run({ dbg, system_store }) {
     try {
         const system_owner = _.get(system_store.data, 'systems.0.owner._id');
         const buckets = system_store.data.buckets

@@ -3,16 +3,15 @@
 
 const mongodb = require('mongodb');
 const _ = require('lodash');
-
 const P = require('../../util/promise');
-const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
+
 const alerts_log_schema = require('./alerts_log_schema');
 
 class AlertsLogStore {
 
     constructor() {
-        this._alertslogs = mongo_client.instance().define_collection({
+        this._alertslogs = db_client.instance().define_collection({
             name: 'alertslogs',
             schema: alerts_log_schema,
             db_indexes: []
@@ -29,58 +28,64 @@ class AlertsLogStore {
     }
 
     create(alert_log) {
-        alert_log._id = alert_log._id || this.make_alert_log_id();
-        alert_log.time = alert_log.time || new Date();
-        alert_log.read = alert_log.read || false;
-        return P.resolve()
-            .then(() => this._alertslogs.validate(alert_log))
-            .then(() => this._alertslogs.col().insertOne(alert_log))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'alerts_log'))
-            .return(alert_log);
+        return P.resolve().then(async () => {
+            alert_log._id = alert_log._id || this.make_alert_log_id();
+            alert_log.time = alert_log.time || new Date();
+            alert_log.read = alert_log.read || false;
+
+            try {
+                this._alertslogs.validate(alert_log);
+                await this._alertslogs.insertOne(alert_log);
+            } catch (err) {
+                db_client.instance().check_duplicate_key_conflict(err, 'alerts_log');
+            }
+            return alert_log;
+        });
     }
 
     get_unread_alerts_count(sysid) {
-        let severities = ['CRIT', 'MAJOR', 'INFO'];
-        let unread_alerts = {};
-        return P.map(severities, sev => this._alertslogs.col().countDocuments({
+        return P.resolve().then(async () => {
+            let severities = ['CRIT', 'MAJOR', 'INFO'];
+            let unread_alerts = {};
+            await Promise.all(severities.map(async sev => {
+                const count = await this._alertslogs.countDocuments({
                     system: sysid,
                     severity: sev,
                     read: false
-                })
-                .then(count => {
-                    unread_alerts[sev] = count;
-                }))
-            .then(() => unread_alerts);
+                });
+                unread_alerts[sev] = count;
+            }));
+            return unread_alerts;
+        });
     }
 
-    update_alerts_state(sysid, query, state) {
+    async update_alerts_state(sysid, query, state) {
         const selector = this._create_selector(sysid, query);
         let update = {
             $set: {
                 read: state
             }
         };
-        return this._alertslogs.col().updateMany(selector, update);
+        return this._alertslogs.updateMany(selector, update);
     }
 
 
-    read_alerts(sysid, query, skip, limit) {
+    async read_alerts(sysid, query, skip, limit) {
         const selector = this._create_selector(sysid, query);
-        return this._alertslogs.col().find(selector)
-            .skip(skip)
-            .limit(limit)
-            .sort({ _id: -1 })
-            .toArray();
+        return this._alertslogs.find(selector, {
+            skip,
+            limit,
+            sort: { _id: -1 }
+        });
     }
 
-    find_alert(sev, sysid, alert, time) {
-        return this._alertslogs.col().find(_.omitBy({
-                system: sysid,
-                severity: sev,
-                alert: alert,
-                time
-            }, _.isUndefined))
-            .toArray();
+    async find_alert(sev, sysid, alert, time) {
+        return this._alertslogs.find(_.omitBy({
+            system: sysid,
+            severity: sev,
+            alert: alert,
+            time
+        }, _.isUndefined));
     }
 
 

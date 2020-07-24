@@ -1131,7 +1131,7 @@ function add_bucket_lambda_trigger(req) {
     new_trigger.func_version = new_trigger.func_version || '$LATEST';
     const bucket = find_bucket(req, req.rpc_params.bucket_name);
     return P.resolve()
-        .then(() => validate_trigger_update(req, bucket, new_trigger))
+        .then(() => validate_trigger_update(bucket, new_trigger))
         .then(() => {
             const trigger = _.omitBy({
                 _id: system_store.new_system_store_id(),
@@ -1194,7 +1194,7 @@ function update_bucket_lambda_trigger(req) {
     }
     const validate_trigger = { ...trigger, ...updates };
     return P.resolve()
-        .then(() => validate_trigger_update(req, bucket, validate_trigger))
+        .then(() => validate_trigger_update(bucket, validate_trigger))
         .then(() => system_store.make_changes({
             update: {
                 buckets: [{
@@ -1337,7 +1337,7 @@ function validate_bucket_creation(req) {
     }
 }
 
-function validate_trigger_update(req, bucket, validated_trigger) {
+function validate_trigger_update(bucket, validated_trigger) {
     dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
     let validate_function = true;
     _.forEach(bucket.lambda_triggers, trigger => {
@@ -1552,14 +1552,10 @@ function _calc_metrics({
     if (bucket.quota) {
         let quota_precent = system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota);
         info.quota = _.omit(bucket.quota, 'value');
-        let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
         if (quota_precent >= 100) {
             is_quota_exceeded = true;
         } else if (quota_precent >= 90) {
             is_quota_low = true;
-        }
-        if (quota_free.isNegative()) {
-            quota_free = BigInteger.zero;
         }
     }
     let risky_tolerance = false;

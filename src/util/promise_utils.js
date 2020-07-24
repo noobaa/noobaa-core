@@ -6,6 +6,7 @@ const child_process = require('child_process');
 
 const P = require('./promise');
 const dbg = require('../util/debug_module')(__filename);
+const Semaphore = require('./semaphore');
 
 require('setimmediate');
 
@@ -379,9 +380,9 @@ function conditional_timeout(cond, timeout_ms, prom) {
 }
 
 /*
-* A timeout util build to work nicely with asyc/await, example:
-* await timeout(async () => { ... }, 2000)
-*/
+ * A timeout util build to work nicely with asyc/await, example:
+ * await timeout(async () => { ... }, 2000)
+ */
 function timeout(task, ms) {
     return P.resolve(task())
         .timeout(ms);
@@ -389,12 +390,12 @@ function timeout(task, ms) {
 
 
 /*
-* Wait until an async condition is met
-*
-* @param async_cond - an async condition function with a boolean return value.
-* @param delay_ms - delay number of milliseconds between invocation of the condition.
-* @param timeout_ms.- A timeout to bail out of the loop, will throw timeout error.
-*/
+ * Wait until an async condition is met
+ *
+ * @param async_cond - an async condition function with a boolean return value.
+ * @param delay_ms - delay number of milliseconds between invocation of the condition.
+ * @param timeout_ms.- A timeout to bail out of the loop, will throw timeout error.
+ */
 async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
     if (_.isUndefined(timeout_ms)) {
         let condition_met = false;
@@ -411,6 +412,20 @@ async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
             timeout_ms
         );
     }
+}
+
+/**
+ * 
+ * @param {number} concurrency 
+ * @param {Array<any>} array 
+ * @param {Function} func 
+ */
+function map_limit_concurrency(concurrency, array, func) {
+    if (!_.isNumber(concurrency) || concurrency < 1) throw new Error(`map_limit_concurrency concurrency:${concurrency} not valid`);
+    if (!_.isArray(array)) throw new Error(`map_limit_concurrency array:${array} not valid`);
+    if (!_.isFunction(func)) throw new Error(`map_limit_concurrency function:${func} not valid`);
+    const sem = new Semaphore(concurrency);
+    return Promise.all(array.map(async item => sem.surround(async () => func(item))));
 }
 
 // EXPORTS
@@ -432,3 +447,4 @@ exports.fork = fork;
 exports.conditional_timeout = conditional_timeout;
 exports.timeout = timeout;
 exports.wait_until = wait_until;
+exports.map_limit_concurrency = map_limit_concurrency;

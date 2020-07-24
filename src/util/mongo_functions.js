@@ -189,8 +189,7 @@ const func_stats_exports = (function() {
         // Reduce the sample size to max_samples
         const response_times = reduced.completed_response_times;
         if (response_times.length > max_samples) {
-            reduced.completed_response_times = Array.from(
-                { length: max_samples },
+            reduced.completed_response_times = Array.from({ length: max_samples },
                 () => response_times[
                     Math.floor(Math.random() * response_times.length)
                 ]
@@ -211,8 +210,7 @@ const func_stats_exports = (function() {
             max_response_time: bin.max_response_time,
             aggr_response_time: bin.aggr_response_time,
             avg_response_time: bin.fulfilled > 0 ?
-                Math.round(bin.aggr_response_time / bin.fulfilled) :
-                0,
+                Math.round(bin.aggr_response_time / bin.fulfilled) : 0,
             response_percentiles: percentiles.map(percentile => {
                 const index = Math.floor(response_times.length * percentile);
                 const value = response_times[index] || 0;

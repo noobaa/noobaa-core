@@ -3446,17 +3446,19 @@ class NodesMonitor extends EventEmitter {
             latency_groups.push(list);
         }
 
+        const lg_res = latency_groups.map(cluster => {
+            const max = 1000;
+            // This is done in order to get the most unused or free drives
+            // Since we sclice the response up to 1000 drives
+            cluster.sort(js_utils.sort_compare_by(item => item.node.storage.used, 1));
+            const nodes_set = (cluster.length < max) ? cluster : cluster.slice(0, max);
+            return {
+                nodes: nodes_set.map(item => this._get_node_info(item, params.fields))
+            };
+        });
+
         return {
-            latency_groups: latency_groups.map(cluster => {
-                const max = 1000;
-                // This is done in order to get the most unused or free drives
-                // Since we sclice the response up to 1000 drives
-                cluster.sort(js_utils.sort_compare_by(item => item.node.storage.used, 1));
-                const nodes_set = (cluster.length < max) ? cluster : cluster.slice(0, max);
-                return {
-                    nodes: nodes_set.map(item => this._get_node_info(item, params.fields))
-                };
-            }) || { nodes: [] }
+            latency_groups: _.isEmpty(lg_res) ? [{ nodes: [] }] : lg_res
         };
     }
 

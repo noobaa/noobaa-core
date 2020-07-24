@@ -206,7 +206,7 @@ async function _get_redirection_bucket(req, bucket) {
     }
 }
 
-function check_headers(req, res) {
+function check_headers(req) {
     _.each(req.headers, (val, key) => {
         // test for non printable characters
         // 403 is required for unreadable headers
@@ -279,7 +279,7 @@ function check_headers(req, res) {
     }
 }
 
-function authenticate_request(req, res) {
+function authenticate_request(req) {
     try {
         const auth_token = signature_utils.make_auth_token_from_request(req);
         if (auth_token) {

@@ -9,7 +9,6 @@ const size_utils = require('../../util/size_utils');
 const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const mongo_utils = require('../../util/mongo_utils');
 const Semaphore = require('../../util/semaphore');
 
 // limiting the IO concurrency on mongo
@@ -56,7 +55,7 @@ class BlockStoreMongo extends BlockStoreBase {
         return P.resolve()
             .then(() => mongo_client.instance().db().createCollection(GRID_FS_BUCKET_NAME_CHUNKS, GRID_FS_CHUNK_COLLECTION_OPTIONS))
             .catch(err => {
-                if (!mongo_utils.is_err_namespace_exists(err)) throw err;
+                if (!mongo_client.instance().is_err_namespace_exists(err)) throw err;
             })
             .then(() => dbg.log0('_init_chunks_collection: created collection', GRID_FS_BUCKET_NAME_CHUNKS))
             .catch(err => {

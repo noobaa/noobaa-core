@@ -299,9 +299,9 @@ function set_response_object_md(res, object_md) {
 function parse_body_tagging_xml(req) {
     const tagging = req.body.Tagging;
     if (!tagging) throw new S3Error(S3Error.MalformedXML);
-    const tag_set = tagging.TagSet[0];
+    const tag_obj = tagging.TagSet[0];
     const tag_key_names = ['Key', 'Value'];
-    const tag_set_map = _.map(tag_set.Tag, tag => {
+    const tag_set_map = _.map(tag_obj.Tag, tag => {
         const tag_keys = Object.keys(tag);
         if (!_.isEmpty(_.difference(tag_keys, tag_key_names)) ||
             tag_keys.length !== tag_key_names.length) throw new S3Error(S3Error.InvalidTag);
@@ -311,11 +311,11 @@ function parse_body_tagging_xml(req) {
         };
     });
     if (tag_set_map.length === 0 || tag_set_map.length > 10) throw new S3Error(S3Error.InvalidTag);
-    const tag_map = new Map();
+    const tag_set = new Set();
     tag_set_map.forEach(tag => {
         if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);
-        if (tag_map.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
-        tag_map.set(tag.key);
+        if (tag_set.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
+        tag_set.add(tag.key);
     });
     return tag_set_map;
 }
@@ -376,17 +376,15 @@ function parse_tagging_header(req) {
         dbg.error('parse_tagging_header failed', err);
         throw new S3Error(S3Error.MalformedXML);
     }
-    const tag_set = [];
-    const tag_map = new Map();
+    const tag_set = new Set();
     tagging_params.forEach((value, key) => {
         const tag = { key, value };
         if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);
-        if (tag_map.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
-        tag_map.set(tag.key);
-        tag_set.push(tag);
+        if (tag_set.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
+        tag_set.add(tag.key);
     });
-    if (tag_set.length > 10) throw new S3Error(S3Error.InvalidTag);
-    return tag_set;
+    if (tag_set.size > 10) throw new S3Error(S3Error.InvalidTag);
+    return Array.from(tag_set);
 }
 
 /*
@@ -600,4 +598,3 @@ exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;
 exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
-

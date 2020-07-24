@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-async function run({ dbg, mongo_client, system_store }) {
+async function run({ dbg, system_store }) {
     try {
         const systems = system_store.data.systems
             .filter(s => s.default_chunk_config)

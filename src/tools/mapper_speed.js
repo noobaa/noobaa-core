@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const mapper = require('../server/object_services/mapper');
 const Speedometer = require('../util/speedometer');
 const { ChunkAPI } = require('../sdk/map_api_types');
-const { new_object_id } = require('../util/mongo_utils');
+const db_client = require('../util/db_client');
 
 require('../util/console_wrapper').original_console();
 
@@ -25,7 +25,7 @@ async function main() {
 
     /** @type {nb.System} */
     const system = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         name: 'system',
         buckets_by_name: {},
         chunk_configs_by_id: {},
@@ -49,14 +49,14 @@ async function main() {
 
     /** @type {nb.ChunkConfig} */
     const chunk_config = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         system,
         chunk_coder_config,
     };
 
     /** @type {nb.Pool} */
     const pool = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         name: 'pool',
         system,
         resource_type: 'HOSTS',
@@ -65,20 +65,20 @@ async function main() {
 
     /** @type {nb.Tier} */
     const tier = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         name: 'tier',
         system,
         chunk_config,
         data_placement: 'SPREAD',
         mirrors: [{
-            _id: new_object_id(),
+            _id: db_client.instance().new_object_id(),
             spread_pools: [pool]
         }],
     };
 
     /** @type {nb.Tiering} */
     const tiering = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         name: 'tiering',
         system,
         tiers: [{ tier, order: 0, disabled: false }],
@@ -87,7 +87,7 @@ async function main() {
 
     /** @type {nb.Bucket} */
     const bucket = {
-        _id: new_object_id(),
+        _id: db_client.instance().new_object_id(),
         name: 'bucket',
         system,
         tiering,
@@ -177,7 +177,7 @@ async function main() {
                 size: CHUNK_SIZE,
                 frag_size: CHUNK_SIZE,
                 frags: [{
-                    _id: new_object_id().toHexString(),
+                    _id: db_client.instance().new_object_id().toHexString(),
                     data_index: 0,
                     digest_b64: crypto.createHash(chunk_coder_config.frag_digest_type).digest('base64'),
                     blocks: [],
@@ -186,9 +186,9 @@ async function main() {
                     start: 0,
                     end: CHUNK_SIZE,
                     seq: 0,
-                    obj_id: new_object_id().toHexString(),
-                    chunk_id: new_object_id().toHexString(),
-                    multipart_id: new_object_id().toHexString(),
+                    obj_id: db_client.instance().new_object_id().toHexString(),
+                    chunk_id: db_client.instance().new_object_id().toHexString(),
+                    multipart_id: db_client.instance().new_object_id().toHexString(),
                 }]
             };
             const chunk = new ChunkAPI(chunk_info, system_store);

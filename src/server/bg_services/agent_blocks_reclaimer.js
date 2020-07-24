@@ -8,7 +8,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const map_deleter = require('../object_services/map_deleter');
 const map_server = require('../object_services/map_server');
 
@@ -73,13 +73,13 @@ class AgentBlocksReclaimer {
 
         // treat blocks that their node could not be populated as "orphan blocks" 
         // that their nodes is missing for some reason (probably deleted)
-        const [orphan_blocks, live_blocks] = _.partition(db_blocks, block => mongo_utils.is_object_id(block.node));
+        const [orphan_blocks, live_blocks] = _.partition(db_blocks, block => db_client.instance().is_object_id(block.node));
 
         if (orphan_blocks.length) {
             dbg.log0(`identified ${orphan_blocks.length} orphan blocks that their node could not be found. marking them as reclaimed`,
                 orphan_blocks);
             // maybe we should mark dead blocks differently so we can do something with them later (report\retry\etc.)
-            await this.update_blocks_by_ids(mongo_utils.uniq_ids(orphan_blocks, '_id'), { reclaimed: new Date() });
+            await this.update_blocks_by_ids(db_client.instance().uniq_ids(orphan_blocks, '_id'), { reclaimed: new Date() });
         }
 
         return live_blocks;

@@ -6,7 +6,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const node_allocator = require('./node_allocator');
 const system_store = require('../system_services/system_store').get_instance();
 
@@ -37,7 +37,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => mongo_utils.fix_id_type(res.nodes));
+            .tap(res => db_client.instance().fix_id_type(res.nodes));
     }
 
     list_nodes_by_pool(pool_name, system_id) {
@@ -52,7 +52,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => mongo_utils.fix_id_type(res.nodes));
+            .tap(res => db_client.instance().fix_id_type(res.nodes));
     }
 
     list_nodes_by_identity(system_id, nodes_identities, fields) {
@@ -65,7 +65,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => mongo_utils.fix_id_type(res.nodes));
+            .tap(res => db_client.instance().fix_id_type(res.nodes));
     }
 
     get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {
@@ -148,7 +148,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(node => mongo_utils.fix_id_type(node));
+            .tap(node => db_client.instance().fix_id_type(node));
     }
 
     read_node_by_id(system_id, node_id) {
@@ -164,7 +164,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(node => mongo_utils.fix_id_type(node));
+            .tap(node => db_client.instance().fix_id_type(node));
     }
 
     get_node_ids_by_name(system_id, identity, by_host) {
@@ -181,7 +181,7 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .then(node_ids => node_ids.map(node_id => mongo_utils.parse_object_id(node_id)));
+            .then(node_ids => node_ids.map(node_id => db_client.instance().parse_object_id(node_id)));
     }
 
     delete_node_by_name(system_id, node_name) {
@@ -215,7 +215,7 @@ class NodesClient {
                     role: 'admin'
                 })
             }))
-            .tap(res => res.latency_groups.forEach(group => mongo_utils.fix_id_type(group.nodes)));
+            .tap(res => res.latency_groups.forEach(group => db_client.instance().fix_id_type(group.nodes)));
     }
 
     /**
@@ -229,7 +229,7 @@ class NodesClient {
      */
     populate_nodes(system_id, docs, doc_id_path, doc_path, fields) {
         const docs_list = docs && !_.isArray(docs) ? [docs] : docs;
-        const ids = mongo_utils.uniq_ids(docs_list, doc_id_path);
+        const ids = db_client.instance().uniq_ids(docs_list, doc_id_path);
         if (!ids.length) return P.resolve(docs);
         const params = {
             query: {
@@ -256,7 +256,7 @@ class NodesClient {
                     const id = _.get(doc, doc_id_path);
                     const node = idmap[String(id)];
                     if (node) {
-                        mongo_utils.fix_id_type(node);
+                        db_client.instance().fix_id_type(node);
                         _.set(doc, doc_path, node);
                     } else {
                         dbg.warn('populate_nodes: missing node for id',
@@ -312,7 +312,7 @@ class NodesClient {
         }, {
             auth_token
         });
-        mongo_utils.fix_id_type(res.hosts);
+        db_client.instance().fix_id_type(res.hosts);
         return res;
     }
 

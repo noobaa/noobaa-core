@@ -12,7 +12,7 @@ const nodes_client = require('./nodes_client');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 // const node_server = require('./node_server');
 
 const ALLOC_REFRESH_MS = 10000;
@@ -69,7 +69,7 @@ async function refresh_system_alloc(system) {
         // realted to https://bugzilla.redhat.com/show_bug.cgi?id=1839117
         // print information in case bucket.tiering is not iterable. should happen when the tiering is deleted and the bucket is not
         if (!bucket.tiering.tiers) {
-            if (mongo_utils.is_object_id(bucket.tiering)) {
+            if (db_client.instance().is_object_id(bucket.tiering)) {
                 try {
                     const deleted_tiering = await system_store.data.get_by_id_include_deleted(bucket.tiering, 'tieringpolicies');
                     dbg.error(`bucket.tiering.tiers is undefined\\null. bucket=${

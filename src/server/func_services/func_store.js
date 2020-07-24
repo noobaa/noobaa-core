@@ -6,17 +6,17 @@ const stream = require('stream');
 const crypto = require('crypto');
 const mongodb = require('mongodb');
 
-const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
-const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
+const P = require('../../util/promise');
+
 const buffer_utils = require('../../util/buffer_utils');
 const func_schema = require('./func_schema');
 
 class FuncStore {
 
     constructor() {
-        this._funcs = mongo_client.instance().define_collection({
+        this._funcs = db_client.instance().define_collection({
             name: 'funcs',
             schema: func_schema,
             db_indexes: [{
@@ -31,7 +31,7 @@ class FuncStore {
                 }
             }]
         });
-        this._func_code = mongo_client.instance().define_gridfs({
+        this._func_code = db_client.instance().define_gridfs({
             name: 'func_code_gridfs'
         });
     }
@@ -46,81 +46,79 @@ class FuncStore {
     }
 
     create_func(func) {
-        return P.resolve()
-            .then(() => this._funcs.validate(func))
-            .then(() => this._funcs.col().insertOne(func))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'func'))
-            .return(func);
+        return P.resolve().then(async () => {
+            try {
+                this._funcs.validate(func);
+                await this._funcs.insertOne(func);
+            } catch (err) {
+                db_client.instance().check_duplicate_key_conflict(err, 'func');
+            }
+            return func;
+        });
     }
 
     delete_func(func_id) {
-        return P.resolve()
-            .then(() => this._funcs.col().updateOne({
+        return P.resolve().then(async () => {
+            await this._funcs.updateOne({
                 _id: func_id,
             }, {
                 $set: {
                     deleted: new Date()
                 }
-            }))
-            .return();
+            });
+        });
     }
 
     update_func(func_id, set_updates) {
-        return P.resolve()
-            .then(() => this._funcs.col().updateOne({
+        return P.resolve().then(async () => {
+            await this._funcs.updateOne({
                 _id: func_id,
             }, {
                 $set: set_updates
-            }))
-            .return();
+            });
+        });
     }
 
     read_func(system, name, version) {
-        return P.resolve()
-            .then(() => this._funcs.col().findOne({
+        return P.resolve().then(async () => {
+            const res = await this._funcs.findOne({
                 system: system,
                 name: name,
                 version: version,
                 deleted: null,
-            }))
-            .then(res => mongo_utils.check_entity_not_deleted(res, 'func'));
+            });
+            return db_client.instance().check_entity_not_deleted(res, 'func');
+        });
     }
 
     get_by_id_include_deleted(func_id) {
-        return P.resolve()
-            .then(() => this._funcs.col().findOne({
-                _id: func_id,
-            }));
+        return P.resolve().then(async () => this._funcs.findOne({
+            _id: func_id,
+        }));
     }
 
     list_funcs(system) {
-        return P.resolve()
-            .then(() => this._funcs.col().find({
-                    system: system,
-                    version: '$LATEST',
-                    deleted: null,
-                })
-                .toArray());
+        return P.resolve().then(async () => this._funcs.find({
+            system: system,
+            version: '$LATEST',
+            deleted: null,
+        }));
     }
 
     list_funcs_by_pool(system, pool) {
-        return P.resolve()
-            .then(() => this._funcs.col().find({
-                    system: system,
-                    pools: pool,
-                    deleted: null,
-                })
-                .toArray());
+        return P.resolve().then(async () => this._funcs.find({
+            system: system,
+            pools: pool,
+            deleted: null,
+        }));
     }
 
     list_func_versions(system, name) {
-        return P.resolve()
-            .then(() => this._funcs.col().find({
-                    system: system,
-                    name: name,
-                    deleted: null,
-                })
-                .toArray());
+        return P.resolve().then(async () => this._funcs.find({
+            system: system,
+            name: name,
+            deleted: null,
+        }));
     }
 
     create_code_gridfs(params) {
@@ -153,7 +151,7 @@ class FuncStore {
         });
     }
 
-    delete_code_gridfs(id) {
+    async delete_code_gridfs(id) {
         return this._func_code.gridfs().delete(id);
     }
 
@@ -161,7 +159,7 @@ class FuncStore {
         return this._func_code.gridfs().openDownloadStream(id);
     }
 
-    read_code_gridfs(id) {
+    async read_code_gridfs(id) {
         return buffer_utils.read_stream_join(this.stream_code_gridfs(id));
     }
 

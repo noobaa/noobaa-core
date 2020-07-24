@@ -12,7 +12,6 @@ const MDStore = require('./md_store').MDStore;
 const KeysLock = require('../../util/keys_lock');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
-// const mongo_utils = require('../../util/mongo_utils');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 // const node_allocator = require('../node_services/node_allocator');

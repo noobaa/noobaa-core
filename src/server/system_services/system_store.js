@@ -25,9 +25,9 @@ const server_rpc = require('../server_rpc');
 const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
-const mongo_utils = require('../../util/mongo_utils');
 const config = require('../../../config');
-const db_client = config.USE_POSTGRESQL ? require('../../util/postgres_client') : require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
+
 const { RpcError } = require('../../rpc');
 
 const COLLECTIONS = [{
@@ -259,7 +259,7 @@ class SystemStoreData {
     //Return the mongo record (if found) and an indication if the
     //object is linkable (not deleted) -> used in the activity log to link the
     //various entities
-    get_by_id_include_deleted(id, name) {
+    async get_by_id_include_deleted(id, name) {
         const res = this.get_by_id(id);
         if (res) {
             return {
@@ -269,28 +269,26 @@ class SystemStoreData {
         }
         //Query deleted !== null
         const collection = db_client.instance().collection(name);
-        return P.resolve(collection.findOne({
-                _id: id,
-                deleted: {
-                    $ne: null
-                }
-            }))
-            .then(find_res => {
-                if (find_res) {
-                    return {
-                        record: find_res,
-                        linkable: false
-                    };
-                }
-            });
+        const find_res = await collection.findOne({
+            _id: id,
+            deleted: {
+                $ne: null
+            }
+        });
+        if (find_res) {
+            return {
+                record: find_res,
+                linkable: false
+            };
+        }
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {
-        return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
+        return db_client.instance().resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
     }
 
     resolve_object_ids_recursive(item) {
-        return mongo_utils.resolve_object_ids_recursive(this.idmap, item);
+        return db_client.instance().resolve_object_ids_recursive(this.idmap, item);
     }
 
     rebuild() {
@@ -536,51 +534,39 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    _read_data_from_db(target) {
+    async _read_data_from_db(target) {
         let non_deleted_query = {
             deleted: null
         };
-        return db_client.instance().connect()
-            .then(() => P.map(COLLECTIONS,
-                col => {
-                    let f = db_client.instance().collection(col.name).find(non_deleted_query);
-                    if (!config.USE_POSTGRESQL) f = f.toArray();
-                    return f.then(res => {
-                        for (const item of res) {
-                            this._check_schema(col, item, 'warn');
-                        }
-                        target[col.name] = res;
-                    });
-                }
-            ));
+        await db_client.instance().connect();
+        return P.map(COLLECTIONS, async col => {
+            const res = await db_client.instance().collection(col.name).find(non_deleted_query);
+            for (const item of res) {
+                this._check_schema(col, item, 'warn');
+            }
+            target[col.name] = res;
+        });
     }
 
-    _read_new_data_from_db(target) {
+    async _read_new_data_from_db(target) {
         const now = Date.now();
         let newly_updated_query = {
             last_update: {
                 $gte: this.last_update_time,
             }
         };
-        return db_client.instance().connect()
-            .then(() => P.map(COLLECTIONS,
-                async col => {
-                    let f = db_client.instance().collection(col.name)
-                        .find(newly_updated_query, {
-                            projection: { last_update: 0 }
-                        });
-                    if (!config.USE_POSTGRESQL) f = f.toArray();
-                    return f.then(res => {
-                        for (const item of res) {
-                            this._check_schema(col, item, 'warn');
-                        }
-                        target[col.name] = res;
-                    });
-                }
-            ))
-            .then(() => {
-                this.last_update_time = now;
-            });
+        await db_client.instance().connect();
+        await P.map(COLLECTIONS, async col => {
+            const res = await db_client.instance().collection(col.name)
+                .find(newly_updated_query, {
+                    projection: { last_update: 0 }
+                });
+            for (const item of res) {
+                this._check_schema(col, item, 'warn');
+            }
+            target[col.name] = res;
+        });
+        this.last_update_time = now;
     }
 
     _check_schema(col, item, warn) {
@@ -588,35 +574,29 @@ class SystemStore extends EventEmitter {
     }
 
     new_system_store_id() {
-        return mongo_utils.new_object_id();
+        return db_client.instance().new_object_id();
     }
 
     parse_system_store_id(id_str) {
-        return mongo_utils.parse_object_id(id_str);
+        return db_client.instance().parse_object_id(id_str);
     }
 
     has_same_id(obj1, obj2) {
         return String(obj1._id) === String(obj2._id);
     }
 
-    get_system_collections_dump() {
+    async get_system_collections_dump() {
         const dump = {};
-        return db_client.instance().connect()
-            .then(() => P.map(COLLECTIONS,
-                col => {
-                    let f = db_client.instance().collection(col.name).find();
-                    if (!config.USE_POSTGRESQL) f = f.toArray();
-                    return f.then(docs => {
-                        for (const doc of docs) {
-                            this._check_schema(col, doc, 'warn');
-                        }
-                        dump[col.name] = docs;
-                    });
-                }
-            ))
-            .then(() => dump);
+        await db_client.instance().connect();
+        await P.map(COLLECTIONS, async col => {
+            const docs = await db_client.instance().collection(col.name).find();
+            for (const doc of docs) {
+                this._check_schema(col, doc, 'warn');
+            }
+            dump[col.name] = docs;
+        });
+        return dump;
     }
-
 
     async make_changes_with_retries(changes, { max_retries = 3, delay = 1000 } = {}) {
         let retries = 0;
@@ -732,7 +712,7 @@ class SystemStore extends EventEmitter {
                 let dont_change_last_update = Boolean(item.dont_change_last_update);
                 let updates = _.omit(item, '_id', '$find', 'dont_change_last_update');
                 let find_id = _.pick(item, '_id');
-                let finds = item.$find || (mongo_utils.is_object_id(find_id._id) && find_id);
+                let finds = item.$find || (db_client.instance().is_object_id(find_id._id) && find_id);
                 if (_.isEmpty(updates)) return;
                 if (!finds) throw new Error(`SystemStore: make_changes id is not of type object_id: ${find_id._id}`);
                 let keys = _.keys(updates);
@@ -740,7 +720,7 @@ class SystemStore extends EventEmitter {
                 if (_.first(keys)[0] === '$') {
                     for (const key of keys) {
                         // Validate that all update keys are mongo operators.
-                        if (!mongo_utils.mongo_operators.has(key)) {
+                        if (!db_client.instance().operators.has(key)) {
                             throw new Error(`SystemStore: make_changes invalid mix of operators and bare value: ${key}`);
                         }
 
@@ -765,12 +745,7 @@ class SystemStore extends EventEmitter {
                     updates.$set.last_update = last_update;
                     any_news = true;
                 }
-                const b = get_bulk(name);
-                if (config.USE_POSTGRESQL) {
-                    b.findAndUpdateOne(finds, updates);
-                } else {
-                    b.find(finds).updateOne(updates);
-                }
+                get_bulk(name).find(finds).updateOne(updates);
                 // .findAndUpdateOne(finds, updates);
                 // .find(finds)
                 // .updateOne(updates);
@@ -779,7 +754,7 @@ class SystemStore extends EventEmitter {
         _.each(changes.remove, (list, name) => {
             get_collection(name);
             _.each(list, id => {
-                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
+                if (!db_client.instance().is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
                 any_news = true;
                 const query = {
                     _id: id
@@ -790,12 +765,7 @@ class SystemStore extends EventEmitter {
                         last_update: last_update,
                     }
                 };
-                const b = get_bulk(name);
-                if (config.USE_POSTGRESQL) {
-                    b.findAndUpdateOne(query, update);
-                } else {
-                    b.find(query).updateOne(update);
-                }
+                get_bulk(name).find(query).updateOne(update);
                 // .find({
                 //     _id: id
                 // })
@@ -811,17 +781,12 @@ class SystemStore extends EventEmitter {
         _.each(changes.db_delete, (list, name) => {
             get_collection(name);
             _.each(list, id => {
-                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
-                const b = get_bulk(name);
+                if (!db_client.instance().is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
                 const query = {
                     _id: id,
                     deleted: { $exists: true }
                 };
-                if (config.USE_POSTGRESQL) {
-                    b.findAndRemoveOne(query);
-                } else {
-                    b.find(query).removeOne();
-                }
+                get_bulk(name).find(query).removeOne();
                 //     .find({
                 //         _id: id,
                 //         deleted: { $exists: true }
@@ -875,24 +840,24 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    find_deleted_docs(name, max_delete_time, limit) {
+    async find_deleted_docs(name, max_delete_time, limit) {
         const collection = db_client.instance().collection(name);
         const query = {
             deleted: {
                 $lt: new Date(max_delete_time)
             },
         };
-        return collection.find(query, {
-                limit: Math.min(limit, 1000),
-                projection: {
-                    _id: 1,
-                    deleted: 1
-                }
-            }) //.toArray()
-            .then(docs => mongo_utils.uniq_ids(docs, '_id'));
+        const docs = await collection.find(query, {
+            limit: Math.min(limit, 1000),
+            projection: {
+                _id: 1,
+                deleted: 1
+            }
+        });
+        return db_client.instance().uniq_ids(docs, '_id');
     }
 
-    count_total_docs(name) {
+    async count_total_docs(name) {
         const collection = db_client.instance().collection(name);
         return collection.countDocuments({}); // maybe estimatedDocumentCount()
     }

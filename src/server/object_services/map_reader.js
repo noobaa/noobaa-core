@@ -10,7 +10,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const MDStore = require('./md_store').MDStore;
 const map_server = require('./map_server');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const { ChunkDB } = require('./map_db_types');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
@@ -102,7 +102,7 @@ async function read_node_mapping(node_ids, skip, limit) {
  * @returns {Promise<nb.Chunk[]>}
  */
 async function read_parts_mapping(parts, location_info) {
-    const chunks_db = await MDStore.instance().find_chunks_by_ids(mongo_utils.uniq_ids(parts, 'chunk'));
+    const chunks_db = await MDStore.instance().find_chunks_by_ids(db_client.instance().uniq_ids(parts, 'chunk'));
     const sorter = location_info ? _block_sorter_local(location_info) : _block_sorter_basic;
     await MDStore.instance().load_blocks_for_chunks(chunks_db, sorter);
     const chunks_db_by_id = _.keyBy(chunks_db, '_id');

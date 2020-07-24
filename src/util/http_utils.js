@@ -154,7 +154,7 @@ function _parse_one_http_range(range_str) {
         if (second) {
             end = Number(second);
             if (!Number.isInteger(end)) throw_ranges_error(400);
-            if (first) end += 1; // end is inclusive in http ranges
+            end += 1; // end is inclusive in http ranges
         }
     } else {
         // suffix range

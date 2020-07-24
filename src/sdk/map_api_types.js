@@ -7,7 +7,7 @@
 const _ = require('lodash');
 const util = require('util');
 
-const { new_object_id, parse_object_id } = require('../util/mongo_utils');
+const db_client = require('../util/db_client');
 
 /** @type {nb.ID} */
 const undefined_id = undefined;
@@ -18,7 +18,7 @@ const undefined_id = undefined;
  * @returns {nb.ID | undefined}
  */
 function parse_optional_id(id_str) {
-    return id_str === undefined ? undefined : parse_object_id(id_str);
+    return id_str === undefined ? undefined : db_client.instance().parse_object_id(id_str);
 }
 
 /**
@@ -100,7 +100,7 @@ class ChunkAPI {
 
     set_new_chunk_id() {
         if (this._id) throw new Error(`ChunkAPI.set_new_chunk_id: unexpected call for existing chunk ${this._id}`);
-        this.chunk_info._id = new_object_id().toHexString();
+        this.chunk_info._id = db_client.instance().new_object_id().toHexString();
     }
 
     /**
@@ -110,7 +110,7 @@ class ChunkAPI {
      */
     add_block_allocation(frag, pools, mirror) {
         const block_md = {
-            id: new_object_id().toHexString(),
+            id: db_client.instance().new_object_id().toHexString(),
             size: this.frag_size,
             digest_b64: frag.digest_b64,
             digest_type: this.chunk_coder_config.frag_digest_type,
@@ -228,7 +228,7 @@ class FragAPI {
     set allocations(val) { this.frag_info.allocations = val; }
 
     set_new_frag_id() {
-        this.frag_info._id = new_object_id().toHexString();
+        this.frag_info._id = db_client.instance().new_object_id().toHexString();
     }
 
     /**
@@ -287,7 +287,7 @@ class BlockAPI {
         BlockAPI.implements_interface(this);
     }
 
-    get _id() { return parse_object_id(this.block_md.id); }
+    get _id() { return db_client.instance().parse_object_id(this.block_md.id); }
     get node_id() { return parse_optional_id(this.block_md.node); }
     get pool_id() { return parse_optional_id(this.block_md.pool); }
     get size() { return this.block_md.size; }
@@ -403,8 +403,8 @@ class PartAPI {
         PartAPI.implements_interface(this);
     }
 
-    get obj_id() { return parse_object_id(this.part_info.obj_id); }
-    get chunk_id() { return parse_object_id(this.part_info.chunk_id); }
+    get obj_id() { return db_client.instance().parse_object_id(this.part_info.obj_id); }
+    get chunk_id() { return db_client.instance().parse_object_id(this.part_info.chunk_id); }
     get multipart_id() { return parse_optional_id(this.part_info.multipart_id); }
 
     get start() { return this.part_info.start; }
@@ -413,7 +413,7 @@ class PartAPI {
 
     set_new_part_id() {
         if (this._id) throw new Error(`PartAPI.set_new_part_id: already has id ${this._id}`);
-        this._id = new_object_id();
+        this._id = db_client.instance().new_object_id();
     }
 
     /**

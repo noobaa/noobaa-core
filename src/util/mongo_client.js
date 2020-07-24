@@ -13,17 +13,82 @@ const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
 const js_utils = require('./js_utils');
 const common_api = require('../api/common_api');
-const mongo_utils = require('./mongo_utils');
+const db_client = require('./db_client');
 const schema_utils = require('./schema_utils');
+const { RpcError } = require('../rpc');
 
+mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
+    return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
+};
+
+class MongoCollection {
+
+    /**
+     * @param {MongoCollection} col
+     * @returns {nb.DBCollection}
+     */
+    static implements_interface(col) { return col; }
+
+    constructor(col, mongo_client) {
+        MongoCollection.implements_interface(this);
+        this.schema = col.schema;
+        this.name = col.name;
+        this.db_indexes = col.db_indexes;
+        this.mongo_client = mongo_client;
+
+    }
+
+    /**
+     * @returns { mongodb.Collection }
+     */
+    _get_mongo_col() {
+        return this.mongo_client.db().collection(this.name);
+    }
+
+    /**
+     * 
+     * @param {object} doc 
+     * @param {'warn'} [warn] 
+     */
+    validate(doc, warn) {
+        if (this.schema) {
+            return this.mongo_client.validate(this.name, doc, warn);
+        }
+    }
+
+    async find(query, options = {}) { return this._get_mongo_col().find(query, options).toArray(); }
+    async findOne(query, options = {}) { return this._get_mongo_col().findOne(query, options); }
+    async findOneAndUpdate(query, update, options = {}) { return this._get_mongo_col().findOneAndUpdate(query, update, options); }
+    async deleteOne(query, options = {}) { return this._get_mongo_col().deleteOne(query, options); }
+    async deleteMany(query, options = {}) { return this._get_mongo_col().deleteMany(query, options); }
+    async insertOne(doc, options = {}) { return this._get_mongo_col().insertOne(doc, options); }
+    async insertMany(docs, options = {}) { return this._get_mongo_col().insertMany(docs, options); }
+    async updateOne(query, update, options = {}) { return this._get_mongo_col().updateOne(query, update, options); }
+    async updateMany(query, update, options = {}) { return this._get_mongo_col().updateMany(query, update, options); }
+    async mapReduce(map, reduce, options = {}) { return this._get_mongo_col().mapReduce(map, reduce, options); }
+    async aggregate(commands) { return this._get_mongo_col().aggregate(commands).toArray(); }
+    async distinct(key, query, options = {}) { return this._get_mongo_col().distinct(key, query, options); }
+    initializeUnorderedBulkOp() { return this._get_mongo_col().initializeUnorderedBulkOp(); }
+    initializeOrderedBulkOp() { return this._get_mongo_col().initializeOrderedBulkOp(); }
+    async countDocuments(query, options = {}) { return this._get_mongo_col().countDocuments(query, options); }
+    async estimatedDocumentCount(options = {}) { return this._get_mongo_col().estimatedDocumentCount(options); }
+    async stats() { return this._get_mongo_col().stats(); }
+}
 
 class MongoClient extends EventEmitter {
 
+    /**
+     * @param {MongoClient} client
+     * @returns {nb.DBClient}
+     */
+    static implements_interface(client) { return client; }
+
     constructor() {
         super();
+        MongoClient.implements_interface(this);
         this.mongo_client = null; //Change in mongodb 3.X required operating on the client instead of DBs
         this.should_ignore_connect_timeout = false;
-        this.collections = [];
+        this.collections = {};
         this.gridfs_buckets = [];
         this.gridfs_instances = {};
         this.connect_timeout = null; //will be set if connected and conn closed
@@ -80,6 +145,213 @@ class MongoClient extends EventEmitter {
             this._update_config_for_replset();
         }
 
+        /* exported constants */
+        this.operators = new Set([
+            '$inc',
+            '$mul',
+            '$rename',
+            '$setOnInsert',
+            '$set',
+            '$unset',
+            '$min',
+            '$max',
+            '$currentDate',
+            '$addToSet',
+            '$pop',
+            '$pullAll',
+            '$pull',
+            '$pushAll',
+            '$push',
+            '$each',
+            '$slice',
+            '$sort',
+            '$position',
+            '$bit',
+            '$isolated'
+        ]);
+    }
+
+    /*
+     *@param base - the array to subtract from
+     *@param values - array of values to subtract from base
+     *@out - return an array of string containing values in base which did no appear in values
+     */
+    obj_ids_difference(base, values) {
+        const map_base = {};
+        for (let i = 0; i < base.length; ++i) {
+            map_base[base[i]] = base[i];
+        }
+        for (let i = 0; i < values.length; ++i) {
+            delete map_base[values[i]];
+        }
+        return _.values(map_base);
+    }
+
+    /**
+     * make a list of ObjectId unique by indexing their string value
+     * this is needed since ObjectId is an object so === comparison is not
+     * logically correct for it even for two objects with the same id.
+     */
+    uniq_ids(docs, doc_path) {
+        const map = {};
+        _.each(docs, doc => {
+            let id = _.get(doc, doc_path);
+            if (id) {
+                id = id._id || id;
+                map[String(id)] = id;
+            }
+        });
+        return _.values(map);
+    }
+
+    /**
+     * populate a certain doc path which contains object ids to another collection
+     * @template {{}} T
+     * @param {T[]} docs
+     * @param {string} doc_path
+     * @param {nb.DBCollection} collection
+     * @param {Object} [fields]
+     * @returns {Promise<T[]>}
+     */
+    async populate(docs, doc_path, collection, fields) {
+        const docs_list = _.isArray(docs) ? docs : [docs];
+        const ids = this.uniq_ids(docs_list, doc_path);
+        if (!ids.length) return docs;
+        const items = await collection.find({ _id: { $in: ids } }, { projection: fields });
+        const idmap = _.keyBy(items, '_id');
+        _.each(docs_list, doc => {
+            const id = _.get(doc, doc_path);
+            if (id) {
+                const item = idmap[String(id)];
+                _.set(doc, doc_path, item);
+            }
+        });
+        return docs;
+    }
+
+
+    resolve_object_ids_recursive(idmap, item) {
+        _.each(item, (val, key) => {
+            if (val instanceof mongodb.ObjectId) {
+                if (key !== '_id') {
+                    const obj = idmap[val.toHexString()];
+                    if (obj) {
+                        item[key] = obj;
+                    }
+                }
+            } else if (_.isObject(val) && !_.isString(val)) {
+                this.resolve_object_ids_recursive(idmap, val);
+            }
+        });
+        return item;
+    }
+
+    resolve_object_ids_paths(idmap, item, paths, allow_missing) {
+        _.each(paths, path => {
+            const ref = _.get(item, path);
+            if (this.is_object_id(ref)) {
+                const obj = idmap[ref];
+                if (obj) {
+                    _.set(item, path, obj);
+                } else if (!allow_missing) {
+                    throw new Error('resolve_object_ids_paths missing ref to ' +
+                        path + ' - ' + ref + ' from item ' + util.inspect(item));
+                }
+            } else if (!allow_missing) {
+                if (!ref || !this.is_object_id(ref._id)) {
+                    throw new Error('resolve_object_ids_paths missing ref id to ' +
+                        path + ' - ' + ref + ' from item ' + util.inspect(item));
+                }
+            }
+        });
+        return item;
+    }
+
+    /**
+     * @returns {nb.ID}
+     */
+    new_object_id() {
+        return new mongodb.ObjectId();
+    }
+
+    /**
+     * @param {string} id_str
+     * @returns {nb.ID}
+     */
+    parse_object_id(id_str) {
+        return new mongodb.ObjectId(String(id_str || undefined));
+    }
+
+    fix_id_type(doc) {
+        if (_.isArray(doc)) {
+            _.each(doc, d => this.fix_id_type(d));
+        } else if (doc && doc._id) {
+            doc._id = new mongodb.ObjectId(doc._id);
+        }
+        return doc;
+    }
+
+    is_object_id(id) {
+        return (id instanceof mongodb.ObjectId);
+    }
+
+    is_err_duplicate_key(err) {
+        return err && err.code === 11000;
+    }
+
+    is_err_namespace_exists(err) {
+        return err && err.code === 48;
+    }
+
+    check_duplicate_key_conflict(err, entity) {
+        if (this.is_err_duplicate_key(err)) {
+            throw new RpcError('CONFLICT', entity + ' already exists');
+        } else {
+            throw err;
+        }
+    }
+
+    check_entity_not_found(doc, entity) {
+        if (doc) {
+            return doc;
+        }
+        throw new RpcError('NO_SUCH_' + entity.toUpperCase());
+    }
+
+    check_entity_not_deleted(doc, entity) {
+        if (doc && !doc.deleted) {
+            return doc;
+        }
+        throw new RpcError('NO_SUCH_' + entity.toUpperCase());
+    }
+
+    check_update_one(res, entity) {
+        // note that res.modifiedCount might be 0 if the update is to same values
+        // so we only verify here that the query actually matched a single document.
+        if (!res || res.matchedCount !== 1) {
+            throw new RpcError('NO_SUCH_' + entity.toUpperCase());
+        }
+    }
+
+    make_object_diff(current, prev) {
+        const set_map = _.pickBy(current, (value, key) => !_.isEqual(value, prev[key]));
+        const unset_map = _.pickBy(prev, (value, key) => !(key in current));
+        const diff = {};
+        if (!_.isEmpty(set_map)) diff.$set = set_map;
+        if (!_.isEmpty(unset_map)) diff.$unset = _.mapValues(unset_map, () => 1);
+        return diff;
+    }
+
+    async get_db_stats() {
+        if (!this.promise) {
+            throw new Error('get_db_stats: client is not connected');
+        }
+
+        // Wait for the client to connect.
+        await this.promise;
+
+        // return the stats.
+        return this.db().command({ dbStats: 1 });
     }
 
     /**
@@ -158,44 +430,77 @@ class MongoClient extends EventEmitter {
         }
     }
 
-    _init_collections(db) {
-        return P.map(this.collections, col => this._init_collection(db, col))
-            .then(() => P.map(this.collections, col => db.collection(col.name).indexes()
-                .then(res => dbg.log0('_init_collections: indexes of', col.name, _.map(res, 'name')))
-            ))
-            .then(() => dbg.log0('_init_collections: done'))
-            .catch(err => {
-                dbg.warn('_init_collections: FAILED', err);
-                throw err;
-            });
+    async _init_collections(db) {
+        try {
+            await Promise.all(Object.values(this.collections).map(async col => this._init_collection(db, col)));
+            await Promise.all(Object.values(this.collections).map(async col => {
+                const res = await db.collection(col.name).indexes();
+                dbg.log0('_init_collections: indexes of', col.name, _.map(res, 'name'));
+            }));
+            dbg.log0('_init_collections: done');
+        } catch (err) {
+            dbg.warn('_init_collections: FAILED', err);
+            throw err;
+        }
     }
 
-    _init_collection(db, col) {
-        return P.resolve()
-            .then(() => db.createCollection(col.name))
-            .catch(err => {
-                if (!mongo_utils.is_err_namespace_exists(err)) throw err;
-            })
-            .then(() => dbg.log0('_init_collection: created collection', col.name))
-            .then(() => col.db_indexes && P.map(col.db_indexes,
-                index => db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options))
-                .then(res => dbg.log0('_init_collection: created index', col.name, res))
-                .catch(err => {
-                    if (err.codeName === 'IndexOptionsConflict') {
-                        return db.collection(col.name).dropIndex(index.fields)
-                            .then(() => db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options)))
-                            .then(res => dbg.log0('_init_collection: re-created index with new options', col.name, res));
-                    } else {
-                        throw err;
+    async _init_collection(db, col) {
+        try {
+            await db.createCollection(col.name);
+        } catch (err) {
+            if (!db_client.instance().is_err_namespace_exists(err)) throw err;
+        }
+        dbg.log0('_init_collection: created collection', col.name);
+        if (col.db_indexes) {
+            try {
+                await Promise.all(col.db_indexes.map(async index => {
+                    try {
+                        const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
+                        dbg.log0('_init_collection: created index', col.name, res);
+                    } catch (err) {
+                        if (err.codeName !== 'IndexOptionsConflict') throw err;
+                        await db.collection(col.name).dropIndex(index.fields);
+                        const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
+                        dbg.log0('_init_collection: re-created index with new options', col.name, res);
                     }
-                })))
-            .catch(err => {
+                }));
+            } catch (err) {
                 dbg.error('_init_collection: FAILED', col.name, err);
                 throw err;
-            });
+            }
+        }
     }
 
-    disconnect() {
+    async is_collection_indexes_ready(name, indexes) {
+
+        // This checks if the needed indexes exist on the collection
+        // Note: we only check for the existence of named indexes
+        const existing_indexes = _.keyBy(await this.db().collection(name).indexes(), 'name');
+        for (const index of indexes) {
+            if (index.name && !existing_indexes[index.name]) return false;
+        }
+
+        // Checks if there is a current background operation that creates indexes on collection name
+        const current_op = await this.db().admin().command({ currentOp: 1 });
+        for (const op of current_op.inprog) {
+            if (op.command &&
+                op.command.createIndexes === name &&
+                op.command.indexes.length) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async dropDatabase() {
+        await this.connect('skip_init_db');
+        return this.db().dropDatabase();
+    }
+    async createDatabase() {
+        // _.noop();
+    }
+
+    async disconnect() {
         dbg.log0('disconnect called');
         this._disconnected_state = true;
         this.promise = null;
@@ -206,18 +511,31 @@ class MongoClient extends EventEmitter {
         }
     }
 
-    reconnect() {
+    async reconnect() {
         dbg.log0(`reconnect called`);
         this.disconnect();
         return this.connect();
+    }
+
+    set_db_name(name) {
+        if (this.is_connected()) throw new Error('Cannot set DB name to connected DB');
+        this.url = `mongodb://localhost/${name}`;
+    }
+
+    get_db_name(name) {
+        return this.url.split('/')[3];
     }
 
     is_connected() {
         return Boolean(this.mongo_client);
     }
 
+    /**
+     * 
+     * @returns {nb.DBCollection}
+     */
     define_collection(col) {
-        if (_.find(this.collections, c => c.name === col.name)) {
+        if (this.collections[col.name]) {
             throw new Error('define_collection: collection already defined ' + col.name);
         }
         if (col.schema) {
@@ -225,15 +543,14 @@ class MongoClient extends EventEmitter {
                 additionalProperties: false
             });
             this._ajv.addSchema(col.schema, col.name);
-            col.validate = (doc, warn) => this.validate(col.name, doc, warn);
         }
-        col.col = () => this.collection(col.name);
-        js_utils.deep_freeze(col);
-        this.collections.push(col);
+
+        const mongo_collection = new MongoCollection(col, this);
+        this.collections[col.name] = mongo_collection;
         if (this.mongo_client) {
-            this._init_collection(this.mongo_client.db(), col).catch(_.noop); // TODO what is best to do when init_collection fails here?
+            this._init_collection(this.mongo_client.db(), mongo_collection).catch(_.noop); // TODO what is best to do when init_collection fails here?
         }
-        return col;
+        return mongo_collection;
     }
 
     db() {
@@ -241,9 +558,13 @@ class MongoClient extends EventEmitter {
         return this.mongo_client.db();
     }
 
+    /**
+     * 
+     * @returns {nb.DBCollection}
+     */
     collection(col_name) {
         if (!this.mongo_client) throw new Error(`mongo_client not connected (collection ${col_name})`);
-        return this.mongo_client.db().collection(col_name);
+        return this.collections[col_name];
     }
 
     define_gridfs(bucket) {
@@ -386,26 +707,23 @@ class MongoClient extends EventEmitter {
             });
     }
 
-    get_rs_version(is_config_set) {
+    async get_rs_version(is_config_set) {
         var command = {
             replSetGetConfig: 1
         };
-
-        return P.fcall(() => {
-                if (is_config_set) { //connect the server running the config replica set
-                    return P.resolve(this._send_command_config_rs(command));
-                } else { //connect the mongod server
-                    return P.resolve(this.mongo_client.db().admin().command(command))
-                        .catch(err => {
-                            dbg.error('Failed get_rs_version with', err.message);
-                            throw err;
-                        });
-                }
-            })
-            .then(res => {
-                dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
-                return res.config.version;
-            });
+        let res;
+        if (is_config_set) { //connect the server running the config replica set
+            res = await this._send_command_config_rs(command);
+        } else { //connect the mongod server
+            try {
+                res = await this.mongo_client.db().admin().command(command);
+            } catch (err) {
+                dbg.error('Failed get_rs_version with', err.message);
+                throw err;
+            }
+        }
+        dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
+        return res.config.version;
     }
 
     async get_mongo_db_version() {
@@ -607,6 +925,7 @@ class MongoClient extends EventEmitter {
         clearTimeout(this.connect_timeout);
         this.connect_timeout = null;
     }
+
 }
 
 MongoClient._instance = undefined;

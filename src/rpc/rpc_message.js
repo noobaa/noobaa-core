@@ -3,6 +3,8 @@
 
 const _ = require('lodash');
 const buffer_utils = require('../util/buffer_utils');
+// TODO: Should remove the mongo_utils (had problem with FE builds)
+// const db_client = require('../util/db_client');
 const mongo_utils = require('../util/mongo_utils');
 
 const RPC_VERSION_MAGIC = 0xba;
@@ -21,6 +23,8 @@ const RPC_VERSION_NUMBER = Buffer.from([
 // possible in order to ensure complaince on both sides of the RPC call.
 function clone_customizer(value) {
     // Mongo object ids are always serialized into strings and never deserialized back.
+    // TODO: Should remove the mongo_utils (had problem with FE builds)
+    // if (db_client.instance().is_object_id(value)) {
     if (mongo_utils.is_object_id(value)) {
         return value.toJSON();
     }

@@ -9,7 +9,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
 const system_utils = require('../utils/system_utils');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const md_aggregator = require('./md_aggregator');
 
 /**************
@@ -98,7 +98,7 @@ async function clean_nodes_store(last_date_to_remove) {
         },
     };
     const nodes = await nodes_store.find_nodes(query, config.DB_CLEANER.DOCS_LIMIT, { _id: 1, deleted: 1 });
-    const node_ids = mongo_utils.uniq_ids(nodes, '_id');
+    const node_ids = db_client.instance().uniq_ids(nodes, '_id');
     dbg.log2('DB_CLEANER: list nodes:', node_ids);
     const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted
     dbg.log2('DB_CLEANER: list nodes with no agents to be removed from DB', filtered_nodes);

@@ -4,10 +4,10 @@
 const url = require('url');
 
 const server_rpc = require('./server_rpc');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 
 async function register_rpc() {
-    mongo_client.instance().connect();
+    db_client.instance().connect();
 
     server_rpc.register_object_services();
     server_rpc.register_func_services();

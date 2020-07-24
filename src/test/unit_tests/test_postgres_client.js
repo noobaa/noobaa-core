@@ -1,9 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+// TODO: Should implement the test
+
 const mocha = require('mocha');
 const { PostgresClient } = require('../../util/postgres_client');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const assert = require('assert');
 const _ = require('lodash');
 
@@ -69,8 +71,8 @@ mocha.describe('postgres_client', function() {
         await test_table.insert_one(data);
         const find_res = await test_table.find({ _id: String(data._id) });
         const actual = {
-            _id: mongo_utils.parse_object_id(find_res[0]._id),
-            system: mongo_utils.parse_object_id(find_res[0].system),
+            _id: db_client.instance().parse_object_id(find_res[0]._id),
+            system: db_client.instance().parse_object_id(find_res[0].system),
             name: find_res[0].name,
         };
         const expected = data;
@@ -89,8 +91,8 @@ mocha.describe('postgres_client', function() {
         await test_table.update_one({ _id: data._id }, { $set: { deleted: now }, $unset: { name: true }, $inc: { version: 3 } });
         const find_res = await test_table.find({ _id: String(data._id) });
         const actual = {
-            _id: mongo_utils.parse_object_id(find_res[0]._id),
-            system: mongo_utils.parse_object_id(find_res[0].system),
+            _id: db_client.instance().parse_object_id(find_res[0]._id),
+            system: db_client.instance().parse_object_id(find_res[0].system),
             // name: find_res[0].name,
             deleted: find_res[0].deleted,
             version: find_res[0].version

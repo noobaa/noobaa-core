@@ -132,18 +132,18 @@ mocha.describe('s3_ops', function() {
                  */
                 if (!USE_REMOTE_ENDPOINT) {
                     // Create buckets for the source and target namespaces
-                    await s3.createBucket({Bucket: target_namespace_bucket}).promise();
-                    await s3.createBucket({Bucket: source_namespace_bucket}).promise();
+                    await s3.createBucket({ Bucket: target_namespace_bucket }).promise();
+                    await s3.createBucket({ Bucket: source_namespace_bucket }).promise();
                 }
                 await rpc_client.pool.create_namespace_resource({
-                        name: NAMESPACE_RESOURCE_SOURCE,
-                        connection: CONNECTION_NAME,
-                        target_bucket: target_namespace_bucket
+                    name: NAMESPACE_RESOURCE_SOURCE,
+                    connection: CONNECTION_NAME,
+                    target_bucket: target_namespace_bucket
                 });
                 await rpc_client.pool.create_namespace_resource({
-                        name: NAMESPACE_RESOURCE_TARGET,
-                        connection: CONNECTION_NAME,
-                        target_bucket: source_namespace_bucket
+                    name: NAMESPACE_RESOURCE_TARGET,
+                    connection: CONNECTION_NAME,
+                    target_bucket: source_namespace_bucket
                 });
 
                 await rpc_client.bucket.create_bucket({
@@ -227,7 +227,7 @@ mocha.describe('s3_ops', function() {
                 const query_string = querystring.stringify(query_params);
                 const req_path = `${req.httpRequest.path}${sep}${query_string}`;
                 req.httpRequest.path = req_path;
-              }).promise();
+            }).promise();
             assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
 
             if (!notSupported) {
@@ -245,7 +245,7 @@ mocha.describe('s3_ops', function() {
             } catch (err) {
                 assert.strictEqual(httpStatus, 500, 'Should be 500');
             }
-         });
+        });
 
         mocha.it('should head text-file', async function() {
             this.timeout(60000); // eslint-disable-line no-invalid-this
@@ -283,7 +283,7 @@ mocha.describe('s3_ops', function() {
                 const query_string = querystring.stringify(query_params);
                 const req_path = `${req.httpRequest.path}${sep}${query_string}`;
                 req.httpRequest.path = req_path;
-              }).promise();
+            }).promise();
             assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
 
             if (!notSupported) {
@@ -292,29 +292,29 @@ mocha.describe('s3_ops', function() {
             }
             try {
                 await s3.deleteObjectTagging({
-                Bucket: bucket_name,
-                Key: params.Key,
-            }).on('complete', function(response) {
-                httpStatus = response.httpResponse.statusCode;
-            }).promise();
-            assert.strictEqual(httpStatus, 204, 'Should be 200');
-        } catch (err) {
-            assert.strictEqual(httpStatus, 500, 'Should be 500');
-        }
+                    Bucket: bucket_name,
+                    Key: params.Key,
+                }).on('complete', function(response) {
+                    httpStatus = response.httpResponse.statusCode;
+                }).promise();
+                assert.strictEqual(httpStatus, 204, 'Should be 200');
+            } catch (err) {
+                assert.strictEqual(httpStatus, 500, 'Should be 500');
+            }
             await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
 
         mocha.it('should version head text-file', async function() {
             try {
-                const query_params = {versionId: "rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf"};
-                await s3.headObject({ Bucket: bucket_name, Key: text_file1}).on('build', req => {
-                if (!caching) return;
-                const sep = req.httpRequest.search() ? '&' : '?';
-                const query_string = querystring.stringify(query_params);
-                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                req.httpRequest.path = req_path;
-              }).promise();
-              assert.notStrictEqual(caching, undefined, {statusCode: 400, text: 'Versioning not supported when caching is enabled'});
+                const query_params = { versionId: "rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf" };
+                await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).on('build', req => {
+                    if (!caching) return;
+                    const sep = req.httpRequest.search() ? '&' : '?';
+                    const query_string = querystring.stringify(query_params);
+                    const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                    req.httpRequest.path = req_path;
+                }).promise();
+                assert.notStrictEqual(caching, undefined, { statusCode: 400, text: 'Versioning not supported when caching is enabled' });
             } catch (err) {
                 if (!(err instanceof assert.AssertionError)) {
                     assert.strictEqual(err.statusCode, 501);
@@ -382,7 +382,7 @@ mocha.describe('s3_ops', function() {
                 Bucket: bucket_name,
                 Key: text_file3,
                 CopySource: `/${BKT5}/${text_file5}`,
-                }).promise();
+            }).promise();
             const res2 = await s3.listObjects({ Bucket: bucket_name }).promise();
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
         });
@@ -410,7 +410,7 @@ mocha.describe('s3_ops', function() {
                 CopySource: `/${bucket_name}/${text_file1}`,
                 CopySourceRange: "bytes=1-5",
             }).promise();
-           await s3.uploadPartCopy({
+            await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
                 UploadId: res1.UploadId,
@@ -462,12 +462,10 @@ mocha.describe('s3_ops', function() {
                 Key: text_file2,
                 UploadId: res1.UploadId,
                 MultipartUpload: {
-                    Parts: [
-                    {
+                    Parts: [{
                         ETag: res7.CopyPartResult.ETag,
                         PartNumber: 1
-                    }
-                ]
+                    }]
                 }
             }).promise();
         });
@@ -517,11 +515,11 @@ mocha.describe('s3_ops', function() {
             //         Objects: [{ Key: text_file1 }, { Key: text_file2 }]
             //     }
             // }).promise();
-            await s3.deleteObject({Bucket: BKT5, Key: text_file5}).promise();
-            await s3.deleteObject({Bucket: source_bucket, Key: text_file5}).promise();
-            await s3.deleteObject({Bucket: bucket_name, Key: text_file1}).promise();
-            await s3.deleteObject({Bucket: bucket_name, Key: text_file2}).promise();
-            await s3.deleteObject({Bucket: bucket_name, Key: text_file3}).promise();
+            await s3.deleteObject({ Bucket: BKT5, Key: text_file5 }).promise();
+            await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 }).promise();
+            await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
+            await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
         });
         mocha.it('should list objects after no objects left', async function() {
             // eslint-disable-next-line no-invalid-this
@@ -531,21 +529,21 @@ mocha.describe('s3_ops', function() {
         });
         mocha.after(async function() {
             if (bucket_type === "regular") {
-                await s3.deleteBucket({ Bucket: source_bucket}).promise();
-                await s3.deleteBucket({Bucket: bucket_name}).promise();
-                await s3.deleteBucket({Bucket: BKT5}).promise();
+                await s3.deleteBucket({ Bucket: source_bucket }).promise();
+                await s3.deleteBucket({ Bucket: bucket_name }).promise();
+                await s3.deleteBucket({ Bucket: BKT5 }).promise();
             } else {
                 if (!USE_REMOTE_ENDPOINT) {
-                    await s3.deleteBucket({Bucket: source_namespace_bucket}).promise();
-                    await s3.deleteBucket({Bucket: target_namespace_bucket}).promise();
+                    await s3.deleteBucket({ Bucket: source_namespace_bucket }).promise();
+                    await s3.deleteBucket({ Bucket: target_namespace_bucket }).promise();
                 }
-                await s3.deleteBucket({Bucket: BKT5}).promise();
-                await rpc_client.bucket.delete_bucket({name: bucket_name});
-                await rpc_client.pool.delete_namespace_resource({name: NAMESPACE_RESOURCE_SOURCE});
+                await s3.deleteBucket({ Bucket: BKT5 }).promise();
+                await rpc_client.bucket.delete_bucket({ name: bucket_name });
+                await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_SOURCE });
 
-                await s3.deleteBucket({ Bucket: source_bucket}).promise();
-                await rpc_client.pool.delete_namespace_resource({name: NAMESPACE_RESOURCE_TARGET});
-                await rpc_client.account.delete_external_connection({connection_name: CONNECTION_NAME});
+                await s3.deleteBucket({ Bucket: source_bucket }).promise();
+                await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_TARGET });
+                await rpc_client.account.delete_external_connection({ connection_name: CONNECTION_NAME });
             }
         });
     }

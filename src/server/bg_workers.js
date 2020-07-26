@@ -37,6 +37,7 @@ var background_scheduler = require('../util/background_scheduler').get_instance(
 var stats_collector = require('./bg_services/stats_collector');
 var dedup_indexer = require('./bg_services/dedup_indexer');
 var db_cleaner = require('./bg_services/db_cleaner');
+var { EdgePusher } = require('./bg_services/edge_pusher');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -219,6 +220,16 @@ function run_master_workers() {
             delay: config.AWS_METERING_INTERVAL
         }, aws_usage_metering.background_worker);
     }
+
+    if (config.EDGE_PUSHER_ENABLED) {
+        register_bg_worker(new EdgePusher({
+            name: 'edge_pusher',
+            client: server_rpc.client
+        }));
+    } else {
+        dbg.warn('EDGE_PUSHER NOT ENABLED');
+    }
+
 }
 
 register_bg_worker({

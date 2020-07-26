@@ -6,6 +6,7 @@ const stream = require('stream');
 const assert = require('assert');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
+const ReadableStreamClone = require("readable-stream-clone");
 
 class NamespaceCache {
 
@@ -107,7 +108,7 @@ class NamespaceCache {
                 object_info_hub.should_read_from_cache = false;
             } else {
                 dbg.log0('NamespaceCache.read_object_md: etags different',
-                    params, {hub_tag: object_info_hub.etag, cache_etag: cache_etag});
+                    params, { hub_tag: object_info_hub.etag, cache_etag: cache_etag });
             }
 
             return object_info_hub;
@@ -150,8 +151,12 @@ class NamespaceCache {
         const load_for_trigger = !params.noobaa_trigger_agent &&
             object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
+            object_sdk.dispatch_triggers({
+                active_triggers: this.active_triggers,
+                operation,
+                obj: params.object_md,
+                bucket: params.bucket
+            });
         }
 
         return read_response;
@@ -196,7 +201,7 @@ class NamespaceCache {
 
         let upload_response;
         let etag;
-        if (params.size > 1024 * 1024) {
+        if (params.size > 5 * 1024 * 1024) {
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
 
@@ -207,53 +212,65 @@ class NamespaceCache {
 
             // UPLOAD SIMULTANEOUSLY TO BOTH
 
-            const hub_stream = new stream.PassThrough();
-            const hub_params = { ...params, source_stream: hub_stream };
+            const hub_stream_clone = new ReadableStreamClone(params.source_stream);
+            const cache_stream_clone = new ReadableStreamClone(params.source_stream);
+
+            // let hub_stream = new stream.PassThrough();
+            const hub_params = { ...params, source_stream: hub_stream_clone };
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
 
             // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
-            const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            const cache_params = { ...params, source_stream: cache_stream };
+            // const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
+            // const cache_stream = new stream.PassThrough({ final: cache_finalizer });
+            const cache_params = { ...params, source_stream: cache_stream_clone };
             const cache_promise = this.namespace_nb.upload_object(cache_params, object_sdk);
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be
             // necessary to manually close each stream in order to prevent memory leaks.
-            params.source_stream.on('error', err => {
-                dbg.log0("NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
-                hub_stream.destroy();
-                cache_stream.destroy();
-            });
+            // params.source_stream.on('error', err => {
+            //     dbg.log0("NamespaceCache.upload_object: error in read source", { params: _.omit(params, 'source_stream'), error: err });
+            //     hub_stream.destroy();
+            //     cache_stream.destroy();
+            // });
 
-            params.source_stream.pipe(hub_stream);
-            params.source_stream.pipe(cache_stream);
+            // stream.pipeline(
+            //     params.source_stream,
+            //     hub_stream,
+            //     cache_stream,
+            //     err => {
+            //         if (err) {
+            //             console.error('Pipeline failed', err);
+            //         } else {
+            //             console.log('Pipeline succeeded');
+            //         }
+            //     });
 
-            const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
+            const [hub_res, cache_res] = await Promise.allSettled([hub_promise, cache_promise]);
             const hub_ok = hub_res.status === 'fulfilled';
             const cache_ok = cache_res.status === 'fulfilled';
-            if (!hub_ok) {
+            if (!cache_ok && !hub_ok) {
                 dbg.log0("NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
                 // handling the case where cache succeeded and cleanup.
                 // We can also just mark the cache object for re-validation
                 // to make sure any read will have to re-validate it,
                 // but writes (retries of the upload most likely) will be already in the cache
                 // and detected by dedup so we don't need to do anything.
-                if (cache_ok) {
-                    setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-                }
+                // if (hub_ok) {
+                //     setImmediate(() => this._delete_object_from_hub(params, object_sdk));
+                // }
                 // fail back to client with the hub reason
-                throw hub_res.reason;
+                throw cache_res.reason;
             }
 
-            if (cache_ok) {
+            if (cache_ok && hub_ok) {
                 assert.strictEqual(hub_res.value.etag, cache_res.value.etag);
             } else {
-                // on error from cache, we ignore and let hub upload continue
+                // on error from cache only or hub only, we ignore and let upload continue
                 dbg.log0("NamespaceCache.upload_object: error in cache upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
             }
 
-            upload_response = hub_res.value;
+            upload_response = cache_res.value;
             etag = upload_response.etag;
         }
 
@@ -322,25 +339,30 @@ class NamespaceCache {
             this.namespace_nb.delete_object(params, object_sdk),
         ]);
         if (hub_res.status === 'rejected') {
-            throw hub_res.reason;
+            dbg.warn("Failed deleting from hub", hub_res);
+            // throw hub_res.reason;
         }
-        if (cache_res.status === 'rejected' &&
-            cache_res.reason.code !== 'NoSuchKey') {
+        if (cache_res.status === 'rejected') {
+            // cache_res.reason.code !== 'NoSuchKey') {
             throw cache_res.reason;
         }
 
         const operation = 'ObjectRemoved';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
+            object_sdk.dispatch_triggers({
+                active_triggers: this.active_triggers,
+                operation,
+                obj: params.object_md,
+                bucket: params.bucket
+            });
         }
 
-        return hub_res.value;
+        return cache_res.value;
     }
 
     async delete_multiple_objects(params, object_sdk) {
-        const deleted_res = await this.namespace_hub.delete_multiple_objects(params, object_sdk);
+        const deleted_res = await this.namespace_nb.delete_multiple_objects(params, object_sdk);
 
         const operation = 'ObjectRemoved';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
@@ -365,8 +387,12 @@ class NamespaceCache {
                 const deleted_obj = deleted_res[i];
                 const head_obj = head_res[i];
                 if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
-                    object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                        obj: head_obj, bucket: params.bucket });
+                    object_sdk.dispatch_triggers({
+                        active_triggers: this.active_triggers,
+                        operation,
+                        obj: head_obj,
+                        bucket: params.bucket
+                    });
                 }
             }
         }

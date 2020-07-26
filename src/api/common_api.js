@@ -765,7 +765,8 @@ module.exports = {
                     $ref: '#/definitions/bucket_cache_ttl'
                 },
                 prefix: { type: 'string' },
-                fetched: { type: 'boolean' }
+                fetched: { type: 'boolean' },
+                edge_bucket: { type: 'boolean' }
             }
         },
 

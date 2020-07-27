@@ -776,6 +776,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _disconnect_node(item) {
+        item.disconnect_time = Date.now();
         this._close_node_connection(item);
         this._set_need_update.add(item);
         this._update_status(item);
@@ -3494,7 +3495,12 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            this._disconnect_node(item);
+            // only disconnect if enough time passed since last disconnect to avoid amplification of errors in R\W flows
+            const DISCONNECT_GRACE_PERIOD = 2 * 60 * 1000; // 2 minutes grace before another disconnect
+            if (!item.disconnect_time || item.disconnect_time + DISCONNECT_GRACE_PERIOD < Date.now()) {
+                dbg.log0('disconnecting node to force reconnect. node:', item.node.name);
+                this._disconnect_node(item);
+            }
         }
     }
 

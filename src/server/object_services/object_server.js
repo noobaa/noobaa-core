@@ -52,6 +52,7 @@ const object_md_cache = new LRUCache({
  */
 async function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
+    console.log('sanjeev1 object_server, create_object_upload called');
     throw_if_maintenance(req);
     load_bucket(req);
     check_quota(req.bucket);
@@ -334,6 +335,7 @@ const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
  *
  */
 async function complete_object_upload(req) {
+    console.log('sanjeev1 object_server, complete_object_upload called');
     throw_if_maintenance(req);
     const set_updates = {};
     const unset_updates = {
@@ -388,6 +390,7 @@ async function complete_object_upload(req) {
     }
     set_updates.size = map_res.size;
     set_updates.num_parts = map_res.num_parts;
+
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     } else if (map_res.size === 0) {
@@ -805,12 +808,15 @@ function _check_encryption_permissions(src_enc, req_enc) {
 async function update_object_md(req) {
     dbg.log0('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
     if (set_updates.cache_last_valid_time) {
         set_updates.cache_last_valid_time = new Date(set_updates.cache_last_valid_time);
+    }
+    if (set_updates.last_modified_time) {
+        set_updates.last_modified_time = new Date(set_updates.last_modified_time);
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
@@ -1315,6 +1321,7 @@ function report_endpoint_problems(req) {
  */
 function get_object_info(md, options = {}) {
     var bucket = system_store.data.get_by_id(md.bucket);
+    var create_time = md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime();
     return {
         obj_id: md._id.toHexString(),
         bucket: bucket.name,
@@ -1324,7 +1331,8 @@ function get_object_info(md, options = {}) {
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
-        create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
+        create_time: create_time,
+        last_modified_time: md.last_modified_time ? (md.last_modified_time.getTime()) : create_time,
         cache_last_valid_time: md.cache_last_valid_time ? md.cache_last_valid_time.getTime() : undefined,
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,

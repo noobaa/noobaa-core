@@ -198,6 +198,7 @@ class NamespaceNB {
         const operation = 'ObjectRemoved';
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
+        console.log('sanjeev1 removing object from bucket: ', params.bucket, ' object: ', params.key);
         const load_for_trigger = object_sdk.should_run_triggers({
             active_triggers,
             operation
@@ -226,7 +227,7 @@ class NamespaceNB {
         });
         // TODO: What should I do instead of failing on one failed head request?
         // I cannot exclude the files that failed from delete since it will be considered altering the request of the client
-        // TODO: Notice that we do not handle the md_conditions for the heads 
+        // TODO: Notice that we do not handle the md_conditions for the heads
         const head_res = load_for_trigger && await P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,

@@ -181,13 +181,14 @@ class NamespaceS3 {
 
     async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
-        let res;
+        return new P((resolve, reject) => {
+        let req;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
             const { copy_source } = s3_utils.format_copy_source(params.copy_source);
             if (copy_source.ranges) {
                 // note that CopySourceRange is only supported by s3.uploadPartCopy()
-                throw new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()');
+                reject(new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()'));
             }
 
             const request = {
@@ -202,7 +203,7 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
 
-            res = await this.s3.copyObject(request).promise();
+            req = this.s3.copyObject(request);
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -226,12 +227,35 @@ class NamespaceS3 {
             };
 
             this._assign_encryption_to_request(params, request);
-
-            res = await this.s3.putObject(request).promise();
+            /* setTimeout(function() {
+                console.log('hello world!');
+              }, 50000); */
+            console.log('sanjeev1 namespace_hub(s3), calling s3.putObject');
+            req = this.s3.putObject(request);
         }
-        dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
-        return { etag, version_id: res.VersionId };
+        req = req.on('error', err => {
+            this._translate_error_code(err);
+            dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
+            reject(err);
+        }).on('complete', response => {
+            dbg.log0('NamespaceS3.read_object_stream:',
+                this.bucket,
+                inspect(_.omit(params, 'object_md.ns')),
+                'status code', response.httpResponse.statusCode,
+                'etag', response.httpResponse.headers.etag,
+                'versionId', response.httpResponse.headers.VersionId,
+                'created date', response.httpResponse.headers.date
+            );
+            console.log('sanjeev1 namespace_hub(s3), s3.putObject is complete');
+
+            if (response.httpResponse.statusCode > 200) return; // will be handled by error event
+            req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
+            req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
+            const etag = s3_utils.parse_etag(response.httpResponse.headers.etag);
+            return resolve({ etag, version_id: response.httpResponse.headers.VersionId, date: response.httpResponse.headers.date});
+        });
+        req.send();
+    });
     }
 
     ////////////////////////

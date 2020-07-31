@@ -34,9 +34,9 @@ class NamespaceCache {
         try {
             const delete_params = _.pick(params, 'bucket', 'key');
             await this.namespace_nb.delete_object(delete_params, object_sdk);
-            dbg.log0('NamespaceCache: deleted object from cache', delete_params);
+            dbg.log0('sanjeev1 NamespaceCache: deleted object from cache', delete_params);
         } catch (err) {
-            dbg.warn('NamespaceCache: error in deleting object from cache', params, err);
+            dbg.warn('sanjeev1 NamespaceCache: error in deleting object from cache', params, err);
         }
     }
 
@@ -209,7 +209,7 @@ class NamespaceCache {
 
         let upload_response;
         let etag;
-        if (params.size > 1024 * 1024) {
+        if (params.copy_source || params.size > 1024 * 1024) {
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
 
@@ -222,13 +222,32 @@ class NamespaceCache {
 
             const hub_stream = new stream.PassThrough();
             const hub_params = { ...params, source_stream: hub_stream };
+            console.log('sanjeev1 namespace_cache.upload_object->namespace_hub.upload_object');
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
+            var date;
+            let testfunc1 = (one, err) => {
+                //cache_params = { ...cache_params, date: one.date};
+                console.log('sanjeev1 namespace_cache.upload_object, calling testfunc1');
+                console.log('one ', one, ' err', err);
+                date = one.date;
+                return one;
+            };
+            let testfunc2 = (one, err) => {
+                if (err) return err;
+                const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
+                update_params.last_modified_time = (new Date(date)).getTime();
+                setImmediate(() => object_sdk.rpc_client.object.update_object_md(update_params));
 
+                return one;
+            };
             // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
+            const cache_finalizer = hub_promise.then(res => testfunc1(res), err => testfunc1(err));
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            const cache_params = { ...params, source_stream: cache_stream };
-            const cache_promise = this.namespace_nb.upload_object(cache_params, object_sdk);
+            var cache_params = { ...params, source_stream: cache_stream};
+            console.log('sanjeev1 namespace_cache.upload_object->namespace_nb.upload_object');
+
+            const cache_promise = this.namespace_nb.upload_object(cache_params, object_sdk)
+                .then((res, error) => testfunc2(res, error), (res, error) => testfunc2(res, error));
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be
@@ -243,6 +262,7 @@ class NamespaceCache {
             params.source_stream.pipe(cache_stream);
 
             const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
+            console.log('sanjeev1 ', hub_res);
             const hub_ok = hub_res.status === 'fulfilled';
             const cache_ok = cache_res.status === 'fulfilled';
             if (!hub_ok) {
@@ -301,8 +321,9 @@ class NamespaceCache {
     }
 
     async complete_object_upload(params, object_sdk) {
+
         const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
-        setImmediate(() => this._delete_object_from_cache(params, object_sdk));
+        await this._delete_object_from_cache(params, object_sdk);
         return res;
     }
 

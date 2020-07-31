@@ -261,7 +261,13 @@ function format_copy_source(copy_source) {
 
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
-    res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+    console.log('create_time', object_md.create_time);
+    console.log('create_time', object_md.last_modified_time);
+    if (object_md.last_modified_time) {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.last_modified_time)));
+    } else {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+    }
     res.setHeader('Content-Type', object_md.content_type);
     res.setHeader('Content-Length', object_md.size);
     res.setHeader('Accept-Ranges', 'bytes');

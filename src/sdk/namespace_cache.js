@@ -228,7 +228,7 @@ class NamespaceCache {
             let testfunc1 = (one, err) => {
                 //cache_params = { ...cache_params, date: one.date};
                 console.log('sanjeev1 namespace_cache.upload_object, calling testfunc1');
-                console.log('one ', one, ' err', err);
+                //console.log('one ', one, ' err', err);
                 date = one.date;
                 return one;
             };
@@ -236,12 +236,12 @@ class NamespaceCache {
                 if (err) return err;
                 const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
                 update_params.last_modified_time = (new Date(date)).getTime();
-                setImmediate(() => object_sdk.rpc_client.object.update_object_md(update_params));
+                // setImmediate(() => object_sdk.rpc_client.object.update_object_md(update_params));
 
                 return one;
             };
             // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = hub_promise.then(res => testfunc1(res), err => testfunc1(err));
+            const cache_finalizer = hub_promise.then((res, error) => testfunc1(res, error), (res, error) => testfunc1(res, error));
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
             var cache_params = { ...params, source_stream: cache_stream};
             console.log('sanjeev1 namespace_cache.upload_object->namespace_nb.upload_object');

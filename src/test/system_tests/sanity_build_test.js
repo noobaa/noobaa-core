@@ -20,6 +20,7 @@ const TEST_CTX = {
     compatible_v2: null,
     compatible_v4: null,
     s3_endpoint: '',
+    s3_alt_endpoint: '',
     s3_endpoint_https: '',
     mgmt_endpoint: '',
     bucket_mirror: 'ec.no.quota',
@@ -38,7 +39,9 @@ async function main() {
         console.error('Missing s3 endpoint paramters');
         process.exit(5);
     }
-
+    if (_.isUndefined(argv.s3_host)) {
+        argv.s3_host = "localhost";
+    }
     // if (_.isUndefined(process.env.AWS_ACCESS) || _.isUndefined(process.env.AWS_SECRET)) {
     //     console.error('Missing env credentials');
     //     process.exit(5);
@@ -47,7 +50,7 @@ async function main() {
     TEST_CTX.s3_endpoint = `http://${argv.s3_ip}:${argv.s3_port}`;
     TEST_CTX.s3_endpoint_https = `https://${argv.s3_ip}:${argv.s3_port_https}`;
     TEST_CTX.mgmt_endpoint = `ws://${argv.mgmt_ip}:${argv.mgmt_port}`;
-
+    TEST_CTX.s3_alt_endpoint = `http://${argv.s3_host}:${argv.s3_port}`;
     dbg.log0('Running Sanity Build Test');
     await run_test();
     console.log('Finished Sanity Build Test Successfully');
@@ -95,7 +98,7 @@ async function init_test() {
     TEST_CTX.compatible_v2 = {
         name: 'compatible_V2',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: 'http://noobaa-server-0:6001',
+        endpoint: TEST_CTX.s3_alt_endpoint,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V2'
@@ -103,7 +106,7 @@ async function init_test() {
     TEST_CTX.compatible_v4 = {
         name: 'compatible_V4',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: `http://127.0.0.1:6001`,
+        endpoint: TEST_CTX.s3_endpoint,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V4'

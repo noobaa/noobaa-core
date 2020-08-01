@@ -98,6 +98,7 @@ class NamespaceNB {
     ///////////////////
 
     async upload_object(params, object_sdk) {
+        console.log('sanjeev1: namespace_nb, uploadobject started');
         const operation = 'ObjectCreated';
         params = _.defaults({
             client: object_sdk.rpc_client,
@@ -119,6 +120,7 @@ class NamespaceNB {
             };
             object_sdk.dispatch_triggers({ active_triggers, operation, obj, bucket: params.bucket });
         }
+        console.log('sanjeev1: namespace_nb, uploadobject completed');
         return reply;
     }
 

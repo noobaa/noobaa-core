@@ -436,6 +436,8 @@ class ObjectSDK {
                 source_params.start = ranges[0].start;
                 source_params.end = ranges[0].end;
             }
+            source_params.object_md = source_md;
+            source_params.obj_id = source_md.obj_id;
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             if (params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)

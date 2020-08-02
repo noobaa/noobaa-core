@@ -17,7 +17,17 @@ class NamespaceCache {
     }
 
     get_write_resource() {
-        return this.namespace_hub;
+        return this;
+    }
+
+    get_bucket() {
+        return this.namespace_hub.get_bucket();
+    }
+
+    is_same_namespace(other) {
+        return other instanceof NamespaceCache &&
+            this.namespace_hub === other.namespace_hub &&
+            this.namespace_nb === other.namespace_nb;
     }
 
     async _delete_object_from_cache(params, object_sdk) {
@@ -47,13 +57,13 @@ class NamespaceCache {
     /////////////////
 
     async list_objects(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_objects(params, object_sdk);
+        return params.get_from_cache ? this.namespace_nb.list_objects(params, object_sdk) :
+               this.namespace_hub.list_objects(params, object_sdk);
     }
 
     async list_uploads(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_uploads(params, object_sdk);
+
+        return this.namespace_hub.list_uploads(params, object_sdk);
     }
 
     async list_object_versions(params, object_sdk) {
@@ -77,6 +87,7 @@ class NamespaceCache {
             if (get_from_cache) {
                 dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
                 object_info_cache.should_read_from_cache = true;
+                object_info_cache.ns = this;
                 return object_info_cache;
             }
 
@@ -85,6 +96,7 @@ class NamespaceCache {
 
             if ((this.caching.ttl_ms > 0 && time_since_validation <= this.caching.ttl_ms) || this.caching.ttl_ms < 0) {
                 object_info_cache.should_read_from_cache = true; // mark it for read_object_stream
+                object_info_cache.ns = this;
                 dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
                 return object_info_cache;
             }
@@ -196,7 +208,7 @@ class NamespaceCache {
 
         let upload_response;
         let etag;
-        if (params.size > 1024 * 1024) {
+        if (params.size > 10 * 1024 * 1024) {
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
 
@@ -288,11 +300,9 @@ class NamespaceCache {
     }
 
     async complete_object_upload(params, object_sdk) {
-
-        // TODO: INVALIDATE CACHE
-        // await this.namespace_nb.delete_object(TODO);
-
-        return this.namespace_hub.complete_object_upload(params, object_sdk);
+        const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
+        setImmediate(() => this._delete_object_from_cache(params, object_sdk));
+        return res;
     }
 
     async abort_object_upload(params, object_sdk) {

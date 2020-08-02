@@ -29,7 +29,9 @@ async function get_bucket(req) {
         key_marker: list_type === '2' ?
             (cont_tok_to_key_marker(cont_tok) || start_after) : req.query.marker,
     };
-
+    if (req.query.get_from_cache !== undefined) {
+        params.get_from_cache = true;
+    }
     const reply = await req.object_sdk.list_objects(params);
     let res_params = {
         'Name': req.params.bucket,

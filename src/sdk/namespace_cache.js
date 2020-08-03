@@ -34,9 +34,9 @@ class NamespaceCache {
         try {
             const delete_params = _.pick(params, 'bucket', 'key');
             await this.namespace_nb.delete_object(delete_params, object_sdk);
-            dbg.log0('sanjeev1 NamespaceCache: deleted object from cache', delete_params);
+            dbg.log0('NamespaceCache: deleted object from cache', delete_params);
         } catch (err) {
-            dbg.warn('sanjeev1 NamespaceCache: error in deleting object from cache', params, err);
+            dbg.warn('NamespaceCache: error in deleting object from cache', params, err);
         }
     }
 
@@ -223,131 +223,23 @@ class NamespaceCache {
             const hub_stream = new stream.PassThrough();
             const hub_params = { ...params, source_stream: hub_stream };
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
-            let testfunc1 = (one) => {
-                //cache_params = { ...cache_params, date: one.date};
-                console.log('sanjeev1 namespace_cache.upload_object, calling testfunc1', one);
-                //console.log('one ', one, ' err', err);
+            let hub_callback = res => {
+                if (res.code) {
+                    dbg.log0('hub finalizer failed with code', res.code);
+                    return res;
+                }
                 const update_params = _.pick(_.defaults(
                     { bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key', 'last_modified_time');
-                update_params.last_modified_time = (new Date(one.date)).getTime();
+                update_params.last_modified_time = (new Date(res.date)).getTime();
                 setImmediate(() => object_sdk.rpc_client.object.update_object_md(update_params));
-                return one;
+                return res;
             };
-            let testfunc2 = (one) => {
-                //cache_params = { ...cache_params, date: one.date};
-                console.log('sanjeev1 namespace_cache.upload_object, calling testfunc2', one);
-                //console.log('one ', one, ' err', err);
 
-                return one;
-            };
             // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer =  hub_promise.then(data => testfunc1(data), err => testfunc2(err));
+            const cache_finalizer = hub_promise.then(data => hub_callback(data), err => hub_callback(err));
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
             const cache_params = { ...params, source_stream: cache_stream };
             const cache_promise = this.namespace_nb.upload_object(cache_params, object_sdk);
-
-            // One important caveat is that if the Readable stream emits an error during processing,
-            // the Writable destination is not closed automatically. If an error occurs, it will be
-            // necessary to manually close each stream in order to prevent memory leaks.
-            params.source_stream.on('error', err => {
-                dbg.log0("sanjeev1 NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
-                hub_stream.destroy();
-                cache_stream.destroy();
-            });
-
-            params.source_stream.pipe(hub_stream);
-            params.source_stream.pipe(cache_stream);
-
-            const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
-            const hub_ok = hub_res.status === 'fulfilled';
-            const cache_ok = cache_res.status === 'fulfilled';
-            if (!hub_ok) {
-                // dbg.log0("sanjeev1 NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res.reason, cache_res.reason });
-                dbg.log0("sanjeev1 NamespaceCache.upload_object: error in upload",  hub_res.reason, cache_res.reason  );
-
-                // handling the case where cache succeeded and cleanup.
-                // We can also just mark the cache object for re-validation
-                // to make sure any read will have to re-validate it,
-                // but writes (retries of the upload most likely) will be already in the cache
-                // and detected by dedup so we don't need to do anything.
-                if (cache_ok) {
-                    setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-                }
-                // fail back to client with the hub reason
-                throw hub_res.reason;
-            }
-
-            if (cache_ok) {
-                assert.strictEqual(hub_res.value.etag, cache_res.value.etag);
-            } else {
-                // on error from cache, we ignore and let hub upload continue
-                dbg.log0("NamespaceCache.upload_object: error in cache upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
-            }
-
-            upload_response = hub_res.value;
-            etag = upload_response.etag;
-        }
-
-        if (load_for_trigger) {
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: params.size,
-                content_type: params.content_type,
-                etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
-
-        return upload_response;
-    }
-
-    async upload_object1(params, object_sdk) {
-        dbg.log0("NamespaceCache.upload_object", _.omit(params, 'source_stream'));
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-
-        let upload_response;
-        let etag;
-        if (params.copy_source || params.size > 1024 * 1024) {
-
-            setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-
-            upload_response = await this.namespace_hub.upload_object(params, object_sdk);
-            etag = upload_response.etag;
-
-        } else {
-
-            // UPLOAD SIMULTANEOUSLY TO BOTH
-
-            const hub_stream = new stream.PassThrough();
-            const hub_params = { ...params, source_stream: hub_stream };
-            console.log('sanjeev1 namespace_cache.upload_object->namespace_hub.upload_object');
-            const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
-            var date;
-            let testfunc1 = (one, err) => {
-                //cache_params = { ...cache_params, date: one.date};
-                console.log('sanjeev1 namespace_cache.upload_object, calling testfunc1');
-                //console.log('one ', one, ' err', err);
-                date = one.date;
-                return one;
-            };
-            let testfunc2 = (one, err) => {
-                if (err) return err;
-                const update_params = _.pick(_.defaults({ bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key');
-                update_params.last_modified_time = (new Date(date)).getTime();
-                // setImmediate(() => object_sdk.rpc_client.object.update_object_md(update_params));
-
-                return one;
-            };
-            // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = hub_promise.then((res, error) => testfunc1(res, error), (res, error) => testfunc1(res, error));
-            const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            var cache_params = { ...params, source_stream: cache_stream};
-            console.log('sanjeev1 namespace_cache.upload_object->namespace_nb.upload_object');
-
-            const cache_promise = this.namespace_nb.upload_object(cache_params, object_sdk)
-                // .then((res, error) => testfunc2(res, error), (res, error) => testfunc2(res, error));
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be
@@ -362,7 +254,6 @@ class NamespaceCache {
             params.source_stream.pipe(cache_stream);
 
             const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
-            console.log('sanjeev1 ', hub_res);
             const hub_ok = hub_res.status === 'fulfilled';
             const cache_ok = cache_res.status === 'fulfilled';
             if (!hub_ok) {

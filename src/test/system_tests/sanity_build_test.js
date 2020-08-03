@@ -40,7 +40,7 @@ async function main() {
         process.exit(5);
     }
     if (_.isUndefined(argv.s3_host)) {
-        argv.s3_host = "localhost";
+        argv.s3_host = "noobaa-server-0";
     }
     // if (_.isUndefined(process.env.AWS_ACCESS) || _.isUndefined(process.env.AWS_SECRET)) {
     //     console.error('Missing env credentials');

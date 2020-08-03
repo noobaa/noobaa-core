@@ -52,7 +52,6 @@ const object_md_cache = new LRUCache({
  */
 async function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
-    console.log('sanjeev1 object_server, create_object_upload called');
     throw_if_maintenance(req);
     load_bucket(req);
     check_quota(req.bucket);
@@ -335,7 +334,6 @@ const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
  *
  */
 async function complete_object_upload(req) {
-    console.log('sanjeev1 object_server, complete_object_upload called');
     throw_if_maintenance(req);
     const set_updates = {};
     const unset_updates = {
@@ -390,7 +388,6 @@ async function complete_object_upload(req) {
     }
     set_updates.size = map_res.size;
     set_updates.num_parts = map_res.num_parts;
-
     if (req.rpc_params.etag) {
         set_updates.etag = req.rpc_params.etag;
     } else if (map_res.size === 0) {

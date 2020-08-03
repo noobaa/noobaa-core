@@ -368,7 +368,7 @@ async function clear_test_pools() {
 
     // Delete all pools (will stop all agents managed by the pool)
     if (CREATED_POOLS) {
-     promise_utils.wait_until(async () => {
+        await promise_utils.wait_until(async () => {
             try {
                 await Promise.all(CREATED_POOLS.map(pool =>
                     rpc_client.pool.delete_pool({ name: pool.name })

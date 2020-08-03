@@ -178,7 +178,7 @@ class NamespaceS3 {
     ///////////////////
     // OBJECT UPLOAD //
     ///////////////////
-    async upload_object(params, object_sdk) {
+    async upload_object1(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
         console.log('sanjeev1: namespace_s3, uploadobject started');
         let res;
@@ -203,7 +203,23 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
 
-            res = await this.s3.copyObject(request).promise();
+            // res = await this.s3.copyObject(request).promise();
+            res = await this.s3.copyObject(request).on('success', response => {
+                dbg.log0('NamespaceS3.read_object_stream:',
+                    this.bucket,
+                    inspect(_.omit(params, 'object_md.ns')),
+                    'status code', response.httpResponse.statusCode,
+                    'etag', response.httpResponse.headers.etag,
+                    'versionId', response.httpResponse.headers.VersionId,
+                    'created date', response.httpResponse.headers.date
+                );
+                console.log('sanjeev1 namespace_hub(s3), s3.putObject is complete');
+
+                if (response.httpResponse.statusCode > 200) return; // will be handled by error event
+                last_modify_date = response.httpResponse.headers.date;
+                params = { ...params, date: response.httpResponse.headers.date};
+                return response;
+            }).promise();
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -228,7 +244,11 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
 
-            res = await this.s3.putObject(request).on('success', response => {
+            res = await this.s3.putObject(request).on('error', err => {
+                this._translate_error_code(err);
+                dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
+                return err;
+            }).on('success', response => {
                 dbg.log0('NamespaceS3.read_object_stream:',
                     this.bucket,
                     inspect(_.omit(params, 'object_md.ns')),
@@ -253,7 +273,7 @@ class NamespaceS3 {
         //    return resolve({ etag, version_id: response.httpResponse.headers.VersionId, date: response.httpResponse.headers.date});
         return { etag, version_id: res.VersionId, date: last_modify_date };
     }
-    async upload_object1(params, object_sdk) {
+    async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
         return new P((resolve, reject) => {
         let req;

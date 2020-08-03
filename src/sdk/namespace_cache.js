@@ -209,7 +209,7 @@ class NamespaceCache {
 
         let upload_response;
         let etag;
-        if (params.size > 1024 * 1024) {
+        if (params.size > 10 * 1024 * 1024) {
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
 
@@ -250,7 +250,7 @@ class NamespaceCache {
             // the Writable destination is not closed automatically. If an error occurs, it will be
             // necessary to manually close each stream in order to prevent memory leaks.
             params.source_stream.on('error', err => {
-                dbg.log0("NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
+                dbg.log0("sanjeev1 NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
                 hub_stream.destroy();
                 cache_stream.destroy();
             });
@@ -262,7 +262,9 @@ class NamespaceCache {
             const hub_ok = hub_res.status === 'fulfilled';
             const cache_ok = cache_res.status === 'fulfilled';
             if (!hub_ok) {
-                dbg.log0("NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
+                // dbg.log0("sanjeev1 NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res.reason, cache_res.reason });
+                dbg.log0("sanjeev1 NamespaceCache.upload_object: error in upload",  hub_res.reason, cache_res.reason  );
+
                 // handling the case where cache succeeded and cleanup.
                 // We can also just mark the cache object for re-validation
                 // to make sure any read will have to re-validate it,

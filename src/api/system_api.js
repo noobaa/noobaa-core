@@ -87,6 +87,48 @@ module.exports = {
             }
         },
 
+        rotate_master_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['entity', 'entity_type'],
+                properties: {
+                    // Sensitive String
+                    // For each entity it's unique identifier
+                    // System Name, Bucket Name, Account Email
+                    entity: { $ref: 'common_api#/definitions/entity' },
+                    entity_type: {
+                        type: 'string',
+                        enum: ['SYSTEM', 'BUCKET', 'ACCOUNT']
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        disable_master_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['entity', 'entity_type'],
+                properties: {
+                    // Sensitive String
+                    // For each entity it's unique identifier
+                    // System Name, Bucket Name, Account Email
+                    entity: { $ref: 'common_api#/definitions/entity' },
+                    entity_type: {
+                        type: 'string',
+                        enum: ['SYSTEM', 'BUCKET', 'ACCOUNT']
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         read_system: {
             doc: 'Read the info of the authorized system',
             method: 'GET',
@@ -395,35 +437,35 @@ module.exports = {
         },
 
         get_endpoints_history: {
-             method: 'GET',
-             params: {
-                 type: 'object',
-                 required: [
-                     'since'
-                 ],
-                 properties: {
-                     since: {
-                         idate: true
-                     },
-                     till: {
-                         idate: true
-                     },
-                     step: {
-                         type: 'integer'
-                     },
-                     groups: {
-                         type: 'array',
-                         items: {
-                             type: 'string'
-                         }
-                     }
-                 }
-             },
-             reply: {
-                 type: 'array',
-                 items: {
-                     type: 'object',
-                     properties: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'since'
+                ],
+                properties: {
+                    since: {
+                        idate: true
+                    },
+                    till: {
+                        idate: true
+                    },
+                    step: {
+                        type: 'integer'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
                         timestamp: {
                             idate: true
                         },
@@ -445,12 +487,12 @@ module.exports = {
                         write_bytes: {
                             type: 'number'
                         }
-                     }
-                 }
-             },
-             auth: {
-                 system: 'admin'
-             }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

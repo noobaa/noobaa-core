@@ -174,6 +174,11 @@ class ChunkAPI {
         };
     }
 
+    _encrypt_cipher_key(cipher_key, master_key_id) {
+        if (!master_key_id) return cipher_key;
+        return this.system_store.master_key_manager.encrypt_value_with_master_key_id(cipher_key, master_key_id);
+    }
+
 }
 
 /**

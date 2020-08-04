@@ -709,6 +709,10 @@ module.exports = {
             wrapper: SensitiveString,
         },
 
+        entity: {
+            wrapper: SensitiveString,
+        },
+
         account_name: {
             wrapper: SensitiveString,
         },

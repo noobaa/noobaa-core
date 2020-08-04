@@ -55,7 +55,7 @@ class ChunkDB {
     get compress_size() { return this.chunk_db.compress_size; }
     get frag_size() { return this.chunk_db.frag_size; }
     get digest_b64() { return to_b64(this.chunk_db.digest); }
-    get cipher_key_b64() { return to_b64(this.chunk_db.cipher_key); }
+    get cipher_key_b64() { return to_b64(this._decrypt_cipher_key(this.chunk_db.cipher_key, this.chunk_db.master_key_id)); }
     get cipher_iv_b64() { return to_b64(this.chunk_db.cipher_iv); }
     get cipher_auth_tag_b64() { return to_b64(this.chunk_db.cipher_auth_tag); }
     get chunk_coder_config() { return this.chunk_config.chunk_coder_config; }
@@ -83,6 +83,11 @@ class ChunkDB {
 
     set_new_chunk_id() {
         throw new Error(`ChunkDB.set_new_chunk_id: unexpected call for existing chunk ${this._id}`);
+    }
+
+    _decrypt_cipher_key(cipher_key, master_key_id) {
+        if (!master_key_id) return cipher_key;
+        return system_store.master_key_manager.decrypt_value_with_master_key_id(cipher_key, master_key_id);
     }
 
     /**

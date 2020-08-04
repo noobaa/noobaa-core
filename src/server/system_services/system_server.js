@@ -419,8 +419,7 @@ async function _create_owner_account(
 
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
-        await os_utils.discover_k8s_services() :
-        [];
+        await os_utils.discover_k8s_services() : [];
 
     // This works because the lists are always sorted, see discover_k8s_services().
     const { system_address: curr_address } = system_store.data.systems[0] || {};
@@ -1288,6 +1287,16 @@ async function _get_endpoint_groups() {
     });
 }
 
+async function rotate_master_key(req) {
+    const { entity, entity_type } = req.rpc_params;
+    // TODO perform the action and rebuild (if needed to decrypt thenn decrypt if not then only encrypt) all tree except chunks
+}
+
+async function disable_master_key(req) {
+    const { entity, entity_type } = req.rpc_params;
+    // TODO perform the action and decrypt all tree except chunks
+}
+
 // EXPORTS
 exports._init = _init;
 exports.is_initialized = is_initialized;
@@ -1317,3 +1326,6 @@ exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;
+
+exports.rotate_master_key = rotate_master_key;
+exports.disable_master_key = disable_master_key;

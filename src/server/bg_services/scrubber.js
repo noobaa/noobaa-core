@@ -38,6 +38,7 @@ async function background_worker() {
         this.marker = marker;
         if (chunk_ids.length) {
             dbg.log1('SCRUBBER:', 'WORKING ON', chunk_ids.length, 'CHUNKS');
+            // TODO ADD REBUILD OF CIPHERS ACCORDING TO BUCKET'S MASTER_KEY
             const builder = new MapBuilder(chunk_ids);
             await builder.run();
         }

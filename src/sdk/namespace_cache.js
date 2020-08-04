@@ -379,15 +379,34 @@ class NamespaceCache {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
+
+        const object_md = await this.read_object_md(params, object_sdk);
+        if (object_md.should_read_from_cache) {
+            return this.namespace_nb.get_object_tagging(params, object_sdk);
+        }
         return this.namespace_hub.get_object_tagging(params, object_sdk);
     }
 
     async delete_object_tagging(params, object_sdk) {
-        return this.namespace_hub.delete_object_tagging(params, object_sdk);
+
+        const res = this.namespace_hub.delete_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.delete_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     async put_object_tagging(params, object_sdk) {
-        return this.namespace_hub.put_object_tagging(params, object_sdk);
+
+        const res = await this.namespace_hub.put_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.put_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     //////////////////////////

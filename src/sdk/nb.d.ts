@@ -39,6 +39,7 @@ interface System extends Base {
     tiers_by_name: { [name: string]: Tier };
     pools_by_name: { [name: string]: Pool };
     chunk_configs_by_id: { [id: string]: ChunkConfig };
+    master_key_id: ID;
 }
 
 interface Account extends Base {
@@ -56,6 +57,7 @@ interface Account extends Base {
         access_key: SensitiveString;
         secret_key: SensitiveString;
     }[];
+    master_key_id: ID;
 }
 
 interface NodeAPI extends Base {
@@ -177,6 +179,7 @@ interface Bucket extends Base {
     };
     lifecycle_configuration_rules?: Object;
     lambda_triggers?: Object;
+    master_key_id: ID;
 }
 
 interface CacheConfig {
@@ -237,6 +240,7 @@ interface Chunk {
     readonly cipher_iv_b64: string;
     readonly cipher_auth_tag_b64: string;
     readonly chunk_coder_config: ChunkCoderConfig;
+    master_key_id?: ID;
 
     dup_chunk_id?: ID;
     had_errors?: boolean;
@@ -428,6 +432,7 @@ interface ChunkInfo {
     is_accessible?: boolean;
     is_building_blocks?: boolean;
     is_building_frags?: boolean;
+    master_key_id?: ID;
 
     // Properties not in the API but used in memory
     data?: Buffer;
@@ -523,6 +528,7 @@ interface ChunkSchemaDB {
     frags: FragSchemaDB[];
     parts?: PartSchemaDB[]; // see MDStore.load_parts_objects_for_chunks()
     objects?: any[]; // see MDStore.load_parts_objects_for_chunks()
+    master_key_id?: ID;
 }
 
 interface FragSchemaDB {

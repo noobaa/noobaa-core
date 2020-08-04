@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const dbg = require('../util/debug_module')(__filename);
-const { make_http_request } = require('../util/http_utils.js');
+const { make_https_request } = require('../util/http_utils.js');
 const { read_stream_join } = require('../util//buffer_utils');
 const config = require('../../config');
 
@@ -83,7 +83,7 @@ class KubeStore {
                 'application/merge-patch+json' :
                 'application/json';
 
-            const response = await make_http_request({
+            const response = await make_https_request({
                     method: method,
                     hostname: this._service_host,
                     port: this._service_port,

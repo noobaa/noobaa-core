@@ -11,8 +11,7 @@ require('../util/fips');
 
 var _ = require('lodash');
 var url = require('url');
-var http = require('http');
-var https = require('https');
+var http_utils = require('../util/http_utils');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var scrubber = require('./bg_services/scrubber');
@@ -56,9 +55,8 @@ mongo_client.instance().connect();
 register_rpc();
 
 //Set KeepAlive to all http/https agents in bg_workers
-http.globalAgent.keepAlive = true;
-https.globalAgent.keepAlive = true;
-
+http_utils.update_http_agents({ keepAlive: true });
+http_utils.update_https_agents({ keepAlive: true });
 
 function register_rpc() {
     server_rpc.register_bg_services();

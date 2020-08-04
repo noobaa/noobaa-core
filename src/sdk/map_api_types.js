@@ -51,6 +51,7 @@ class ChunkAPI {
     get frag_size() { return this.chunk_info.frag_size; }
     get digest_b64() { return this.chunk_info.digest_b64; }
     get cipher_key_b64() { return this.chunk_info.cipher_key_b64; }
+    get master_key_id() { return this.chunk_info.master_key_id; }
     get cipher_iv_b64() { return this.chunk_info.cipher_iv_b64; }
     get cipher_auth_tag_b64() { return this.chunk_info.cipher_auth_tag_b64; }
     get chunk_coder_config() { return this.chunk_info.chunk_coder_config; }
@@ -132,6 +133,7 @@ class ChunkAPI {
     to_api() {
         return {
             _id: this.chunk_info._id,
+            master_key_id: this.chunk_info.master_key_id,
             bucket_id: this.chunk_info.bucket_id,
             tier_id: this.chunk_info.tier_id,
             chunk_coder_config: this.chunk_info.chunk_coder_config,
@@ -157,6 +159,7 @@ class ChunkAPI {
     to_db() {
         return {
             _id: this._id,
+            master_key_id: this.master_key_id,
             bucket: this.bucket_id,
             tier: this.tier_id,
             size: this.size,
@@ -164,7 +167,7 @@ class ChunkAPI {
             frag_size: this.frag_size,
             dedup_key: from_b64(this.chunk_info.digest_b64),
             digest: from_b64(this.chunk_info.digest_b64),
-            cipher_key: from_b64(this.chunk_info.cipher_key_b64),
+            cipher_key: this._encrypt_cipher_key(this.chunk_info.cipher_key_b64, this.chunk_info.master_key_id),
             cipher_iv: from_b64(this.chunk_info.cipher_iv_b64),
             cipher_auth_tag: from_b64(this.chunk_info.cipher_auth_tag_b64),
             chunk_config: this.chunk_config._id,
@@ -174,6 +177,10 @@ class ChunkAPI {
         };
     }
 
+    _encrypt_cipher_key(cipher_key, master_key_id) {
+        if (!master_key_id) return from_b64(cipher_key);
+        return this.system_store.master_key_manager.encrypt_buffer_with_master_key_id(from_b64(cipher_key), master_key_id);
+    }
 }
 
 /**

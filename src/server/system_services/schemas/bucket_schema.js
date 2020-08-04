@@ -35,6 +35,7 @@ module.exports = {
         _id: {
             objectid: true
         },
+        master_key_id: { objectid: true },
         deleted: {
             date: true
         },

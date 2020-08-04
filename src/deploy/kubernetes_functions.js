@@ -7,7 +7,7 @@ const _ = require('lodash');
 const request = require('request');
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
-
+const crypto = require('crypto');
 
 const IS_IN_POD = process.env.CONTAINER_PLATFORM === 'KUBERNETES';
 
@@ -308,8 +308,9 @@ class KubernetesFunctions {
     }
 
     async create_noobaa_secrets() {
+        const root_master_key = crypto.randomBytes(32).toString('base64');
         // create a secret containing noobaa_secret and jwt_secret
-        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh`);
+        await this.kubectl(`create secret generic noobaa-secrets --from-literal=server_secret=12345678 --from-literal=jwt=abcdefgh --from-literal=noobaa_root_secret=${root_master_key}`);
     }
 
 }

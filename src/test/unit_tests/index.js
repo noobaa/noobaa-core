@@ -78,5 +78,6 @@ require('./test_s3_encryption');
 require('./test_s3_bucket_policy');
 require('./test_node_allocator');
 require('./test_namespace_cache');
+require('./test_encryption');
 // require('./test_tiering_upload');
 //require('./test_s3_worm');

@@ -395,35 +395,35 @@ module.exports = {
         },
 
         get_endpoints_history: {
-             method: 'GET',
-             params: {
-                 type: 'object',
-                 required: [
-                     'since'
-                 ],
-                 properties: {
-                     since: {
-                         idate: true
-                     },
-                     till: {
-                         idate: true
-                     },
-                     step: {
-                         type: 'integer'
-                     },
-                     groups: {
-                         type: 'array',
-                         items: {
-                             type: 'string'
-                         }
-                     }
-                 }
-             },
-             reply: {
-                 type: 'array',
-                 items: {
-                     type: 'object',
-                     properties: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'since'
+                ],
+                properties: {
+                    since: {
+                        idate: true
+                    },
+                    till: {
+                        idate: true
+                    },
+                    step: {
+                        type: 'integer'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
                         timestamp: {
                             idate: true
                         },
@@ -445,12 +445,12 @@ module.exports = {
                         write_bytes: {
                             type: 'number'
                         }
-                     }
-                 }
-             },
-             auth: {
-                 system: 'admin'
-             }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

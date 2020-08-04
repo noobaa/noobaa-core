@@ -5,6 +5,7 @@ const WS = global.WebSocket || require('ws'); // eslint-disable-line global-requ
 
 // const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const http_utils = require('../util/http_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
 
 /**
@@ -30,7 +31,7 @@ class RpcWsConnection extends RpcBaseConnection {
     _connect_node() {
         const ws = new WS(this.url.href, [], {
             // accept self signed ssl certificates
-            rejectUnauthorized: false
+            agent: http_utils.get_unsecured_agent(this.url.href)
         });
         ws.on('open', () => this.emit('connect'));
         this._init_node(ws);

@@ -1001,7 +1001,7 @@ function check_aws_connection(params) {
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
-            agent: http_utils.get_unsecured_http_agent(params.endpoint)
+            agent: http_utils.get_unsecured_agent(params.endpoint)
         }
     });
 

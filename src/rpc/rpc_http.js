@@ -8,6 +8,7 @@ const https = require('https');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const buffer_utils = require('../util/buffer_utils');
+const http_utils = require('../util/http_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
 const { RPC_VERSION_NUMBER } = require('./rpc_request');
 
@@ -16,16 +17,6 @@ const { RPC_VERSION_NUMBER } = require('./rpc_request');
 const BASE_PATH = '/rpc/';
 const browser_location = global.window && global.window.location;
 const is_browser_secure = browser_location && browser_location.protocol === 'https:';
-
-// increase the maximum sockets per host, the default is 5 which is low
-if (http.globalAgent && http.globalAgent.maxSockets < 100) {
-    http.globalAgent.maxSockets = 100;
-}
-// same for http-browserify
-if (http.Agent && http.Agent.defaultMaxSockets < 100) {
-    http.Agent.defaultMaxSockets = 100;
-}
-
 
 /**
  *
@@ -144,7 +135,9 @@ class RpcHttpConnection extends RpcBaseConnection {
             // in order to use allow-origin=* (CORS)
             withCredentials: false,
             // tell browserify http module to use binary data
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            // Set the underlaying http/https agent
+            agent: http_utils.get_unsecured_agent(this.url.href)
         };
 
         let http_req =

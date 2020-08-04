@@ -22,7 +22,6 @@ function find_cloud_connection(account, conn_name) {
 
 
 function get_signed_url(params) {
-    let agent = http_utils.get_unsecured_http_agent(params.endpoint);
     let s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
@@ -35,7 +34,9 @@ function get_signed_url(params) {
         s3DisableBodySigning: disable_s3_compatible_bodysigning(params.endpoint),
         region: 'eu-central-1',
         httpOptions: {
-            agent: agent
+            // Setting the agent is not mandatory in this case as this s3 client
+            // is only used to acquire a signed Url
+            agent: http_utils.get_unsecured_agent(params.endpoint)
         }
     });
     return s3.getSignedUrl(

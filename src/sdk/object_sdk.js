@@ -97,7 +97,7 @@ class ObjectSDK {
     async read_bucket_sdk_caching_info(name) {
         try {
             const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
-            return bucket.caching;
+            return bucket.namespace.caching;
         } catch (error) {
             dbg.log1('read_bucket_sdk_caching_info error', error);
         }

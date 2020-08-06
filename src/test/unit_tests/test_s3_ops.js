@@ -19,6 +19,7 @@ mocha.describe('s3_ops', function() {
     const BKT1 = 'test-s3-ops-bucket-ops';
     const BKT2 = 'test-s3-ops-object-ops';
     const BKT3 = 'test2-s3-ops-object-ops';
+    const BKT4 = 'test3-s3-ops-object-ops';
 
     const CONNECTION_NAME = 'aws_connection1';
     const RESOURCE_NAME = 'namespace_target_bucket';
@@ -89,10 +90,13 @@ mocha.describe('s3_ops', function() {
             } else {
                 const read_resources = [RESOURCE_NAME];
                 const write_resource = RESOURCE_NAME;
-                await rpc_client.account.add_external_connection({
+                const ENDPOINT = process.env.ENDPOINT ? process.env.ENDPOINT : 'https://s3.amazonaws.com';
+                const ENDPOINT_TYPE = process.env.ENDPOINT_TYPE ? process.env.ENDPOINT_TYPE : 'AWS';
+
+                    await rpc_client.account.add_external_connection({
                     name: CONNECTION_NAME,
-                    endpoint: 'https://s3.amazonaws.com',
-                    endpoint_type: 'AWS',
+                    endpoint: ENDPOINT,
+                    endpoint_type: ENDPOINT_TYPE,
                     identity: process.env.AWS_ACCESS_KEY_ID,
                     secret: process.env.AWS_SECRET_ACCESS_KEY,
                 });
@@ -117,7 +121,7 @@ mocha.describe('s3_ops', function() {
                 } catch (error) {
                     assert.equal(error.statusCode, 501);
                 }
-            }
+           }
         });
 
         mocha.it('should get text-file', async function() {
@@ -229,14 +233,14 @@ mocha.describe('s3_ops', function() {
             }
         });
     }
-    mocha.describe('regular-bucket-object-ops', function() {
+   mocha.describe('regular-bucket-object-ops', function() {
         test_object_ops(BKT2, "regular");
     });
     mocha.describe('namespace-bucket-object-ops', function() {
         test_object_ops(BKT3, "namespace");
     });
     mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
-        test_object_ops(BKT3, "namespace", { ttl_ms: 60000 });
+        test_object_ops(BKT4, "namespace", { ttl_ms: 60000 });
     });
 
 });

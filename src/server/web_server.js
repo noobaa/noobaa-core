@@ -34,6 +34,7 @@ const cutil = require('./utils/clustering_utils');
 const account_server = require('./system_services/account_server');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
+const http_utils = require('../util/http_utils');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -45,8 +46,8 @@ dbg.set_process_name('WebServer');
 mongo_client.instance().connect();
 
 //Set KeepAlive to all http/https agents in webserver
-http.globalAgent.keepAlive = true;
-https.globalAgent.keepAlive = true;
+http_utils.update_http_agents({ keepAlive: true });
+http_utils.update_https_agents({ keepAlive: true });
 
 const server_rpc = require('./server_rpc');
 server_rpc.register_system_services();

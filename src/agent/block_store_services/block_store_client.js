@@ -291,8 +291,9 @@ class BlockStoreClient {
                 };
                 dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
                     _.omit(s3_params, 'secretAccessKey'));
-                s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
-                    _.isUndefined);
+                s3_params.httpOptions = {
+                    agent: http_utils.get_unsecured_agent(s3_params.endpoint)
+                };
                 const s3 = new AWS.S3(s3_params);
                 write_params.Body = data;
                 await s3.putObject(write_params).promise();
@@ -336,8 +337,9 @@ class BlockStoreClient {
                 dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
                     _.omit(s3_params, 'secretAccessKey'));
 
-                s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
-                    _.isUndefined);
+                s3_params.httpOptions = {
+                    agent: http_utils.get_unsecured_agent(s3_params.endpoint)
+                };
                 const s3 = new AWS.S3(s3_params);
 
                 const data = await s3.getObject(read_params).promise();

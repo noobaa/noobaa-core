@@ -53,7 +53,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(endpoint)
+                    agent: http_utils.get_unsecured_agent(endpoint)
                 }
             });
         }

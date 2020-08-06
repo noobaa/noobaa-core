@@ -6,7 +6,7 @@ const url = require('url');
 const _ = require('lodash');
 const time_utils = require('../../util/time_utils');
 const endpoint_utils = require('../endpoint_utils');
-const { make_http_request, parse_xml_to_js } = require('../../util/http_utils');
+const { make_https_request, parse_xml_to_js } = require('../../util/http_utils');
 const { read_stream_join } = require('../../util/buffer_utils');
 
 function set_response_object_md(res, object_md) {
@@ -73,7 +73,7 @@ async function list_objects(params, account_name, container, sasToken) {
 
     let response;
     try {
-        response = await make_http_request({ hostname, port: 443, path, method: 'GET' });
+        response = await make_https_request({ hostname, port: 443, path, method: 'GET' });
     } catch (err) {
         throw new Error(`GET ${path} did not responed or returned with an error ${err}`);
     }

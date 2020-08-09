@@ -5,13 +5,60 @@ const _ = require('lodash');
 const url = require('url');
 const http = require('http');
 const https = require('https');
+const HttpProxyAgent = require('http-proxy-agent');
+const HttpsProxyAgent = require('https-proxy-agent');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
+const ip = require('ip');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
+const util = require('util');
+
+const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
+const http_agent = new http.Agent();
+const http_proxy_agent = HTTP_PROXY ? new HttpProxyAgent(url.parse(HTTP_PROXY)) : null;
+const https_agent = new https.Agent();
+const https_proxy_agent = HTTPS_PROXY ? new HttpProxyAgent(url.parse(HTTPS_PROXY)) : null;
+const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
+const unsecured_https_proxy_agent = HTTPS_PROXY ?
+    new HttpsProxyAgent({ ...url.parse(HTTPS_PROXY), rejectUnauthorized: false }) :
+    null;
+
+const no_proxy_list =
+    (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
+        if (ip.isV4Format(addr) || ip.isV6Format(addr)) {
+            return {
+                kind: 'IP',
+                addr
+            };
+        }
+
+        try {
+            ip.cidr(addr);
+            return {
+                kind: 'CIDR',
+                addr
+            };
+        } catch {
+            // noop
+        }
+
+        if (addr.startsWith('.')) {
+            return {
+                kind: 'FQDN_SUFFIX',
+                addr
+            };
+        }
+
+        return {
+            kind: 'FQDN',
+            addr
+        };
+    });
+
 
 function parse_url_query(req) {
     req.originalUrl = req.url;
@@ -201,12 +248,14 @@ function read_request_body(req, options) {
     });
 }
 
+const parse_xml_to_js = util.promisify(xml2js.parseString);
+
 function parse_request_body(req, options) {
     if (!req.body && !options.body.optional) {
         throw new options.ErrorClass(options.error_missing_body);
     }
     if (options.body.type === 'xml') {
-        return P.fromCallback(callback => xml2js.parseString(req.body, options.body.xml_options, callback))
+        return parse_xml_to_js(req.body, options.body.xml_options)
             .then(data => {
                 req.body = data;
             })
@@ -284,39 +333,103 @@ function send_reply(req, res, reply, options) {
     res.end();
 }
 
+/**
+ * Check if a hostname should be proxied or not
+ */
+function should_proxy(hostname) {
+    const isIp = ip.isV4Format(hostname) || ip.isV6Format(hostname);
+
+    for (const { kind, addr } of no_proxy_list) {
+        if (isIp) {
+            if (kind === 'IP' && ip.isEqual(addr, hostname)) {
+                return false;
+            }
+            if (kind === 'CIDR' && ip.cidrSubnet(addr).contains(hostname)) {
+                return false;
+            }
+
+        } else {
+            if (kind === 'FQDN_SUFFIX' && hostname.endsWith(addr)) {
+                return false;
+            }
+            if (kind === 'FQDN' && hostname === addr) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
 
 /**
- * Get http / https agent according to protocol
+ * Get http / https agent according to protocol and proxy rules
  */
-function get_unsecured_http_agent(endpoint) {
-    const { protocol } = url.parse(endpoint);
-    // only return unsecured agent for non-aws endpoints
-    if (!cloud_utils.is_aws_endpoint(endpoint)) {
-        return protocol === "https:" ?
-            new https.Agent({
-                rejectUnauthorized: false,
-            }) :
-            new http.Agent();
+function get_default_agent(endpoint) {
+    return _get_http_agent(endpoint, false);
+}
+
+/**
+ * Get an unsecured http / https agent according to protocol and proxy rules
+ */
+function get_unsecured_agent(endpoint) {
+    const is_aws_address = cloud_utils.is_aws_endpoint(endpoint);
+    return _get_http_agent(endpoint, !is_aws_address);
+}
+
+function _get_http_agent(endpoint, request_unsecured) {
+    const { protocol, hostname } = url.parse(endpoint);
+
+    if (protocol === "https:" || protocol === "wss:") {
+        if (HTTPS_PROXY && should_proxy(hostname)) {
+            if (request_unsecured) {
+                return unsecured_https_proxy_agent;
+            } else {
+                return https_proxy_agent;
+            }
+        } else if (request_unsecured) {
+            return unsecured_https_agent;
+        } else {
+            return https_agent;
+        }
+    } else if (HTTP_PROXY && should_proxy(hostname)) {
+        return http_proxy_agent;
+    } else {
+        return http_agent;
     }
 }
 
-// returns true if using https to aws endpoint and not using proxy
-// for http returns undefined
-function should_reject_unauthorized(endpoint) {
-    const { protocol } = url.parse(endpoint);
-    if (protocol === 'https:') {
-        return cloud_utils.is_aws_endpoint(endpoint);
-    }
+function update_http_agents(options) {
+    Object.assign(http.globalAgent, options);
+    Object.assign(http_agent, options);
+    if (http_proxy_agent) Object.assign(http_proxy_agent, options);
 }
 
-function make_http_request(options, body, body_encoding) {
+function update_https_agents(options) {
+    if (!_.isUndefined(options.rejectUnauthorized)) {
+        throw new Error('Changing rejectUnauthorized on agents is not allowed');
+    }
+
+    Object.assign(https.globalAgent, options);
+    Object.assign(https_agent, options);
+    Object.assign(unsecured_https_agent, options);
+    if (https_proxy_agent) Object.assign(https_proxy_agent, options);
+    if (unsecured_https_proxy_agent) Object.assign(unsecured_https_proxy_agent, options);
+}
+
+function make_https_request(options, body, body_encoding) {
+    const { agent, hostname, rejectUnauthorized = true } = options;
+    if (!agent) {
+        options.agent = rejectUnauthorized ?
+            get_default_agent(`https://${hostname}`) :
+            get_unsecured_agent(`https://${hostname}`);
+    }
+
     return new Promise((resolve, reject) => {
         https.request(options, resolve)
             .on('error', reject)
             .end(body, body_encoding);
     });
 }
-
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
@@ -327,6 +440,10 @@ exports.format_http_ranges = format_http_ranges;
 exports.normalize_http_ranges = normalize_http_ranges;
 exports.read_and_parse_body = read_and_parse_body;
 exports.send_reply = send_reply;
-exports.get_unsecured_http_agent = get_unsecured_http_agent;
-exports.should_reject_unauthorized = should_reject_unauthorized;
-exports.make_http_request = make_http_request;
+exports.should_proxy = should_proxy;
+exports.get_default_agent = get_default_agent;
+exports.get_unsecured_agent = get_unsecured_agent;
+exports.update_http_agents = update_http_agents;
+exports.update_https_agents = update_https_agents;
+exports.make_https_request = make_https_request;
+exports.parse_xml_to_js = parse_xml_to_js;

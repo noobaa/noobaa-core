@@ -216,9 +216,11 @@ class ObjectSDK {
             ns_info.endpoint_type === 'S3_COMPATIBLE' ||
             ns_info.endpoint_type === 'FLASHBLADE' ||
             ns_info.endpoint_type === 'IBM_COS') {
-            const httpOptions = (ns_info.endpoint_type === 'AWS') ? undefined : {
-                agent: http_utils.get_unsecured_http_agent(ns_info.endpoint)
-            };
+
+            const agent = ns_info.endpoint_type === 'AWS' ?
+                http_utils.get_default_agent(ns_info.endpoint) :
+                http_utils.get_unsecured_agent(ns_info.endpoint);
+
             return new NamespaceS3({
                 namespace_resource_id: ns_info.id,
                 rpc_client: this.rpc_client,
@@ -231,7 +233,7 @@ class ObjectSDK {
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
                     s3ForcePathStyle: true,
                     // computeChecksums: false, // disabled by default for performance
-                    httpOptions
+                    httpOptions: { agent }
                 }
             });
         }

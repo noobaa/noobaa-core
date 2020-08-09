@@ -171,7 +171,9 @@ class NamespaceCache {
 
     async _read_from_hub(params, object_sdk) {
         const read_stream = await this.namespace_hub.read_object_stream(params, object_sdk);
-
+        if (params.skip_cache) {
+            return read_stream;
+        }
         // we use a pass through stream here because we have to start piping immediately
         // and the cache upload does not pipe immediately (only after creating the object_md).
         const cache_stream = new stream.PassThrough();

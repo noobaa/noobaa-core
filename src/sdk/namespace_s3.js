@@ -24,7 +24,7 @@ class NamespaceS3 {
         this.rpc_client = rpc_client;
     }
 
-    // check if copy can be done server side on AWS. 
+    // check if copy can be done server side on AWS.
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
     // and fall back to read\write copy if access is denied

@@ -24,7 +24,7 @@ mocha.describe('s3_ops', function() {
     const BKT5 = 'test5-s3-ops-objects-ops';
     const CONNECTION_NAME = 'aws_connection1';
     const CONNECTION_NAME1 = 'aws_connection2';
-
+    let namespace_source_created = false;
     const RESOURCE_NAME = 'namespace_target_bucket';
     const RESOURCE_NAME_SOURCE = 'namespace_source_bucket';
     let s3;
@@ -105,26 +105,21 @@ mocha.describe('s3_ops', function() {
                 const write_resource1 = RESOURCE_NAME_SOURCE;
                 const ENDPOINT = process.env.ENDPOINT ? process.env.ENDPOINT : 'https://s3.amazonaws.com';
                 const ENDPOINT_TYPE = process.env.ENDPOINT_TYPE ? process.env.ENDPOINT_TYPE : 'AWS';
-                try {
-                    await rpc_client.account.add_external_connection({
+                await rpc_client.account.add_external_connection({
                         name: CONNECTION_NAME,
                         endpoint: ENDPOINT,
                         endpoint_type: ENDPOINT_TYPE,
                         identity: process.env.AWS_ACCESS_KEY_ID,
                         secret: process.env.AWS_SECRET_ACCESS_KEY,
-                    });
-                } catch (err) {
-                    console.log(err);
-                }
-                try {
-                    await rpc_client.pool.create_namespace_resource({
+                });
+
+                await rpc_client.pool.create_namespace_resource({
                         name: RESOURCE_NAME,
                         connection: CONNECTION_NAME,
                         target_bucket: AWS_TARGET_BUCKET
-                    });
-                } catch (err) {
-                    console.log(err);
-                }
+                });
+
+                /** Catch the exception here as this might exist */
                 try {
                     await rpc_client.pool.create_namespace_resource({
                         name: RESOURCE_NAME_SOURCE,
@@ -145,43 +140,45 @@ mocha.describe('s3_ops', function() {
                 } catch (err) {
                     console.log(err);
                 }
-                try {
-                    await rpc_client.bucket.create_bucket({ name: bucket_name, namespace: { read_resources, write_resource, caching } });
-                } catch (err) {
-                    console.log(err);
-                }
+
+                await rpc_client.bucket.create_bucket({
+                    name: bucket_name,
+                    namespace: {
+                        read_resources,
+                        write_resource,
+                        caching
+                    }
+                });
+
             }
-            try {
-                await s3.createBucket({ Bucket: BKT5 }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            const rest = await s3.putObject({ Bucket: BKT5, Key: text_file5, Body: file_body2, ContentType: 'text/plain' }).promise();
-            try {
-                     await s3.headObject({ Bucket: BKT5, Key: text_file5 }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            try {
-                await s3.putObject({ Bucket: source_bucket, Key: text_file5, Body: file_body2, ContentType: 'text/plain' }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            await s3.putObject({ Bucket: bucket_name, Key: text_file1, Body: file_body, ContentType: 'text/plain' }).promise();
-            try {
-                await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            console.log('sanjeev1setupend');
+            await s3.createBucket({
+                Bucket: BKT5
+            }).promise();
+
+            await s3.putObject({
+                Bucket: BKT5,
+                Key: text_file5,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+
+            await s3.putObject({
+                Bucket: source_bucket,
+                Key: text_file5,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file1,
+                Body: file_body,
+                ContentType: 'text/plain'
+            }).promise();
         });
 
         mocha.it('should head text-file', async function() {
-            try {
-                await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
-            } catch (err) {
-                console.log(err);
-            }
+            await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
 
         mocha.it('should version head text-file', async function() {
@@ -234,74 +231,43 @@ mocha.describe('s3_ops', function() {
             const res2 = await s3.listObjects({ Bucket: bucket_name }).promise();
             assert(res2.Contents.length === (res1.Contents.length + 1),
                 `bucket ${bucket_name} copy failed, expected: ${(res1.Contents.length + 1)}, found: ${(res2.Contents.length)}`);
-            console.log('sanjeev1 text file copy end');
         });
         mocha.it('should copy text-file multi-part ', async function() {
             // eslint-disable-next-line no-invalid-this
             this.timeout(600000);
-            try {
-                const res9 = await s3.headObject({ Bucket: BKT5, Key: text_file5 }).promise();
-                console.log(res9);
-            } catch (err) {
-                console.log(err);
-            }
-            try {
-                const res7 = await s3.listObjects({ Bucket: bucket_name }).promise();
-                console.log(res7);
-                const res8 = await s3.listObjects({ Bucket: BKT5 }).promise();
-                console.log(res8);
-                const res6 = await s3.headObject({ Bucket: BKT5, Key: text_file5 }).promise();
-                console.log(res6);
-            } catch (err) {
-                console.log(err);
-            }
+
             const res1 = await s3.createMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2
             }).promise();
 
-            var res2;
-            try {
-                    res2 = await s3.uploadPartCopy({
+            const res2 = await s3.uploadPartCopy({
                     Bucket: bucket_name,
                     Key: text_file2,
                     UploadId: res1.UploadId,
                     PartNumber: 1,
                     CopySource: `/${bucket_name}/${text_file1}`,
                     CopySourceRange: "bytes=1-5",
-                }).promise();
-         } catch (err) {
-             console.log(err);
-            }
-            console.log('---> ', res2.CopyPartResult.ETag);
-            var res3;
-            try {
-                res3 = await s3.uploadPartCopy({
+            }).promise();
+
+            const res3 = await s3.uploadPartCopy({
                     Bucket: bucket_name,
                     Key: text_file2,
                     UploadId: res1.UploadId,
                     PartNumber: 1,
                     CopySource: `/${BKT5}/${text_file5}`,
                     CopySourceRange: "bytes=1-5",
-                }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            console.log('---> ', res3.CopyPartResult.ETag);
-            var res4;
-            try {
-                res4 = await s3.uploadPartCopy({
+            }).promise();
+
+            const res4 = await s3.uploadPartCopy({
                     Bucket: bucket_name,
                     Key: text_file2,
                     UploadId: res1.UploadId,
                     PartNumber: 1,
                     CopySource: `/${source_bucket}/${text_file5}`,
                     CopySourceRange: "bytes=1-5",
-                }).promise();
-            } catch (err) {
-                console.log(err);
-            }
-            console.log('---> ', res4.CopyPartResult.ETag);
+            }).promise();
+
             // list_uploads
             const res6 = await s3.listMultipartUploads({
                 Bucket: bucket_name
@@ -317,13 +283,8 @@ mocha.describe('s3_ops', function() {
                 UploadId: res1.UploadId,
             }).promise();
             assert.strictEqual(res5.Parts.length, 1);
-            console.log('---> ', res5);
-            console.log('---> ', res5.Parts[0].ETag);
-            console.log('---> ', res2.CopyPartResult.ETag);
             assert.strictEqual(res5.Parts[0].ETag, res4.CopyPartResult.ETag);
-            //assert.strictEqual(res5.Parts[1].ETag, res3.CopyPartResult.ETag);
-            //assert.strictEqual(res5.Parts[2].ETag, res4.CopyPartResult.ETag);
-            try {
+
             await s3.completeMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2,
@@ -337,9 +298,6 @@ mocha.describe('s3_ops', function() {
                 ]
                 }
             }).promise();
-        } catch (err) {
-            console.log(err);
-        }
         });
         mocha.it('should list objects with text-file', async function() {
             const res = await s3.listObjects({ Bucket: bucket_name }).promise();
@@ -352,27 +310,27 @@ mocha.describe('s3_ops', function() {
         mocha.it('should delete text-file', async function() {
             // eslint-disable-next-line no-invalid-this
             this.timeout(60000);
-            try {
-                const res7 = await s3.listObjects({ Bucket: bucket_name }).promise();
-                console.log(res7);
-            } catch (err) {
-                console.log(err);
-            }
             // await s3.deleteObjects({
             //     Bucket: bucket_name,
             //     Delete: {
             //         Objects: [{ Key: text_file1 }, { Key: text_file2 }]
             //     }
             // }).promise();
-            try {
-                await s3.deleteObject({ Bucket: source_bucket, Key: text_file5}).promise();
-            } catch (err) {
-                console.log(err);
-            }
+            await s3.deleteObject({
+                Bucket: BKT5,
+                Key: text_file5
+            }).promise();
+
+            await s3.deleteObject({
+                Bucket: source_bucket,
+                Key: text_file5
+            }).promise();
+
             await s3.deleteObject({
                 Bucket: bucket_name,
                 Key: text_file1,
             }).promise();
+
             await s3.deleteObject({
                 Bucket: bucket_name,
                 Key: text_file2,
@@ -388,23 +346,41 @@ mocha.describe('s3_ops', function() {
                 this.skip(); // eslint-disable-line no-invalid-this
             }
             if (bucket_type === "regular") {
-                try {
-                    const res7 = await s3.listObjects({ Bucket: bucket_name }).promise();
+                await s3.deleteBucket({
+                    Bucket: source_bucket
+                }).promise();
 
-                    console.log('---sanjeev1-delete-----', res7);
-                } catch (err) {
-                    console.log(err);
-                }
-                await s3.deleteBucket({ Bucket: source_bucket }).promise();
-                console.log('sanjeev1-deleteBucket(source_bucket)', source_bucket);
-                await s3.deleteBucket({ Bucket: bucket_name }).promise();
+                await s3.deleteBucket({
+                    Bucket: bucket_name
+                }).promise();
+
+                await s3.deleteBucket({
+                    Bucket: BKT5
+                 }).promise();
             } else {
-                await rpc_client.bucket.delete_bucket({ name: bucket_name });
+
+                await s3.deleteBucket({
+                    Bucket: BKT5
+                }).promise();
+
+                await rpc_client.bucket.delete_bucket({
+                    name: bucket_name
+                });
+
                 await rpc_client.pool.delete_namespace_resource({
                     name: RESOURCE_NAME,
                 });
+
+                /** Catch the exception here as this will not get deleted */
+                try {
+                    await rpc_client.pool.delete_namespace_resource({
+                        name: RESOURCE_NAME_SOURCE,
+                    });
+                } catch (err) {
+                    console.log('sanjeev123', err);
+                }
                 await rpc_client.account.delete_external_connection({
-                    connection_name: CONNECTION_NAME,
+                        connection_name: CONNECTION_NAME,
                 });
             }
         });
@@ -420,5 +396,4 @@ mocha.describe('s3_ops', function() {
     mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
         test_object_ops(BKT4, "namespace", { ttl_ms: 60000 });
     });
-
 });

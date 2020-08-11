@@ -9,7 +9,6 @@ const AWS = require('aws-sdk');
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
-const { LanguageVariant } = require('typescript');
 
 const SKIP_TEST = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY;
 
@@ -23,8 +22,6 @@ mocha.describe('s3_ops', function() {
     const BKT4 = 'test3-s3-ops-object-ops';
     const BKT5 = 'test5-s3-ops-objects-ops';
     const CONNECTION_NAME = 'aws_connection1';
-    const CONNECTION_NAME1 = 'aws_connection2';
-    let namespace_source_created = false;
     const RESOURCE_NAME = 'namespace_target_bucket';
     const RESOURCE_NAME_SOURCE = 'namespace_source_bucket';
     let s3;
@@ -85,7 +82,6 @@ mocha.describe('s3_ops', function() {
         const source_bucket = 's3-ops-source';
         const text_file1 = 'text-file1';
         const text_file2 = 'text-file2';
-        const text_file3 = 'text-file3';
         const text_file5 = 'text-file5';
         mocha.before(async function() {
             this.timeout(100000); // eslint-disable-line no-invalid-this
@@ -220,8 +216,7 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.ContentLength, file_body.length);
         });
         mocha.it('should copy text-file', async function() {
-            console.log('sanjeev1 text file copy start');
-            this.timeout(60000);
+            this.timeout(60000); // eslint-disable-line no-invalid-this
             const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
             await s3.copyObject({
                 Bucket: bucket_name,
@@ -241,7 +236,7 @@ mocha.describe('s3_ops', function() {
                 Key: text_file2
             }).promise();
 
-            const res2 = await s3.uploadPartCopy({
+            await s3.uploadPartCopy({
                     Bucket: bucket_name,
                     Key: text_file2,
                     UploadId: res1.UploadId,
@@ -250,7 +245,7 @@ mocha.describe('s3_ops', function() {
                     CopySourceRange: "bytes=1-5",
             }).promise();
 
-            const res3 = await s3.uploadPartCopy({
+           await s3.uploadPartCopy({
                     Bucket: bucket_name,
                     Key: text_file2,
                     UploadId: res1.UploadId,

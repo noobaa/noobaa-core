@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 require('../util/dotenv').load();
-const s3_utils = require('../endpoint/s3/s3_utils');
+// const s3_utils = require('../endpoint/s3/s3_utils');
 // const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
@@ -458,7 +458,7 @@ class ObjectSDK {
             source_params.object_md = source_md;
             source_params.obj_id = source_md.obj_id;
             /** Added for byte range copy  */
-	            params.size = source_params.end - source_params.start ;
+            params.size = source_params.end - source_params.start;
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             if (params.size && params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
@@ -467,7 +467,7 @@ class ObjectSDK {
             // reset the copy_source param
             // commenting this out for now. this works for regular and namespace bucket if params.source_copy is always null
             //if (!ranges) {
-                params.copy_source = null;
+            params.copy_source = null;
             //}
         }
     }

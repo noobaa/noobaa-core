@@ -20,7 +20,7 @@ const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
 const http_proxy_agent = HTTP_PROXY ? new HttpProxyAgent(url.parse(HTTP_PROXY)) : null;
 const https_agent = new https.Agent();
-const https_proxy_agent = HTTPS_PROXY ? new HttpProxyAgent(url.parse(HTTPS_PROXY)) : null;
+const https_proxy_agent = HTTPS_PROXY ? new HttpsProxyAgent(url.parse(HTTPS_PROXY)) : null;
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
     new HttpsProxyAgent({ ...url.parse(HTTPS_PROXY), rejectUnauthorized: false }) :

@@ -15,7 +15,6 @@ const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
-const util = require('util');
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
@@ -58,6 +57,9 @@ const no_proxy_list =
             addr
         };
     });
+
+
+const parse_xml_to_js = xml2js.parseStringPromise;
 
 
 function parse_url_query(req) {
@@ -247,8 +249,6 @@ function read_request_body(req, options) {
         });
     });
 }
-
-const parse_xml_to_js = util.promisify(xml2js.parseString);
 
 function parse_request_body(req, options) {
     if (!req.body && !options.body.optional) {

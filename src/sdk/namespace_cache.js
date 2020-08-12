@@ -57,7 +57,9 @@ class NamespaceCache {
     /////////////////
 
     async list_objects(params, object_sdk) {
-        return params.get_from_cache ? this.namespace_nb.list_objects(params, object_sdk) :
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        return get_from_cache ? this.namespace_nb.list_objects(params, object_sdk) :
                this.namespace_hub.list_objects(params, object_sdk);
     }
 
@@ -171,9 +173,6 @@ class NamespaceCache {
 
     async _read_from_hub(params, object_sdk) {
         const read_stream = await this.namespace_hub.read_object_stream(params, object_sdk);
-        if (params.skip_cache) {
-            return read_stream;
-        }
         // we use a pass through stream here because we have to start piping immediately
         // and the cache upload does not pipe immediately (only after creating the object_md).
         const cache_stream = new stream.PassThrough();
@@ -210,7 +209,7 @@ class NamespaceCache {
 
         let upload_response;
         let etag;
-        if (params.size > 10 * 1024 * 1024) {
+        if (params.size > 1024 * 1024) {
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
 

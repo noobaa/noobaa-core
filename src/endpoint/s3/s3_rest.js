@@ -154,7 +154,7 @@ async function handle_request(req, res) {
 
 
     const caching = await req.object_sdk.read_bucket_sdk_caching_info(req.params.bucket);
-    if (req.query && req.query.versionId && caching) {
+    if (req.query && req.query.VersionId && caching) {
         dbg.error('S3 Version request not (NotImplemented) for buckets with caching', op_name, req.method, req.originalUrl);
         throw new S3Error(S3Error.NotImplemented);
     }

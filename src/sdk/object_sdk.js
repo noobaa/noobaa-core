@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 require('../util/dotenv').load();
-// const s3_utils = require('../endpoint/s3/s3_utils');
+
 // const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
@@ -446,29 +446,21 @@ class ObjectSDK {
                 if (ranges.length !== 1) throw new Error('fix_copy_source_params: multiple ranges not supported');
                 source_params.start = ranges[0].start;
                 source_params.end = ranges[0].end;
-                source_params.size = source_params.end - source_params.start;
-                // why is this needed?
-                source_params.skip_cache = true;
                 params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
                 params.copy_source.obj_id = source_md.obj_id;
-                params.copy_source.version_id = source_md.version_id;
+                params.size = source_params.end - source_params.start;
             }
-            // why is this needed
-            // const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
+
             source_params.object_md = source_md;
             source_params.obj_id = source_md.obj_id;
-            /** Added for byte range copy  */
-            params.size = source_params.end - source_params.start;
+
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             if (params.size && params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
                 so it can take some time and cause client timeouts`);
             }
             // reset the copy_source param
-            // commenting this out for now. this works for regular and namespace bucket if params.source_copy is always null
-            //if (!ranges) {
             params.copy_source = null;
-            //}
         }
     }
 

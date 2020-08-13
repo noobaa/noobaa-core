@@ -12,18 +12,30 @@ const assert = require('assert');
 const querystring = require('querystring');
 const SKIP_TEST = !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY;
 
+const AWS_TARGET_BUCKET = 's3-ops-test-bucket';
+const AWS_SOURCE_BUCKET = 's3-ops-source';
+const { rpc_client, EMAIL } = coretest;
+const BKT1 = 'test-s3-ops-bucket-ops';
+const BKT2 = 'test-s3-ops-object-ops';
+const BKT3 = 'test2-s3-ops-object-ops';
+const BKT4 = 'test3-s3-ops-object-ops';
+const BKT5 = 'test5-s3-ops-objects-ops';
+const CONNECTION_NAME = 'aws_connection1';
+const RESOURCE_NAME = 'namespace_target_bucket';
+const RESOURCE_NAME_SOURCE = 'namespace_source_bucket';
+
+const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
+const file_body2 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+const sliced_file_body = "TEXT-F";
+const sliced_file_body1 = "_COOL";
+const source_bucket = 's3-ops-source';
+const text_file1 = 'text-file1';
+const text_file2 = 'text-file2';
+const text_file3 = 'text-file3';
+const text_file5 = 'text-file5';
+
 mocha.describe('s3_ops', function() {
-    const AWS_TARGET_BUCKET = 's3-ops-test-bucket';
-    const AWS_SOURCE_BUCKET = 's3-ops-source';
-    const { rpc_client, EMAIL } = coretest;
-    const BKT1 = 'test-s3-ops-bucket-ops';
-    const BKT2 = 'test-s3-ops-object-ops';
-    const BKT3 = 'test2-s3-ops-object-ops';
-    const BKT4 = 'test3-s3-ops-object-ops';
-    const BKT5 = 'test5-s3-ops-objects-ops';
-    const CONNECTION_NAME = 'aws_connection1';
-    const RESOURCE_NAME = 'namespace_target_bucket';
-    const RESOURCE_NAME_SOURCE = 'namespace_source_bucket';
+
     let s3;
 
     mocha.before(async function() {
@@ -75,17 +87,9 @@ mocha.describe('s3_ops', function() {
     });
 
     function test_object_ops(bucket_name, bucket_type, caching) {
-        const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
-        const file_body2 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-        const sliced_file_body = "TEXT-F";
-        const sliced_file_body1 = "_COOL";
-        const source_bucket = 's3-ops-source';
-        const text_file1 = 'text-file1';
-        const text_file2 = 'text-file2';
-        const text_file3 = 'text-file3';
-        const text_file5 = 'text-file5';
+
         mocha.before(async function() {
-            this.timeout(100000); // eslint-disable-line no-invalid-this
+            this.timeout(1000000); // eslint-disable-line no-invalid-this
             if (bucket_type === "regular") {
                 await s3.createBucket({ Bucket: bucket_name }).promise();
                 try {
@@ -174,7 +178,121 @@ mocha.describe('s3_ops', function() {
             }).promise();
         });
 
+        mocha.it('shoult tag text file', async function() {
+            this.timeout(60000); // eslint-disable-line no-invalid-this
+            const params = {
+                Bucket: bucket_name,
+                Key: text_file1,
+                Tagging: {
+                    TagSet: [{
+                        Key: 's3ops',
+                        Value: 'set_file_attribute'
+                    }]
+                }
+            };
+            let httpStatus;
+            var notSupported = false;
+            try {
+                await s3.putObjectTagging(params).on('complete', function(response) {
+                    httpStatus = response.httpResponse.statusCode;
+                }).on('error', err => {
+                    console.log('sanjeev123, test_s3_ops put object error encountered', err);
+                    httpStatus = err.statusCode;
+                    notSupported = true;
+                }).promise();
+                assert.strictEqual(httpStatus, 200, 'Should be 200');
+            } catch (err) {
+                assert.strictEqual(httpStatus, 500, 'Should be 200');
+            }
+
+            const query_params = { get_from_cache: true };
+            const res = await s3.getObjectTagging({
+                Bucket: bucket_name,
+                Key: params.Key,
+            }).on('build', req => {
+                if (!caching) return;
+                const sep = req.httpRequest.search() ? '&' : '?';
+                const query_string = querystring.stringify(query_params);
+                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                console.log(`Added query params ${query_params} to path ${req_path}`);
+                req.httpRequest.path = req_path;
+              }).promise();
+            assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
+
+            if (!notSupported) {
+                assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
+                assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
+            }
+            try {
+                await s3.deleteObjectTagging({
+                    Bucket: bucket_name,
+                    Key: params.Key,
+                }).on('complete', function(response) {
+                    httpStatus = response.httpResponse.statusCode;
+                }).promise();
+                assert.strictEqual(httpStatus, 204, 'Should be 200');
+            } catch (err) {
+                assert.strictEqual(httpStatus, 500, 'Should be 500');
+            }
+         });
+
         mocha.it('should head text-file', async function() {
+            this.timeout(60000); // eslint-disable-line no-invalid-this
+            const params = {
+                Bucket: bucket_name,
+                Key: text_file1,
+                Tagging: {
+                    TagSet: [{
+                        Key: 's3ops',
+                        Value: 'set_file_attribute'
+                    }]
+                }
+            };
+            let httpStatus;
+            var notSupported = false;
+            try {
+                await s3.putObjectTagging(params).on('complete', function(response) {
+                    httpStatus = response.httpResponse.statusCode;
+                }).on('error', err => {
+                    console.log('sanjeev123, test_s3_ops put object error encountered', err);
+                    httpStatus = err.statusCode;
+                    notSupported = true;
+                }).promise();
+                assert.strictEqual(httpStatus, 200, 'Should be 200');
+            } catch (err) {
+                console.log('sanjeev123, test_s3_ops put object exception encountered', err);
+                console.log(err);
+            }
+
+            const query_params = { get_from_cache: true };
+            const res = await s3.getObjectTagging({
+                Bucket: bucket_name,
+                Key: params.Key,
+            }).on('build', req => {
+                if (!caching) return;
+                const sep = req.httpRequest.search() ? '&' : '?';
+                const query_string = querystring.stringify(query_params);
+                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                console.log(`Added query params ${query_params} to path ${req_path}`);
+                req.httpRequest.path = req_path;
+              }).promise();
+            assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
+
+            if (!notSupported) {
+                assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
+                assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
+            }
+            try {
+                await s3.deleteObjectTagging({
+                Bucket: bucket_name,
+                Key: params.Key,
+            }).on('complete', function(response) {
+                httpStatus = response.httpResponse.statusCode;
+            }).promise();
+            assert.strictEqual(httpStatus, 204, 'Should be 200');
+        } catch (err) {
+            assert.strictEqual(httpStatus, 500, 'Should be 500');
+        }
             await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
 
@@ -394,7 +512,8 @@ mocha.describe('s3_ops', function() {
             }
         });
     }
-     mocha.describe('regular-bucket-object-ops', function() {
+
+    mocha.describe('regular-bucket-object-ops', function() {
         test_object_ops(BKT2, "regular");
     });
 
@@ -402,7 +521,7 @@ mocha.describe('s3_ops', function() {
         test_object_ops(BKT3, "namespace");
     });
 
-      mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
+        mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
         test_object_ops(BKT4, "namespace", { ttl_ms: 60000 });
     });
 });

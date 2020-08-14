@@ -45,8 +45,12 @@ async function read_object_mapping(obj, start, end, location_info) {
         start_lt: rng.end,
         end_gt: rng.start,
     });
+
+    if (parts.length === 0) return [];
+
     // console.log('TODO GGG read_object_mapping', parts);
     let chunks = await read_parts_mapping(parts, location_info);
+
     if (await update_chunks_on_read(chunks, location_info)) {
         chunks = await read_parts_mapping(parts, location_info);
     }
@@ -92,7 +96,7 @@ async function read_node_mapping(node_ids, skip, limit) {
 
 
 /**
- * 
+ *
  * @param {nb.PartSchemaDB[]} parts
  * @param {nb.LocationInfo} [location_info]
  * @returns {Promise<nb.Chunk[]>}
@@ -149,7 +153,7 @@ async function update_chunks_on_read(chunks, location_info) {
             });
         }
     } catch (err) {
-        dbg.warn('Chunks failed to rebuilt - skipping');
+        dbg.warn('Chunks failed to rebuilt - skipping', err);
     }
     return chunks_to_scrub.length;
 }

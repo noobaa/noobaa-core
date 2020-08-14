@@ -65,6 +65,40 @@ class Semaphore {
         }
     }
 
+    /**
+     * submit function without blocking only if there  is enough count.
+     * @param {*} count
+     * @param {*} func
+     */
+    submit_background(count, func) {
+        if (!this.try_acquire_nonblocking(count)) return;
+
+        setImmediate(async () => {
+            try {
+                await func();
+            } finally {
+                this.release(count);
+            }
+        });
+    }
+
+    /**
+     * opportunistic acquire, only if no waiters and enough value.
+     * @returns {boolean} true only if we actually managed to acquire the count from the semaphore value.
+     */
+    try_acquire_nonblocking(count) {
+        count = to_sem_count(count);
+
+        // if the queue is not empty we wait to keep fairness
+        if (this._wq.length) return false;
+        if (this._value < count) return false;
+        if (this._verbose) {
+            dbg.log2('Semaphore updating value ', this._value, ' -> ', this._value - count);
+        }
+        this._value -= count;
+        return true;
+    }
+
     is_empty() {
         return this._value === this._initial && !this._wq.length;
     }
@@ -105,17 +139,9 @@ class Semaphore {
      *
      */
     async wait(count) {
-        count = to_sem_count(count);
+        if (this.try_acquire_nonblocking(count)) return;
 
-        // if the queue is not empty we wait to keep fairness
-        if (!this._wq.length && this._value >= count) {
-            if (this._verbose) {
-                dbg.log2('Semaphore wait updating value ', this._value, ' -> ',
-                    this._value - count);
-            }
-            this._value -= count;
-            return;
-        }
+        count = to_sem_count(count);
 
         if (this._timeout && !this._timer) {
             this._timer = setTimeout(

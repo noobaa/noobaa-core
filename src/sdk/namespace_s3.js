@@ -24,7 +24,7 @@ class NamespaceS3 {
         this.rpc_client = rpc_client;
     }
 
-    // check if copy can be done server side on AWS. 
+    // check if copy can be done server side on AWS.
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
     // and fall back to read\write copy if access is denied
@@ -140,6 +140,7 @@ class NamespaceS3 {
             const request = {
                 Key: params.key,
                 Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
+                IfMatch: params.if_match_etag,
             };
             this._assign_encryption_to_request(params, request);
             const req = this.s3.getObject(request)
@@ -528,6 +529,7 @@ class NamespaceS3 {
     _translate_error_code(err) {
         if (err.code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code === 'PreconditionFailed') err.rpc_code = 'IF_MATCH_ETAG';
     }
 
     _assign_encryption_to_request(params, request) {

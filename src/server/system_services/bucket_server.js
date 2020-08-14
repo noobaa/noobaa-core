@@ -427,8 +427,13 @@ async function delete_bucket_website(req) {
  * READ_BUCKET
  *
  */
-function read_bucket(req) {
-    var bucket = find_bucket(req);
+async function read_bucket(req) {
+    const bucket_sdk_info = await read_bucket_sdk_info(req);
+    return bucket_sdk_info.bucket_info;
+}
+
+async function read_bucket_sdk_info(req) {
+    const bucket = find_bucket(req);
     var pools = [];
 
     _.forEach(bucket.tiering.tiers, tier_and_order => {
@@ -438,19 +443,6 @@ function read_bucket(req) {
     });
     pools = _.compact(pools);
     let pool_names = pools.map(pool => pool.name);
-    return P.props({
-            bucket,
-            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
-            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
-            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
-            func_configs: get_bucket_func_configs(req, bucket),
-            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
-        })
-        .then(get_bucket_info);
-}
-
-async function read_bucket_sdk_info(req) {
-    const bucket = find_bucket(req);
 
     const system = req.system;
 
@@ -464,6 +456,15 @@ async function read_bucket_sdk_info(req) {
         ),
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
+        bucket_info: await P.props({
+            bucket,
+            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
+            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+            func_configs: get_bucket_func_configs(req, bucket),
+            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
+        })
+        .then(get_bucket_info),
     };
 
     if (bucket.namespace) {

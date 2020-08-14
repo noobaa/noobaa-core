@@ -13,7 +13,7 @@ const { new_object_id, parse_object_id } = require('../util/mongo_utils');
 const undefined_id = undefined;
 
 /**
- * 
+ *
  * @param {string} [id_str]
  * @returns {nb.ID | undefined}
  */
@@ -26,7 +26,7 @@ function parse_optional_id(id_str) {
  */
 class ChunkAPI {
 
-    /** 
+    /**
      * @param {ChunkAPI} chunk
      * @returns {nb.Chunk}
      */
@@ -181,14 +181,14 @@ class ChunkAPI {
  */
 class FragAPI {
 
-    /** 
+    /**
      * @param {FragAPI} frag
      * @returns {nb.Frag}
      */
     static implements_interface(frag) { return frag; }
 
     /**
-     * @param {nb.FragInfo} frag_info 
+     * @param {nb.FragInfo} frag_info
      * @param {SystemStore} [system_store]
      */
     constructor(frag_info, system_store) {
@@ -265,7 +265,7 @@ class FragAPI {
  */
 class BlockAPI {
 
-    /** 
+    /**
      * @param {BlockAPI} block
      * @returns {nb.Block}
      */
@@ -328,7 +328,7 @@ class BlockAPI {
     }
 
     /**
-     * @param {nb.NodeAPI} node 
+     * @param {nb.NodeAPI} node
      */
     set_node(node) {
         /** @type {nb.Pool} */
@@ -384,7 +384,7 @@ class BlockAPI {
  */
 class PartAPI {
 
-    /** 
+    /**
      * @param {PartAPI} part
      * @returns {nb.Part}
      */
@@ -421,7 +421,7 @@ class PartAPI {
      */
     set_chunk(chunk_id) { this.part_info.chunk_id = chunk_id.toHexString(); }
 
-    /** 
+    /**
      * @param {nb.ID} obj_id
      */
     set_obj_id(obj_id) { this.part_info.obj_id = obj_id.toHexString(); }
@@ -445,13 +445,13 @@ class PartAPI {
             seq: this.seq,
             start: this.start,
             end: this.end,
-            uncommitted: true,
+            uncommitted: this.part_info.uncommitted ? true : undefined,
         };
     }
 }
 
 /**
- * @param {nb.FragInfo} frag_info 
+ * @param {nb.FragInfo} frag_info
  * @param {SystemStore} [system_store]
  */
 function new_frag_api(frag_info, system_store) {
@@ -459,7 +459,7 @@ function new_frag_api(frag_info, system_store) {
 }
 
 /**
- * @param {nb.BlockInfo} block_info 
+ * @param {nb.BlockInfo} block_info
  * @param {SystemStore} [system_store]
  */
 function new_block_api(block_info, system_store) {
@@ -467,7 +467,7 @@ function new_block_api(block_info, system_store) {
 }
 
 /**
- * @param {nb.PartInfo} part_info 
+ * @param {nb.PartInfo} part_info
  * @param {nb.ID} bucket_id
  * @param {SystemStore} [system_store]
  */
@@ -483,8 +483,8 @@ function from_b64(optional_string) {
     if (optional_string) return Buffer.from(optional_string, 'base64');
 }
 /**
- * 
- * @param {nb.Chunk[]} chunks 
+ *
+ * @param {nb.Chunk[]} chunks
  * @returns {nb.Block[]}
  */
 function get_all_chunks_blocks(chunks) {

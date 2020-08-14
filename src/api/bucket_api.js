@@ -1222,6 +1222,9 @@ module.exports = {
                 s3_policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
                 },
+                bucket_info: {
+                    $ref: '#/definitions/bucket_info'
+                },
             }
         },
 

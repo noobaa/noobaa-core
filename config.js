@@ -6,6 +6,7 @@
 // and will make searching easier.
 var config = exports;
 const os = require('os');
+const assert = require('assert');
 
 //////////////////
 // NODES CONFIG //
@@ -253,13 +254,6 @@ config.DB_CLEANER = {
     MAX_TOTAL_DOCS: 10000
 };
 
-///////////////////////
-// NAMESPACE CACHING //
-///////////////////////
-config.NAMESPACE_CACHING = {
-    DEFAULT_CACHE_TTL_MS: 60000,
-};
-
 /////////////////////
 // CLOUD RESOURCES //
 /////////////////////
@@ -438,6 +432,35 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
 ///////////////////////////////////
 config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 
+///////////////////////////////
+// FILES RELATED             //
+///////////////////////////////
+config.INLINE_MAX_SIZE = 4096;
+
+// Object SDK bucket cache expiration time
+config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
+
+///////////////////////
+// NAMESPACE CACHING //
+///////////////////////
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+    DEFAULT_BLOCK_SIZE: 64 * 1024,
+    DEFAULT_MAX_CACHE_OBJECT_SIZE: 4 * 1024 * 1024 * 1024 * 1024,
+    DISABLE_BUCKET_FREE_SPACE_CHECK: false,
+    CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD: 80,
+    PART_COUNT_HIGH_THRESHOLD: 5,
+    CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
+    CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
+    UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
+    UPLOAD_SEMAPHORE_CAP: Math.floor(
+        Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
+};
+
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.DEFAULT_MAX_CACHE_OBJECT_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.MAX_OBJECT_PART_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
+
 //Load overrides if exist
 try {
     // load a local config file that overwrites some of the config
@@ -485,13 +508,6 @@ try {
 //////////////////////////////
 
 config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
-
-///////////////////////////////
-// FILES RELATED             //
-///////////////////////////////
-
-config.INLINE_MAX_SIZE = 4096;
-
 
 ///////////////////////////////
 //        WORM RELATED       //

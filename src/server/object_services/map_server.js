@@ -597,9 +597,9 @@ async function prepare_blocks(blocks) {
 }
 
 /**
- * 
+ *
  * @param {nb.BlockSchemaDB[]} blocks
- * @return {Promise<nb.Block[]>} 
+ * @return {Promise<nb.Block[]>}
  */
 async function prepare_blocks_from_db(blocks) {
     const chunk_ids = blocks.map(block => block.chunk);

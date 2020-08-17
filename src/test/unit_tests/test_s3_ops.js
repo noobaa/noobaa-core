@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines-per-function: ['error', 700] */
 'use strict';
 const _ = require('lodash');
 // setup coretest first to prepare the env

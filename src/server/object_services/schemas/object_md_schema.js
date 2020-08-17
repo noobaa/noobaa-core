@@ -76,8 +76,14 @@ module.exports = {
         upload_size: { type: 'integer' },
         upload_started: { objectid: true },
         create_time: { date: true },
+        // cache_last_valid_time is an optional property set for objects in cache buckets.
+        // This property indicates the time when the cached object was in sync with the
+        // object on the hub bucket.
         cache_last_valid_time: { date: true },
-
+        // last_modified_time is an optional property that is set on cache buckets
+        // to separate the times of creation of the cache object (create_time)
+        // vs the "real" LastModifiedTime from the hub.
+        last_modified_time: { date: true },
         // etag is the object md5 hex for objects uploaded in single action.
         // for multipart upload etag is a special aggregated md5 of the parts md5's.
         etag: { type: 'string', },

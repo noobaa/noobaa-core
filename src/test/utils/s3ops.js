@@ -707,11 +707,25 @@ class S3OPS {
             VersionId: versionid ? versionid : undefined,
         };
         try {
-            console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte}`);
+            console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte} from ${bucket}`);
             const obj = await this.s3.getObject(params).promise();
             return obj.Body;
         } catch (err) {
             this.log_error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
+            throw err;
+        }
+    }
+
+    async get_object_size_etag(bucket, file_name) {
+        const params = {
+            Bucket: bucket,
+            Key: file_name,
+        };
+        try {
+            const ret = await this.s3.headObject(params).promise();
+            return { size: ret.ContentLength, etag: _.trim(ret.ETag, '"') };
+        } catch (err) {
+            this.log_error(`get object size and etag for ${file_name} in ${bucket} failed!`, err);
             throw err;
         }
     }

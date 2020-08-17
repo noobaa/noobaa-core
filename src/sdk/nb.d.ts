@@ -487,6 +487,7 @@ interface PartInfo {
     start: number;
     end: number;
     chunk_offset?: number;
+    uncommitted?: boolean;
 }
 
 

@@ -30,7 +30,11 @@ async function get_bucket(req) {
             (cont_tok_to_key_marker(cont_tok) || start_after) : req.query.marker,
     };
 
+    if (req.query.get_from_cache) {
+        params.get_from_cache = req.query.get_from_cache;
+    }
     const reply = await req.object_sdk.list_objects(params);
+
     let res_params = {
         'Name': req.params.bucket,
         'Prefix': req.query.prefix,
@@ -41,7 +45,8 @@ async function get_bucket(req) {
     if (req.query.delimiter !== '') {
         res_params.Delimiter = req.query.delimiter;
     }
-
+    // Always have last_modified_time take precedence. This time is set only for cached objects.
+    // Non cached objects will always default to obj.create_time
     return {
         ListBucketResult: [res_params, list_type === '2' ? {
                 'ContinuationToken': cont_tok,
@@ -55,7 +60,8 @@ async function get_bucket(req) {
             _.map(reply.objects, obj => ({
                 Contents: {
                     Key: obj.key,
-                    LastModified: s3_utils.format_s3_xml_date(obj.create_time),
+                    // if the object specifies last_modified_time we use it, otherwise take create_time.
+                    LastModified: s3_utils.format_s3_xml_date(obj.last_modified_time || obj.create_time),
                     ETag: `"${obj.etag}"`,
                     Size: obj.size,
                     Owner: (!list_type || req.query['fetch-owner']) && s3_utils.DEFAULT_S3_USER,

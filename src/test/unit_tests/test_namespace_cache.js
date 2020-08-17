@@ -55,7 +55,7 @@ class Recorder {
     add_obj(type, bucket, key, obj) {
         this._events[type][`${bucket}.${key}.${EVENT_CREATE_OBJ_MD}`] = new Date().getTime();
         const _obj = _.clone(obj);
-        _obj.cache_last_valid_time = (new Date()).getTime();
+        _obj.cache_last_valid_time = obj.create_time ? obj.create_time : (new Date()).getTime();
         _obj.obj_id = `${bucket}.${key}`;
         this._object_mds[type][`${bucket}.${key}`] = _obj;
         _obj.num_parts = 0;
@@ -239,11 +239,11 @@ class MockNamespace {
 
                 this._buf = Buffer.concat(recv_buf);
                 const etag = this._md5.digest('hex');
-
+                const create_time = Date.now();
                 if (this._write_err) {
                     // Simulate success in the case that the error is caused by other stream
                     console.log(`${this.type} mock: write err bucket ${params.bucket} key ${params.key}`);
-                    resolve({ etag });
+                    resolve({ etag, date: create_time });
                     return;
                 }
 
@@ -251,14 +251,15 @@ class MockNamespace {
                     console.log(`${this.type} mock: bucket ${params.bucket} key ${params.key} slowing down write......`);
                     await P.delay(100);
                 }
+
                 this._recorder.add_obj(this.type, params.bucket, params.key,
                     {
                         etag: etag,
+                        create_time: create_time,
                         buf: this._buf,
                         size: params.size,
                     });
-
-                resolve({ etag });
+                resolve({ etag, date: create_time });
             });
             params.source_stream.on('finish', async () => {
                 console.log(`${this.type} mock: got finish in upload_object: bucket ${params.bucket} key ${params.key}`, recv_buf);
@@ -339,9 +340,10 @@ mocha.describe('namespace caching: upload scenarios', () => {
     });
 
     mocha.it('cache object during upload', async () => {
+        const cache = new MockNamespace({ type: 'cache', recorder });
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder, slow_write: true }),
-            namespace_nb: new MockNamespace({ type: 'cache', recorder }),
+            namespace_nb: cache,
             caching: { ttl_ms },
         });
 
@@ -350,7 +352,9 @@ mocha.describe('namespace caching: upload scenarios', () => {
             bucket, key, size,
             source_stream: new MockReaderStream({ type: 's3_client', source_buf: buf }).reader,
         };
-
+        _.set(object_sdk, 'rpc_client.object.update_object_md', _obj => {
+            cache.update_obj(_obj);
+        });
         const ret = await ns_cache.upload_object(params, object_sdk);
         assert(ret.etag === etag);
         const hub_obj_create_time = recorder.get_event('hub', bucket, key, EVENT_CREATE_OBJ_MD);
@@ -366,7 +370,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
     mocha.it('hub upload failure: object not cached', async () => {
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder, trigger_err: 'write' }),
-            namespace_nb: new MockNamespace({ type: 'cache', recorder }),
+            namespace_nb: new MockNamespace({ type: 'cache', recorder, trigger_err: 'write'}),
             caching: { ttl_ms },
         });
 
@@ -387,10 +391,15 @@ mocha.describe('namespace caching: upload scenarios', () => {
     });
 
     mocha.it('cache upload failure: return hub status and object not cached', async () => {
+        const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'write' });
         const ns_cache = new NamespaceCache({
             namespace_hub: new MockNamespace({ type: 'hub', recorder }),
-            namespace_nb: new MockNamespace({ type: 'cache', recorder, trigger_err: 'write' }),
+            namespace_nb: cache,
             caching: { ttl_ms },
+        });
+
+        _.set(object_sdk, 'rpc_client.object.update_object_md', _obj => {
+            cache.update_obj(_obj);
         });
 
         const { bucket, key, size, buf, etag } = random_object(8);

@@ -18,6 +18,7 @@ const test_scenarios = [
     'delete non-exist object',
     'delete object while read cached object is ongoing',
     'read cached object while it is being overwritten',
+    'delete multiple objects',
 ];
 
 async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
@@ -271,6 +272,31 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
                 assert(first_upload_md5 !== ret[1].md5);
             });
     });
+
+    await ns_context.run_test_case('delete multiple objects', type, async () => {
+        const file_names = [
+            `multi_delete_${prefix}_${min_file_size_kb + 1}_KB`,
+            `multi_delete_${prefix}_${min_file_size_kb + 2}_KB`,
+            `multi_delete_${prefix}_${min_file_size_kb + 3}_KB`,
+        ];
+        for (const file_name of file_names) {
+            await ns_context.upload_via_noobaa_endpoint(type, file_name);
+            await ns_context.validate_md5_between_hub_and_cache({
+                type,
+                force_cache_read: true,
+                file_name,
+                expect_same: true
+            });
+        }
+
+        await ns_context.delete_files_from_noobaa(type, file_names);
+
+        for (const file_name of file_names) {
+            await ns_context.get_via_noobaa_expect_not_found(type, file_name);
+            await ns_context.get_via_cloud_expect_not_found(type, file_name);
+        }
+    });
+
 }
 
 module.exports.test_scenarios = test_scenarios;

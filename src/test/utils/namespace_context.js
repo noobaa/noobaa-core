@@ -137,6 +137,12 @@ class NamespaceContext {
         }
     }
 
+    async delete_files_from_noobaa(type, file_names) {
+        const noobaa_bucket = this._ns_mapping[type].gateway;
+        await this._noobaa_s3ops.delete_multiple_files(noobaa_bucket,
+            _.map(file_names, filename => ({ filename })));
+    }
+
     async expect_not_found_in_cache(type, file_name) {
         const noobaa_bucket = this._ns_mapping[type].gateway;
         console.log(`expecting cache md not found for ${file_name} in ${noobaa_bucket}`);

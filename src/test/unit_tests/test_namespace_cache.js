@@ -277,6 +277,17 @@ class MockNamespace {
         }
         this._recorder.delete_obj(this.type, params.bucket, params.key);
     }
+
+    delete_multiple_objects(params, object_sdk) {
+        console.log(`${this.type} mock: delete_multiple_objects called: bucket ${params.bucket} key ${params.key}`);
+        if (this._trigger_err === 'multi-deletes') {
+            console.log(`${this.type} mock: delete_multiple_objects err triggered: bucket ${params.bucket} keys ${params.objects}`);
+            const err = new Error(`${this.type}: delete_multiple_objects error triggered: bucket ${params.bucket} keys ${params.objects}`);
+            err.name = `${this.type}_multi_deletes_error`;
+            throw err;
+        }
+        console.log('delete_multiple_objects: deleting objects TODO');
+    }
 }
 
 async function create_namespace_cache_and_read_obj({ recorder, object_sdk, ttl_ms, size, start, end,
@@ -898,4 +909,41 @@ mocha.describe('namespace caching: delete scenario', () => {
         assert(!_.isUndefined(cache_obj));
         */
     });
+
+    mocha.it('delete multiple objects: error in cache', async () => {
+        const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk,
+            trigger_cache_err: 'multi-deletes' });
+
+        const params = {
+            bucket: obj.bucket,
+            objects: [ {
+                key: obj.key
+            }],
+        };
+        try {
+            await ns_cache.delete_multiple_objects(params, object_sdk);
+            assert(false);
+        } catch (err) {
+            assert(err.name === 'cache_multi_deletes_error');
+        }
+    });
+
+    mocha.it('delete multiple objects: error in hub', async () => {
+        const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk,
+            trigger_hub_err: 'multi-deletes' });
+
+        const params = {
+            bucket: obj.bucket,
+            objects: [ {
+                key: obj.key
+            }],
+        };
+        try {
+            await ns_cache.delete_multiple_objects(params, object_sdk);
+            assert(false);
+        } catch (err) {
+            assert(err.name === 'hub_multi_deletes_error');
+        }
+    });
+
 });

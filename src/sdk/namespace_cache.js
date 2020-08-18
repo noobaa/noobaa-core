@@ -583,29 +583,37 @@ class NamespaceCache {
     }
 
     async delete_multiple_objects(params, object_sdk) {
-        const deleted_res = await this.namespace_hub.delete_multiple_objects(params, object_sdk);
-
         const operation = 'ObjectRemoved';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+        const head_res = load_for_trigger && await P.map(params.objects, async obj => {
+            const request = {
+                bucket: params.bucket,
+                key: obj.key,
+                version_id: obj.version_id
+            };
+            let obj_md;
+            try {
+                obj_md = _.defaults({ key: obj.key }, await this.namespace_hub.read_object_md(request, object_sdk));
+            } catch (err) {
+                if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
+            }
+            return obj_md;
+        });
+
+        const [hub_res, cache_res] = await Promise.allSettled([
+            this.namespace_hub.delete_multiple_objects(params, object_sdk),
+            this.namespace_nb.delete_multiple_objects(params, object_sdk),
+        ]);
+        if (hub_res.status === 'rejected') {
+            throw hub_res.reason;
+        }
+        if (cache_res.status === 'rejected') {
+            throw cache_res.reason;
+        }
+
         if (load_for_trigger) {
-
-            const head_res = await P.map(params.objects, async obj => {
-                const request = {
-                    bucket: params.bucket,
-                    key: obj.key,
-                    version_id: obj.version_id
-                };
-                let obj_md;
-                try {
-                    obj_md = _.defaults({ key: obj.key }, await this.namespace_hub.read_object_md(request, object_sdk));
-                } catch (err) {
-                    if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
-                }
-                return obj_md;
-            });
-
-            for (let i = 0; i < deleted_res.length; ++i) {
-                const deleted_obj = deleted_res[i];
+            for (let i = 0; i < hub_res.value.length; ++i) {
+                const deleted_obj = hub_res.value[i];
                 const head_obj = head_res[i];
                 if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
                     object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
@@ -614,7 +622,7 @@ class NamespaceCache {
             }
         }
 
-        return deleted_res;
+        return hub_res.value;
     }
 
     ////////////////////

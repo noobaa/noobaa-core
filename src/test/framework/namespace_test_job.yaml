@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: TEST_JOB_NAME_PLACEHOLDER
+spec:
+  template:
+    spec:
+      serviceAccount: noobaa-tests-account
+      containers:
+      - name: noobaa-test
+        image: TESTER_IMAGE_PLACEHOLDER
+        imagePullPolicy: Never
+        workingDir: /noobaa-core
+        args:
+          # - /bin/bash
+          #  - -c
+          #  - "while true; do sleep 10 ; done"
+
+          - node
+          - ./src/test/framework/test_env_builder_kubernetes.js
+          - --image
+          - "NOOBAA_IMAGE_PLACEHOLDER"
+          - --namespace_prefix
+          - "NAMESPACE_PREFIX_PLACEHOLDER"
+          - --tests_list
+          - /noobaa-core/src/test/framework/namespace_cache_tests_list.js
+        env:
+          - name: CONTAINER_PLATFORM
+            value: KUBERNETES
+          - name: SUPPRESS_LOGS
+            value: "FALSE"
+          - name: COS_ACCESS_KEY_ID
+            value: "COS_ACCESS_KEY_ID_PLACEHOLDER"
+          - name: COS_SECRET_ACCESS_KEY
+            value: "COS_SECRET_ACCESS_KEY_PLACEHOLDER"
+      restartPolicy: Never
+  backoffLimit: 0
+

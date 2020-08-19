@@ -47,7 +47,13 @@ module.exports = {
                     },
                     lock_settings: {
                         $ref: 'common_api#/definitions/lock_settings'
-                    }
+                    },
+                    etag: {
+                        type: 'string'
+                    },
+                    complete_upload: {
+                        type: 'boolean'
+                    },
                 }
             },
             reply: {
@@ -63,6 +69,39 @@ module.exports = {
                 }
             },
             auth: { system: ['admin', 'user'] }
+        },
+
+        get_upload_object_range_info: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'obj_id',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    key: { type: 'string' },
+                    obj_id: { objectid: true },
+                    start: { type: 'integer' },
+                    end: { type: 'integer' },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['obj_id', 'chunk_split_config', 'chunk_coder_config', 'tier_id'],
+                properties: {
+                    obj_id: { objectid: true },
+                    bucket_id: { objectid: true },
+                    tier_id: { objectid: true },
+                    chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
+                    chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    upload_size: { type: 'integer' }
+                }
+            },
+            auth: { system: ['admin'] }
         },
 
         complete_object_upload: {
@@ -1347,7 +1386,7 @@ module.exports = {
                 // It does not pay attention to dedup
                 capacity_size: { type: 'integer' },
                 s3_signed_url: { type: 'string' },
-                lock_settings: { $ref: 'common_api#/definitions/lock_settings' }
+                lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
             }
         },
 
@@ -1366,6 +1405,7 @@ module.exports = {
                 end: { type: 'integer' },
                 seq: { type: 'integer' },
                 chunk_offset: { type: 'integer' },
+                uncommitted: { type: 'boolean' },
             }
         },
 

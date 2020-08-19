@@ -23,9 +23,12 @@ const AccountSpaceNetStorage = require('./accountspace_net_storage');
 const AccountSpaceNB = require('./accountspace_nb');
 const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
+const config = require('../../config');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
+    // This is intentional. Cache entry expiration is handled by _validate_bucket_namespace().
+    // The expiration time is controlled by config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS.
     expiry_ms: 0,
     max_usage: 1000,
     make_key: params => params.name,
@@ -40,8 +43,6 @@ const account_cache = new LRUCache({
     make_key: ({ access_key }) => access_key,
     load: async ({ rpc_client, access_key }) => rpc_client.account.read_account_by_access_key({ access_key }),
 });
-
-const NAMESPACE_CACHE_EXPIRY = 60000;
 
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
@@ -104,6 +105,11 @@ class ObjectSDK {
         return policy_info;
     }
 
+    async read_bucket_usage_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket.bucket_info.data;
+    }
+
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
         const bucket = params.bucket || await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
@@ -147,7 +153,7 @@ class ObjectSDK {
         const bucket = await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
         if (_.isEqual(bucket, data.bucket)) {
             // namespace unchanged - extend validity for another period
-            data.valid_until = time + NAMESPACE_CACHE_EXPIRY;
+            data.valid_until = time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS;
             return true;
         } else {
             // namespace changed - _load_bucket_namespace will be called by the cache
@@ -173,7 +179,7 @@ class ObjectSDK {
                             caching: bucket.namespace.caching,
                         }),
                         bucket,
-                        valid_until: time + NAMESPACE_CACHE_EXPIRY,
+                        valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
                 }
 
@@ -181,7 +187,7 @@ class ObjectSDK {
                 return {
                     ns: this._setup_merge_namespace(bucket),
                     bucket,
-                    valid_until: time + NAMESPACE_CACHE_EXPIRY,
+                    valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                 };
             }
         } catch (err) {
@@ -191,7 +197,7 @@ class ObjectSDK {
         return {
             ns: this.namespace_nb,
             bucket,
-            valid_until: time + NAMESPACE_CACHE_EXPIRY,
+            valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
         };
     }
 

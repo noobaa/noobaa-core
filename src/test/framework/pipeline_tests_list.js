@@ -44,7 +44,7 @@ const tests = [{
 }, {
 }, {
     name: 'namespace-cache-test',
-    test: './src/test/pipeline/namespace_cache_test.js',
+    test: './src/test/pipeline/run_namespace_cache_tests.js',
     server_cpu: '400m',
     server_mem: '400Mi',
     agent_cpu: '250m',

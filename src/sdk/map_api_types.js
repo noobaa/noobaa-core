@@ -493,8 +493,17 @@ function get_all_chunks_blocks(chunks) {
         (_.flatMapDeep(chunks, chunk => chunk.frags.map(frag => frag.blocks)))
     );
 }
+/**
+ *
+ * @param {nb.Chunk[]} chunks
+ * @returns {nb.Part[]}
+ */
+function get_all_chunk_parts(chunks) {
+    return chunks.flatMap(chunk => chunk.parts);
+}
 
 exports.ChunkAPI = ChunkAPI;
 exports.FragAPI = FragAPI;
 exports.BlockAPI = BlockAPI;
 exports.get_all_chunks_blocks = get_all_chunks_blocks;
+exports.get_all_chunk_parts = get_all_chunk_parts;

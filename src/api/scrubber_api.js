@@ -23,6 +23,9 @@ module.exports = {
                         items: { objectid: true }
                     },
                     tier: { objectid: true },
+                    evict: {
+                        type: 'boolean',
+                    },
                 }
             },
             auth: { system: 'admin' }

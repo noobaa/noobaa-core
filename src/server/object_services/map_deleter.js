@@ -13,6 +13,7 @@ const mongo_utils = require('../../util/mongo_utils');
 const map_server = require('./map_server');
 const { ChunkDB } = require('./map_db_types');
 const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
+const { get_all_chunk_parts } = require('../../sdk/map_api_types');
 /**
  *
  * delete_object_mappings
@@ -29,7 +30,7 @@ async function delete_object_mappings(obj) {
 }
 
 /**
- * @param {nb.ID[]} chunk_ids 
+ * @param {nb.ID[]} chunk_ids
  */
 async function delete_chunks_if_unreferenced(chunk_ids) {
     if (!chunk_ids || !chunk_ids.length) return;
@@ -40,6 +41,22 @@ async function delete_chunks_if_unreferenced(chunk_ids) {
         await MDStore.instance().load_blocks_for_chunks(chunks_db);
         const chunks = chunks_db.map(chunk_db => new ChunkDB(chunk_db));
         await delete_chunks(chunks);
+    }
+}
+
+/**
+ * For eviction in cache buckets we check if there are no parts left
+ * and then we can delete the object. A new object md will be allocated
+ * if the same object will be cached again later.
+ *
+ * @param  {nb.ObjectMD} object
+*/
+async function delete_object_if_no_parts(object) {
+    if (!object) return;
+    dbg.log1('delete_object_if_no_parts: object_ids', object);
+    const has_parts = await MDStore.instance().has_any_parts_for_object(object);
+    if (!has_parts) {
+        await MDStore.instance().delete_object_by_id(object._id);
     }
 }
 
@@ -72,6 +89,17 @@ async function delete_blocks(blocks) {
         dbg.error('delete_blocks has error:', error, 'for blocks:', blocks);
         throw error;
     }
+}
+
+/**
+ * @param {nb.Chunk[]} chunks
+ */
+async function delete_parts_by_chunks(chunks) {
+    if (!chunks || !chunks.length) return;
+    const parts = get_all_chunk_parts(chunks).filter(part => !part.to_db().deleted);
+    const part_ids = parts.map(part => part._id);
+    dbg.log1('delete_parts: parts ', part_ids);
+    await MDStore.instance().delete_parts_by_ids(part_ids);
 }
 
 /**
@@ -128,7 +156,9 @@ async function delete_blocks_from_node(blocks) {
 
 // EXPORTS
 exports.delete_object_mappings = delete_object_mappings;
+exports.delete_object_if_no_parts = delete_object_if_no_parts;
 exports.delete_chunks_if_unreferenced = delete_chunks_if_unreferenced;
 exports.delete_chunks = delete_chunks;
 exports.delete_blocks = delete_blocks;
+exports.delete_parts_by_chunks = delete_parts_by_chunks;
 exports.delete_blocks_from_nodes = delete_blocks_from_nodes;

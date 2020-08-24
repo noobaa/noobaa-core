@@ -179,31 +179,36 @@ class NamespaceCache {
         let object_info_cache = null;
         let cache_etag = '';
         const get_from_cache = params.get_from_cache;
-        try {
-            // Remove get_from_cache if exists for maching RPC schema
-            params = _.omit(params, 'get_from_cache');
-            object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
-            if (get_from_cache) {
-                dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
-                object_info_cache.should_read_from_cache = true;
-                return object_info_cache;
+        // part_number is set to the query parameter partNumber in s3 request. If set,
+        // it should be a positive integer between 1 and 10,000. We will bypass cache
+        // and proxy request to hub.
+        if (!params.part_number) {
+            // partNumber is not set
+            try {
+                // Remove get_from_cache if exists for maching RPC schema
+                params = _.omit(params, 'get_from_cache');
+                object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
+                if (get_from_cache) {
+                    dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
+                    object_info_cache.should_read_from_cache = true;
+                    return object_info_cache;
+                }
+
+                const cache_validation_time = object_info_cache.cache_last_valid_time;
+                const time_since_validation = Date.now() - cache_validation_time;
+
+                if ((this.caching.ttl_ms > 0 && time_since_validation <= this.caching.ttl_ms) || this.caching.ttl_ms < 0) {
+                    object_info_cache.should_read_from_cache = true; // mark it for read_object_stream
+                    dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
+                    return object_info_cache;
+                }
+
+                cache_etag = object_info_cache.etag;
+            } catch (err) {
+                dbg.log0('NamespaceCache.read_object_md: error in cache', err);
+                if (get_from_cache) throw err;
             }
-
-            const cache_validation_time = object_info_cache.cache_last_valid_time;
-            const time_since_validation = Date.now() - cache_validation_time;
-
-            if ((this.caching.ttl_ms > 0 && time_since_validation <= this.caching.ttl_ms) || this.caching.ttl_ms < 0) {
-                object_info_cache.should_read_from_cache = true; // mark it for read_object_stream
-                dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
-                return object_info_cache;
-            }
-
-            cache_etag = object_info_cache.etag;
-        } catch (err) {
-            dbg.log0('NamespaceCache.read_object_md: error in cache', err);
-            if (get_from_cache) throw err;
         }
-
         try {
             const object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
             if (object_info_hub.etag === cache_etag) {
@@ -334,7 +339,9 @@ class NamespaceCache {
 
         let hub_read_stream;
         try {
-            hub_read_params.if_match_etag = params.object_md.etag;
+            if (!hub_read_params.md_conditions) {
+                hub_read_params.md_conditions = { if_match_etag: params.object_md.etag };
+            }
             hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
         } catch (err) {
             if (err.rpc_code === 'IF_MATCH_ETAG') {
@@ -357,7 +364,8 @@ class NamespaceCache {
             hub_read_stream.pipe(range_stream);
         }
 
-        // Object or part will only be uploaded to cache if size is not too big
+        // Object or part will only be uploaded to cache if size is not too big and
+        // the preconditions (if-match header etc.) are not set.
         if (hub_read_size <= params.bucket_free_space_bytes) {
             // We use pass through stream here because we have to start piping immediately
             // and the cache upload does not pipe immediately (only after creating the object_md).
@@ -373,20 +381,27 @@ class NamespaceCache {
                 xattr: params.object_md.xattr,
             };
             if (hub_read_range) {
-                upload_params.start = hub_read_range.start;
-                upload_params.end = hub_read_range.end;
-                // Set object ID since partial object has been created before
-                upload_params.obj_id = params.object_md.obj_id;
+                if (params.md_conditions === undefined ||
+                    params.md_conditions.if_match_etag === params.object_md.etag) {
 
-                _global_cache_uploader.submit_background(
-                    hub_read_size,
-                    async () => object_sdk.object_io.upload_object_range(
-                        _.defaults({
-                            client: object_sdk.rpc_client,
-                            bucket: this.namespace_nb.target_bucket,
-                        }, upload_params))
-                );
-                dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache');
+                    upload_params.start = hub_read_range.start;
+                    upload_params.end = hub_read_range.end;
+                    // Set object ID since partial object has been created before
+                    upload_params.obj_id = params.object_md.obj_id;
+
+                    _global_cache_uploader.submit_background(
+                        hub_read_size,
+                        async () => object_sdk.object_io.upload_object_range(
+                            _.defaults({
+                                client: object_sdk.rpc_client,
+                                bucket: this.namespace_nb.target_bucket,
+                            }, upload_params))
+                    );
+                    dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
+                } else {
+                    dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache',
+                        { md_conditions: params.md_conditions, cache_object_md: params.object_md });
+                }
             } else {
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
@@ -401,6 +416,16 @@ class NamespaceCache {
 
 
     async read_object_stream(params, object_sdk) {
+        // part_number is set to the query parameter partNumber in request. If set,
+        // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
+        // GET request for the part specified.
+        if (params.part_number) {
+            // If the query parameter partNumber is set, the object was most likely
+            // created by the multipart upload. Since we don't support MP in cache,
+            // we proxy the read to hub.
+            return this.namespace_hub.read_object_stream(params, object_sdk);
+        }
+
         const get_from_cache = params.get_from_cache;
         // Remove get_from_cache if exists for matching RPC schema
         params = _.omit(params, 'get_from_cache');

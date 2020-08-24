@@ -65,27 +65,30 @@ class NamespaceContext {
         await this._noobaa_s3ops.get_file_check_md5(noobaa_bucket, file_name);
     }
 
-    async get_object_s3_md(s3ops_arg, bucket, file_name, get_from_cache) {
+    async get_object_s3_md(s3ops_arg, bucket, file_name, get_from_cache, preconditions) {
         try {
-            const ret = await s3ops_arg.get_object(bucket, file_name, get_from_cache ? { get_from_cache: true } : undefined);
+            const ret = await s3ops_arg.get_object(bucket, file_name,
+                get_from_cache ? { get_from_cache: true } : undefined, preconditions);
             return {
                 md5: crypto.createHash('md5').update(ret.Body).digest('hex'),
                 size: ret.Body.length,
-                etag: _.trim(ret.ETag, '"')
+                etag: _.trim(ret.ETag, '"'),
+                last_modified_time: ret.LastModified,
             };
         } catch (err) {
-            throw new Error(`Failed to get data from ${file_name} in ${bucket}: ${err}`);
+            console.log(`Failed to get data from ${file_name} in ${bucket}: ${err}`);
+            throw err;
         }
     }
 
-    async get_via_cloud(type, file_name) {
+    async get_via_cloud(type, file_name, preconditions) {
         const cloud_bucket = this._ns_mapping[type].bucket2;
-        return this.get_object_s3_md(this._ns_mapping[type].s3ops, cloud_bucket, file_name);
+        return this.get_object_s3_md(this._ns_mapping[type].s3ops, cloud_bucket, file_name, false, preconditions);
     }
 
-    async get_via_noobaa(type, file_name) {
+    async get_via_noobaa(type, file_name, preconditions) {
         const noobaa_bucket = this._ns_mapping[type].gateway;
-        return this.get_object_s3_md(this._noobaa_s3ops, noobaa_bucket, file_name);
+        return this.get_object_s3_md(this._noobaa_s3ops, noobaa_bucket, file_name, false, preconditions);
     }
 
     async get_size_etag(s3ops_arg, bucket, file_name) {
@@ -107,9 +110,9 @@ class NamespaceContext {
         }
     }
 
-    async get_via_noobaa_expect_not_found(type, file_name) {
+    async get_via_noobaa_expect_not_found(type, file_name, get_from_cache) {
         const noobaa_bucket = this._ns_mapping[type].gateway;
-        await this.get_object_expect_not_found(this._noobaa_s3ops, noobaa_bucket, file_name);
+        await this.get_object_expect_not_found(this._noobaa_s3ops, noobaa_bucket, file_name, get_from_cache);
     }
 
     async get_via_cloud_expect_not_found(type, file_name) {
@@ -211,22 +214,23 @@ class NamespaceContext {
     }
 
     // end is inclusive
-    async get_range_md5_size(s3ops_arg, bucket, file_name, start, end) {
+    async get_range_md5_size(s3ops_arg, bucket, file_name, start, end, preconditions) {
         console.log(`${BLUE}reading range ${start}-${end} from ${file_name} on bucket ${bucket}${NC}`);
         try {
-            const ret_body = await s3ops_arg.get_object_range(bucket, file_name, start, end);
+            const ret_body = await s3ops_arg.get_object_range(bucket, file_name, start, end, undefined, preconditions);
             return {
-                md5: crypto.createHash('md5').update(ret_body).digest('base64'),
+                md5: crypto.createHash('md5').update(ret_body).digest('hex'),
                 size: ret_body.length
             };
         } catch (err) {
-            throw new Error(`Failed to get range data from ${file_name} in ${bucket}: ${err}`);
+            console.log(`Failed to get range data from ${file_name} in ${bucket}: ${err}`);
+            throw err;
         }
     }
 
-    async get_range_md5_size_via_noobaa(type, file_name, start, end) {
+    async get_range_md5_size_via_noobaa(type, file_name, start, end, preconditions) {
         const noobaa_bucket = this._ns_mapping[type].gateway;
-        return this.get_range_md5_size(this._noobaa_s3ops, noobaa_bucket, file_name, start, end);
+        return this.get_range_md5_size(this._noobaa_s3ops, noobaa_bucket, file_name, start, end, preconditions);
     }
 
     async validate_md5_range_read_between_hub_and_cache({ type, file_name,

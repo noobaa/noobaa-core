@@ -675,11 +675,15 @@ class S3OPS {
         }
     }
 
-    async get_object(bucket, key, query_params) {
+    async get_object(bucket, key, query_params, preconditions) {
         const params = {
             Bucket: bucket,
             Key: key
         };
+        if (preconditions) {
+            //IfMatch, IfModifiedSince, IfNoneMatch, IfUnmodifiedSince
+            _.assign(params, preconditions);
+        }
         console.log('Reading object ', key);
         try {
             //There can be an issue if the object size (length) is too large
@@ -699,13 +703,17 @@ class S3OPS {
         }
     }
 
-    async get_object_range(bucket, key, start_byte, finish_byte, versionid) {
+    async get_object_range(bucket, key, start_byte, finish_byte, versionid, preconditions) {
         const params = {
             Bucket: bucket,
             Key: key,
             Range: `bytes=${start_byte}-${finish_byte}`,
             VersionId: versionid ? versionid : undefined,
         };
+        if (preconditions) {
+            //IfMatch, IfModifiedSince, IfNoneMatch, IfUnmodifiedSince
+            _.assign(params, preconditions);
+        }
         try {
             console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte} from ${bucket}`);
             const obj = await this.s3.getObject(params).promise();

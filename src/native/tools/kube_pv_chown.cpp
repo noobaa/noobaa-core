@@ -16,7 +16,7 @@ change_path_permissions(const char* path, long uid)
     // change ownership
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
-        cout << "Error:got error when openning " << path << " Error: " << strerror(errno) << endl;
+        cout << "Error:got error when opening " << path << " Error: " << strerror(errno) << endl;
         exit(1);
     }
     int res = fchown(fd, uid, 0);
@@ -54,8 +54,6 @@ main(int argc, char* argv[])
     } else if (deployment_type == "mongo") {
         change_path_permissions("/mongo_data", uid);
         change_path_permissions("/log", uid);
-    } else if (deployment_type == "postgres") {
-        change_path_permissions("/data", uid);
     } else if (deployment_type == "agent") {
         change_path_permissions("/noobaa_storage", uid);
     } else {

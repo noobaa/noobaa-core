@@ -263,7 +263,7 @@ function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
     res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
     res.setHeader('Content-Type', object_md.content_type);
-    res.setHeader('Content-Length', object_md.size);
+    res.setHeader('Content-Length', object_md.content_length === undefined ? object_md.size : object_md.content_length);
     res.setHeader('Accept-Ranges', 'bytes');
     if (config.WORM_ENABLED && object_md.lock_settings) {
         if (object_md.lock_settings.legal_hold) {
@@ -277,6 +277,8 @@ function set_response_object_md(res, object_md) {
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);
     set_response_xattr(res, object_md.xattr);
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
+    if (object_md.multipart_count) res.setHeader('x-amz-mp-parts-count', object_md.multipart_count);
+    if (object_md.content_range) res.setHeader('Content-Range', object_md.content_range);
     return object_md;
 }
 

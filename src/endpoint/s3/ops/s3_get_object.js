@@ -14,16 +14,25 @@ async function get_object(req, res) {
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
+    let part_number;
+    // If set, part_number should be positive integer from 1 to 10000
+    if (req.query.partNumber) {
+        part_number = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
+    }
+    const md_conditions = http_utils.get_md_conditions(req);
 
     const md_params = {
         bucket: req.params.bucket,
         key: req.params.key,
         version_id: req.query.versionId,
-        md_conditions: http_utils.get_md_conditions(req),
-        encryption
+        md_conditions,
+        encryption,
     };
     if (req.query.get_from_cache !== undefined) {
         md_params.get_from_cache = true;
+    }
+    if (part_number) {
+        md_params.part_number = part_number;
     }
     const object_md = await req.object_sdk.read_object_md(md_params);
 
@@ -37,10 +46,14 @@ async function get_object(req, res) {
         key: req.params.key,
         content_type: object_md.content_type,
         noobaa_trigger_agent,
+        md_conditions,
         encryption,
     };
     if (md_params.get_from_cache) {
         params.get_from_cache = true;
+    }
+    if (part_number) {
+        params.part_number = part_number;
     }
     try {
         const ranges = http_utils.normalize_http_ranges(

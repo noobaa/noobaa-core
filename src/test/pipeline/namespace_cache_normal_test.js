@@ -19,6 +19,8 @@ const test_scenarios = [
     'delete object while read cached object is ongoing',
     'read cached object while it is being overwritten',
     'delete multiple objects',
+    'object still cached: proxy get with precondition header to hub',
+    'object cached: proxy get with precondition header to hub',
 ];
 
 async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
@@ -28,8 +30,10 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
     const file_name1 = `${prefix}_${min_file_size_kb * 2}_KB`;
     const file_name2 = `${prefix}_${min_file_size_kb + 1}_KB`;
     const large_file_name = `${prefix}_${min_file_size_kb * 10}_KB`;
-    const file_name_delete_case1 = `delete_${prefix}_${min_file_size_kb + 1}_KB`;
-    const file_name_delete_case2 = `delete_${prefix}_${min_file_size_kb + 2}_KB`;
+    const file_name_precondition1 = `${prefix}_precondition_${min_file_size_kb + 1}_KB`;
+    const file_name_precondition2 = `${prefix}_precondition_${min_file_size_kb + 1}_KB`;
+    const file_name_delete_case1 = `${prefix}_delete_${min_file_size_kb + 1}_KB`;
+    const file_name_delete_case2 = `${prefix}_delete_${min_file_size_kb + 2}_KB`;
     let cache_last_valid_time;
     let time_start = (new Date()).getTime();
 
@@ -156,6 +160,8 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
             expect_same: true
         });
     });
+
+    // !!!!!!!! NOTE: The order of the above tests matters. Don't change the order.  !!!!!!!!!!!!
 
     await ns_context.run_test_case('object cached during read to namespace bucket', type, async () => {
         // Upload a file to hub bucket and read it from namespace bucket
@@ -294,6 +300,79 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
         for (const file_name of file_names) {
             await ns_context.get_via_noobaa_expect_not_found(type, file_name);
             await ns_context.get_via_cloud_expect_not_found(type, file_name);
+        }
+    });
+
+    await ns_context.run_test_case('object still cached: proxy get with precondition header to hub', type, async () => {
+        const file_name = file_name_precondition1;
+        const { md5 } = await ns_context.upload_directly_to_cloud(type, file_name);
+        let obj_md = await ns_context.get_via_noobaa(type, file_name, { IfMatch: md5 });
+        assert(obj_md.etag === md5);
+
+        await P.delay(100);
+        await ns_context.validate_md5_between_hub_and_cache({
+            type,
+            force_cache_read: true,
+            file_name,
+            expect_same: true
+        });
+
+        try {
+            await ns_context.get_via_noobaa(type, file_name, { IfMatch: 'different etag' });
+            assert(false);
+        } catch (err) {
+            assert(err.code === 'PreconditionFailed');
+        }
+
+        obj_md = await ns_context.get_via_noobaa(type, file_name, { IfNoneMatch: 'none-match-etag-value' });
+        assert(obj_md.etag === md5);
+
+        try {
+            await ns_context.get_via_noobaa(type, file_name, { IfNoneMatch: md5 });
+            assert(false);
+        } catch (err) {
+            assert(err.code === 'NotModified');
+        }
+    });
+
+    await ns_context.run_test_case('object cached: proxy get with precondition header to hub', type, async () => {
+        const file_name = file_name_precondition2;
+        const date1 = new Date();
+        const md_cache = await ns_context.upload_via_noobaa_endpoint(type, file_name);
+        const etag_cache = md_cache.md5;
+        await ns_context.validate_md5_between_hub_and_cache({
+            type,
+            force_cache_read: true,
+            file_name,
+            expect_same: true
+        });
+
+        let obj_md = await ns_context.get_via_noobaa(type, file_name, { IfModifiedSince: date1 });
+        assert(obj_md.etag === etag_cache);
+
+        obj_md = await ns_context.get_via_noobaa(type, file_name, { IfUnmodifiedSince: new Date() });
+        assert(obj_md.etag === etag_cache);
+
+        // Overwrite the object on hub before ttl expires. Ensure that the precondition evaluation is
+        // on the cached object.
+        await P.delay(2000);
+        const md_upload_hub = await ns_context.upload_directly_to_cloud(type, file_name);
+        const etag_upload_hub = md_upload_hub.md5;
+        const md_get_hub = await ns_context.get_via_cloud(type, file_name);
+        const date2 = new Date(md_get_hub.last_modified_time - 1000);
+
+        assert(md_get_hub.etag === etag_upload_hub);
+
+        await ns_context.delay();
+        obj_md = await ns_context.get_via_noobaa(type, file_name, { IfModifiedSince: date2 });
+        assert(obj_md.etag === etag_upload_hub);
+
+        const date3 = new Date();
+        try {
+            await ns_context.get_via_noobaa(type, file_name, { IfModifiedSince: date3 });
+            assert(false);
+        } catch (err) {
+            assert(err.code === 'NotModified');
         }
     });
 

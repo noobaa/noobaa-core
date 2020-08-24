@@ -38,7 +38,10 @@ class BlockStoreS3 extends BlockStoreBase {
                 secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 s3ForcePathStyle: true,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                region: DEFAULT_REGION
+                region: DEFAULT_REGION,
+                httpOptions: {
+                    agent: http_utils.get_default_agent(endpoint)
+                }
             });
         } else {
             this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION[this.cloud_info.endpoint_type] ||

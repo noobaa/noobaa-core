@@ -6,7 +6,6 @@ const assert = require('assert');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
 // const config = require('../../../config.js');
 // const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
@@ -171,8 +170,7 @@ class MapBuilder {
         // Deleting objects with no parts here as the delete_parts_by_chunks need to finish before
         // any attempt is made to delete the objects.
         if (this.evict) {
-            const objects_to_gc = _.uniq(loaded_chunks_db.flatMap(chunk => chunk.objects))
-                .filter(obj => Date.now() - obj.create_time.getTime() > config.NAMESPACE_CACHING.MIN_OBJECT_AGE_FOR_GC);
+            const objects_to_gc = _.uniq(loaded_chunks_db.flatMap(chunk => chunk.objects));
             if (objects_to_gc.length) {
                 dbg.log1('MapBuilder.delete_objects_if_no_parts:', objects_to_gc);
                 await Promise.all(objects_to_gc.map(map_deleter.delete_object_if_no_parts));

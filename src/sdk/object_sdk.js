@@ -95,6 +95,15 @@ class ObjectSDK {
         return bucket.namespace;
     }
 
+    async read_bucket_sdk_caching_info(name) {
+        try {
+            const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+            return bucket.namespace ? bucket.namespace.caching : undefined;
+        } catch (error) {
+            dbg.log0('read_bucket_sdk_caching_info error', error);
+        }
+    }
+
     async read_bucket_sdk_policy_info(name) {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
@@ -439,10 +448,19 @@ class ObjectSDK {
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
+            // Source params need these for read operations
+            source_params.object_md = source_md;
+            source_params.obj_id = source_md.obj_id;
+            source_params.version_id = source_md.version_id;
+            // param size is needed when doing an upload. Can be overrided during ranged writes
+            params.size = source_md.size;
+
             if (ranges) {
                 if (ranges.length !== 1) throw new Error('fix_copy_source_params: multiple ranges not supported');
                 source_params.start = ranges[0].start;
                 source_params.end = ranges[0].end;
+                // Update the param size with the ranges to be written
+                params.size = source_params.end - source_params.start;
             }
             params.source_stream = await source_ns.read_object_stream(source_params, this);
             if (params.size > (100 * size_utils.MEGABYTE)) {

@@ -11,6 +11,7 @@ const RangeStream = require('../util/range_stream');
 const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
 const Semaphore = require('../util/semaphore');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
@@ -27,7 +28,17 @@ class NamespaceCache {
     }
 
     get_write_resource() {
-        return this.namespace_hub;
+        return this;
+    }
+
+    get_bucket() {
+        return this.namespace_hub.get_bucket();
+    }
+
+    is_same_namespace(other) {
+        return other instanceof NamespaceCache &&
+            this.namespace_hub === other.namespace_hub &&
+            this.namespace_nb === other.namespace_nb;
     }
 
     async _delete_object_from_cache(params, object_sdk) {
@@ -157,18 +168,30 @@ class NamespaceCache {
     /////////////////
 
     async list_objects(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_objects(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_objects(params, object_sdk);
+        }
+        return this.namespace_hub.list_objects(params, object_sdk);
     }
 
     async list_uploads(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_uploads(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_uploads(params, object_sdk);
+        }
+        return this.namespace_hub.list_uploads(params, object_sdk);
     }
 
     async list_object_versions(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_object_versions(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_objects(params, object_sdk);
+        }
+        return this.list_object_versions(params, object_sdk);
     }
 
     /////////////////
@@ -468,6 +491,9 @@ class NamespaceCache {
         const operation = 'ObjectCreated';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
 
+        function stream_final_from_promise(promise) {
+            return callback => promise.then(() => callback(), err => callback(err));
+        }
         const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         let upload_response;
         let etag;
@@ -487,8 +513,14 @@ class NamespaceCache {
             const hub_params = { ...params, source_stream: hub_stream };
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
 
-            // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
+            const cache_final_promise = hub_promise.then(async upload_res => {
+                const update_params = _.pick(_.defaults(
+                    { bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key', 'last_modified_time');
+                update_params.last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                await object_sdk.rpc_client.object.update_object_md(update_params);
+             });
+            const cache_finalizer = stream_final_from_promise(cache_final_promise);
+
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
             const cache_params = { ...params, source_stream: cache_stream };
             const cache_promise = _global_cache_uploader.surround_count(
@@ -570,9 +602,9 @@ class NamespaceCache {
 
     async complete_object_upload(params, object_sdk) {
 
-        setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-
-        return this.namespace_hub.complete_object_upload(params, object_sdk);
+        const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
+        await this._delete_object_from_cache(params, object_sdk);
+        return res;
     }
 
     async abort_object_upload(params, object_sdk) {
@@ -609,6 +641,11 @@ class NamespaceCache {
 
     async delete_multiple_objects(params, object_sdk) {
         const operation = 'ObjectRemoved';
+        const objects = params.objects.filter(obj => obj.version_id);
+        if (objects.length > 0) {
+            dbg.error('S3 Version request not (NotImplemented) for s3_post_bucket_delete', params);
+            throw new S3Error(S3Error.NotImplemented);
+        }
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         const head_res = load_for_trigger && await P.map(params.objects, async obj => {
             const request = {
@@ -655,15 +692,35 @@ class NamespaceCache {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
+
+        const object_md = await this.read_object_md(params, object_sdk);
+        if (object_md.should_read_from_cache) {
+            return this.namespace_nb.get_object_tagging(params, object_sdk);
+        }
+
         return this.namespace_hub.get_object_tagging(params, object_sdk);
     }
 
     async delete_object_tagging(params, object_sdk) {
-        return this.namespace_hub.delete_object_tagging(params, object_sdk);
+
+        const res = this.namespace_hub.delete_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.delete_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     async put_object_tagging(params, object_sdk) {
-        return this.namespace_hub.put_object_tagging(params, object_sdk);
+
+        const res = await this.namespace_hub.put_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.put_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     //////////////////////////

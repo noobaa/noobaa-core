@@ -822,12 +822,15 @@ function _check_encryption_permissions(src_enc, req_enc) {
 async function update_object_md(req) {
     dbg.log0('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
     }
     if (set_updates.cache_last_valid_time) {
         set_updates.cache_last_valid_time = new Date(set_updates.cache_last_valid_time);
+    }
+    if (set_updates.last_modified_time) {
+        set_updates.last_modified_time = new Date(set_updates.last_modified_time);
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
@@ -1342,6 +1345,7 @@ function get_object_info(md, options = {}) {
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
+        last_modified_time: md.last_modified_time ? (md.last_modified_time.getTime()) : undefined,
         cache_last_valid_time: md.cache_last_valid_time ? md.cache_last_valid_time.getTime() : undefined,
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,

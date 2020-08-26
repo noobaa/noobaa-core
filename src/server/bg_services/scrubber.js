@@ -59,20 +59,21 @@ async function background_worker() {
 }
 
 /**
- * 
+ *
  * Scrubber RPC API to build chunks
- * 
+ *
  * This is meant to be the only way to run MapBuilder by any non-scrubber creatures
  * such as the nodes monitor or other modules that will need it in the future.
- * 
- * The reason they need to call the scrubber to do it is that we want MapBuilder's builder_lock 
+ *
+ * The reason they need to call the scrubber to do it is that we want MapBuilder's builder_lock
  * to prevent concurrent rebuild of the same chunk in concurrency.
- * 
+ *
  */
 async function build_chunks(req) {
     const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
     const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
-    const builder = new MapBuilder(chunk_ids, tier);
+    const evict = req.rpc_params.evict;
+    const builder = new MapBuilder(chunk_ids, tier, evict);
     await builder.run();
 }
 

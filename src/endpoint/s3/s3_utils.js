@@ -261,9 +261,14 @@ function format_copy_source(copy_source) {
 
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
-    res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+
+    if (object_md.last_modified_time) {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.last_modified_time)));
+    } else {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
+    }
     res.setHeader('Content-Type', object_md.content_type);
-    res.setHeader('Content-Length', object_md.size);
+    res.setHeader('Content-Length', object_md.content_length === undefined ? object_md.size : object_md.content_length);
     res.setHeader('Accept-Ranges', 'bytes');
     if (config.WORM_ENABLED && object_md.lock_settings) {
         if (object_md.lock_settings.legal_hold) {
@@ -277,6 +282,8 @@ function set_response_object_md(res, object_md) {
     if (object_md.version_id) res.setHeader('x-amz-version-id', object_md.version_id);
     set_response_xattr(res, object_md.xattr);
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
+    if (object_md.multipart_count) res.setHeader('x-amz-mp-parts-count', object_md.multipart_count);
+    if (object_md.content_range) res.setHeader('Content-Range', object_md.content_range);
     return object_md;
 }
 
@@ -547,6 +554,18 @@ function parse_website_to_body(website) {
     return reply;
 }
 
+function get_http_response_date(res) {
+    const r = get_http_response_from_resp(res);
+    if (!r.httpResponse.headers.date) throw new Error("date not found in response header");
+    return r.httpResponse.headers.date;
+}
+
+function get_http_response_from_resp(res) {
+    const r = res.$response;
+    if (!r) throw new Error("no $response in s3 returned object");
+    return r;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
@@ -571,3 +590,6 @@ exports.parse_lock_header = parse_lock_header;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;
+exports.get_http_response_from_resp = get_http_response_from_resp;
+exports.get_http_response_date = get_http_response_date;
+

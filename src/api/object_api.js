@@ -589,6 +589,7 @@ module.exports = {
                     content_type: { type: 'string' },
                     xattr: { $ref: '#/definitions/xattr' },
                     cache_last_valid_time: { idate: true },
+                    last_modified_time: { idate: true },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -1366,6 +1367,7 @@ module.exports = {
                 content_type: { type: 'string' },
                 create_time: { idate: true },
                 cache_last_valid_time: { idate: true },
+                last_modified_time: { idate: true},
                 upload_started: { idate: true },
                 upload_size: { type: 'integer' },
                 etag: { type: 'string' },

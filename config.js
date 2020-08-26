@@ -138,7 +138,7 @@ config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 // AGENT BLOCKS VERIFIER //
 ///////////////////////////
 
-config.AGENT_BLOCKS_VERIFIER_ENABLED = true;
+config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
 // TODO: Should check what is the optiomal amount of batch
 config.AGENT_BLOCKS_VERIFIER_BATCH_SIZE = 1000;
 config.AGENT_BLOCKS_VERIFIER_BATCH_DELAY = 50;
@@ -453,6 +453,7 @@ config.NAMESPACE_CACHING = {
     CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
     CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
     UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
+    MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
     UPLOAD_SEMAPHORE_CAP: Math.floor(
         Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
 };

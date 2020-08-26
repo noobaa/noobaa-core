@@ -169,6 +169,7 @@ interface Bucket extends Base {
     namespace?: {
         read_resources: NamespaceResource[];
         write_resource: NamespaceResource;
+        caching?: CacheConfig;
     };
     quota?: Object;
     storage_stats: {
@@ -178,6 +179,9 @@ interface Bucket extends Base {
     lambda_triggers?: Object;
 }
 
+interface CacheConfig {
+    ttl?: number;
+}
 interface NamespaceResource {
     _id: ID;
     name: string;
@@ -359,6 +363,7 @@ interface ObjectMD {
     upload_started?: ID;
     create_time?: Date;
     cache_last_valid_time?: Date;
+    last_modified_time?: Date;
     etag: string;
     md5_b64: string;
     sha256_b64: string;
@@ -384,6 +389,7 @@ interface ObjectInfo {
     upload_started?: number;
     create_time?: number;
     cache_last_valid_time?: number;
+    last_modified_time?: number;
     etag: string;
     md5_b64: string;
     sha256_b64: string;

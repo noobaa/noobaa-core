@@ -38,20 +38,26 @@ class TieringTTFWorker {
         if (!this._can_run()) return;
 
         console.log('TieringTTFWorker: start running');
-        const multi_tiered_buckets = this._get_multi_tiered_buckets();
-        if (!multi_tiered_buckets || !multi_tiered_buckets.length) {
+        const candidate_buckets = this._get_candidate_buckets();
+        if (!candidate_buckets || !candidate_buckets.length) {
             dbg.log0('no buckets with more than one tier. nothing to do');
             this.last_run = 'force';
             return config.TIER_TTF_WORKER_EMPTY_DELAY;
         }
 
-        const wait = await this._rebuild_need_to_move_chunks(multi_tiered_buckets);
+        const wait = await this._rebuild_need_to_move_chunks(candidate_buckets);
         console.log(`TieringTTFWorker: will wait ${wait} ms till next run`);
         return wait;
     }
 
-    _get_multi_tiered_buckets() {
-        return system_store.data.buckets.filter(bucket => _.isUndefined(bucket.deleting) && bucket.tiering.tiers.length > 1);
+    _get_candidate_buckets() {
+        return system_store.data.buckets.filter(bucket =>
+                !bucket.deleting && (
+                    // including buckets that have 2 or more tiers
+                    bucket.tiering.tiers.length > 1 ||
+                    // including cache buckets to handle chunk eviction
+                    (bucket.namespace && bucket.namespace.caching)
+        ));
     }
 
     async _rebuild_need_to_move_chunks(buckets) {
@@ -120,16 +126,37 @@ class TieringTTFWorker {
                 default:
                     chunks_to_rebuild = 1;
             }
+
+
             if (!chunks_to_rebuild) continue;
+
             const tiering_status = node_allocator.get_tiering_status(bucket.tiering);
             const previous_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
             const next_tier_order = this.find_tier_order_in_tiering(bucket, previous_tier) + 1;
+            const next_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status, next_tier_order);
+
+            // for cache buckets when we are on the last tier, we evict the chunks
+            const cache_evict = bucket.namespace.caching && !next_tier;
+
+            // no point in calling build_chunks when there is no next_tier or evict
+            if (!next_tier && !cache_evict) continue;
+
+            const next_tier_id = next_tier ? next_tier._id : undefined;
+
             const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(previous_tier._id, chunks_to_rebuild, 1);
             if (!chunk_ids.length) continue;
-            const next_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status, next_tier_order);
-            if (!next_tier) continue;
-            console.log(`TieringTTFWorker: Moving the following ${chunks_to_rebuild} from ${previous_tier._id} to chunks to next tier ${next_tier._id}`, chunk_ids);
-            await this._build_chunks(chunk_ids, next_tier._id);
+
+            if (cache_evict) {
+                console.log(`TieringTTFWorker: Evicting following ${chunks_to_rebuild} from ${previous_tier._id} `, chunk_ids);
+            } else {
+                console.log(`TieringTTFWorker: Moving the following ${chunks_to_rebuild} from ${previous_tier._id} to chunks to next tier ${next_tier_id}`, chunk_ids);
+            }
+
+            await this._build_chunks(
+                    chunk_ids,
+                    next_tier_id,
+                    cache_evict
+            );
         }
         this.last_run = undefined;
         return config.TIER_TTF_WORKER_BATCH_DELAY;
@@ -139,8 +166,8 @@ class TieringTTFWorker {
         return bucket.tiering.tiers.find(t => String(t.tier._id) === String(tier._id)).order;
     }
 
-    async _build_chunks(chunk_ids, next_tier) {
-        return this.client.scrubber.build_chunks({ chunk_ids, tier: next_tier }, {
+    async _build_chunks(chunk_ids, next_tier, cache_evict) {
+        return this.client.scrubber.build_chunks({ chunk_ids, tier: next_tier, evict: cache_evict }, {
             auth_token: auth_server.make_auth_token({
                 system_id: system_store.data.systems[0]._id,
                 role: 'admin'

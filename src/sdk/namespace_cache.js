@@ -11,6 +11,7 @@ const RangeStream = require('../util/range_stream');
 const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
 const Semaphore = require('../util/semaphore');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
@@ -27,7 +28,17 @@ class NamespaceCache {
     }
 
     get_write_resource() {
-        return this.namespace_hub;
+        return this;
+    }
+
+    get_bucket() {
+        return this.namespace_hub.get_bucket();
+    }
+
+    is_same_namespace(other) {
+        return other instanceof NamespaceCache &&
+            this.namespace_hub === other.namespace_hub &&
+            this.namespace_nb === other.namespace_nb;
     }
 
     async _delete_object_from_cache(params, object_sdk) {
@@ -157,18 +168,30 @@ class NamespaceCache {
     /////////////////
 
     async list_objects(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_objects(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_objects(params, object_sdk);
+        }
+        return this.namespace_hub.list_objects(params, object_sdk);
     }
 
     async list_uploads(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_uploads(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_uploads(params, object_sdk);
+        }
+        return this.namespace_hub.list_uploads(params, object_sdk);
     }
 
     async list_object_versions(params, object_sdk) {
-        // TODO listing from cache only for deevelopment
-        return this.namespace_nb.list_object_versions(params, object_sdk);
+        const get_from_cache = params.get_from_cache;
+        params = _.omit(params, 'get_from_cache');
+        if (get_from_cache) {
+            return this.namespace_nb.list_objects(params, object_sdk);
+        }
+        return this.list_object_versions(params, object_sdk);
     }
 
     /////////////////
@@ -179,31 +202,36 @@ class NamespaceCache {
         let object_info_cache = null;
         let cache_etag = '';
         const get_from_cache = params.get_from_cache;
-        try {
-            // Remove get_from_cache if exists for maching RPC schema
-            params = _.omit(params, 'get_from_cache');
-            object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
-            if (get_from_cache) {
-                dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
-                object_info_cache.should_read_from_cache = true;
-                return object_info_cache;
+        // part_number is set to the query parameter partNumber in s3 request. If set,
+        // it should be a positive integer between 1 and 10,000. We will bypass cache
+        // and proxy request to hub.
+        if (!params.part_number) {
+            // partNumber is not set
+            try {
+                // Remove get_from_cache if exists for maching RPC schema
+                params = _.omit(params, 'get_from_cache');
+                object_info_cache = await this.namespace_nb.read_object_md(params, object_sdk);
+                if (get_from_cache) {
+                    dbg.log0('NamespaceCache.read_object_md get_from_cache is enabled', object_info_cache);
+                    object_info_cache.should_read_from_cache = true;
+                    return object_info_cache;
+                }
+
+                const cache_validation_time = object_info_cache.cache_last_valid_time;
+                const time_since_validation = Date.now() - cache_validation_time;
+
+                if ((this.caching.ttl_ms > 0 && time_since_validation <= this.caching.ttl_ms) || this.caching.ttl_ms < 0) {
+                    object_info_cache.should_read_from_cache = true; // mark it for read_object_stream
+                    dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
+                    return object_info_cache;
+                }
+
+                cache_etag = object_info_cache.etag;
+            } catch (err) {
+                dbg.log0('NamespaceCache.read_object_md: error in cache', err);
+                if (get_from_cache) throw err;
             }
-
-            const cache_validation_time = object_info_cache.cache_last_valid_time;
-            const time_since_validation = Date.now() - cache_validation_time;
-
-            if ((this.caching.ttl_ms > 0 && time_since_validation <= this.caching.ttl_ms) || this.caching.ttl_ms < 0) {
-                object_info_cache.should_read_from_cache = true; // mark it for read_object_stream
-                dbg.log0('NamespaceCache.read_object_md use md from cache', object_info_cache);
-                return object_info_cache;
-            }
-
-            cache_etag = object_info_cache.etag;
-        } catch (err) {
-            dbg.log0('NamespaceCache.read_object_md: error in cache', err);
-            if (get_from_cache) throw err;
         }
-
         try {
             const object_info_hub = await this.namespace_hub.read_object_md(params, object_sdk);
             if (object_info_hub.etag === cache_etag) {
@@ -334,7 +362,9 @@ class NamespaceCache {
 
         let hub_read_stream;
         try {
-            hub_read_params.if_match_etag = params.object_md.etag;
+            if (!hub_read_params.md_conditions) {
+                hub_read_params.md_conditions = { if_match_etag: params.object_md.etag };
+            }
             hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
         } catch (err) {
             if (err.rpc_code === 'IF_MATCH_ETAG') {
@@ -357,7 +387,8 @@ class NamespaceCache {
             hub_read_stream.pipe(range_stream);
         }
 
-        // Object or part will only be uploaded to cache if size is not too big
+        // Object or part will only be uploaded to cache if size is not too big and
+        // the preconditions (if-match header etc.) are not set.
         if (hub_read_size <= params.bucket_free_space_bytes) {
             // We use pass through stream here because we have to start piping immediately
             // and the cache upload does not pipe immediately (only after creating the object_md).
@@ -373,20 +404,27 @@ class NamespaceCache {
                 xattr: params.object_md.xattr,
             };
             if (hub_read_range) {
-                upload_params.start = hub_read_range.start;
-                upload_params.end = hub_read_range.end;
-                // Set object ID since partial object has been created before
-                upload_params.obj_id = params.object_md.obj_id;
+                if (params.md_conditions === undefined ||
+                    params.md_conditions.if_match_etag === params.object_md.etag) {
 
-                _global_cache_uploader.submit_background(
-                    hub_read_size,
-                    async () => object_sdk.object_io.upload_object_range(
-                        _.defaults({
-                            client: object_sdk.rpc_client,
-                            bucket: this.namespace_nb.target_bucket,
-                        }, upload_params))
-                );
-                dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache');
+                    upload_params.start = hub_read_range.start;
+                    upload_params.end = hub_read_range.end;
+                    // Set object ID since partial object has been created before
+                    upload_params.obj_id = params.object_md.obj_id;
+
+                    _global_cache_uploader.submit_background(
+                        hub_read_size,
+                        async () => object_sdk.object_io.upload_object_range(
+                            _.defaults({
+                                client: object_sdk.rpc_client,
+                                bucket: this.namespace_nb.target_bucket,
+                            }, upload_params))
+                    );
+                    dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
+                } else {
+                    dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache',
+                        { md_conditions: params.md_conditions, cache_object_md: params.object_md });
+                }
             } else {
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
@@ -401,6 +439,16 @@ class NamespaceCache {
 
 
     async read_object_stream(params, object_sdk) {
+        // part_number is set to the query parameter partNumber in request. If set,
+        // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
+        // GET request for the part specified.
+        if (params.part_number) {
+            // If the query parameter partNumber is set, the object was most likely
+            // created by the multipart upload. Since we don't support MP in cache,
+            // we proxy the read to hub.
+            return this.namespace_hub.read_object_stream(params, object_sdk);
+        }
+
         const get_from_cache = params.get_from_cache;
         // Remove get_from_cache if exists for matching RPC schema
         params = _.omit(params, 'get_from_cache');
@@ -443,6 +491,9 @@ class NamespaceCache {
         const operation = 'ObjectCreated';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
 
+        function stream_final_from_promise(promise) {
+            return callback => promise.then(() => callback(), err => callback(err));
+        }
         const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         let upload_response;
         let etag;
@@ -462,8 +513,14 @@ class NamespaceCache {
             const hub_params = { ...params, source_stream: hub_stream };
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
 
-            // defer the final callback of the cache stream until the hub ack
-            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
+            const cache_final_promise = hub_promise.then(async upload_res => {
+                const update_params = _.pick(_.defaults(
+                    { bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key', 'last_modified_time');
+                update_params.last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                await object_sdk.rpc_client.object.update_object_md(update_params);
+             });
+            const cache_finalizer = stream_final_from_promise(cache_final_promise);
+
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
             const cache_params = { ...params, source_stream: cache_stream };
             const cache_promise = _global_cache_uploader.surround_count(
@@ -545,9 +602,9 @@ class NamespaceCache {
 
     async complete_object_upload(params, object_sdk) {
 
-        setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-
-        return this.namespace_hub.complete_object_upload(params, object_sdk);
+        const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
+        await this._delete_object_from_cache(params, object_sdk);
+        return res;
     }
 
     async abort_object_upload(params, object_sdk) {
@@ -584,6 +641,11 @@ class NamespaceCache {
 
     async delete_multiple_objects(params, object_sdk) {
         const operation = 'ObjectRemoved';
+        const objects = params.objects.filter(obj => obj.version_id);
+        if (objects.length > 0) {
+            dbg.error('S3 Version request not (NotImplemented) for s3_post_bucket_delete', params);
+            throw new S3Error(S3Error.NotImplemented);
+        }
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         const head_res = load_for_trigger && await P.map(params.objects, async obj => {
             const request = {
@@ -630,15 +692,35 @@ class NamespaceCache {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
+
+        const object_md = await this.read_object_md(params, object_sdk);
+        if (object_md.should_read_from_cache) {
+            return this.namespace_nb.get_object_tagging(params, object_sdk);
+        }
+
         return this.namespace_hub.get_object_tagging(params, object_sdk);
     }
 
     async delete_object_tagging(params, object_sdk) {
-        return this.namespace_hub.delete_object_tagging(params, object_sdk);
+
+        const res = this.namespace_hub.delete_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.delete_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     async put_object_tagging(params, object_sdk) {
-        return this.namespace_hub.put_object_tagging(params, object_sdk);
+
+        const res = await this.namespace_hub.put_object_tagging(params, object_sdk);
+        try {
+            await this.namespace_nb.put_object_tagging(params, object_sdk);
+        } catch (err) {
+            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream')});
+        }
+        return res;
     }
 
     //////////////////////////

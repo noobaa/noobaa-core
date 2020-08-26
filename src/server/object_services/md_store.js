@@ -1113,6 +1113,25 @@ class MDStore {
     }
 
     /**
+     * @param {nb.ID[]} part_ids
+     *
+     */
+    async delete_parts_by_ids(part_ids) {
+        if (!part_ids || !part_ids.length) return;
+
+        const delete_date = new Date();
+        return this._parts.col().updateMany({
+            _id: {
+                $in: part_ids
+            },
+            deleted: null
+        }, {
+            $set: {
+                deleted: delete_date
+            },
+        });
+    }
+    /**
      * @param {nb.ID[]} chunk_ids
      * @returns {Promise<nb.ID[]>}
      */
@@ -1512,6 +1531,15 @@ class MDStore {
                 chunk: chunk_id,
             })
             .then(obj => Boolean(obj));
+    }
+
+
+    has_any_parts_for_object(obj) {
+        return this._parts.col().findOne({
+                obj: obj._id,
+                deleted: null
+            })
+            .then(part => Boolean(part));
     }
 
     db_delete_chunks(chunk_ids) {

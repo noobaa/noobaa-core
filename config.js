@@ -138,7 +138,7 @@ config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 // AGENT BLOCKS VERIFIER //
 ///////////////////////////
 
-config.AGENT_BLOCKS_VERIFIER_ENABLED = true;
+config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
 // TODO: Should check what is the optiomal amount of batch
 config.AGENT_BLOCKS_VERIFIER_BATCH_SIZE = 1000;
 config.AGENT_BLOCKS_VERIFIER_BATCH_DELAY = 50;

@@ -12,6 +12,7 @@ const blob_utils = require('../endpoint/blob/blob_utils');
 const azure_storage = require('../util/azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const stats_collector = require('./endpoint_stats_collector');
+const s3_utils = require('../endpoint/s3/s3_utils');
 const mongodb = require('mongodb');
 
 const MAP_BLOCK_LIST_TYPE = Object.freeze({
@@ -622,6 +623,19 @@ class NamespaceBlob {
     _translate_error_code(err) {
         if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
+    }
+
+    //////////
+    // ACLs //
+    //////////
+
+    async get_object_acl(params, object_sdk) {
+        await this.read_object_md(params, object_sdk);
+        return s3_utils.DEFAULT_OBJECT_ACL;
+    }
+
+    async put_object_acl(params, object_sdk) {
+        await this.read_object_md(params, object_sdk);
     }
 
 }

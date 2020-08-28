@@ -24,7 +24,7 @@ class NamespaceS3 {
         this.rpc_client = rpc_client;
     }
 
-    // check if copy can be done server side on AWS. 
+    // check if copy can be done server side on AWS.
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
     // and fall back to read\write copy if access is denied
@@ -119,16 +119,36 @@ class NamespaceS3 {
     // OBJECT READ //
     /////////////////
 
+    _set_md_conditions(params, request) {
+        if (params.md_conditions) {
+            request.IfMatch = params.md_conditions.if_match_etag;
+            request.IfNoneMatch = params.md_conditions.if_none_match_etag;
+            if (params.md_conditions.if_modified_since) {
+                request.IfModifiedSince = new Date(params.md_conditions.if_modified_since);
+            }
+            if (params.md_conditions.if_unmodified_since) {
+                request.IfUnmodifiedSince = new Date(params.md_conditions.if_unmodified_since);
+            }
+        }
+    }
+
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
-            const request = { Key: params.key, Range: `bytes=0-${config.INLINE_MAX_SIZE - 1}` };
+            const request = { Key: params.key, PartNumber: params.part_number };
+            // If set, part_number is positive integer from 1 to 10000.
+            // Usually part number is not provided and then we read a small "inline" range
+            // to reduce the double latency for small objects.
+            if (!params.part_number) {
+                request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
+            }
+            this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
             const res = await this.s3.getObject(request).promise();
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
-            this._translate_error_code(err);
+            this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
             throw err;
         }
@@ -140,11 +160,13 @@ class NamespaceS3 {
             const request = {
                 Key: params.key,
                 Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
+                PartNumber: params.part_number,
             };
+            this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
             const req = this.s3.getObject(request)
                 .on('error', err => {
-                    this._translate_error_code(err);
+                    this._translate_error_code(params, err);
                     dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
                     reject(err);
                 })
@@ -231,7 +253,8 @@ class NamespaceS3 {
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
-        return { etag, version_id: res.VersionId };
+        const last_modified_time = s3_utils.get_http_response_date(res);
+        return { etag, version_id: res.VersionId, last_modified_time };
     }
 
     ////////////////////////
@@ -522,12 +545,25 @@ class NamespaceS3 {
             xattr,
             tag_count: res.TagCount,
             first_range_data: res.Body,
+            multipart_count: res.PartsCount,
+            content_range: res.ContentRange,
+            content_length: res.ContentLength,
         };
     }
 
-    _translate_error_code(err) {
+    _translate_error_code(params, err) {
         if (err.code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
-        if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        else if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        else if (params.md_conditions) {
+            const md_conditions = params.md_conditions;
+            if (err.code === 'PreconditionFailed') {
+                if (md_conditions.if_match_etag) err.rpc_code = 'IF_MATCH_ETAG';
+                else if (md_conditions.if_unmodified_since) err.rpc_code = 'IF_UNMODIFIED_SINCE';
+            } else if (err.code === 'NotModified') {
+                if (md_conditions.if_modified_since) err.rpc_code = 'IF_MODIFIED_SINCE';
+                else if (md_conditions.if_none_match_etag) err.rpc_code = 'IF_NONE_MATCH_ETAG';
+            }
+        }
     }
 
     _assign_encryption_to_request(params, request) {

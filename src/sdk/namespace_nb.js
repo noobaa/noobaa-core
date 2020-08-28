@@ -64,6 +64,9 @@ class NamespaceNB {
 
     read_object_md(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
+        // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
+        // If set, part_number is positive integer from 1 to 10000
+        if (params.part_number) _.unset(params, 'part_number');
         return object_sdk.rpc_client.object.read_object_md(params);
     }
 
@@ -74,6 +77,9 @@ class NamespaceNB {
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
+        // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
+        // If set, part_number is positive integer from 1 to 10000
+        if (params.part_number) _.unset(params, 'part_number');
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
         const load_for_trigger = !params.noobaa_trigger_agent && object_sdk.should_run_triggers({
             active_triggers,
@@ -160,9 +166,26 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.list_multiparts(params);
     }
 
-    complete_object_upload(params, object_sdk) {
+    async complete_object_upload(params, object_sdk) {
+        const operation = 'ObjectCreated';
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return object_sdk.rpc_client.object.complete_object_upload(params);
+        const active_triggers = this.get_triggers_for_bucket(params.bucket);
+        const load_for_trigger = object_sdk.should_run_triggers({
+            active_triggers,
+            operation
+        });
+        const reply = await object_sdk.rpc_client.object.complete_object_upload(params);
+        if (load_for_trigger) {
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: reply.size,
+                content_type: reply.content_type,
+                etag: reply.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers, operation, obj, bucket: params.bucket });
+        }
+        return reply;
     }
 
     abort_object_upload(params, object_sdk) {
@@ -209,7 +232,7 @@ class NamespaceNB {
         });
         // TODO: What should I do instead of failing on one failed head request?
         // I cannot exclude the files that failed from delete since it will be considered altering the request of the client
-        // TODO: Notice that we do not handle the md_conditions for the heads 
+        // TODO: Notice that we do not handle the md_conditions for the heads
         const head_res = load_for_trigger && await P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,
@@ -270,6 +293,25 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.get_object_tagging(params);
     }
 
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    get_object_legal_hold(params, object_sdk) {
+        return object_sdk.rpc_client.object.get_object_legal_hold(params);
+    }
+
+    put_object_legal_hold(params, object_sdk) {
+        return object_sdk.rpc_client.object.put_object_legal_hold(params);
+    }
+
+    get_object_retention(params, object_sdk) {
+        return object_sdk.rpc_client.object.get_object_retention(params);
+    }
+
+    put_object_retention(params, object_sdk) {
+        return object_sdk.rpc_client.object.put_object_retention(params);
+    }
 }
 
 module.exports = NamespaceNB;

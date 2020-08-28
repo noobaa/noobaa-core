@@ -201,7 +201,7 @@ class NodesMonitor extends EventEmitter {
         // This is used in order to test n2n connection from node_monitor to agents
         this.n2n_rpc = api.new_rpc();
         this.n2n_client = this.n2n_rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-        this.n2n_agent = this.n2n_rpc.register_n2n_agent(this.n2n_client.node.n2n_signal);
+        this.n2n_agent = this.n2n_rpc.register_n2n_agent((...args) => this.n2n_client.node.n2n_signal(...args));
         this._host_sequence_number = 0;
         // Notice that this is a mock up address just to ensure n2n connection authorization
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
@@ -776,6 +776,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _disconnect_node(item) {
+        item.disconnect_time = Date.now();
         this._close_node_connection(item);
         this._set_need_update.add(item);
         this._update_status(item);
@@ -1241,8 +1242,8 @@ class NodesMonitor extends EventEmitter {
             node_id: String(item.node._id),
             host_id: String(item.node.host_id),
             pool_id: String(item.node.pool),
-            region: item_pool.region
         };
+        if (item_pool) location_info.region = item_pool.region;
         const service_enabled_not_changed = (item.node.enabled && should_enable) || (!item.node.enabled && !should_enable);
         const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);
         if (service_enabled_not_changed && location_info_not_changed) {
@@ -1884,7 +1885,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleting &&
             !item.node.deleted);
         if (stat) {
-            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} 
+            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address}
                 ${item.io_detention} ${item.node.migrating_to_pool} ${item.node.decommissioning} ${item.node.decommissioned} ${item.node.deleting} ${item.node.deleted}`);
         }
         return stat;
@@ -1904,7 +1905,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleted
         );
         if (!readable) {
-            dbg.log0_throttled(`${item.node.name} not reasable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
+            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
                 ${!item.auth_failed} ${!item.io_detention} ${!item.node.decommissioned} ${!item.node.deleting} ${!item.node.deleted}`);
         }
         return readable;
@@ -1928,8 +1929,8 @@ class NodesMonitor extends EventEmitter {
         );
 
         if (!writable) {
-            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist} 
-                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned} 
+            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
+                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned}
                 ${!item.node.deleting} ${!item.node.deleted}`);
         }
         return writable;
@@ -3494,7 +3495,12 @@ class NodesMonitor extends EventEmitter {
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
             // disconnect from the node to force reconnect
-            this._disconnect_node(item);
+            // only disconnect if enough time passed since last disconnect to avoid amplification of errors in R\W flows
+            const DISCONNECT_GRACE_PERIOD = 2 * 60 * 1000; // 2 minutes grace before another disconnect
+            if (!item.disconnect_time || item.disconnect_time + DISCONNECT_GRACE_PERIOD < Date.now()) {
+                dbg.log0('disconnecting node to force reconnect. node:', item.node.name);
+                this._disconnect_node(item);
+            }
         }
     }
 

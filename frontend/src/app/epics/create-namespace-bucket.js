@@ -10,12 +10,12 @@ export default function(action$, { api }) {
     return action$.pipe(
         ofType(CREATE_NAMESPACE_BUCKET),
         mergeMap(async action => {
-            const { name, readFrom, writeTo } = action.payload;
-
+            const { name, readFrom, writeTo, caching } = action.payload;
             try {
                 const namespace = {
                     read_resources: readFrom,
-                    write_resource: writeTo
+                    write_resource: writeTo,
+                    caching: caching
                 };
 
                 await api.bucket.create_bucket({ name, namespace });

@@ -3,11 +3,10 @@
 
 const wtf = require("wtfnode");
 
-const panic = require('../../util/panic');
-panic.enable_heapdump('coretest');
-
 console.log('loading .env file');
 require('../../util/dotenv').load();
+require('../../util/panic').enable_heapdump('coretest');
+require('../../util/fips');
 
 const CORETEST = 'coretest';
 process.env.JWT_SECRET = CORETEST;
@@ -146,7 +145,9 @@ function setup(options = {}) {
         await server_rpc.client.redirector.publish_to_cluster({
             method_api: 'server_inter_process_api',
             method_name: 'load_system_store',
-            target: ''
+            target: '',
+            request_params: {}
+
         });
         await announce('ensure_support_account()');
         await account_server.ensure_support_account();
@@ -199,36 +200,40 @@ function setup(options = {}) {
     mocha.after('coretest-after', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
 
-        console.log('Database', process.env.CORETEST_MONGODB_URL, 'is intentionally',
-            'left for debugging and will be deleted before next test run');
+        try {
+            console.log('Database', process.env.CORETEST_MONGODB_URL, 'is intentionally',
+                'left for debugging and will be deleted before next test run');
 
-        if (_incomplete_rpc_coverage) {
-            let had_missing = false;
-            for (let srv of api_coverage) {
-                console.warn('API was not covered:', srv);
-                had_missing = true;
-            }
-            if (had_missing) {
-                if (_incomplete_rpc_coverage === 'fail') {
-                    throw new Error('INCOMPLETE RPC COVERAGE');
-                } else {
-                    console.warn('INCOMPLETE RPC COVERAGE');
+            if (_incomplete_rpc_coverage) {
+                let had_missing = false;
+                for (let srv of api_coverage) {
+                    console.warn('API was not covered:', srv);
+                    had_missing = true;
+                }
+                if (had_missing) {
+                    if (_incomplete_rpc_coverage === 'fail') {
+                        throw new Error('INCOMPLETE RPC COVERAGE');
+                    } else {
+                        console.warn('INCOMPLETE RPC COVERAGE');
+                    }
                 }
             }
-        }
-        await announce('clear_test_pools()');
-        await clear_test_pools();
-        await P.delay(1000);
-        await announce('rpc set_disconnected_state()');
-        server_rpc.rpc.set_disconnected_state(true);
-        await announce('mongo_client disconnect()');
-        await mongo_client.instance().disconnect();
-        await announce('http_server close()');
-        if (http_server) http_server.close();
-        await announce('https_server close()');
-        if (https_server) https_server.close();
-        await announce('coretest done ...');
+            await announce('clear_test_pools()');
+            await clear_test_pools();
+            await P.delay(1000);
+            await announce('rpc set_disconnected_state()');
+            server_rpc.rpc.set_disconnected_state(true);
+            await announce('mongo_client disconnect()');
+            await mongo_client.instance().disconnect();
+            await announce('http_server close()');
+            if (http_server) http_server.close();
+            await announce('https_server close()');
+            if (https_server) https_server.close();
+            await announce('coretest done ...');
 
+        } catch (err) {
+            dbg.error('got error on mocha.after', err);
+        }
         let tries_left = 3;
         setInterval(function check_dangling_handles() {
             tries_left -= 1;
@@ -244,6 +249,7 @@ function setup(options = {}) {
                 process.exit(1);
             }
         }, 30000).unref();
+
     });
 }
 
@@ -367,16 +373,28 @@ async function clear_test_pools() {
 
     // Delete all pools (will stop all agents managed by the pool)
     if (CREATED_POOLS) {
-        await Promise.all(CREATED_POOLS.map(pool =>
-            rpc_client.pool.delete_pool({ name: pool.name })
-        ));
+        console.log(`cleaning pools`, CREATED_POOLS.map(p => p.name));
 
-        console.log('Waiting until all pools are deleted (including hosts)');
-        await promise_utils.wait_until(async () => {
-            const { pools } = await rpc_client.system.read_system({});
-            const existing_pools = new Set(pools.map(pool => pool.name));
-            return CREATED_POOLS.every(pool => !existing_pools.has(pool.name));
-        }, 5 * 60 * 1000, 2500);
+        await Promise.all(CREATED_POOLS.map(async pool => {
+            try {
+                await promise_utils.wait_until(async () => {
+                    try {
+                        console.log(`deleting pool`, pool.name);
+                        await rpc_client.pool.delete_pool({ name: pool.name });
+                    } catch (err) {
+                        if (err.rpc_code === 'NO_SUCH_POOL') {
+                            console.log(`deleted pool ${pool.name}`);
+                            return true;
+                        }
+                        console.log(`got error on delete_pool for pool ${pool.name}`, err.rpc_code);
+                    }
+                    return false;
+                }, 2 * 60 * 1000, 2500);
+            } catch (err) {
+                dbg.error('failed on pool cleanup', err);
+            }
+        }));
+        console.log(`finished pools cleanup`);
     }
 
     console.log('STOP MONITOR');

@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2200]*/
 'use strict';
 
 const _ = require('lodash');
@@ -31,6 +32,7 @@ const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_stor
 const events_dispatcher = require('./events_dispatcher');
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
+const config = require('../../../config');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -65,11 +67,30 @@ async function create_object_upload(req) {
         content_type: req.rpc_params.content_type ||
             mime.getType(req.rpc_params.key) ||
             'application/octet-stream',
-        upload_started: obj_id,
-        upload_size: 0,
         tagging: req.rpc_params.tagging,
         encryption
     };
+
+    if (req.rpc_params.complete_upload) {
+        if (!req.rpc_params.size || req.rpc_params.size < 0) {
+            throw new RpcError('INVALID_REQUEST', 'valid size must be provided when using complete_upload');
+        }
+        if (!req.rpc_params.etag) {
+            throw new RpcError('INVALID_REQUEST', 'etag must be provided when using complete_upload');
+        }
+        info.etag = req.rpc_params.etag;
+    } else {
+        info.upload_size = 0;
+        info.upload_started = obj_id;
+    }
+
+    if (req.bucket.namespace && req.bucket.namespace.caching) {
+        info.cache_last_valid_time = new Date();
+    }
+
+    const lock_settings = config.WORM_ENABLED ? calc_retention(req) : undefined;
+    if (lock_settings) info.lock_settings = lock_settings;
+
     if (req.rpc_params.size >= 0) info.size = req.rpc_params.size;
     if (req.rpc_params.md5_b64) info.md5_b64 = req.rpc_params.md5_b64;
     if (req.rpc_params.sha256_b64) info.sha256_b64 = req.rpc_params.sha256_b64;
@@ -163,6 +184,164 @@ async function delete_object_tagging(req) {
     };
 }
 
+function calc_retention(req) {
+    dbg.log0('calc_retention:', req.rpc_params);
+    let obj_settings = req.rpc_params.lock_settings;
+
+    if (!obj_settings) {
+        const retention_conf = get_default_lock_config(req.bucket);
+        if (!retention_conf) return;
+
+        let today = new Date();
+        const retain_until_date = retention_conf.days ? new Date(today.setDate(today.getDate() + retention_conf.days)) :
+            new Date(today.setFullYear(today.getFullYear() + retention_conf.years));
+
+        obj_settings = { retention: { mode: retention_conf.mode, retain_until_date } };
+
+    } else if (obj_settings.retention && obj_settings.retention.retain_until_date) {
+        obj_settings.retention.retain_until_date = new Date(obj_settings.retention.retain_until_date);
+    }
+    return obj_settings;
+}
+
+function get_default_lock_config(bucket) {
+    dbg.log0('get_default_lock_config:', bucket.object_lock_configuration);
+    const bucket_info = bucket.object_lock_configuration;
+    if (bucket_info.object_lock_enabled !== 'Enabled') {
+        return;
+    }
+    if (bucket_info.rule) return bucket_info.rule.default_retention;
+}
+/**
+ *
+ * get_object_legal_hold
+ *
+ */
+
+async function get_object_legal_hold(req) {
+    dbg.log0('get_object_legal_hold:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (!info.lock_settings || !info.lock_settings.legal_hold) {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    return {
+        legal_hold: { status: info.lock_settings.legal_hold.status }
+    };
+}
+/**
+ *
+ * put_object_legal_hold
+ *
+ */
+async function put_object_legal_hold(req) {
+    dbg.log0('put_object_legal_hold:', req.rpc_params);
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    let retention;
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    if (info.lock_settings && info.lock_settings.retention) {
+        retention = {
+            mode: info.lock_settings.retention.mode,
+            retain_until_date: info.lock_settings.retention.retain_until_date,
+        };
+    }
+    await MDStore.instance().update_object_by_id(
+        obj._id, {
+            lock_settings: {
+                legal_hold: {
+                    status: req.params.legal_hold.status
+                },
+                retention,
+            }
+        }, undefined, undefined
+    );
+
+}
+/**
+ *
+ * get_object_retention
+ *
+ */
+async function get_object_retention(req) {
+    dbg.log0('get_object_retention:', req.rpc_params);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (!req.bucket.object_lock_configuration || req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') throw new RpcError('INVALID_REQUEST');
+    if (!info.lock_settings || !info.lock_settings.retention) throw new RpcError('NO_SUCH_OBJECT_LOCK_CONFIGURATION');
+
+    return {
+        retention: {
+            retain_until_date: info.lock_settings.retention.retain_until_date,
+            mode: info.lock_settings.retention.mode
+        }
+    };
+}
+/**
+ *
+ * put_object_retention
+ *
+ */
+async function put_object_retention(req) {
+    dbg.log0('put_object_retention:', req.rpc_params);
+
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj, { role: req.role });
+
+    if (req.role !== 'admin') {
+        throw new RpcError('UNAUTHORIZED');
+    }
+    if (req.bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_REQUEST');
+    }
+    if (info.lock_settings && info.lock_settings.retention &&
+        (new Date(req.rpc_params.retention.retain_until_date) < new Date(info.lock_settings.retention.retain_until_date) ||
+            !req.rpc_params.retention)) {
+
+        if ((info.lock_settings.retention.mode === 'GOVERNANCE' && (!req.rpc_params.bypass_governance || req.role !== 'admin')) ||
+            info.lock_settings.retention.mode === 'COMPLIANCE') {
+            dbg.error('put object retention failed due object retention mode', obj);
+            throw new RpcError('UNAUTHORIZED');
+        }
+    }
+    let legal_hold;
+    if (info.lock_settings && info.lock_settings.legal_hold) {
+        legal_hold = { status: info.lock_settings.legal_hold.status };
+    }
+    await MDStore.instance().update_object_by_id(
+        obj._id, {
+            lock_settings: {
+                retention: {
+                    mode: req.rpc_params.retention.mode,
+                    retain_until_date: req.rpc_params.retention.retain_until_date,
+                },
+                legal_hold,
+            }
+        }, undefined, undefined
+    );
+}
+
 const ZERO_SIZE_ETAG = crypto.createHash('md5').digest('hex');
 
 /**
@@ -236,6 +415,9 @@ async function complete_object_upload(req) {
     }
 
     set_updates.create_time = new Date();
+    if (req.bucket.namespace && req.bucket.namespace.caching) {
+        set_updates.cache_last_valid_time = new Date();
+    }
     set_updates.version_seq = await MDStore.instance().alloc_object_version_seq();
     if (req.bucket.versioning === 'ENABLED') {
         set_updates.version_enabled = true;
@@ -262,9 +444,12 @@ async function complete_object_upload(req) {
     return {
         etag: set_updates.etag,
         version_id: MDStore.instance().get_object_version_id(set_updates),
-        encryption: obj.encryption
+        encryption: obj.encryption,
+        size: set_updates.size,
+        content_type: obj.content_type,
     };
 }
+
 
 async function update_bucket_counters({ system, bucket_name, content_type, read_count, write_count }) {
     const bucket = system.buckets_by_name[bucket_name.unwrap()];
@@ -568,7 +753,7 @@ async function read_node_mapping(req) {
  *
  */
 async function read_object_md(req) {
-    dbg.log0('read_object_md:', req.rpc_params);
+    dbg.log0('object_server.read_object_md:', req.rpc_params);
     const { bucket, key, md_conditions, adminfo, encryption } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
@@ -577,8 +762,7 @@ async function read_object_md(req) {
 
     const obj = await find_object_md(req);
     check_md_conditions(req, md_conditions, obj);
-    const info = get_object_info(obj);
-
+    const info = get_object_info(obj, { role: req.role });
     _check_encryption_permissions(obj.encryption, encryption);
 
     if (adminfo) {
@@ -636,11 +820,17 @@ function _check_encryption_permissions(src_enc, req_enc) {
  *
  */
 async function update_object_md(req) {
-    dbg.log0('update object md', req.rpc_params);
+    dbg.log0('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
-    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr');
+    const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
     if (set_updates.xattr) {
         set_updates.xattr = _.mapKeys(set_updates.xattr, (v, k) => k.replace(/\./g, '@'));
+    }
+    if (set_updates.cache_last_valid_time) {
+        set_updates.cache_last_valid_time = new Date(set_updates.cache_last_valid_time);
+    }
+    if (set_updates.last_modified_time) {
+        set_updates.last_modified_time = new Date(set_updates.last_modified_time);
     }
     const obj = await find_object_md(req);
     await MDStore.instance().update_object_by_id(obj._id, set_updates);
@@ -793,7 +983,7 @@ async function delete_multiple_objects_by_prefix(req) {
 // In this case we just upload the objects and write the folder hierarchy in it's key
 // So to we just upload a file with key /tmp/object.mp4 and the list_objects will resolve it
 async function list_objects(req) {
-    dbg.log0('list_objects', req.rpc_params);
+    dbg.log0('object_server.list_objects', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -1080,8 +1270,7 @@ async function add_endpoint_report(req) {
             const access_key = acc.access_keys &&
                 acc.access_keys[0] &&
                 acc.access_keys[0].access_key;
-
-            return access_key !== null && (access_key.unwrap() === record.access_key.unwrap());
+            return access_key && (access_key.unwrap() === record.access_key.unwrap());
         });
         const bucket = system_store.data.buckets.find(bkt =>
             bkt.name.unwrap() === record.bucket.unwrap()
@@ -1144,7 +1333,7 @@ function report_endpoint_problems(req) {
  * @param {nb.ObjectMD} md
  * @returns {nb.ObjectInfo}
  */
-function get_object_info(md) {
+function get_object_info(md, options = {}) {
     var bucket = system_store.data.get_by_id(md.bucket);
     return {
         obj_id: md._id.toHexString(),
@@ -1156,10 +1345,13 @@ function get_object_info(md) {
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
+        last_modified_time: md.last_modified_time ? (md.last_modified_time.getTime()) : undefined,
+        cache_last_valid_time: md.cache_last_valid_time ? md.cache_last_valid_time.getTime() : undefined,
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
+        lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
         delete_marker: md.delete_marker,
         xattr: md.xattr && _.mapKeys(md.xattr, (v, k) => k.replace(/@/g, '.')),
@@ -1172,7 +1364,7 @@ function get_object_info(md) {
         },
         tagging: md.tagging,
         encryption: md.encryption,
-        tag_count: (md.tagging && md.tagging.length) || 0
+        tag_count: (md.tagging && md.tagging.length) || 0,
     };
 }
 
@@ -1228,6 +1420,28 @@ async function find_object_upload(req) {
 
 /**
  * @param {Object} req
+ */
+async function get_upload_object_range_info(req) {
+    dbg.log0('object_server.get_upload_object_range_info:', req.rpc_params);
+    throw_if_maintenance(req);
+
+    const obj = await find_cached_partial_object_upload(req);
+    const tier = await map_server.select_tier_for_write(req.bucket);
+    const encryption = _get_encryption_for_object(req);
+
+    return {
+        obj_id: obj._id,
+        bucket_id: req.bucket._id,
+        upload_size: obj.upload_size,
+        tier_id: tier._id,
+        chunk_split_config: req.bucket.tiering.chunk_split_config,
+        chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        encryption
+    };
+}
+
+/**
+ * @param {Object} req
  * @returns {Promise<nb.ObjectMD>}
  */
 async function find_cached_object_upload(req) {
@@ -1235,6 +1449,20 @@ async function find_cached_object_upload(req) {
     const obj_id = get_obj_id(req, 'NO_SUCH_UPLOAD');
     const obj = await object_md_cache.get_with_cache(String(obj_id));
     check_object_mode(req, obj, 'NO_SUCH_UPLOAD');
+    return obj;
+}
+
+/**
+ * @param {Object} req
+ * @returns {Promise<nb.ObjectMD>}
+ */
+async function find_cached_partial_object_upload(req) {
+    load_bucket(req);
+    // Use "NO_SUCH_OBJECT" for rpc error instead of "NO_SUCH_UPLOAD"
+    // since partial object does not always have upload part
+    const obj_id = get_obj_id(req, 'NO_SUCH_OBJECT');
+    const obj = await object_md_cache.get_with_cache(String(obj_id));
+    check_object_mode(req, obj, 'NO_SUCH_OBJECT');
     return obj;
 }
 
@@ -1493,6 +1721,27 @@ async function _delete_object_version(req) {
             await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key) :
             await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, version_seq);
         if (!obj) return { reply: {} };
+
+        if (config.WORM_ENABLED && obj.lock_settings) {
+            if (obj.lock_settings.legal_hold && obj.lock_settings.legal_hold.status === 'ON') {
+                dbg.error('object is locked, can not delete object', obj);
+                throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+            }
+            if (obj.lock_settings.retention) {
+                const now = new Date();
+                const retain_until_date = new Date(obj.lock_settings.retention.retain_until_date);
+
+                if (obj.lock_settings.retention.mode === 'COMPLIANCE' && retain_until_date > now) {
+                    dbg.error('object is locked, can not delete object', obj);
+                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+                }
+                if (obj.lock_settings.retention.mode === 'GOVERNANCE' &&
+                    (!req.rpc_params.bypass_governance || req.role !== 'admin') && retain_until_date > now) {
+                    dbg.error('object is locked, can not delete object', obj);
+                    throw new RpcError('UNAUTHORIZED', 'can not delete locked object.');
+                }
+            }
+        }
         check_md_conditions(req, req.rpc_params.md_conditions, obj);
         if (obj.version_past) {
             // 2, 8
@@ -1744,6 +1993,7 @@ function _sort_parts_by_seq(a, b) {
 exports.create_object_upload = create_object_upload;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
+exports.get_upload_object_range_info = get_upload_object_range_info;
 // multipart
 exports.create_multipart = create_multipart;
 exports.complete_multipart = complete_multipart;
@@ -1780,3 +2030,9 @@ exports.put_object_tagging = put_object_tagging;
 exports.get_object_tagging = get_object_tagging;
 exports.delete_object_tagging = delete_object_tagging;
 exports.dispatch_triggers = dispatch_triggers;
+// object lock
+exports.put_object_legal_hold = put_object_legal_hold;
+exports.get_object_legal_hold = get_object_legal_hold;
+exports.put_object_retention = put_object_retention;
+exports.get_object_retention = get_object_retention;
+exports.calc_retention = calc_retention;

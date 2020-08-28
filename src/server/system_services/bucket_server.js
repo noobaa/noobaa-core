@@ -43,7 +43,8 @@ const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
-function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag) {
+
+function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
@@ -64,7 +65,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
                 (2 * config.MD_GRACE_IN_MILLISECONDS),
         },
         lambda_triggers: [],
-        versioning: 'DISABLED'
+        versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
+        object_lock_configuration: config.WORM_ENABLED ? {
+            object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
+        } : undefined
     };
 }
 
@@ -92,6 +96,8 @@ async function create_bucket(req) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
         const default_pool = req.account.default_pool;
+        // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
+        validate_pool_constraints({ mongo_pool, default_pool });
         const chunk_config = chunk_config_utils.resolve_chunk_config(
             req.rpc_params.chunk_coder_config, req.account, req.system);
         if (!chunk_config._id) {
@@ -128,7 +134,8 @@ async function create_bucket(req) {
         req.system._id,
         tiering_policy._id,
         req.account._id,
-        req.rpc_params.tag);
+        req.rpc_params.tag,
+        req.rpc_params.lock_enabled);
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
@@ -147,12 +154,18 @@ async function create_bucket(req) {
             throw new RpcError('INVALID_WRITE_RESOURCES');
         }
 
+        const caching = req.rpc_params.namespace.caching && {
+            ttl_ms: config.NAMESPACE_CACHING.DEFAULT_CACHE_TTL_MS,
+            ...req.rpc_params.namespace.caching,
+        };
+
         // reorder read resources so that the write resource is the first in the list
         const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
 
         bucket.namespace = {
             read_resources: ordered_read_resources,
-            write_resource
+            write_resource,
+            caching
         };
     }
     if (req.rpc_params.bucket_claim) {
@@ -195,6 +208,13 @@ async function create_bucket(req) {
     }
     let created_bucket = find_bucket(req);
     return get_bucket_info({ bucket: created_bucket });
+}
+
+function validate_pool_constraints({ mongo_pool, default_pool }) {
+    if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true) {
+        if (!(mongo_pool && mongo_pool._id) || !(default_pool && default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Non existing pool');
+        if (String(mongo_pool._id) === String(default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
+    }
 }
 
 /**
@@ -407,8 +427,13 @@ async function delete_bucket_website(req) {
  * READ_BUCKET
  *
  */
-function read_bucket(req) {
-    var bucket = find_bucket(req);
+async function read_bucket(req) {
+    const bucket_sdk_info = await read_bucket_sdk_info(req);
+    return bucket_sdk_info.bucket_info;
+}
+
+async function read_bucket_sdk_info(req) {
+    const bucket = find_bucket(req);
     var pools = [];
 
     _.forEach(bucket.tiering.tiers, tier_and_order => {
@@ -418,19 +443,6 @@ function read_bucket(req) {
     });
     pools = _.compact(pools);
     let pool_names = pools.map(pool => pool.name);
-    return P.props({
-            bucket,
-            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
-            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, req.system._id),
-            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
-            func_configs: get_bucket_func_configs(req, bucket),
-            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
-        })
-        .then(get_bucket_info);
-}
-
-async function read_bucket_sdk_info(req) {
-    const bucket = find_bucket(req);
 
     const system = req.system;
 
@@ -444,6 +456,15 @@ async function read_bucket_sdk_info(req) {
         ),
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
+        bucket_info: await P.props({
+            bucket,
+            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
+            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+            func_configs: get_bucket_func_configs(req, bucket),
+            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
+        })
+        .then(get_bucket_info),
     };
 
     if (bucket.namespace) {
@@ -451,7 +472,8 @@ async function read_bucket_sdk_info(req) {
             write_resource: pool_server.get_namespace_resource_extended_info(
                 system.namespace_resources_by_name[bucket.namespace.write_resource.name]
             ),
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs))
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs)),
+            caching: bucket.namespace.caching,
         };
     }
 
@@ -463,7 +485,13 @@ async function read_bucket_sdk_info(req) {
  * UPDATE_BUCKET
  *
  */
-function update_bucket(req) {
+async function update_bucket(req) {
+    const bucket = find_bucket(req, req.name);
+    const conf = bucket.object_lock_configuration;
+    if (config.WORM_ENABLED && conf && conf.object_lock_enabled === 'Enabled' && req.rpc_params.versioning === 'SUSPENDED') {
+        throw new RpcError('INVALID_BUCKET_STATE', 'An Object Lock configuration is present on this bucket, so the versioning state cannot be changed.');
+    }
+
     const new_req = { ...req, rpc_params: [req.rpc_params] };
     return update_buckets(new_req);
 }
@@ -802,11 +830,13 @@ async function delete_bucket(req) {
             };
         }));
 
-    await system_store.make_changes({
-        update: {
-            accounts: accounts_update
-        }
-    });
+    if (!_.isEmpty(accounts_update)) {
+        await system_store.make_changes({
+            update: {
+                accounts: accounts_update
+            }
+        });
+    }
 }
 
 /**
@@ -1018,8 +1048,8 @@ function get_cloud_buckets(req) {
 
                 const ns = new NetStorage({
                     hostname: connection.endpoint,
-                    keyName: connection.access_key,
-                    key: connection.secret_key,
+                    keyName: connection.access_key.unwrap(),
+                    key: connection.secret_key.unwrap(),
                     cpCode: connection.cp_code,
                     // Just used that in order to not handle certificate mess
                     // TODO: Should I use SSL with HTTPS instead of HTTP?
@@ -1039,7 +1069,7 @@ function get_cloud_buckets(req) {
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 let key_file;
                 try {
-                    key_file = JSON.parse(connection.secret_key);
+                    key_file = JSON.parse(connection.secret_key.unwrap());
                 } catch (err) {
                     throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
                 }
@@ -1052,18 +1082,18 @@ function get_cloud_buckets(req) {
                     .then(data => data[0].map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
             } else { //else if AWS
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 var s3 = new AWS.S3({
                     endpoint: connection.endpoint,
-                    accessKeyId: connection.access_key,
-                    secretAccessKey: connection.secret_key,
+                    accessKeyId: connection.access_key.unwrap(),
+                    secretAccessKey: connection.secret_key.unwrap(),
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
                     s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
                     httpOptions: {
-                        agent: http_utils.get_unsecured_http_agent(connection.endpoint)
+                        agent: http_utils.get_unsecured_agent(connection.endpoint)
                     }
                 });
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
+                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.ninvoke(s3, "listBuckets")
                     .timeout(EXTERNAL_BUCKET_LIST_TO)
                     .then(data => data.Buckets.map(bucket =>
@@ -1377,7 +1407,8 @@ function get_bucket_info({
         namespace: bucket.namespace ? {
             write_resource: pool_server.get_namespace_resource_info(
                 bucket.namespace.write_resource).name,
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name)
+            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name),
+            caching: bucket.namespace.caching
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',
@@ -1401,11 +1432,12 @@ function get_bucket_info({
         node_tolerance: undefined,
         bucket_type: bucket.namespace ? 'NAMESPACE' : 'REGULAR',
         versioning: bucket.versioning,
+        object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
         tagging: bucket.tagging,
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
-        policy: bucket.policy
+        policy: bucket.policy,
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
@@ -1727,6 +1759,33 @@ async function list_undeletable_buckets() {
     return MDStore.instance().all_buckets_with_completed_objects();
 }
 
+async function get_object_lock_configuration(req) {
+    const bucket = find_bucket(req);
+    dbg.log0('get object lock configuration of bucket', req.rpc_params);
+
+    if (!bucket.object_lock_configuration || bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR');
+    }
+    return bucket.object_lock_configuration;
+}
+
+async function put_object_lock_configuration(req) {
+    dbg.log0('add object lock configuration to bucket', req.rpc_params);
+    const bucket = find_bucket(req);
+
+    if (bucket.object_lock_configuration.object_lock_enabled !== 'Enabled') {
+        throw new RpcError('INVALID_BUCKET_STATE');
+    }
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                object_lock_configuration: req.rpc_params.object_lock_configuration
+            }]
+        }
+    });
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -1775,3 +1834,6 @@ exports.put_bucket_policy = put_bucket_policy;
 exports.get_bucket_policy = get_bucket_policy;
 
 exports.update_all_buckets_default_pool = update_all_buckets_default_pool;
+
+exports.get_object_lock_configuration = get_object_lock_configuration;
+exports.put_object_lock_configuration = put_object_lock_configuration;

@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const assert = require('assert');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -35,12 +36,17 @@ const builder_lock = new KeysLock();
 class MapBuilder {
 
     /**
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} chunk_ids
      * @param {nb.Tier} [move_to_tier]
+     * @param {boolean} [evict]
      */
-    constructor(chunk_ids, move_to_tier) {
+    constructor(chunk_ids, move_to_tier, evict) {
         this.chunk_ids = chunk_ids;
         this.move_to_tier = move_to_tier;
+        this.evict = evict;
+
+        // eviction and move to tier are mutually exclusive
+        if (evict) assert.strictEqual(move_to_tier, undefined);
 
         /** @type {nb.ID[]} */
         this.second_pass_chunk_ids = [];
@@ -67,7 +73,7 @@ class MapBuilder {
     }
 
     /**
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} chunk_ids
      */
     async run_build(chunk_ids) {
         await system_store.refresh();
@@ -80,7 +86,7 @@ class MapBuilder {
      * Note that there is always a possibility that the chunks will cease to exist
      * TODO: We can release the unrelevant chunks from the surround_keys
      * This will allow other batches to run if they wait on non existing chunks
-     * @param {nb.ID[]} chunk_ids 
+     * @param {nb.ID[]} chunk_ids
      * @returns {Promise<nb.Chunk[]>}
      */
     async reload_chunks(chunk_ids) {
@@ -92,6 +98,7 @@ class MapBuilder {
         /** @type {nb.Chunk[]} */
         const loaded_chunks = loaded_chunks_db.map(chunk_db => new ChunkDB(chunk_db));
         dbg.log1('MapBuilder.reload_chunks:', loaded_chunks);
+
 
         /** @type {nb.Block[]} */
         const blocks_to_delete = [];
@@ -127,8 +134,11 @@ class MapBuilder {
                 //     const tiering_status = node_allocator.get_tiering_status(chunk.bucket.tiering);
                 //     chunk.tier = mapper.select_tier_for_write(chunk.bucket.tiering, tiering_status);
                 // }
-
-                if (!chunk.parts || !chunk.parts.length) {
+                if (this.evict) {
+                    chunks_to_delete.push(chunk);
+                    return;
+                }
+                if (!chunk.parts || !chunk.parts.length || !chunk.bucket) {
                     const last_hour = this.start_run - (60 * 60 * 1000); // chunks that were created in the last hour will not be deleted
                     dbg.log0('unreferenced chunk to delete', chunk);
                     if (chunk._id.getTimestamp().getTime() > last_hour) return;
@@ -151,15 +161,26 @@ class MapBuilder {
             'blocks_to_delete', blocks_to_delete.length);
 
         await Promise.all([
+            this.evict && map_deleter.delete_parts_by_chunks(chunks_to_delete_uniq),
             map_deleter.delete_blocks(blocks_to_delete),
             map_deleter.delete_chunks(chunks_to_delete_uniq),
+
         ]);
 
+        // Deleting objects with no parts here as the delete_parts_by_chunks need to finish before
+        // any attempt is made to delete the objects.
+        if (this.evict) {
+            const objects_to_gc = _.uniq(loaded_chunks_db.flatMap(chunk => chunk.objects));
+            if (objects_to_gc.length) {
+                dbg.log1('MapBuilder.delete_objects_if_no_parts:', objects_to_gc);
+                await Promise.all(objects_to_gc.map(map_deleter.delete_object_if_no_parts));
+            }
+        }
         return chunks_to_build;
     }
 
     /**
-     * @param {nb.Chunk[]} chunks 
+     * @param {nb.Chunk[]} chunks
      */
     async build_chunks(chunks) {
 

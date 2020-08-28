@@ -46,6 +46,7 @@ async function put_object_uploadId(req, res) {
             dbg.warn('Invalid Argument');
             throw new S3Error(S3Error.InvalidArgument);
         }
+        throw e;
     }
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 

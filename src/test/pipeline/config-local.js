@@ -1,0 +1,20 @@
+/* Copyright (C) 2016 NooBaa */
+'use strict';
+
+const os = require('os');
+var config = exports;
+
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+    DEFAULT_BLOCK_SIZE: 64 * 1024,
+    DEFAULT_MAX_CACHE_OBJECT_SIZE: 4 * 1024 * 1024,
+    DISABLE_BUCKET_FREE_SPACE_CHECK: true,
+    CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD: 80,
+    PART_COUNT_HIGH_THRESHOLD: 5,
+    CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
+    CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
+    UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
+    UPLOAD_SEMAPHORE_CAP: Math.floor(
+        Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
+};
+

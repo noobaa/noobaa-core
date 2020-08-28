@@ -1,69 +1,18 @@
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: noobaa.io/v1alpha1
+kind: BackingStore
 metadata:
-  name: noobaa-agent
+  name: backingstore
   labels:
     app: noobaa
-    noobaa-module: noobaa-pool-impl
+  finalizers:
+    - noobaa.io/finalizer
 spec:
-  selector:
-    matchLabels:
-      noobaa-module: noobaa-agent
-  serviceName: noobaa-agent
-  replicas: 3
-  updateStrategy:
-    type: RollingUpdate
-  template:
-    metadata:
-      labels:
-        app: noobaa
-        noobaa-module: noobaa-agent
-    spec:
-      containers:
-        - name: noobaa-agent
-          imagePullPolicy: IfNotPresent
-          resources:
-            # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-            requests:
-              cpu: "100m"
-              memory: "500Mi"
-            limits:
-              cpu: "2"
-              memory: "2Gi"
-          env:
-            # Insert the relevant config for the current agent
-            - name: CONTAINER_PLATFORM
-              value: KUBERNETES
-            - name: AGENT_CONFIG
-              value: "AGENT_CONFIG_VALUE"
-          command: ["/noobaa_init_files/noobaa_init.sh", "agent"]
-          # Insert the relevant image for the agent
-          ports:
-            # This should change according to the allocation from the NooBaa server
-            - containerPort: 60101
-          # These volume mounts are persistent. Each pod in the PetSet
-          # gets a volume mounted based on this field.
-          volumeMounts:
-            - name: noobaastorage
-              mountPath: /noobaa_storage
-            - name: tmp-logs-vol
-              mountPath: /usr/local/noobaa/logs
-      volumes:
-        - name: tmp-logs-vol
-          emptyDir: {}
-  # These are converted to volume claims by the controller
-  # and mounted at the paths mentioned above.
-  volumeClaimTemplates:
-    - metadata:
-        name: noobaastorage
-        labels:
-          app: noobaa
-          # Custom labels cannot be added, see https://github.com/kubernetes/kubernetes/issues/58987
-          # noobaa-module: noobaa-storage
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 30Gi
-        # storageClassName if needed will be added by the pool controller (via pool server),
-        # Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+  pvPool:
+    secret:
+      name: SECRET_NAME
+    numVolumes: 3
+    resources:
+      requests:
+        storage: 16Gi
+    storageClass: standard
+  type: pv-pool

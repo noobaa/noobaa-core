@@ -46,7 +46,7 @@ class BlockStoreBase {
         this.block_modify_lock = new KeysLock();
         this.block_cache = new LRUCache({
             name: 'BlockStoreCache',
-            max_usage: 200 * 1024 * 1024, // 200 MB
+            max_usage: 100 * 1024 * 1024, // 100 MB
             item_usage: block => block.data.length,
             make_key: block_md => block_md.id,
             load: async block_md => this._read_block_and_verify(block_md),
@@ -103,6 +103,11 @@ class BlockStoreBase {
                 count: io_stats.write_count
             });
         }
+    }
+
+    update_storage_limit(storage_limit) {
+        this.storage_limit = storage_limit;
+        this.usage_limit = this.storage_limit || Infinity;
     }
 
     _get_block_store_info() {

@@ -3,6 +3,7 @@
 import template from './account-s3-access-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
+import { canEditAccount } from 'utils/account-utils';
 import {
     openEditAccountS3AccessModal,
     openSetAccountIpRestrictionsModal,
@@ -36,6 +37,8 @@ function _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) {
 class AccountS3AccessFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     accountName = ko.observable();
+    canEdit = ko.observable();
+    actionsTooltip = ko.observable();
     s3AccessInfo = [
         {
             label: 'Access Type',
@@ -93,16 +96,19 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
     ];
 
     selectState(state, params) {
-        const { accounts } = state;
+        const { accounts = {}, session } = state;
         return [
-            accounts && accounts[params.accountName]
+            accounts[params.accountName],
+            session && session.user && accounts[session.user]
         ];
     }
 
-    mapStateToProps(account) {
-        if (!account) {
+    mapStateToProps(account, user) {
+        if (!account || !user) {
             ko.assignToProps(this, {
-                dataReady: false
+                dataReady: false,
+                actionsTooltip: '',
+                canEdit: false
             });
 
         } else {
@@ -116,6 +122,7 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
             } = account;
 
 
+            const canEdit = canEditAccount(user, account);
             const defaultResourceName =
                 (defaultResource === 'INTERNAL_STORAGE' && 'Internal Storage') ||
                 defaultResource ||
@@ -124,6 +131,8 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
             ko.assignToProps(this, {
                 dataReady: true,
                 accountName: account.name,
+                canEdit,
+                actionsTooltip: canEdit ? '' : 'User has no permission to edit this account',
                 s3AccessInfo: [
                     { value: isAdmin ? 'Administator' : 'Application' },
                     { value: _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) },

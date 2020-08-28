@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-require('../util/panic');
-
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('../util/dotenv').load();
+require('../util/panic');
+require('../util/fips');
 
 const http = require('http');
 const https = require('https');
@@ -21,6 +21,7 @@ const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
+const addr_utils = require('../util/addr_utils');
 const promise_utils = require('../util/promise_utils');
 const os_utils = require('../util/os_utils');
 const s3_rest = require('./s3/s3_rest');
@@ -69,13 +70,19 @@ function process_env(env) {
 }
 
 function get_rpc_router(env) {
-    const default_base_addr = 'wss://127.0.0.1';
+    const hostname = '127.0.0.1';
+    const ports = addr_utils.get_default_ports();
+
+    // for dev (when env.MD_ADDR is not set) we increment md port to
+    // make it route to the s3 endpoints port rather than the default web server.
+    ports.md += 1;
+
     return {
-        default: env.MGMT_ADDR || `${default_base_addr}:8443`,
-        md: env.MD_ADDR || `${default_base_addr}:8444`,
-        bg: env.BG_ADDR || `${default_base_addr}:8445`,
-        hosted_agents: env.HOSTED_AGENTS_ADDR || `${default_base_addr}:8446`,
-        master: env.MGMT_ADDR || `${default_base_addr}:8443`
+        default: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
+        md: env.MD_ADDR || addr_utils.format_base_address(hostname, ports.md),
+        bg: env.BG_ADDR || addr_utils.format_base_address(hostname, ports.bg),
+        hosted_agents: env.HOSTED_AGENTS_ADDR || addr_utils.format_base_address(hostname, ports.hosted_agents),
+        master: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
     };
 }
 
@@ -212,7 +219,7 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
 
     if (options.n2n_agent) {
         const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-        const n2n_agent = rpc.register_n2n_agent(signal_client.node.n2n_signal);
+        const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
         n2n_agent.set_any_rpc_address();
     }
 

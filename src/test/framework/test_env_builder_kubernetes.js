@@ -13,6 +13,11 @@ const Semaphore = require('../../util/semaphore');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('test_env_builder_k8s');
 
+//Define colors 
+const GREEN = "\x1b[32;1m";
+const RED = "\x1b[31;1m";
+const NC = "\x1b[0m";
+
 if (process.env.SUPPRESS_LOGS) {
     dbg.set_level(-5, 'core');
 }
@@ -290,7 +295,7 @@ async function run_multiple_test_envs(params) {
 
     console.log('============================== Tests report: ==============================');
     for (const test of tests) {
-        console.log(`${test.passed ? '===PASSED===' : '===FAILED==='} ${test.name}`);
+        console.log(`${test.passed ? `${GREEN}===PASSED===${NC}` : `${RED}===FAILED===${NC}`} ${test.name}`);
     }
     console.log('===========================================================================');
 

@@ -6,6 +6,7 @@
 // and will make searching easier.
 var config = exports;
 const os = require('os');
+const assert = require('assert');
 
 //////////////////
 // NODES CONFIG //
@@ -137,7 +138,7 @@ config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 // AGENT BLOCKS VERIFIER //
 ///////////////////////////
 
-config.AGENT_BLOCKS_VERIFIER_ENABLED = true;
+config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
 // TODO: Should check what is the optiomal amount of batch
 config.AGENT_BLOCKS_VERIFIER_BATCH_SIZE = 1000;
 config.AGENT_BLOCKS_VERIFIER_BATCH_DELAY = 50;
@@ -402,6 +403,10 @@ config.PROMETHEUS_PREFIX = 'NooBaa_';
 
 config.OAUTH_REDIRECT_ENDPOINT = 'fe/oauth/callback';
 config.OAUTH_REQUIRED_SCOPE = 'user:info';
+config.OAUTH_REQUIRED_GROUPS = [
+    'system:cluster-admins',
+    'cluster-admins'
+];
 
 //////////////////////////////
 // KUBERNETES RELATES       //
@@ -426,6 +431,36 @@ config.DEFAULT_ACCOUNT_PREFERENCES = {
 // REMOTE NOOBAA DEPLOYMENT INFO //
 ///////////////////////////////////
 config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
+
+///////////////////////////////
+// FILES RELATED             //
+///////////////////////////////
+config.INLINE_MAX_SIZE = 4096;
+
+// Object SDK bucket cache expiration time
+config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
+
+///////////////////////
+// NAMESPACE CACHING //
+///////////////////////
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+    DEFAULT_BLOCK_SIZE: 64 * 1024,
+    DEFAULT_MAX_CACHE_OBJECT_SIZE: 4 * 1024 * 1024 * 1024 * 1024,
+    DISABLE_BUCKET_FREE_SPACE_CHECK: false,
+    CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD: 80,
+    PART_COUNT_HIGH_THRESHOLD: 5,
+    CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
+    CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
+    UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
+    MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
+    UPLOAD_SEMAPHORE_CAP: Math.floor(
+        Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
+};
+
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.DEFAULT_MAX_CACHE_OBJECT_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.MAX_OBJECT_PART_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
 
 //Load overrides if exist
 try {
@@ -476,7 +511,13 @@ try {
 config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
 
 ///////////////////////////////
-// FILES RELATED             //
+//        WORM RELATED       //
 ///////////////////////////////
 
-config.INLINE_MAX_SIZE = 4096;
+config.WORM_ENABLED = false;
+
+// Should we allow the creation of buckets on internal storage
+config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
+
+// Temporary flag to turn PostgreSQL as DB
+config.USE_POSTGRESQL = false;

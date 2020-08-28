@@ -5,12 +5,12 @@ const _ = require('lodash');
 const path = require('path');
 const fs = require('fs');
 const dbg = require('../../util/debug_module')(__filename);
-const kube_utils = require('../../util/kube_utils');
-const string_utils = require('../../util/string_utils');
-const yaml_utils = require('../../util/yaml_utils');
+const { KubeStore } = require('../kube-store.js');
+const yaml = require('yamljs');
 const Agent = require('../../agent/agent');
 const uuid = require('uuid/v4');
 const js_utils = require('../../util/js_utils');
+const size_utils = require('../../util/size_utils');
 
 class PoolController {
     constructor(system_name, pool_name) {
@@ -51,14 +51,13 @@ class PoolController {
 // a k8s statefull set
 // ----------------------------------------------
 class ManagedStatefulSetPoolController extends PoolController {
-    constructor(system_name, pool_name) {
-        super(system_name, pool_name);
-        this._statefulset_name = _get_statefulset_name(system_name, pool_name);
-    }
-
     async create(agent_count, agent_install_conf, agent_profile) {
+        const secret_k8s_conf = await _get_k8s_secret({
+            pool_name: this.pool_name,
+            agent_install_conf,
+        });
         const pool_k8s_conf = await _get_k8s_conf({
-            statefulset_name: this._statefulset_name,
+            pool_name: this.pool_name,
             agent_count,
             agent_install_conf,
             ...agent_profile
@@ -68,88 +67,48 @@ class ManagedStatefulSetPoolController extends PoolController {
         dbg.log2(`ManagedStatefulSetPoolController::create: Pool ${this.pool_name} k8s configuration is`,
             JSON.stringify(pool_k8s_conf, null, 2));
 
-        await kube_utils.apply_conf(pool_k8s_conf);
-        return yaml_utils.stringify(pool_k8s_conf);
+        await KubeStore.instance.create_secret(secret_k8s_conf);
+        await KubeStore.instance.create_backingstore(pool_k8s_conf);
+        const secret_yaml = yaml.stringify(secret_k8s_conf, 6, 2);
+        const backstore_yaml = yaml.stringify(pool_k8s_conf, 6, 2);
+
+        return `${secret_yaml}---\n${backstore_yaml}`;
     }
 
     async scale(host_count) {
-        const pod_count = (await this._list_pods()).length;
-        const delta = host_count - pod_count;
+        const current_host_count = await this.get_current_volume_number();
+        const delta = host_count - current_host_count;
         if (delta === 0) return;
 
         // scale the stateful set
-        const { _statefulset_name } = this;
         dbg.log0(`ManagedStatefulSetPoolController::scale: scaling ${
             delta > 0 ? 'up' : 'down'
-        } stateful set  ${
-            _statefulset_name
+        } backing store set  ${
+            this.pool_name
         } from ${
-            pod_count
+            current_host_count
         } replicas to ${
             host_count
         } replicas`);
 
         if (host_count > 0) {
-            await kube_utils.patch_resource('StatefulSet', _statefulset_name, { spec: { replicas: host_count } });
+            await KubeStore.instance.patch_backingstore(this.pool_name, { spec: { pvPool: { numVolumes: host_count } } });
         } else {
-            await kube_utils.delete_resource('StatefulSet', _statefulset_name);
-        }
-
-        if (delta < 0) {
-            // If we are scaling down we should also clean the pvc resource claimed by
-            // the terminated pods.
-            const pods = await this._list_pods();
-            await Promise.all(pods
-                .filter(pod => {
-                    const pod_name = pod.metadata.name;
-                    const pod_index = Number(pod_name.slice(pod_name.lastIndexOf('-') + 1));
-                    return pod_index >= host_count;
-                })
-                .map(async pod => {
-                    const pod_name = pod.metadata.name;
-
-                    // Wait for the pod to be deleted.
-                    dbg.log0(`ManagedStatefulSetPoolController::scale: waiting for pod ${pod_name} to be deleted`);
-                    await kube_utils.wait_for_delete('pod', pod_name, 15 * 60 * 1000);
-
-                    // Delete the pvc claimed by the pod.
-                    const pvc_name = `noobaastorage-${pod_name}`;
-                    dbg.log0(`ManagedStatefulSetPoolController::scale: deleting pvc ${pvc_name}`);
-                    return kube_utils.delete_resource('pvc', pvc_name);
-                })
-           );
+            await KubeStore.instance.delete_backingstore(this.pool_name);
         }
     }
 
     async upgrade(image) {
-        dbg.log0(`ManagedStatefulSetPoolController::upgrade: upgrading (if needed) stateful set ${
-            this._statefulset_name
-        } to use ${
-            image
-        } image`);
-
-        await kube_utils.patch_resource(
-            'StatefulSet',
-            this._statefulset_name,
-            { spec: { template: { spec: { containers: [{ name: 'noobaa-agent', image }] } } } }
-        );
-
-        const pods = await this._list_pods();
-        await Promise.all(pods.map(async pod => {
-            const pod_name = pod.metadata.name;
-            return kube_utils.wait_for_condition('pod', pod_name, 'ready', 15 * 60 * 1000);
-        }));
+        // TODO: verify done in the operator
     }
 
     async delete() {
         this.scale(0);
     }
 
-    async _list_pods() {
-        const escaped_statefulset_name = string_utils.escape_reg_exp(this._statefulset_name);
-        const pod_name_regexp = new RegExp(`^${escaped_statefulset_name}-\\d+$`);
-        const { items: pods } = await kube_utils.list_resources('pod', 'noobaa-module=noobaa-agent');
-        return pods.filter(pod => pod_name_regexp.test(pod.metadata.name));
+    async get_current_volume_number() {
+        const backingstore = await KubeStore.instance.read_backingstore(this.pool_name);
+        return backingstore.spec.pvPool.numVolumes;
     }
 }
 
@@ -159,21 +118,22 @@ class ManagedStatefulSetPoolController extends PoolController {
 // have no control over the underlying storage
 // ----------------------------------------------
 class UnmanagedStatefulSetPoolController extends PoolController {
-    constructor(system_name, pool_name) {
-        super(system_name, pool_name);
-        this._statefulset_name = _get_statefulset_name(system_name, pool_name);
-    }
-
     // Just return the configuration to apply in order to create
     // the statefulset.
     async create(agent_count, agent_install_conf, agent_profile) {
-        const pool_k8s_conf = await _get_k8s_conf({
-            statefulset_name: this._statefulset_name,
-            agent_count,
+        const secret_k8s_conf = await _get_k8s_secret({
+            pool_name: this.pool_name,
             agent_install_conf,
+        });
+        const pool_k8s_conf = await _get_k8s_conf({
+            pool_name: this.pool_name,
+            agent_count,
             ...agent_profile
         });
-        return yaml_utils.stringify(pool_k8s_conf);
+        const secret_yaml = yaml.stringify(secret_k8s_conf, 6, 2);
+        const backstore_yaml = yaml.stringify(pool_k8s_conf, 6, 2);
+
+        return `${secret_yaml}---\n${backstore_yaml}`;
     }
 
     async scale(host_count) {
@@ -271,84 +231,44 @@ class InProcessAgentsPoolController extends PoolController {
     }
 }
 
-// ----------------------------------------------
-// Shared utils
-// ---------------------------------------------
-function _get_statefulset_name(system_name, pool_name) {
-    return `${pool_name}-${system_name}-noobaa`;
-}
-
 async function _get_k8s_conf(params) {
     const yaml_path = path.resolve(__dirname, '../../deploy/NVA_build/noobaa_pool.yaml');
-    const yaml = (await fs.readFileAsync(yaml_path)).toString();
-    const conf_template = await yaml_utils.parse(yaml, true);
-
-     // Find the noobaa-agent stateful set.
-    const statefulset = conf_template.items
-        .find(resource =>
-            resource.kind === 'StatefulSet' &&
-            resource.metadata.name === 'noobaa-agent'
-        );
-    if (!statefulset) {
-        throw new Error('Invalid agent template: missing StatefulSet named noobaa-agent');
-    }
-
-    // A ref to the template section.
-    const { template } = statefulset.spec;
-
-    // Find the noobaa agent container.
-    const agent_container = template.spec.containers
-        .find(container => container.name === 'noobaa-agent');
-    if (!agent_container) {
-        throw new Error('Invalid agent template: missing container named noobaa-agent');
-    }
-
-    // Find/Create the agent conf env variable definition;
-    const agent_conf_var = agent_container.env
-        .find(env => env.name === 'AGENT_CONFIG');
-    if (!agent_conf_var) {
-        throw new Error('Invalid agent template: missing env variable definition named AGENT_CONFIG');
-    }
-
-    // Find the volume claim template.
-    const volume_claim_template = statefulset.spec.volumeClaimTemplates
-        .find(vct => vct.metadata.name === 'noobaastorage');
-    if (!volume_claim_template) {
-        throw new Error('Invalid agent template: missing volume claim template named noobaastorage');
-    }
+    const yaml_file = (await fs.promises.readFile(yaml_path)).toString();
+    const backingstore = await yaml.parse(yaml_file);
 
     // Update the template the given configuration.
-    statefulset.metadata.name = params.statefulset_name;
-    statefulset.spec.replicas = params.agent_count;
-    agent_container.image = params.image;
-    agent_conf_var.value = params.agent_install_conf;
-
-    if (!_.isUndefined(params.cpu)) {
-        agent_container.resources.requests.cpu = params.cpu;
-    }
-
-    if (!_.isUndefined(params.memory)) {
-        agent_container.resources.requests.memory = params.memory;
-    }
+    backingstore.metadata.name = params.pool_name;
+    backingstore.spec.pvPool.numVolumes = params.agent_count;
+    backingstore.spec.pvPool.secret.name = `backing-store-pv-pool-${params.pool_name}`;
 
     const { use_persistent_storage = true } = params;
     if (use_persistent_storage) {
         if (!_.isUndefined(params.volume_size)) {
-            volume_claim_template.spec.resources.requests.storage = params.volume_size;
+            backingstore.spec.pvPool.resources.requests.storage = translate_volume_size(params.volume_size);
         }
 
         if (!_.isUndefined(params.storage_class)) {
-            volume_claim_template.spec.storageClassName = params.storage_class;
+            backingstore.spec.pvPool.storageClass = params.storage_class;
         }
-
-    } else {
-        //remove persistent volume claims from the statefulset
-        statefulset.spec.volumeClaimTemplates = null;
-        template.spec.volumes = (agent_container.volumeMounts || [])
-            .map(mount => ({ name: mount.name, emptyDir: {} }));
     }
 
-    return conf_template;
+    return backingstore;
+}
+
+async function _get_k8s_secret(params) {
+    const yaml_path = path.resolve(__dirname, '../../deploy/NVA_build/noobaa_pool_secret.yaml');
+    const yaml_file = (await fs.promises.readFile(yaml_path)).toString();
+    const secret = await yaml.parse(yaml_file);
+
+    // Update the template the given configuration.
+    secret.metadata.name = `backing-store-pv-pool-${params.pool_name}`;
+    secret.data.AGENT_CONFIG = Buffer.from(params.agent_install_conf).toString('base64');
+
+    return secret;
+}
+
+function translate_volume_size(size) {
+    return size_utils.human_size(size).replace(' ', '').replace('B', 'i');
 }
 
 exports.ManagedStatefulSetPoolController = ManagedStatefulSetPoolController;

@@ -55,6 +55,7 @@ async function create_account(req) {
         name: req.rpc_params.name,
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
+        is_external: req.rpc_params.is_external,
         access_keys: undefined,
     };
 
@@ -194,6 +195,7 @@ function create_external_user_account(req) {
         internalStorage[0];
 
     Object.assign(req.rpc_params, {
+        is_external: true,
         password: new SensitiveString(chance.string({ length: 16 })),
         must_change_password: false,
         has_login: true,
@@ -227,6 +229,19 @@ function read_account(req) {
         account,
         is_self || is_operator
     );
+}
+
+
+function read_account_by_access_key(req) {
+    const { access_key } = req.rpc_params;
+
+    const account = _.find(system_store.data.accounts, acc =>
+        acc.access_keys && acc.access_keys[0].access_key.unwrap() === access_key.unwrap()
+    );
+
+    if (!account) throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with credentials: ' + access_key);
+
+    return get_account_info(account);
 }
 
 
@@ -669,8 +684,8 @@ async function add_external_connection(req) {
 
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
-    info.access_key = req.rpc_params.identity.unwrap();
-    info.secret_key = req.rpc_params.secret.unwrap();
+    info.access_key = req.rpc_params.identity;
+    info.secret_key = req.rpc_params.secret;
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -684,7 +699,7 @@ async function add_external_connection(req) {
     const conn = _.find(req.account.sync_credentials_cache, function(cred) {
         return cred.endpoint === info.endpoint &&
             cred.endpoint_type === info.endpoint_type &&
-            cred.access_key === info.access_key;
+            cred.access_key.unwrap() === info.access_key.unwrap();
     });
     if (conn) {
         throw new RpcError('External Connection Already Exists');
@@ -718,7 +733,7 @@ async function update_external_connection(req) {
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.name);
     const {
         name,
-        identity = new SensitiveString(connection.access_key),
+        identity = connection.access_key,
         secret
     } = req.rpc_params;
 
@@ -763,7 +778,7 @@ async function update_external_connection(req) {
             pool.cloud_pool_info.endpoint_type === connection.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === req.account._id &&
-            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(pool => ({
             _id: pool._id,
@@ -776,7 +791,7 @@ async function update_external_connection(req) {
             ns_resource.connection.endpoint_type === connection.endpoint_type &&
             ns_resource.connection.endpoint === connection.endpoint &&
             ns_resource.account._id === req.account._id &&
-            ns_resource.connection.access_key === connection.access_key
+            ns_resource.connection.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(ns_resource => ({
             _id: ns_resource._id,
@@ -875,8 +890,8 @@ async function _check_external_connection(connection) {
 function check_azure_connection(params) {
     const conn_str = cloud_utils.get_azure_connection_string({
         endpoint: params.endpoint,
-        access_key: params.identity.unwrap(),
-        secret_key: params.secret.unwrap()
+        access_key: params.identity,
+        secret_key: params.secret
     });
 
     function err_to_status(err, status) {
@@ -986,7 +1001,7 @@ function check_aws_connection(params) {
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {
-            agent: http_utils.get_unsecured_http_agent(params.endpoint)
+            agent: http_utils.get_unsecured_agent(params.endpoint)
         }
     });
 
@@ -1057,7 +1072,7 @@ function delete_external_connection(req) {
             pool.cloud_pool_info.endpoint_type === connection_to_delete.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection_to_delete.endpoint &&
             pool.cloud_pool_info.access_keys.account_id._id === account._id &&
-            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key
+            pool.cloud_pool_info.access_keys.access_key.unwrap() === connection_to_delete.access_key.unwrap()
         ))) {
         throw new RpcError('IN_USE', 'Cannot delete connection as it is being used for a cloud pool');
     }
@@ -1089,10 +1104,14 @@ function delete_external_connection(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_account_info(account, include_connection_cache) {
-    var info = _.pick(account, 'name', 'email', 'access_keys');
-
-    info.has_login = account.has_login;
-    info.allowed_ips = account.allowed_ips;
+    var info = _.pick(account,
+        'name',
+        'email',
+        'is_external',
+        'access_keys',
+        'has_login',
+        'allowed_ips',
+    );
 
     if (account.is_support) {
         info.is_support = true;
@@ -1365,3 +1384,4 @@ exports.get_account_info = get_account_info;
 exports.ensure_support_account = ensure_support_account;
 exports.verify_authorized_account = verify_authorized_account;
 exports.get_account_usage = get_account_usage;
+exports.read_account_by_access_key = read_account_by_access_key;

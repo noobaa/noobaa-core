@@ -38,7 +38,10 @@ class BlockStoreS3 extends BlockStoreBase {
                 secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
                 s3ForcePathStyle: true,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                region: DEFAULT_REGION
+                region: DEFAULT_REGION,
+                httpOptions: {
+                    agent: http_utils.get_default_agent(endpoint)
+                }
             });
         } else {
             this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION[this.cloud_info.endpoint_type] ||
@@ -53,7 +56,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
                 s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
                 httpOptions: {
-                    agent: http_utils.get_unsecured_http_agent(endpoint)
+                    agent: http_utils.get_unsecured_agent(endpoint)
                 }
             });
         }
@@ -224,11 +227,19 @@ class BlockStoreS3 extends BlockStoreBase {
     async test_store_validity() {
         const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
         try {
-            // in s3 there is no error for non-existing object
-            await this.s3cloud.deleteObject({
-                Bucket: this.cloud_info.target_bucket,
-                Key: block_key
-            }).promise();
+            const endpoint = this.cloud_info.endpoint;
+            if (cloud_utils.is_aws_endpoint(endpoint)) {
+                // in s3 there is no error for non-existing object
+                await this.s3cloud.deleteObjectTagging({
+                    Bucket: this.cloud_info.target_bucket,
+                    Key: block_key
+                }).promise();
+            } else {
+                await this.s3cloud.deleteObject({
+                    Bucket: this.cloud_info.target_bucket,
+                    Key: block_key
+                }).promise();
+            }
         } catch (err) {
             dbg.error('in _test_cloud_service - deleteObject failed:', err, _.omit(this.cloud_info, 'access_keys'));
             if (err.code === 'NoSuchBucket') {

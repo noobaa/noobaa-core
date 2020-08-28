@@ -20,6 +20,7 @@ module.exports = {
         name: { wrapper: SensitiveString },
         email: { wrapper: SensitiveString },
         is_support: { type: 'boolean' },
+        is_external: { type: 'boolean' },
 
         // password login
         has_login: { type: 'boolean' },
@@ -38,8 +39,8 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
-                    access_key: { wrapper: SensitiveString },
-                    secret_key: { wrapper: SensitiveString },
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
+                    secret_key: { $ref: 'common_api#/definitions/secret_key' },
                 }
             }
         },
@@ -75,8 +76,8 @@ module.exports = {
                 required: ['name', 'endpoint', 'access_key', 'secret_key'],
                 properties: {
                     name: { type: 'string' },
-                    access_key: { type: 'string' },
-                    secret_key: { type: 'string' },
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
+                    secret_key: { $ref: 'common_api#/definitions/secret_key' },
                     auth_method: {
                         type: 'string',
                         enum: ['AWS_V2', 'AWS_V4']

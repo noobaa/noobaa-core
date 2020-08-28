@@ -15,6 +15,8 @@ const LRUCache = require('../../util/lru_cache');
 const config = require('../../../config');
 const { RPC_BUFFERS, RpcError } = require('../../rpc');
 const { get_block_internal_dir } = require('../../agent/block_store_services/block_store_base');
+const util = require('util');
+
 
 const block_store_info_cache = new LRUCache({
     name: 'BlockStoreInfoCache',
@@ -105,10 +107,10 @@ class BlockStoreClient {
                 } : { size: 0, count: 0 };
                 this._update_usage_stats(rpc_client, usage, options.address, 'WRITE');
             } catch (err) {
-                dbg.error('Google operation failed:', bs_info && bs_info.target_bucket, err.code, err);
+                dbg.error('Google write operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 403) {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the google cloud bucket ${bs_info.target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the google cloud bucket for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 404) {
                     dbg.error('got 404 error when trying to write block. checking if bucket exists');
                     try {
@@ -117,7 +119,7 @@ class BlockStoreClient {
                     } catch (bucket_err) {
                         if (bucket_err.code === 404) {
                             block_store_info_cache.invalidate_key(options.address);
-                            throw new RpcError('STORAGE_NOT_EXIST', `google cloud bucket ${bs_info.target_bucket} not found. got error ${err}`);
+                            throw new RpcError('STORAGE_NOT_EXIST', `google cloud bucket not found for block ${block_md.id}. got error ${err}`);
                         }
                     }
                 }
@@ -160,10 +162,10 @@ class BlockStoreClient {
                     block_md: JSON.parse(Buffer.from(block_md_b64, 'base64').toString()),
                 };
             } catch (err) {
-                dbg.error('Google operation failed:', bs_info && bs_info.target_bucket, err.code, err);
+                dbg.error('Google read operation failed for block: ', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 403) {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the google cloud bucket ${bs_info.target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the google cloud bucket for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 404) {
                     dbg.error('got 404 error when trying to read block. checking if bucket exists');
                     try {
@@ -172,7 +174,7 @@ class BlockStoreClient {
                     } catch (bucket_err) {
                         if (bucket_err.code === 404) {
                             block_store_info_cache.invalidate_key(options.address);
-                            throw new RpcError('STORAGE_NOT_EXIST', `google cloud bucket ${bs_info.target_bucket} not found. got error ${err}`);
+                            throw new RpcError('STORAGE_NOT_EXIST', `google cloud bucket not found for block ${block_md.id}. got error ${err}`);
                         }
                     }
                 }
@@ -212,15 +214,15 @@ class BlockStoreClient {
                 } : { size: 0, count: 0 };
                 this._update_usage_stats(rpc_client, usage, options.address, 'WRITE');
             } catch (err) {
-                dbg.error('Azure operation failed:', bs_info && bs_info.target_bucket, err.code, err);
+                dbg.error('Azure write operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 'ContainerNotFound') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${bs_info.target_bucket} not found. got error ${err}`);
+                    throw new RpcError('STORAGE_NOT_EXIST', `azure container not found for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 'AuthenticationFailed') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${bs_info.target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the azure container for block ${block_md.id}. got error ${err}`);
                 }
-                throw new Error(err.message || 'unknown error');
+                throw err;
             }
         }, timeout);
     }
@@ -254,15 +256,15 @@ class BlockStoreClient {
                     block_md: store_block_md,
                 };
             } catch (err) {
-                dbg.error('Azure operation failed:', bs_info && bs_info.target_bucket, err.code, err);
+                dbg.error('Azure read operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 'ContainerNotFound') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${bs_info.target_bucket} not found. got error ${err}`);
+                    throw new RpcError('STORAGE_NOT_EXIST', `azure container not found for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 'AuthenticationFailed') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${bs_info.target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the azure container for block ${block_md.id}. got error ${err}`);
                 }
-                throw new Error(err.message || 'unknown error');
+                throw err;
             }
         }, timeout);
     }
@@ -289,8 +291,9 @@ class BlockStoreClient {
                 };
                 dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
                     _.omit(s3_params, 'secretAccessKey'));
-                s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
-                    _.isUndefined);
+                s3_params.httpOptions = {
+                    agent: http_utils.get_unsecured_agent(s3_params.endpoint)
+                };
                 const s3 = new AWS.S3(s3_params);
                 write_params.Body = data;
                 await s3.putObject(write_params).promise();
@@ -301,15 +304,15 @@ class BlockStoreClient {
                 } : { size: 0, count: 0 };
                 this._update_usage_stats(rpc_client, usage, options.address, 'WRITE');
             } catch (err) {
-                dbg.error('S3 operation failed:', err, bs_info && _.omit(bs_info[options.address], 'access_keys'));
+                dbg.error('S3 write operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 'NoSuchBucket') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${bs_info[options.address].target_bucket} not found. got error ${err}`);
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket not found for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${bs_info[options.address].target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket for block ${block_md.id}. got error ${err}`);
                 }
-                throw new Error(err.message || 'unknown error');
+                throw err;
             }
         }, timeout);
     }
@@ -318,12 +321,13 @@ class BlockStoreClient {
     async _delegate_read_block_s3(rpc_client, params, options) {
         const { timeout = config.IO_READ_BLOCK_TIMEOUT } = options;
         let bs_info;
+        const { block_md } = params;
         return promise_utils.timeout(async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
                 const s3_params = bs_info.connection_params;
-                const block_id = params.block_md.id;
+                const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
                 const read_params = {
                     Bucket: bs_info.target_bucket,
@@ -333,29 +337,30 @@ class BlockStoreClient {
                 dbg.log1('got s3_params from block_store. reading using S3 sdk. s3_params =',
                     _.omit(s3_params, 'secretAccessKey'));
 
-                s3_params.httpOptions = _.omitBy({ agent: http_utils.get_unsecured_http_agent(s3_params.endpoint) },
-                    _.isUndefined);
+                s3_params.httpOptions = {
+                    agent: http_utils.get_unsecured_agent(s3_params.endpoint)
+                };
                 const s3 = new AWS.S3(s3_params);
 
                 const data = await s3.getObject(read_params).promise();
                 const noobaablockmd = data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md;
-                const store_block_md = disable_metadata ? params.block_md :
+                const store_block_md = disable_metadata ? block_md :
                     JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
-                this._update_usage_stats(rpc_client, { size: params.block_md.size, count: 1 }, options.address, 'READ');
+                this._update_usage_stats(rpc_client, { size: block_md.size, count: 1 }, options.address, 'READ');
                 return {
                     [RPC_BUFFERS]: { data: data.Body },
                     block_md: store_block_md,
                 };
             } catch (err) {
-                dbg.error('S3 operation failed:', err, bs_info && _.omit(bs_info, 'access_keys'));
+                dbg.error('S3 read operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
                 if (err.code === 'NoSuchBucket') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${bs_info[options.address].target_bucket} not found. got error ${err}`);
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket not found for block ${block_md.id}. got error ${err}`);
                 } else if (err.code === 'AccessDenied') {
                     block_store_info_cache.invalidate_key(options.address);
-                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${bs_info[options.address].target_bucket}. got error ${err}`);
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket for block ${block_md.id}. got error ${err}`);
                 }
-                throw new Error(err.message || 'unknown error');
+                throw err;
             }
         }, timeout);
 

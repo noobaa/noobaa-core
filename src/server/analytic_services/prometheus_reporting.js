@@ -296,7 +296,15 @@ const METRIC_RECORDS = Object.freeze([{
         name: get_metric_name('system_links'),
         help: 'System Links',
         labelNames: ['resources', 'buckets', 'dashboard'],
-    }
+    },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'health_status',
+    configuration: {
+        name: get_metric_name('health_status'),
+        help: 'Health status',
+    },
+    generate_default_set: true,
 }]);
 
 

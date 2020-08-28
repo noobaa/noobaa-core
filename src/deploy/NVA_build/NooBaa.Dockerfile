@@ -60,8 +60,9 @@ ENV ENDPOINT_NODE_OPTIONS ''
 
 RUN dnf install -y -q bash \
     lsof \
+    procps \
     openssl \
-    rsyslog-8.37.0 \
+    rsyslog-8.1911.0 \
     strace \
     wget \
     curl \

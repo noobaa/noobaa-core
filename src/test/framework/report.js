@@ -30,7 +30,7 @@ class Reporter {
     }
 
     static get REMOTE_MONGO_CONFIG() {
-        //see mongo_client for config explanations 
+        //see mongo_client for config explanations
         return REMOTE_MONGO_CONFIG;
     }
 
@@ -95,6 +95,10 @@ class Reporter {
 
     resume() {
         this._paused = false;
+    }
+
+    all_tests_passed() {
+        return this._failed_cases.length === 0;
     }
 
     async report() {

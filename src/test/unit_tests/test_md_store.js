@@ -147,6 +147,26 @@ mocha.describe('md_store', function() {
             start: 0,
             end: 10,
             seq: 0,
+        },
+        {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: md_store.make_md_id(),
+            obj: md_store.make_md_id(),
+            chunk: md_store.make_md_id(),
+            start: 0,
+            end: 20,
+            seq: 0,
+        },
+        {
+            _id: md_store.make_md_id(),
+            system: system_id,
+            bucket: md_store.make_md_id(),
+            obj: md_store.make_md_id(),
+            chunk: md_store.make_md_id(),
+            start: 0,
+            end: 20,
+            seq: 0,
         }];
 
         mocha.it('insert_parts()', async function() {
@@ -192,6 +212,22 @@ mocha.describe('md_store', function() {
             return md_store.delete_parts_of_object(obj);
         });
 
+        mocha.it('delete_parts_by_ids()', async function() {
+            const part_ids = [ parts[1]._id ];
+            return md_store.delete_parts_by_ids(part_ids);
+        });
+
+        mocha.it('has_any_parts_for_object exists', async function() {
+            const obj = { _id: parts[2].obj };
+            assert.equal(await md_store.has_any_parts_for_object(obj), true);
+        });
+
+        mocha.it('has_any_parts_for_object deleted', async function() {
+            const obj = { _id: parts[2].obj };
+            const part_ids = [ parts[2]._id ];
+            await md_store.delete_parts_by_ids(part_ids);
+            assert.equal(await md_store.has_any_parts_for_object(obj), false);
+        });
     });
 
 

@@ -24,6 +24,21 @@ class CloudFunction {
         return AWSConnections;
     }
 
+    getCOSConnection() {
+        const {
+            COS_ACCESS_KEY_ID,
+            COS_SECRET_ACCESS_KEY,
+        } = process.env;
+        const COSConnections = {
+            name: 'COSConnection',
+            endpoint: "https://s3.us-east.cloud-object-storage.appdomain.cloud",
+            endpoint_type: "IBM_COS",
+            identity: COS_ACCESS_KEY_ID,
+            secret: COS_SECRET_ACCESS_KEY
+        };
+        return COSConnections;
+    }
+
     getAzureConnection() {
         const {
             AZURE_STORAGE_ACCOUNT_NAME,
@@ -103,6 +118,18 @@ class CloudFunction {
             });
         } catch (e) {
             console.error('Failed to delete connection', e);
+            throw e;
+        }
+    }
+
+    async getConnection(endpoint_url) {
+        console.log('Getting connection ' + endpoint_url);
+        try {
+            const { external_connections } = await this._client.account.read_account({});
+            const conn = external_connections.connections.find(c => c.endpoint === endpoint_url);
+            return conn ? conn.name : undefined;
+        } catch (e) {
+            console.error('Failed to get connection', e);
             throw e;
         }
     }

@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 const chance = require('chance')();
-// const util = require('util');
+const util = require('util');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -11,6 +11,8 @@ const config = require('../../../config.js');
 const nodes_client = require('./nodes_client');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
+const system_store = require('../system_services/system_store').get_instance();
+const mongo_utils = require('../../util/mongo_utils');
 // const node_server = require('./node_server');
 
 const ALLOC_REFRESH_MS = 10000;
@@ -50,7 +52,7 @@ let alloc_group_by_tiering = {};
  * This funciton should be used instead of  calling refersh_tiering_alloc
  * for each tiering policy in the system in a loop because it prefvent duplicate
  * refreshs_pools_allocs for the same pools.
-  */
+ */
 async function refresh_system_alloc(system) {
     // Bail out if the index does not exists (in case there are
     // no buckets in the system)
@@ -63,6 +65,25 @@ async function refresh_system_alloc(system) {
 
     for (const bucket of Object.values(system.buckets_by_name)) {
         tiering_list.push(bucket.tiering);
+
+        // realted to https://bugzilla.redhat.com/show_bug.cgi?id=1839117
+        // print information in case bucket.tiering is not iterable. should happen when the tiering is deleted and the bucket is not
+        if (!bucket.tiering.tiers) {
+            if (mongo_utils.is_object_id(bucket.tiering)) {
+                try {
+                    const deleted_tiering = await system_store.data.get_by_id_include_deleted(bucket.tiering, 'tieringpolicies');
+                    dbg.error(`bucket.tiering.tiers is undefined\\null. bucket=${
+                        util.inspect(bucket, { depth: 5 })
+                    } tiering_policy=${
+                        util.inspect(deleted_tiering, { depth: 5 })
+                    }`);
+                } catch (err) {
+                    dbg.error(err);
+                }
+            } else {
+                dbg.error(`bucket.tiering.tiers is undefined\\null. bucket=`, util.inspect(bucket, { depth: 5 }));
+            }
+        }
 
         for (const { tier } of bucket.tiering.tiers) {
             for (const mirror of tier.mirrors) {

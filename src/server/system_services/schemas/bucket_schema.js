@@ -50,6 +50,40 @@ module.exports = {
         owner_account: {
             objectid: true
         },
+        object_lock_configuration: {
+            type: 'object',
+            properties: {
+                object_lock_enabled: { type: 'string' },
+                rule: {
+                    type: 'object',
+                    properties: {
+                        default_retention: {
+                            oneOf: [{
+                                    type: 'object',
+                                    properties: {
+                                        years: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        days: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         namespace: {
             type: 'object',
             required: [
@@ -65,7 +99,10 @@ module.exports = {
                 },
                 write_resource: {
                     objectid: true // namespace resource id
-                }
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
+                },
             }
         },
         tiering: {

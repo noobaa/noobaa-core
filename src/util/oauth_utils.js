@@ -3,7 +3,7 @@
 
 const querystring = require('querystring');
 const config = require('../../config');
-const { make_http_request } = require('./http_utils');
+const { make_https_request } = require('./http_utils');
 const { read_stream_join } = require('./buffer_utils');
 
 function _default_error_factory(message) {
@@ -23,7 +23,7 @@ async function trade_grant_code_for_access_token(
     let response;
 
     try {
-        response = await make_http_request(
+        response = await make_https_request(
             {
                 method: 'POST',
                 port: token_endpoint.port || '443',
@@ -45,7 +45,7 @@ async function trade_grant_code_for_access_token(
             'utf8'
         );
     } catch (err) {
-        throw make_error('OpenShift api endpoint does not response');
+        throw make_error(`OpenShift api endpoint does not response, got: ${err.message}`);
     }
 
     const status_code = response.statusCode;
@@ -85,7 +85,7 @@ async function review_token(
 ) {
     let response;
     try {
-        response = await make_http_request(
+        response = await make_https_request(
             {
                 method: 'POST',
                 hostname: api_hostname,

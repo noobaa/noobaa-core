@@ -12,7 +12,8 @@ function new_chunk_code_config_defaults(chunk_coder_config) {
             cipher_type: config.CHUNK_CODER_CIPHER_TYPE,
             ...chunk_coder_config
         },
-        _.isUndefined);
+        // omit entries with undefined or 'none' values to disable features
+        val => val === undefined || val === 'none');
 
     if (ccc.parity_frags) {
         // Erasure Codes

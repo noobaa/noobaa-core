@@ -6,12 +6,7 @@ const url = require('url');
 const { construct_url } = require('./url_utils');
 
 const default_base_port = parseInt(process.env.SSL_PORT, 10) || 5443;
-const api_default_port_offset = {
-    mgmt: 0,
-    md: 0,
-    bg: 2,
-    hosted_agents: 3
-};
+const api_default_ports = Object.freeze(get_default_ports());
 
 function format_base_address(hostname = '127.0.0.1', port = default_base_port) {
     return url.format(`wss://${hostname}:${port}`);
@@ -23,7 +18,7 @@ function get_base_address(address_list, options = {}) {
         service = '',
         api = 'mgmt',
         protocol = 'wss',
-        secure = true
+        secure = true,
     } = options;
 
     const api_list = address_list.filter(addr =>
@@ -31,7 +26,7 @@ function get_base_address(address_list, options = {}) {
         addr.api === api
     );
 
-    let default_port = default_base_port + api_default_port_offset[api];
+    let default_port = api_default_ports[api];
     if (hint === 'EXTERNAL') {
         const external_addrs = api_list.filter(addr =>
             addr.kind === 'EXTERNAL' &&
@@ -80,12 +75,16 @@ function get_base_address(address_list, options = {}) {
     throw new Error(`get_base_address: Invalid hint - ${hint}`);
 }
 
+/**
+ * @param {Number} base_port
+ */
 function get_default_ports(base_port = default_base_port) {
-    return Object.entries(api_default_port_offset)
-        .reduce((res, [key, offset]) => {
-            res[key] = base_port + api_default_port_offset[key];
-            return res;
-        }, {});
+    return {
+        mgmt: base_port,
+        md: base_port,
+        bg: base_port + 2,
+        hosted_agents: base_port + 3,
+    };
 }
 
 exports.format_base_address = format_base_address;

@@ -9,6 +9,7 @@ dotenv.load();
 
 require('../util/coverage_utils');
 require('../util/panic');
+require('../util/fips');
 
 const _ = require('lodash');
 const path = require('path');
@@ -33,6 +34,7 @@ const cutil = require('./utils/clustering_utils');
 const account_server = require('./system_services/account_server');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
+const http_utils = require('../util/http_utils');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -44,8 +46,8 @@ dbg.set_process_name('WebServer');
 mongo_client.instance().connect();
 
 //Set KeepAlive to all http/https agents in webserver
-http.globalAgent.keepAlive = true;
-https.globalAgent.keepAlive = true;
+http_utils.update_http_agents({ keepAlive: true });
+http_utils.update_https_agents({ keepAlive: true });
 
 const server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
@@ -335,16 +337,6 @@ function serve_fe(filename) {
         res.sendFile(filePath);
     };
 }
-
-// setup static files
-//use versioned executables
-var setup_filename = 'noobaa-setup-' + pkg.version;
-var s3_rest_setup_filename = 'noobaa-s3rest-' + pkg.version;
-app.use('/public/noobaa-setup.exe', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.exe')));
-app.use('/public/noobaa-setup', express.static(path.join(rootdir, 'build', 'public', setup_filename)));
-app.use('/public/noobaa-setup.exe.md5', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.exe.md5')));
-app.use('/public/noobaa-setup.md5', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.md5')));
-app.use('/public/noobaa-s3rest.exe', express.static(path.join(rootdir, 'build', 'public', s3_rest_setup_filename + 'exe')));
 
 app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));

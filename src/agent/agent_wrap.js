@@ -13,7 +13,6 @@ const path = require('path');
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
-const buffer_utils = require('../util/buffer_utils');
 const promise_utils = require('../util/promise_utils');
 const child_process = require('child_process');
 const dbg = require('../util/debug_module')(__filename);
@@ -32,7 +31,6 @@ const EXECUTABLE_MOD_VAL = 511;
 
 const CONFIGURATION = {
     SETUP_FILENAME: 'noobaa-setup',
-    MD5_FILENAME: 'noobaa-setup.md5',
     PROCESS_DIR: path.join(__dirname, '..', '..'),
     AGENT_CLI: './src/agent/agent_cli',
     NUM_UPGRADE_WARNINGS: 18,
@@ -41,7 +39,6 @@ const CONFIGURATION = {
 };
 
 CONFIGURATION.SETUP_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.SETUP_FILENAME);
-CONFIGURATION.MD5_FILE = path.join(CONFIGURATION.PROCESS_DIR, CONFIGURATION.MD5_FILENAME);
 CONFIGURATION.INSTALLATION_COMMAND = `setsid ${CONFIGURATION.SETUP_FILE} >> /dev/null`;
 
 process.chdir(path.join(__dirname, '..', '..'));
@@ -129,18 +126,6 @@ async function clean_old_files() {
 async function upgrade_agent() {
     dbg.log0('starting agent upgrade. downloading upgrade file..');
     await _download_file(`https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`, fs.createWriteStream(CONFIGURATION.SETUP_FILE));
-
-    const md5_out = buffer_utils.write_stream();
-    // verify setup file md5:
-    const [, agent_md5] = await P.all([
-        _download_file(`https://${address}/public/${CONFIGURATION.MD5_FILENAME}`, md5_out),
-        fs_utils.get_md5_of_file(CONFIGURATION.SETUP_FILE)
-    ]);
-    const server_md5 = buffer_utils.join(md5_out.buffers).toString();
-    if (agent_md5.trim() !== server_md5.trim()) {
-        throw new Error(`MD5 is incompatible between server (MD5:${server_md5}) and agent(MD5:${agent_md5})`);
-    }
-    dbg.log0('Checking md5 of downloaded version passed:', agent_md5);
 
     // make setup file executable
     await fs.chmodAsync(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL);

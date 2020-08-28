@@ -17,6 +17,7 @@ const oauth_utils = require('../../util/oauth_utils');
 const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
 const jwt_utils = require('../../util/jwt_utils');
+const config = require('../../../config');
 
 
 /**
@@ -115,12 +116,8 @@ function create_auth(req) {
                     // support account  can do anything
                     authenticated_account.is_support ||
                     // system owner can do anything
-                    String(system.owner) === String(authenticated_account._id) ||
                     // From some reason, which I couldn't find, system store is
                     // missing roles_by_account from time to time.
-                    // In addition, it's not clear why do we need the line above,
-                    // as system.owner is an object. I left it for case, I may not
-                    //see right now.
                     String(system.owner._id) === String(authenticated_account._id) ||
                     // system admin can do anything
                     _.includes(roles, 'admin') ||
@@ -223,7 +220,15 @@ async function create_k8s_auth(req) {
         unauthorized_error
     );
 
-    const { username } = token_review.status.user;
+    const { username, groups = [] } = token_review.status.user;
+    const { OAUTH_REQUIRED_GROUPS = [] } = config;
+    if (
+        OAUTH_REQUIRED_GROUPS.length > 0 &&
+        groups.every(grp_name => !OAUTH_REQUIRED_GROUPS.includes(grp_name))
+    ) {
+        throw new RpcError('UNAUTHORIZED', `User must be a member of at least one of the following k8s groups: ${OAUTH_REQUIRED_GROUPS}`);
+    }
+
     const user_info = {
         name: new SensitiveString(username),
         email: new SensitiveString(username),

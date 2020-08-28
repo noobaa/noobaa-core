@@ -175,6 +175,7 @@ class HostedAgents {
         };
         agent_params[pool_path_property] = pool_path;
         agent_params[pool_info_property] = pool_info;
+        if (pool.cloud_pool_info && pool.cloud_pool_info.storage_limit) agent_params.storage_limit = pool.cloud_pool_info.storage_limit;
         dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
         const agent = new Agent(agent_params);
         this._started_agents[node_name] = {
@@ -273,6 +274,18 @@ class HostedAgents {
             agent.update_credentials(access_keys);
         }
     }
+
+    update_agents_storage_limit({ pool_ids, storage_limit }) {
+        for (const pid of pool_ids) {
+            const node_name = 'noobaa-internal-agent-' + pid;
+            if (!this._started_agents[node_name]) {
+                dbg.error(`update_storage_limit agent ${node_name} does not exist`);
+                continue;
+            }
+            const agent = this._started_agents[node_name].agent;
+            agent.update_storage_limit(storage_limit);
+        }
+    }
 }
 
 
@@ -287,6 +300,15 @@ async function update_credentials(req) {
     const { pool_ids, credentials } = req.rpc_params;
     try {
         await HostedAgents.instance().update_agents_credentials({ pool_ids, access_keys: credentials });
+    } catch (error) {
+        dbg.error('update_credentials had failed', error);
+    }
+}
+
+async function update_storage_limit(req) {
+    const params = req.rpc_params;
+    try {
+        await HostedAgents.instance().update_agents_storage_limit(params);
     } catch (error) {
         dbg.error('update_credentials had failed', error);
     }
@@ -363,6 +385,7 @@ function _get_pool_and_path_for_token(token_pool) {
 // EXPORTS
 exports.create_pool_agent = create_pool_agent;
 exports.update_credentials = update_credentials;
+exports.update_storage_limit = update_storage_limit;
 exports.remove_pool_agent = remove_pool_agent;
 exports.start = req => HostedAgents.instance().start();
 exports.stop = req => HostedAgents.instance().stop();

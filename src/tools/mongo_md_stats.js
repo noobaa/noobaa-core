@@ -2,30 +2,60 @@
 /* eslint-env mongo */
 'use strict';
 
-const num_objects = db.objectmds.stats().count;
-let disk_size_per_obj = 0;
-let index_size_per_obj = 0;
+const md = {};
+const total_num_objects = db.objectmds.count();
+let total_storage_size = 0;
+let total_index_size = 0;
 
-function stat_col(name) {
-    const col = db[name];
-    const s = col.stats();
-    const num_per_object = s.count / num_objects;
-    const disk_size = Math.ceil(s.storageSize / s.count);
-    const index_size = Math.ceil(s.totalIndexSize / s.count);
-    print(`* ${num_per_object.toFixed(2)} ${name}${' '.repeat(18 - name.length)} per object - Disk ${disk_size} Bytes | Indexes ${index_size} Bytes | Count ${s.count}`);
-    disk_size_per_obj += num_per_object * disk_size;
-    index_size_per_obj += num_per_object * index_size;
+function human_bytes(bytes) {
+    if (bytes < 1024) return bytes + ' Bytes';
+    bytes /= 1024;
+    if (bytes < 1024) return bytes.toFixed(1) + ' KB';
+    bytes /= 1024;
+    if (bytes < 1024) return bytes.toFixed(1) + ' MB';
+    bytes /= 1024;
+    if (bytes < 1024) return bytes.toFixed(1) + ' GB';
+    bytes /= 1024;
+    if (bytes < 1024) return bytes.toFixed(1) + ' TB';
+    bytes /= 1024;
+    if (bytes < 1024) return bytes.toFixed(1) + ' PB';
 }
 
-stat_col('objectmds');
-stat_col('objectparts');
-stat_col('objectmultiparts');
-stat_col('datachunks');
-stat_col('datablocks');
+function stat_collection(name) {
+    const col = db[name];
+    const stats = col.stats();
+    const count_per_object = stats.count / total_num_objects;
+    const storage_size = Math.ceil(stats.storageSize / stats.count);
+    const index_size = Math.ceil(stats.totalIndexSize / stats.count);
+    md[name] = { name, col, stats };
+    total_storage_size += stats.storageSize;
+    total_index_size += stats.totalIndexSize;
+    print(`Collection ${name}:`);
+    print(`  Count                : ${stats.count}`);
+    print(`  Count per Object     : ${count_per_object.toFixed(2)}`);
+    print(`  Average Storage Size : ${human_bytes(storage_size)}`);
+    print(`  Average Index Size   : ${human_bytes(index_size)}`);
+    print();
+}
 
-print(`* 1   Object (average) - Disk   : ${disk_size_per_obj.toFixed(2)} Bytes`);
-print(`* 1   Object (average) - Memory : ${index_size_per_obj.toFixed(2)} Bytes (${(index_size_per_obj * 100 / disk_size_per_obj).toFixed(1)}% of disk size)`);
-print(`* 100 Million Objects  - Disk   : ${(disk_size_per_obj * 100 / 1024).toFixed(2)} GB`);
-print(`* 100 Million Objects  - Memory : ${(index_size_per_obj * 100 / 1024).toFixed(2)} GB`);
-print(`* 1   Billion Objects  - Disk   : ${(disk_size_per_obj * 1000 / 1024).toFixed(2)} GB`);
-print(`* 1   Billion Objects  - Memory : ${(index_size_per_obj * 1000 / 1024).toFixed(2)} GB`);
+function scale_by_objects(title, num_objects) {
+    const objects_ratio = num_objects / total_num_objects;
+    print(title);
+    print(`  Storage Size : ${human_bytes(total_storage_size * objects_ratio)}`);
+    print(`  Index Size   : ${human_bytes(total_index_size * objects_ratio)}`);
+    print();
+}
+
+print();
+
+stat_collection('objectmds');
+stat_collection('objectparts');
+stat_collection('objectmultiparts');
+stat_collection('datachunks');
+stat_collection('datablocks');
+
+scale_by_objects(`Current Scale ${total_num_objects} objects:`, total_num_objects);
+scale_by_objects('Scale Estimate 1 M objects:', 1000000);
+scale_by_objects('Scale Estimate 10 M objects:', 10000000);
+scale_by_objects('Scale Estimate 100 M objects:', 100000000);
+scale_by_objects('Scale Estimate 1000 M objects:', 1000000000);

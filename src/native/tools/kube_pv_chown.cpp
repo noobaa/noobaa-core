@@ -30,7 +30,7 @@ change_path_permissions(const char* path, long uid)
         cout << "Error: got error when changing mode of " << path << " Error: " << strerror(errno) << endl;
         exit(1);
     }
-    cout << "changed permissions of " << path << " succesfully" << endl;
+    cout << "changed permissions of " << path << " successfully" << endl;
     close(fd);
     return 0;
 }
@@ -54,6 +54,8 @@ main(int argc, char* argv[])
     } else if (deployment_type == "mongo") {
         change_path_permissions("/mongo_data", uid);
         change_path_permissions("/log", uid);
+    } else if (deployment_type == "postgres") {
+        change_path_permissions("/data", uid);
     } else if (deployment_type == "agent") {
         change_path_permissions("/noobaa_storage", uid);
     } else {

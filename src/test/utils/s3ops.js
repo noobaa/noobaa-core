@@ -9,6 +9,7 @@ const stream = require('stream');
 const crypto = require('crypto');
 const P = require('../../util/promise');
 const RandStream = require('../../util/rand_stream');
+const querystring = require('querystring');
 
 require('../../util/dotenv').load();
 
@@ -37,6 +38,7 @@ class S3OPS {
             throw new Error('You cannot do this: SigV4 requires https to disable body signing and send streams...');
         }
         const rest_endpoint = use_https ? `https://${ip}:${ssl_port}` : `http://${ip}:${port}`;
+        console.log("rest_endpoint:", rest_endpoint);
         this.s3 = new AWS.S3({
             endpoint: rest_endpoint,
             accessKeyId: access_key,
@@ -673,15 +675,27 @@ class S3OPS {
         }
     }
 
-    async get_object(bucket, key) {
+    async get_object(bucket, key, query_params, preconditions) {
         const params = {
             Bucket: bucket,
             Key: key
         };
+        if (preconditions) {
+            //IfMatch, IfModifiedSince, IfNoneMatch, IfUnmodifiedSince
+            _.assign(params, preconditions);
+        }
         console.log('Reading object ', key);
         try {
             //There can be an issue if the object size (length) is too large
-            const obj = await this.s3.getObject(params).promise();
+            const obj = await this.s3.getObject(params)
+            .on('build', req => {
+                if (!query_params) return;
+                const sep = req.httpRequest.search() ? '&' : '?';
+                const query_string = querystring.stringify(query_params);
+                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                console.log(`Added query params ${query_params} to path ${req_path}`);
+                req.httpRequest.path = req_path;
+            }).promise();
             return obj;
         } catch (err) {
             this.log_error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);
@@ -689,19 +703,37 @@ class S3OPS {
         }
     }
 
-    async get_object_range(bucket, key, start_byte, finish_byte, versionid) {
+    async get_object_range(bucket, key, start_byte, finish_byte, versionid, preconditions) {
         const params = {
             Bucket: bucket,
             Key: key,
             Range: `bytes=${start_byte}-${finish_byte}`,
             VersionId: versionid ? versionid : undefined,
         };
+        if (preconditions) {
+            //IfMatch, IfModifiedSince, IfNoneMatch, IfUnmodifiedSince
+            _.assign(params, preconditions);
+        }
         try {
-            console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte}`);
+            console.log(`Reading object ${key} ${versionid ? versionid : ''} from ${start_byte} to ${finish_byte} from ${bucket}`);
             const obj = await this.s3.getObject(params).promise();
             return obj.Body;
         } catch (err) {
             this.log_error(`get_object_range:: getObject ${JSON.stringify(params)} failed!`, err);
+            throw err;
+        }
+    }
+
+    async get_object_size_etag(bucket, file_name) {
+        const params = {
+            Bucket: bucket,
+            Key: file_name,
+        };
+        try {
+            const ret = await this.s3.headObject(params).promise();
+            return { size: ret.ContentLength, etag: _.trim(ret.ETag, '"') };
+        } catch (err) {
+            this.log_error(`get object size and etag for ${file_name} in ${bucket} failed!`, err);
             throw err;
         }
     }

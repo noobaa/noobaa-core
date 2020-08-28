@@ -4,6 +4,8 @@
 const dbg = require('../../../util/debug_module')(__filename);
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const mime = require('mime');
+const config = require('../../../../config');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
@@ -13,7 +15,7 @@ async function put_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
     const copy_source = s3_utils.parse_copy_source(req);
     const tagging = s3_utils.parse_tagging_header(req);
-
+    const lock_settings = config.WORM_ENABLED ? s3_utils.parse_lock_header(req) : undefined;
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
         size: s3_utils.parse_content_length(req),
@@ -27,7 +29,7 @@ async function put_object(req, res) {
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['content-type'],
+        content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.getType(req.params.key) || 'application/octet-stream')),
         chunked_content: req.chunked_content,
         copy_source,
         source_stream: req,
@@ -40,13 +42,13 @@ async function put_object(req, res) {
         xattr_copy: (req.headers['x-amz-metadata-directive'] !== 'REPLACE'),
         tagging,
         tagging_copy: s3_utils.is_copy_tagging_directive(req),
-        encryption
+        encryption,
+        lock_settings
     });
 
     if (reply.version_id && reply.version_id !== 'null') {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
-
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 
     if (copy_source) {

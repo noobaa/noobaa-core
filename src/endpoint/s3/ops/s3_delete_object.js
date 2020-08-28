@@ -3,6 +3,7 @@
 
 // const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const config = require('../../../../config');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
@@ -13,6 +14,8 @@ async function delete_object(req, res) {
         key: req.params.key,
         version_id: req.query.versionId,
         md_conditions: http_utils.get_md_conditions(req),
+        bypass_governance: config.WORM_ENABLED ? req.headers['x-amz-bypass-governance-retention'] &&
+            req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE' : undefined,
     });
     if (req.query.versionId) {
         res.setHeader('x-amz-version-id', req.query.versionId);

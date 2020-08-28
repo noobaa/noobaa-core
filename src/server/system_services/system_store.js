@@ -26,8 +26,8 @@ const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client');
 const config = require('../../../config');
+const db_client = config.USE_POSTGRESQL ? require('../../util/postgres_client') : require('../../util/mongo_client');
 const { RpcError } = require('../../rpc');
 
 const COLLECTIONS = [{
@@ -268,7 +268,7 @@ class SystemStoreData {
             };
         }
         //Query deleted !== null
-        const collection = mongo_client.instance().collection(name);
+        const collection = db_client.instance().collection(name);
         return P.resolve(collection.findOne({
                 _id: id,
                 deleted: {
@@ -425,7 +425,7 @@ class SystemStore extends EventEmitter {
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._load_serial = new Semaphore(1);
         for (const col of COLLECTIONS) {
-            mongo_client.instance().define_collection(col);
+            db_client.instance().define_collection(col);
         }
         js_utils.deep_freeze(COLLECTIONS);
         js_utils.deep_freeze(COLLECTIONS_BY_NAME);
@@ -436,10 +436,10 @@ class SystemStore extends EventEmitter {
     [util.inspect.custom]() { return 'SystemStore'; }
 
     initial_load() {
-        mongo_client.instance().on('reconnect', () => this.load());
+        db_client.instance().on('reconnect', () => this.load());
         P.delay(100)
             .then(() => {
-                if (mongo_client.instance().is_connected()) {
+                if (db_client.instance().is_connected()) {
                     return this.load();
                 }
             })
@@ -467,12 +467,20 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async load() {
+    async load(since) {
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
                 dbg.log3('SystemStore: loading ...');
+
+                // If we get a load request with an timestamp older then our last update time
+                // we ensure we load everyting from that timestamp by updating our last_update_time.
+                if (!_.isUndefined(since) && since < this.last_update_time) {
+                    dbg.log0('SystemStore.load: Got load request with a timestamp older then my last update time');
+                    this.last_update_time = since;
+                }
+
                 let new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
@@ -532,17 +540,18 @@ class SystemStore extends EventEmitter {
         let non_deleted_query = {
             deleted: null
         };
-        return mongo_client.instance().connect()
+        return db_client.instance().connect()
             .then(() => P.map(COLLECTIONS,
-                col => mongo_client.instance().collection(col.name)
-                .find(non_deleted_query)
-                .toArray()
-                .then(res => {
-                    for (const item of res) {
-                        this._check_schema(col, item, 'warn');
-                    }
-                    target[col.name] = res;
-                })
+                col => {
+                    let f = db_client.instance().collection(col.name).find(non_deleted_query);
+                    if (!config.USE_POSTGRESQL) f = f.toArray();
+                    return f.then(res => {
+                        for (const item of res) {
+                            this._check_schema(col, item, 'warn');
+                        }
+                        target[col.name] = res;
+                    });
+                }
             ));
     }
 
@@ -553,19 +562,21 @@ class SystemStore extends EventEmitter {
                 $gte: this.last_update_time,
             }
         };
-        return mongo_client.instance().connect()
+        return db_client.instance().connect()
             .then(() => P.map(COLLECTIONS,
-                col => mongo_client.instance().collection(col.name)
-                .find(newly_updated_query, {
-                    projection: { last_update: 0 }
-                })
-                .toArray()
-                .then(res => {
-                    for (const item of res) {
-                        this._check_schema(col, item, 'warn');
-                    }
-                    target[col.name] = res;
-                })
+                async col => {
+                    let f = db_client.instance().collection(col.name)
+                        .find(newly_updated_query, {
+                            projection: { last_update: 0 }
+                        });
+                    if (!config.USE_POSTGRESQL) f = f.toArray();
+                    return f.then(res => {
+                        for (const item of res) {
+                            this._check_schema(col, item, 'warn');
+                        }
+                        target[col.name] = res;
+                    });
+                }
             ))
             .then(() => {
                 this.last_update_time = now;
@@ -573,7 +584,7 @@ class SystemStore extends EventEmitter {
     }
 
     _check_schema(col, item, warn) {
-        return mongo_client.instance().validate(col.name, item, warn);
+        return db_client.instance().validate(col.name, item, warn);
     }
 
     new_system_store_id() {
@@ -590,18 +601,18 @@ class SystemStore extends EventEmitter {
 
     get_system_collections_dump() {
         const dump = {};
-        return mongo_client.instance().connect()
+        return db_client.instance().connect()
             .then(() => P.map(COLLECTIONS,
-                col =>
-                mongo_client.instance().collection(col.name)
-                .find()
-                .toArray()
-                .then(docs => {
-                    for (const doc of docs) {
-                        this._check_schema(col, doc, 'warn');
-                    }
-                    dump[col.name] = docs;
-                })
+                col => {
+                    let f = db_client.instance().collection(col.name).find();
+                    if (!config.USE_POSTGRESQL) f = f.toArray();
+                    return f.then(docs => {
+                        for (const doc of docs) {
+                            this._check_schema(col, doc, 'warn');
+                        }
+                        dump[col.name] = docs;
+                    });
+                }
             ))
             .then(() => dump);
     }
@@ -658,6 +669,28 @@ class SystemStore extends EventEmitter {
      *
      */
     async make_changes(changes) {
+        const { any_news, last_update } = await this._load_serial.surround(
+            () => this._make_changes_internal(changes)
+        );
+
+        // Reloading must be done outside the semapore lock because the load is
+        // locking on the same semaphore.
+        if (any_news) {
+            if (this.is_standalone) {
+                await this.load(last_update);
+            } else {
+                // notify all the cluster (including myself) to reload
+                await server_rpc.client.redirector.publish_to_cluster({
+                    method_api: 'server_inter_process_api',
+                    method_name: 'load_system_store',
+                    target: '',
+                    request_params: { since: last_update }
+                });
+            }
+        }
+    }
+
+    async _make_changes_internal(changes) {
         const bulk_per_collection = {};
         const now = new Date();
         const last_update = now.getTime();
@@ -675,7 +708,7 @@ class SystemStore extends EventEmitter {
         };
         const get_bulk = name => {
             const bulk = bulk_per_collection[name] ||
-                mongo_client.instance().collection(name).initializeUnorderedBulkOp();
+                db_client.instance().collection(name).initializeUnorderedBulkOp();
             bulk_per_collection[name] = bulk;
             return bulk;
         };
@@ -698,8 +731,10 @@ class SystemStore extends EventEmitter {
                 data.check_indexes(col, item);
                 let dont_change_last_update = Boolean(item.dont_change_last_update);
                 let updates = _.omit(item, '_id', '$find', 'dont_change_last_update');
-                let finds = item.$find || _.pick(item, '_id');
+                let find_id = _.pick(item, '_id');
+                let finds = item.$find || (mongo_utils.is_object_id(find_id._id) && find_id);
                 if (_.isEmpty(updates)) return;
+                if (!finds) throw new Error(`SystemStore: make_changes id is not of type object_id: ${find_id._id}`);
                 let keys = _.keys(updates);
 
                 if (_.first(keys)[0] === '$') {
@@ -730,37 +765,68 @@ class SystemStore extends EventEmitter {
                     updates.$set.last_update = last_update;
                     any_news = true;
                 }
-                get_bulk(name)
-                    .find(finds)
-                    .updateOne(updates);
+                const b = get_bulk(name);
+                if (config.USE_POSTGRESQL) {
+                    b.findAndUpdateOne(finds, updates);
+                } else {
+                    b.find(finds).updateOne(updates);
+                }
+                // .findAndUpdateOne(finds, updates);
+                // .find(finds)
+                // .updateOne(updates);
             });
         });
         _.each(changes.remove, (list, name) => {
             get_collection(name);
             _.each(list, id => {
+                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
                 any_news = true;
-                get_bulk(name)
-                    .find({
-                        _id: id
-                    })
-                    .updateOne({
-                        $set: {
-                            deleted: now,
-                            last_update: last_update,
-                        }
-                    });
+                const query = {
+                    _id: id
+                };
+                const update = {
+                    $set: {
+                        deleted: now,
+                        last_update: last_update,
+                    }
+                };
+                const b = get_bulk(name);
+                if (config.USE_POSTGRESQL) {
+                    b.findAndUpdateOne(query, update);
+                } else {
+                    b.find(query).updateOne(update);
+                }
+                // .find({
+                //     _id: id
+                // })
+                // .updateOne({
+                //     $set: {
+                //         deleted: now,
+                //         last_update: last_update,
+                //     }
+                // });
             });
         });
 
         _.each(changes.db_delete, (list, name) => {
             get_collection(name);
             _.each(list, id => {
-                get_bulk(name)
-                    .find({
-                        _id: id,
-                        deleted: { $exists: true }
-                    })
-                    .removeOne();
+                if (!mongo_utils.is_object_id(id)) throw new Error(`SystemStore: make_changes id is not of type object_id: ${id}`);
+                const b = get_bulk(name);
+                const query = {
+                    _id: id,
+                    deleted: { $exists: true }
+                };
+                if (config.USE_POSTGRESQL) {
+                    b.findAndRemoveOne(query);
+                } else {
+                    b.find(query).removeOne();
+                }
+                //     .find({
+                //         _id: id,
+                //         deleted: { $exists: true }
+                //     })
+                //     .removeOne();
             });
         });
 
@@ -768,18 +834,7 @@ class SystemStore extends EventEmitter {
             bulk => bulk.length && bulk.execute({ j: true })
         ));
 
-        if (any_news) {
-            if (this.is_standalone) {
-                await this.load();
-            } else {
-                // notify all the cluster (including myself) to reload
-                await server_rpc.client.redirector.publish_to_cluster({
-                    method_api: 'server_inter_process_api',
-                    method_name: 'load_system_store',
-                    target: ''
-                });
-            }
-        }
+        return { any_news, last_update };
     }
 
     make_changes_in_background(changes) {
@@ -821,7 +876,7 @@ class SystemStore extends EventEmitter {
     }
 
     find_deleted_docs(name, max_delete_time, limit) {
-        const collection = mongo_client.instance().collection(name);
+        const collection = db_client.instance().collection(name);
         const query = {
             deleted: {
                 $lt: new Date(max_delete_time)
@@ -833,12 +888,12 @@ class SystemStore extends EventEmitter {
                     _id: 1,
                     deleted: 1
                 }
-            }).toArray()
+            }) //.toArray()
             .then(docs => mongo_utils.uniq_ids(docs, '_id'));
     }
 
     count_total_docs(name) {
-        const collection = mongo_client.instance().collection(name);
+        const collection = db_client.instance().collection(name);
         return collection.countDocuments({}); // maybe estimatedDocumentCount()
     }
 }

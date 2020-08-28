@@ -169,6 +169,7 @@ interface Bucket extends Base {
     namespace?: {
         read_resources: NamespaceResource[];
         write_resource: NamespaceResource;
+        caching?: CacheConfig;
     };
     quota?: Object;
     storage_stats: {
@@ -178,6 +179,9 @@ interface Bucket extends Base {
     lambda_triggers?: Object;
 }
 
+interface CacheConfig {
+    ttl?: number;
+}
 interface NamespaceResource {
     _id: ID;
     name: string;
@@ -350,6 +354,7 @@ interface ObjectMD {
     version_seq: number;
     version_past: boolean;
     version_enabled: boolean;
+    lock_enabled: boolean;
     delete_marker?: boolean;
     size: number;
     num_parts: number;
@@ -357,6 +362,8 @@ interface ObjectMD {
     upload_size?: number;
     upload_started?: ID;
     create_time?: Date;
+    cache_last_valid_time?: Date;
+    last_modified_time?: Date;
     etag: string;
     md5_b64: string;
     sha256_b64: string;
@@ -364,6 +371,7 @@ interface ObjectMD {
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
     tagging: { key: string; value: string; }[],
+    lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
 }
 
 interface ObjectInfo {
@@ -371,6 +379,7 @@ interface ObjectInfo {
     bucket: string;
     key: string;
     version_id: string;
+    lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
     is_latest: boolean;
     delete_marker?: boolean;
     size: number;
@@ -379,6 +388,8 @@ interface ObjectInfo {
     upload_size?: number;
     upload_started?: number;
     create_time?: number;
+    cache_last_valid_time?: number;
+    last_modified_time?: number;
     etag: string;
     md5_b64: string;
     sha256_b64: string;
@@ -482,6 +493,7 @@ interface PartInfo {
     start: number;
     end: number;
     chunk_offset?: number;
+    uncommitted?: boolean;
 }
 
 
@@ -553,3 +565,41 @@ interface PartSchemaDB {
     uncommitted?: boolean;
 }
 
+/**********************************************************
+ *
+ * API CLIENT - client interface based on default schema
+ *
+ **********************************************************/
+
+interface APIClient {
+    RPC_BUFFERS: Symbol;
+
+    create_auth_token(params: object): Promise<object>;
+    create_access_key_auth(params: object): Promise<object>;
+    create_k8s_auth(params: object): Promise<object>;
+
+    readonly auth: object;
+    readonly account: object;
+    readonly system: object;
+    readonly tier: object;
+    readonly node: object;
+    readonly host: object;
+    readonly bucket: object;
+    readonly events: object;
+    readonly object: object;
+    readonly agent: object;
+    readonly block_store: object;
+    readonly stats: object;
+    readonly scrubber: object;
+    readonly debug: object;
+    readonly redirector: object;
+    readonly tiering_policy: object;
+    readonly pool: object;
+    readonly cluster_server: object;
+    readonly cluster_internal: object;
+    readonly server_inter_process: object;
+    readonly hosted_agents: object;
+    readonly frontend_notifications: object;
+    readonly func: object;
+    readonly func_node: object;
+}

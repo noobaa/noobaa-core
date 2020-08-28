@@ -14,6 +14,36 @@ module.exports = {
 
     methods: {
 
+        put_object_lock_configuration: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'object_lock_configuration'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
+                },
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+        get_object_lock_configuration: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                },
+            },
+            reply: {
+                $ref: '#/definitions/object_lock_configuration'
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
         create_bucket: {
             method: 'POST',
             params: {
@@ -26,6 +56,7 @@ module.exports = {
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     tag: { type: 'string' },
+                    object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
                     namespace: {
                         type: 'object',
                         required: ['write_resource', 'read_resources'],
@@ -38,8 +69,14 @@ module.exports = {
                                 items: {
                                     type: 'string'
                                 },
+                            },
+                            caching: {
+                                $ref: 'common_api#/definitions/bucket_cache_config'
                             }
                         }
+                    },
+                    lock_enabled: {
+                        type: 'boolean'
                     },
                     bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 }
@@ -912,6 +949,7 @@ module.exports = {
                 spillover: {
                     type: 'string'
                 },
+                object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
                 storage: {
                     type: 'object',
                     properties: {
@@ -1085,7 +1123,7 @@ module.exports = {
                 },
                 policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
-                }
+                },
             }
         },
 
@@ -1104,6 +1142,9 @@ module.exports = {
                 },
                 write_resource: {
                     type: 'string'
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
                 }
             }
         },
@@ -1155,7 +1196,10 @@ module.exports = {
                         },
                         write_resource: {
                             $ref: 'pool_api#/definitions/namespace_resource_extended_info'
-                        }
+                        },
+                        caching: {
+                            $ref: 'common_api#/definitions/bucket_cache_config'
+                        },
                     },
                 },
                 active_triggers: {
@@ -1177,6 +1221,9 @@ module.exports = {
                 },
                 s3_policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
+                },
+                bucket_info: {
+                    $ref: '#/definitions/bucket_info'
                 },
             }
         },
@@ -1359,6 +1406,40 @@ module.exports = {
                 object_suffix: {
                     type: 'string'
                 },
+            }
+        },
+        object_lock_configuration: {
+            type: 'object',
+            properties: {
+                object_lock_enabled: { type: 'string' },
+                rule: {
+                    type: 'object',
+                    properties: {
+                        default_retention: {
+                            oneOf: [{
+                                    type: 'object',
+                                    properties: {
+                                        years: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        days: { type: 'integer' },
+                                        mode: {
+                                            type: 'string',
+                                            enum: ['GOVERNANCE', 'COMPLIANCE']
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             }
         },
     }

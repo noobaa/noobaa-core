@@ -22,35 +22,40 @@ const S3_XML_ROOT_ATTRS = Object.freeze({
 });
 
 const BUCKET_SUB_RESOURCES = Object.freeze({
-    accelerate: 1,
-    acl: 1,
-    analytics: 1,
-    cors: 1,
-    delete: 1,
-    inventory: 1,
-    lifecycle: 1,
-    location: 1,
-    logging: 1,
-    metrics: 1,
-    notification: 1,
-    policy: 1,
-    replication: 1,
-    requestPayment: 1,
-    tagging: 1,
-    uploads: 1,
-    versioning: 1,
-    versions: 1,
-    website: 1,
-    encryption: 1,
+    'accelerate': 'accelerate',
+    'acl': 'acl',
+    'analytics': 'analytics',
+    'cors': 'cors',
+    'delete': 'delete',
+    'inventory': 'inventory',
+    'lifecycle': 'lifecycle',
+    'location': 'location',
+    'logging': 'logging',
+    'metrics': 'metrics',
+    'notification': 'notification',
+    'policy': 'policy',
+    'replication': 'replication',
+    'requestPayment': 'requestPayment',
+    'tagging': 'tagging',
+    'uploads': 'uploads',
+    'versioning': 'versioning',
+    'versions': 'versions',
+    'website': 'website',
+    'encryption': 'encryption',
+    'object-lock': 'object_lock',
+    'legal-hold': 'legal_hold',
+    'retention': 'retention'
 });
 
 const OBJECT_SUB_RESOURCES = Object.freeze({
-    acl: 1,
-    restore: 1,
-    tagging: 1,
-    torrent: 1,
-    uploads: 1,
-    uploadId: 1,
+    'acl': 'acl',
+    'restore': 'restore',
+    'tagging': 'tagging',
+    'torrent': 'torrent',
+    'uploads': 'uploads',
+    'uploadId': 'uploadId',
+    'legal-hold': 'legal_hold',
+    'retention': 'retention'
 });
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
@@ -80,6 +85,13 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
     MALFORMED_POLICY: S3Error.MalformedPolicy,
+    NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
+    OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,
+    INVALID_REQUEST: S3Error.InvalidRequest,
+    NOT_IMPLEMENTED: S3Error.NotImplemented,
+    INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
+    SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
+    SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
 });
 
 const S3_OPS = load_ops();
@@ -139,6 +151,17 @@ async function handle_request(req, res) {
     dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
+
+
+
+    if (req.query && req.query.versionId) {
+        const caching = await req.object_sdk.read_bucket_sdk_caching_info(req.params.bucket);
+        if (caching) {
+            dbg.error('S3 Version request not (NotImplemented) for buckets with caching', op_name, req.method, req.originalUrl);
+            throw new S3Error(S3Error.NotImplemented);
+        }
+    }
+
     const op = S3_OPS[op_name];
     if (!op || !op.handler) {
         dbg.error('S3 TODO (NotImplemented)', op_name, req.method, req.originalUrl);
@@ -177,8 +200,8 @@ async function _get_redirection_bucket(req, bucket) {
     const redirect = bucket_website_info.website_configuration.redirect_all_requests_to;
     if (redirect) {
         const dest = redirect.host_name;
-        const protocol = redirect.protocol || req.secure ? 'https' : 'http';
-        return `${protocol}//${dest}`;
+        const protocol = redirect.protocol || (req.secure ? 'https' : 'http');
+        return `${protocol.toLowerCase()}://${dest}`;
     }
 }
 
@@ -274,6 +297,13 @@ function authenticate_request(req, res) {
 }
 
 async function authorize_request(req) {
+    await Promise.all([
+        req.object_sdk.authorize_request_account(req.params.bucket),
+        authorize_request_policy(req)
+    ]);
+}
+
+async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
     const policy_info = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
@@ -429,7 +459,7 @@ function parse_op_name(req) {
     if (!key) {
         const query_keys = Object.keys(req.query);
         for (let i = 0; i < query_keys.length; ++i) {
-            if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${method}_bucket_${query_keys[i]}`;
+            if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${method}_bucket_${BUCKET_SUB_RESOURCES[query_keys[i]]}`;
         }
         return `${method}_bucket`;
     }
@@ -437,7 +467,7 @@ function parse_op_name(req) {
     // object url
     const query_keys = Object.keys(req.query);
     for (let i = 0; i < query_keys.length; ++i) {
-        if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${method}_object_${query_keys[i]}`;
+        if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${method}_object_${OBJECT_SUB_RESOURCES[query_keys[i]]}`;
     }
     return `${method}_object`;
 }

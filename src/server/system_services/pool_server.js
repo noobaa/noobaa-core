@@ -189,6 +189,15 @@ async function create_hosts_pool(req) {
     }
 }
 
+async function get_hosts_pool_agent_config(req) {
+    const pool = find_pool_by_name(req);
+    if (!pool.hosts_pool_info) {
+        throw new RpcError('INVALID_POOL_TYPE', `pool ${pool.name} not a hosts pool`);
+    }
+    const agent_install_string = await get_agent_install_conf(req.system, pool, req.account, 'INTERNAL');
+    return agent_install_string;
+}
+
 async function get_agent_install_conf(system, pool, account, routing_hint) {
     let cfg = system_store.data.agent_configs
         .find(conf => conf.pool === pool._id);
@@ -1231,3 +1240,4 @@ exports.scale_hosts_pool = scale_hosts_pool;
 exports.update_hosts_pool = update_hosts_pool;
 exports.update_cloud_pool_limit = update_cloud_pool_limit;
 exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;
+exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;

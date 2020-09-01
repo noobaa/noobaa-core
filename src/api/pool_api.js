@@ -384,6 +384,26 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        get_hosts_pool_agent_config: {
+            doc: 'Read the hosts pool\'s agent config',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'string'
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

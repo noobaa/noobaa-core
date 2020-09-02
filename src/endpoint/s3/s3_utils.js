@@ -18,6 +18,14 @@ const DEFAULT_S3_USER = Object.freeze({
     DisplayName: 'NooBaa'
 });
 
+const DEFAULT_OBJECT_ACL = Object.freeze({
+    owner: DEFAULT_S3_USER,
+    access_control_list: [{
+        Grantee: { ...DEFAULT_S3_USER, Type: "CanonicalUser" },
+        Permission: "FULL_CONTROL"
+    }]
+});
+
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:putanalyticsconfiguration" },
     delete_bucket_cors: { regular: "s3:putbucketcors" },
@@ -358,7 +366,6 @@ function parse_lock_header(req) {
     return lock_settings;
 }
 
-
 function parse_tagging_header(req) {
     const tagging_header = req.headers['x-amz-tagging'];
     if (!tagging_header) return;
@@ -568,6 +575,7 @@ function get_http_response_from_resp(res) {
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
+exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.format_s3_xml_date = format_s3_xml_date;
 exports.get_request_xattr = get_request_xattr;

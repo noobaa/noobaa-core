@@ -721,6 +721,20 @@ class ObjectSDK {
         const ns = this.namespace_nb;
         return ns.put_object_retention(params, this);
     }
+
+    ////////////////////
+    //  OBJECT ACLS   //
+    ////////////////////
+
+    async get_object_acl(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.get_object_acl(params, this);
+    }
+
+    async put_object_acl(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.put_object_acl(params, this);
+    }
 }
 
 module.exports = ObjectSDK;

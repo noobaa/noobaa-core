@@ -12,6 +12,8 @@ const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
 const Semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const s3_utils = require('../endpoint/s3/s3_utils');
+const config = require('../../config');
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
@@ -739,6 +741,34 @@ class NamespaceCache {
         return this.namespace_hub.get_blob_block_lists(params, object_sdk);
     }
 
+    //////////
+    // ACLs //
+    //////////
+
+    async get_object_acl(params, object_sdk) {
+        if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
+            throw new S3Error(S3Error.AccessDenied);
+        }
+
+        if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
+            return this.namespace_hub.get_object_acl(params, object_sdk);
+        }
+
+        await this.read_object_md(params, object_sdk);
+        return s3_utils.DEFAULT_OBJECT_ACL;
+    }
+
+    async put_object_acl(params, object_sdk) {
+        if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
+            throw new S3Error(S3Error.AccessDenied);
+        }
+
+        if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
+            return this.namespace_hub.put_object_acl(params, object_sdk);
+        }
+
+        await this.read_object_md(params, object_sdk);
+    }
 }
 
 

@@ -456,6 +456,8 @@ config.NAMESPACE_CACHING = {
     MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
     UPLOAD_SEMAPHORE_CAP: Math.floor(
         Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
+    /** @type string 'reject' | 'pass-through' | '' */
+    ACL_HANDLING: "",
 };
 
 assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.DEFAULT_MAX_CACHE_OBJECT_SIZE);

@@ -448,6 +448,37 @@ class NamespaceS3 {
         };
     }
 
+    //////////
+    // ACLs //
+    //////////
+
+    async get_object_acl(params, object_sdk) {
+        dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params));
+
+        const res = await this.s3.getObjectAcl({
+            Key: params.key,
+            VersionId: params.version_id
+        }).promise();
+
+        dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params), 'res', inspect(res));
+
+        return {
+            owner: res.Owner,
+            access_control_list: res.Grants
+        };
+    }
+
+    async put_object_acl(params, object_sdk) {
+        dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params));
+
+        const res = await this.s3.putObjectAcl({
+            Key: params.key,
+            VersionId: params.version_id,
+            ACL: params.acl
+        }).promise();
+
+        dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params), 'res', inspect(res));
+    }
 
     ///////////////////
     // OBJECT DELETE //

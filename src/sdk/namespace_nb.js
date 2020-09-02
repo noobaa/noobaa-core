@@ -5,6 +5,7 @@ const _ = require('lodash');
 
 const P = require('../util/promise');
 const blob_translator = require('./blob_translator');
+const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const EXCEPT_REASONS = [
@@ -311,6 +312,31 @@ class NamespaceNB {
 
     put_object_retention(params, object_sdk) {
         return object_sdk.rpc_client.object.put_object_retention(params);
+    }
+
+    ////////////
+    //  ACLs  //
+    ////////////
+
+    async get_object_acl(params, object_sdk) {
+        await this.read_object_md({
+            bucket: params.bucket,
+            key: params.key,
+            version_id: params.versionId
+        }, object_sdk);
+
+        return s3_utils.DEFAULT_OBJECT_ACL;
+    }
+
+    async put_object_acl(params, object_sdk) {
+        // TODO S3 ignoring put_object_acl for now
+        // For now we just call read_object_md() to check if the object and bucket 
+        // even exist or throw proper errors.
+        await this.read_object_md({
+            bucket: params.bucket,
+            key: params.key,
+            version_id: params.versionId
+        }, object_sdk);
     }
 }
 

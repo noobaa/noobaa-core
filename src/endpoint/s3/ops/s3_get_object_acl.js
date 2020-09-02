@@ -1,34 +1,36 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const s3_utils = require('../s3_utils');
+const _ = require('lodash');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
  */
-function get_object_acl(req) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            version_id: req.query.versionId
-        })
-        .then(object_md => ({
-            AccessControlPolicy: {
-                Owner: s3_utils.DEFAULT_S3_USER,
-                AccessControlList: [{
+async function get_object_acl(req) {
+    const reply = await req.object_sdk.get_object_acl({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        version_id: req.query.versionId,
+    });
+
+    return {
+        AccessControlPolicy: {
+            Owner: reply.owner,
+            AccessControlList:
+                _.map(reply.access_control_list, acl => ({
                     Grant: {
                         Grantee: {
                             _attr: {
                                 'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-                                'xsi:type': 'CanonicalUser',
+                                'xsi:type': acl.Grantee.Type,
                             },
-                            _content: s3_utils.DEFAULT_S3_USER,
+                            _content: _.omit(acl.Grantee, 'Type')
                         },
-                        Permission: 'FULL_CONTROL'
+                        Permission: acl.Permission
                     }
-                }]
-            }
-        }));
+                }))
+        }
+    };
 }
 
 module.exports = {

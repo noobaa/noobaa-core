@@ -1,18 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const S3Error = require('../s3_errors').S3Error;
+
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTacl.html
  */
-function put_object_acl(req) {
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            version_id: req.query.versionId,
-        })
-        .then(object_md => {
-            // TODO S3 ignoring put_object_acl for now
-        });
+async function put_object_acl(req) {
+    if (!req.headers['x-amz-acl']) {
+        throw new S3Error(S3Error.AccessDenied);
+    }
+
+    await req.object_sdk.put_object_acl({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        version_id: req.query.versionId,
+        acl: req.headers['x-amz-acl']
+    });
 }
 
 module.exports = {

@@ -67,7 +67,7 @@
     "ajv": "6.10.2",
     "aws-sdk": "2.660.0",
     "azure-storage": "2.10.3",
-    "bcrypt": "3.0.7",
+    "bcrypt": "5.0.0",
     "big-integer": "1.6.48",
     "bindings": "1.5.0",
     "bluebird": "3.7.2",

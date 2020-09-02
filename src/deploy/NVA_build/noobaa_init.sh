@@ -161,17 +161,6 @@ prepare_mongo_pv() {
   chmod g=u ${dir}
 }
 
-prepare_postgres_pv() {
-  local dir="/data/pgdata"
-
-  # change ownership and permissions of postgres db path
-  ${KUBE_PV_CHOWN} postgres
-
-  mkdir -p ${dir}
-  chgrp 0 ${dir}
-  chmod g=u ${dir}
-}
-
 init_endpoint() {
   fix_non_root_user
   extract_noobaa_in_docker
@@ -201,15 +190,17 @@ init_noobaa_agent() {
 }
 
 
+# init phase
+init_pod() {
+  prepare_mongo_pv
+}
+
 if [ "${RUN_INIT}" == "agent" ]
 then
   init_noobaa_agent
 elif [ "${RUN_INIT}" == "init_mongo" ]
 then
-  prepare_mongo_pv
-elif [ "${RUN_INIT}" == "init_postgres" ]
-then
-  prepare_postgres_pv
+  init_pod
 elif [ "${RUN_INIT}" == "init_endpoint" ]
 then
   init_endpoint

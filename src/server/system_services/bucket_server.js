@@ -457,14 +457,14 @@ async function read_bucket_sdk_info(req) {
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
         bucket_info: await P.props({
-            bucket,
-            nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
-            hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
-            num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
-            func_configs: get_bucket_func_configs(req, bucket),
-            unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
-        })
-        .then(get_bucket_info),
+                bucket,
+                nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
+                hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+                num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+                func_configs: get_bucket_func_configs(req, bucket),
+                unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
+            })
+            .then(get_bucket_info),
     };
 
     if (bucket.namespace) {
@@ -804,17 +804,25 @@ async function delete_bucket(req) {
             desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
         });
     }
+    const associated_buckets = tier_server.get_associated_buckets(tiering_policy)
+        .filter(bucket_id => String(bucket_id) !== String(bucket._id));
+    const tieringpolicies = [];
+    const tiers = [];
+    if (_.isEmpty(associated_buckets)) {
+        tieringpolicies.push(tiering_policy._id);
+        tiers.push(..._.compact(_.map(tiering_policy.tiers, tier_and_order => {
+            const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
+                .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
+            if (_.isEmpty(associated_tiering_policies)) {
+                return tier_and_order.tier._id;
+            }
+        })));
+    }
     await system_store.make_changes({
         remove: {
             buckets: [bucket._id],
-            tieringpolicies: [tiering_policy._id],
-            tiers: _.compact(_.map(tiering_policy.tiers, tier_and_order => {
-                const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
-                    .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
-                if (_.isEmpty(associated_tiering_policies)) {
-                    return tier_and_order.tier._id;
-                }
-            }))
+            tieringpolicies,
+            tiers
         }
     });
 

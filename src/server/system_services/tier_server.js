@@ -828,6 +828,13 @@ function get_associated_tiering_policies(tier) {
     return _.map(associated_tiering_policies, tiering_policies => tiering_policies._id);
 }
 
+function get_associated_buckets(policy) {
+    const associated_buckets = _.filter(policy.system.buckets_by_name,
+        bucket => String(bucket.tiering._id) === String(policy._id));
+
+    return _.map(associated_buckets, bucket => bucket._id);
+}
+
 function throw_on_invalid_pools_for_tier(pools) {
     const deleting_pools = pools.filter(pool =>
         pool.hosts_pool_info &&
@@ -840,6 +847,7 @@ function throw_on_invalid_pools_for_tier(pools) {
 
 // EXPORTS
 exports.get_associated_tiering_policies = get_associated_tiering_policies;
+exports.get_associated_buckets = get_associated_buckets;
 exports.new_tier_defaults = new_tier_defaults;
 exports.new_policy_defaults = new_policy_defaults;
 exports.get_tier_info = get_tier_info;

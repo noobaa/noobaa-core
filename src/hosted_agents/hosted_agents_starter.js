@@ -5,16 +5,14 @@ require('../util/dotenv').load();
 require('../util/panic');
 require('../util/fips');
 
-const url = require('url');
-
 const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('HostedAgents');
+
+const url = require('url');
 const server_rpc = require('../server/server_rpc');
 const mongo_client = require('../util/mongo_client');
-
-dbg.set_process_name('HostedAgents');
-mongo_client.instance().connect();
-
-register_rpc();
+const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const config = require('../../config.js');
 
 function register_rpc() {
     server_rpc.register_hosted_agents_services();
@@ -26,3 +24,15 @@ function register_rpc() {
         logging: true,
     });
 }
+
+async function start_hosted_agents() {
+    await Promise.all([
+        mongo_client.instance().connect(),
+        register_rpc(),
+
+        // Try to start the hosted agents metrics server
+        prom_reporting.start_server(config.HA_METRICS_SERVER_PORT)
+   ]);
+}
+
+start_hosted_agents();

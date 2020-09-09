@@ -23,7 +23,7 @@ const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
-const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
+const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -228,8 +228,9 @@ class NodesMonitor extends EventEmitter {
             );
             nodes_stats.forEach(stats => {
                 dbg.log0(`resetting stats in prometheus:`, stats);
-                prom_report.instance().set_providers_ops(stats.service, stats.write_count, stats.read_count);
-                prom_report.instance().set_providers_bandwidth(stats.service, stats.write_bytes, stats.read_bytes);
+                const core_report = prom_reporting.get_core_report();
+                core_report.set_providers_ops(stats.service, stats.write_count, stats.read_count);
+                core_report.set_providers_bandwidth(stats.service, stats.write_bytes, stats.read_bytes);
             });
         }
 
@@ -1083,14 +1084,15 @@ class NodesMonitor extends EventEmitter {
 
             //update prometheus metrics
             if (config.PROMETHEUS_ENABLED) {
+                const report = prom_reporting.get_core_report();
                 if (this._is_cloud_node(item)) {
                     const endpoint_type = _.get(system_store.data.get_by_id(item.node.pool), 'cloud_pool_info.endpoint_type') || 'OTHER';
-                    prom_report.instance().update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
-                    prom_report.instance().update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+                    report.update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
+                    report.update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
                 } else if (this._is_kubernetes_node(item)) {
                     const endpoint_type = 'KUBERNETES';
-                    prom_report.instance().update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
-                    prom_report.instance().update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
+                    report.update_providers_bandwidth(endpoint_type, info.io_stats.write_bytes, info.io_stats.read_bytes);
+                    report.update_providers_ops(endpoint_type, info.io_stats.write_count, info.io_stats.read_count);
                 }
             }
 

@@ -11,6 +11,9 @@ require('../util/coverage_utils');
 require('../util/panic');
 require('../util/fips');
 
+const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('WebServer');
+
 const _ = require('lodash');
 const path = require('path');
 const util = require('util');
@@ -20,15 +23,15 @@ const express = require('express');
 const express_favicon = require('serve-favicon');
 const express_compress = require('compression');
 const express_morgan_logger = require('morgan');
+const express_proxy = require('express-http-proxy');
 const P = require('../util/promise');
 const ssl_utils = require('../util/ssl_utils');
-const dbg = require('../util/debug_module')(__filename);
 const pkg = require('../../package.json');
 const config = require('../../config.js');
 const license_info = require('./license_info');
 const mongo_client = require('../util/mongo_client');
 const system_store = require('./system_services/system_store').get_instance();
-const prom_reports = require('./analytic_services/prometheus_reporting').PrometheusReporting;
+const prom_reporting = require('./analytic_services/prometheus_reporting');
 const cutil = require('./utils/clustering_utils');
 const account_server = require('./system_services/account_server');
 const addr_utils = require('../util/addr_utils');
@@ -38,9 +41,6 @@ const http_utils = require('../util/http_utils');
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
-
-dbg.set_process_name('WebServer');
-
 
 mongo_client.instance().connect();
 
@@ -61,6 +61,7 @@ const http_port = process.env.PORT || 5001;
 const https_port = process.env.SSL_PORT || 5443;
 process.env.PORT = http_port;
 process.env.SSL_PORT = https_port;
+
 
 system_store.once('load', async () => {
     await account_server.ensure_support_account();
@@ -89,10 +90,14 @@ async function start_web_server() {
         const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);
+
     } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
     }
+
+    // Try to start the metrics server.
+    await prom_reporting.start_server(config.WS_METRICS_SERVER_PORT);
 }
 
 ////////////////
@@ -148,17 +153,22 @@ app.use(express_compress());
 ////////////
 // ROUTES //
 ////////////
-if (prom_reports.instance().enabled()) {
+if (config.PROMETHEUS_ENABLED) {
+    // Enable proxying for all metrics servers
+    app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
+    app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
+    app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
+
+    // TODO: this is here for backward competability, remove when all is working and tested
     app.get('/metrics', function(req, res) {
-        res.set('Content-Type', prom_reports.instance().client().register.contentType);
-        res.end(prom_reports.instance().client().register.metrics());
+        res.set('Content-Type', 'text/plain');
+        res.end(prom_reporting.export_all_metrics());
     });
-
     app.get('/metrics/counter', function(req, res) {
-        res.set('Content-Type', prom_reports.instance().client().register.contentType);
-        res.end(prom_reports.instance().export_metrics());
+        res.set('Content-Type', 'text/plain');
+        const report = prom_reporting.get_core_report(true);
+        res.end(report ? report.export_metrics() : '');
     });
-
 }
 
 app.get('/', function(req, res) {

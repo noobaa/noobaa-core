@@ -26,7 +26,7 @@ const size_utils = require('../../util/size_utils');
 const net_utils = require('../../util/net_utils');
 const fs_utils = require('../../util/fs_utils');
 const Dispatcher = require('../notifications/dispatcher');
-const prom_report = require('../analytic_services/prometheus_reporting').PrometheusReporting;
+const prom_reporting = require('../analytic_services/prometheus_reporting');
 const { HistoryDataStore } = require('../analytic_services/history_data_store');
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
@@ -910,43 +910,45 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         (percentage_of_unhealthy_buckets > 0.5 && 4) ||
         (percentage_of_unhealthy_buckets > 0.3 && 3) || 0;
 
-    prom_report.instance().set_providers_physical_logical(providers_stats);
-    prom_report.instance().set_cloud_types(cloud_pool_stats);
-    prom_report.instance().set_num_unhealthy_pools(unhealthy_pool_count);
-    prom_report.instance().set_num_pools(pool_count);
-    prom_report.instance().set_unhealthy_cloud_types(cloud_pool_stats);
-    prom_report.instance().set_system_info({ name, address });
-    prom_report.instance().set_system_links(links);
-    prom_report.instance().set_num_buckets(buckets_num);
-    prom_report.instance().set_bucket_status(buckets);
-    prom_report.instance().set_resource_status(resources);
-    prom_report.instance().set_num_objects(objects_in_buckets);
-    prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
-    prom_report.instance().set_health_status(health_status);
-    prom_report.instance().set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
-    prom_report.instance().set_num_buckets_claims(bucket_claims);
-    prom_report.instance().set_num_objects_buckets_claims(objects_in_bucket_claims);
-    prom_report.instance().set_system_capacity(capacity);
-    prom_report.instance().set_reduction_ratio(reduction_ratio);
-    prom_report.instance().set_object_savings_physical_size(physical_size);
-    prom_report.instance().set_object_savings_logical_size(logical_size);
-    prom_report.instance().set_bucket_class_capacity_usage(usage_by_bucket_class);
-    prom_report.instance().set_projects_capacity_usage(usage_by_project);
-    prom_report.instance().set_accounts_io_usage(accounts_stats);
-    prom_report.instance().set_accounts_num(accounts_num);
-    prom_report.instance().set_total_usage(total_usage);
-    // TODO: Currently mock data, update with the relevant values.
-    prom_report.instance().set_rebuild_progress(100);
-    prom_report.instance().set_rebuild_time(0);
+    const core_report = prom_reporting.get_core_report();
+    core_report.set_providers_physical_logical(providers_stats);
+    core_report.set_cloud_types(cloud_pool_stats);
+    core_report.set_num_unhealthy_pools(unhealthy_pool_count);
+    core_report.set_num_pools(pool_count);
+    core_report.set_unhealthy_cloud_types(cloud_pool_stats);
+    core_report.set_system_info({ name, address });
+    core_report.set_system_links(links);
+    core_report.set_num_buckets(buckets_num);
+    core_report.set_bucket_status(buckets);
+    core_report.set_resource_status(resources);
+    core_report.set_num_objects(objects_in_buckets);
+    core_report.set_num_unhealthy_buckets(unhealthy_buckets);
+    core_report.set_health_status(health_status);
+    core_report.set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
+    core_report.set_num_buckets_claims(bucket_claims);
+    core_report.set_num_objects_buckets_claims(objects_in_bucket_claims);
+    core_report.set_system_capacity(capacity);
+    core_report.set_reduction_ratio(reduction_ratio);
+    core_report.set_object_savings_physical_size(physical_size);
+    core_report.set_object_savings_logical_size(logical_size);
+    core_report.set_bucket_class_capacity_usage(usage_by_bucket_class);
+    core_report.set_projects_capacity_usage(usage_by_project);
+    core_report.set_accounts_io_usage(accounts_stats);
+    core_report.set_accounts_num(accounts_num);
+    core_report.set_total_usage(total_usage);
+    // core_reportk data, update with the relevant values.
+    core_report.set_rebuild_progress(100);
+    core_report.set_rebuild_time(0);
 }
 
 /*
  * Prometheus Metrics Parsing, POC grade
  */
 function full_cycle_parse_prometheus_metrics(payload) {
-    prom_report.instance().set_cloud_types(payload.cloud_pool_stats);
-    prom_report.instance().set_unhealthy_cloud_types(payload.cloud_pool_stats);
-    prom_report.instance().set_object_sizes(payload.bucket_sizes_stats);
+    const core_report = prom_reporting.get_core_report();
+    core_report.set_cloud_types(payload.cloud_pool_stats);
+    core_report.set_unhealthy_cloud_types(payload.cloud_pool_stats);
+    core_report.set_object_sizes(payload.bucket_sizes_stats);
 }
 
 /*

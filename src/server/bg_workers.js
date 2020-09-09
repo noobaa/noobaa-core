@@ -9,32 +9,35 @@ require('../util/coverage_utils');
 require('../util/panic');
 require('../util/fips');
 
-var _ = require('lodash');
-var url = require('url');
-var http_utils = require('../util/http_utils');
-var dbg = require('../util/debug_module')(__filename);
-var config = require('../../config.js');
-var scrubber = require('./bg_services/scrubber');
-var lifecycle = require('./bg_services/lifecycle');
-var cluster_hb = require('./bg_services/cluster_hb');
-var server_rpc = require('./server_rpc');
-var mongo_client = require('../util/mongo_client');
-var { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
-var { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
-var { MirrorWriter } = require('./bg_services/mirror_writer');
-var { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
-var { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
-var cluster_master = require('./bg_services/cluster_master');
-var AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
-var AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
-var stats_aggregator = require('./system_services/stats_aggregator');
-var aws_usage_metering = require('./system_services/aws_usage_metering');
-var usage_aggregator = require('./bg_services/usage_aggregator');
-var md_aggregator = require('./bg_services/md_aggregator');
-var background_scheduler = require('../util/background_scheduler').get_instance();
-var stats_collector = require('./bg_services/stats_collector');
-var dedup_indexer = require('./bg_services/dedup_indexer');
-var db_cleaner = require('./bg_services/db_cleaner');
+const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('BGWorkers');
+
+const _ = require('lodash');
+const url = require('url');
+const http_utils = require('../util/http_utils');
+const config = require('../../config.js');
+const scrubber = require('./bg_services/scrubber');
+const lifecycle = require('./bg_services/lifecycle');
+const cluster_hb = require('./bg_services/cluster_hb');
+const server_rpc = require('./server_rpc');
+const mongo_client = require('../util/mongo_client');
+const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
+const { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
+const { MirrorWriter } = require('./bg_services/mirror_writer');
+const { TieringTTFWorker } = require('./bg_services/tier_ttf_worker');
+const { TieringSpillbackWorker } = require('./bg_services/tier_spillback_worker');
+const cluster_master = require('./bg_services/cluster_master');
+const AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
+const AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
+const stats_aggregator = require('./system_services/stats_aggregator');
+const aws_usage_metering = require('./system_services/aws_usage_metering');
+const usage_aggregator = require('./bg_services/usage_aggregator');
+const md_aggregator = require('./bg_services/md_aggregator');
+const background_scheduler = require('../util/background_scheduler').get_instance();
+const stats_collector = require('./bg_services/stats_collector');
+const dedup_indexer = require('./bg_services/dedup_indexer');
+const db_cleaner = require('./bg_services/db_cleaner');
+const prom_reporting = require('./analytic_services/prometheus_reporting');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -50,7 +53,6 @@ const MASTER_BG_WORKERS = [
     'agent_blocks_reclaimer'
 ];
 
-dbg.set_process_name('BGWorkers');
 mongo_client.instance().connect();
 register_rpc();
 
@@ -209,19 +211,26 @@ function run_master_workers() {
     }
 }
 
-register_bg_worker({
-    name: 'cluster_master_publish',
-    delay: config.CLUSTER_MASTER_INTERVAL,
-    run_immediate: true
-}, cluster_master.background_worker);
+async function start_bg_workers_server() {
+    register_bg_worker({
+        name: 'cluster_master_publish',
+        delay: config.CLUSTER_MASTER_INTERVAL,
+        run_immediate: true
+    }, cluster_master.background_worker);
 
-register_bg_worker({
-    name: 'cluster_heartbeat_writer',
-    delay: config.CLUSTER_HB_INTERVAL,
-    run_immediate: true
-}, cluster_hb.do_heartbeat);
+    register_bg_worker({
+        name: 'cluster_heartbeat_writer',
+        delay: config.CLUSTER_HB_INTERVAL,
+        run_immediate: true
+    }, cluster_hb.do_heartbeat);
 
-dbg.log('BG Workers Server started');
+    // Try to start the bg workers metrics server
+    await prom_reporting.start_server(config.BG_METRICS_SERVER_PORT);
+
+    dbg.log('BG Workers Server started');
+}
+
+start_bg_workers_server();
 
 // EXPORTS
 exports.run_master_workers = run_master_workers;

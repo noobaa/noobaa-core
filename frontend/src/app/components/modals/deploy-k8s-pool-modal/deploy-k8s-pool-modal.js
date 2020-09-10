@@ -136,7 +136,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             }
             const minSize = pvSizeUnit === 'GB' ? 16 : 1;
             if (pvSize < minSize || !Number.isInteger(pvSize)) {
-                errors.pvSize = `Please enter a whole number greater then ${minSize}`;
+                errors.pvSize = `Please enter a whole number greater than ${minSize - 1}`;
             }
         }
         return errors;

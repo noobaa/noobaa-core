@@ -315,8 +315,9 @@ async function authorize_request_policy(req) {
         const method = _get_method_from_req(req);
         const account = await req.object_sdk.rpc_client.account.read_account({});
         // system owner by design can always change bucket policy
-        // bucket owner has FC ACL by design - so no need to check bucket policy
+        // bucket owner and bucket claim owner has FC ACL by design - so no need to check bucket policy
         if (((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) ||
+            (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) ||
             account.email.unwrap() === bucket_owner.unwrap()) return;
         if (!has_bucket_policy_permission(s3_policy, account.email, method, arn_path)) {
             throw new S3Error(S3Error.AccessDenied);

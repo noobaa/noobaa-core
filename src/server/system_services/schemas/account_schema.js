@@ -69,6 +69,8 @@ module.exports = {
             }
         },
 
+        bucket_claim_owner: { objectid: true },
+
         sync_credentials_cache: {
             type: 'array',
             items: {

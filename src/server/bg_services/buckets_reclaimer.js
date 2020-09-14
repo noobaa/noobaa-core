@@ -7,6 +7,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const P = require('../../util/promise');
 const auth_server = require('../common_services/auth_server');
+const tier_server = require('../system_services/tier_server');
 
 class BucketsReclaimer {
 
@@ -101,8 +102,13 @@ class BucketsReclaimer {
     _add_bucket_to_delete_lists(bucket) {
         this.buckets_to_delete.push(bucket._id);
         const tiering_policy = bucket.tiering;
-        this.tiering_to_delete.push(tiering_policy._id);
-        this.tiers_to_delete.push(...tiering_policy.tiers.map(t => t.tier._id));
+        const deleting_buckets = this.buckets_to_delete.map(bucket_id => String(bucket_id));
+        const associated_buckets = tier_server.get_associated_buckets(tiering_policy)
+            .filter(bucket_id => !deleting_buckets.includes(String(bucket_id)));
+        if (associated_buckets.length === 0) {
+            this.tiering_to_delete.push(tiering_policy._id);
+            this.tiers_to_delete.push(...tiering_policy.tiers.map(t => t.tier._id));
+        }
         system_store.data.accounts.forEach(account => {
             if (!account.allowed_buckets || (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
             if (!account.allowed_buckets.permission_list.includes(bucket)) return;

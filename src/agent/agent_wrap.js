@@ -10,13 +10,14 @@ const url = require('url');
 const request = require('request');
 const path = require('path');
 
+const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('agent_wrapper');
+
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const promise_utils = require('../util/promise_utils');
 const child_process = require('child_process');
-const dbg = require('../util/debug_module')(__filename);
-dbg.set_process_name('agent_wrapper');
 
 
 

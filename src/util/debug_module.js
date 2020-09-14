@@ -569,6 +569,10 @@ DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
 };
 
+DebugLogger.prototype.get_process_name = function() {
+    return int_dbg._proc_name;
+};
+
 DebugLogger.prototype.set_log_to_file = function(log_file) {
     if (log_file) {
         int_dbg._file_path = path.parse(log_file);

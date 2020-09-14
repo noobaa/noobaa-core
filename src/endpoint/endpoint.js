@@ -8,12 +8,14 @@ require('../util/dotenv').load();
 require('../util/panic');
 require('../util/fips');
 
+const dbg = require('../util/debug_module')(__filename);
+dbg.set_process_name('Endpoint');
+
 const http = require('http');
 const https = require('https');
 const FtpSrv = require('ftp-srv');
 const os = require('os');
 const P = require('../util/promise');
-const dbg = require('../util/debug_module')(__filename);
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -33,6 +35,8 @@ const md_server = require('../server/md_server');
 const auth_server = require('../server/common_services/auth_server');
 const server_rpc = require('../server/server_rpc');
 const { ENDPOINT_MONITOR_INTERVAL } = require('../../config');
+const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const config = require('../../config');
 
 const {
     ENDPOINT_BLOB_ENABLED,
@@ -86,17 +90,21 @@ function get_rpc_router(env) {
     };
 }
 
-function start_all() {
-    dbg.set_process_name('Endpoint');
+async function start_all() {
+    await Promise.all([
+        // Start the endpoint server
+        run_server({
+            s3: true,
+            lambda: true,
+            blob: ENDPOINT_BLOB_ENABLED,
+            ftp: ENDPOINT_FTP_ENABLED,
+            md_server: LOCAL_MD_SERVER,
+            n2n_agent: LOCAL_N2N_AGENT
+        }),
 
-    run_server({
-        s3: true,
-        lambda: true,
-        blob: ENDPOINT_BLOB_ENABLED,
-        ftp: ENDPOINT_FTP_ENABLED,
-        md_server: LOCAL_MD_SERVER,
-        n2n_agent: LOCAL_N2N_AGENT
-    });
+        // Try to start the endpoint metrics server
+        prom_reporting.start_server(config.EP_METRICS_SERVER_PORT)
+    ]);
 }
 
 async function run_server(options) {

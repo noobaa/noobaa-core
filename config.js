@@ -395,7 +395,15 @@ config.MIN_MEMORY_FOR_UPGRADE = 1200 * 1024 * 1024;
 
 config.SEND_EVENTS_REMOTESYS = true;
 config.PROMETHEUS_ENABLED = true;
+config.PROMETHEUS_SERVER_RETRY_COUNT = Infinity;
+config.PROMETHEUS_SERVER_RETRY_DELAY = 5 * 60 * 1000; // 5 min
 config.PROMETHEUS_PREFIX = 'NooBaa_';
+
+// Ports where prometheus metrics are served
+config.WS_METRICS_SERVER_PORT = 7001;
+config.BG_METRICS_SERVER_PORT = 7002;
+config.HA_METRICS_SERVER_PORT = 7003;
+config.EP_METRICS_SERVER_PORT = 7004;
 
 //////////////////////////////
 // OAUTH RELATES            //

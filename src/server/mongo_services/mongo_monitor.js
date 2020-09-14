@@ -2,11 +2,12 @@
 'use strict';
 
 const util = require('util');
+
 const dbg = require('../../util/debug_module')(__filename);
+dbg.set_process_name('MongoMonitor');
+
 const promise_utils = require('../../util/promise_utils');
 const P = require('../../util/promise');
-
-dbg.set_process_name('MongoMonitor');
 
 const TEST_STATUS_DELAY = 10000;
 

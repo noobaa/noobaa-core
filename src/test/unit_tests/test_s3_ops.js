@@ -11,6 +11,7 @@ const http_utils = require('../../util/http_utils');
 const mocha = require('mocha');
 const assert = require('assert');
 const querystring = require('querystring');
+const P = require('../../util/promise');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -328,6 +329,27 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.ContentLength, file_body.length);
         });
 
+        mocha.it('should get text-file with size > inline range', async function() {
+            const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
+            // Change the inline max size so the objects get cached.
+            config.INLINE_MAX_SIZE = 1;
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
+            assert.strictEqual(res.Body.toString(), file_body);
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, file_body.length);
+        });
+
+        mocha.it('should head text-file with size > inline range', async function() {
+            const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
+            // Change the inline max size so the objects get cached.
+            config.INLINE_MAX_SIZE = 1;
+            const res = await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
+            assert.strictEqual(res.ContentType, 'text/plain');
+            assert.strictEqual(res.ContentLength, file_body.length);
+        });
+
         mocha.it('should get text-file sliced 1', async function() {
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-5' }).promise();
             assert.strictEqual(res.Body.toString(), sliced_file_body);
@@ -464,7 +486,13 @@ mocha.describe('s3_ops', function() {
             await s3.getObject({ Bucket: bucket_name, Key: text_file2 }).promise();
             await s3.getObject({ Bucket: bucket_name, Key: text_file3 }).promise();
 
+            assert.strictEqual(res1.Contents[0].Key, text_file1);
+            assert.strictEqual(res1.Contents[0].Size, file_body.length);
+            assert.strictEqual(res1.Contents.length, 3);
+
+            if (!caching) return;
             const query_params = { get_from_cache: true };
+            await P.delay(300);
             const res2 = await s3.listObjects({ Bucket: bucket_name }).on('build', req => {
                 if (!caching) return;
                 const sep = req.httpRequest.search() ? '&' : '?';
@@ -473,11 +501,6 @@ mocha.describe('s3_ops', function() {
                 req.httpRequest.path = req_path;
             }).promise();
 
-            assert.strictEqual(res1.Contents[0].Key, text_file1);
-            assert.strictEqual(res1.Contents[0].Size, file_body.length);
-            assert.strictEqual(res1.Contents.length, 3);
-
-            if (!caching) return;
             assert.strictEqual(res2.Contents.length, 3);
             assert.strictEqual(res2.Contents[0].Key, text_file1);
             assert.strictEqual(res2.Contents[1].Key, text_file2);

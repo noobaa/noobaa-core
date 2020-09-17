@@ -243,6 +243,23 @@ class NamespaceCache {
 
                 return object_info_cache;
 
+            } else if (object_info_hub.first_range_data && object_info_hub.size <= object_info_hub.first_range_data.length) {
+                // If the inline read covers entire object, we will submit it to cache.
+                _global_cache_uploader.submit_background(
+                    object_info_hub.size,
+                    async () => {
+                        const upload_params = {
+                            source_stream: buffer_utils.buffer_to_read_stream(object_info_hub.first_range_data),
+                            bucket: params.bucket,
+                            key: params.key,
+                            size: object_info_hub.size,
+                            content_type: params.content_type,
+                            xattr: object_info_hub.xattr,
+                            last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
+                        };
+                        return this.namespace_nb.upload_object(upload_params, object_sdk);
+                    }
+                );
             } else if (cache_etag === '') {
                 object_info_hub.should_read_from_cache = false;
             } else {
@@ -286,14 +303,19 @@ class NamespaceCache {
                     'bucket',
                     'key',
                     'content_type',
+                    // The following fields are actually NOT set in the input "params".
+                    // Picking them is for the purpose of type validations in IDE such as VS Code,
+                    // so that IDE does not complain about undefined field.
                     'size',
                     'etag',
                     'xattr',
-                    'complete_upload'
+                    'complete_upload',
+                    'last_modified_time',
                 );
                 create_params.size = params.object_md.size;
                 create_params.etag = params.object_md.etag;
                 create_params.xattr = params.object_md.xattr;
+                create_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
                 create_params.complete_upload = true;
                 // Create partial object md
                 const create_reply = await object_sdk.rpc_client.object.create_object_upload(create_params);
@@ -428,6 +450,7 @@ class NamespaceCache {
                         { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
             } else {
+                upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
                     async () => this.namespace_nb.upload_object(upload_params, object_sdk)
@@ -493,9 +516,6 @@ class NamespaceCache {
         const operation = 'ObjectCreated';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
 
-        function stream_final_from_promise(promise) {
-            return callback => promise.then(() => callback(), err => callback(err));
-        }
         const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         let upload_response;
         let etag;
@@ -515,16 +535,17 @@ class NamespaceCache {
             const hub_params = { ...params, source_stream: hub_stream };
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
 
-            const cache_final_promise = hub_promise.then(async upload_res => {
-                const update_params = _.pick(_.defaults(
-                    { bucket: this.namespace_nb.target_bucket }, params), 'bucket', 'key', 'last_modified_time');
-                update_params.last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
-                await object_sdk.rpc_client.object.update_object_md(update_params);
-             });
-            const cache_finalizer = stream_final_from_promise(cache_final_promise);
+            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
 
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            const cache_params = { ...params, source_stream: cache_stream };
+            const cache_params = { ...params,
+                source_stream: cache_stream,
+                async_get_last_modified_time: async () => {
+                    const upload_res = await hub_promise;
+                    const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                    return last_modified_time;
+                },
+            };
             const cache_promise = _global_cache_uploader.surround_count(
                 params.size,
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)

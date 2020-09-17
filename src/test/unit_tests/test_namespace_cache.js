@@ -128,7 +128,7 @@ function mock_upload_object_range(recorder, params, object_sdk) {
 }
 
 class MockNamespace {
-    constructor({ type, trigger_err, recorder, slow_write }) {
+    constructor({ type, trigger_err, recorder, slow_write, inline_read }) {
         this.type = type;
         this._recorder = recorder;
         this._buf = null;
@@ -136,6 +136,7 @@ class MockNamespace {
         this._slow_write = slow_write;
         this._write_err = null;
         this._md5 = crypto.createHash('md5');
+        this._inline_read = inline_read;
     }
 
     add_obj(obj) {
@@ -168,7 +169,11 @@ class MockNamespace {
             err.name = `${this.type}_md_error`;
             throw err;
         }
-        return this._recorder.get_obj(this.type, params.bucket, params.key);
+        const md = this._recorder.get_obj(this.type, params.bucket, params.key);
+        if (this._inline_read) {
+            md.first_range_data = md.buf;
+        }
+        return md;
     }
 
     async read_object_stream(params, object_sdk) {
@@ -239,11 +244,11 @@ class MockNamespace {
 
                 this._buf = Buffer.concat(recv_buf);
                 const etag = this._md5.digest('hex');
-                const create_time = Date.now();
+                let create_time = Date.now();
                 if (this._write_err) {
                     // Simulate success in the case that the error is caused by other stream
                     console.log(`${this.type} mock: write err bucket ${params.bucket} key ${params.key}`);
-                    resolve({ etag, date: create_time });
+                    resolve({ etag, last_modified_time: create_time });
                     return;
                 }
 
@@ -251,7 +256,11 @@ class MockNamespace {
                     console.log(`${this.type} mock: bucket ${params.bucket} key ${params.key} slowing down write......`);
                     await P.delay(100);
                 }
-
+                if (params.last_modified_time) {
+                    create_time = params.last_modified_time;
+                } else if (params.async_get_last_modified_time) {
+                    create_time = await params.async_get_last_modified_time();
+                }
                 this._recorder.add_obj(this.type, params.bucket, params.key,
                     {
                         etag: etag,
@@ -259,7 +268,7 @@ class MockNamespace {
                         buf: this._buf,
                         size: params.size,
                     });
-                resolve({ etag, date: create_time });
+                resolve({ etag, last_modified_time: create_time });
             });
             params.source_stream.on('finish', async () => {
                 console.log(`${this.type} mock: got finish in upload_object: bucket ${params.bucket} key ${params.key}`, recv_buf);
@@ -363,8 +372,8 @@ mocha.describe('namespace caching: upload scenarios', () => {
             const cache_obj_create_time = recorder.get_event('cache', bucket, key, EVENT_CREATE_OBJ_MD);
             return !_.isUndefined(cache_obj_create_time);
         }, 5000);
-        const cache_obj_create_time = recorder.get_event('cache', bucket, key, EVENT_CREATE_OBJ_MD);
-        assert(!_.isUndefined(cache_obj_create_time));
+        const cache_obj = cache.get_obj(bucket, key);
+        assert(cache_obj.create_time === ret.last_modified_time);
     });
 
     mocha.it('hub upload failure: object not cached', async () => {
@@ -413,6 +422,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
         assert(!_.isUndefined(recorder.get_event('hub', bucket, key, EVENT_CREATE_OBJ_MD)));
         assert(_.isUndefined(recorder.get_event('cache', bucket, key, EVENT_CREATE_OBJ_MD)));
     });
+
 });
 
 mocha.describe('namespace caching: read scenarios and fresh objects', () => {
@@ -630,6 +640,41 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         const read_obj_stream_time = recorder.get_event('hub', obj.bucket, obj.key, EVENT_READ_OBJECT_STREAM);
         assert(!_.isUndefined(read_obj_stream_time));
         assert(read_obj_stream_time > params.object_md.cache_last_valid_time);
+    });
+
+    mocha.it('cache object that has inline read performed', async () => {
+        const hub = new MockNamespace({ type: 'hub', recorder, inline_read: true });
+        const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'read' });
+        const ns_cache = new NamespaceCache({
+            namespace_hub: hub,
+            namespace_nb: cache,
+            caching: { ttl_ms },
+        });
+
+        const obj = random_object(8);
+        hub.add_obj(obj);
+
+        const params = {
+            bucket: obj.bucket,
+            key: obj.key,
+        };
+
+        params.object_md = await ns_cache.read_object_md(params, object_sdk);
+        assert(params.object_md.etag === obj.etag);
+        assert(params.object_md.first_range_data.length === 8);
+
+        const read_etag = crypto.createHash('md5').update(params.object_md.first_range_data).digest('hex');
+        assert(read_etag === obj.etag);
+
+        return promise_utils.wait_until(() => {
+            try {
+                const cache_obj = cache.get_obj(obj.bucket, obj.key);
+                return cache_obj.etag === obj.etag;
+            } catch (err) {
+                if (err.rpc_code !== 'NO_SUCH_UPLOAD') throw err;
+            return false;
+            }
+        }, 2000, 100);
     });
 
 });

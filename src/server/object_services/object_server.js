@@ -78,7 +78,11 @@ async function create_object_upload(req) {
         if (!req.rpc_params.etag) {
             throw new RpcError('INVALID_REQUEST', 'etag must be provided when using complete_upload');
         }
+        if (!req.rpc_params.last_modified_time) {
+            throw new RpcError('INVALID_REQUEST', 'last_modified_time must be provided when using complete_upload');
+        }
         info.etag = req.rpc_params.etag;
+        info.last_modified_time = new Date(req.rpc_params.last_modified_time);
     } else {
         info.upload_size = 0;
         info.upload_started = obj_id;
@@ -421,6 +425,10 @@ async function complete_object_upload(req) {
     set_updates.version_seq = await MDStore.instance().alloc_object_version_seq();
     if (req.bucket.versioning === 'ENABLED') {
         set_updates.version_enabled = true;
+    }
+
+    if (req.rpc_params.last_modified_time) {
+        set_updates.last_modified_time = new Date(req.rpc_params.last_modified_time);
     }
 
     await _put_object_handle_latest({ req, put_obj: obj, set_updates, unset_updates });

@@ -209,6 +209,14 @@ class NamespaceContext {
                 cloud_md5} in hub bucket ${cloud_bucket} for ${file_name}`);
         }
 
+        if (expect_same && cloud_md.last_modified_time.getTime() !== noobaa_md.last_modified_time.getTime()) {
+            throw new Error(`Expect last_modified_time (${noobaa_md.last_modified_time}) in noobaa cache bucket (${noobaa_bucket})
+                is the same as last_modified_time (${cloud_md.last_modified_time}) in hub bucket ${cloud_bucket} for ${file_name}`);
+        } else if (!expect_same && cloud_md.last_modified_time.getTime() === noobaa_md.last_modified_time.getTime()) {
+            throw new Error(`Expect last_modified_time (${noobaa_md.last_modified_time}) in noobaa cache bucket (${noobaa_bucket})
+                is different than last_modified_time (${cloud_md.last_modified_time}) in hub bucket ${cloud_bucket} for ${file_name}`);
+        }
+
         console.log(`validation passed: noobaa cache bucket ${noobaa_bucket} and ${type} bucket have same md5 for ${file_name}`);
         return { cloud_md, noobaa_md };
     }

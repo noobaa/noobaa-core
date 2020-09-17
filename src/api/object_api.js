@@ -54,6 +54,9 @@ module.exports = {
                     complete_upload: {
                         type: 'boolean'
                     },
+                    last_modified_time: {
+                        idate: true
+                    },
                 }
             },
             reply: {
@@ -151,7 +154,10 @@ module.exports = {
                                 },
                             }
                         }
-                    }
+                    },
+                    last_modified_time: {
+                        idate: true
+                    },
                 }
             },
             reply: {

@@ -14,22 +14,28 @@ const dbg = require('../util/debug_module')(__filename);
 const RPC = require('./rpc');
 const RpcSchema = require('./rpc_schema');
 const ssl_utils = require('../util/ssl_utils');
-const { RPC_BUFFERS } = require('.');
+const { RPC_BUFFERS } = require('./rpc_request');
 
 const MB = 1024 * 1024;
 
 // test arguments
-// client/server mode
+// client/server/fcall mode
 argv.client = argv.client || false;
 argv.server = argv.server || false;
+argv.fcall = argv.fcall || false;
 
-if (argv.help || (!argv.server && !argv.client)) {
-    let script_name = path.relative(process.cwd(), process.argv[1]);
-    process.stdout.write('Usage: \n');
-    process.stdout.write('node ' + script_name + ' --server --addr tcp://server:5656 [--n2n] \n');
-    process.stdout.write('node ' + script_name + ' --client --addr tcp://server:5656 [--n2n] \n');
-    process.stdout.write('(more flags are shown when running) \n');
-    process.exit();
+if (argv.help || (!argv.server && !argv.client && !argv.fcall)) {
+    print_usage_and_exit(0);
+
+} else if (argv.fcall) {
+    if (argv.client || argv.server) {
+        process.stdout.write('fcall mode is mutually exclusive with server, client modes\n');
+        print_usage_and_exit(1);
+
+    } else if (argv.n2n || argv.addr) {
+        process.stdout.write('fcall mode does not support the n2n or the addr flags\n');
+        print_usage_and_exit(1);
+    }
 }
 
 // time to run in seconds
@@ -110,14 +116,14 @@ schema.compile();
 
 // create rpc
 const rpc = new RPC({
-    schema: schema,
+    schema,
     router: {}
 });
 if (argv.novalidation) {
     rpc.disable_validation();
 }
 const client = rpc.new_client({
-    address: url.format(argv.addr)
+    address: argv.fcall ? 'fcall://fcall' : url.format(argv.addr)
 });
 
 // register the rpc service handler
@@ -137,64 +143,67 @@ let report_io_rbytes = 0;
 let report_io_wbytes = 0;
 start();
 
-function start() {
-    P.resolve()
-        .then(() => {
-            const proto = argv.addr.protocol;
+function print_usage_and_exit(exit_code) {
+    const script_name = path.relative(process.cwd(), process.argv[1]);
+    process.stdout.write('Usage: \n');
+    process.stdout.write('    node ' + script_name + ' --server --addr tcp://server:5656 [--n2n] \n');
+    process.stdout.write('    node ' + script_name + ' --client --addr tcp://server:5656 [--n2n] \n');
+    process.stdout.write('    node ' + script_name + ' --fcall \n');
+    process.stdout.write('(more flags are shown when running) \n');
+    process.exit(exit_code);
+}
 
-            if (!argv.server) return;
+async function start() {
 
+    try {
+        const proto = argv.addr.protocol;
+
+        if (argv.server) {
             if (proto === 'nudp:') {
-                return rpc.register_nudp_transport(argv.addr.port);
-            }
+                await rpc.register_nudp_transport(argv.addr.port);
 
-            if (proto === 'tcp:' || proto === 'tls:') {
-                return rpc.register_tcp_transport(argv.addr.port,
+            } else if (proto === 'tcp:' || proto === 'tls:') {
+                await rpc.register_tcp_transport(argv.addr.port,
                     proto === 'tls:' && ssl_utils.generate_ssl_certificate()
                 );
-            }
 
-            if (proto === 'ntcp:' || proto === 'ntls:') {
-                return rpc.register_ntcp_transport(argv.addr.port,
+            } else if (proto === 'ntcp:' || proto === 'ntls:') {
+                await rpc.register_ntcp_transport(argv.addr.port,
                     proto === 'ntls:' && ssl_utils.generate_ssl_certificate()
                 );
+
+            } else {
+                // open http listening port for http based protocols
+                await rpc.start_http_server({
+                    port: argv.addr.port,
+                    protocol: proto,
+                    logging: false,
+                });
             }
+        }
 
-            // open http listening port for http based protocols
-            return rpc.start_http_server({
-                port: argv.addr.port,
-                protocol: proto,
-                logging: false,
-            });
-        })
-        .then(() => {
-
-            if (!argv.n2n) {
-                target_addresses = [url.format(argv.addr)];
-                return;
-            }
-
-            target_addresses = _.times(argv.nconn, i => 'n2n://conn' + i);
-
+        if (argv.n2n) {
             // register n2n and accept any peer_id
+            target_addresses = _.times(argv.nconn, i => 'n2n://conn' + i);
             const n2n_agent = rpc.register_n2n_agent((...args) => client.rpcbench.n2n_signal(...args));
             n2n_agent.set_any_rpc_address();
-        })
-        .then(() => {
 
-            // start report interval (both server and client)
-            setInterval(report, 1000);
+        } else {
+            target_addresses = [url.format(argv.fcall ? 'fcall://fcall' : argv.addr)];
+        }
 
-            if (!argv.client) return;
+        // start report interval (both server and client)
+        setInterval(report, 1000);
 
+        if (argv.client || argv.fcall) {
             // run io with concurrency
             return P.all(_.times(argv.concur, () => call_next_io()));
+        }
 
-        })
-        .catch(err => {
-            dbg.error('BENCHMARK ERROR', err.stack || err);
-            process.exit(0);
-        });
+    } catch (err) {
+        dbg.error('BENCHMARK ERROR', err.stack || err);
+        process.exit(0);
+    }
 }
 
 // test loop

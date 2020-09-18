@@ -21,6 +21,7 @@ const test_scenarios = [
     'delete multiple objects',
     'object still cached: proxy get with precondition header to hub',
     'object cached: proxy get with precondition header to hub',
+    'cache object that has inline range read',
 ];
 
 async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
@@ -34,6 +35,8 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
     const file_name_precondition2 = `${prefix}_precondition_${min_file_size_kb + 1}_KB`;
     const file_name_delete_case1 = `${prefix}_delete_${min_file_size_kb + 1}_KB`;
     const file_name_delete_case2 = `${prefix}_delete_${min_file_size_kb + 2}_KB`;
+    const inline_range_size = config.INLINE_MAX_SIZE / 1024 / 2;
+    const file_name_inline_range = `${prefix}_inline_read_${inline_range_size}_KB`;
     let cache_last_valid_time;
     let time_start = (new Date()).getTime();
 
@@ -374,6 +377,39 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
         } catch (err) {
             assert(err.code === 'NotModified');
         }
+    });
+
+    await ns_context.run_test_case('cache object that has inline range read', type, async () => {
+        const file_name = file_name_inline_range;
+        await ns_context.upload_directly_to_cloud(type, file_name);
+        await ns_context.check_via_cloud(type, file_name);
+
+        time_start = (new Date()).getTime();
+
+        await ns_context.validate_md5_between_hub_and_cache({
+            type,
+            force_cache_read: false,
+            file_name,
+            expect_same: true
+        });
+        await promise_utils.wait_until(async () => {
+            try {
+                await ns_context.validate_cache_noobaa_md({
+                    type,
+                    file_name,
+                    validation_params: {
+                        cache_last_valid_time_range: {
+                            start: time_start,
+                            end: (new Date()).getTime()
+                        }
+                    }
+                });
+                return true;
+            } catch (err) {
+                if (err.rpc_code === 'NO_SUCH_OBJECT') return false;
+                throw err;
+            }
+        }, 10000);
     });
 
 }

@@ -406,7 +406,7 @@ coretest.describe_mapper_test_case({
         const content_type = 'test/test';
         const etag = crypto_random_string(32);
         const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type,
-            complete_upload: true, size: 12345, etag});
+            complete_upload: true, size: 12345, etag, last_modified_time: (new Date()).getTime() });
 
         const { cached_parts, read_range } = params;
         for (const part of cached_parts) {

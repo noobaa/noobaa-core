@@ -52,6 +52,8 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {Object} [chunk_coder_config]
  * @property {Object} [encryption]
  * @property {boolean} [complete_upload]
+ * @property {number} [last_modified_time]
+ * @property {function} [async_get_last_modified_time]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -204,13 +206,15 @@ class ObjectIO {
             'xattr',
             'tagging',
             'encryption',
-            'lock_settings'
+            'lock_settings',
+            'last_modified_time',
         );
         const complete_params = _.pick(params,
             'obj_id',
             'bucket',
             'key',
             'md_conditions',
+            'last_modified_time',
         );
         try {
             dbg.log0('upload_object: start upload', create_params);
@@ -226,7 +230,13 @@ class ObjectIO {
             } else {
                 await this._upload_stream(params, complete_params);
             }
+
             dbg.log0('upload_object: complete upload', complete_params);
+
+            if (params.async_get_last_modified_time) {
+                complete_params.last_modified_time = await params.async_get_last_modified_time();
+            }
+
             const complete_result = await params.client.object.complete_object_upload(complete_params);
             if (params.copy_source) {
                 complete_result.copy_source = params.copy_source;

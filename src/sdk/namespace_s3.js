@@ -144,9 +144,11 @@ class NamespaceS3 {
             }
             this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
-            const res = await this.s3.getObject(request).promise();
+
+            const res = params.part_number ? await this.s3.headObject(request).promise() : await this.s3.getObject(request).promise();
+
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
-            return this._get_s3_object_info(res, params.bucket);
+            return this._get_s3_object_info(res, params.bucket, params.part_number);
         } catch (err) {
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
@@ -525,17 +527,18 @@ class NamespaceS3 {
         });
     }
 
-    _get_s3_object_info(res, bucket) {
+    _get_s3_object_info(res, bucket, part_number) {
         const etag = s3_utils.parse_etag(res.ETag);
         const xattr = _.extend(res.Metadata, {
             'noobaa-namespace-s3-bucket': this.bucket,
         });
         const ranges = res.ContentRange ? Number(res.ContentRange.split('/')[1]) : 0;
+        const size = ranges || res.ContentLength || res.Size || 0;
         return {
             obj_id: res.UploadId || etag,
             bucket: bucket,
             key: res.Key,
-            size: ranges || res.ContentLength || res.Size || 0,
+            size,
             etag,
             create_time: new Date(res.LastModified),
             version_id: res.VersionId,
@@ -547,13 +550,14 @@ class NamespaceS3 {
             first_range_data: res.Body,
             multipart_count: res.PartsCount,
             content_range: res.ContentRange,
-            content_length: res.ContentLength,
+            content_length: part_number ? res.ContentLength : size,
         };
     }
 
     _translate_error_code(params, err) {
         if (err.code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
         else if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        else if (err.code === 'InvalidRange') err.rpc_code = 'INVALID_RANGE';
         else if (params.md_conditions) {
             const md_conditions = params.md_conditions;
             if (err.code === 'PreconditionFailed') {

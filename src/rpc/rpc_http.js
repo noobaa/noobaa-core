@@ -10,7 +10,7 @@ const dbg = require('../util/debug_module')(__filename);
 const buffer_utils = require('../util/buffer_utils');
 const http_utils = require('../util/http_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
-const { RPC_VERSION_NUMBER } = require('./rpc_request');
+const { RPC_VERSION_NUMBER } = require('./rpc_message');
 
 // dbg.set_level(5);
 

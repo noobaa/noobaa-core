@@ -2,20 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
+const RpcMessage = require('./rpc_message');
 const RpcError = require('./rpc_error');
 const time_utils = require('../util/time_utils');
 const buffer_utils = require('../util/buffer_utils');
+const js_utils = require('../util/js_utils');
 
-const RPC_VERSION_MAGIC = 0xba;
-const RPC_VERSION_MAJOR = 0;
-const RPC_VERSION_MINOR = 0;
-const RPC_VERSION_FLAGS = 0;
-const RPC_VERSION_NUMBER = Buffer.from([
-    RPC_VERSION_MAGIC,
-    RPC_VERSION_MAJOR,
-    RPC_VERSION_MINOR,
-    RPC_VERSION_FLAGS,
-]).readUInt32BE(0);
 
 const RPC_BUFFERS = Symbol('RPC_BUFFERS');
 
@@ -23,6 +15,10 @@ const RPC_BUFFERS = Symbol('RPC_BUFFERS');
  *
  */
 class RpcRequest {
+
+    static get RPC_BUFFERS() {
+        return RPC_BUFFERS;
+    }
 
     constructor() {
         this.ts = time_utils.millistamp();
@@ -51,63 +47,59 @@ class RpcRequest {
         this.srv = api.id + '.' + method_api.name;
     }
 
-    static encode_message(body, buffers) {
-        const meta_buffer = Buffer.allocUnsafe(8);
-        const body_buffer = Buffer.from(JSON.stringify(body));
-        meta_buffer.writeUInt32BE(RPC_VERSION_NUMBER, 0);
-        meta_buffer.writeUInt32BE(body_buffer.length, 4);
-        const msg_buffers = buffers ? [
-            meta_buffer,
-            body_buffer,
-            ...buffers
-        ] : [
-            meta_buffer,
-            body_buffer
-        ];
-        return msg_buffers;
-    }
-
-    static decode_message(msg_buffers) {
-        const meta_buffer = buffer_utils.extract_join(msg_buffers, 8);
-        const version = meta_buffer.readUInt32BE(0);
-        if (version !== RPC_VERSION_NUMBER) {
-            const magic = meta_buffer.readUInt8(0);
-            const major = meta_buffer.readUInt8(1);
-            const minor = meta_buffer.readUInt8(2);
-            const flags = meta_buffer.readUInt8(3);
-            if (magic !== RPC_VERSION_MAGIC) throw new Error('RPC VERSION MAGIC MISMATCH');
-            if (major !== RPC_VERSION_MAJOR) throw new Error('RPC VERSION MAJOR MISMATCH');
-            if (minor !== RPC_VERSION_MINOR) throw new Error('RPC VERSION MINOR MISMATCH');
-            if (flags !== RPC_VERSION_FLAGS) throw new Error('RPC VERSION FLAGS MISMATCH');
-            throw new Error('RPC VERSION MISMATCH');
-        }
-        const body_length = meta_buffer.readUInt32BE(4);
-        const body = JSON.parse(buffer_utils.extract_join(msg_buffers, body_length));
-        return {
-            body,
-            buffers: msg_buffers
-        };
-    }
-
-    _encode_request() {
+    /**
+     * @returns {RpcMessage}
+     */
+    make_request_message() {
+        // The undefined is here to handle the case where the RPC_BUFFERS are sometimes set to null.
+        const rpc_buffers = this.params && this.params[RPC_BUFFERS];
         const body = {
             op: 'req',
             reqid: this.reqid,
             api: this.api.id,
             method: this.method_api.name,
-            params: this.params,
+            params: this.params && js_utils.omit_symbol(this.params, RPC_BUFFERS),
             auth_token: this.auth_token || undefined,
-            buffers: (this.params && this.params[RPC_BUFFERS]) || undefined,
+            buffers: rpc_buffers && _.map(rpc_buffers, (buf, name) => ({
+                name,
+                len: buf.length
+            }))
         };
-        let buffers;
-        if (body.buffers) {
-            buffers = [];
-            body.buffers = _.map(body.buffers, (buf, name) => {
-                buffers.push(buf);
-                return { name, len: buf.length };
-            });
+        return new RpcMessage(
+            body,
+            rpc_buffers && Object.values(rpc_buffers)
+        );
+    }
+
+    /**
+     * @returns {RpcMessage}
+     */
+    make_response_message() {
+        const body = {
+            op: 'res',
+            reqid: this.reqid,
+            took: time_utils.millistamp() - this.ts,
+        };
+
+        if (this.error) {
+            // copy the error to a plain object because otherwise
+            // the message is not encoded by
+            body.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
+            return new RpcMessage(body);
+
+        } else {
+            const rpc_buffers = this.reply && this.reply[RPC_BUFFERS];
+            body.reply = js_utils.omit_symbol(this.reply, RPC_BUFFERS);
+            body.buffers = rpc_buffers && _.map(rpc_buffers, (buf, name) => ({
+                name,
+                len: buf.length
+            }));
+
+            return new RpcMessage(
+                body,
+                rpc_buffers && Object.values(rpc_buffers)
+            );
         }
-        return RpcRequest.encode_message(body, buffers);
     }
 
     _set_request(msg, api, method_api) {
@@ -116,8 +108,8 @@ class RpcRequest {
         this.method_api = method_api;
         this.params = msg.body.params;
         this.auth_token = msg.body.auth_token;
-        this.srv = (api ? api.id : '?') +
-            '.' + (method_api ? method_api.name : '?');
+        this.srv = `${api ? api.id : '?'}.${method_api ? method_api.name : '?'}`;
+
         if (msg.body.buffers) {
             const buffers = {};
             _.forEach(msg.body.buffers, a => {
@@ -125,31 +117,6 @@ class RpcRequest {
             });
             this.params[RPC_BUFFERS] = buffers;
         }
-    }
-
-    _encode_response() {
-        const body = {
-            op: 'res',
-            reqid: this.reqid,
-            took: time_utils.millistamp() - this.ts,
-        };
-        let buffers;
-        if (this.error) {
-            // copy the error to a plain object because otherwise
-            // the message is not encoded by
-            body.error = _.pick(this.error, 'message', 'rpc_code', 'rpc_data');
-        } else {
-            body.reply = this.reply;
-            body.buffers = this.reply && this.reply[RPC_BUFFERS];
-            if (body.buffers) {
-                buffers = [];
-                body.buffers = _.map(body.buffers, (buf, name) => {
-                    buffers.push(buf);
-                    return { name, len: buf.length };
-                });
-            }
-        }
-        return RpcRequest.encode_message(body, buffers);
     }
 
     _set_response(msg) {
@@ -181,10 +148,6 @@ class RpcRequest {
         this.took_total = time_utils.millistamp() - this.ts;
         this.took_flight = this.took_total - this.took_srv;
     }
-
 }
-
-RpcRequest.RPC_BUFFERS = RPC_BUFFERS;
-RpcRequest.RPC_VERSION_NUMBER = RPC_VERSION_NUMBER;
 
 module.exports = RpcRequest;

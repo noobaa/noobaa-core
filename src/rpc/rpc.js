@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {import('./rpc_base_conn')} RpcBaseConnection **/
+
 const _ = require('lodash');
 const util = require('util');
 const assert = require('assert');
@@ -8,11 +10,13 @@ const assert = require('assert');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../util/promise');
+const js_utils = require('../util/js_utils');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const RpcError = require('./rpc_error');
 const url_utils = require('../util/url_utils');
 const RpcRequest = require('./rpc_request');
+const RpcMessage = require('./rpc_message');
 const RpcWsServer = require('./rpc_ws_server');
 const RpcN2NAgent = require('./rpc_n2n_agent');
 const RpcTcpServer = require('./rpc_tcp_server');
@@ -213,7 +217,7 @@ class RPC extends EventEmitter {
                 }
 
                 // send request over the connection
-                return req.connection.send(req._encode_request(), 'req', req);
+                return req.connection.send(req.make_request_message(), req);
 
             })
             .then(() => {
@@ -320,7 +324,7 @@ class RPC extends EventEmitter {
                 'reqid', msg.body.reqid,
                 'connid', conn.connid);
             req.error = new RpcError('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv);
-            return conn.send(req._encode_response(), 'res', req);
+            return conn.send(req.make_response_message(), req);
         }
 
         return P.resolve()
@@ -378,8 +382,7 @@ class RPC extends EventEmitter {
                     'reqid', req.reqid,
                     'connid', conn.connid);
 
-                return conn.send(req._encode_response(), 'res', req);
-
+                return conn.send(req.make_response_message(), req);
             })
             .catch(err => {
 
@@ -397,7 +400,7 @@ class RPC extends EventEmitter {
                     req.error = new RpcError(err.rpc_code || 'INTERNAL', err.message, { retryable: true });
                 }
 
-                return conn.send(req._encode_response(), 'res', req);
+                return conn.send(req.make_response_message(), req);
             });
     }
 
@@ -584,14 +587,14 @@ class RPC extends EventEmitter {
         conn.once('connect', () => {
             if (this.routing_hint) {
                 dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
-                conn.send(RpcRequest.encode_message({
+                conn.send(new RpcMessage({
                     op: 'routing_req',
                     reqid: conn._alloc_reqid(),
                     routing_hint: this.routing_hint,
                 }));
             }
         });
-        conn.on('message', msg => this._on_message(conn, msg));
+        conn.on('decoded_message', msg => this._on_message(conn, msg));
         conn.on('close', err => this._connection_closed(conn, err));
         // we let the connection handle it's own errors and decide if to close or not
 
@@ -617,7 +620,7 @@ class RPC extends EventEmitter {
                     return null;
                 }
                 P.resolve()
-                    .then(() => conn.send(RpcRequest.encode_message({
+                    .then(() => conn.send(new RpcMessage({
                         op: 'ping',
                         reqid: reqid
                     })))
@@ -730,10 +733,10 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
+     * @param {RpcBaseConnection} conn
+     * @param {RpcMessage} msg
      */
-    _on_message(conn, msg_buffer) {
-        const msg = RpcRequest.decode_message(msg_buffer);
+    _on_message(conn, msg) {
         if (!msg || !msg.body) {
             conn.emit('error', new Error('RPC._on_message: BAD MESSAGE' +
                 ' typeof(msg) ' + typeof(msg) +
@@ -764,7 +767,7 @@ class RPC extends EventEmitter {
                 const routing = this._routing_authority ? this._routing_authority(msg.body.routing_hint) : undefined;
 
                 dbg.log0('RPC ROUTING RES SEND', routing, conn.connid, conn.url.href);
-                conn.send(RpcRequest.encode_message({
+                conn.send(new RpcMessage({
                     op: 'routing_res',
                     reqid: msg.body.reqid,
                     routing,
@@ -781,9 +784,9 @@ class RPC extends EventEmitter {
             case 'ping': {
                 dbg.log4('RPC PONG', conn.connid);
                 P.resolve()
-                    .then(() => conn.send(RpcRequest.encode_message({
+                    .then(() => conn.send(new RpcMessage({
                         op: 'pong',
-                        reqid: msg.body.reqid
+                        reqid: msg.body.reqid,
                     })))
                     .catch(_.noop); // already means the conn is closed
                 break;
@@ -815,8 +818,8 @@ class RPC extends EventEmitter {
             method_api: api.id,
             method_name: method.name,
             target: options.address,
-            request_params: params || undefined,
-            [RPC_BUFFERS]: params && params[RPC_BUFFERS],
+            request_params: js_utils.omit_symbol(params, RPC_BUFFERS),
+            [RPC_BUFFERS]: params && params[RPC_BUFFERS]
         };
 
         return P.resolve()

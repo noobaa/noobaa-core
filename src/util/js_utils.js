@@ -196,6 +196,41 @@ function map_get_or_create(map, key, item_initializer) {
     }
 }
 
+/**
+ * Enable easier usage of Object.hasOwnProperty
+ *
+ * @param {Object} obj
+ * @param {String|Symbol} prop_name_or_sym
+ * @returns {Boolean}
+ */
+function hasOwnProperty(obj, prop_name_or_sym) {
+    return Object.prototype.hasOwnProperty.call(obj, prop_name_or_sym);
+}
+
+/**
+ * Unlike lodash omit, this omit will not convert null, undefined, value typed,
+ * arrays or functions into an object (empty or not) and will not clone the passed
+ * object if the symbol does not exists on the object own properties
+ *
+ * @template T
+ * @param {T} maybe_obj
+ * @param {symbol} sym
+ * @returns {Omit<T,symbol> | T}
+ */
+ function omit_symbol(maybe_obj, sym) {
+     if (
+         !_.isObjectLike(maybe_obj) ||
+         Array.isArray(maybe_obj) ||
+         !hasOwnProperty(maybe_obj, sym)
+     ) {
+         return maybe_obj;
+     }
+
+     const obj = /** @type {object} */ (maybe_obj);
+     return _.omit(obj, sym);
+ }
+
+
 exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
 exports.array_push_keep_latest = array_push_keep_latest;
@@ -208,3 +243,4 @@ exports.PackedObject = PackedObject;
 exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
 exports.map_get_or_create = map_get_or_create;
+exports.omit_symbol = omit_symbol;

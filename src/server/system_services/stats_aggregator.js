@@ -936,7 +936,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     core_report.set_accounts_io_usage(accounts_stats);
     core_report.set_accounts_num(accounts_num);
     core_report.set_total_usage(total_usage);
-    // core_reportk data, update with the relevant values.
+    // TODO: Currently mock data, update with the relevant values.
     core_report.set_rebuild_progress(100);
     core_report.set_rebuild_time(0);
 }

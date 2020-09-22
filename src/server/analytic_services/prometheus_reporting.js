@@ -12,19 +12,19 @@ const { NooBaaCoreReport } = require('./prometheus_reports/noobaa_core_report');
 const { NooBaaEndpointReport } = require('./prometheus_reports/noobaa_endpoint_report');
 
 // Currenty supported reprots
-const reports = {
+const reports = Object.seal({
     nodejs: new NodeJsReport(),
     core: null, // optional
     endpoint: null // optional
-};
+});
 
 function get_nodejs_report() {
     return reports.nodejs;
 }
 
 function get_core_report(peek = false) {
-    if (!reports.core_report && !peek) reports.core_report = new NooBaaCoreReport();
-    return reports.core_report;
+    if (!reports.core && !peek) reports.core = new NooBaaCoreReport();
+    return reports.core;
 }
 
 function get_endpoint_report(peek = false) {

@@ -9,6 +9,7 @@ const assert = require('assert');
 
 const dbg = require('../util/debug_module')(__filename);
 const RpcError = require('./rpc_error');
+const RPC_BUFFERS = require('./rpc_request').RPC_BUFFERS;
 const schema_utils = require('../util/schema_utils');
 
 const VALID_HTTP_METHODS = {
@@ -33,15 +34,26 @@ class RpcSchema {
         } else {
             this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper);
         }
+
+        this._client_factory = null;
+        this._compiled = false;
+    }
+
+
+    get compiled() {
+        return this._compiled;
     }
 
     /**
+
      *
      * register_api
      *
      */
     register_api(api) {
         assert(!this[api.id], 'RPC: api already registered ' + api.id);
+        assert(!this._compiled, 'RPC: schema is already compiled');
+
         _.each(api.definitions, schema => {
             schema_utils.strictify(schema, {
                 additionalProperties: false
@@ -65,6 +77,10 @@ class RpcSchema {
     }
 
     compile() {
+        if (this._compiled) {
+            return;
+        }
+
         _.each(this, api => {
             if (!api || !api.id || api.id[0] === '_') return;
             _.each(api.methods, (method_api, method_name) => {
@@ -110,6 +126,91 @@ class RpcSchema {
                 };
             });
         });
+        this._generate_client_factory();
+        this._compiled = true;
+    }
+
+    new_client(rpc, options) {
+        assert(this._compiled, 'RPC: schema is not compiled');
+        return this._client_factory(rpc, options);
+    }
+
+    _generate_client_factory() {
+        const client_proto = {
+            RPC_BUFFERS,
+
+            async create_auth_token(params) {
+                const res = await this.auth.create_auth(params);
+                this.options.auth_token = res.token;
+                return res;
+            },
+
+            async create_access_key_auth(params) {
+                const res = await this.auth.create_access_key_auth(params);
+                this.options.auth_token = res.token;
+                return res;
+            },
+
+            async create_k8s_auth(params) {
+                const res = await this.auth.create_k8s_auth(params);
+                this.options.auth_token = res.token;
+                return res;
+            },
+
+            _invoke_api(api, method_api, params, options) {
+                options = Object.assign(
+                    Object.create(this.options),
+                    options
+                );
+                return this.rpc._request(api, method_api, params, options);
+            }
+        };
+
+        for (const api of Object.values(this)) {
+            if (!api || !api.id || api.id[0] === '_') {
+                continue;
+            }
+
+            // Skip common api and other apis that do not define methods.
+            if (!api.methods) {
+                continue;
+            }
+
+            const name = api.id.replace(/_api$/, '');
+            if (name === 'rpc' || name === 'options') {
+                throw new Error('ILLEGAL API ID');
+            }
+
+            const api_proto = {};
+            for (const [method_name, method_api] of Object.entries(api.methods)) {
+                // The following getter is defined as a function and not as an arrow function
+                // to prevent the capture of "this" from the surrounding context.
+                // When invoked, "this" should be the client object. Using an arrow function
+                // will capture the "this" defined in the invocation of "_generate_client_factory"
+                // which is the schema object.
+                api_proto[method_name] = function(params, options) {
+                    return this.client._invoke_api(api, method_api, params, options);
+                };
+            }
+
+            // The following getter is defined as a function and not as an arrow function
+            // on purpose. please see the last comment (above) for a detailed explanation.
+            Object.defineProperty(client_proto, name, {
+                enumerable: true,
+                get: function() {
+                    const api_instance = Object.create(api_proto);
+                    api_instance.client = this;
+                    return Object.freeze(api_instance);
+                }
+            });
+        }
+
+        this._client_factory = (rpc, options) => {
+            const client = Object.create(client_proto);
+            client.rpc = rpc;
+            client.options = options ? Object.create(options) : {};
+            return client;
+        };
     }
 }
 

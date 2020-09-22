@@ -2,7 +2,7 @@
 'use strict';
 
 const url = require('url');
-const { RPC, RPC_BUFFERS, RpcSchema } = require('../rpc');
+const { RPC, RpcSchema } = require('../rpc');
 const { get_base_address, get_default_ports } = require('../util/addr_utils');
 
 // registring all api's on the same RpcSchema object
@@ -34,86 +34,6 @@ api_schema.register_api(require('./frontend_notifications_api'));
 api_schema.register_api(require('./func_api'));
 api_schema.register_api(require('./func_node_api'));
 api_schema.compile();
-
-const client_factory = client_factory_from_schema(api_schema);
-
-function client_factory_from_schema(schema) {
-    const client_proto = {
-        RPC_BUFFERS,
-
-        async create_auth_token(params) {
-            const res = await this.auth.create_auth(params);
-            this.options.auth_token = res.token;
-            return res;
-        },
-
-        async create_access_key_auth(params) {
-            const res = await this.auth.create_access_key_auth(params);
-            this.options.auth_token = res.token;
-            return res;
-        },
-
-        async create_k8s_auth(params) {
-            const res = await this.auth.create_k8s_auth(params);
-            this.options.auth_token = res.token;
-            return res;
-        },
-
-        _invoke_api(api, method_api, params, options) {
-            options = Object.assign(
-                Object.create(this.options),
-                options
-            );
-            return this.rpc._request(api, method_api, params, options);
-        }
-    };
-
-    for (const api of Object.values(schema)) {
-        if (!api || !api.id || api.id[0] === '_') {
-            continue;
-        }
-
-        // Skip common api and other apis that do not define methods.
-        if (!api.methods) {
-            continue;
-        }
-
-        const name = api.id.replace(/_api$/, '');
-        if (name === 'rpc' || name === 'options') {
-            throw new Error('ILLEGAL API ID');
-        }
-
-        const api_proto = {};
-        for (const [method_name, method_api] of Object.entries(api.methods)) {
-            // The following getter is defined as a function and not as an arrow function
-            // to prevent the capture of "this" from the surrounding context.
-            // When invoked, "this" should be the client object. Using an arrow function
-            // will capture the "this" defined in the invocation of "new_client_factory"
-            // which is "undefined"
-            api_proto[method_name] = function(params, options) {
-                return this.client._invoke_api(api, method_api, params, options);
-            };
-        }
-
-        // The following getter is defined as a function and not as an arrow function
-        // on purpose. please see the last comment (above) for a detailed explanation.
-        Object.defineProperty(client_proto, name, {
-            enumerable: true,
-            get: function() {
-                const api_instance = Object.create(api_proto);
-                api_instance.client = this;
-                return Object.freeze(api_instance);
-            }
-        });
-    }
-
-    return (rpc, options) => {
-        const client = Object.create(client_proto);
-        client.rpc = rpc;
-        client.options = options ? Object.create(options) : {};
-        return client;
-    };
-}
 
 function get_protocol_port(protocol) {
     switch (protocol.toLowerCase()) {
@@ -182,7 +102,6 @@ function new_rpc_from_routing(routing_table) {
     }
 
     return new RPC({
-        client_factory,
         schema: api_schema,
         router: routing_table,
         api_routes: {
@@ -211,7 +130,6 @@ function new_rpc_from_routing(routing_table) {
  */
 function new_rpc_default_only(base_address) {
     return new RPC({
-        client_factory,
         schema: api_schema,
         router: {
             default: base_address
@@ -220,7 +138,6 @@ function new_rpc_default_only(base_address) {
     });
 }
 
-exports.client_factory_from_schema = client_factory_from_schema;
 exports.new_rpc = new_rpc;
 exports.new_rpc_from_base_address = new_rpc_from_base_address;
 exports.new_rpc_from_routing = new_rpc_from_routing;

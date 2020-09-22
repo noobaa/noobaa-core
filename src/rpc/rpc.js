@@ -31,10 +31,6 @@ const RpcNtcpConnection = require('./rpc_ntcp');
 const RpcFcallConnection = require('./rpc_fcall');
 const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
 
-function empty_client_factory() {
-    return {};
-}
-
 // dbg.set_level(5, __dirname);
 
 /**
@@ -59,7 +55,6 @@ class RPC extends EventEmitter {
         this.RPC_BUFFERS = RPC_BUFFERS;
         this._routing_authority = null;
         this._error_handler = null;
-        this._client_factory = options.client_factory || empty_client_factory;
         this.routing_hint = undefined;
     }
 
@@ -71,7 +66,9 @@ class RPC extends EventEmitter {
      *
      */
     new_client(options) {
-        return this._client_factory(this, options);
+        return this.schema ?
+            this.schema.new_client(this, options) :
+            null;
     }
 
     /**

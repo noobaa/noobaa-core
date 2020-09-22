@@ -11,36 +11,11 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const ssl_utils = require('../../util/ssl_utils');
 const { RPC, RpcError, RpcSchema, RPC_BUFFERS } = require('../../rpc');
-const { client_factory_from_schema } = require('../../api/api');
 
 function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
     console.log(...args);
 }
-
-// class APIClient {
-//     constructor(rpc, default_options) {
-//         this.rpc = rpc;
-//         this.options = _.create(default_options);
-//         this.RPC_BUFFERS = RPC_BUFFERS;
-
-//         this.test = undefined;
-//         this.common_test = undefined;
-
-//         _.each(rpc.schema, api => {
-//             if (!api || !api.id || api.id[0] === '_') return;
-//             const name = api.id.replace(/_api$/, '');
-//             if (name === 'rpc' || name === 'options') throw new Error('ILLEGAL API ID');
-//             this[name] = {};
-//             _.each(api.methods, (method_api, method_name) => {
-//                 this[name][method_name] = (params, options) => {
-//                     options = _.create(this.options, options);
-//                     return rpc._request(api, method_api, params, options);
-//                 };
-//             });
-//         });
-//     }
-// }
 
 mocha.describe('RPC', function() {
 
@@ -236,7 +211,6 @@ mocha.describe('RPC', function() {
     schema.register_api(test_api);
     schema.register_api(common_test_api);
     schema.compile();
-    const client_factory = client_factory_from_schema(schema);
 
     var rpc;
     var client;
@@ -271,8 +245,7 @@ mocha.describe('RPC', function() {
 
     mocha.beforeEach('test_rpc.beforeEach', function() {
         rpc = new RPC({
-            client_factory,
-            schema: schema,
+            schema,
             router: {
                 default: 'fcall://fcall'
             },

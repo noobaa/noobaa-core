@@ -186,6 +186,7 @@ class NamespaceS3 {
                     const count_stream = stream_utils.get_tap_stream(data => {
                         stats_collector.instance(this.rpc_client).update_namespace_read_stats({
                             namespace_resource_id: this.namespace_resource_id,
+                            bucket_name: params.bucket,
                             size: data.length,
                             count
                         });
@@ -232,6 +233,7 @@ class NamespaceS3 {
             const count_stream = stream_utils.get_tap_stream(data => {
                 stats_collector.instance(this.rpc_client).update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
                     size: data.length,
                     count
                 });

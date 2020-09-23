@@ -6,7 +6,7 @@ const mime = require('mime');
 const promise_utils = require('../util/promise_utils');
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
-
+const prom_report = require('../server/analytic_services/prometheus_reporting');
 
 
 // 30 seconds delay between reports
@@ -18,6 +18,7 @@ class EndpointStatsCollector {
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
         this.reset_all_stats();
+        this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
     static instance(rpc_client) {
@@ -59,7 +60,7 @@ class EndpointStatsCollector {
         };
     }
 
-    update_namespace_read_stats({ namespace_resource_id, size = 0, count = 0, is_err }) {
+    update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -69,10 +70,13 @@ class EndpointStatsCollector {
             io_stats.read_count += count;
             io_stats.read_bytes += size;
         }
+        if (bucket_name) {
+            this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
+        }
         this._trigger_send_stats();
     }
 
-    update_namespace_write_stats({ namespace_resource_id, size = 0, count = 0, is_err }) {
+    update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -81,6 +85,9 @@ class EndpointStatsCollector {
         } else {
             io_stats.write_count += count;
             io_stats.write_bytes += size;
+        }
+        if (bucket_name) {
+            this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
         }
         this._trigger_send_stats();
     }
@@ -106,6 +113,23 @@ class EndpointStatsCollector {
     update_bucket_write_counters({ bucket_name, key, content_type, }) {
         this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'write_count' });
         this._trigger_send_stats();
+    }
+
+    update_namespace_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, range_op = false }) {
+        if (read_bytes) {
+            this.prom_metrics_report.inc('cache_read_bytes', { bucket_name }, read_bytes);
+        }
+        if (read_count) {
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_count' : 'cache_object_read_count',
+                { bucket_name }, read_count);
+        }
+        if (miss_count) {
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count',
+                { bucket_name }, miss_count);
+        }
+        if (write_bytes) {
+            this.prom_metrics_report.inc('cache_write_bytes', { bucket_name }, write_bytes);
+        }
     }
 
     get_all_stats() {

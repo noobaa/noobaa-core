@@ -7,6 +7,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
 const promise_utils = require('../../util/promise_utils');
+const metric_utils = require('../utils/metrics');
 const { RpcError } = require('../../rpc');
 const buffer_utils = require('../../util/buffer_utils');
 const NamespaceCache = require('../../sdk/namespace_cache');
@@ -29,6 +30,15 @@ function random_object(size) {
     const key = `obj${rand_number}`;
     console.log(`creating object for test: key: bucket: ${bucket} key: ${key} size: ${size}`);
     return { bucket, key, size, buf, etag, last_modified: new Date()};
+}
+
+function reset_metrics(ns_cache) {
+    metric_utils.reset_metrics(ns_cache.stats_collector.prom_metrics_report);
+}
+
+function validate_metric(bucket, ns_cache, metric_name, expect_value) {
+    assert(metric_utils.get_metric(ns_cache.stats_collector.prom_metrics_report,
+        metric_name).hashMap[`bucket_name:${bucket}`].value === expect_value);
 }
 
 class Recorder {
@@ -201,7 +211,7 @@ class MockNamespace {
             if (obj.parts) {
                 for (const part of obj.parts) {
                     if (part.start <= start && part.end >= end) {
-                        return (new MockReaderStream({ type: this.type, source_buf: obj.buf.slice(start, end) }).reader);
+                        return (new MockReaderStream({ type: this.type, source_buf: crypto.pseudoRandomBytes(end - start) }).reader);
                     }
                 }
             }
@@ -309,6 +319,7 @@ async function create_namespace_cache_and_read_obj({ recorder, object_sdk, ttl_m
         namespace_nb: cache,
         caching: { ttl_ms },
     });
+    reset_metrics(ns_cache);
 
     const obj = random_object(size);
     hub.add_obj(obj);
@@ -437,13 +448,31 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
     });
 
     mocha.it('cache object during read', async () => {
-        const { obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk });
+        const size = 8;
+        const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size, ttl_ms, object_sdk });
 
         await promise_utils.wait_until(() => {
             const cache_obj_create_time = recorder.get_event('cache', obj.bucket, obj.key, EVENT_CREATE_OBJ_MD);
             return !_.isUndefined(cache_obj_create_time);
         }, 2000, 100);
 
+
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', size);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_miss_count', 1);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_count', 1);
+
+        const params = {
+            bucket: obj.bucket,
+            key: obj.key,
+        };
+
+        params.object_md = await ns_cache.read_object_md(params, object_sdk);
+        await ns_cache.read_object_stream(params, object_sdk);
+
+        validate_metric(obj.bucket, ns_cache, 'cache_read_bytes', size);
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', size);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_miss_count', 1);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_count', 2);
     });
 
     mocha.it('failure in cache upload while success in hub read', async () => {
@@ -650,8 +679,10 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             namespace_nb: cache,
             caching: { ttl_ms },
         });
+        reset_metrics(ns_cache);
 
-        const obj = random_object(8);
+        const size = 8;
+        const obj = random_object(size);
         hub.add_obj(obj);
 
         const params = {
@@ -666,7 +697,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         const read_etag = crypto.createHash('md5').update(params.object_md.first_range_data).digest('hex');
         assert(read_etag === obj.etag);
 
-        return promise_utils.wait_until(() => {
+        await promise_utils.wait_until(() => {
             try {
                 const cache_obj = cache.get_obj(obj.bucket, obj.key);
                 return cache_obj.etag === obj.etag;
@@ -675,6 +706,10 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             return false;
             }
         }, 2000, 100);
+
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', size);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_miss_count', 1);
+        validate_metric(obj.bucket, ns_cache, 'cache_object_read_count', 1);
     });
 
 });
@@ -794,6 +829,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_nb: cache,
             caching: { ttl_ms },
         });
+        reset_metrics(ns_cache);
 
         const size = block_size * 5;
         const obj = random_object(size);
@@ -823,6 +859,10 @@ mocha.describe('namespace caching: range read scenarios', () => {
             return !_.isUndefined(cache_obj) && cache_obj.num_parts === 1 && cache_obj.upload_size === block_size;
         }, 2000, 100);
 
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_miss_count', 1);
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_count', 1);
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', block_size);
+
         // After the second range read, we should have 2 parts cached.
         start = (block_size * 3) - 100;
         // end is exclusive
@@ -848,6 +888,27 @@ mocha.describe('namespace caching: range read scenarios', () => {
             const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
             return (cache_obj.num_parts === 2) && (cache_obj.upload_size === block_size * 3);
         }, 2000, 100);
+
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_miss_count', 2);
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_count', 2);
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', block_size * 3);
+
+        // Cache hit on range read
+        params = {
+            bucket: obj.bucket,
+            key: obj.key,
+            start,
+            end,
+            size,
+        };
+
+        object_md = await ns_cache.read_object_md(params, object_sdk);
+        params.object_md = object_md;
+        await ns_cache.read_object_stream(params, object_sdk);
+
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_count', 3);
+        validate_metric(obj.bucket, ns_cache, 'cache_write_bytes', block_size * 3);
+        validate_metric(obj.bucket, ns_cache, 'cache_range_read_miss_count', 2);
     });
 
     mocha.it('range read case if-etag mismatch', async () => {

@@ -14,6 +14,7 @@ const Semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
 const config = require('../../config');
+const stats_collector = require('./endpoint_stats_collector');
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
@@ -27,6 +28,7 @@ class NamespaceCache {
         this.namespace_nb = namespace_nb;
         this.active_triggers = active_triggers;
         this.caching = caching;
+        this.stats_collector = stats_collector.instance(namespace_hub.rpc_client);
     }
 
     get_write_resource() {
@@ -257,7 +259,15 @@ class NamespaceCache {
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
                         };
-                        return this.namespace_nb.upload_object(upload_params, object_sdk);
+                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+                        this.stats_collector.update_namespace_cache_stats({
+                            bucket_name: params.bucket,
+                            write_bytes: object_info_hub.first_range_data.length,
+                            read_bytes: object_info_hub.first_range_data.length,
+                            read_count: 1,
+                            miss_count: 1,
+                        });
+                        return upload_res;
                     }
                 );
             } else if (cache_etag === '') {
@@ -344,6 +354,10 @@ class NamespaceCache {
 
         try {
             const cache_read_stream = await this.namespace_nb.read_object_stream(params, object_sdk);
+            this.stats_collector.update_namespace_cache_stats({
+                bucket_name: params.bucket,
+                read_bytes: params.read_size,
+            });
             return cache_read_stream;
         } catch (err) {
             dbg.error('NamespaceCache.hub_range_read: fallback to hub after error in reading cache', err);
@@ -438,23 +452,50 @@ class NamespaceCache {
 
                     _global_cache_uploader.submit_background(
                         hub_read_size,
-                        async () => object_sdk.object_io.upload_object_range(
-                            _.defaults({
-                                client: object_sdk.rpc_client,
-                                bucket: this.namespace_nb.target_bucket,
-                            }, upload_params))
+                        async () => {
+                            const upload_res = await object_sdk.object_io.upload_object_range(
+                                _.defaults({
+                                    client: object_sdk.rpc_client,
+                                    bucket: this.namespace_nb.target_bucket,
+                                }, upload_params));
+
+                                this.stats_collector.update_namespace_cache_stats({
+                                    bucket_name: params.bucket,
+                                    write_bytes: upload_params.end - upload_params.start,
+                                });
+                            return upload_res;
+                        }
                     );
                     dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
                 } else {
                     dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache',
                         { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
+
+                this.stats_collector.update_namespace_cache_stats({
+                    bucket_name: params.bucket,
+                    miss_count: 1,
+                    range_op: true,
+                });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
-                    async () => this.namespace_nb.upload_object(upload_params, object_sdk)
+                    async () => {
+                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+                        this.stats_collector.update_namespace_cache_stats({
+                            bucket_name: params.bucket,
+                            write_bytes: params.object_md.size,
+                        });
+                        return upload_res;
+                    }
                 );
+
+                this.stats_collector.update_namespace_cache_stats({
+                    bucket_name: params.bucket,
+                    range_op: false,
+                    miss_count: 1,
+                });
             }
         }
 
@@ -479,8 +520,10 @@ class NamespaceCache {
         params = _.omit(params, 'get_from_cache');
 
         params.read_size = params.object_md.size;
+        let range_op = false;
         if (params.start || params.end) {
             params.read_size = params.end - params.start;
+            range_op = true;
         }
 
         let read_response;
@@ -495,6 +538,12 @@ class NamespaceCache {
         }
 
         read_response = read_response || await this._read_object_stream(params, object_sdk);
+
+        this.stats_collector.update_namespace_cache_stats({
+            bucket_name: params.bucket,
+            range_op,
+            read_count: 1,
+        });
 
         const operation = 'ObjectRead';
         const load_for_trigger = !params.noobaa_trigger_agent &&

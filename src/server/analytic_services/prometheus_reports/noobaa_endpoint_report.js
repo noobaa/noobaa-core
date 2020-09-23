@@ -9,6 +9,7 @@ const js_utils = require('../../../util/js_utils');
 // this class is a shim that should who ever
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
+
 const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
     {
         type: 'Counter',
@@ -74,6 +75,38 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
             labelNames: ['bucket_name']
         }
     },
+    {
+        type: 'Histogram',
+        name: 'hub_read_latency',
+        configuration: {
+            help: 'hub read latency in namespace cache bucket',
+            labelNames: ['namespace_resource_id']
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'hub_write_latency',
+        configuration: {
+            help: 'hub write latency in namespace cache bucket',
+            labelNames: ['namespace_resource_id']
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'cache_read_latency',
+        configuration: {
+            help: 'Cache read latency in namespace cache bucket',
+            labelNames: ['namespace_resource_id']
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'cache_write_latency',
+        configuration: {
+            help: 'Cache write latency in namespace cache bucket',
+            labelNames: ['namespace_resource_id']
+        }
+    }
 ]);
 
 class NooBaaEndpointReport extends BasePrometheusReport {

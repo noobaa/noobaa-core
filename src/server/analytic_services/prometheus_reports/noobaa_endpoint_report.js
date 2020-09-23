@@ -2,38 +2,120 @@
 'use strict';
 
 const { BasePrometheusReport } = require('./base_prometheus_report');
+const js_utils = require('../../../util/js_utils');
 
 // -----------------------------------------
 // A report for collecting endpoint metrics,
 // this class is a shim that should who ever
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
+const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
+    {
+        type: 'Counter',
+        name: 'hub_read_bytes',
+        configuration: {
+            help: 'hub read bytes in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'hub_write_bytes',
+        configuration: {
+            help: 'hub write bytes in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_read_bytes',
+        configuration: {
+            help: 'Cache read bytes in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_write_bytes',
+        configuration: {
+            help: 'Cache write bytes in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_object_read_count',
+        configuration: {
+            help: 'Counter on entire object reads in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_object_read_miss_count',
+        configuration: {
+            help: 'Counter on entire object read miss in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_range_read_count',
+        configuration: {
+            help: 'Counter on range reads in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_range_read_miss_count',
+        configuration: {
+            help: 'Counter on range read miss in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+]);
+
 class NooBaaEndpointReport extends BasePrometheusReport {
     constructor() {
         super();
 
         if (this.enabled) {
-            // Cache the client for ease of use.
-            const client = this.prom_client;
-
-            // Define storage for the metrics:
-            this._metrics = {
-                // This is a dummy metric that is used as an example, Gauge is use
-                // here forbut it can be any of the metric types defined in the prom
-                // client lib at https://github.com/siimon/prom-client with its
-                // specific configuration.
-                demo_metric: new client.Gauge({
-                    name: this.get_prefixed_name('demo_metric'),
-                    registers: [this.registry],
-                    help: 'Description line for demo_metric',
-                    // Other configurqation that should apply for this metric
-                }),
-            };
+            this._metrics = {};
+            for (const m of NOBBAA_ENDPOINT_METRICS) {
+                this._metrics[m.name] = {
+                    type: m.type,
+                    prom_instance: new this.prom_client[m.type]({
+                        name: this.get_prefixed_name(m.name),
+                        registers: [this.registry],
+                        ...m.configuration,
+                    }),
+                };
+            }
         }
     }
 
+    // Increment counter metric
+    inc(name, labels, value) {
+        if (!this._metrics) return;
+        const metric = this._metrics[name];
+        if (!metric) throw new Error(`Unknow metric ${name}`);
+        if (metric.type !== 'Counter') throw new Error(`Metric ${name} is not Counter`);
+        metric.prom_instance.inc(labels, value);
+    }
+
+    // Update historgram metric
+    observe(name, labels, value) {
+        if (!this._metrics) return;
+        const metric = this._metrics[name];
+        if (!metric) throw new Error(`Unknow metric ${name}`);
+        if (metric.type !== 'Histogram') throw new Error(`Metric ${name} is not Historgram`);
+        metric.prom_instance.observe(labels, value);
+    }
+
+
     get metric_prefix() {
-        return `${super.metric_prefix}_Endpoint_`;
+        return `${super.metric_prefix}Endpoint_`;
     }
 
     // Public interface to allow consuming code an interface for

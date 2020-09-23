@@ -158,17 +158,6 @@ if (config.PROMETHEUS_ENABLED) {
     app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
     app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
     app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
-
-    // TODO: this is here for backward competability, remove when all is working and tested
-    app.get('/metrics', function(req, res) {
-        res.set('Content-Type', 'text/plain');
-        res.end(prom_reporting.export_all_metrics());
-    });
-    app.get('/metrics/counter', function(req, res) {
-        res.set('Content-Type', 'text/plain');
-        const report = prom_reporting.get_core_report(true);
-        res.end(report ? report.export_metrics() : '');
-    });
 }
 
 app.get('/', function(req, res) {

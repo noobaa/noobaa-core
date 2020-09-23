@@ -12,14 +12,23 @@ const Speedometer = require('../util/speedometer');
 
 require('../util/console_wrapper').original_console();
 
+const size_units_mult = {
+    KB: 1024,
+    MB: 1024 * 1024,
+    GB: 1024 * 1024 * 1024,
+    TB: 1024 * 1024 * 1024 * 1024,
+};
+
 // common
 argv.port = Number(argv.port) || 50505;
 argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
 // client
 argv.client = argv.client === true ? '127.0.0.1' : argv.client;
-argv.size = argv.size === undefined ? (1024 ** 3) : argv.size; // in bytes
-argv.buf = argv.buf || 128 * 1024; // in Bytes
+argv.size = argv.size || 100;
+argv.size_units = argv.size_units || 'MB';
+const size_bytes = argv.size * (size_units_mult[argv.size_units] || 1);
+argv.buf = Math.min(argv.buf || 128 * 1024, size_bytes); // in Bytes
 argv.concur = argv.concur || 1;
 // server
 argv.server = Boolean(argv.server);
@@ -39,6 +48,8 @@ if (cluster.isMaster) {
     delete argv._;
     console.log('ARGV', JSON.stringify(argv));
 }
+
+if (argv.exit) setTimeout(() => process.exit(), Number(argv.exit) * 1000);
 
 if (argv.forks > 1 && cluster.isMaster) {
     master_speedometer.fork(argv.forks);
@@ -100,7 +111,7 @@ function run_server() {
  * @param {http.ServerResponse} res 
  */
 function run_server_request(req, res) {
-    const op_start_time = process.hrtime.bigint();
+    const start_time = process.hrtime.bigint();
     req.on('error', err => {
         console.error('HTTP server request error', err.message);
         process.exit();
@@ -110,10 +121,9 @@ function run_server_request(req, res) {
         process.exit();
     });
     req.once('end', () => {
-        recv_speedometer.add_op(
-            Number(process.hrtime.bigint() - op_start_time) / 1000000
-        );
         res.end();
+        const took_ns = Number(process.hrtime.bigint() - start_time);
+        recv_speedometer.add_op(took_ns / 1e6);
     });
     run_receiver(req);
 }
@@ -125,7 +135,7 @@ function run_client() {
 }
 
 function run_client_request() {
-    const op_start_time = process.hrtime.bigint();
+    const start_time = process.hrtime.bigint();
     const req = (argv.ssl ? https : http)
         .request({
             agent: http_agent,
@@ -152,9 +162,10 @@ function run_client_request() {
                     console.error('HTTP client response error', err.message);
                     process.exit();
                 })
-                .once('end', () => send_speedometer.add_op(
-                    Number(process.hrtime.bigint() - op_start_time) / 1000000
-                ))
+                .once('end', () => {
+                    const took_ns = Number(process.hrtime.bigint() - start_time);
+                    send_speedometer.add_op(took_ns / 1e6);
+                })
                 .once('end', run_client_request)
                 .on('data', data => { /* noop */ });
             // setImmediate(run_client_request);
@@ -167,20 +178,22 @@ function run_client_request() {
  * @param {http.ClientRequest} writable 
  */
 function run_sender(writable) {
+    const req_size = size_bytes;
+    const buf_size = argv.buf;
     var n = 0;
 
     writable.on('drain', send);
     send();
 
     function send() {
-        const buf = Buffer.allocUnsafe(Math.min(argv.buf, argv.size - n));
+        const buf = Buffer.allocUnsafe(Math.min(buf_size, req_size - n));
         var ok = true;
-        while (ok && n < argv.size) {
+        while (ok && n < req_size) {
             ok = writable.write(buf);
             n += buf.length;
             send_speedometer.update(buf.length);
         }
-        if (n >= argv.size) writable.end();
+        if (n >= req_size) writable.end();
     }
 }
 

@@ -106,6 +106,14 @@ const apiBlackList = [
     'rpc_fcall'
 ];
 
+const installOptions = {
+    bower: {}
+};
+
+if (process.env.ALLOW_ROOT) {
+    installOptions.bower.allowRoot = true;
+}
+
 // ----------------------------------
 // Atomic Tasks
 // ----------------------------------
@@ -116,7 +124,7 @@ function clean() {
 
 function installDeps() {
     return gulp.src('./bower.json')
-        .pipe($.install());
+        .pipe($.install(installOptions));
 }
 
 function buildDeps(done) {
@@ -130,7 +138,7 @@ function buildDeps(done) {
         });
 
     gulp.src(libsToBuild.map(lib => lib.pkgFile))
-        .pipe($.install(() => {
+        .pipe($.install(installOptions, () => {
             const builds = libsToBuild
                 .map(lib => spawnAsync(lib.command, { cwd: lib.workingDir }));
 

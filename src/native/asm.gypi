@@ -2,6 +2,10 @@
 {
     'conditions': [
 
+        [ 'node_arch=="x64"', {
+            'defines': ['HAVE_AS_KNOWS_AVX512', 'HAVE_AS_KNOWS_SHANI'],
+        }],
+
         # LINUX
         [ 'OS=="linux"', {
             'rules': [{
@@ -9,15 +13,17 @@
                 'extension': 'asm',
                 'outputs': ['<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).o'],
                 'action': [
-                    'yasm',
+                    'nasm',
                     '-felf64',
                     '-DPIC',
+                    '-DHAVE_AS_KNOWS_AVX512',
+                    '-DHAVE_AS_KNOWS_SHANI',
                     '<!@(for i in <(_include_dirs); do echo -I $i; done)',
                     '-o', '<@(_outputs)',
                     '<(RULE_INPUT_PATH)',
                 ],
                 'process_outputs_as_sources': 1,
-                'message': 'YASM <(RULE_INPUT_PATH)',
+                'message': 'NASM <(RULE_INPUT_PATH)',
             }],
         }],
 
@@ -28,15 +34,17 @@
                 'extension': 'asm',
                 'outputs': ['<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).o'],
                 'action': [
-                    'yasm',
+                    'nasm',
                     '-fmacho64',
+                    '-DHAVE_AS_KNOWS_AVX512',
+                    '-DHAVE_AS_KNOWS_SHANI',
                     '--prefix=_',
                     '<!@(for i in <(_include_dirs); do echo -I $i; done)',
                     '-o', '<@(_outputs)',
                     '<(RULE_INPUT_PATH)',
                 ],
                 'process_outputs_as_sources': 1,
-                'message': 'YASM <(RULE_INPUT_PATH)',
+                'message': 'NASM <(RULE_INPUT_PATH)',
             }],
         }],
 
@@ -47,14 +55,16 @@
                 'extension': 'asm',
                 'outputs': ['<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).obj'],
                 'action': [
-                    'C:/cygwin64/bin/yasm.exe',
+                    'C:/cygwin64/bin/nasm.exe',
                     '-fwin64',
+                    '-DHAVE_AS_KNOWS_AVX512',
+                    '-DHAVE_AS_KNOWS_SHANI',
                     '<!@(for /D %i in (<(_include_dirs)) do @echo -I %i)',
                     '-o', '<@(_outputs)',
                     '<(RULE_INPUT_PATH)',
                 ],
                 'process_outputs_as_sources': 1,
-                'message': 'YASM <(RULE_INPUT_PATH)',
+                'message': 'NASM <(RULE_INPUT_PATH)',
             }],
         }],
 

@@ -184,7 +184,7 @@ class NamespaceS3 {
                     req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
                     let count = 1;
                     const count_stream = stream_utils.get_tap_stream(data => {
-                        stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                        stats_collector.instance(this.rpc_client).update_hub_read_stats({
                             namespace_resource_id: this.namespace_resource_id,
                             bucket_name: params.bucket,
                             size: data.length,
@@ -231,7 +231,7 @@ class NamespaceS3 {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                stats_collector.instance(this.rpc_client).update_hub_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     bucket_name: params.bucket,
                     size: data.length,

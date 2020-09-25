@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const stream = require('stream');
 const assert = require('assert');
-const process = require('process');
 const dbg = require('../util/debug_module')(__filename);
 const cache_config = require('../../config.js').NAMESPACE_CACHING;
 const range_utils = require('../util/range_utils');
@@ -265,9 +264,13 @@ class NamespaceCache {
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
                         };
 
-                    var start = process.hrtime();    
-                    const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk).then(() => this._update_metric('set_hub_read_latency', (process.hrtime()[1] - start[1])/1000000));
-                        this.stats_collector.update_namespace_cache_stats({
+                        const start = process.hrtime();
+                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+                        this.stats_collector.update_hub_latency_stats({
+                            bucket_name: params.bucket,
+                            hub_read_latency: process.hrtime(start)[1]/1000000
+                        });
+                        this.stats_collector.update_cache_stats({
                             bucket_name: params.bucket,
                             write_bytes: object_info_hub.first_range_data.length,
                             read_bytes: object_info_hub.first_range_data.length,
@@ -360,9 +363,13 @@ class NamespaceCache {
         };
 
         try {
-            var start = process.hrtime();
-            const cache_read_stream = await this.namespace_nb.read_object_stream(params, object_sdk).then(() => this._update_metric('set_cache_write_latency', (process.hrtime()[1] - start[1])/1000000));
-            this.stats_collector.update_namespace_cache_stats({
+            const start = process.hrtime();
+            const cache_read_stream = await this.namespace_nb.read_object_stream(params, object_sdk);
+            this.stats_collector.update_cache_latency_stats({
+                bucket_name: params.bucket,
+                cache_write_latency: process.hrtime(start)[1]/1000000
+            });
+            this.stats_collector.update_cache_stats({
                 bucket_name: params.bucket,
                 read_bytes: params.read_size,
             });
@@ -411,8 +418,12 @@ class NamespaceCache {
             if (!hub_read_params.md_conditions) {
                 hub_read_params.md_conditions = { if_match_etag: params.object_md.etag };
             }
-            var start = process.hrtime();
-            hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk).then(() => this._update_metric('set_hub_read_latency', (process.hrtime()[1] - start[1])/1000000));
+            const start = process.hrtime();
+            hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
+            this.stats_collector.update_hub_latency_stats({
+                bucket_name: params.bucket,
+                hub_read_latency: process.hrtime(start)[1]/1000000
+            });
         } catch (err) {
             if (err.rpc_code === 'IF_MATCH_ETAG') {
                 await this._delete_object_from_cache(params, object_sdk);
@@ -459,7 +470,7 @@ class NamespaceCache {
                     // Set object ID since partial object has been created before
                     upload_params.obj_id = params.object_md.obj_id;
 
-                    var start = process.hrtime();
+                    const start = process.hrtime();
                     _global_cache_uploader.submit_background(
                         hub_read_size,
                         async () => {
@@ -467,9 +478,14 @@ class NamespaceCache {
                                 _.defaults({
                                     client: object_sdk.rpc_client,
                                     bucket: this.namespace_nb.target_bucket,
-                                }, upload_params)).then(() => this._update_metric('set_cache_write_latency', (process.hrtime()[1] - start[1])/1000000));
+                                }, upload_params));
 
-                                this.stats_collector.update_namespace_cache_stats({
+                                this.stats_collector.update_cache_latency_stats({
+                                    bucket_name: params.bucket,
+                                    cache_write_latency: process.hrtime(start)[1]/1000000
+                                });
+
+                                this.stats_collector.update_cache_stats({
                                     bucket_name: params.bucket,
                                     write_bytes: upload_params.end - upload_params.start,
                                 });
@@ -482,19 +498,23 @@ class NamespaceCache {
                         { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
 
-                this.stats_collector.update_namespace_cache_stats({
+                this.stats_collector.update_cache_stats({
                     bucket_name: params.bucket,
                     miss_count: 1,
                     range_op: true,
                 });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
-                var start = process.hrtime();
+                const start = process.hrtime();
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
                     async () => {
-                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk).then(() => this._update_metric('set_cache_write_latency', (process.hrtime()[1] - start[1])/1000000));
-                        this.stats_collector.update_namespace_cache_stats({
+                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+                        this.stats_collector.update_cache_latency_stats({
+                            bucket_name: params.bucket,
+                            cache_write_latency: process.hrtime(start)[1]/1000000
+                        });
+                        this.stats_collector.update_cache_stats({
                             bucket_name: params.bucket,
                             write_bytes: params.object_md.size,
                         });
@@ -502,7 +522,7 @@ class NamespaceCache {
                     }
                 );
 
-                this.stats_collector.update_namespace_cache_stats({
+                this.stats_collector.update_cache_stats({
                     bucket_name: params.bucket,
                     range_op: false,
                     miss_count: 1,
@@ -523,8 +543,7 @@ class NamespaceCache {
             // If the query parameter partNumber is set, the object was most likely
             // created by the multipart upload. Since we don't support MP in cache,
             // we proxy the read to hub.
-            var start = process.hrtime();
-            return this.namespace_hub.read_object_stream(params, object_sdk).then(() => this._update_metric('set_hub_read_latency', (process.hrtime()[1] - start[1])/1000000));
+            return this.namespace_hub.read_object_stream(params, object_sdk);
         }
 
         const get_from_cache = params.get_from_cache;
@@ -543,8 +562,12 @@ class NamespaceCache {
             // For testing purpose: get_from_cache query parameter is on
             try {
                 dbg.log0('NamespaceCache.read_object_stream: get_from_cache is on: read object from cache', params);
-                var start = process.hrtime();
-                read_response = await this.namespace_nb.read_object_stream(params, object_sdk).then(() => this._update_metric('set_cache_read_latency', (process.hrtime()[1] - start[1])/1000000));
+                const start = process.hrtime();
+                read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
+                this.stats_collector.update_cache_latency_stats({
+                    bucket_name: params.bucket,
+                    cache_read_latency: process.hrtime(start)[1]/1000000
+                });
             } catch (err) {
                 dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
             }
@@ -552,7 +575,7 @@ class NamespaceCache {
 
         read_response = read_response || await this._read_object_stream(params, object_sdk);
 
-        this.stats_collector.update_namespace_cache_stats({
+        this.stats_collector.update_cache_stats({
             bucket_name: params.bucket,
             range_op,
             read_count: 1,
@@ -585,8 +608,12 @@ class NamespaceCache {
             dbg.log0("NamespaceCache.upload_object: object is too big, skip caching");
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-            var start = process.hrtime();
-            upload_response = await this.namespace_hub.upload_object(params, object_sdk).then(() => this._update_metric('set_hub_write_latency', (process.hrtime()[1] - start[1])/1000000));
+            const start = process.hrtime();
+            upload_response = await this.namespace_hub.upload_object(params, object_sdk);
+            this.stats_collector.update_hub_latency_stats({
+                bucket_name: params.bucket,
+                hub_write_latency: process.hrtime(start)[1]/1000000
+            });
             etag = upload_response.etag;
 
         } else {
@@ -595,8 +622,12 @@ class NamespaceCache {
 
             const hub_stream = new stream.PassThrough();
             const hub_params = { ...params, source_stream: hub_stream };
-            var start = process.hrtime();
-            const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk).then(() => this._update_metric('set_hub_write_latency', (process.hrtime()[1] - start[1])/1000000));
+            const start = process.hrtime();
+            const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
+            this.stats_collector.update_hub_latency_stats({
+                bucket_name: params.bucket,
+                hub_write_latency: process.hrtime(start)[1]/1000000
+            });
 
             const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
 
@@ -612,7 +643,11 @@ class NamespaceCache {
             const cache_promise = _global_cache_uploader.surround_count(
                 params.size,
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
-            ).then(() => this._update_metric('set_cache_write_latency', (process.hrtime()[1] - start[1])/1000000));
+            );
+            this.stats_collector.update_cache_latency_stats({
+                bucket_name: params.bucket,
+                cache_write_latency: process.hrtime(start)[1]/1000000
+            });
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be

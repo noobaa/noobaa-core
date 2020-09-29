@@ -33,8 +33,8 @@ class EndpointStatsStore {
                 }],
             });
 
-       this._bandwidth_reports = mongo_client.instance()
-           .define_collection({
+        this._bandwidth_reports = mongo_client.instance()
+            .define_collection({
                 name: 'usagereports',
                 schema: usage_report_schema,
                 db_indexes: [{
@@ -123,7 +123,7 @@ class EndpointStatsStore {
         return this._bandwidth_reports.col().removeMany(query);
     }
 
-    async _format_bandwidth_report_query(params) {
+    _format_bandwidth_report_query(params) {
         const { endpoint_groups, buckets, accounts, since, till } = params;
         const query = {};
         if (endpoint_groups) _.set(query, ['endpoint_group', '$in'], _.castArray(endpoint_groups));
@@ -188,7 +188,7 @@ class EndpointStatsStore {
     }
 
     _format_endpoint_gorup_report_query(params) {
-        const { groups, since, till} = params;
+        const { groups, since, till } = params;
         const query = {};
         if (groups) _.set(query, ['group_name', '$in'], _.castArray(groups));
         if (since) _.set(query, ['start_time', '$gte'], since);

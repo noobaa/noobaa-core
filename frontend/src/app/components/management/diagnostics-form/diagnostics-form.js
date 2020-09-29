@@ -26,15 +26,6 @@ class DiagnosticsFormViewModel extends ConnectableViewModel {
                 text: support.email,
                 target: false
             }
-        },
-        {
-            label: 'Support center',
-            template: 'link',
-            value: {
-                href: support.helpDesk,
-                text: support.helpDesk,
-                target: '_blank'
-            }
         }
     ];
     debugSheet = [

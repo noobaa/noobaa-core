@@ -49,7 +49,6 @@
     ],
     "support":  {
         "email": "support@noobaa.com",
-        "helpDesk": "https://noobaa.desk.com",
         "createSystemSupportSubject": "Need help creating a system",
         "missingOVAMailSubject": "Please help me find my original OVA",
         "managementConsoleSubject": "My NooBaa management console has crushed",

@@ -14,7 +14,6 @@ import {
     closeModal,
     createNamespaceBucket
 } from 'action-creators';
-import { createNamespaceBucket as learnMoreHref } from 'knowledge-base-articles';
 
 const steps = deepFreeze([
     'Choose Name',
@@ -75,7 +74,6 @@ class ResourceRowViewModel {
 }
 
 class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
-    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
     isStepValid = false;

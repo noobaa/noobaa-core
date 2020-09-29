@@ -12,8 +12,7 @@
         actionLabel: 'Create',
         onBeforeStep: onBeforeStep,
         onComplete: $form.submit,
-        onCancel: onCancel,
-        renderControls: false
+        onCancel: onCancel
     ">
         <section class="column greedy">
             <div class="column greedy pad">
@@ -36,21 +35,6 @@
                 <editor class="greedy" params="label: 'Runtime', tooltip: runtimeTooltip">
                     <input type="text" disabled ko.value="runtime" />
                 </editor>
-            </div>
-            <div class="row content-middle pad content-box">
-                <p class="remark greedy push-next">
-                    <svg-icon class="icon-small valign-bottom"
-                        params="name: 'notif-info'"
-                    ></svg-icon>
-                    Learn more about
-                    <a class="link"
-                        target="_blank"
-                        ko.attr.href="learnMoreHref"
-                    >
-                        Serverless Functions
-                    </a>
-                </p>
-                <wizard-controls class="align-end"></wizard-controls>
             </div>
         </section>
 
@@ -164,21 +148,6 @@
                     <validation-message params="field: $form.handlerFunc"></validation-message>
                 </editor>
             </div>
-            <div class="row content-middle pad content-box">
-                <p class="remark greedy push-next">
-                    <svg-icon class="icon-small valign-bottom"
-                        params="name: 'notif-info'"
-                    ></svg-icon>
-                    Learn more about
-                    <a class="link"
-                        target="_blank"
-                        ko.attr.href="learnMoreHref"
-                    >
-                        Serverless Functions
-                    </a>
-                </p>
-                <wizard-controls></wizard-controls>
-            </div>
         </section>
 
         <section class="column greedy">
@@ -209,21 +178,6 @@
                     </div>
                     <span class="val-msg">{{timeoutError}}</span>
                 </editor>
-            </div>
-            <div class="row content-middle pad content-box">
-                <p class="remark greedy push-next">
-                    <svg-icon class="icon-small valign-bottom"
-                        params="name: 'notif-info'"
-                    ></svg-icon>
-                    Learn more about
-                    <a class="link"
-                        target="_blank"
-                        ko.attr.href="learnMoreHref"
-                    >
-                        Serverless Functions
-                    </a>
-                </p>
-                <wizard-controls></wizard-controls>
             </div>
         </section>
     </wizard>

@@ -65,27 +65,17 @@
             </editor>
         </section>
     </div>
-    <div class="row content-middle pad content-box">
-        <p class="remark greedy push-next">
-            <svg-icon class="icon-small valign-bottom"
-                params="name: 'notif-info'"
-            ></svg-icon>
-            Learn more about
-            <a class="link"
-                target="_blank"
-                ko.attr.href="learnMoreHref"
+    <div class="column pad content-box">
+        <div class="row content-middle align-end ">
+            <button type="button push-next"
+                class="link alt-colors push-next"
+                ko.click="onCancel"
             >
-                Namespace Resources
-            </a>
-        </p>
-        <button type="button"
-            class="link alt-colors push-next"
-            ko.click="onCancel"
-        >
-            Cancel
-        </button>
-        <button class="btn" ko.shakeOnClick="!$form.isValid()">
-            Create
-        </button>
+                Cancel
+            </button>
+            <button class="btn" ko.shakeOnClick="!$form.isValid()">
+                Create
+            </button>
+        </div>
     </div>
 </managed-form>

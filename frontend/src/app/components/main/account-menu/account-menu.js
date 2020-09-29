@@ -16,7 +16,6 @@ class AccountMenuViewModel extends ConnectableViewModel {
     accountPageHref = ko.observable();
     connectionPageHref = ko.observable();
     supportEmailHref = formatEmailUri(support.email);
-    helpDeskHref = support.helpDesk;
     oppositeTheme = '';
     switchThemeText = ko.observable();
     allowSignOut = ko.observable();

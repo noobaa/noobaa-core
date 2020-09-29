@@ -6,7 +6,6 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze, pick, flatMap } from 'utils/core-utils';
 import { getFormValues } from 'utils/form-utils';
-import { editBucketDataResiliency as learnMoreHref } from 'knowledge-base-articles';
 import {
     countStorageNodesByMirrorSet,
     summrizeResiliency,
@@ -118,7 +117,6 @@ class EditBucketDataResiliencyModalViewModel extends ConnectableViewModel {
     ecFailureTolerance = ko.observable();
     ecRequiredDrives = ko.observable();
     ecRebuildEffort = ko.observable();
-    learnMoreHref = learnMoreHref
     fields = ko.observable();
 
     selectState(state, params) {

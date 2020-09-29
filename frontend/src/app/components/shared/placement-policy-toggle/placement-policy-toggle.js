@@ -4,10 +4,6 @@ import template from './placement-policy-toggle.html';
 import { deepFreeze } from 'utils/core-utils';
 import { randomString } from 'utils/string-utils';
 import ko from 'knockout';
-import {
-    placementPolicyToggleMirrorTooltip,
-    placementPolicyToggleSpreadTooltip
-} from 'knowledge-base-articles';
 
 const policyTypeOptions = deepFreeze([
     {
@@ -26,12 +22,7 @@ const policyTypeOptions = deepFreeze([
                         text: 'Includes failure tolerance in case of resource failure',
                         checked: false
                     }
-                ],
-                link: {
-                    text: 'Learn more about spread policy',
-                    href: placementPolicyToggleSpreadTooltip
-                }
-
+                ]
             }
         }
     },
@@ -51,12 +42,7 @@ const policyTypeOptions = deepFreeze([
                         text: 'Includes failure tolerance in case of resource failure',
                         checked: true
                     }
-                ],
-                link: {
-                    text: 'Learn more about mirror policy',
-                    href: placementPolicyToggleMirrorTooltip
-                }
-
+                ]
             }
         }
     }

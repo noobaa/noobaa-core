@@ -4,7 +4,6 @@ import template from './bucket-data-placement-form.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils/core-utils';
-import { usingInternalStorageWarningTooltip } from 'knowledge-base-articles.json';
 import { formatSize } from 'utils/size-utils';
 import { openAddTierModal, openBucketPlacementSummaryModal } from 'action-creators';
 import { maxTiersAllowed } from 'config';
@@ -15,17 +14,11 @@ const addTierTooltips = deepFreeze({
 });
 
 const internalWarningTooltip = deepFreeze({
-    template: 'textAndLink',
-    text: {
-        text:`
-            Using the system internal storage is not recommended due to low performance.
-            Please add storage resources(Local nodes or cloud resources).
-        `,
-        link: {
-            text: 'Learn how to add storage to NooBaa',
-            href: usingInternalStorageWarningTooltip
-        }
-    }
+    template: 'text',
+    text: `
+        Using the system internal storage is not recommended due to low performance.
+        Please add storage resources(Local nodes or cloud resources).
+    `
 });
 
 function _findInternalStorageUsage(bucket) {

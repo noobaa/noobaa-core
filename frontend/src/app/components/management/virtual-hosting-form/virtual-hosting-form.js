@@ -7,12 +7,10 @@ import { keyByProperty } from 'utils/core-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation } from 'action-creators';
-import { virtualHostingLearnMoreHref as learnMoreHref } from 'knowledge-base-articles';
 
 const sectionName = 'virutal-hosting';
 
 class VirtualHostingFormViewModel extends ConnectableViewModel {
-    learnMoreHref = learnMoreHref;
     dataReady = ko.observable();
     toggleUri = '';
     isExpanded = ko.observable();

@@ -80,21 +80,6 @@
             <svg-icon class="error icon-small push-next-half" params="name: 'problem'"></svg-icon>
             <p class="error">{{$form.errors().global}}</p>
             <!-- /ko -->
-
-            <!-- ko ifnot: $form.errors().global -->
-            <p class="remark greedy push-next">
-                <svg-icon class="icon-small valign-bottom"
-                    params="name: 'notif-info'"
-                ></svg-icon>
-                Learn more about
-                <a class="link"
-                    target="_blank"
-                    ko.attr.href="learnMoreHref"
-                >
-                    Bucket Triggers and Functions
-                </a>
-            </p>
-            <!-- /ko -->
        </div>
         <button type="button"
             class="link alt-colors push-next"

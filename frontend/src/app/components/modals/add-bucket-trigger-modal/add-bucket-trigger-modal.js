@@ -5,7 +5,6 @@ import ConnectableViewModel from 'components/connectable';
 import { bucketEvents } from 'utils/bucket-utils';
 import { getFunctionOption } from 'utils/func-utils';
 import ko from 'knockout';
-import { addBucketTrigger as learnMoreHref } from 'knowledge-base-articles';
 import {
     openCreateFuncModal,
     addBucketTrigger,
@@ -27,7 +26,6 @@ function _mapNamespaceBucketOption(bucket) {
 }
 
 class AddBucketTriggerModalViewModel extends ConnectableViewModel {
-    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     bucketName = '';
     existingTriggers = null;

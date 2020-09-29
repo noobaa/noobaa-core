@@ -123,8 +123,14 @@ async function create_hosts_pool(req) {
     }
     const { system, rpc_params, account } = req;
     const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const MIN_PV_SIZE_GB = 16;
     const PV_SIZE_GB = 20;
     const GB = 1024 ** 3;
+    const conf_volume_size = rpc_params.host_config && rpc_params.host_config.volume_size;
+    if (conf_volume_size && conf_volume_size < MIN_PV_SIZE_GB * GB) {
+        dbg.error(`create_hosts_pool: insufficient PV size, minimal PV size is ${MIN_PV_SIZE_GB}GB`);
+        throw new RpcError('BAD_REQUEST', `insufficient PV size, minimal PV size is ${MIN_PV_SIZE_GB}GB`);
+    }
     pool.hosts_pool_info = _.cloneDeep(
         _.defaultsDeep(_.pick(rpc_params, [
             'is_managed',

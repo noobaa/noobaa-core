@@ -10,7 +10,6 @@ import { formatSize } from 'utils/size-utils';
 import { getFormValues, isFieldValid, isFormValid, getFieldError } from 'utils/form-utils';
 import { bufferStore } from 'services';
 import JSZip from 'jszip';
-import { createFunction as learnMoreHref } from 'knowledge-base-articles';
 import {
     memorySizeOptions,
     handlerFileSuffix,
@@ -84,7 +83,6 @@ async function _selectCode(codeFormat, inlineCode, codePackage) {
 }
 
 class CreateFuncModalViewModel extends ConnectableViewModel {
-    learnMoreHref = learnMoreHref;
     formName = this.constructor.name;
     steps = steps;
     runtime = ko.observable();

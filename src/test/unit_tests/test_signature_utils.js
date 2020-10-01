@@ -10,7 +10,6 @@ const http = require('http');
 const mocha = require('mocha');
 const crypto = require('crypto');
 
-const P = require('../../util/promise');
 const signature_utils = require('../../util/signature_utils');
 
 function log(...args) {
@@ -30,7 +29,7 @@ mocha.describe('signature_utils', function() {
     const http_server = http.createServer(accept_signed_request);
 
     mocha.before(function() {
-        return new P((resolve, reject) =>
+        return new Promise((resolve, reject) =>
             http_server
             .once('listening', resolve)
             .once('error', reject)
@@ -103,7 +102,7 @@ mocha.describe('signature_utils', function() {
             }
         });
         let reply = '';
-        return new P((resolve, reject) => socket
+        return new Promise((resolve, reject) => socket
                 .setEncoding('utf8')
                 .on('data', data => {
                     reply += data;
@@ -147,7 +146,7 @@ mocha.describe('signature_utils', function() {
             'Handle:', req.method, req.originalUrl,
             'query', req.query,
             'headers', req.headers);
-        return new P((resolve, reject) => {
+        return new Promise((resolve, reject) => {
                 const hasher = crypto.createHash('sha256');
                 req.on('data', data => {
                         hasher.update(data);

@@ -94,7 +94,7 @@ class Dispatcher {
                     l.desc = log_item.desc.split('\n');
                 }
                 return P.resolve(self._resolve_activity_item(log_item, l))
-                    .return(l);
+                    .then(() => l);
             }))
             .then(logs => ({ logs }));
     }

@@ -5,6 +5,7 @@
 var _ = require('lodash');
 var util = require('util');
 var P = require('../util/promise');
+const promise_utils = require('../util/promise_utils');
 var url = require('url');
 // var util = require('util');
 var dgram = require('dgram');
@@ -614,10 +615,10 @@ function test() {
                 if (argv.random) {
                     stun_url = chance.pick(stun.PUBLIC_SERVERS);
                 }
-                return P.join(
+                return Promise.all([
                         P.ninvoke(socket, 'send', req, 0, req.length, stun_url.port, stun_url.hostname),
-                        P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname))
-                    .delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
+                        P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname)])
+                    .then(promise_utils.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER)))
                     .then(loop);
             }
         });

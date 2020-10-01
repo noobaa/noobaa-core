@@ -5,11 +5,13 @@ const _ = require('lodash');
 const child_process = require('child_process');
 
 const P = require('./promise');
+const util = require('util');
 const dbg = require('../util/debug_module')(__filename);
 const Semaphore = require('./semaphore');
 
 require('setimmediate');
 
+const delay = util.promisify(setTimeout);
 
 /**
  *
@@ -60,10 +62,10 @@ function iterate(array, func) {
         }
 
         // call func as function(item, index, array)
-        return P.try(() => func(array[i], i, array)).then(next);
+        return Promise.resolve().then(() => func(array[i], i, array)).then(next);
     }
 
-    return P.try(next).return(results);
+    return Promise.resolve().then(next).then(() => results);
 }
 
 
@@ -101,10 +103,10 @@ function pwhile(condition, body) {
  * and only returns a promise for completion or failure
  *
  * @param attempts number of attempts. can be Infinity.
- * @param delay number of milliseconds between retries
+ * @param delay_ms number of milliseconds between retries
  * @param func with signature function(attempts), passing remaining attempts just fyi
  */
-function retry(attempts, delay, func, error_logger) {
+function retry(attempts, delay_ms, func, error_logger) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
@@ -122,8 +124,8 @@ function retry(attempts, delay, func, error_logger) {
             }
 
             // delay and retry next attempt
-            return P.delay(delay)
-                .then(() => retry(attempts, delay, func, error_logger));
+            return delay(delay_ms)
+                .then(() => retry(attempts, delay_ms, func, error_logger));
         });
 }
 
@@ -134,9 +136,9 @@ function retry(attempts, delay, func, error_logger) {
  * in case there are no other events waiting.
  * see http://nodejs.org/api/timers.html#timers_unref
  */
-function delay_unblocking(delay) {
+function delay_unblocking(delay_ms) {
     return new P((resolve, reject, on_cancel) => {
-        const timer = setTimeout(resolve, delay);
+        const timer = setTimeout(resolve, delay_ms);
         if (timer.unref) timer.unref();
         if (on_cancel) on_cancel(() => clearTimeout(timer));
     });
@@ -169,18 +171,18 @@ function next_tick() {
 // for the sake of tests to be able to exit we schedule the worker with unblocking delay
 // so that it won't prevent the process from existing if it's the only timer left
 function run_background_worker(worker) {
-    var DEFUALT_DELAY = 10000;
+    const DEFAULT_DELAY = 10000;
 
     function run() {
         P.try(() => worker.run_batch())
-            .then(delay => delay_unblocking(delay || worker.delay || DEFUALT_DELAY), err => {
+            .then(delay_ms => delay_unblocking(delay_ms || worker.delay || DEFAULT_DELAY), err => {
                 dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
-                return delay_unblocking(worker.delay || DEFUALT_DELAY);
+                return delay_unblocking(worker.delay || DEFAULT_DELAY);
             })
             .then(run);
     }
     dbg.log('run_background_worker:', 'INIT', worker.name);
-    delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
+    delay_unblocking(worker.boot_delay || worker.delay || DEFAULT_DELAY).then(run);
     return worker;
 }
 
@@ -318,8 +320,8 @@ function wait_for_event(emitter, event, timeout_ms) {
  * based on async.js auto.
  * the tasks format is for example:
  *  {
- *      load1: function() { return P.delay(1000).resolve(1) },
- *      load2: function() { return P.delay(2000).resolve(2) },
+ *      load1: function() { return delay(1000).resolve(1) },
+ *      load2: function() { return delay(2000).resolve(2) },
  *      sum: ['load1', 'load2', function(load1, load2) { return load1 + load2 }],
  *      mult: ['load1', 'load2', function(load1, load2) { return load1 * load2 }],
  *      save: ['sum', 'mult', function(sum, mult) { console.log('sum', sum, 'mult', mult) }],
@@ -369,7 +371,7 @@ function map_values(obj, func) {
                 new_obj[key] = res;
             })
         ))
-        .return(new_obj);
+        .then(() => new_obj);
 }
 
 function conditional_timeout(cond, timeout_ms, prom) {
@@ -402,7 +404,7 @@ async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
         while (!condition_met) {
             condition_met = await async_cond();
             if (!condition_met) {
-                await P.delay(delay_ms);
+                await delay(delay_ms);
             }
         }
 
@@ -429,6 +431,7 @@ function map_limit_concurrency(concurrency, array, func) {
 }
 
 // EXPORTS
+exports.delay = delay;
 exports.join = join;
 exports.iterate = iterate;
 exports.loop = loop;

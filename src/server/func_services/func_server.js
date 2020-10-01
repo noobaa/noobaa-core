@@ -291,7 +291,7 @@ function invoke_func(req) {
                 took: Date.now() - time.getTime(),
                 error: res.error ? true : undefined,
             })
-            .return(res)
+            .then(() => res)
         );
 }
 
@@ -344,7 +344,7 @@ function _get_func_code_stream(req, func_code) {
         });
         return get_object_req.createReadStream();
     } else if (func_code.url) {
-        return new P((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             console.log(`reading function code from ${func_code.url}`);
             request({
                     url: func_code.url,

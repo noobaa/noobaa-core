@@ -588,7 +588,9 @@ class S3OPS {
                 await this.s3.deleteBucket({ Bucket }).promise().catch(_.noop);
             })
             .timeout(timeout)
-            .return();
+            .then(() => {
+                // do nothing. 
+            });
     }
 
     async create_bucket(bucket_name, print_error = true) {
@@ -688,14 +690,14 @@ class S3OPS {
         try {
             //There can be an issue if the object size (length) is too large
             const obj = await this.s3.getObject(params)
-            .on('build', req => {
-                if (!query_params) return;
-                const sep = req.httpRequest.search() ? '&' : '?';
-                const query_string = querystring.stringify(query_params);
-                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                console.log(`Added query params ${query_params} to path ${req_path}`);
-                req.httpRequest.path = req_path;
-            }).promise();
+                .on('build', req => {
+                    if (!query_params) return;
+                    const sep = req.httpRequest.search() ? '&' : '?';
+                    const query_string = querystring.stringify(query_params);
+                    const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                    console.log(`Added query params ${query_params} to path ${req_path}`);
+                    req.httpRequest.path = req_path;
+                }).promise();
             return obj;
         } catch (err) {
             this.log_error(`get_object:: getObject ${JSON.stringify(params)} failed!`, err);

@@ -86,7 +86,7 @@ function _calculate_free_mem() {
                 .then(cached_mem_in_kb => {
                     res += (cached_mem_in_kb * KB_TO_BYTE);
                 }))
-            .return(res);
+            .then(() => res);
     }
     return res;
 }

@@ -14,7 +14,6 @@ const assert = require('assert');
 const crypto = require('crypto');
 const config = require('../../../config');
 
-const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const ObjectIO = require('../../sdk/object_io');
 // const map_writer = require('../../server/object_services/map_writer');
@@ -251,10 +250,10 @@ coretest.describe_mapper_test_case({
 
     async function delete_blocks(blocks) {
         coretest.log('Deleting blocks', blocks.map(block => _.pick(block, '_id', 'size', 'frag.id')));
-        return P.join(
+        return Promise.all([
             map_deleter.delete_blocks_from_nodes(blocks),
             MDStore.instance().update_blocks_by_ids(_.map(blocks, '_id'), { deleted: new Date() })
-        );
+        ]);
     }
 
     /**

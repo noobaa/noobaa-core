@@ -5,7 +5,6 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 const util = require('util');
 
-const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
@@ -169,7 +168,7 @@ class NamespaceS3 {
 
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
-        return new P((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const request = {
                 Key: params.key,
                 Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,

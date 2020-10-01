@@ -34,10 +34,10 @@ function background_worker() {
         .then(() => {
             if (this.last_check && Date.now() - this.last_check < config.DEDUP_INDEXER_CHECK_INDEX_CYCLE) return;
             dbg.log0('DEDUP_INDEXER: checking index size ...');
-            return P.join(
+            return Promise.all([
                     MDStore.instance().get_dedup_index_size(),
                     MDStore.instance().get_aprox_dedup_keys_number()
-                )
+                ])
                 .then(([dedup_index_size, dedup_aprox_keys]) => {
                     dbg.log0('DEDUP_INDEXER: dedup_index_size', dedup_index_size, 'dedup_aprox_keys', dedup_aprox_keys);
                     this.last_check = Date.now();

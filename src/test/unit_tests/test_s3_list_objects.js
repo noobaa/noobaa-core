@@ -530,14 +530,15 @@ function clean_up_after_case(array_of_names, abort_upload) {
 
 function run_case(array_of_names, case_func, only_initiate) {
     let response_array = [];
-    return P.resolve()
+    return Promise.resolve()
         .then(function() {
             return only_initiate ?
                 initiate_upload_multiple_files(array_of_names) :
                 upload_multiple_files(array_of_names);
         })
-        .tap(response => {
+        .then(response => {
             response_array = response;
+            return response;
         })
         .then(response => case_func(response))
         .then(() => clean_up_after_case(only_initiate ? response_array : array_of_names, only_initiate));
@@ -597,6 +598,6 @@ function truncated_listing(params, use_upload_id_marker, upload_mode) {
 
                             });
                     })
-                .return(listObjectsResponse);
+                .then(() => listObjectsResponse);
         });
 }

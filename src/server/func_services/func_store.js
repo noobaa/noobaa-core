@@ -128,7 +128,7 @@ class FuncStore {
         const code_stream = params.code_stream;
         const sha256 = crypto.createHash('sha256');
         var size = 0;
-        return new P((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const upload_stream = this._func_code.gridfs().openUploadStream(
                 this.code_filename(system, name, version));
             code_stream

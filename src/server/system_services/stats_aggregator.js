@@ -554,7 +554,7 @@ function get_nodes_stats(req) {
     const system = system_store.data.systems[0];
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
 
-    return P.join(
+    return Promise.all([
             server_rpc.client.node.list_nodes({}, {
                 auth_token: auth_server.make_auth_token({
                     system_id: system._id,
@@ -568,8 +568,8 @@ function get_nodes_stats(req) {
                     role: 'admin',
                     account_id: support_account._id
                 })
-            }))
-        .spread((nodes_results, hosts_results) => {
+            })])
+        .then(([nodes_results, hosts_results]) => {
             //Collect nodes stats
             for (const node of nodes_results.nodes) {
                 if (node.has_issues) {

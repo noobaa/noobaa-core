@@ -52,7 +52,9 @@ class HostedAgents {
                 dbg.error(`failed starting hosted_agents: ${err.stack}`);
                 throw err;
             })
-            .return();
+            .then(() => {
+                // do nothing. 
+            });
     }
 
     /**

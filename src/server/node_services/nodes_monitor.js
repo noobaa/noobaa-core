@@ -253,7 +253,9 @@ class NodesMonitor extends EventEmitter {
     sync_to_store() {
         return P.resolve()
             .then(() => this._run())
-            .return();
+            .then(() => {
+                // do nothing. 
+            });
     }
 
     async sync_storage_to_store() {
@@ -1024,7 +1026,9 @@ class NodesMonitor extends EventEmitter {
                 this._update_status(item);
             })
             .then(() => this._update_nodes_store('force'))
-            .return();
+            .then(() => {
+                // do nothing. 
+            });
     }
 
     _hide_node(item) {
@@ -1499,11 +1503,11 @@ class NodesMonitor extends EventEmitter {
         if (!item.node_from_store) return;
         dbg.log0('_test_nodes_validity::', item.node.name);
         return P.resolve()
-            .then(() => P.join(
+            .then(() => Promise.all([
                 this._test_network_perf(item),
                 this._test_store(item),
                 this._test_network_to_server(item)
-            ))
+            ]))
             .then(() => {
                 if (item.io_reported_errors &&
                     Date.now() - item.io_reported_errors > config.NODE_IO_DETENTION_THRESHOLD) {
@@ -1561,11 +1565,11 @@ class NodesMonitor extends EventEmitter {
             // the set is cleared to collect new changes during the update
             this._set_need_update = new Set();
 
-            return P.join(
+            return Promise.all([
                     this._update_existing_nodes(existing_nodes),
                     this._update_new_nodes(new_nodes),
                     this._update_deleted_nodes(deleted_nodes)
-                )
+            ])
                 .catch(err => {
                     dbg.warn('_update_nodes_store: had errors', err);
                 });

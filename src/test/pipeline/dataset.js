@@ -782,7 +782,7 @@ function run_replay() {
         input: fs.createReadStream(argv.replay),
         terminal: false
     });
-    return new P((resolve, reject) => {
+    return new Promise((resolve, reject) => {
             readfile
                 .on('line', line => journal.push(line))
                 .once('error', reject)

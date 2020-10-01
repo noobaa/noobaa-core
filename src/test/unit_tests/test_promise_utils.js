@@ -14,7 +14,7 @@ mocha.describe('promise_utils', function() {
 
         mocha.it('should handle small array', function() {
             return promise_utils.iterate([1, 2, 3, 4], function(i) {
-                return P.delay();
+                return promise_utils.delay();
             });
         });
 

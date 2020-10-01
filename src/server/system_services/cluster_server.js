@@ -9,6 +9,7 @@ const net = require('net');
 const request = require('request');
 
 const P = require('../../util/promise');
+const Bluebird = require('bluebird');
 const dbg = require('../../util/debug_module')(__filename);
 const pkg = require('../../../package.json');
 const diag = require('../utils/server_diagnostics');
@@ -186,13 +187,13 @@ function add_member_to_cluster_invoke(req, my_address) {
         })
         .then(() => {
             dbg.log0(`read mongo certs from /data/mongo/ssl/`);
-            return P.join(
+            return Promise.all([
                 fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, 'utf8'),
                 fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, 'utf8'),
                 fs.readFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, 'utf8')
-            );
+            ]);
         })
-        .spread((root_ca, server_cert, client_cert) => {
+        .then(([root_ca, server_cert, client_cert]) => {
             // after a cluster was initiated, join the new member
             dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
@@ -266,7 +267,9 @@ function add_member_to_cluster_invoke(req, my_address) {
                 reason: err.toString()
             }, 'add_memeber_to_cluster');
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 
 }
 
@@ -302,10 +305,11 @@ function verify_join_conditions(req) {
 
 function _check_candidate_version(req) {
     dbg.log0('_check_candidate_version for address', req.rpc_params.address);
-    return server_rpc.client.cluster_internal.get_version(undefined, {
-            address: server_rpc.get_base_address(req.rpc_params.address),
-            timeout: 60000 //60s
-        })
+    return Bluebird.resolve(
+        server_rpc.client.cluster_internal.get_version(undefined, {
+                address: server_rpc.get_base_address(req.rpc_params.address),
+                timeout: 60000 //60s
+            }))
         .then(({ version }) => {
             dbg.log0('_check_candidate_version got version', version);
             if (version !== pkg.version) {
@@ -342,7 +346,7 @@ function verify_candidate_join_conditions(req) {
     return _check_candidate_version(req)
         .then(version_check_res => {
             if (version_check_res.result !== 'OKAY') return version_check_res;
-            return promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+            return Bluebird.resolve(promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true }))
                 .then(response => {
                     if (response.includes('Connection timed out')) {
                         dbg.warn(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT}, might be due to a FW blocking`);
@@ -419,11 +423,11 @@ function join_to_cluster(req) {
         .then(() => _stop_services())
         .then(() => {
             dbg.log0(`overwrite mongo certs to /data/mongo/ssl/`);
-            return P.join(
+            return Promise.all([
                 fs.writeFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, req.rpc_params.ssl_certs.root_ca),
                 fs.writeFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, req.rpc_params.ssl_certs.server_cert),
                 fs.writeFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, req.rpc_params.ssl_certs.client_cert)
-            );
+            ]);
         })
         // before joining to cluster stop bg workers to avoid sudden restarts (due to configuration mismatches, ntp, etc.)
         .then(() => {
@@ -483,7 +487,9 @@ function join_to_cluster(req) {
         // start bg_workers and s3rver to fix stale data\connections issues. maybe we can do it in a more elgant way
         .then(() => MongoCtrl.add_mongo_monitor_program())
         .finally(() => _start_services())
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function verify_new_ip(req) {
@@ -614,7 +620,9 @@ function update_member_of_cluster(req) {
             console.error('Failed edit of member to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed edit of member to cluster');
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function news_config_servers(req) {
@@ -643,7 +651,9 @@ function news_replicaset_servers(req) {
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
     dbg.log0('replica set params - IPs:', req.rpc_params.IPs, 'name:', req.rpc_params.name);
     return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false))
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function news_updated_topology(req) {
@@ -747,7 +757,9 @@ function set_debug_level(req) {
                 }));
             }
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 
@@ -774,7 +786,9 @@ function apply_set_debug_level(req) {
                     .then(() => _set_debug_level_internal(req, 0));
             }
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function _start_services() {
@@ -1056,7 +1070,9 @@ function update_server_conf(req) {
                 desc: audit_desc,
             });
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function set_hostname_internal(req) {

@@ -53,7 +53,7 @@ class ChunkCoder extends stream.Transform {
                 if (this.cipher_key_b64) chunk.cipher_key_b64 = this.cipher_key_b64;
                 const chunk_promise = P.fromCallback(cb => nb_native().chunk_coder(this.coder, chunk, cb));
                 // TODO: Need to remove the cipher_key in case of SSE-C
-                this.stream_promise = P.join(chunk_promise, this.stream_promise).then(() => this.push(chunk));
+                this.stream_promise = Promise.all([chunk_promise, this.stream_promise]).then(() => this.push(chunk));
                 callback();
                 return chunk_promise;
             }))

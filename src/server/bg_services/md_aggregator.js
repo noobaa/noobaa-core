@@ -254,22 +254,21 @@ function range_md_aggregator({
     const buckets = filtered_buckets.slice(0, config.MD_AGGREGATOR_BATCH);
     const pools = filtered_pools.slice(0, config.MD_AGGREGATOR_BATCH);
 
-    return P.join(
+    return Promise.all([
             md_store.aggregate_chunks_by_create_dates(from_time, till_time),
             md_store.aggregate_chunks_by_delete_dates(from_time, till_time),
             md_store.aggregate_objects_by_create_dates(from_time, till_time),
             md_store.aggregate_objects_by_delete_dates(from_time, till_time),
             md_store.aggregate_blocks_by_create_dates(from_time, till_time),
             md_store.aggregate_blocks_by_delete_dates(from_time, till_time)
-        )
-        .spread((
-            existing_chunks_aggregate,
+        ])
+        .then(([existing_chunks_aggregate,
             deleted_chunks_aggregate,
             existing_objects_aggregate,
             deleted_objects_aggregate,
             existing_blocks_aggregate,
-            deleted_blocks_aggregate) => {
-
+            deleted_blocks_aggregate
+        ]) => {
             dbg.log3('range_md_aggregator:',
                 'from_time', from_time,
                 'till_time', till_time,

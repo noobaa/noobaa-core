@@ -7,7 +7,7 @@ const P = require('../../util/promise');
 //will connect the ssh session
 function ssh_connect(options) {
     let client = new ssh2.Client();
-    return new P((resolve, reject) => client
+    return new Promise((resolve, reject) => client
         .once('ready', () => resolve(client))
         .once('error', reject)
         .connect(options));
@@ -17,7 +17,7 @@ function ssh_connect(options) {
 function ssh_exec(client, command, ignore_rc = false) {
     console.log('Execute ssh command ' + command);
     return P.fromCallback(callback => client.exec(command, { pty: true }, callback))
-        .then(stream => new P((resolve, reject) => {
+        .then(stream => new Promise((resolve, reject) => {
             stream.on('data', data => console.log(data.toString()))
                 .once('error', reject)
                 .once('close', code => {

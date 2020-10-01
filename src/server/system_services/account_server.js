@@ -568,7 +568,9 @@ function reset_password(req) {
             account: account._id,
             desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
         }))
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 
 }
 

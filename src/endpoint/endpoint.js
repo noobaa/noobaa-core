@@ -15,7 +15,6 @@ const http = require('http');
 const https = require('https');
 const FtpSrv = require('ftp-srv');
 const os = require('os');
-const P = require('../util/promise');
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -304,7 +303,7 @@ function unavailable_handler(req, res) {
 }
 
 function listen_http(port, server) {
-    return new P((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         setup_http_server(server);
         server.listen(port, err => {
             if (err) {

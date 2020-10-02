@@ -10,6 +10,7 @@ const range_utils = require('../util/range_utils');
 const RangeStream = require('../util/range_stream');
 const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
+const stream_utils = require('../util/stream_utils');
 const Semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
@@ -266,18 +267,27 @@ class NamespaceCache {
 
                         const start = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
-                        this.stats_collector.update_hub_latency_stats({
+
+                        // update latency stats on 'end'
+                        upload_res.once('end', () => {
+                            this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
-                            hub_read_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                            hub_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                            });
                         });
-                        this.stats_collector.update_cache_stats({
-                            bucket_name: params.bucket,
-                            write_bytes: object_info_hub.first_range_data.length,
-                            read_bytes: object_info_hub.first_range_data.length,
-                            read_count: 1,
-                            miss_count: 1,
+                        
+                        // update bytes stats on 'data' events but with a tap stream
+                        const tap_stream = stream_utils.get_tap_stream(data => {
+                            this.stats_collector.update_cache_stats({
+                                bucket_name: params.bucket,
+                                write_bytes: object_info_hub.first_range_data.length,
+                                read_bytes: object_info_hub.first_range_data.length,
+                                read_count: 1,
+                                miss_count: 1,
+                            });
                         });
-                        return upload_res;
+                        upload_res.pipe(tap_stream);
+                        return tap_stream;
                     }
                 );
             } else if (cache_etag === '') {
@@ -365,15 +375,24 @@ class NamespaceCache {
         try {
             const start = process.hrtime.bigint();
             const cache_read_stream = await this.namespace_nb.read_object_stream(params, object_sdk);
-            this.stats_collector.update_cache_latency_stats({
+
+            // update latency stats on 'end'
+            cache_read_stream.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
                 bucket_name: params.bucket,
-                cache_read_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                cache_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                });
             });
-            this.stats_collector.update_cache_stats({
+            
+            // update bytes stats on 'data' events but with a tap stream
+            const tap_stream = stream_utils.get_tap_stream(data => {
+                this.stats_collector.update_cache_stats({
                 bucket_name: params.bucket,
                 read_bytes: params.read_size,
+                });
             });
-            return cache_read_stream;
+            cache_read_stream.pipe(tap_stream);
+            return tap_stream;
         } catch (err) {
             dbg.error('NamespaceCache.hub_range_read: fallback to hub after error in reading cache', err);
             return this._read_hub_object_stream(params, object_sdk, range_hub_read ? { start: params.start, end: params.end } : undefined);
@@ -420,9 +439,12 @@ class NamespaceCache {
             }
             const start = process.hrtime.bigint();
             hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
-            this.stats_collector.update_hub_latency_stats({
+            // update latency stats on 'end'
+            hub_read_stream.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
                 bucket_name: params.bucket,
-                hub_read_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                hub_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                });
             });
         } catch (err) {
             if (err.rpc_code === 'IF_MATCH_ETAG') {
@@ -480,16 +502,23 @@ class NamespaceCache {
                                     bucket: this.namespace_nb.target_bucket,
                                 }, upload_params));
 
+                            // update latency stats on 'end'
+                            upload_res.once('end', () => {
                                 this.stats_collector.update_cache_latency_stats({
-                                    bucket_name: params.bucket,
-                                    cache_write_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                                bucket_name: params.bucket,
+                                cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
                                 });
-
+                            });
+                            
+                            // update bytes stats on 'data' events but with a tap stream
+                            const tap_stream = stream_utils.get_tap_stream(data => {
                                 this.stats_collector.update_cache_stats({
-                                    bucket_name: params.bucket,
-                                    write_bytes: upload_params.end - upload_params.start,
+                                bucket_name: params.bucket,
+                                write_bytes: upload_params.end - upload_params.start,
                                 });
-                            return upload_res;
+                            });
+                            upload_res.pipe(tap_stream);
+                            return tap_stream;
                         }
                     );
                     dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
@@ -510,15 +539,23 @@ class NamespaceCache {
                     params.object_md.size,
                     async () => {
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
-                        this.stats_collector.update_cache_latency_stats({
+                        // update latency stats on 'end'
+                        upload_res.once('end', () => {
+                            this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
-                            cache_write_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                            cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                            });
                         });
-                        this.stats_collector.update_cache_stats({
+                        
+                        // update bytes stats on 'data' events but with a tap stream
+                        const tap_stream = stream_utils.get_tap_stream(data => {
+                            this.stats_collector.update_cache_stats({
                             bucket_name: params.bucket,
                             write_bytes: params.object_md.size,
+                            });
                         });
-                        return upload_res;
+                        upload_res.pipe(tap_stream);
+                        return tap_stream;
                     }
                 );
 
@@ -564,9 +601,12 @@ class NamespaceCache {
                 dbg.log0('NamespaceCache.read_object_stream: get_from_cache is on: read object from cache', params);
                 const start = process.hrtime.bigint();
                 read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
-                this.stats_collector.update_cache_latency_stats({
+                // update latency stats on 'end'
+                read_response.once('end', () => {
+                    this.stats_collector.update_cache_latency_stats({
                     bucket_name: params.bucket,
-                    cache_read_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                    cache_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                    });
                 });
             } catch (err) {
                 dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
@@ -610,9 +650,12 @@ class NamespaceCache {
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
             const start = process.hrtime.bigint();
             upload_response = await this.namespace_hub.upload_object(params, object_sdk);
-            this.stats_collector.update_hub_latency_stats({
+            // update latency stats on 'end'
+            upload_response.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
                 bucket_name: params.bucket,
-                hub_write_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                hub_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                });
             });
             etag = upload_response.etag;
 
@@ -624,9 +667,12 @@ class NamespaceCache {
             const hub_params = { ...params, source_stream: hub_stream };
             const start = process.hrtime.bigint();
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
-            this.stats_collector.update_hub_latency_stats({
+            // update latency stats on 'end'
+            hub_promise.once('end', () => {
+                this.stats_collector.update_hub_latency_stats({
                 bucket_name: params.bucket,
-                hub_write_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                hub_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                });
             });
 
             const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
@@ -644,9 +690,12 @@ class NamespaceCache {
                 params.size,
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
             );
-            this.stats_collector.update_cache_latency_stats({
+            // update latency stats on 'end'
+            cache_promise.once('end', () => {
+                this.stats_collector.update_hub_latency_stats({
                 bucket_name: params.bucket,
-                cache_write_latency: Number((process.hrtime.bigint()[1] - start[1]) / 1e6) // ns=>ms
+                cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                });
             });
 
             // One important caveat is that if the Readable stream emits an error during processing,

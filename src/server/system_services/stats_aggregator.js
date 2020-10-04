@@ -420,7 +420,7 @@ async function _partial_buckets_info(req) {
 
     try {
         for (const bucket of system_store.data.buckets) {
-            if (String(bucket.system._id) !== String(req.system._id)) return;
+            if (String(bucket.system._id) !== String(req.system._id)) continue;
             if (bucket.deleting) continue;
             const new_req = _.defaults({
                 rpc_params: { name: bucket.name, },
@@ -434,7 +434,7 @@ async function _partial_buckets_info(req) {
             objects_sys.count += bucket_info.num_objects.value || 0;
 
 
-            if (bucket_info.namespace) return;
+            if (bucket_info.namespace) continue;
 
             objects_non_namespace_buckets_sys.chunks_capacity = objects_non_namespace_buckets_sys.chunks_capacity.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.chunks_capacity)) || 0

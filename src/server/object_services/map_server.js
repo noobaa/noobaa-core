@@ -23,7 +23,6 @@ const PeriodicReporter = require('../../util/periodic_reporter');
 const Barrier = require('../../util/barrier');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const { ChunkDB, BlockDB } = require('./map_db_types');
-// const { new_object_id } = require('../../util/mongo_utils');
 const { BlockAPI, get_all_chunks_blocks } = require('../../sdk/map_api_types');
 
 const map_reporter = new PeriodicReporter('map_reporter', false);
@@ -490,8 +489,8 @@ function enough_room_in_tier(tier, bucket) {
         return true;
     } else {
         dbg.log0_throttled(`enough_room_in_tier: not enough room ${tier.name}:`,
-            `${available_to_upload.toJSNumber()} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
-        map_reporter.add_event(`enough_room_in_tier: not_enough_room(${tier.name})`, available_to_upload.toJSNumber(), 0);
+            `${available_to_upload && available_to_upload.toJSNumber()} < ${config.ENOUGH_ROOM_IN_TIER_THRESHOLD} should move chunks to next tier`);
+        map_reporter.add_event(`enough_room_in_tier: not_enough_room(${tier.name})`, available_to_upload && available_to_upload.toJSNumber(), 0);
         return false;
     }
 }

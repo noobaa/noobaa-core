@@ -52,12 +52,12 @@ class TieringTTFWorker {
 
     _get_candidate_buckets() {
         return system_store.data.buckets.filter(bucket =>
-                !bucket.deleting && (
-                    // including buckets that have 2 or more tiers
-                    bucket.tiering.tiers.length > 1 ||
-                    // including cache buckets to handle chunk eviction
-                    (bucket.namespace && bucket.namespace.caching)
-        ));
+            !bucket.deleting && (
+                // including buckets that have 2 or more tiers
+                bucket.tiering.tiers.length > 1 ||
+                // including cache buckets to handle chunk eviction
+                (bucket.namespace && bucket.namespace.caching)
+            ));
     }
 
     async _rebuild_need_to_move_chunks(buckets) {
@@ -126,10 +126,6 @@ class TieringTTFWorker {
                 default:
                     chunks_to_rebuild = 1;
             }
-
-
-            if (!chunks_to_rebuild) continue;
-
             const tiering_status = node_allocator.get_tiering_status(bucket.tiering);
             const previous_tier = mapper.select_tier_for_write(bucket.tiering, tiering_status);
             const next_tier_order = this.find_tier_order_in_tiering(bucket, previous_tier) + 1;
@@ -153,9 +149,9 @@ class TieringTTFWorker {
             }
 
             await this._build_chunks(
-                    chunk_ids,
-                    next_tier_id,
-                    cache_evict
+                chunk_ids,
+                next_tier_id,
+                cache_evict
             );
         }
         this.last_run = undefined;

@@ -1,6 +1,6 @@
 export as namespace nb;
 
-import { ObjectId as MongoID, Binary as MongoBinary } from 'mongodb';
+import * as mongodb from 'mongodb';
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -27,8 +27,8 @@ interface Base {
     toString?(): string;
 }
 
-type ID = MongoID;
-type DBBuffer = MongoBinary | Buffer;
+type ID = mongodb.ObjectID;
+type DBBuffer = mongodb.Binary | Buffer;
 
 interface System extends Base {
     _id: ID;
@@ -603,3 +603,70 @@ interface APIClient {
     readonly func: object;
     readonly func_node: object;
 }
+
+interface DBClient {
+    connect(skip_init_db?: 'skip_init_db'): Promise<void>;
+    reconnect(): Promise<void>;
+    disconnect(): Promise<void>;
+    is_connected(): boolean;
+    on(event: 'reconnect', listener: (name: string) => void): this;
+    set_db_name(name: string): void;
+    get_db_name(): string;
+
+    define_collection(params: object): DBCollection;
+    collection(name: string): DBCollection;
+    validate(name: string, doc: object, warn?: 'warn'): object;
+
+    dropDatabase(): Promise<void>;
+    createDatabase(): Promise<void>;
+
+    get_db_stats(): Promise<{ fsUsedSize: number, fsTotalSize: number }>;
+
+    // Remove all of this
+    define_gridfs(params: object): { gridfs(): mongodb.GridFSBucket };
+
+    // Utils
+    operators: Set<string>;
+    obj_ids_difference(base: Array<any>, values: Array<any>): Array<any>;
+    uniq_ids(docs: Array<object>, doc_path: string): Array<any>;
+    populate(docs: Array<object> | object, doc_path: string, collection: DBCollection, fields: object): Promise<Array<object> | object>;
+    resolve_object_ids_recursive(idmap: object, item: object): object;
+    resolve_object_ids_paths(idmap: object, item: object, paths: string[], allow_missing: boolean): object;
+    new_object_id(): mongodb.ObjectId;
+    parse_object_id(id_str: string): mongodb.ObjectId;
+    fix_id_type(doc: Array<object> | object): Array<object> | object;
+    is_object_id(id: Array<object> | object): boolean;
+    is_err_duplicate_key(err: object): boolean;
+    is_err_namespace_exists(err: object): boolean;
+    check_duplicate_key_conflict(err: object, entity: string): void;
+    check_entity_not_found(doc: object, entity: string): object;
+    check_entity_not_deleted(doc: object, entity: string): object;
+    check_update_one(res: object, entity: string): void;
+    make_object_diff(current: object, prev: object): object;
+}
+
+interface DBCollection {
+    find(query?: object, options?: object): Promise<Array<DBDoc>>;
+    findOne(query?: object, options?: object): Promise<DBDoc>;
+    findOneAndUpdate(query: object, update: object, options?: object): Promise<DBDoc>;
+    deleteOne(query: object, options?: object): Promise<object>;
+    deleteMany(query: object, options?: object): Promise<mongodb.DeleteWriteOpResultObject>;
+    insertOne(doc: DBDoc, options?: object): Promise<object>;
+    insertMany(docs: DBDoc[], options?: object): Promise<object>;
+    updateOne(query: object, update: object, options?: object): Promise<object>;
+    updateMany(query: object, update: object, options?: object): Promise<object>;
+
+    mapReduce(map: Function, reduce: Function, options?: object): Promise<Array<DBDoc>>;
+    aggregate(commands: object[]): Promise<Array<DBDoc>>;
+    distinct(key: string, query?: object, options?: object): Promise<Array<object>>;
+    initializeUnorderedBulkOp(): mongodb.UnorderedBulkOperation;
+    initializeOrderedBulkOp(): mongodb.OrderedBulkOperation;
+
+    countDocuments(query?: object, options?: object): Promise<number>;
+    estimatedDocumentCount(options?: object): Promise<number>;
+    stats(): Promise<mongodb.CollStats>;
+
+    validate(doc: object, warn?: 'warn'): object;
+}
+
+type DBDoc = any;

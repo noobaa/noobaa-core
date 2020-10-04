@@ -529,5 +529,4 @@ config.WORM_ENABLED = false;
 // Should we allow the creation of buckets on internal storage
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 
-// Temporary flag to turn PostgreSQL as DB
-config.USE_POSTGRESQL = false;
+config.DB_TYPE = 'mongodb';

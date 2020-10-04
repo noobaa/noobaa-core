@@ -83,7 +83,7 @@ function handle_request(req, res) {
         .then(reply => http_utils.send_reply(req, res, reply, options));
 }
 
-function check_headers(req, res) {
+function check_headers(req) {
     _.each(req.headers, (val, key) => {
         // test for non printable characters
         // 403 is required for unreadable headers
@@ -124,7 +124,7 @@ function check_headers(req, res) {
     }
 }
 
-function authenticate_request(req, res) {
+function authenticate_request(req) {
     try {
         const auth_token = signature_utils.make_auth_token_from_request(req);
         auth_token.client_ip = http_utils.parse_client_ip(req);

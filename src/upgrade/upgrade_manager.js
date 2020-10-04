@@ -10,7 +10,7 @@ const path = require('path');
 
 const system_store = require('../server/system_services/system_store').get_instance({ standalone: true });
 const dbg = require('../util/debug_module')('UPGRADE');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 
 function parse_ver(ver) {
     const stripped_ver = ver.split('-')[0];
@@ -40,7 +40,7 @@ function version_compare(ver1, ver2) {
 async function init() {
     try {
         dbg.log0('waiting for system_store to load');
-        await mongo_client.instance().connect();
+        await db_client.instance().connect();
         await system_store.load();
         dbg.log0('system store loaded');
     } catch (err) {
@@ -140,7 +140,7 @@ async function run_upgrade() {
             for (const script of upgrade_scripts) {
                 dbg.log0(`running upgrade script ${script.file}: ${script.description}`);
                 try {
-                    await script.run({ dbg, mongo_client, system_store });
+                    await script.run({ dbg, db_client, system_store });
                     this_upgrade.completed_scripts.push(script.file);
                 } catch (err) {
                     dbg.log0(`failed running upgrade script ${script.file}`, err);

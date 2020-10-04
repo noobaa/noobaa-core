@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
 const s3_usage_schema = require('./s3_usage_schema');
 const usage_report_schema = require('./usage_report_schema');
 const endpoint_group_report_schema = require('./endpoint_group_report_schema.js');
@@ -19,45 +19,42 @@ class EndpointStatsStore {
     }
 
     constructor() {
-        this._s3_ops_counters = mongo_client.instance()
-            .define_collection({
-                name: 'objectstats',
-                schema: s3_usage_schema,
-                db_indexes: [{
-                    fields: {
-                        system: 1,
-                    },
-                    options: {
-                        unique: true,
-                    }
-                }],
-            });
+        this._s3_ops_counters = db_client.instance().define_collection({
+            name: 'objectstats',
+            schema: s3_usage_schema,
+            db_indexes: [{
+                fields: {
+                    system: 1,
+                },
+                options: {
+                    unique: true,
+                }
+            }],
+        });
 
-        this._bandwidth_reports = mongo_client.instance()
-            .define_collection({
-                name: 'usagereports',
-                schema: usage_report_schema,
-                db_indexes: [{
-                    fields: {
-                        start_time: 1,
-                        aggregated_time: -1,
-                        aggregated_time_range: 1,
-                    }
-                }],
-            });
+        this._bandwidth_reports = db_client.instance().define_collection({
+            name: 'usagereports',
+            schema: usage_report_schema,
+            db_indexes: [{
+                fields: {
+                    start_time: 1,
+                    aggregated_time: -1,
+                    aggregated_time_range: 1,
+                }
+            }],
+        });
 
-        this._endpoint_group_reports = mongo_client.instance()
-            .define_collection({
-                name: 'endpointgroupreports',
-                schema: endpoint_group_report_schema,
-                db_indexes: [{
-                    fields: {
-                        start_time: 1,
-                        aggregated_time: -1,
-                        aggregated_time_range: 1,
-                    }
-                }]
-            });
+        this._endpoint_group_reports = db_client.instance().define_collection({
+            name: 'endpointgroupreports',
+            schema: endpoint_group_report_schema,
+            db_indexes: [{
+                fields: {
+                    start_time: 1,
+                    aggregated_time: -1,
+                    aggregated_time_range: 1,
+                }
+            }]
+        });
     }
 
     async accept_endpoint_report(system, report) {
@@ -74,13 +71,13 @@ class EndpointStatsStore {
 
     async get_s3_ops_counters(system) {
         dbg.log1('get_s3_ops_counters');
-        const res = await this._s3_ops_counters.col().findOne({ system: system._id });
+        const res = await this._s3_ops_counters.findOne({ system: system._id });
         return _.pick(res, 's3_usage_info', 's3_errors_info');
     }
 
     async reset_s3_ops_counters(system) {
         dbg.log1('reset_s3_ops_counters');
-        await this._s3_ops_counters.col().removeMany({ system: system._id });
+        await this._s3_ops_counters.deleteMany({ system: system._id });
     }
 
     async _update_s3_ops_counters(system, report) {
@@ -99,7 +96,7 @@ class EndpointStatsStore {
             returnOriginal: false
         };
 
-        const res = await this._s3_ops_counters.col()
+        const res = await this._s3_ops_counters
             .findOneAndUpdate(selector, update, options);
 
         this._s3_ops_counters.validate(res.value, 'warn');
@@ -112,15 +109,14 @@ class EndpointStatsStore {
     async get_bandwidth_reports(params) {
         dbg.log1('get_bandwidth_reports', params);
         const query = this._format_bandwidth_report_query(params);
-        return this._bandwidth_reports.col()
-            .find(query)
-            .toArray();
+        return this._bandwidth_reports
+            .find(query);
     }
 
     async clean_bandwidth_reports(params) {
         dbg.log1('clean_bandwidth_reports', params);
         const query = this._format_bandwidth_report_query(params);
-        return this._bandwidth_reports.col().removeMany(query);
+        return this._bandwidth_reports.deleteMany(query);
     }
 
     _format_bandwidth_report_query(params) {
@@ -160,7 +156,7 @@ class EndpointStatsStore {
                 returnOriginal: false
             };
 
-            const res = await this._bandwidth_reports.col()
+            const res = await this._bandwidth_reports
                 .findOneAndUpdate(selector, update, options);
 
             this._bandwidth_reports.validate(res.value, 'warn');
@@ -176,15 +172,13 @@ class EndpointStatsStore {
     async get_endpoint_group_reports(params) {
         dbg.log1('get_endpoint_group_reports', params);
         const query = this._format_endpoint_gorup_report_query(params);
-        return this._endpoint_group_reports.col()
-            .find(query)
-            .toArray();
+        return this._endpoint_group_reports.find(query);
     }
 
     async clean_endpoint_group_reports(params) {
         dbg.log1('clean_endpoint_group_reports', params);
         const query = this._format_endpoint_gorup_report_query(params);
-        return this._endpoint_group_reports.col().removeMany(query);
+        return this._endpoint_group_reports.deleteMany(query);
     }
 
     _format_endpoint_gorup_report_query(params) {
@@ -219,7 +213,7 @@ class EndpointStatsStore {
             returnOriginal: false
         };
 
-        const res = await this._endpoint_group_reports.col()
+        const res = await this._endpoint_group_reports
             .findOneAndUpdate(selector, update, options);
 
         this._endpoint_group_reports.validate(res.value, 'warn');

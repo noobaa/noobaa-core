@@ -9,7 +9,7 @@ const P = require('../util/promise');
 const argv = require('minimist')(process.argv);
 // const ObjectId = require('mongodb').ObjectID;
 const Dispatcher = require('../server/notifications/dispatcher');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 const promise_utils = require('../util/promise_utils');
 
 const EXISTING_AUDIT_LOGS = {
@@ -119,13 +119,14 @@ function EventsGenerator() {
 }
 
 EventsGenerator.prototype.init = function() {
+    const fields = { _id: 1 };
     //Init all ObjectIDs of the entities in the system, ndoes and objects don't have to exist
-    return mongo_client.instance().connect()
-        .then(() => mongo_client.instance().collection('systems').findOne({}, { _id: 1 }))
+    return db_client.instance().connect()
+        .then(() => db_client.instance().collection('systems').findOne({}, { projection: fields }))
         .then(res => {
             if (res) {
                 sysid = res._id;
-                return mongo_client.instance().collection('buckets').findOne({}, { _id: 1 });
+                return db_client.instance().collection('buckets').findOne({}, { projection: fields });
             } else {
                 console.info('No system, aborting...');
                 process.exit(0);
@@ -133,20 +134,20 @@ EventsGenerator.prototype.init = function() {
         })
         .then(bucket => {
             entities.bucket._id = bucket._id;
-            return mongo_client.instance().collection('accounts').findOne({}, { _id: 1 });
+            return db_client.instance().collection('accounts').findOne({}, { projection: fields });
         })
         .then(account => {
             entities.account._id = account._id;
-            return mongo_client.instance().collection('pools').findOne({}, { _id: 1 });
+            return db_client.instance().collection('pools').findOne({}, { projection: fields });
         })
         .then(pool => {
             entities.resource._id = pool._id;
-            return mongo_client.instance().collection('clusters').findOne({});
+            return db_client.instance().collection('clusters').findOne({});
         })
         .then(cluster => {
             entities.cluster.hostname = cluster.heartbeat.health.os_info.hostname;
             entities.cluster.secret = cluster.owner_secret;
-            return mongo_client.instance().collection('nodes').findOne({}, { _id: 1 });
+            return db_client.instance().collection('nodes').findOne({}, { projection: fields });
         })
         .then(node => {
             if (node) {
@@ -155,7 +156,7 @@ EventsGenerator.prototype.init = function() {
             } else {
                 delete entities.node;
             }
-            return mongo_client.instance().collection('objectmds').findOne({}, { _id: 1 });
+            return db_client.instance().collection('objectmds').findOne({}, { projection: fields });
         })
         .then(obj => {
             if (obj) {

@@ -135,7 +135,7 @@ Didn't Run: ${JSON.stringify(
 
     async _connect_to_mongo() {
         let retries = 5;
-        while (retries) {
+        while (retries > 0) {
             try {
                 this._mongo_client = await mongodb.MongoClient.connect(REMOTE_MONGO_URL, REMOTE_MONGO_CONFIG);
                 break;

@@ -9,13 +9,11 @@ require('../../util/panic').enable_heapdump('coretest');
 require('../../util/fips');
 
 const CORETEST = 'coretest';
+process.env.CORETEST = CORETEST;
 process.env.JWT_SECRET = CORETEST;
-process.env.CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || `mongodb://localhost/${CORETEST}`;
-process.env.MONGODB_URL = process.env.CORETEST_MONGODB_URL;
 
 const config = require('../../../config.js');
-const system_store = require('../../server/system_services/system_store').get_instance();
-const MDStore = require('../../server/object_services/md_store').MDStore;
+const db_client = require('../../util/db_client');
 
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
@@ -42,9 +40,10 @@ const endpoint = require('../../endpoint/endpoint');
 const server_rpc = require('../../server/server_rpc');
 const auth_server = require('../../server/common_services/auth_server');
 const node_server = require('../../server/node_services/node_server');
-const mongo_client = require('../../util/mongo_client');
 const account_server = require('../../server/system_services/account_server');
 const system_server = require('../../server/system_services/system_server');
+const system_store = require('../../server/system_services/system_store').get_instance();
+const MDStore = require('../../server/object_services/md_store').MDStore;
 const promise_utils = require('../../util/promise_utils');
 
 // Set the pools server pool controller factory to create pools with
@@ -87,6 +86,11 @@ function new_rpc_client() {
     return server_rpc.rpc.new_client(rpc_client.options);
 }
 
+function init_all_collections() {
+    /* eslint-disable global-require */
+    require('../../server/notifications/alerts_log_store').instance();
+}
+
 function setup(options = {}) {
     const { incomplete_rpc_coverage, pools_to_create = [] } = options;
     if (_setup) return;
@@ -97,6 +101,9 @@ function setup(options = {}) {
             'coretest: incomplete_rpc_coverage expected value "show" or "fail"');
         _incomplete_rpc_coverage = incomplete_rpc_coverage;
     }
+
+    db_client.instance().set_db_name(CORETEST);
+    init_all_collections();
 
     server_rpc.get_base_address = () => 'fcall://fcall';
     server_rpc.register_system_services();
@@ -135,12 +142,12 @@ function setup(options = {}) {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const start = Date.now();
 
-        await announce('mongo_client connect()');
-        await mongo_client.instance().connect('skip_init_db');
-        await announce('mongo_client dropDatabase()');
-        await mongo_client.instance().db().dropDatabase();
-        await announce('mongo_client reconnect()');
-        await mongo_client.instance().reconnect();
+        await announce('db_client dropDatabase()');
+        await db_client.instance().dropDatabase();
+        await announce('db_client createDatabase()');
+        await db_client.instance().createDatabase();
+        await announce('db_client reconnect()');
+        await db_client.instance().reconnect();
         system_store.clean_system_store();
         await server_rpc.client.redirector.publish_to_cluster({
             method_api: 'server_inter_process_api',
@@ -201,7 +208,7 @@ function setup(options = {}) {
         this.timeout(600000); // eslint-disable-line no-invalid-this
 
         try {
-            console.log('Database', process.env.CORETEST_MONGODB_URL, 'is intentionally',
+            console.log('Database', db_client.instance().get_db_name(), 'is intentionally',
                 'left for debugging and will be deleted before next test run');
 
             if (_incomplete_rpc_coverage) {
@@ -223,8 +230,8 @@ function setup(options = {}) {
             await P.delay(1000);
             await announce('rpc set_disconnected_state()');
             server_rpc.rpc.set_disconnected_state(true);
-            await announce('mongo_client disconnect()');
-            await mongo_client.instance().disconnect();
+            await announce('db_client disconnect()');
+            await db_client.instance().disconnect();
             await announce('http_server close()');
             if (http_server) http_server.close();
             await announce('https_server close()');
@@ -260,9 +267,9 @@ async function setup_pools(pools_to_create) {
         throw new Error('INVALID_SETUP_POOLS_CALL');
     }
 
-    await init_test_pools(rpc_client, SYSTEM, pools_to_create);
+    await init_test_pools(pools_to_create);
     await attach_pool_to_bucket(SYSTEM, 'first.bucket', CREATED_POOLS[0].name);
-    await set_pool_as_default_resource(SYSTEM, CREATED_POOLS[0].name);
+    await set_pool_as_default_resource(CREATED_POOLS[0].name);
 }
 
 function log(...args) {
@@ -308,7 +315,7 @@ async function overwrite_system_address(system_name) {
     });
 }
 
-async function init_test_pools(client, system_name, pools_to_create) {
+async function init_test_pools(pools_to_create) {
     console.log('Creating pools:', pools_to_create);
 
     await node_server.start_monitor();
@@ -456,7 +463,7 @@ function attach_pool_to_bucket(system_name, bucket_name, pool_name) {
     return system_store.make_changes(change);
 }
 
-function set_pool_as_default_resource(system, pool_name) {
+function set_pool_as_default_resource(pool_name) {
     const pool_id = system_store.data.pools
         .find(pool => pool.name === pool_name)
         ._id;

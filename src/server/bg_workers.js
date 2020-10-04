@@ -20,7 +20,7 @@ const scrubber = require('./bg_services/scrubber');
 const lifecycle = require('./bg_services/lifecycle');
 const cluster_hb = require('./bg_services/cluster_hb');
 const server_rpc = require('./server_rpc');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 const { BucketsReclaimer } = require('./bg_services/buckets_reclaimer');
 const { ObjectsReclaimer } = require('./bg_services/objects_reclaimer');
 const { MirrorWriter } = require('./bg_services/mirror_writer');
@@ -53,7 +53,7 @@ const MASTER_BG_WORKERS = [
     'agent_blocks_reclaimer'
 ];
 
-mongo_client.instance().connect();
+db_client.instance().connect();
 register_rpc();
 
 //Set KeepAlive to all http/https agents in bg_workers

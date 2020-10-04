@@ -7,7 +7,7 @@ const _ = require('lodash');
 const util = require('util');
 
 const system_store = require('../system_services/system_store').get_instance();
-const { new_object_id } = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 
 
 /** @type {nb.ID} */
@@ -92,7 +92,7 @@ class ChunkDB {
      */
     add_block_allocation(frag, pools, mirror) {
         const block_md = {
-            id: new_object_id().toHexString(),
+            id: db_client.instance().new_object_id().toHexString(),
             size: this.frag_size,
             digest_b64: frag.digest_b64,
             digest_type: this.chunk_coder_config.frag_digest_type,

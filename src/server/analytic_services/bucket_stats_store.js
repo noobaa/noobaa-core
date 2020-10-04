@@ -4,8 +4,7 @@
 const _ = require('lodash');
 
 // const dbg = require('../../util/debug_module')(__filename);
-// const P = require('../../util/promise');
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
 const bucket_stats_schema = require('./bucket_stats_schema');
 
 class BucketStatsStore {
@@ -16,7 +15,7 @@ class BucketStatsStore {
     }
 
     constructor() {
-        this._bucket_stats = mongo_client.instance().define_collection({
+        this._bucket_stats = db_client.instance().define_collection({
             name: 'bucketstats',
             schema: bucket_stats_schema,
             db_indexes: [{
@@ -45,7 +44,7 @@ class BucketStatsStore {
             }, _.isUndefined)
         };
 
-        const res = await this._bucket_stats.col().findOneAndUpdate(selector, update, {
+        const res = await this._bucket_stats.findOneAndUpdate(selector, update, {
             upsert: true,
             returnOriginal: false
         });
@@ -54,7 +53,7 @@ class BucketStatsStore {
     }
 
     get_all_buckets_stats({ system }) {
-        return this._bucket_stats.col().aggregate([{
+        return this._bucket_stats.aggregate([{
             $match: {
                 system
             }
@@ -62,6 +61,7 @@ class BucketStatsStore {
             $group: {
                 _id: '$bucket',
                 stats: {
+                    // TODO: Support in PostgreSQL aggregation
                     $push: {
                         content_type: '$content_type',
                         reads: '$reads',
@@ -75,7 +75,7 @@ class BucketStatsStore {
                 last_write: { $max: '$last_write' },
                 last_read: { $max: '$last_read' },
             },
-        }]).toArray();
+        }]);
     }
 
 }

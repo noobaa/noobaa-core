@@ -4,15 +4,14 @@
 const mongodb = require('mongodb');
 const _ = require('lodash');
 
+const db_client = require('../../util/db_client');
 const P = require('../../util/promise');
-const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client');
 const activity_log_schema = require('./activity_log_schema');
 
 class ActivityLogStore {
 
     constructor() {
-        this._activitylogs = mongo_client.instance().define_collection({
+        this._activitylogs = db_client.instance().define_collection({
             name: 'activitylogs',
             schema: activity_log_schema,
             db_indexes: [{
@@ -37,25 +36,24 @@ class ActivityLogStore {
 
 
     create(activity_log) {
-        if (!activity_log._id) {
-            activity_log._id = this.make_activity_log_id();
-        }
-        return P.resolve()
-            .then(() => this._activitylogs.validate(activity_log))
-            .then(() => this._activitylogs.col().insertOne(activity_log))
-            .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'audit_log'))
-            .return(activity_log);
+        return P.resolve().then(async () => {
+            if (!activity_log._id) {
+                activity_log._id = this.make_activity_log_id();
+            }
+            try {
+                this._activitylogs.validate(activity_log);
+                await this._activitylogs.insertOne(activity_log);
+            } catch (err) {
+                db_client.instance().check_duplicate_key_conflict(err, 'audit_log');
+            }
+            return activity_log;
+        });
     }
 
     read_activity_log(query) {
         const { skip = 0, limit = 100 } = query;
         let selector = this._create_selector(query);
-        return P.resolve()
-            .then(() => this._activitylogs.col().find(selector)
-                .skip(skip)
-                .limit(limit)
-                .sort({ time: -1 })
-                .toArray());
+        return P.resolve().then(async () => this._activitylogs.find(selector, { skip, limit, sort: { time: -1 } }));
     }
 
     _create_selector(query) {

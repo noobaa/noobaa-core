@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+// TODO: Should implement the test
+
 // const { PostgresClient } = require('../../util/postgres_client');
 const mongo_client = require('../../util/mongo_client');
 const { Pool } = require('pg');
@@ -19,22 +21,22 @@ const pool = new Pool(POSTGRES_PARAMS);
 
 
 
-// const _objects = postgres_client.instance().define_table({
+// const _objects = PostgresClient.instance().define_table({
 //     name: 'objectmds',
 // });
-// const _multiparts = postgres_client.instance().define_table({
+// const _multiparts = PostgresClient.instance().define_table({
 //     name: 'objectmultiparts',
 // });
-// const _parts = postgres_client.instance().define_table({
+// const _parts = PostgresClient.instance().define_table({
 //     name: 'objectparts',
 // });
-// const _chunks = postgres_client.instance().define_table({
+// const _chunks = PostgresClient.instance().define_table({
 //     name: 'datachunks',
 // });
-// const _blocks = postgres_client.instance().define_table({
+// const _blocks = PostgresClient.instance().define_table({
 //     name: 'datablocks',
 // });
-// const _sequences = postgres_client.instance().define_table({
+// const _sequences = PostgresClient.instance().define_table({
 //     name: 'mdsequences',
 // });
 
@@ -50,7 +52,7 @@ async function migrate_collection(col_name) {
     let marker;
     let total = 0;
     while (!done) {
-        const docs = await col.find({ _id: marker ? { $gt: marker } : undefined }, { limit: batch_size }).toArray();
+        const docs = await col.find({ _id: marker ? { $gt: marker } : undefined }, { limit: batch_size });
         if (docs.length > 0) {
             const rows = docs.map(doc => ({ _id: doc._id.toString(), data: doc }));
             const values_str = _.times(docs.length, n => `($${(n * 2) + 1}, $${(n * 2) + 2})`).join(', ');

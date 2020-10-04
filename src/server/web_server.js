@@ -29,7 +29,7 @@ const ssl_utils = require('../util/ssl_utils');
 const pkg = require('../../package.json');
 const config = require('../../config.js');
 const license_info = require('./license_info');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 const cutil = require('./utils/clustering_utils');
@@ -42,7 +42,7 @@ const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
 
-mongo_client.instance().connect();
+db_client.instance().connect();
 
 //Set KeepAlive to all http/https agents in webserver
 http_utils.update_http_agents({ keepAlive: true });

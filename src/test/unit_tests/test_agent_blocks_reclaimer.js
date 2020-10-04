@@ -14,7 +14,7 @@ const P = require('../../util/promise');
 const crypto = require('crypto');
 const SliceReader = require('../../util/slice_reader');
 const AgentBlocksReclaimer = require('../../server/bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const mongodb = require('mongodb');
 const config = require('../../../config');
 const promise_utils = require('../../util/promise_utils');
@@ -66,7 +66,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
         // assert(doc_path === 'node',
         //     'Reclaimer should only send populate to node property of block');
         const docs_list = docs && !_.isArray(docs) ? [docs] : docs;
-        const ids = mongo_utils.uniq_ids(docs_list, doc_path);
+        const ids = db_client.instance().uniq_ids(docs_list, doc_path);
         if (!ids.length) return P.resolve(docs);
 
 
@@ -79,7 +79,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
                     const id = _.get(doc, doc_path);
                     const node = idmap[String(id)];
                     if (node) {
-                        mongo_utils.fix_id_type(node);
+                        db_client.instance().fix_id_type(node);
                         _.set(doc, doc_path, node);
                     } else {
                         console.warn('populate_nodes: missing node for id',
@@ -140,12 +140,12 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             .then(() => upload_object(obj_key, obj_data, obj_size))
             .then(id => {
                 obj_id = id;
-                return MDStore.instance().find_parts_chunk_ids({ _id: mongo_utils.parse_object_id(id) });
+                return MDStore.instance().find_parts_chunk_ids({ _id: db_client.instance().parse_object_id(id) });
             })
             .then(chunk_ids => MDStore.instance().find_blocks_of_chunks(chunk_ids))
             .then(blocks => {
                 blocks_uploaded = blocks;
-                return MDStore.instance()._blocks.col().updateMany({
+                return MDStore.instance()._blocks.updateMany({
                     _id: { $in: blocks.map(block => block._id) }
                 }, {
                     $set: { deleted: new Date() }
@@ -155,9 +155,9 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
             .then(() => promise_utils.pwhile(
                 () => agent_blocks_reclaimer.marker,
                 () => agent_blocks_reclaimer.run_batch()))
-            .then(() => MDStore.instance()._blocks.col().find({
+            .then(() => MDStore.instance()._blocks.find({
                 _id: { $in: blocks_uploaded.map(block => block._id) }
-            }).toArray())
+            }))
             .then(blocks => {
                 // Object read cache still keeps the data and we want to read from agents
                 object_io.set_verification_mode();

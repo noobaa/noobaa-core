@@ -15,7 +15,7 @@ const mocha = require('mocha');
 // const MDStore = require('../../server/object_services/md_store').MDStore;
 const { MapClient } = require('../../sdk/map_client');
 const system_store = require('../../server/system_services/system_store').get_instance();
-const { new_object_id } = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 
 coretest.describe_mapper_test_case({
@@ -76,7 +76,7 @@ coretest.describe_mapper_test_case({
                 data_index: 1,
                 blocks: [{
                     block_md: {
-                        id: new_object_id(),
+                        id: db_client.instance().new_object_id(),
                         node: nodes[0]._id,
                         pool: system.pools_by_name[nodes[0].pool]._id,
                     }

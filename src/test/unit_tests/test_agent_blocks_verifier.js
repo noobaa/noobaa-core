@@ -12,7 +12,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../util/promise');
 const AgentBlocksVerifier = require('../../server/bg_services/agent_blocks_verifier').AgentBlocksVerifier;
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const mongodb = require('mongodb');
 const config = require('../../../config');
 const { ChunkDB, BlockDB } = require('../../server/object_services/map_db_types');
@@ -66,7 +66,7 @@ class VerifierMock extends AgentBlocksVerifier {
         const docs = blocks;
         const doc_path = 'node';
         const docs_list = docs && !_.isArray(docs) ? [docs] : docs;
-        const node_ids = mongo_utils.uniq_ids(docs_list, doc_path);
+        const node_ids = db_client.instance().uniq_ids(docs_list, doc_path);
         const nodes = this.nodes.filter(node =>
             _.includes(node_ids.map(node_id => String(node_id)), String(node._id)));
         const chunks_idmap = _.keyBy(this.chunks, '_id');
@@ -80,7 +80,7 @@ class VerifierMock extends AgentBlocksVerifier {
             const id = _.get(block, doc_path);
             const node = nodes_idmap[String(id)];
             if (node) {
-                mongo_utils.fix_id_type(node);
+                db_client.instance().fix_id_type(node);
                 db_block.set_node(node, pools_name[node.pool]);
                 db_block.set_digest_type('sha1');
             } else {

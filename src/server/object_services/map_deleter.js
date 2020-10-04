@@ -9,7 +9,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('./md_store').MDStore;
 const server_rpc = require('../server_rpc');
-const mongo_utils = require('../../util/mongo_utils');
+const db_client = require('../../util/db_client');
 const map_server = require('./map_server');
 const { ChunkDB } = require('./map_db_types');
 const { get_all_chunks_blocks } = require('../../sdk/map_api_types');
@@ -82,7 +82,7 @@ async function delete_blocks(blocks) {
     try {
         // We should not worry about advancing the delete since there wouldn't be any parallel calls
         // There is only a single builder which will delete the blocks and they won't be called afterwards
-        await MDStore.instance().delete_blocks_by_ids(mongo_utils.uniq_ids(blocks, '_id'));
+        await MDStore.instance().delete_blocks_by_ids(db_client.instance().uniq_ids(blocks, '_id'));
         // Even if we crash here we can assume that the reclaimer will handle the deletions
         await delete_blocks_from_nodes(blocks);
     } catch (error) {
@@ -113,7 +113,7 @@ async function delete_blocks_from_nodes(blocks) {
     try {
         const blocks_by_node = _.values(_.groupBy(blocks, block => String(block.node._id)));
         const succeeded_block_ids = await Promise.all(blocks_by_node.map(delete_blocks_from_node));
-        const block_ids = _.flatten(succeeded_block_ids).map(block_id => mongo_utils.parse_object_id(block_id));
+        const block_ids = _.flatten(succeeded_block_ids).map(block_id => db_client.instance().parse_object_id(block_id));
         // In case we have a bug which calls delete_blocks_from_nodes several times
         // We will advance the reclaimed and it will have different values
         // This is not critical like deleted which alters the md_aggregator calculations

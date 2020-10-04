@@ -9,7 +9,7 @@ const api = require('../api');
 const dbg = require('../util/debug_module')(__filename);
 const system_store = require('../server/system_services/system_store').get_instance();
 const node_allocator = require('../server/node_services/node_allocator');
-const { new_object_id } = require('../util/mongo_utils');
+const db_client = require('../util/db_client');
 
 const rpc = api.new_rpc();
 const client = rpc.new_client();
@@ -102,7 +102,7 @@ async function blow_parts(params) {
                     allocations: [{
                         mirror_group: 'abc',
                         block_md: {
-                            id: new_object_id().toHexString(),
+                            id: db_client.instance().new_object_id().toHexString(),
                             node: node._id,
                             pool: pool_db._id,
                             size: argv.chunk_size

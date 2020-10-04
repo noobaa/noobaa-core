@@ -9,10 +9,10 @@ const os_utils = require('../../util/os_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
-const clustering_utils = require('../utils/clustering_utils.js');
+const clustering_utils = require('../utils/clustering_utils');
 const ssl_utils = require('../../util/ssl_utils');
-const mongo_utils = require('../../util/mongo_utils.js');
-const mongo_client = require('../../util/mongo_client');
+const db_client = require('../../util/db_client');
+
 
 const dotenv = require('../../util/dotenv');
 
@@ -106,8 +106,7 @@ async function _verify_ssl_certs() {
 
 async function _check_db_disk_usage() {
     dbg.log2('_check_db_disk_usage');
-    const client = mongo_client.instance();
-    const { fsUsedSize, fsTotalSize } = await mongo_utils.get_db_stats(client);
+    const { fsUsedSize, fsTotalSize } = await db_client.instance().get_db_stats();
     if (fsTotalSize - fsUsedSize < 10 * (1024 ** 3)) { // Free is lower than 10GB
         Dispatcher.instance().alert(
             'MAJOR',
@@ -123,8 +122,7 @@ async function _check_address_changes(container_platform) {
     try {
         const [system] = system_store.data.systems;
         const system_address = container_platform === 'KUBERNETES' ?
-            await os_utils.discover_k8s_services() :
-            [];
+            await os_utils.discover_k8s_services() : [];
 
         // This works because the lists are always sorted, see discover_k8s_services().
         if (!_.isEqual(system.system_address, system_address)) {

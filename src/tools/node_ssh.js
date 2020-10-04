@@ -6,7 +6,7 @@ const ssh2 = require('ssh2');
 const argv = require('minimist')(process.argv);
 
 const P = require('../util/promise');
-const mongo_client = require('../util/mongo_client');
+const db_client = require('../util/db_client');
 const buffer_utils = require('../util/buffer_utils');
 
 argv.user = argv.user || 'notadmin';
@@ -32,21 +32,19 @@ function get_nodes_ips() {
             }));
     }
     return P.resolve()
-        .then(() => mongo_client.instance().connect())
-        .then(() => mongo_client.instance().collection('nodes').find({
-                deleted: null,
-                is_cloud_node: null,
-                is_mongo_node: null,
-                is_internal_node: null,
-            }, {
-                fields: {
-                    _id: 0,
-                    name: 1,
-                    ip: 1,
-                }
-            })
-            .toArray()
-        )
+        .then(() => db_client.instance().connect())
+        .then(() => db_client.instance().collection('nodes').find({
+            deleted: null,
+            is_cloud_node: null,
+            is_mongo_node: null,
+            is_internal_node: null,
+        }, {
+            projection: {
+                _id: 0,
+                name: 1,
+                ip: 1,
+            }
+        }))
         .then(nodes => _.uniqBy(nodes, 'ip'));
 }
 

@@ -1,0 +1,39 @@
+---
+kind: Template
+apiVersion: v1
+metadata:
+  name: jjb-validate
+objects:
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      labels:
+        app: jjb-validate
+        jjb/session: "${SESSION}"
+      name: jjb-validate
+    spec:
+      ttlSecondsAfterFinished: 0
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: jjb-validate
+            jjb/session: "${SESSION}"
+        spec:
+          containers:
+            - name: jjb-validate
+              image: image-registry.openshift-image-registry.svc:5000/noobaa/jjb:latest
+              env:
+                - name: GIT_REPO
+                  value: https://github.com/noobaa/noobaa-core
+                - name: GIT_REF
+                  value: "${GIT_REF}"
+          restartPolicy: Never
+parameters:
+  - name: SESSION
+    description: unique ID for the session to track the pod for the job
+    required: true
+  - name: GIT_REF
+    description: the git branch or other ref to checkout and validate
+    value: master
+    required: false

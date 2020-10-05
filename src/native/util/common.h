@@ -99,13 +99,19 @@ class Exception : public std::exception
 public:
     Exception(std::string msg)
         : _msg(msg)
-        , _bt(new Backtrace()) {}
+        , _bt(new Backtrace()) {
+            std::string tmp = std::string("Exception: ") + _msg;
+            _c_str_msg = new char[tmp.length() + 1];
+            strcpy(_c_str_msg, tmp.c_str());
+        }
 
-    virtual ~Exception() throw() {}
+    virtual ~Exception() throw() {
+        delete [] _c_str_msg;
+    }
 
     virtual const char* what() const throw()
     {
-        return (std::string("Exception: ") + _msg).c_str();
+        return _c_str_msg;
     }
 
     friend std::ostream& operator<<(std::ostream& os, Exception& e)
@@ -115,6 +121,7 @@ public:
 
 private:
     std::string _msg;
+    char *_c_str_msg;
     std::shared_ptr<Backtrace> _bt;
 };
 

@@ -7,7 +7,6 @@ var mocha = require('mocha');
 var assert = require('assert');
 var fs = require('fs');
 var DebugModule = require('../../util/debug_module');
-var os = require('os');
 var promise_utils = require('../../util/promise_utils');
 
 // File Content Verifier according to given expected result (positive/negative)
@@ -15,7 +14,7 @@ function file_content_verify(flag, expected) {
     return P.delay(1000).then(function() {
 
         var content;
-        if (os.type() === 'Darwin') {
+        if (process.platform === 'darwin') {
             content = fs.readFileSync("./logs/noobaa.log", "utf8");
         } else {
             content = fs.readFileSync("/log/noobaa.log", "utf8");
@@ -88,7 +87,7 @@ mocha.describe('debug_module', function() {
     mocha.it('should log when level is appropriate', function() {
         var rotation_command = '';
         //no special handling on Darwin for now. ls as place holder
-        if (os.type() === 'Darwin') {
+        if (process.platform === 'darwin') {
             rotation_command = 'ls';
         } else {
             rotation_command = '/usr/sbin/logrotate /etc/logrotate.d/noobaa';

@@ -82,8 +82,9 @@ function map_aggregate_objects() {
  * @this mongodb doc being mapped
  */
 function map_aggregate_chunks() {
+    const compress_size = this.compress_size || this.size;
     emit(['', 'compress_size'], this.compress_size);
-    emit([this.bucket, 'compress_size'], this.compress_size);
+    emit([this.bucket, 'compress_size'], compress_size);
 }
 
 /**

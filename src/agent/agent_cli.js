@@ -204,7 +204,7 @@ class AgentCLI {
     }
 
     rename_agent_storage(mount_points) {
-        if (os.type() === 'Darwin') return; // skip rename in mac os
+        if (process.platform === 'darwin') return; // skip rename in mac os
         dbg.log0(`looking for agent_storage folder and renaming to noobaa_storage`);
         return P.map(mount_points, mount_point => {
             let old_path = mount_point.mount.replace('noobaa_storage', 'agent_storage');
@@ -229,7 +229,7 @@ class AgentCLI {
     }
 
     update_ignored_drives(mount_points) {
-        if (os.type() === 'Darwin') return mount_points; // skip rename in mac os
+        if (process.platform === 'darwin') return mount_points; // skip rename in mac os
         this.params.ignore_drives = this.params.ignore_drives || [];
         return P.map(mount_points, mount_point => {
             if (mount_point.temporary_drive) {
@@ -711,7 +711,7 @@ function main() {
     }
 
     // if scale is not passed but this is dev env, use scale of 1 to generate test hosts
-    if (!argv.scale && os.type() === 'Darwin') {
+    if (!argv.scale && process.platform === 'darwin') {
         argv.scale = 1;
     }
 

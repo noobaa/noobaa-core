@@ -2,7 +2,6 @@
 - job:
     name: noobaa-core_unit
     project-type: pipeline
-    sandbox: true
     concurrent: true
     properties:
       - github:
@@ -25,9 +24,7 @@
           status-context: ci/centos/unit
           trigger-phrase: '/(re)?test ((all)|(ci/centos/unit))'
           permit-all: true
-          # TODO: set github-hooks to true when it is configured in GitHub
-          github-hooks: false
-          cron: 'H/5 * * * *'
+          github-hooks: true
           admin-list:
             - liranmauda
           org-list:

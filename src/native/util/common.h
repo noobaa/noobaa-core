@@ -105,7 +105,7 @@ public:
 
     virtual const char* what() const throw()
     {
-        return "test";
+        return _msg.c_str();
     }
 
     friend std::ostream& operator<<(std::ostream& os, Exception& e)

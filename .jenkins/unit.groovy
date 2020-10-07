@@ -50,7 +50,7 @@ node('cico-workspace') {
 
 		// real test start here
 		stage('Unit Tests') {
-			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester ${NO_CACHE} ${CONTAINER_ENGINE}'"
+			//sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester ${NO_CACHE} ${CONTAINER_ENGINE}'"
 
 			// abort in case the test hangs
 			timeout(time:30, unit: 'MINUTES') {

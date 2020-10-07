@@ -60,7 +60,7 @@ class EndpointStatsCollector {
         };
     }
 
-    update_hub_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    _update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -70,13 +70,18 @@ class EndpointStatsCollector {
             io_stats.read_count += count;
             io_stats.read_bytes += size;
         }
-        if (bucket_name) {
-            this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
-        }
+        this.update_hub_read_stats({
+            bucket_name: bucket_name,
+            size: size
+        })
+    }
+
+    update_hub_read_stats({ bucket_name, size = 0 }) {
+        this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
         this._trigger_send_stats();
     }
 
-    update_hub_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    _update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -86,9 +91,14 @@ class EndpointStatsCollector {
             io_stats.write_count += count;
             io_stats.write_bytes += size;
         }
-        if (bucket_name) {
-            this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
-        }
+        this.update_hub_write_stats({
+            bucket_name: bucket_name,
+            size: size
+        })
+    }
+
+    update_hub_write_stats({ bucket_name, size = 0 }) {
+        this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
         this._trigger_send_stats();
     }
 

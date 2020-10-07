@@ -263,31 +263,26 @@ class NamespaceCache {
                             content_type: params.content_type,
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
+                            async_update_cache_stats: async () => {
+                                this.stats_collector.update_cache_stats({
+                                    bucket_name: params.bucket,
+                                    write_bytes: data.length,
+                                    read_bytes: data.length,
+                                    read_count: 1,
+                                    miss_count: 1,
+                                });
+                            }
                         };
 
                         const start = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
 
-                        // update latency stats on 'end'
-                        upload_res.once('end', () => {
-                            this.stats_collector.update_cache_latency_stats({
+                        this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
                             hub_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                            });
                         });
                         
-                        // update bytes stats on 'data' events but with a tap stream
-                        const tap_stream = stream_utils.get_tap_stream(data => {
-                            this.stats_collector.update_cache_stats({
-                                bucket_name: params.bucket,
-                                write_bytes: object_info_hub.first_range_data.length,
-                                read_bytes: object_info_hub.first_range_data.length,
-                                read_count: 1,
-                                miss_count: 1,
-                            });
-                        });
-                        upload_res.pipe(tap_stream);
-                        return tap_stream;
+                        return upload_res;
                     }
                 );
             } else if (cache_etag === '') {
@@ -388,7 +383,7 @@ class NamespaceCache {
             const tap_stream = stream_utils.get_tap_stream(data => {
                 this.stats_collector.update_cache_stats({
                 bucket_name: params.bucket,
-                read_bytes: params.read_size,
+                read_bytes: data.length,
                 });
             });
             cache_read_stream.pipe(tap_stream);
@@ -491,6 +486,12 @@ class NamespaceCache {
                     upload_params.end = hub_read_range.end;
                     // Set object ID since partial object has been created before
                     upload_params.obj_id = params.object_md.obj_id;
+                    upload_params.async_update_cache_stats = async () => {
+                        this.stats_collector.update_cache_stats({
+                            bucket_name: params.bucket,
+                            write_bytes: upload_params.end - upload_params.start,
+                        });
+                    };
 
                     const start = process.hrtime.bigint();
                     _global_cache_uploader.submit_background(
@@ -502,23 +503,12 @@ class NamespaceCache {
                                     bucket: this.namespace_nb.target_bucket,
                                 }, upload_params));
 
-                            // update latency stats on 'end'
-                            upload_res.once('end', () => {
-                                this.stats_collector.update_cache_latency_stats({
-                                bucket_name: params.bucket,
-                                cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                                });
+                            this.stats_collector.update_cache_latency_stats({
+                            bucket_name: params.bucket,
+                            cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
                             });
                             
-                            // update bytes stats on 'data' events but with a tap stream
-                            const tap_stream = stream_utils.get_tap_stream(data => {
-                                this.stats_collector.update_cache_stats({
-                                bucket_name: params.bucket,
-                                write_bytes: upload_params.end - upload_params.start,
-                                });
-                            });
-                            upload_res.pipe(tap_stream);
-                            return tap_stream;
+                            return upload_res;
                         }
                     );
                     dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
@@ -534,28 +524,24 @@ class NamespaceCache {
                 });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
-                const start = process.hrtime.bigint();
+                upload_params.async_update_cache_stats = async () => {
+                    this.stats_collector.update_cache_stats({
+                        bucket_name: params.bucket,
+                        write_bytes: params.object_md.size,
+                    });
+                };
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
                     async () => {
+                        const start = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
-                        // update latency stats on 'end'
-                        upload_res.once('end', () => {
-                            this.stats_collector.update_cache_latency_stats({
-                            bucket_name: params.bucket,
-                            cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                            });
+
+                        this.stats_collector.update_cache_latency_stats({
+                        bucket_name: params.bucket,
+                        cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
                         });
                         
-                        // update bytes stats on 'data' events but with a tap stream
-                        const tap_stream = stream_utils.get_tap_stream(data => {
-                            this.stats_collector.update_cache_stats({
-                            bucket_name: params.bucket,
-                            write_bytes: params.object_md.size,
-                            });
-                        });
-                        upload_res.pipe(tap_stream);
-                        return tap_stream;
+                        return upload_res;
                     }
                 );
 
@@ -650,13 +636,12 @@ class NamespaceCache {
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
             const start = process.hrtime.bigint();
             upload_response = await this.namespace_hub.upload_object(params, object_sdk);
-            // update latency stats on 'end'
-            upload_response.once('end', () => {
-                this.stats_collector.update_cache_latency_stats({
-                bucket_name: params.bucket,
-                hub_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                });
+
+            this.stats_collector.update_cache_latency_stats({
+            bucket_name: params.bucket,
+            hub_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
             });
+
             etag = upload_response.etag;
 
         } else {
@@ -668,12 +653,10 @@ class NamespaceCache {
             const start = process.hrtime.bigint();
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
             // update latency stats on 'end'
-            hub_promise.once('end', () => {
-                this.stats_collector.update_hub_latency_stats({
+            hub_promise.then(() => this.stats_collector.update_hub_latency_stats({
                 bucket_name: params.bucket,
                 hub_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                });
-            });
+            }));
 
             const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
 
@@ -691,12 +674,10 @@ class NamespaceCache {
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
             );
             // update latency stats on 'end'
-            cache_promise.once('end', () => {
-                this.stats_collector.update_hub_latency_stats({
+            cache_promise.then(() => this.stats_collector.update_hub_latency_stats({
                 bucket_name: params.bucket,
                 cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
-                });
-            });
+            }));
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be

@@ -54,6 +54,8 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {boolean} [complete_upload]
  * @property {number} [last_modified_time]
  * @property {function} [async_get_last_modified_time]
+ * @property {number} [cache_stats]
+ * @property {function} [async_update_cache_stats]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -215,6 +217,7 @@ class ObjectIO {
             'key',
             'md_conditions',
             'last_modified_time',
+            'cache_stats'
         );
         try {
             dbg.log0('upload_object: start upload', create_params);
@@ -235,6 +238,10 @@ class ObjectIO {
 
             if (params.async_get_last_modified_time) {
                 complete_params.last_modified_time = await params.async_get_last_modified_time();
+            }
+
+            if (params.async_update_cache_stats) {
+                complete_params.cache_stats = await params.async_update_cache_stats();
             }
 
             const complete_result = await params.client.object.complete_object_upload(complete_params);

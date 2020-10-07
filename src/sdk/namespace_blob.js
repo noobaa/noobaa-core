@@ -136,7 +136,7 @@ class NamespaceBlob {
         return new P((resolve, reject) => {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                stats_collector.instance(this.rpc_client)._update_namespace_read_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count
@@ -230,7 +230,7 @@ class NamespaceBlob {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                stats_collector.instance(this.rpc_client)._update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count
@@ -285,7 +285,7 @@ class NamespaceBlob {
 
         let count = 1;
         const count_stream = stream_utils.get_tap_stream(data => {
-            stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+            stats_collector.instance(this.rpc_client)._update_namespace_write_stats({
                 namespace_resource_id: this.namespace_resource_id,
                 size: data.length,
                 count
@@ -415,7 +415,7 @@ class NamespaceBlob {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                stats_collector.instance(this.rpc_client)._update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count

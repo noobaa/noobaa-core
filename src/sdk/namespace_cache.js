@@ -263,15 +263,11 @@ class NamespaceCache {
                             content_type: params.content_type,
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
-                            async_update_cache_stats: async () => {
+                            update_cache_stats: data_length =>
                                 this.stats_collector.update_cache_stats({
                                     bucket_name: params.bucket,
                                     write_bytes: data.length,
-                                    read_bytes: data.length,
-                                    read_count: 1,
-                                    miss_count: 1,
-                                });
-                            }
+                                })
                         };
 
                         const start = process.hrtime.bigint();
@@ -279,7 +275,7 @@ class NamespaceCache {
 
                         this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
-                            hub_read_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                            cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
                         });
                         
                         return upload_res;
@@ -486,17 +482,17 @@ class NamespaceCache {
                     upload_params.end = hub_read_range.end;
                     // Set object ID since partial object has been created before
                     upload_params.obj_id = params.object_md.obj_id;
-                    upload_params.async_update_cache_stats = async () => {
+                    upload_params.update_cache_stats = data_length => {
                         this.stats_collector.update_cache_stats({
                             bucket_name: params.bucket,
                             write_bytes: upload_params.end - upload_params.start,
-                        });
-                    };
+                        })
+                    }
 
-                    const start = process.hrtime.bigint();
                     _global_cache_uploader.submit_background(
                         hub_read_size,
                         async () => {
+                            const start = process.hrtime.bigint();
                             const upload_res = await object_sdk.object_io.upload_object_range(
                                 _.defaults({
                                     client: object_sdk.rpc_client,

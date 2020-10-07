@@ -60,7 +60,7 @@ class EndpointStatsCollector {
         };
     }
 
-    _update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -70,18 +70,18 @@ class EndpointStatsCollector {
             io_stats.read_count += count;
             io_stats.read_bytes += size;
         }
-        this.update_hub_read_stats({
+        this._update_hub_read_stats({
             bucket_name: bucket_name,
             size: size
         })
     }
 
-    update_hub_read_stats({ bucket_name, size = 0 }) {
+    _update_hub_read_stats({ bucket_name, size = 0 }) {
         this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
         this._trigger_send_stats();
     }
 
-    _update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
@@ -91,13 +91,13 @@ class EndpointStatsCollector {
             io_stats.write_count += count;
             io_stats.write_bytes += size;
         }
-        this.update_hub_write_stats({
+        this._update_hub_write_stats({
             bucket_name: bucket_name,
             size: size
         })
     }
 
-    update_hub_write_stats({ bucket_name, size = 0 }) {
+    _update_hub_write_stats({ bucket_name, size = 0 }) {
         this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
         this._trigger_send_stats();
     }
@@ -144,19 +144,19 @@ class EndpointStatsCollector {
 
     update_cache_latency_stats({ bucket_name, cache_read_latency, cache_write_latency }) {
         if (cache_read_latency) {
-            this.prom_metrics_report.inc('cache_read_latency', { bucket_name }, cache_read_latency);
+            this.prom_metrics_report.observe('cache_read_latency', { bucket_name }, cache_read_latency);
         }
         if (cache_write_latency) {
-            this.prom_metrics_report.inc('cache_write_latency', { bucket_name }, cache_write_latency);
+            this.prom_metrics_report.observe('cache_write_latency', { bucket_name }, cache_write_latency);
         }
     }
 
     update_hub_latency_stats({ bucket_name, hub_read_latency, hub_write_latency }) {
         if (hub_read_latency) {
-            this.prom_metrics_report.inc('hub_read_latency', { bucket_name }, hub_read_latency);
+            this.prom_metrics_report.observe('hub_read_latency', { bucket_name }, hub_read_latency);
         }
         if (hub_write_latency) {
-            this.prom_metrics_report.inc('hub_write_latency', { bucket_name }, hub_write_latency);
+            this.prom_metrics_report.observe('hub_write_latency', { bucket_name }, hub_write_latency);
         }
     }
 

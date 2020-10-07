@@ -23,7 +23,6 @@
       - github-pull-request:
           status-context: ci/centos/build-sanity
           trigger-phrase: '/(re)?test ci/centos/build-sanity'
-          only-trigger-phrase: true
           permit-all: true
           github-hooks: true
           admin-list:

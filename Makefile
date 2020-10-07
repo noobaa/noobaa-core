@@ -11,6 +11,7 @@ NOOBAA_TAG?="noobaa"
 NOOBAA_BASE_TAG?="noobaa-base"
 SUPPRESS_LOGS?=""
 NO_CACHE?=""
+USE_HOSTNETWORK?=""
 UNAME_S?=$(shell uname -s)
 ifeq ($(UNAME_S),Linux)
     CPUS?=$(shell nproc --ignore=1)
@@ -24,6 +25,11 @@ endif
 CACHE_FLAG=
 ifeq ($(NO_CACHE), true)
 	CACHE_FLAG="--no-cache"
+endif
+
+NETWORK_FLAG=
+ifeq ($(USE_HOSTNETWORK), true)
+	NETWORK_FLAG="--network=host"
 endif
 
 export
@@ -40,21 +46,21 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\033[1;34mStarting Builder $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) -t noobaa-builder .
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "\033[1;32mBuilder done.\033[0m"
 .PHONY: builder
 
 base: builder
 	@echo "\033[1;34mStarting Base $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "\033[1;32mBase done.\033[0m"
 .PHONY: base
 
 tester: base noobaa
 	@echo "\033[1;34mStarting Tester $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-tester $(TESTER_TAG)
 	@echo "\033[1;32mTester done.\033[0m"
 .PHONY: tester
@@ -69,7 +75,7 @@ tests: test #alias for test
 
 noobaa: base
 	@echo "\033[1;34mStarting NooBaa $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa

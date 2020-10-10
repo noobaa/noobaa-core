@@ -240,10 +240,6 @@ class ObjectIO {
                 complete_params.last_modified_time = await params.async_get_last_modified_time();
             }
 
-            if (params.async_update_cache_stats) {
-                complete_params.cache_stats = await params.async_update_cache_stats();
-            }
-
             const complete_result = await params.client.object.complete_object_upload(complete_params);
             if (params.copy_source) {
                 complete_result.copy_source = params.copy_source;
@@ -502,6 +498,7 @@ class ObjectIO {
             });
             await mc.run();
             if (mc.had_errors) throw new Error('Upload map errors');
+            if (params.async_update_cache_stats()) params.async_update_cache_stats(params.range.end - params.range.start);
             return callback();
         } catch (err) {
             dbg.error('UPLOAD: _upload_chunks', err.stack || err);

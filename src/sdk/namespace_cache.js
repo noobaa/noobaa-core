@@ -120,10 +120,6 @@ class NamespaceCache {
         return params.object_md.size <= cache_config.DEFAULT_BLOCK_SIZE;
     }
 
-    _update_metric(update_metric_fn_name, value) {
-        this.stats_collector[update_metric_fn_name]({ namespace_resource_id: this.namespace_hub.namespace_resource_id }, value);
-    }
-
     // Determine whether range read should be performed on hub by checking various factors.
     // Return true if range reads will be performed
     // Return false if entire object read will be performed
@@ -263,11 +259,7 @@ class NamespaceCache {
                             content_type: params.content_type,
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
-                            update_cache_stats: data_length =>
-                                this.stats_collector.update_cache_stats({
-                                    bucket_name: params.bucket,
-                                    write_bytes: data.length,
-                                })
+                            update_cache_stats: update_cache_stats_hook(params.bucket)
                         };
 
                         const start = process.hrtime.bigint();
@@ -482,11 +474,7 @@ class NamespaceCache {
                     upload_params.end = hub_read_range.end;
                     // Set object ID since partial object has been created before
                     upload_params.obj_id = params.object_md.obj_id;
-                    upload_params.update_cache_stats = data_length => {
-                        this.stats_collector.update_cache_stats({
-                            bucket_name: params.bucket,
-                            write_bytes: upload_params.end - upload_params.start,
-                        })
+                    upload_params.update_cache_stats = update_cache_stats_hook(params.bucket);
                     }
 
                     _global_cache_uploader.submit_background(
@@ -520,12 +508,8 @@ class NamespaceCache {
                 });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
-                upload_params.async_update_cache_stats = async () => {
-                    this.stats_collector.update_cache_stats({
-                        bucket_name: params.bucket,
-                        write_bytes: params.object_md.size,
-                    });
-                };
+                upload_params.update_cache_stats = update_cache_stats_hook(params.bucket);
+
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
                     async () => {
@@ -533,8 +517,8 @@ class NamespaceCache {
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
 
                         this.stats_collector.update_cache_latency_stats({
-                        bucket_name: params.bucket,
-                        cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
+                            bucket_name: params.bucket,
+                            cache_write_latency: Number(process.hrtime.bigint() - start) / 1e6,
                         });
                         
                         return upload_res;
@@ -832,6 +816,10 @@ class NamespaceCache {
         }
 
         return hub_res.value;
+    }
+
+    function update_cache_stats_hook(bucket_name) {
+        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name,write_bytes })
     }
 
     ////////////////////

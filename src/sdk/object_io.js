@@ -54,7 +54,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {boolean} [complete_upload]
  * @property {number} [last_modified_time]
  * @property {function} [async_get_last_modified_time]
- * @property {function} [update_cache_stats_hook]
+ * @property {function} [upload_chunks_hook]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -496,7 +496,7 @@ class ObjectIO {
             });
             await mc.run();
             if (mc.had_errors) throw new Error('Upload map errors');
-            if (params.update_cache_stats_hook) params.update_cache_stats_hook(params.range.end - params.range.start);
+            if (params.upload_chunks_hook) params.upload_chunks_hook(params.range.end - params.range.start);
             return callback();
         } catch (err) {
             dbg.error('UPLOAD: _upload_chunks', err.stack || err);

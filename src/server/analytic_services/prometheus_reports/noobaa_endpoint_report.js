@@ -81,7 +81,16 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'hub read latency in namespace cache bucket',
             labelNames: ['namespace_resource_id'],
-            buckets: [0.1, 10, 100, 200, 500, 1000, 2000],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
         }
     },
     {
@@ -90,7 +99,16 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'hub write latency in namespace cache bucket',
             labelNames: ['namespace_resource_id'],
-            buckets: [0.1, 10, 100, 200, 500, 1000, 2000],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
         }
     },
     {
@@ -99,7 +117,16 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'Cache read latency in namespace cache bucket',
             labelNames: ['namespace_resource_id'],
-            buckets: [0.1, 10, 100, 200, 500, 1000, 2000],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
         }
     },
     {
@@ -108,7 +135,16 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'Cache write latency in namespace cache bucket',
             labelNames: ['namespace_resource_id'],
-            buckets: [0.1, 10, 100, 200, 500, 1000, 2000],
+            buckets: [
+                0.001, 
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5, 
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
         }
     }
 ]);

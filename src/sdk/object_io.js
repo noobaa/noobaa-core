@@ -54,7 +54,7 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {boolean} [complete_upload]
  * @property {number} [last_modified_time]
  * @property {function} [async_get_last_modified_time]
- * @property {function} [update_cache_stats]
+ * @property {function} [update_cache_stats_hook]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -496,7 +496,7 @@ class ObjectIO {
             });
             await mc.run();
             if (mc.had_errors) throw new Error('Upload map errors');
-            if (params.update_cache_stats()) params.update_cache_stats(params.range.end - params.range.start);
+            if (params.update_cache_stats_hook) params.update_cache_stats_hook(params.range.end - params.range.start);
             return callback();
         } catch (err) {
             dbg.error('UPLOAD: _upload_chunks', err.stack || err);
@@ -751,7 +751,7 @@ function slice_buffers_in_range(chunks, start, end) {
     }
     if (!chunks || !chunks.length) {
         // null data means that the part is missing.
-        return [ { start, end, data: null } ];
+        return [{ start, end, data: null }];
     }
     let pos = start;
     const buffers = [];
@@ -830,7 +830,7 @@ function slice_buffers_in_range(chunks, start, end) {
         //                           |                 |
         //                           |[    missing    ]|
 
-        buffers.push({start: pos, end, data: null});
+        buffers.push({ start: pos, end, data: null });
     }
     // const buffer = buffer_utils.join(buffers);
     // if (buffer.length !== end - start) {

@@ -269,15 +269,14 @@ class NamespaceCache {
                             bucket_name: params.bucket,
                             cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
-                        
+
                         return upload_res;
                     }
                 );
             } else if (cache_etag === '') {
                 object_info_hub.should_read_from_cache = false;
             } else {
-                dbg.log0('NamespaceCache.read_object_md: etags different: removing object from cache',
-                    {params, hub_tag: object_info_hub.etag, cache_etag: cache_etag});
+                dbg.log0('NamespaceCache.read_object_md: etags different: removing object from cache', { params, hub_tag: object_info_hub.etag, cache_etag: cache_etag });
                 setImmediate(() => this._delete_object_from_cache(params, object_sdk));
             }
 
@@ -305,7 +304,7 @@ class NamespaceCache {
     //   - otherwise, it reads data from cache by providing missing_part_getter to
     //     cache's read_object_stream.
     async _read_object_stream(params, object_sdk) {
-        dbg.log0('NamespaceCache._read_object_stream', {params: params});
+        dbg.log0('NamespaceCache._read_object_stream', { params: params });
 
         params.bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         const range_hub_read = await this._range_read_hub_check(params, object_sdk);
@@ -342,15 +341,13 @@ class NamespaceCache {
         }
 
         params.missing_part_getter = async (missing_part_start, missing_part_end) => {
-            dbg.log0('NamespaceCache._read_object_stream: missing_part_getter',
-                { params: params, missing_part_start, missing_part_end });
+            dbg.log0('NamespaceCache._read_object_stream: missing_part_getter', { params: params, missing_part_start, missing_part_end });
 
             const read_params = _.omit(params, ['start', 'end']);
             read_params.start = missing_part_start;
             read_params.end = missing_part_end;
 
-            const read_stream = await this._read_hub_object_stream(read_params, object_sdk,
-                { start: missing_part_start, end: missing_part_end });
+            const read_stream = await this._read_hub_object_stream(read_params, object_sdk, { start: missing_part_start, end: missing_part_end });
 
             return buffer_utils.read_stream_join(read_stream);
         };
@@ -362,16 +359,16 @@ class NamespaceCache {
             // update latency stats on 'end'
             cache_read_stream.once('end', () => {
                 this.stats_collector.update_cache_latency_stats({
-                bucket_name: params.bucket,
-                cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                    bucket_name: params.bucket,
+                    cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                 });
             });
-            
+
             // update bytes stats on 'data' events but with a tap stream
             const tap_stream = stream_utils.get_tap_stream(data => {
                 this.stats_collector.update_cache_stats({
-                bucket_name: params.bucket,
-                read_bytes: data.length,
+                    bucket_name: params.bucket,
+                    read_bytes: data.length,
                 });
             });
             cache_read_stream.pipe(tap_stream);
@@ -394,7 +391,7 @@ class NamespaceCache {
      * Returns range_stream if range read; otherwise, hub_read_stream
      */
     async _read_hub_object_stream(params, object_sdk, hub_read_range) {
-        dbg.log0('NamespaceCache._read_hub_object_stream', {params: params, hub_read_range});
+        dbg.log0('NamespaceCache._read_hub_object_stream', { params: params, hub_read_range });
 
         let hub_read_size = params.read_size;
         // Omit the original start and end set by s3 client
@@ -425,8 +422,8 @@ class NamespaceCache {
             // update latency stats on 'end'
             hub_read_stream.once('end', () => {
                 this.stats_collector.update_cache_latency_stats({
-                bucket_name: params.bucket,
-                hub_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                    bucket_name: params.bucket,
+                    hub_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                 });
             });
         } catch (err) {
@@ -474,434 +471,445 @@ class NamespaceCache {
                     upload_params.end = hub_read_range.end;
                     // Set object ID since partial object has been created before
                     upload_params.obj_id = params.object_md.obj_id;
-                    upload_params.update_cache_stats = update_cache_stats_hook(params.bucket);
-                    }
-
-                    _global_cache_uploader.submit_background(
-                        hub_read_size,
-                        async () => {
-                            const start_time = process.hrtime.bigint();
-                            const upload_res = await object_sdk.object_io.upload_object_range(
-                                _.defaults({
-                                    client: object_sdk.rpc_client,
-                                    bucket: this.namespace_nb.target_bucket,
-                                }, upload_params));
-
-                            this.stats_collector.update_cache_latency_stats({
-                            bucket_name: params.bucket,
-                            cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
-                            });
-                            
-                            return upload_res;
-                        }
-                    );
-                    dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
-                } else {
-                    dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache',
-                        { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
 
-                this.stats_collector.update_cache_stats({
-                    bucket_name: params.bucket,
-                    miss_count: 1,
-                    range_op: true,
-                });
-            } else {
-                upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
-                upload_params.update_cache_stats = update_cache_stats_hook(params.bucket);
-
                 _global_cache_uploader.submit_background(
-                    params.object_md.size,
+                    hub_read_size,
                     async () => {
                         const start_time = process.hrtime.bigint();
-                        const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+                        const upload_res = await object_sdk.object_io.upload_object_range(
+                            _.defaults({
+                                client: object_sdk.rpc_client,
+                                bucket: this.namespace_nb.target_bucket,
+                            }, upload_params));
 
                         this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
                             cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
-                        
+
                         return upload_res;
                     }
                 );
-
-                this.stats_collector.update_cache_stats({
-                    bucket_name: params.bucket,
-                    range_op: false,
-                    miss_count: 1,
-                });
+                dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
+            } else {
+                dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache', { md_conditions: params.md_conditions, cache_object_md: params.object_md });
             }
-        }
 
-        const ret_stream = range_stream ? range_stream : hub_read_stream;
-        return ret_stream;
+            this.stats_collector.update_cache_stats({
+                bucket_name: params.bucket,
+                miss_count: 1,
+                range_op: true,
+            });
+        } else {
+            upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
+            upload_params.update_cache_stats = update_cache_stats_hook(params.bucket);
+
+            _global_cache_uploader.submit_background(
+                params.object_md.size,
+                async () => {
+                    const start_time = process.hrtime.bigint();
+                    const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
+
+                    this.stats_collector.update_cache_latency_stats({
+                        bucket_name: params.bucket,
+                        cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                    });
+
+                    return upload_res;
+                }
+            );
+
+            this.stats_collector.update_cache_stats({
+                bucket_name: params.bucket,
+                range_op: false,
+                miss_count: 1,
+            });
+        }
     }
 
+    const ret_stream = range_stream ? range_stream : hub_read_stream;
+    return ret_stream;
+}
 
-    async read_object_stream(params, object_sdk) {
-        // part_number is set to the query parameter partNumber in request. If set,
-        // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
-        // GET request for the part specified.
-        if (params.part_number) {
-            // If the query parameter partNumber is set, the object was most likely
-            // created by the multipart upload. Since we don't support MP in cache,
-            // we proxy the read to hub.
-            return this.namespace_hub.read_object_stream(params, object_sdk);
-        }
 
-        const get_from_cache = params.get_from_cache;
-        // Remove get_from_cache if exists for matching RPC schema
-        params = _.omit(params, 'get_from_cache');
+async read_object_stream(params, object_sdk) {
+    // part_number is set to the query parameter partNumber in request. If set,
+    // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
+    // GET request for the part specified.
+    if (params.part_number) {
+        // If the query parameter partNumber is set, the object was most likely
+        // created by the multipart upload. Since we don't support MP in cache,
+        // we proxy the read to hub.
+        return this.namespace_hub.read_object_stream(params, object_sdk);
+    }
 
-        params.read_size = params.object_md.size;
-        let range_op = false;
-        if (params.start || params.end) {
-            params.read_size = params.end - params.start;
-            range_op = true;
-        }
+    const get_from_cache = params.get_from_cache;
+    // Remove get_from_cache if exists for matching RPC schema
+    params = _.omit(params, 'get_from_cache');
 
-        let read_response;
-        if (get_from_cache) {
-            // For testing purpose: get_from_cache query parameter is on
-            try {
-                dbg.log0('NamespaceCache.read_object_stream: get_from_cache is on: read object from cache', params);
-                const start_time = process.hrtime.bigint();
-                read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
-                // update latency stats on 'end'
-                read_response.once('end', () => {
-                    this.stats_collector.update_cache_latency_stats({
+    params.read_size = params.object_md.size;
+    let range_op = false;
+    if (params.start || params.end) {
+        params.read_size = params.end - params.start;
+        range_op = true;
+    }
+
+    let read_response;
+    if (get_from_cache) {
+        // For testing purpose: get_from_cache query parameter is on
+        try {
+            dbg.log0('NamespaceCache.read_object_stream: get_from_cache is on: read object from cache', params);
+            const start_time = process.hrtime.bigint();
+            read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
+            // update latency stats on 'end'
+            read_response.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
                     bucket_name: params.bucket,
                     cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
-                    });
                 });
-            } catch (err) {
-                dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
-            }
+            });
+        } catch (err) {
+            dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
         }
-
-        read_response = read_response || await this._read_object_stream(params, object_sdk);
-
-        this.stats_collector.update_cache_stats({
-            bucket_name: params.bucket,
-            range_op,
-            read_count: 1,
-        });
-
-        const operation = 'ObjectRead';
-        const load_for_trigger = !params.noobaa_trigger_agent &&
-            object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
-        }
-
-        return read_response;
     }
 
-    ///////////////////
-    // OBJECT UPLOAD //
-    ///////////////////
+    read_response = read_response || await this._read_object_stream(params, object_sdk);
 
-    async upload_object(params, object_sdk) {
-        dbg.log0("NamespaceCache.upload_object", _.omit(params, 'source_stream'));
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+    this.stats_collector.update_cache_stats({
+        bucket_name: params.bucket,
+        range_op,
+        read_count: 1,
+    });
 
-        const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
-        let upload_response;
-        let etag;
-        if (params.size > bucket_free_space_bytes) {
-            dbg.log0("NamespaceCache.upload_object: object is too big, skip caching");
+    const operation = 'ObjectRead';
+    const load_for_trigger = !params.noobaa_trigger_agent &&
+        object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+    if (load_for_trigger) {
+        object_sdk.dispatch_triggers({
+            active_triggers: this.active_triggers,
+            operation,
+            obj: params.object_md,
+            bucket: params.bucket
+        });
+    }
 
-            setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-            const start_time = process.hrtime.bigint();
-            upload_response = await this.namespace_hub.upload_object(params, object_sdk);
+    return read_response;
+}
 
-            this.stats_collector.update_cache_latency_stats({
+///////////////////
+// OBJECT UPLOAD //
+///////////////////
+
+async upload_object(params, object_sdk) {
+    dbg.log0("NamespaceCache.upload_object", _.omit(params, 'source_stream'));
+    const operation = 'ObjectCreated';
+    const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+
+    const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
+    let upload_response;
+    let etag;
+    if (params.size > bucket_free_space_bytes) {
+        dbg.log0("NamespaceCache.upload_object: object is too big, skip caching");
+
+        setImmediate(() => this._delete_object_from_cache(params, object_sdk));
+        const start_time = process.hrtime.bigint();
+        upload_response = await this.namespace_hub.upload_object(params, object_sdk);
+
+        this.stats_collector.update_cache_latency_stats({
             bucket_name: params.bucket,
             hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
-            });
-
-            etag = upload_response.etag;
-
-        } else {
-
-            // UPLOAD SIMULTANEOUSLY TO BOTH
-
-            const hub_stream = new stream.PassThrough();
-            const hub_params = { ...params, source_stream: hub_stream };
-            const start_time = process.hrtime.bigint();
-            const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
-            // update latency stats on 'end'
-            hub_promise.then(() => this.stats_collector.update_hub_latency_stats({
-                bucket_name: params.bucket,
-                hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
-            }));
-
-            const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
-
-            const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            const cache_params = { ...params,
-                source_stream: cache_stream,
-                async_get_last_modified_time: async () => {
-                    const upload_res = await hub_promise;
-                    const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
-                    return last_modified_time;
-                },
-            };
-            const cache_promise = _global_cache_uploader.surround_count(
-                params.size,
-                async () => this.namespace_nb.upload_object(cache_params, object_sdk)
-            );
-            // update latency stats on 'end'
-            cache_promise.then(() => this.stats_collector.update_hub_latency_stats({
-                bucket_name: params.bucket,
-                cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
-            }));
-
-            // One important caveat is that if the Readable stream emits an error during processing,
-            // the Writable destination is not closed automatically. If an error occurs, it will be
-            // necessary to manually close each stream in order to prevent memory leaks.
-            params.source_stream.on('error', err => {
-                dbg.log0("NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
-                hub_stream.destroy();
-                cache_stream.destroy();
-            });
-
-            params.source_stream.pipe(hub_stream);
-            params.source_stream.pipe(cache_stream);
-
-            const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
-            const hub_ok = hub_res.status === 'fulfilled';
-            const cache_ok = cache_res.status === 'fulfilled';
-            if (!hub_ok) {
-                dbg.log0("NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
-                // handling the case where cache succeeded and cleanup.
-                // We can also just mark the cache object for re-validation
-                // to make sure any read will have to re-validate it,
-                // but writes (retries of the upload most likely) will be already in the cache
-                // and detected by dedup so we don't need to do anything.
-                if (cache_ok) {
-                    setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-                }
-                // fail back to client with the hub reason
-                throw hub_res.reason;
-            }
-
-            if (cache_ok) {
-                assert.strictEqual(hub_res.value.etag, cache_res.value.etag);
-            } else {
-                // on error from cache, we ignore and let hub upload continue
-                dbg.log0("NamespaceCache.upload_object: error in cache upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
-                // Invalidate cache in case we have old object
-                setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-            }
-
-            upload_response = hub_res.value;
-            etag = upload_response.etag;
-        }
-
-        if (load_for_trigger) {
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: params.size,
-                content_type: params.content_type,
-                etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
-
-        return upload_response;
-    }
-
-    //////////////////////
-    // MULTIPART UPLOAD //
-    //////////////////////
-
-    async create_object_upload(params, object_sdk) {
-        return this.namespace_hub.create_object_upload(params, object_sdk);
-    }
-
-    async upload_multipart(params, object_sdk) {
-        return this.namespace_hub.upload_multipart(params, object_sdk);
-    }
-
-    async list_multiparts(params, object_sdk) {
-        return this.namespace_hub.list_multiparts(params, object_sdk);
-    }
-
-    async complete_object_upload(params, object_sdk) {
-
-        const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
-        await this._delete_object_from_cache(params, object_sdk);
-        return res;
-    }
-
-    async abort_object_upload(params, object_sdk) {
-        return this.namespace_hub.abort_object_upload(params, object_sdk);
-    }
-
-    ///////////////////
-    // OBJECT DELETE //
-    ///////////////////
-
-    async delete_object(params, object_sdk) {
-
-        const [hub_res, cache_res] = await Promise.allSettled([
-            this.namespace_hub.delete_object(params, object_sdk),
-            this.namespace_nb.delete_object(params, object_sdk),
-        ]);
-        if (hub_res.status === 'rejected') {
-            throw hub_res.reason;
-        }
-        if (cache_res.status === 'rejected' &&
-            cache_res.reason.code !== 'NoSuchKey') {
-            throw cache_res.reason;
-        }
-
-        const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
-        }
-
-        return hub_res.value;
-    }
-
-    async delete_multiple_objects(params, object_sdk) {
-        const operation = 'ObjectRemoved';
-        const objects = params.objects.filter(obj => obj.version_id);
-        if (objects.length > 0) {
-            dbg.error('S3 Version request not (NotImplemented) for s3_post_bucket_delete', params);
-            throw new S3Error(S3Error.NotImplemented);
-        }
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        const head_res = load_for_trigger && await P.map(params.objects, async obj => {
-            const request = {
-                bucket: params.bucket,
-                key: obj.key,
-                version_id: obj.version_id
-            };
-            let obj_md;
-            try {
-                obj_md = _.defaults({ key: obj.key }, await this.namespace_hub.read_object_md(request, object_sdk));
-            } catch (err) {
-                if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
-            }
-            return obj_md;
         });
 
-        const [hub_res, cache_res] = await Promise.allSettled([
-            this.namespace_hub.delete_multiple_objects(params, object_sdk),
-            this.namespace_nb.delete_multiple_objects(params, object_sdk),
-        ]);
-        if (hub_res.status === 'rejected') {
+        etag = upload_response.etag;
+
+    } else {
+
+        // UPLOAD SIMULTANEOUSLY TO BOTH
+
+        const hub_stream = new stream.PassThrough();
+        const hub_params = { ...params, source_stream: hub_stream };
+        const start_time = process.hrtime.bigint();
+        const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
+        // update latency stats on 'end'
+        hub_promise.then(() => this.stats_collector.update_hub_latency_stats({
+            bucket_name: params.bucket,
+            hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+        }));
+
+        const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
+
+        const cache_stream = new stream.PassThrough({ final: cache_finalizer });
+        const cache_params = {
+            ...params,
+            source_stream: cache_stream,
+            async_get_last_modified_time: async () => {
+                const upload_res = await hub_promise;
+                const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                return last_modified_time;
+            },
+        };
+        const cache_promise = _global_cache_uploader.surround_count(
+            params.size,
+            async () => this.namespace_nb.upload_object(cache_params, object_sdk)
+        );
+        // update latency stats on 'end'
+        cache_promise.then(() => this.stats_collector.update_hub_latency_stats({
+            bucket_name: params.bucket,
+            cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+        }));
+
+        // One important caveat is that if the Readable stream emits an error during processing,
+        // the Writable destination is not closed automatically. If an error occurs, it will be
+        // necessary to manually close each stream in order to prevent memory leaks.
+        params.source_stream.on('error', err => {
+            dbg.log0("NamespaceCache.upload_object: error in read source", { params: _.omit(params, 'source_stream'), error: err });
+            hub_stream.destroy();
+            cache_stream.destroy();
+        });
+
+        params.source_stream.pipe(hub_stream);
+        params.source_stream.pipe(cache_stream);
+
+        const [hub_res, cache_res] = await Promise.allSettled([hub_promise, cache_promise]);
+        const hub_ok = hub_res.status === 'fulfilled';
+        const cache_ok = cache_res.status === 'fulfilled';
+        if (!hub_ok) {
+            dbg.log0("NamespaceCache.upload_object: error in upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
+            // handling the case where cache succeeded and cleanup.
+            // We can also just mark the cache object for re-validation
+            // to make sure any read will have to re-validate it,
+            // but writes (retries of the upload most likely) will be already in the cache
+            // and detected by dedup so we don't need to do anything.
+            if (cache_ok) {
+                setImmediate(() => this._delete_object_from_cache(params, object_sdk));
+            }
+            // fail back to client with the hub reason
             throw hub_res.reason;
         }
-        if (cache_res.status === 'rejected') {
-            throw cache_res.reason;
+
+        if (cache_ok) {
+            assert.strictEqual(hub_res.value.etag, cache_res.value.etag);
+        } else {
+            // on error from cache, we ignore and let hub upload continue
+            dbg.log0("NamespaceCache.upload_object: error in cache upload", { params: _.omit(params, 'source_stream'), hub_res, cache_res });
+            // Invalidate cache in case we have old object
+            setImmediate(() => this._delete_object_from_cache(params, object_sdk));
         }
 
-        if (load_for_trigger) {
-            for (let i = 0; i < hub_res.value.length; ++i) {
-                const deleted_obj = hub_res.value[i];
-                const head_obj = head_res[i];
-                if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
-                    object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                        obj: head_obj, bucket: params.bucket });
-                }
+        upload_response = hub_res.value;
+        etag = upload_response.etag;
+    }
+
+    if (load_for_trigger) {
+        const obj = {
+            bucket: params.bucket,
+            key: params.key,
+            size: params.size,
+            content_type: params.content_type,
+            etag
+        };
+        object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+    }
+
+    return upload_response;
+}
+
+//////////////////////
+// MULTIPART UPLOAD //
+//////////////////////
+
+async create_object_upload(params, object_sdk) {
+    return this.namespace_hub.create_object_upload(params, object_sdk);
+}
+
+async upload_multipart(params, object_sdk) {
+    return this.namespace_hub.upload_multipart(params, object_sdk);
+}
+
+async list_multiparts(params, object_sdk) {
+    return this.namespace_hub.list_multiparts(params, object_sdk);
+}
+
+async complete_object_upload(params, object_sdk) {
+
+    const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
+    await this._delete_object_from_cache(params, object_sdk);
+    return res;
+}
+
+async abort_object_upload(params, object_sdk) {
+    return this.namespace_hub.abort_object_upload(params, object_sdk);
+}
+
+///////////////////
+// OBJECT DELETE //
+///////////////////
+
+async delete_object(params, object_sdk) {
+
+    const [hub_res, cache_res] = await Promise.allSettled([
+        this.namespace_hub.delete_object(params, object_sdk),
+        this.namespace_nb.delete_object(params, object_sdk),
+    ]);
+    if (hub_res.status === 'rejected') {
+        throw hub_res.reason;
+    }
+    if (cache_res.status === 'rejected' &&
+        cache_res.reason.code !== 'NoSuchKey') {
+        throw cache_res.reason;
+    }
+
+    const operation = 'ObjectRemoved';
+    const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+    if (load_for_trigger) {
+        object_sdk.dispatch_triggers({
+            active_triggers: this.active_triggers,
+            operation,
+            obj: params.object_md,
+            bucket: params.bucket
+        });
+    }
+
+    return hub_res.value;
+}
+
+async delete_multiple_objects(params, object_sdk) {
+    const operation = 'ObjectRemoved';
+    const objects = params.objects.filter(obj => obj.version_id);
+    if (objects.length > 0) {
+        dbg.error('S3 Version request not (NotImplemented) for s3_post_bucket_delete', params);
+        throw new S3Error(S3Error.NotImplemented);
+    }
+    const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+    const head_res = load_for_trigger && await P.map(params.objects, async obj => {
+        const request = {
+            bucket: params.bucket,
+            key: obj.key,
+            version_id: obj.version_id
+        };
+        let obj_md;
+        try {
+            obj_md = _.defaults({ key: obj.key }, await this.namespace_hub.read_object_md(request, object_sdk));
+        } catch (err) {
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
+        }
+        return obj_md;
+    });
+
+    const [hub_res, cache_res] = await Promise.allSettled([
+        this.namespace_hub.delete_multiple_objects(params, object_sdk),
+        this.namespace_nb.delete_multiple_objects(params, object_sdk),
+    ]);
+    if (hub_res.status === 'rejected') {
+        throw hub_res.reason;
+    }
+    if (cache_res.status === 'rejected') {
+        throw cache_res.reason;
+    }
+
+    if (load_for_trigger) {
+        for (let i = 0; i < hub_res.value.length; ++i) {
+            const deleted_obj = hub_res.value[i];
+            const head_obj = head_res[i];
+            if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
+                object_sdk.dispatch_triggers({
+                    active_triggers: this.active_triggers,
+                    operation,
+                    obj: head_obj,
+                    bucket: params.bucket
+                });
             }
         }
-
-        return hub_res.value;
     }
 
-    function update_cache_stats_hook(bucket_name) {
-        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name,write_bytes })
+    return hub_res.value;
+}
+
+function update_cache_stats_hook(bucket_name) {
+    return write_bytes => this.stats_collector.update_cache_stats({ bucket_name, write_bytes })
+}
+
+////////////////////
+// OBJECT TAGGING //
+////////////////////
+
+async get_object_tagging(params, object_sdk) {
+
+    const object_md = await this.read_object_md(params, object_sdk);
+    if (object_md.should_read_from_cache) {
+        return this.namespace_nb.get_object_tagging(params, object_sdk);
     }
 
-    ////////////////////
-    // OBJECT TAGGING //
-    ////////////////////
+    return this.namespace_hub.get_object_tagging(params, object_sdk);
+}
 
-    async get_object_tagging(params, object_sdk) {
+async delete_object_tagging(params, object_sdk) {
 
-        const object_md = await this.read_object_md(params, object_sdk);
-        if (object_md.should_read_from_cache) {
-            return this.namespace_nb.get_object_tagging(params, object_sdk);
-        }
+    const res = this.namespace_hub.delete_object_tagging(params, object_sdk);
+    try {
+        await this.namespace_nb.delete_object_tagging(params, object_sdk);
+    } catch (err) {
+        dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream') });
+    }
+    return res;
+}
 
-        return this.namespace_hub.get_object_tagging(params, object_sdk);
+async put_object_tagging(params, object_sdk) {
+
+    const res = await this.namespace_hub.put_object_tagging(params, object_sdk);
+    try {
+        await this.namespace_nb.put_object_tagging(params, object_sdk);
+    } catch (err) {
+        dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream') });
+    }
+    return res;
+}
+
+//////////////////////////
+// AZURE BLOB MULTIPART //
+//////////////////////////
+
+async upload_blob_block(params, object_sdk) {
+    return this.namespace_hub.upload_blob_block(params, object_sdk);
+}
+
+async commit_blob_block_list(params, object_sdk) {
+    return this.namespace_hub.commit_blob_block_list(params, object_sdk);
+}
+
+async get_blob_block_lists(params, object_sdk) {
+    return this.namespace_hub.get_blob_block_lists(params, object_sdk);
+}
+
+//////////
+// ACLs //
+//////////
+
+async get_object_acl(params, object_sdk) {
+    if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
+        throw new S3Error(S3Error.AccessDenied);
     }
 
-    async delete_object_tagging(params, object_sdk) {
-
-        const res = this.namespace_hub.delete_object_tagging(params, object_sdk);
-        try {
-            await this.namespace_nb.delete_object_tagging(params, object_sdk);
-        } catch (err) {
-            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream')});
-        }
-        return res;
+    if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
+        return this.namespace_hub.get_object_acl(params, object_sdk);
     }
 
-    async put_object_tagging(params, object_sdk) {
+    await this.read_object_md(params, object_sdk);
+    return s3_utils.DEFAULT_OBJECT_ACL;
+}
 
-        const res = await this.namespace_hub.put_object_tagging(params, object_sdk);
-        try {
-            await this.namespace_nb.put_object_tagging(params, object_sdk);
-        } catch (err) {
-            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream')});
-        }
-        return res;
+async put_object_acl(params, object_sdk) {
+    if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
+        throw new S3Error(S3Error.AccessDenied);
     }
 
-    //////////////////////////
-    // AZURE BLOB MULTIPART //
-    //////////////////////////
-
-    async upload_blob_block(params, object_sdk) {
-        return this.namespace_hub.upload_blob_block(params, object_sdk);
+    if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
+        return this.namespace_hub.put_object_acl(params, object_sdk);
     }
 
-    async commit_blob_block_list(params, object_sdk) {
-        return this.namespace_hub.commit_blob_block_list(params, object_sdk);
-    }
-
-    async get_blob_block_lists(params, object_sdk) {
-        return this.namespace_hub.get_blob_block_lists(params, object_sdk);
-    }
-
-    //////////
-    // ACLs //
-    //////////
-
-    async get_object_acl(params, object_sdk) {
-        if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
-            throw new S3Error(S3Error.AccessDenied);
-        }
-
-        if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
-            return this.namespace_hub.get_object_acl(params, object_sdk);
-        }
-
-        await this.read_object_md(params, object_sdk);
-        return s3_utils.DEFAULT_OBJECT_ACL;
-    }
-
-    async put_object_acl(params, object_sdk) {
-        if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
-            throw new S3Error(S3Error.AccessDenied);
-        }
-
-        if (config.NAMESPACE_CACHING.ACL_HANDLING === "pass-through") {
-            return this.namespace_hub.put_object_acl(params, object_sdk);
-        }
-
-        await this.read_object_md(params, object_sdk);
-    }
+    await this.read_object_md(params, object_sdk);
+}
 }
 
 

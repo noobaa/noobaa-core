@@ -70,10 +70,7 @@ class EndpointStatsCollector {
             io_stats.read_count += count;
             io_stats.read_bytes += size;
         }
-        this._update_hub_read_stats({
-            bucket_name: bucket_name,
-            size: size
-        })
+        this._update_hub_read_stats({ bucket_name, size });
     }
 
     _update_hub_read_stats({ bucket_name, size = 0 }) {
@@ -91,10 +88,7 @@ class EndpointStatsCollector {
             io_stats.write_count += count;
             io_stats.write_bytes += size;
         }
-        this._update_hub_write_stats({
-            bucket_name: bucket_name,
-            size: size
-        })
+        this._update_hub_write_stats({ bucket_name, size });
     }
 
     _update_hub_write_stats({ bucket_name, size = 0 }) {
@@ -130,12 +124,10 @@ class EndpointStatsCollector {
             this.prom_metrics_report.inc('cache_read_bytes', { bucket_name }, read_bytes);
         }
         if (read_count) {
-            this.prom_metrics_report.inc(range_op ? 'cache_range_read_count' : 'cache_object_read_count',
-                { bucket_name }, read_count);
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_count' : 'cache_object_read_count', { bucket_name }, read_count);
         }
         if (miss_count) {
-            this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count',
-                { bucket_name }, miss_count);
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count', { bucket_name }, miss_count);
         }
         if (write_bytes) {
             this.prom_metrics_report.inc('cache_write_bytes', { bucket_name }, write_bytes);

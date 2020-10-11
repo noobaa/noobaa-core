@@ -80,7 +80,7 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         name: 'hub_read_latency',
         configuration: {
             help: 'hub read latency in namespace cache bucket',
-            labelNames: ['namespace_resource_id'],
+            labelNames: ['bucket_name'],
             buckets: [
                 0.001,
                 0.01,
@@ -98,7 +98,7 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         name: 'hub_write_latency',
         configuration: {
             help: 'hub write latency in namespace cache bucket',
-            labelNames: ['namespace_resource_id'],
+            labelNames: ['bucket_name'],
             buckets: [
                 0.001,
                 0.01,
@@ -116,7 +116,7 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         name: 'cache_read_latency',
         configuration: {
             help: 'Cache read latency in namespace cache bucket',
-            labelNames: ['namespace_resource_id'],
+            labelNames: ['bucket_name'],
             buckets: [
                 0.001,
                 0.01,
@@ -134,7 +134,7 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         name: 'cache_write_latency',
         configuration: {
             help: 'Cache write latency in namespace cache bucket',
-            labelNames: ['namespace_resource_id'],
+            labelNames: ['bucket_name'],
             buckets: [
                 0.001,
                 0.01,

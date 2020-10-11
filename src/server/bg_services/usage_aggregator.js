@@ -96,8 +96,7 @@ async function get_accounts_bandwidth_usage(query) {
             }
 
             return reportList.reduce(
-                (acc, report) => _accumulate_bandwidth(acc, report),
-                { account: account.email, ...ZERO_STATS }
+                (acc, report) => _accumulate_bandwidth(acc, report), { account: account.email, ...ZERO_STATS }
             );
         })
         .filter(Boolean);

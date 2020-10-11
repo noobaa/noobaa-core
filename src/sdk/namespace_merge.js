@@ -89,6 +89,7 @@ class NamespaceMerge {
     async upload_object(params, object_sdk) {
         const operation = 'ObjectCreated';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+
         const reply = await this._ns_put(ns => ns.upload_object(params, object_sdk));
         if (load_for_trigger) {
             const obj = {

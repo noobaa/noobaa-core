@@ -373,6 +373,7 @@ class PostgresTable {
         query_string += ' LIMIT 1';
         try {
             const res = await this.single_query(query_string);
+            if (res.rowCount === 0) return null;
             return res.rows.map(row => this.decode_json(this.schema, row.data))[0];
         } catch (err) {
             dbg.error('findOne failed', query, query_string, err);

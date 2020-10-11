@@ -25,6 +25,7 @@ async function put_object_uploadId(req, res) {
 
     dbg.log0('PUT OBJECT PART', req.params.bucket, req.params.key, num,
         req.headers['x-amz-copy-source'] || '');
+    const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
     let reply;
     try {
         reply = await req.object_sdk.upload_multipart({
@@ -33,8 +34,7 @@ async function put_object_uploadId(req, res) {
             key: req.params.key,
             num,
             copy_source,
-            source_stream: req,
-            chunked_content: req.chunked_content,
+            source_stream,
             size,
             md5_b64,
             sha256_b64,

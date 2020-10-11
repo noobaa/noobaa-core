@@ -136,10 +136,10 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
             help: 'Cache write latency in namespace cache bucket',
             labelNames: ['namespace_resource_id'],
             buckets: [
-                0.001, 
+                0.001,
                 0.01,
                 0.1, 0.2, 0.5,
-                1, 2, 5, 
+                1, 2, 5,
                 10, 20, 50,
                 100, 200, 500,
                 1000, 2000, 5000,

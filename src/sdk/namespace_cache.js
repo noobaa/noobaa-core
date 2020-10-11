@@ -259,7 +259,7 @@ class NamespaceCache {
                             content_type: params.content_type,
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
-                            upload_chunks_hook: update_cache_stats_hook(params.bucket)
+                            upload_chunks_hook: this.update_cache_stats_hook(params.bucket)
                         };
 
                         const start_time = process.hrtime.bigint();
@@ -347,7 +347,8 @@ class NamespaceCache {
             read_params.start = missing_part_start;
             read_params.end = missing_part_end;
 
-            const read_stream = await this._read_hub_object_stream(read_params, object_sdk, { start: missing_part_start, end: missing_part_end });
+            const read_stream = await this._read_hub_object_stream(
+                read_params, object_sdk, { start: missing_part_start, end: missing_part_end });
 
             return buffer_utils.read_stream_join(read_stream);
         };
@@ -502,7 +503,7 @@ class NamespaceCache {
                 });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
-                upload_params.upload_chunks_hook = update_cache_stats_hook(params.bucket);
+                upload_params.upload_chunks_hook = this.update_cache_stats_hook(params.bucket);
 
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
@@ -825,8 +826,8 @@ class NamespaceCache {
         return hub_res.value;
     }
 
-    function update_cache_stats_hook(bucket_name) {
-        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name, write_bytes })
+    update_cache_stats_hook(bucket_name) {
+        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name, write_bytes });
     }
 
     ////////////////////

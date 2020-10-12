@@ -556,6 +556,7 @@ class NamespaceCache {
         }
 
         let read_response;
+        let tap_stream;
         if (get_from_cache) {
             // For testing purpose: get_from_cache query parameter is on
             try {
@@ -569,12 +570,21 @@ class NamespaceCache {
                         cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                     });
                 });
+
+                // update bytes stats on 'data' events but with a tap stream
+                tap_stream = stream_utils.get_tap_stream(data => {
+                    this.stats_collector.update_cache_stats({
+                        bucket_name: params.bucket,
+                        read_bytes: data.length,
+                    });
+                });
+                read_response.pipe(tap_stream);
             } catch (err) {
                 dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
             }
         }
 
-        read_response = read_response || await this._read_object_stream(params, object_sdk);
+        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
 
         this.stats_collector.update_cache_stats({
             bucket_name: params.bucket,
@@ -594,7 +604,7 @@ class NamespaceCache {
             });
         }
 
-        return read_response;
+        return tap_stream;
     }
 
     ///////////////////
@@ -648,13 +658,14 @@ class NamespaceCache {
                     const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
                     return last_modified_time;
                 },
+                upload_chunks_hook: this.update_cache_stats_hook(params.bucket),
             };
             const cache_promise = _global_cache_uploader.surround_count(
                 params.size,
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
             );
             // update latency stats on 'end'
-            cache_promise.then(() => this.stats_collector.update_hub_latency_stats({
+            cache_promise.then(() => this.stats_collector.update_cache_latency_stats({
                 bucket_name: params.bucket,
                 cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
             }));

@@ -490,7 +490,7 @@ class SystemStore extends EventEmitter {
                 dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
                     depth: 4
                 }));
-                this.old_db_data = this.old_db_data ? this._update_data_from_new(this.old_db_data, new_data) : new_data;
+                this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
                 this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
@@ -507,9 +507,10 @@ class SystemStore extends EventEmitter {
 
     _update_data_from_new(data, new_data) {
         COLLECTIONS.forEach(col => {
-            const old_data = data[col.name];
-            const res = _.unionBy(new_data[col.name], old_data, doc => doc._id.toString());
-            new_data[col.name] = res.filter(doc => !doc.deleted);
+            const old_items = data[col.name];
+            const new_items = new_data[col.name];
+            const u = _.unionBy(new_items, old_items, doc => doc._id.toString());
+            new_data[col.name] = u.filter(doc => !doc.deleted);
         });
         return new_data;
     }

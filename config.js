@@ -8,6 +8,13 @@ var config = exports;
 const os = require('os');
 const assert = require('assert');
 
+
+const CONTAINER_MEM = Number(
+    process.env.CONTAINER_MEM_REQUEST ?
+    process.env.CONTAINER_MEM_REQUEST :
+    os.totalmem()
+);
+
 //////////////////
 // NODES CONFIG //
 //////////////////
@@ -120,9 +127,10 @@ config.IO_MEM_SEMAPHORE = 4;
 config.IO_STREAM_SEMAPHORE_TIMEOUT = 120 * 1000;
 config.VIDEO_READ_STREAM_PRE_FETCH_LOAD_CAP = 5 * 1000;
 config.IO_SEMAPHORE_CAP = Math.floor(
-    Math.max(config.IO_STREAM_SEMAPHORE_SIZE_CAP,
-        Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) /
-        config.IO_MEM_SEMAPHORE)
+    Math.max(
+        config.IO_STREAM_SEMAPHORE_SIZE_CAP,
+        CONTAINER_MEM / config.IO_MEM_SEMAPHORE
+    )
 );
 
 config.ERROR_INJECTON_ON_WRITE = 0;
@@ -448,72 +456,6 @@ config.INLINE_MAX_SIZE = 4096;
 // Object SDK bucket cache expiration time
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
 
-///////////////////////
-// NAMESPACE CACHING //
-///////////////////////
-config.NAMESPACE_CACHING = {
-    DEFAULT_CACHE_TTL_MS: 60000,
-    DEFAULT_BLOCK_SIZE: 64 * 1024,
-    DEFAULT_MAX_CACHE_OBJECT_SIZE: 4 * 1024 * 1024 * 1024 * 1024,
-    DISABLE_BUCKET_FREE_SPACE_CHECK: false,
-    CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD: 80,
-    PART_COUNT_HIGH_THRESHOLD: 5,
-    CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
-    CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
-    UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
-    MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
-    UPLOAD_SEMAPHORE_CAP: Math.floor(
-        Number(process.env.CONTAINER_MEM_REQUEST ? process.env.CONTAINER_MEM_REQUEST : os.totalmem()) / 8),
-    /** @type string 'reject' | 'pass-through' | '' */
-    ACL_HANDLING: "",
-};
-
-assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.DEFAULT_MAX_CACHE_OBJECT_SIZE);
-assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.MAX_OBJECT_PART_SIZE);
-assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
-
-//Load overrides if exist
-try {
-    // load a local config file that overwrites some of the config
-    // eslint-disable-next-line global-require
-    const local_config = require('./config-local');
-    Object.assign(config, local_config);
-
-    //load env variables to override if exists (should start with CONFIG_JS_)
-    const ENV_PREFIX = 'CONFIG_JS_';
-    for (const key of Object.keys(process.env)) {
-        if (key.startsWith(ENV_PREFIX)) {
-            const conf_name = key.substring(ENV_PREFIX.length);
-            let new_val;
-
-            //value exists, verify same type
-            const type = typeof config[conf_name];
-            if (type === 'number' && !isNaN(parseInt(process.env[key], 10))) {
-                new_val = parseInt(process.env[key], 10);
-                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (Int)`);
-                config[conf_name] = new_val;
-            } else if (type === 'boolean' && process.env[key] === 'true') {
-                new_val = true;
-                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (bool)`);
-                config[conf_name] = new_val;
-            } else if (type === 'boolean' && process.env[key] === 'false') {
-                new_val = false;
-                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (bool)`);
-                config[conf_name] = new_val;
-            } else if (type === 'string' || type === 'undefined') {
-                new_val = process.env[key];
-                console.log(`Overriding config.js from ENV with ${conf_name}=${new_val} (string)`);
-                config[conf_name] = new_val;
-            } else {
-                console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
-            }
-        }
-    }
-} catch (err) {
-    if (err.code !== 'MODULE_NOT_FOUND') throw err;
-    console.log('NO LOCAL CONFIG');
-}
-
 //////////////////////////////
 // OPERATOR RELATED         //
 //////////////////////////////
@@ -530,3 +472,91 @@ config.WORM_ENABLED = false;
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 
 config.DB_TYPE = 'mongodb';
+
+///////////////////////
+// NAMESPACE CACHING //
+///////////////////////
+config.NAMESPACE_CACHING = {
+    DEFAULT_CACHE_TTL_MS: 60000,
+    DEFAULT_BLOCK_SIZE: 64 * 1024,
+    DEFAULT_MAX_CACHE_OBJECT_SIZE: 4 * 1024 * 1024 * 1024 * 1024,
+    DISABLE_BUCKET_FREE_SPACE_CHECK: false,
+    CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD: 80,
+    PART_COUNT_HIGH_THRESHOLD: 5,
+    CACHED_PERCENTAGE_LOW_THRESHOLD: 40,
+    CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
+    UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
+    MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
+    UPLOAD_SEMAPHORE_CAP: Math.floor(CONTAINER_MEM / 8),
+    ACL_HANDLING: /** @type { 'reject' | 'pass-through' | '' } */ (''),
+};
+
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.DEFAULT_MAX_CACHE_OBJECT_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.MAX_OBJECT_PART_SIZE);
+assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
+
+
+/////////////////////
+//                 //
+//    OVERRIDES    //
+//                 //
+//  KEEP ME LAST!  //
+//                 //
+/////////////////////
+
+// load a local config file that overwrites some of the config
+function load_config_local() {
+    try {
+        // eslint-disable-next-line global-require
+        const local_config = require('./config-local');
+        console.log('load_config_local: LOADED', local_config);
+        Object.assign(config, local_config);
+    } catch (err) {
+        if (err.code !== 'MODULE_NOT_FOUND') throw err;
+        console.log('load_config_local: NO LOCAL CONFIG');
+    }
+}
+
+// load env variables to override if exists (should start with CONFIG_JS_)
+function load_config_env_overrides() {
+    const ENV_PREFIX = 'CONFIG_JS_';
+    for (const [key, val] of Object.entries(process.env)) {
+        if (!key.startsWith(ENV_PREFIX)) continue;
+        try {
+            const conf_name = key.substring(ENV_PREFIX.length).replace(/__/g, '.');
+            const prev_val = config[conf_name];
+            const type = typeof prev_val;
+
+            if (type === 'number') {
+                const n = Number(val);
+                if (isNaN(n)) throw new Error(`${val} should be a number`);
+                console.log(`Overriding config.js from ENV with ${conf_name}=${n} (number)`);
+                config[conf_name] = n;
+
+            } else if (type === 'boolean') {
+                if (val === 'true') {
+                    console.log(`Overriding config.js from ENV with ${conf_name}=true (bool)`);
+                    config[conf_name] = true;
+                } else if (val === 'false') {
+                    console.log(`Overriding config.js from ENV with ${conf_name}=false (bool)`);
+                    config[conf_name] = true;
+                } else {
+                    throw new Error(`${val} should be true|false`);
+                }
+
+            } else if (type === 'string' || type === 'undefined') {
+                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (string)`);
+                config[conf_name] = val;
+
+            } else {
+                console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
+            }
+
+        } catch (err) {
+            console.warn(`load_config_env_overrides: failed to load ${key}`, err);
+        }
+    }
+}
+
+load_config_local();
+load_config_env_overrides();

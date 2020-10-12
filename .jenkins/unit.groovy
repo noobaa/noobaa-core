@@ -5,8 +5,9 @@ def ci_git_ref = 'master' // default, will be overwritten for PRs
 
 def HASH = '0123abcd' // default, will be overwritten
 def NO_CACHE = 'NO_CACHE=true'
-// building with Docker fails in the CI due to network restrictions
-def CONTAINER_ENGINE = 'CONTAINER_ENGINE=podman'
+// Docker has some network conflicts in the CI, host-networking works
+def USE_HOSTNETWORK = 'USE_HOSTNETWORK=true'
+def CONTAINER_ENGINE = 'CONTAINER_ENGINE=docker'
 
 node('cico-workspace') {
 	if (params.ghprbPullId != null) {
@@ -50,11 +51,11 @@ node('cico-workspace') {
 
 		// real test start here
 		stage('Unit Tests') {
-			//sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester ${NO_CACHE} ${CONTAINER_ENGINE}'"
+			//sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester ${NO_CACHE} ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
 
 			// abort in case the test hangs
 			timeout(time:30, unit: 'MINUTES') {
-				sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make test ${CONTAINER_ENGINE}'"
+				sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make test ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
 			}
 		}
 	}

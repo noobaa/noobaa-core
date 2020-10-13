@@ -46,9 +46,13 @@ export default function(action$, { api, localStorage, sessionStorage }) {
             return of(true).pipe(
                 mergeMap(async () => {
                     const sessionInfo = await api.auth.read_auth();
-                    const account = await api.account.read_account({ email: sessionInfo.account.email });
-                    const uiTheme = account.preferences.ui_theme.toLowerCase();
-                    return { sessionInfo: sessionInfo, uiTheme  };
+                    if (sessionInfo.account) {
+                        const account = await api.account.read_account({ email: sessionInfo.account.email });
+                        const uiTheme = account ? account.preferences.ui_theme.toLowerCase() : '';
+                        return { sessionInfo, uiTheme };
+                    } else {
+                        return { sessionInfo };
+                    }
                 }),
                 map(({ sessionInfo, uiTheme }) => {
                     if (!sessionInfo.account) {

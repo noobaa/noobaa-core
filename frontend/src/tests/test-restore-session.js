@@ -21,7 +21,13 @@ function mockServices(
             options: {
                 auth_token: undefined
             },
-            auth: { read_auth }
+            auth: { read_auth },
+            account: { read_account: params => ({
+                preferences: {
+                    email: params.email,
+                    ui_theme: 'theme'
+                }
+            }) }
         },
         sessionStorage: {
             getItem: sessionStorageGetItem
@@ -74,9 +80,18 @@ describe('Restore session', () => {
         it('should try to retrieve the token from sessionStorage before trying localStorage', () => {
             const shouldBeTheToken = 'shouldBeTheToken';
             const shouldNotBeTheToken = 'shouldNotBeTheToken';
+            const sessionInfo = {
+                account: {
+                    email: 'test@noobaa.com',
+                    must_change_password: Date.now()
+                },
+                system: {
+                    name: 'test'
+                }
+            };
 
             const services = mockServices(
-                () => Promise.resolve({}),
+                () => Promise.resolve(sessionInfo),
                 () => shouldBeTheToken,
                 () => shouldNotBeTheToken
             );
@@ -101,7 +116,7 @@ describe('Restore session', () => {
             );
 
             return test(services).then(
-                action => assert.deepEqual(
+                action => assert.deepStrictEqual(
                     action,
                     failRestoreSession(token, mapErrorObject(error)),
                     'Returned action was not of type FAIL_RESTORE_SESSION or has a payload with wrong error'
@@ -212,9 +227,9 @@ describe('Restore session', () => {
             );
 
             return test(services).then(
-                action => assert.deepEqual(
+                action => assert.deepStrictEqual(
                     action,
-                    completeRestoreSession(token, sessionInfo, true),
+                    completeRestoreSession(token, sessionInfo, true, 'theme'),
                     'Returned action does not match expected action'
                 )
             );
@@ -252,9 +267,9 @@ describe('Restore session', () => {
             );
 
             return test(services).then(
-                action => assert.deepEqual(
+                action => assert.deepStrictEqual(
                     action,
-                    completeRestoreSession(token, sessionInfo, true),
+                    completeRestoreSession(token, sessionInfo, true, 'theme'),
                     'Returned action does not match expected action'
                 )
             );

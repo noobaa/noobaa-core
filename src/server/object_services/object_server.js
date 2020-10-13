@@ -1318,7 +1318,7 @@ function report_endpoint_problems(req) {
                 })
                 .then(node => {
                     const endpoint_name = node ? `node ${node.os_info.hostname}-${node.ip}` :
-                        `server ${os.hostname()}-${server_info.owner_secret}`;
+                        `server ${os.hostname()}-${(server_info && server_info.owner_secret) || '?'}`;
                     return Dispatcher.instance().alert(
                         'MAJOR',
                         req.system && req.system._id,

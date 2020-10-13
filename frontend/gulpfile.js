@@ -470,7 +470,7 @@ function letsToLessClass() {
 
         const str = [].concat(contents, 'json {', output, '}').join('\n');
         this.push(new VFile({
-            contents: new Buffer(str, 'utf-8'),
+            contents: Buffer.from(str, 'utf-8'),
             path: 'temp.less'
         }));
 
@@ -491,7 +491,7 @@ function cssClassToJson() {
         }
 
         this.push(new VFile({
-            contents: new Buffer(JSON.stringify(output), 'utf-8'),
+            contents: Buffer.from(JSON.stringify(output), 'utf-8'),
             path: 'style.json'
         }));
 

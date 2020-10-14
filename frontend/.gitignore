@@ -1,5 +1,5 @@
 node_modules/
-src/lib/
+bower_components/
 dist/
 .env
 *.pem

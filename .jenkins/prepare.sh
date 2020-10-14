@@ -15,6 +15,20 @@ function usage() {
     exit 0
 }
 
+# FIXME: unfortunately minikube does not work with podman (yet)
+function install_docker()
+{
+    curl https://download.docker.com/linux/centos/docker-ce.repo -o /etc/yum.repos.d/docker-ce.repo
+    # update all packages to prevent missing dependencies
+    dnf -y update
+    # install and enable docker
+    dnf -y --nobest install docker-ce
+    # fix network access from within docker containers (IP conflict in CI environment)
+    [ -d /etc/docker ] || mkdir /etc/docker
+    echo '{ "bip": "192.168.234.5/24" }' > /etc/docker/daemon.json
+    systemctl enable --now docker
+}
+
 # In case no value is specified, default values will be used.
 gitrepo="https://github.com/noobaa/noobaa-core"
 workdir="tip/"
@@ -76,7 +90,8 @@ done
 
 set -x
 
-dnf -y install git make podman
+dnf -y install git make
+install_docker
 
 git clone --depth=1 --branch="${base}" "${gitrepo}" "${workdir}"
 cd "${workdir}"

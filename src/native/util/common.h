@@ -98,7 +98,7 @@ class Exception : public std::exception
 {
 public:
     Exception(std::string msg)
-        : _msg(msg)
+        : _msg(std::string("Exception: ") + msg)
         , _bt(new Backtrace()) {}
 
     virtual ~Exception() throw() {}
@@ -108,14 +108,15 @@ public:
         return _msg.c_str();
     }
 
-    friend std::ostream& operator<<(std::ostream& os, Exception& e)
+    friend std::ostream& operator<<(std::ostream& os, const Exception& e)
     {
-        return os << "Exception: " << e._msg << " " << *e._bt;
+        return os << e._msg << " " << *e._bt;
     }
 
 private:
-    std::string _msg;
-    std::shared_ptr<Backtrace> _bt;
+    const std::string _msg;
+    // using shared_ptr to hold the backtrace in order to avoid copying it when the exception is passed by value
+    const std::shared_ptr<Backtrace> _bt;
 };
 
 } // namespace noobaa

@@ -33,17 +33,6 @@ RUN cd frontend && \
 
 ##############################################################
 # Layers:
-#   Title: installing bower packages for the frontend
-#   Size: ~ 49.7 MB
-#   Cache: Rebuild when there is new gulpfile or bower.json
-##############################################################
-COPY ./frontend/gulpfile.js ./frontend/
-COPY ./frontend/bower.json ./frontend/
-RUN cd frontend && \
-    npm run install-deps
-
-##############################################################
-# Layers:
 #   Title: Copying the code and Building the frontend
 #   Size: ~ 131 MB
 #   Cache: Rebuild when changing any file which is copied

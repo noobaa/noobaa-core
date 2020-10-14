@@ -34,7 +34,8 @@
 #define TEST_LEN  		(1024*1024ull)	//1M
 #define TEST_BUFS 		SHA1_MIN_LANES
 #define ROTATION_TIMES 		10000	//total length processing = TEST_LEN * ROTATION_TIMES
-#define UPDATE_SIZE		(13*SHA1_BLOCK_SIZE)	//832
+#define UPDATE_SIZE		(13*SHA1_BLOCK_SIZE)
+#define LEN_TOTAL		(TEST_LEN * ROTATION_TIMES)
 
 /* Reference digest global to reduce stack usage */
 static uint8_t digest_ref_upd[4 * SHA1_DIGEST_NWORDS];
@@ -44,135 +45,81 @@ inline static unsigned int byteswap32(unsigned int x)
 	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
 }
 
+struct user_data {
+	int idx;
+	uint64_t processed;
+};
+
 int main(void)
 {
 	SHA_CTX o_ctx;		//openSSL
 	SHA1_HASH_CTX_MGR *mgr = NULL;
 	SHA1_HASH_CTX ctxpool[TEST_BUFS], *ctx = NULL;
 	uint32_t i, j, k, fail = 0;
-	long long len_done, len_rem;
 	unsigned char *bufs[TEST_BUFS];
-	unsigned char *buf_ptr[TEST_BUFS];
-	unsigned char *buf_ref_upd;
+	struct user_data udata[TEST_BUFS];
 
 	posix_memalign((void *)&mgr, 16, sizeof(SHA1_HASH_CTX_MGR));
 	sha1_ctx_mgr_init(mgr);
 
-	printf("\n");
+	printf("sha1_large_test\n");
+
 	// Init ctx contents
-	SHA1_Init(&o_ctx);
 	for (i = 0; i < TEST_BUFS; i++) {
-		bufs[i] = (unsigned char *)calloc((size_t) TEST_LEN, 1);
+		bufs[i] = (unsigned char *)calloc((size_t)TEST_LEN, 1);
 		if (bufs[i] == NULL) {
 			printf("malloc failed test aborted\n");
 			return 1;
 		}
 		hash_ctx_init(&ctxpool[i]);
-		ctxpool[i].user_data = (void *)((uint64_t) i);
+		ctxpool[i].user_data = (void *)&udata[i];
 	}
 
 	//Openssl SHA1 update test
-	buf_ref_upd = (unsigned char *)calloc((size_t) (TEST_LEN), 1);
+	SHA1_Init(&o_ctx);
 	for (k = 0; k < ROTATION_TIMES; k++) {
-		SHA1_Update(&o_ctx, buf_ref_upd, TEST_LEN);
+		SHA1_Update(&o_ctx, bufs[k % TEST_BUFS], TEST_LEN);
 	}
-
 	SHA1_Final(digest_ref_upd, &o_ctx);
 
-	for (k = 0; k < ROTATION_TIMES;) {
-		for (i = 0; i < TEST_BUFS;) {
-			buf_ptr[i] = bufs[i];
-			len_done = 0;
-			len_rem = (long long)TEST_LEN;
-			if (len_done == 0 && k == 0) {
-				ctx = sha1_ctx_mgr_submit(mgr,
-							  &ctxpool[i], buf_ptr[i], UPDATE_SIZE,
-							  HASH_FIRST);
-			}
+	// Initialize pool
+	for (i = 0; i < TEST_BUFS; i++) {
+		struct user_data *u = (struct user_data *)ctxpool[i].user_data;
+		u->idx = i;
+		u->processed = 0;
+	}
 
-			else if (len_rem <= UPDATE_SIZE) {
-				if (k == ROTATION_TIMES - 1) {
-					ctx = sha1_ctx_mgr_submit(mgr,
-								  &ctxpool[i], buf_ptr[i],
-								  len_rem, HASH_LAST);
-					ctx = sha1_ctx_mgr_flush(mgr);
+	printf("Starting updates\n");
+	int highest_pool_idx = 0;
+	ctx = &ctxpool[highest_pool_idx++];
+	while (ctx) {
+		int len = UPDATE_SIZE;
+		int update_type = HASH_UPDATE;
+		struct user_data *u = (struct user_data *)ctx->user_data;
+		int idx = u->idx;
 
-				} else {
-					ctx = sha1_ctx_mgr_submit(mgr,
-								  &ctxpool[i],
-								  buf_ptr[i], len_rem,
-								  HASH_UPDATE);
-					if ((ctx == NULL) || hash_ctx_complete(ctx)) {
-						i++;
-						continue;
-					}
+		if (u->processed == 0)
+			update_type = HASH_FIRST;
 
-					ctx = sha1_ctx_mgr_flush(mgr);
-					if (ctx == NULL) {
-						k++;
-						continue;
-					}
-				}
-			}
-
-			else {
+		else if (hash_ctx_complete(ctx)) {
+			if (highest_pool_idx < TEST_BUFS)
+				ctx = &ctxpool[highest_pool_idx++];
+			else
 				ctx = sha1_ctx_mgr_flush(mgr);
-				ctx = sha1_ctx_mgr_submit(mgr,
-							  &ctxpool[i], buf_ptr[i], UPDATE_SIZE,
-							  HASH_UPDATE);
-			}
+			continue;
+		} else if (u->processed >= (LEN_TOTAL - UPDATE_SIZE)) {
+			len = (LEN_TOTAL - u->processed);
+			update_type = HASH_LAST;
+		}
+		u->processed += len;
+		ctx = sha1_ctx_mgr_submit(mgr, ctx, bufs[idx], len, update_type);
 
-			if ((ctx == NULL) || hash_ctx_complete(ctx)) {
-				i++;
-				continue;
-			}
-
-			i = (unsigned long)(ctx->user_data);
-			buf_ptr[i] += UPDATE_SIZE;
-		}		//end for i < test_bufs
-
-		ctx = sha1_ctx_mgr_flush(mgr);
-		while (ctx) {
-			if (hash_ctx_complete(ctx)) {
+		if (NULL == ctx) {
+			if (highest_pool_idx < TEST_BUFS)
+				ctx = &ctxpool[highest_pool_idx++];
+			else
 				ctx = sha1_ctx_mgr_flush(mgr);
-				continue;
-			}
-			i = (unsigned long)(ctx->user_data);
-			buf_ptr[i] += UPDATE_SIZE;
-			len_done =
-			    (long long)((unsigned long)buf_ptr[i] - (unsigned long)bufs[i]);
-			len_rem = (long long)TEST_LEN - len_done;
-			if (len_rem <= UPDATE_SIZE) {
-				if (k == ROTATION_TIMES - 1) {
-					ctx = sha1_ctx_mgr_submit(mgr,
-								  &ctxpool[i], buf_ptr[i],
-								  len_rem, HASH_LAST);
-				} else {
-					ctx = sha1_ctx_mgr_submit(mgr,
-								  &ctxpool[i],
-								  buf_ptr[i], len_rem,
-								  HASH_UPDATE);
-					if (ctx == NULL && i == TEST_BUFS - 1)	//all test bufs are finished
-					{
-						if (k >= ROTATION_TIMES - 1)
-							break;
-						else
-							continue;
-					}
-				}
-			} else {
-				ctx = sha1_ctx_mgr_submit(mgr,
-							  &ctxpool[i],
-							  buf_ptr[i], UPDATE_SIZE,
-							  HASH_UPDATE);
-			}
-			if (ctx == NULL) {
-				ctx = sha1_ctx_mgr_flush(mgr);
-			}
-		}		//end while
-
-		if (ctx == NULL)
-			k++;
+		}
 	}
 
 	printf("multibuffer SHA1 digest: \n");

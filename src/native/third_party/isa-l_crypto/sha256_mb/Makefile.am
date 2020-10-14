@@ -27,39 +27,45 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
-lsrc += sha256_mb/sha256_ctx_sse.c \
-	sha256_mb/sha256_ctx_avx.c \
-	sha256_mb/sha256_ctx_avx2.c
+lsrc_x86_64 += 	sha256_mb/sha256_ctx_sse.c \
+		sha256_mb/sha256_ctx_avx.c \
+		sha256_mb/sha256_ctx_avx2.c \
+		sha256_mb/sha256_ctx_base.c
 
-lsrc += sha256_mb/sha256_mb_mgr_init_sse.c \
-	sha256_mb/sha256_mb_mgr_init_avx2.c
+lsrc_x86_64 += 	sha256_mb/sha256_mb_mgr_init_sse.c \
+		sha256_mb/sha256_mb_mgr_init_avx2.c
 
 
-lsrc += sha256_mb/sha256_mb_mgr_submit_sse.asm \
-	sha256_mb/sha256_mb_mgr_submit_avx.asm \
-	sha256_mb/sha256_mb_mgr_submit_avx2.asm \
-	sha256_mb/sha256_mb_mgr_flush_sse.asm \
-	sha256_mb/sha256_mb_mgr_flush_avx.asm \
-	sha256_mb/sha256_mb_mgr_flush_avx2.asm \
-	sha256_mb/sha256_mb_x4_sse.asm \
-	sha256_mb/sha256_mb_x4_avx.asm \
-	sha256_mb/sha256_mb_x8_avx2.asm \
-	sha256_mb/sha256_multibinary.asm
+lsrc_x86_64 += 	sha256_mb/sha256_mb_mgr_submit_sse.asm \
+		sha256_mb/sha256_mb_mgr_submit_avx.asm \
+		sha256_mb/sha256_mb_mgr_submit_avx2.asm \
+		sha256_mb/sha256_mb_mgr_flush_sse.asm \
+		sha256_mb/sha256_mb_mgr_flush_avx.asm \
+		sha256_mb/sha256_mb_mgr_flush_avx2.asm \
+		sha256_mb/sha256_mb_x4_sse.asm \
+		sha256_mb/sha256_mb_x4_avx.asm \
+		sha256_mb/sha256_mb_x8_avx2.asm \
+		sha256_mb/sha256_multibinary.asm
 
-lsrc += sha256_mb/sha256_ctx_avx512.c \
-	sha256_mb/sha256_mb_mgr_init_avx512.c \
-	sha256_mb/sha256_mb_mgr_submit_avx512.asm \
-	sha256_mb/sha256_mb_mgr_flush_avx512.asm \
-	sha256_mb/sha256_mb_x16_avx512.asm
+lsrc_x86_64 += 	sha256_mb/sha256_ctx_avx512.c \
+		sha256_mb/sha256_mb_mgr_init_avx512.c \
+		sha256_mb/sha256_mb_mgr_submit_avx512.asm \
+		sha256_mb/sha256_mb_mgr_flush_avx512.asm \
+		sha256_mb/sha256_mb_x16_avx512.asm
 
-lsrc += sha256_mb/sha256_opt_x1.asm
+lsrc_x86_64 += 	sha256_mb/sha256_opt_x1.asm
 
-lsrc += sha256_mb/sha256_ni_x1.asm \
-	sha256_mb/sha256_ctx_sse_ni.c \
-	sha256_mb/sha256_ctx_avx512_ni.c \
-	sha256_mb/sha256_mb_mgr_submit_sse_ni.asm \
-	sha256_mb/sha256_mb_mgr_flush_sse_ni.asm \
-	sha256_mb/sha256_mb_mgr_flush_avx512_ni.asm
+lsrc_x86_64 += 	sha256_mb/sha256_ni_x1.asm \
+		sha256_mb/sha256_ni_x2.asm \
+		sha256_mb/sha256_ctx_sse_ni.c \
+		sha256_mb/sha256_ctx_avx512_ni.c \
+		sha256_mb/sha256_mb_mgr_submit_sse_ni.asm \
+		sha256_mb/sha256_mb_mgr_flush_sse_ni.asm \
+		sha256_mb/sha256_mb_mgr_flush_avx512_ni.asm
+
+lsrc_x86_32 += 	$(lsrc_x86_64)
+
+lsrc_aarch64 += sha256_mb/sha256_ctx_base.c
 
 src_include += -I $(srcdir)/sha256_mb
 

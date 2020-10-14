@@ -27,32 +27,37 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
-lsrc += md5_mb/md5_ctx_sse.c \
-	md5_mb/md5_ctx_avx.c \
-	md5_mb/md5_ctx_avx2.c
+lsrc_x86_64 +=	md5_mb/md5_ctx_sse.c \
+		md5_mb/md5_ctx_avx.c \
+		md5_mb/md5_ctx_avx2.c \
+		md5_mb/md5_ctx_base.c
 
-lsrc += md5_mb/md5_mb_mgr_init_sse.c \
-	md5_mb/md5_mb_mgr_init_avx2.c \
-	md5_mb/md5_mb_mgr_init_avx512.c
+lsrc_x86_64 += 	md5_mb/md5_mb_mgr_init_sse.c \
+		md5_mb/md5_mb_mgr_init_avx2.c \
+		md5_mb/md5_mb_mgr_init_avx512.c
 
-lsrc += md5_mb/md5_mb_mgr_submit_sse.asm \
-	md5_mb/md5_mb_mgr_submit_avx.asm \
-	md5_mb/md5_mb_mgr_submit_avx2.asm \
-	md5_mb/md5_mb_mgr_flush_sse.asm \
-	md5_mb/md5_mb_mgr_flush_avx.asm \
-	md5_mb/md5_mb_mgr_flush_avx2.asm \
-	md5_mb/md5_mb_x4x2_sse.asm \
-	md5_mb/md5_mb_x4x2_avx.asm \
-	md5_mb/md5_mb_x8x2_avx2.asm \
-	md5_mb/md5_multibinary.asm
+lsrc_x86_64 += 	md5_mb/md5_mb_mgr_submit_sse.asm \
+		md5_mb/md5_mb_mgr_submit_avx.asm \
+		md5_mb/md5_mb_mgr_submit_avx2.asm \
+		md5_mb/md5_mb_mgr_flush_sse.asm \
+		md5_mb/md5_mb_mgr_flush_avx.asm \
+		md5_mb/md5_mb_mgr_flush_avx2.asm \
+		md5_mb/md5_mb_x4x2_sse.asm \
+		md5_mb/md5_mb_x4x2_avx.asm \
+		md5_mb/md5_mb_x8x2_avx2.asm \
+		md5_mb/md5_multibinary.asm
 
-lsrc += md5_mb/md5_mb_mgr_submit_avx512.asm \
-	md5_mb/md5_mb_mgr_flush_avx512.asm \
-	md5_mb/md5_mb_x16x2_avx512.asm \
-	md5_mb/md5_ctx_avx512.c
+lsrc_x86_64 += 	md5_mb/md5_mb_mgr_submit_avx512.asm \
+		md5_mb/md5_mb_mgr_flush_avx512.asm \
+		md5_mb/md5_mb_x16x2_avx512.asm \
+		md5_mb/md5_ctx_avx512.c
 
-src_include +=  -I $(srcdir)/md5_mb
-extern_hdrs +=  include/md5_mb.h \
+lsrc_x86_32 += $(lsrc_x86_64)
+
+lsrc_aarch64 += md5_mb/md5_ctx_base.c
+
+src_include  += -I $(srcdir)/md5_mb
+extern_hdrs  += include/md5_mb.h \
 		include/multi_buffer.h
 
 other_src += 	include/datastruct.asm \

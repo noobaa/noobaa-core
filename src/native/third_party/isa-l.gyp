@@ -47,7 +47,7 @@
             ],
             # compile asm only for x64 until we have support for ppc
             # see https://github.com/intel/isa-l/issues/7
-            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
+            'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l/erasure_code/ec_multibinary.asm',
                 'isa-l/erasure_code/gf_vect_mul_sse.asm',
                 'isa-l/erasure_code/gf_vect_dot_prod_sse.asm',
@@ -125,47 +125,31 @@
             ],
             'sources': [
                 # include
-                'isa-l_crypto/include/md5_mb.h',
-                'isa-l_crypto/include/types.h',
-                'isa-l_crypto/include/multi_buffer.h',
                 'isa-l_crypto/md5_mb/md5_ctx_base.c',
-                'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
             ],
             # compile asm only for x64 until we have support for ppc
             # see https://github.com/intel/isa-l/issues/7
-            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
-                'isa-l_crypto/include/intrinreg.h',
-                'isa-l_crypto/include/reg_sizes.asm',
-                'isa-l_crypto/include/multibinary.asm',
-                'isa-l_crypto/include/datastruct.asm',
-                # asm
-                'isa-l_crypto/md5_mb/md5_multibinary.asm',
-                'isa-l_crypto/md5_mb/md5_job.asm',
-                'isa-l_crypto/md5_mb/md5_mb_mgr_datastruct.asm',
-                # ctx
+            'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/md5_mb/md5_ctx_sse.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx2.c',
-                'isa-l_crypto/md5_mb/md5_ctx_avx512.c',
-                # mgr_init
                 'isa-l_crypto/md5_mb/md5_mb_mgr_init_sse.c',
                 'isa-l_crypto/md5_mb/md5_mb_mgr_init_avx2.c',
                 'isa-l_crypto/md5_mb/md5_mb_mgr_init_avx512.c',
-                # mgr_flush
-                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_sse.asm',
-                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx.asm',
-                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx2.asm',
-                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx512.asm',
-                # mgr_submit
                 'isa-l_crypto/md5_mb/md5_mb_mgr_submit_sse.asm',
                 'isa-l_crypto/md5_mb/md5_mb_mgr_submit_avx.asm',
                 'isa-l_crypto/md5_mb/md5_mb_mgr_submit_avx2.asm',
-                'isa-l_crypto/md5_mb/md5_mb_mgr_submit_avx512.asm',
-                # x4x2
+                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_sse.asm',
+                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx.asm',
+                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx2.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x4x2_sse.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x4x2_avx.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x8x2_avx2.asm',
+                'isa-l_crypto/md5_mb/md5_multibinary.asm',
+                'isa-l_crypto/md5_mb/md5_mb_mgr_submit_avx512.asm',
+                'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx512.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x16x2_avx512.asm',
+                'isa-l_crypto/md5_mb/md5_ctx_avx512.c',
             ]}]],
         },
 
@@ -179,11 +163,10 @@
             ],
             'sources': [
                 'isa-l_crypto/sha1_mb/sha1_ctx_base.c',
-                'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
             ],
             # compile asm only for x64 until we have support for ppc
             # see https://github.com/intel/isa-l/issues/7
-            'conditions': [ [ 'node_arch=="x64"', { 'sources': [
+            'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/sha1_mb/sha1_ctx_sse.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx2.c',
@@ -206,12 +189,17 @@
                 'isa-l_crypto/sha1_mb/sha1_mb_x16_avx512.asm',
                 'isa-l_crypto/sha1_mb/sha1_opt_x1.asm',
                 'isa-l_crypto/sha1_mb/sha1_ni_x1.asm',
+                'isa-l_crypto/sha1_mb/sha1_ni_x2.asm',
                 'isa-l_crypto/sha1_mb/sha1_ctx_sse_ni.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx512_ni.c',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_submit_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_avx512_ni.asm',
-            ]}]],
+            ]}, {
+                'sources': [
+                    'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
+                ]
+            }]],
         },
 
         {
@@ -223,6 +211,11 @@
                 'isa-l_crypto/sha256_mb/',
             ],
             'sources': [
+                'isa-l_crypto/sha1_mb/sha256_ctx_base.c',
+            ],
+            # compile asm only for x64 until we have support for ppc
+            # see https://github.com/intel/isa-l/issues/7
+            'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/sha256_mb/sha256_ctx_sse.c',
                 'isa-l_crypto/sha256_mb/sha256_ctx_avx.c',
                 'isa-l_crypto/sha256_mb/sha256_ctx_avx2.c',
@@ -245,14 +238,15 @@
                 'isa-l_crypto/sha256_mb/sha256_mb_x16_avx512.asm',
                 'isa-l_crypto/sha256_mb/sha256_opt_x1.asm',
                 'isa-l_crypto/sha256_mb/sha256_ni_x1.asm',
+                'isa-l_crypto/sha256_mb/sha256_ni_x2.asm',
                 'isa-l_crypto/sha256_mb/sha256_ctx_sse_ni.c',
                 'isa-l_crypto/sha256_mb/sha256_ctx_avx512_ni.c',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_submit_sse_ni.asm',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_flush_avx512_ni.asm',
-            ],
+            ]}]],
         },
-        
+
         {
             'target_name': 'isa-l-sha512',
             'type': 'static_library',
@@ -262,6 +256,11 @@
                 'isa-l_crypto/sha512_mb/',
             ],
             'sources': [
+                'isa-l_crypto/sha1_mb/sha512_ctx_base.c',
+            ],
+            # compile asm only for x64 until we have support for ppc
+            # see https://github.com/intel/isa-l/issues/7
+            'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/sha512_mb/sha512_ctx_sse.c',
                 'isa-l_crypto/sha512_mb/sha512_ctx_avx.c',
                 'isa-l_crypto/sha512_mb/sha512_ctx_avx2.c',
@@ -287,7 +286,7 @@
                 'isa-l_crypto/sha512_mb/sha512_mb_mgr_submit_avx512.asm',
                 'isa-l_crypto/sha512_mb/sha512_mb_mgr_flush_avx512.asm',
                 'isa-l_crypto/sha512_mb/sha512_mb_x8_avx512.asm',
-            ],
+            ]}]],
         },
 
         # tests
@@ -354,7 +353,7 @@
             'type': 'executable',
             'dependencies': ['isa-l-md5'],
             'include_dirs': ['isa-l_crypto/include/'],
-            'ldflags': ['-lssl','-lcrypto'],
+            'ldflags': ['-lssl', '-lcrypto'],
             'sources': ['isa-l_crypto/md5_mb/md5_mb_vs_ossl_perf.c']
         },
 

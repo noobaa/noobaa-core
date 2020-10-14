@@ -32,6 +32,7 @@ objs = \
 	bin\md5_ctx_avx2.obj \
 	bin\md5_ctx_avx512.obj \
 	bin\md5_ctx_sse.obj \
+	bin\md5_ctx_base.obj \
 	bin\md5_mb_mgr_flush_avx.obj \
 	bin\md5_mb_mgr_flush_avx2.obj \
 	bin\md5_mb_mgr_flush_avx512.obj \
@@ -52,6 +53,7 @@ objs = \
 	bin\sha1_ctx_avx2.obj \
 	bin\sha1_ctx_avx512.obj \
 	bin\sha1_ctx_sse.obj \
+	bin\sha1_ctx_base.obj \
 	bin\sha1_mb_mgr_flush_avx.obj \
 	bin\sha1_mb_mgr_flush_avx2.obj \
 	bin\sha1_mb_mgr_flush_avx512.obj \
@@ -72,6 +74,7 @@ objs = \
 	bin\sha256_ctx_avx2.obj \
 	bin\sha256_ctx_avx512.obj \
 	bin\sha256_ctx_sse.obj \
+	bin\sha256_ctx_base.obj \
 	bin\sha256_mb_mgr_flush_avx.obj \
 	bin\sha256_mb_mgr_flush_avx2.obj \
 	bin\sha256_mb_mgr_flush_avx512.obj \
@@ -93,6 +96,7 @@ objs = \
 	bin\sha512_ctx_avx512.obj \
 	bin\sha512_ctx_sb_sse4.obj \
 	bin\sha512_ctx_sse.obj \
+	bin\sha512_ctx_base.obj \
 	bin\sha512_mb_mgr_flush_avx.obj \
 	bin\sha512_mb_mgr_flush_avx2.obj \
 	bin\sha512_mb_mgr_flush_avx512.obj \

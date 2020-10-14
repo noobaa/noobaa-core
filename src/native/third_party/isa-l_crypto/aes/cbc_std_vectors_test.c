@@ -39,8 +39,8 @@
 #include "types.h"
 #include "cbc_std_vectors.h"
 
-typedef void (*aes_cbc_generic) (uint8_t * in, uint8_t * IV, uint8_t * keys, uint8_t * out,
-				 uint64_t len_bytes);
+typedef void (*aes_cbc_generic)(uint8_t * in, uint8_t * IV, uint8_t * keys, uint8_t * out,
+				uint64_t len_bytes);
 
 int check_data(uint8_t * test, uint8_t * expected, uint64_t len, char *data_name)
 {

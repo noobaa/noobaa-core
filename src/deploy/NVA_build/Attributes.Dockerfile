@@ -17,11 +17,6 @@ COPY ./frontend/package*.json ./frontend/
 RUN cd frontend && \
     npm install
 
-COPY ./frontend/gulpfile.js ./frontend/
-COPY ./frontend/bower.json ./frontend/
-RUN cd frontend && \
-    npm run install-deps
-
 COPY ./frontend/ ./frontend/
 COPY ./images/ ./images/
 COPY ./src/rpc/ ./src/rpc/

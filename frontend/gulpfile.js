@@ -20,7 +20,7 @@ const $ = require('gulp-load-plugins')();
 const { version } = require('../package.json');
 
 const cwd = process.cwd();
-const libsPath = './src/lib';
+const libPath = './src/lib';
 const buildPath = './dist';
 const uglify = !!argv.uglify;
 let buildErrors = 0;
@@ -35,60 +35,75 @@ const staticAssetsSelector = [
     '!src/assets/icons/*.svg'
 ];
 
-const libs = [
+const dependencies = [
     {
         name: 'knockout',
-        module: 'dist/knockout.debug.js'
+        dir: 'bower_components/knockout',
+        codeFile: 'dist/knockout.debug.js'
     },
     {
         name: 'knockout-projections',
-        module: 'dist/knockout-projections.min.js'
+        dir: 'bower_components/knockout-projections',
+        codeFile: 'dist/knockout-projections.min.js'
     },
     {
         name: 'knockout-validation',
-        module: 'dist/knockout.validation.js'
+        dir: 'bower_components/knockout-validation',
+        codeFile: 'dist/knockout.validation.js'
     },
     {
         name: 'numeral',
-        module: '../../../node_modules/numeral/numeral.js'
+        dir: 'node_modules/numeral',
+        codeFile: 'numeral.js'
     },
     {
         name: 'page',
-        module: 'page.js'
+        dir: 'bower_components/page',
+        codeFile: 'page.js'
     },
     {
         name: 'moment',
-        module: 'moment.js'
+        dir: 'bower_components/moment',
+        codeFile: 'moment.js'
     },
     {
         name: 'moment-timezone',
-        module: 'builds/moment-timezone-with-data.js'
+        dir: 'bower_components/moment-timezone',
+        codeFile: 'builds/moment-timezone-with-data.js'
     },
     {
         name: 'shifty',
-        module: 'dist/shifty.js',
-        build: 'npm run build'
+        dir: 'bower_components/shifty',
+        build: 'npm run build',        
+        codeFile: 'dist/shifty.js'
     },
     {
         name: 'aws-sdk',
-        module: '../../../../node_modules/aws-sdk/dist/aws-sdk.min.js'
+        dir: '../node_modules/aws-sdk',
+        codeFile: '/dist/aws-sdk.min.js'
     },
     {
         name: 'jszip',
-        module: 'dist/jszip.js'
+        dir: 'bower_components/jszip',
+        codeFile: 'dist/jszip.js'
     },
     {
-        name: 'chart.js',
-        exposeAs: 'chartjs',
-        module: 'dist/Chart.js'
+        name: 'chartjs',
+        dir: 'bower_components/chart.js',
+        codeFile: 'dist/Chart.js',
     },
     {
         name: 'big-integer',
-        module: 'BigInteger.min.js'
+        dir: 'bower_components/big-integer',
+        codeFile: 'BigInteger.min.js'
     },
     {
         name: 'prism',
-        module: 'prism.js'
+        dir: 'bower_components/prism',
+        codeFile: 'prism.js',
+        assets: [
+            'themes/prism-tomorrow.css'
+        ]
     }
 ];
 
@@ -115,11 +130,11 @@ if (process.env.ALLOW_ROOT) {
 }
 
 // ----------------------------------
-// Atomic Tasks
+// Dependencies build tesks
 // ----------------------------------
 
-function clean() {
-    return del([buildPath]);
+function cleanDeps() {
+    return del([libPath]);
 }
 
 function installDeps() {
@@ -127,21 +142,21 @@ function installDeps() {
         .pipe($.install(installOptions));
 }
 
-function buildDeps(done) {
-    const libsToBuild = libs
-        .filter(lib => lib.build)
-        .map(lib => {
-            const workingDir = path.join(cwd, libsPath, lib.name);
+function compileDeps(done) {
+    const depsToBuild = dependencies
+        .filter(dep => dep.build)
+        .map(dep => {
+            const workingDir = path.join(cwd, dep.dir);
             const pkgFile = path.join(workingDir, 'package.json');
-            const command = lib.build;
+            const command = dep.build;
             return { workingDir, pkgFile, command };
         });
 
-    gulp.src(libsToBuild.map(lib => lib.pkgFile))
+    gulp.src(depsToBuild.map(dep => dep.pkgFile))
         .pipe($.install(installOptions, () => {
-            const builds = libsToBuild
-                .map(lib => spawnAsync(lib.command, { cwd: lib.workingDir }));
-
+            const builds = depsToBuild.map(dep => 
+                spawnAsync(dep.command, { cwd: dep.workingDir })
+            );
             Promise.all(builds).then(
                 () => done(),
                 done
@@ -150,17 +165,16 @@ function buildDeps(done) {
         .on('error', errorHandler);
 }
 
-function bundleLib() {
+function bundleDeps() {
     const b = browserify({
         debug: true,
         noParse: true
     });
 
-    libs.forEach(lib => {
-        const { module, name, exposeAs = name } = lib;
-        const fullPath = path.join(cwd, libsPath, name, module);
-        b.require(fullPath, { expose: exposeAs });
-    });
+    for (const { name, dir, codeFile } of dependencies) {
+        const fullPath = path.join(cwd, dir, codeFile);
+        b.require(fullPath, { expose: name });
+    }
 
     return b.bundle()
         .on('error', errorHandler)
@@ -169,7 +183,28 @@ function bundleLib() {
         .pipe($.sourcemaps.init({ loadMaps: true }))
         .pipe($.if(uglify, $.uglify()))
         .pipe($.sourcemaps.write('./'))
-        .pipe(gulp.dest(buildPath));
+        .pipe(gulp.dest(libPath));
+}
+
+function copyDepsAssets() {
+    const assetsToCopy = [];
+    for (const { dir, assets = [] } of dependencies) {
+        const workginDir = path.join(cwd, dir);
+        for (const assetPath of assets) {
+            assetsToCopy.push(path.join(workginDir, assetPath));
+        }
+    }
+
+    return gulp.src(assetsToCopy)
+        .pipe(gulp.dest(libPath));
+}
+
+// ----------------------------------
+// Main build tesks
+// ----------------------------------
+
+function clean() {
+    return del([buildPath]);
 }
 
 function buildAPI() {
@@ -220,6 +255,12 @@ function bundleApp() {
     return bundleCode('app', false);
 }
 
+function copyLib() {
+    return gulp.src(path.join(libPath, '*'))
+        .pipe($.rename(({ dirname: '' })))
+        .pipe(gulp.dest(buildPath));
+}
+
 function compileStyles() {
     return gulp.src('src/app/**/*.less', { base: '.' })
         .pipe($.lessImport('styles.less'))
@@ -238,7 +279,7 @@ function generateSVGIcons() {
         .pipe(gulp.dest(path.join(buildPath, 'assets')));
 }
 
-function copy() {
+function copyAssets() {
     return injectVersion(staticAssetsSelector);
 }
 
@@ -266,23 +307,22 @@ function verifyBuild() {
     return Promise.resolve();
 }
 
-function invalidateBowerJson() {
-    // Invalidate the cached bower.json.
-    delete require.cache[require.resolve('bower.json')];
-}
-
-function watchLib() {
-    return gulp.watch(
-        'bower.json',
-        gulp.series(
-            invalidateBowerJson,
-            buildLib
-        )
-    );
-}
+// ----------------------------------
+// Continuous developnent tasks 
+// ----------------------------------
 
 function watchApp(){
     return bundleCode('app', true);
+}
+
+function watchLib() {
+    return gulp.watch([path.join(libPath, '*')])
+        .on('all', (_, path) => {
+            formattedLog('watchLib', `Change detected in '${path}' recopying...`);
+            gulp.src(path)
+                .pipe($.rename({ dirname: '' }))
+                .pipe(gulp.dest(buildPath));
+        });
 }
 
 function watchDebug() {
@@ -311,6 +351,10 @@ function watchAssets() {
         });
 }
 
+// ----------------------------------
+// Test tesks
+// ----------------------------------
+
 function test() {
     return gulp.src('src/tests/index.js')
         .pipe($.mocha({ reporter: 'spec' }));
@@ -320,10 +364,14 @@ function test() {
 // Composite Tasks
 // ----------------------------------
 
-const buildLib = gulp.series(
+const buildDeps = gulp.series(
+    cleanDeps,
     installDeps,
-    buildDeps,
-    bundleLib
+    compileDeps,
+    gulp.parallel(
+        bundleDeps,
+        copyDepsAssets
+    )
 );
 
 const buildApp = gulp.series(
@@ -339,11 +387,6 @@ const buildDebug = gulp.series(
     bundleDebug
 );
 
-const buildStyles = gulp.series(
-    installDeps,
-    compileStyles
-);
-
 const lint = gulp.parallel(
     lintApp,
     lintDebug
@@ -351,18 +394,14 @@ const lint = gulp.parallel(
 
 const build = gulp.series(
     clean,
-    installDeps,
     gulp.parallel(
-        gulp.series(
-            buildDeps,
-            bundleLib
-        ),
         buildAPI,
         buildApp,
         buildDebug,
+        copyLib,
         compileStyles,
         generateSVGIcons,
-        copy
+        copyAssets
     ),
     verifyBuild
 );
@@ -438,7 +477,7 @@ function bundleCode(folder, watch) {
         .transform(stringify({ minify: uglify }))
         .add(`src/${folder}/main`);
 
-    libs.forEach(lib => bundler.external(lib.exposeAs || lib.name));
+    dependencies.forEach(lib => bundler.external(lib.name));
     bundler.external('nb-api');
 
     const bundle = () => bundler.bundle()
@@ -528,21 +567,21 @@ function formattedLog(task, message) {
 }
 
 // ----------------------------------
-// Exported Tasks
+// Exported task list
 // ----------------------------------
 
 Object.assign(exports, {
+    cleanDeps,
+    buildDeps,
     clean,
     build,
-    buildLib,
     buildAPI,
     buildApp,
     buildDebug,
-    buildStyles,
+    copyLib,
+    compileStyles,
     lint,
     watch,
-    test,
-    watchAssets,
-    installDeps
+    test
 });
 

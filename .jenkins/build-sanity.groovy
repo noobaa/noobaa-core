@@ -5,8 +5,9 @@ def ci_git_ref = 'master' // default, will be overwritten for PRs
 
 def HASH = '0123abcd' // default, will be overwritten
 def NO_CACHE = 'NO_CACHE=true'
-// building with Docker fails in the CI due to network restrictions
-def CONTAINER_ENGINE = 'CONTAINER_ENGINE=podman'
+// Docker has some network conflicts in the CI, host-networking works
+def USE_HOSTNETWORK= 'USE_HOSTNETWORK=true'
+def CONTAINER_ENGINE = 'CONTAINER_ENGINE=docker'
 
 node('cico-workspace') {
 	if (params.ghprbPullId != null) {
@@ -51,10 +52,10 @@ node('cico-workspace') {
 		// real test start here
 		stage('Build & Sanity Integration Tests') {
 			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && ./.travis/deploy_minikube.sh'"
-			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester NOOBAA_TAG=${IMAGE_TAG} TESTER_TAG=${TESTER_TAG} ${NO_CACHE} ${CONTAINER_ENGINE}'"
-			// images were built with podman, import them in Docker for use with minikube
-			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${IMAGE_TAG} | docker image load'"
-			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${TESTER_TAG} | docker image load'"
+			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && make tester NOOBAA_TAG=localhost/${IMAGE_TAG} TESTER_TAG=localhost/${TESTER_TAG} ${NO_CACHE} ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
+			// if images were built with podman, import them in Docker for use with minikube
+			//sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${IMAGE_TAG} | docker image load'"
+			//sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'podman image save ${TESTER_TAG} | docker image load'"
 			sh "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@${CICO_NODE} 'cd /opt/build/noobaa-core && cd ./src/test/framework/ && ./run_test_job.sh --name ${HASH} --image localhost/${IMAGE_TAG} --tester_image localhost/${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait'"
 		}
 	}

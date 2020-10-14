@@ -89,6 +89,11 @@ function new_rpc_client() {
 function init_all_collections() {
     /* eslint-disable global-require */
     require('../../server/notifications/alerts_log_store').instance();
+    require('../../server/analytic_services/io_stats_store').IoStatsStore.instance();
+    require('../../server/analytic_services/bucket_stats_store').BucketStatsStore.instance();
+    require('../../server/analytic_services/history_data_store').HistoryDataStore.instance();
+    // eslint-disable-next-line no-unused-expressions
+    require('../../server/analytic_services/endpoint_stats_store').EndpointStatsStore.instance;
 }
 
 function setup(options = {}) {

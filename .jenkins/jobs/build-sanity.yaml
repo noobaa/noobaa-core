@@ -2,7 +2,6 @@
 - job:
     name: noobaa-core_build-sanity
     project-type: pipeline
-    sandbox: true
     concurrent: true
     properties:
       - github:
@@ -23,11 +22,9 @@
     triggers:
       - github-pull-request:
           status-context: ci/centos/build-sanity
-          trigger-phrase: '/(re)?test ((all)|(ci/centos/build-sanity))'
+          trigger-phrase: '/(re)?test ci/centos/build-sanity'
           permit-all: true
-          # TODO: set github-hooks to true when it is configured in GitHub
-          github-hooks: false
-          cron: 'H/5 * * * *'
+          github-hooks: true
           admin-list:
             - liranmauda
           org-list:

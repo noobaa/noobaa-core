@@ -1,0 +1,42 @@
+---
+- job:
+    name: jjb-validate
+    project-type: pipeline
+    # the jjb-validate template does not allow concurrent usage
+    concurrent: false
+    properties:
+      - github:
+          url: https://github.com/noobaa/noobaa-core
+      - build-discarder:
+          days-to-keep: 7
+          artifact-days-to-keep: 7
+    dsl: |
+      def GIT_REPO = 'https://github.com/noobaa/noobaa-core'
+      def GIT_BRANCH = 'master'
+
+      if (params.ghprbPullId != null) {
+          GIT_BRANCH = "pull/${ghprbPullId}/head"
+      }
+
+      node {
+        stage('checkout ci repository') {
+          checkout([$class: 'GitSCM', branches: [[name: 'FETCH_HEAD']],
+            userRemoteConfigs: [[url: "${GIT_REPO}",
+              refspec: "${GIT_BRANCH}"]]])
+        }
+        stage('validation') {
+          sh "GIT_REF=${GIT_BRANCH} ./.jenkins/deploy/jjb.sh validate"
+        }
+      }
+    triggers:
+      - github-pull-request:
+          status-context: ci/centos/jjb-validate
+          trigger-phrase: '/(re)?test ci/centos/jjb-validate'
+          only-trigger-phrase: true
+          permit-all: true
+          github-hooks: false
+          white-list-target-branches:
+            - master
+          org-list:
+            - noobaa
+          allow-whitelist-orgs-as-admins: true

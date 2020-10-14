@@ -27,11 +27,13 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
-lsrc         += rolling_hash/rolling_hashx_base.c
-lsrc         += rolling_hash/rolling_hash2.c
-lsrc         += rolling_hash/rolling_hash2_until_04.asm
-lsrc         += rolling_hash/rolling_hash2_until_00.asm
-lsrc         += rolling_hash/rolling_hash2_multibinary.asm
+lsrc_x86_64         += rolling_hash/rolling_hashx_base.c
+lsrc_x86_64         += rolling_hash/rolling_hash2.c
+lsrc_x86_64         += rolling_hash/rolling_hash2_until_04.asm
+lsrc_x86_64         += rolling_hash/rolling_hash2_until_00.asm
+lsrc_x86_64         += rolling_hash/rolling_hash2_multibinary.asm
+
+lsrc_x86_32         += $(lsrc_x86_64)
 
 src_include  += -I $(srcdir)/rolling_hash
 extern_hdrs  += include/rolling_hashx.h

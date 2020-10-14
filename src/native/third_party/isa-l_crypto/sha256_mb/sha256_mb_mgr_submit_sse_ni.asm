@@ -34,7 +34,7 @@
 
 %ifdef HAVE_AS_KNOWS_SHANI
 extern  sha256_mb_x4_sse
-extern  sha256_ni_x1
+extern  sha256_ni_x2
 default rel
 
 %ifidn __OUTPUT_FORMAT__, elf64
@@ -90,10 +90,9 @@ default rel
 %define lane_data       r10
 %define lens2           r10
 
-
 ; STACK_SPACE needs to be an odd multiple of 8
 %define _XMM_SAVE       16*10
-%define _GPR_SAVE       8*5
+%define _GPR_SAVE       8*7
 %define STACK_SPACE     _GPR_SAVE + _XMM_SAVE
 
 ; SHA256_JOB* sha256_mb_mgr_submit_sse_ni(SHA256_MB_JOB_MGR *state, SHA256_JOB *job)
@@ -106,6 +105,8 @@ sha256_mb_mgr_submit_sse_ni:
 	mov     [rsp + _XMM_SAVE + 8*0], rbx
 	mov     [rsp + _XMM_SAVE + 8*1], rbp
 	mov     [rsp + _XMM_SAVE + 8*2], r12
+	mov     [rsp + _XMM_SAVE + 8*5], r13
+	mov     [rsp + _XMM_SAVE + 8*6], r14
 %ifidn __OUTPUT_FORMAT__, win64
 	mov     [rsp + _XMM_SAVE + 8*3], rsi
 	mov     [rsp + _XMM_SAVE + 8*4], rdi
@@ -149,28 +150,38 @@ sha256_mb_mgr_submit_sse_ni:
 	pextrd  [state + _args_digest + 4*lane + 6*16], xmm1, 2
 	pextrd  [state + _args_digest + 4*lane + 7*16], xmm1, 3
 
-
 	mov     p, [job + _buffer]
 	mov     [state + _args_data_ptr + 8*lane], p
 
 	add     dword [state + _num_lanes_inuse], 1
 
+	cmp     unused_lanes, 0xF32	; we will process two jobs at the same time
+	jne 	return_null		; wait for another sha_ni job
+
 	; compare with shani-sb threshold, if num_lanes_sse <= threshold, using shani func
   %if SHA256_NI_SB_THRESHOLD_SSE >= 4   ; there are 4 lanes in sse mb
   ; shani glue code
-	mov     idx, len	; len is (job's len<<4|job's idx)
+	mov     DWORD(lens0), [state + _lens + 0*4]
+	mov     idx, lens0
+	mov     DWORD(lens1), [state + _lens + 1*4]
+	cmp     lens1, idx
+	cmovb   idx, lens1
 	mov     len2, idx
 	and     idx, 0xF
 	and     len2, ~0xF
 	jz      len_is_0
 	; lensN-len2=idx
+	sub     lens0, len2
+	sub     lens1, len2
+
 	shr     len2, 4
-	mov     [state + _lens + idx*4], DWORD(idx)
+	mov     [state + _lens + 0*4], DWORD(lens0)
+	mov     [state + _lens + 1*4], DWORD(lens1)
 	mov     r10, idx
 	or      r10, 0x1000     ; sse has 4 lanes *4, r10b is idx, r10b2 is 16
 	; "state" and "args" are the same address, arg1
 	; len is arg2, idx and nlane in r10
-	call    sha256_ni_x1
+	call    sha256_ni_x2
 	; state and idx are intact
   %else
   ; original mb code
@@ -256,6 +267,8 @@ return:
 	mov     rbx, [rsp + _XMM_SAVE + 8*0]
 	mov     rbp, [rsp + _XMM_SAVE + 8*1]
 	mov     r12, [rsp + _XMM_SAVE + 8*2]
+	mov     r13, [rsp + _XMM_SAVE + 8*5]
+	mov     r14, [rsp + _XMM_SAVE + 8*6]
 	add     rsp, STACK_SPACE
 
 	ret
@@ -263,7 +276,6 @@ return:
 return_null:
 	xor     job_rax, job_rax
 	jmp     return
-
 
 section .data align=16
 

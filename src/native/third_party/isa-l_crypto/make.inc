@@ -39,7 +39,13 @@
 #	trace - get simulator trace
 #	clean - remove object files
 
-version ?= 2.20.0
+version ?= 2.22.0
+host_cpu ?= $(shell uname -m | sed -e 's/amd/x86_/')
+arch ?= $(shell uname | grep -v -e Linux -e BSD )
+ifeq ($(host_cpu)_$(arch),aarch64_)
+arch = aarch64
+endif
+
 
 CC  = gcc
 AS  = yasm
@@ -51,7 +57,7 @@ DEBUG_yasm = -g dwarf2
 DEBUG_nasm = -g
 
 # Default arch= build options
-CFLAGS_gcc = -Wall
+CFLAGS_    = -Wall
 ASFLAGS_   = -f elf64
 ARFLAGS_   = cr $@
 STRIP_gcc  = strip -d -R .comment $@
@@ -69,17 +75,30 @@ ARFLAGS_win64 = -out:$@
 # arch=mingw build options
 ASFLAGS_mingw = -f win64
 ARFLAGS_mingw = cr $@
-lsrcmingw = $(lsrc)
-unit_testsmingw = $(unit_tests)
-examplesmingw = $(examples)
-perf_testsmingw = $(perf_tests)
+LDFLAGS_mingw = -Wl,--force-exe-suffix
+
+# arch=aarch64 build options
+ASFLAGS_aarch64 = -D__ASSEMBLY__ -c
+ARFLAGS_aarch64 = cr $@
+
+LDFLAGS_so = -Wl,-soname,$(soname)
 
 ifeq ($(arch),mingw)
   CC=x86_64-w64-mingw32-gcc
   AR=x86_64-w64-mingw32-ar
-  LDFLAGS = -Wl,--force-exe-suffix
 endif
 
+ASFLAGS_Darwin = -f macho64 --prefix=_
+ARFLAGS_Darwin = -r $@
+ifeq ($(shell uname),Darwin)
+   LDFLAGS_so =
+   STRIP_gcc  =
+endif
+
+ifeq ($(arch),aarch64)
+  AS=gcc
+  SIM=
+endif
 
 INCLUDE   = $(patsubst %,-I%/,$(subst :, ,$(VPATH)))
 CFLAGS   = $(CFLAGS_$(arch)) $(CFLAGS_$(CC)) $(DEBUG) -O2 $(DEFINES) $(INCLUDE)
@@ -87,8 +106,9 @@ ASFLAGS  = $(ASFLAGS_$(arch)) $(ASFLAGS_$(CC)) $(DEBUG_$(AS)) $(DEFINES) $(INCLU
 ARFLAGS  = $(ARFLAGS_$(arch))
 DEFINES += $(addprefix -D , $D)
 
+lsrc += $(lsrc_$(host_cpu))
 O = bin
-lobj  += $(patsubst %.c,%.o,$(patsubst %.asm,%.o,$(lsrc$(arch)) $(lsrc_intrinsic)))
+lobj  += $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.asm,%.o,$(lsrc) $(lsrc_intrinsic))))
 objs  = $(addprefix $(O)/,$(notdir $(lobj)))
 
 
@@ -109,20 +129,20 @@ exampleswin64 = $(examples)
 perf_testswin64 = $(perf_tests)
 
 # Build and run unit tests, performance tests, etc.
-all_tests = $(notdir $(sort $(perf_tests$(arch)) $(check_tests$(arch)) $(unit_tests$(arch)) $(examples$(arch)) $(other_tests)))
-all_unit_tests = $(notdir $(sort $(check_tests$(arch)) $(unit_tests$(arch))))
-all_perf_tests = $(notdir $(sort $(perf_tests$(arch))))
-all_check_tests = $(notdir $(sort $(check_tests$(arch))))
+all_tests = $(notdir $(sort $(perf_tests) $(check_tests) $(unit_tests) $(examples) $(other_tests)))
+all_unit_tests = $(notdir $(sort $(check_tests) $(unit_tests)))
+all_perf_tests = $(notdir $(sort $(perf_tests)))
+all_check_tests = $(notdir $(sort $(check_tests)))
 
 $(all_unit_tests): % : %.c $(lib_name)
 $(all_perf_tests): % : %.c $(lib_name)
-$(sort $(notdir $(examples$(arch)))): % : %.c $(lib_name)
+$(sort $(notdir $(examples))): % : %.c $(lib_name)
 $(sort $(notdir $(other_tests))): % : %.c $(lib_name)
 
 sim test trace: $(addsuffix .run,$(all_unit_tests))
 perf: $(addsuffix .run,$(all_perf_tests))
 check: $(addsuffix .run,$(all_check_tests))
-ex:   $(notdir $(examples$(arch)))
+ex:   $(notdir $(examples))
 all: lib $(all_tests)
 other: $(notdir $(other_tests))
 tests: $(all_unit_tests)
@@ -142,11 +162,17 @@ $(addsuffix .run,$(all_tests)): %.run : %
 	@echo Completed run: $<
 
 # Other build rules
-msg = $(if $(DEBUG),DEBUG) $(patsubst 32,32-bit,$(arch)) $D
+msg = $(if $(DEBUG),DEBUG) $(patsubst 32,32-bit,$(host_cpu)) $D
 
+# gcc assembly files
+$(O)/%.o: %.S
+	@echo "  ---> Building $< $(msg)"
+	@$(AS) $(ASFLAGS) -o $@ $<
+# yasm/nasm assembly files
 $(O)/%.o: %.asm
 	@echo "  ---> Building $< $(msg)"
 	@$(AS) $(ASFLAGS) -o $@ $<
+
 
 $(O)/%.o %.o: %.c
 	@echo "  ---> Building $< $(msg)"
@@ -182,8 +208,9 @@ so_lib_ver  = $(so_lib_inst).$(version)
 soname      = $(so_lib_inst).$(word 1, $(subst ., ,$(version)))
 
 slib: $(so_lib_name)
-aobjs  += $(addprefix $(O)/,$(patsubst %.asm,%.o,$(filter %.asm,$(notdir $(lsrc$(arch)) $(lsrc_intrinsic)))))
-shared_objs  += $(addprefix $(O)/shared_ver_,$(patsubst %.c,%.o,$(filter %.c,$(notdir $(lsrc$(arch)) $(lsrc_intrinsic)))))
+aobjs  += $(addprefix $(O)/,$(patsubst %.asm,%.o,$(filter %.asm,$(notdir $(lsrc) $(lsrc_intrinsic)))))
+aobjs  += $(addprefix $(O)/,$(patsubst %.S,%.o,$(filter %.S,$(notdir $(lsrc) $(lsrc_intrinsic)))))
+shared_objs  += $(addprefix $(O)/shared_ver_,$(patsubst %.c,%.o,$(filter %.c,$(notdir $(lsrc) $(lsrc_intrinsic)))))
 
 $(O)/shared_ver_%.o: %.c
 	@echo "  ---> Building shared $< $(msg)"
@@ -197,7 +224,7 @@ endif
 
 $(shared_objs): CFLAGS += -fPIC
 $(shared_objs) $(aobjs): | $(O)
-$(so_lib_name): LDFLAGS+=-Wl,-soname,$(soname)
+$(so_lib_name): LDFLAGS+=$(LDFLAGS_so)
 $(so_lib_name): $(shared_objs) $(aobjs)
 	@echo "  ---> Creating Shared Lib $@"
 	@$(CC) $(CFLAGS) --shared  $(LDFLAGS) -o $@ $^

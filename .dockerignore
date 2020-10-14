@@ -1,7 +1,6 @@
 .git/
 node_modules/
 frontend/node_modules/
-frontend/src/lib/
 frontend/dist/
 build/
 coverage/

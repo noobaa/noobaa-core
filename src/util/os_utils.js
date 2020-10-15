@@ -29,6 +29,7 @@ const ADMIN_WIN_USERS = Object.freeze([
     'BUILTIN\\Administrators'
 ]);
 
+const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
 const IS_DOCKER = process.env.container === 'docker';
@@ -491,7 +492,7 @@ function read_server_secret() {
     } else {
         // in kubernetes we must have SERVER_SECRET loaded from a kubernetes secret
         if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kuberentes');
+            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kubernetes');
         }
         // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
         return '12345678';
@@ -768,8 +769,7 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
                 weight: 0
             };
 
-            return [
-                {
+            return [{
                     ...defaults,
                     kind: 'INTERNAL',
                     hostname: internal_hostname,
@@ -883,6 +883,9 @@ async function restart_services(services) {
 
 
 // EXPORTS
+exports.IS_WIN = IS_WIN;
+exports.IS_MAC = IS_MAC;
+exports.IS_LINUX = IS_LINUX;
 exports.get_memory = get_memory;
 exports.get_cpus = get_cpus;
 exports.os_info = os_info;

@@ -57,7 +57,7 @@ function get_cpus() {
 }
 
 
-function os_info(count_mongo_reserved_as_free) {
+function os_info() {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     var orig_ifaces = os.networkInterfaces();
@@ -71,7 +71,7 @@ function os_info(count_mongo_reserved_as_free) {
         }
     });
     return P.resolve()
-        .then(() => _calculate_free_mem(count_mongo_reserved_as_free))
+        .then(() => _calculate_free_mem())
         .then(free_mem => ({
             hostname: os.hostname(),
             ostype: os.type(),
@@ -87,7 +87,7 @@ function os_info(count_mongo_reserved_as_free) {
         }));
 }
 
-function _calculate_free_mem(count_mongo_reserved_as_free) {
+function _calculate_free_mem() {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
     if (!IS_MAC) {
@@ -285,7 +285,7 @@ function remove_linux_readonly_drives(volumes) {
         });
 }
 
-async function read_mac_linux_drives(include_all) {
+async function read_mac_linux_drives() {
     const volumes = await P.fromCallback(callback => node_df({
         // this is a hack to make node_df append the -l flag to the df command
         // in order to get only local file systems.

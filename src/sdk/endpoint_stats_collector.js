@@ -72,8 +72,8 @@ class EndpointStatsCollector {
         }
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
-            this._trigger_send_stats();
         }
+        this._trigger_send_stats();
     }
 
     update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
@@ -88,8 +88,8 @@ class EndpointStatsCollector {
         }
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
-            this._trigger_send_stats();
         }
+        this._trigger_send_stats();
     }
 
     _update_bucket_counter({ bucket_name, key, content_type, counter_key }) {

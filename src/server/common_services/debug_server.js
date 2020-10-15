@@ -3,6 +3,8 @@
 
 const dbg = require('../../util/debug_module')(__filename);
 const coverage_utils = require('../../util/coverage_utils');
+const os_utils = require('../../util/os_utils');
+
 const stream = require('stream');
 const path = require('path');
 const fs = require('fs');
@@ -10,7 +12,7 @@ const { human_size } = require('../../util/size_utils');
 const { get_folder_size, create_path } = require('../../util/fs_utils');
 
 const FE_DUMP_DIR = path.join(
-    process.platform === 'darwin' ? path.join(process.cwd(), 'logs') : '/log',
+    os_utils.IS_MAC ? path.join(process.cwd(), 'logs') : '/log',
     'nbfedump'
 );
 

@@ -1050,7 +1050,7 @@ class Agent {
             .then(() => {
                 const dbg = this.dbg;
                 dbg.log1('Received uninstall req');
-                if (process.platform === 'darwin') return;
+                if (os_utils.IS_MAC) return;
                 P.delay(30 * 1000) // this._disable_service()
                     .then(() => {
                         this.send_message_and_exit('UNINSTALL', 85); // 85 is 'U' in ascii

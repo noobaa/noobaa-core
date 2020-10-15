@@ -204,7 +204,7 @@ class AgentCLI {
     }
 
     rename_agent_storage(mount_points) {
-        if (process.platform === 'darwin') return; // skip rename in mac os
+        if (os_utils.IS_MAC) return; // skip rename in mac os
         dbg.log0(`looking for agent_storage folder and renaming to noobaa_storage`);
         return P.map(mount_points, mount_point => {
             let old_path = mount_point.mount.replace('noobaa_storage', 'agent_storage');
@@ -229,7 +229,7 @@ class AgentCLI {
     }
 
     update_ignored_drives(mount_points) {
-        if (process.platform === 'darwin') return mount_points; // skip rename in mac os
+        if (os_utils.IS_MAC) return mount_points; // skip rename in mac os
         this.params.ignore_drives = this.params.ignore_drives || [];
         return P.map(mount_points, mount_point => {
             if (mount_point.temporary_drive) {
@@ -295,7 +295,7 @@ class AgentCLI {
                 // we create a new node for every new drive (detects as a storage path without nodes)
                 // but here we also consider the development mode of --scale
                 // which asks to create at least that number of total nodes.
-                // Please note that the sacle is per storage path. if the scale is 2 and there are two HD
+                // Please note that the scale is per storage path. if the scale is 2 and there are two HD
                 // we will have 4 nodes. In addition, we will always scale to at least 1 node
                 var nodes_to_add = 0;
                 dbg.log0('AGENTS SCALE TO', nodes_scale);
@@ -401,7 +401,7 @@ class AgentCLI {
                     if (res) {
                         dbg.log0('result create:', res, 'node path:', node_path);
                         self.params.create_node_token = res.token;
-                        // replace access_key\secret_key with create_node_token in agnet_conf
+                        // replace access_key\secret_key with create_node_token in agent_conf
                         return self.agent_conf.update({
                             access_key: undefined,
                             secret_key: undefined,
@@ -711,7 +711,7 @@ function main() {
     }
 
     // if scale is not passed but this is dev env, use scale of 1 to generate test hosts
-    if (!argv.scale && process.platform === 'darwin') {
+    if (!argv.scale && os_utils.IS_MAC) {
         argv.scale = 1;
     }
 

@@ -1,24 +1,23 @@
 /* Copyright (C) 2016 NooBaa */
-'use strict';
+"use strict";
 
-const _ = require('lodash');
-const bcrypt = require('bcrypt');
-const ip_module = require('ip');
+const _ = require("lodash");
+const bcrypt = require("bcrypt");
+const ip_module = require("ip");
 
-const P = require('../../util/promise');
-const dbg = require('../../util/debug_module')(__filename);
-const { RpcError } = require('../../rpc');
-const net_utils = require('../../util/net_utils');
-const system_store = require('../system_services/system_store').get_instance();
-const signature_utils = require('../../util/signature_utils');
-const server_rpc = require('../server_rpc');
-const SensitiveString = require('../../util/sensitive_string');
-const oauth_utils = require('../../util/oauth_utils');
-const addr_utils = require('../../util/addr_utils');
-const kube_utils = require('../../util/kube_utils');
-const jwt_utils = require('../../util/jwt_utils');
-const config = require('../../../config');
-
+const P = require("../../util/promise");
+const dbg = require("../../util/debug_module")(__filename);
+const { RpcError } = require("../../rpc");
+const net_utils = require("../../util/net_utils");
+const system_store = require("../system_services/system_store").get_instance();
+const signature_utils = require("../../util/signature_utils");
+const server_rpc = require("../server_rpc");
+const SensitiveString = require("../../util/sensitive_string");
+const oauth_utils = require("../../util/oauth_utils");
+const addr_utils = require("../../util/addr_utils");
+const kube_utils = require("../../util/kube_utils");
+const jwt_utils = require("../../util/jwt_utils");
+const config = require("../../../config");
 
 /**
  *
@@ -36,120 +35,127 @@ const config = require('../../../config');
  *
  */
 function create_auth(req) {
+  var email = req.rpc_params.email;
+  var password = req.rpc_params.password;
+  var system_name = req.rpc_params.system;
+  var role_name = req.rpc_params.role;
+  // var expiry = req.rpc_params.expiry;
+  var authenticated_account;
+  var target_account;
+  var system;
 
-    var email = req.rpc_params.email;
-    var password = req.rpc_params.password;
-    var system_name = req.rpc_params.system;
-    var role_name = req.rpc_params.role;
-    // var expiry = req.rpc_params.expiry;
-    var authenticated_account;
-    var target_account;
-    var system;
+  return P.resolve()
+    .then(() => {
+      // if email is not provided we skip finding target_account by email
+      // and use the current auth account as the authenticated_account
+      if (!email) return;
 
-    return P.resolve()
-        .then(() => {
+      // consider email not found the same as bad password to avoid phishing attacks.
+      target_account = system_store.get_account_by_email(email);
+      dbg.log0("credentials account not found", email, system_name);
+      if (!target_account)
+        throw new RpcError("UNAUTHORIZED", "credentials not found");
 
-            // if email is not provided we skip finding target_account by email
-            // and use the current auth account as the authenticated_account
-            if (!email) return;
+      // when password is not provided it means we want to give authorization
+      // by the currently authorized to another specific account instead of
+      // using credentials.
+      if (!password) return;
 
-            // consider email not found the same as bad password to avoid phishing attacks.
-            target_account = system_store.get_account_by_email(email);
-            dbg.log0('credentials account not found', email, system_name);
-            if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
-
-            // when password is not provided it means we want to give authorization
-            // by the currently authorized to another specific account instead of
-            // using credentials.
-            if (!password) return;
-
-            return P.resolve()
-                .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
-                .then(match => {
-                    dbg.log0('password mismatch', email, system_name);
-                    if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
-                    // authentication passed!
-                    // so this account is the authenticated_account
-                    authenticated_account = target_account;
-                });
-        })
-        .then(() => {
-
-            // if both accounts were resolved (they can be the same account),
-            // then we can skip loading the current authorized account
-            if (!authenticated_account || !target_account) {
-                // find the current authorized account and assign
-                if (!req.auth || !req.auth.account_id) {
-                    dbg.log0('no account_id in auth and no credentials', email, system_name);
-                    throw new RpcError('UNAUTHORIZED', 'credentials not found');
-                }
-
-                var account_arg = system_store.data.get_by_id(req.auth.account_id);
-                target_account = target_account || account_arg;
-                authenticated_account = authenticated_account || account_arg;
-
-            }
-
-            // check the accounts are valid
-            if (!authenticated_account || authenticated_account.deleted) {
-                dbg.log0('authenticated account not found', email, system_name);
-                throw new RpcError('UNAUTHORIZED', 'credentials not found');
-            }
-            if (!target_account || target_account.deleted) {
-                dbg.log0('target account not found', email, system_name);
-                throw new RpcError('UNAUTHORIZED', 'credentials not found');
-            }
-
-            // system is optional, and will not be included in the token if not provided
-            if (system_name) {
-
-                // find system by name
-                system = system_store.data.systems_by_name[system_name];
-                if (!system || system.deleted) throw new RpcError('UNAUTHORIZED', 'system not found');
-
-                // find the role of authenticated_account in the system
-                var roles = system.roles_by_account &&
-                    system.roles_by_account[authenticated_account._id];
-
-                // now approve the role -
-                if (
-                    // support account  can do anything
-                    authenticated_account.is_support ||
-                    // system owner can do anything
-                    // From some reason, which I couldn't find, system store is
-                    // missing roles_by_account from time to time.
-                    String(system.owner._id) === String(authenticated_account._id) ||
-                    // system admin can do anything
-                    _.includes(roles, 'admin') ||
-                    // operator can do anything
-                    _.includes(roles, 'operator') ||
-                    // non admin is not allowed to delegate roles to other accounts
-                    (role_name && _.includes(roles, role_name) &&
-                        String(target_account._id) === String(authenticated_account._id))) {
-                    // "system admin" can use any role
-                    role_name = role_name || 'admin';
-                } else {
-                    throw new RpcError('UNAUTHORIZED', 'account role not allowed');
-                }
-            }
-
-            const token = make_auth_token({
-                account_id: target_account._id,
-                system_id: system && system._id,
-                role: role_name,
-                extra: req.rpc_params.extra,
-            });
-
-            const info = _get_auth_info(
-                target_account,
-                system,
-                'noobaa',
-                role_name,
-                req.rpc_params.extra
-            );
-
-            return { token, info };
+      return P.resolve()
+        .then(() =>
+          bcrypt.compare(password.unwrap(), target_account.password.unwrap())
+        )
+        .then(match => {
+          dbg.log0("password mismatch", email, system_name);
+          if (!match)
+            throw new RpcError("UNAUTHORIZED", "credentials not found");
+          // authentication passed!
+          // so this account is the authenticated_account
+          authenticated_account = target_account;
         });
+    })
+    .then(() => {
+      // if both accounts were resolved (they can be the same account),
+      // then we can skip loading the current authorized account
+      if (!authenticated_account || !target_account) {
+        // find the current authorized account and assign
+        if (!req.auth || !req.auth.account_id) {
+          dbg.log0(
+            "no account_id in auth and no credentials",
+            email,
+            system_name
+          );
+          throw new RpcError("UNAUTHORIZED", "credentials not found");
+        }
+
+        var account_arg = system_store.data.get_by_id(req.auth.account_id);
+        target_account = target_account || account_arg;
+        authenticated_account = authenticated_account || account_arg;
+      }
+
+      // check the accounts are valid
+      if (!authenticated_account || authenticated_account.deleted) {
+        dbg.log0("authenticated account not found", email, system_name);
+        throw new RpcError("UNAUTHORIZED", "credentials not found");
+      }
+      if (!target_account || target_account.deleted) {
+        dbg.log0("target account not found", email, system_name);
+        throw new RpcError("UNAUTHORIZED", "credentials not found");
+      }
+
+      // system is optional, and will not be included in the token if not provided
+      if (system_name) {
+        // find system by name
+        system = system_store.data.systems_by_name[system_name];
+        if (!system || system.deleted)
+          throw new RpcError("UNAUTHORIZED", "system not found");
+
+        // find the role of authenticated_account in the system
+        var roles =
+          system.roles_by_account &&
+          system.roles_by_account[authenticated_account._id];
+
+        // now approve the role -
+        if (
+          // support account  can do anything
+          authenticated_account.is_support ||
+          // system owner can do anything
+          // From some reason, which I couldn't find, system store is
+          // missing roles_by_account from time to time.
+          String(system.owner._id) === String(authenticated_account._id) ||
+          // system admin can do anything
+          _.includes(roles, "admin") ||
+          // operator can do anything
+          _.includes(roles, "operator") ||
+          // non admin is not allowed to delegate roles to other accounts
+          (role_name &&
+            _.includes(roles, role_name) &&
+            String(target_account._id) === String(authenticated_account._id))
+        ) {
+          // "system admin" can use any role
+          role_name = role_name || "admin";
+        } else {
+          throw new RpcError("UNAUTHORIZED", "account role not allowed");
+        }
+      }
+
+      const token = make_auth_token({
+        account_id: target_account._id,
+        system_id: system && system._id,
+        role: role_name,
+        extra: req.rpc_params.extra
+      });
+
+      const info = _get_auth_info(
+        target_account,
+        system,
+        "noobaa",
+        role_name,
+        req.rpc_params.extra
+      );
+
+      return { token, info };
+    });
 }
 
 /**
@@ -162,127 +168,140 @@ function create_auth(req) {
  *
  */
 async function create_k8s_auth(req) {
-    const { grant_code } = req.rpc_params;
+  const { grant_code } = req.rpc_params;
 
-    // Currently I have no means to get the system name in the FE without an email and password.
-    // So i default to the first (and currently only system)
-    let system = system_store.data.systems[0];
-    if (!system || system.deleted) {
-        throw new RpcError('UNAUTHORIZED', 'system not found');
-    }
+  // Currently I have no means to get the system name in the FE without an email and password.
+  // So i default to the first (and currently only system)
+  let system = system_store.data.systems[0];
+  if (!system || system.deleted) {
+    throw new RpcError("UNAUTHORIZED", "system not found");
+  }
 
-    const {
-        KUBERNETES_SERVICE_HOST,
-        KUBERNETES_SERVICE_PORT,
-        OAUTH_TOKEN_ENDPOINT,
-        NOOBAA_SERVICE_ACCOUNT,
-        DEV_MODE,
-        HTTPS_PORT = 5443
-    } = process.env;
+  const {
+    KUBERNETES_SERVICE_HOST,
+    KUBERNETES_SERVICE_PORT,
+    OAUTH_TOKEN_ENDPOINT,
+    NOOBAA_SERVICE_ACCOUNT,
+    DEV_MODE,
+    HTTPS_PORT = 5443
+  } = process.env;
 
-    if (!KUBERNETES_SERVICE_HOST || !KUBERNETES_SERVICE_PORT) {
-        throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is supported only on kubernetes deployments');
-    }
-
-    if (!OAUTH_TOKEN_ENDPOINT || !NOOBAA_SERVICE_ACCOUNT) {
-        throw new RpcError('UNAUTHORIZED', 'Authentication using oauth is not supported');
-    }
-
-    let redirect_host;
-    if (DEV_MODE === 'true') {
-        redirect_host = `https://localhost:${HTTPS_PORT}`;
-
-    } else {
-        const { system_address } = system;
-        redirect_host = addr_utils.get_base_address(system_address, {
-            hint: 'EXTERNAL',
-            protocol: 'https'
-        }).toString();
-    }
-
-    const sa_token = await kube_utils.read_sa_token(unauthorized_error);
-    const kube_namespace = await kube_utils.read_namespace(unauthorized_error);
-    const oauth_client = `system:serviceaccount:${kube_namespace}:${NOOBAA_SERVICE_ACCOUNT}`;
-    const { access_token, expires_in } = await oauth_utils.trade_grant_code_for_access_token(
-        OAUTH_TOKEN_ENDPOINT,
-        oauth_client,
-        sa_token,
-        redirect_host,
-        grant_code,
-        unauthorized_error
+  if (!KUBERNETES_SERVICE_HOST || !KUBERNETES_SERVICE_PORT) {
+    throw new RpcError(
+      "UNAUTHORIZED",
+      "Authentication using oauth is supported only on kubernetes deployments"
     );
+  }
 
-    const token_review = await oauth_utils.review_token(
-        KUBERNETES_SERVICE_HOST,
-        sa_token,
-        access_token,
-        KUBERNETES_SERVICE_PORT,
-        unauthorized_error
+  if (!OAUTH_TOKEN_ENDPOINT || !NOOBAA_SERVICE_ACCOUNT) {
+    throw new RpcError(
+      "UNAUTHORIZED",
+      "Authentication using oauth is not supported"
     );
+  }
 
-    const { username, groups = [] } = token_review.status.user;
-    const { OAUTH_REQUIRED_GROUPS = [] } = config;
-    if (
-        OAUTH_REQUIRED_GROUPS.length > 0 &&
-        groups.every(grp_name => !OAUTH_REQUIRED_GROUPS.includes(grp_name))
-    ) {
-        throw new RpcError('UNAUTHORIZED', `User must be a member of at least one of the following k8s groups: ${OAUTH_REQUIRED_GROUPS}`);
-    }
+  let redirect_host;
+  if (DEV_MODE === "true") {
+    redirect_host = `https://localhost:${HTTPS_PORT}`;
+  } else {
+    const { system_address } = system;
+    redirect_host = addr_utils
+      .get_base_address(system_address, {
+        hint: "EXTERNAL",
+        protocol: "https"
+      })
+      .toString();
+  }
 
-    const user_info = {
-        name: new SensitiveString(username),
-        email: new SensitiveString(username),
-    };
+  const sa_token = await kube_utils.read_sa_token(unauthorized_error);
+  const kube_namespace = await kube_utils.read_namespace(unauthorized_error);
+  const oauth_client = `system:serviceaccount:${kube_namespace}:${NOOBAA_SERVICE_ACCOUNT}`;
+  const {
+    access_token,
+    expires_in
+  } = await oauth_utils.trade_grant_code_for_access_token(
+    OAUTH_TOKEN_ENDPOINT,
+    oauth_client,
+    sa_token,
+    redirect_host,
+    grant_code,
+    unauthorized_error
+  );
 
-    let account = system_store.get_account_by_email(user_info.email);
-    if (!account) {
-        const owner_token = make_auth_token({
-            account_id: system.owner._id,
-            system_id: system._id,
-            role: 'admin',
-        });
+  const token_review = await oauth_utils.review_token(
+    KUBERNETES_SERVICE_HOST,
+    sa_token,
+    access_token,
+    KUBERNETES_SERVICE_PORT,
+    unauthorized_error
+  );
 
-        await server_rpc.client.account.create_external_user_account(
-            user_info, { auth_token: owner_token }
-        );
-        account = system_store.get_account_by_email(user_info.email);
-    }
-
-
-    // For some reason in the case of a new account the account role cannot be found
-    // using system.roles_by_account so I search for it directly on the roles collection.
-    const is_admin = system_store.data.roles.some(r =>
-        String(r.system._id) === String(system._id) &&
-        String(r.account._id) === String(account._id) &&
-        r.role === 'admin'
+  const { username, groups = [] } = token_review.status.user;
+  const { OAUTH_REQUIRED_GROUPS = [] } = config;
+  if (
+    OAUTH_REQUIRED_GROUPS.length > 0 &&
+    groups.every(grp_name => !OAUTH_REQUIRED_GROUPS.includes(grp_name))
+  ) {
+    throw new RpcError(
+      "UNAUTHORIZED",
+      `User must be a member of at least one of the following k8s groups: ${OAUTH_REQUIRED_GROUPS}`
     );
+  }
 
-    if (!is_admin) {
-        throw new RpcError('UNAUTHORIZED', 'account does not have an admin role');
-    }
+  const user_info = {
+    name: new SensitiveString(username),
+    email: new SensitiveString(username)
+  };
 
-    const authorized_by = 'k8s';
-    const token = make_auth_token({
-        account_id: account._id,
-        system_id: system._id,
-        expiry: Math.floor(expires_in * 1000),
-        role: 'admin',
-        authorized_by
+  let account = system_store.get_account_by_email(user_info.email);
+  if (!account) {
+    const owner_token = make_auth_token({
+      account_id: system.owner._id,
+      system_id: system._id,
+      role: "admin"
     });
 
-    const info = _get_auth_info(
-        account,
-        system,
-        authorized_by,
-        'admin',
-        req.rpc_params.extra
-    );
+    await server_rpc.client.account.create_external_user_account(user_info, {
+      auth_token: owner_token
+    });
+    account = system_store.get_account_by_email(user_info.email);
+  }
 
-    return { token, info };
+  // For some reason in the case of a new account the account role cannot be found
+  // using system.roles_by_account so I search for it directly on the roles collection.
+  const is_admin = system_store.data.roles.some(
+    r =>
+      String(r.system._id) === String(system._id) &&
+      String(r.account._id) === String(account._id) &&
+      r.role === "admin"
+  );
+
+  if (!is_admin) {
+    throw new RpcError("UNAUTHORIZED", "account does not have an admin role");
+  }
+
+  const authorized_by = "k8s";
+  const token = make_auth_token({
+    account_id: account._id,
+    system_id: system._id,
+    expiry: Math.floor(expires_in * 1000),
+    role: "admin",
+    authorized_by
+  });
+
+  const info = _get_auth_info(
+    account,
+    system,
+    authorized_by,
+    "admin",
+    req.rpc_params.extra
+  );
+
+  return { token, info };
 }
 
 function unauthorized_error(reason) {
-    return new RpcError('UNAUTHORIZED', reason);
+  return new RpcError("UNAUTHORIZED", reason);
 }
 
 /**
@@ -311,78 +330,87 @@ function unauthorized_error(reason) {
  *
  */
 function create_access_key_auth(req) {
-    var access_key = req.rpc_params.access_key.unwrap();
-    var string_to_sign = req.rpc_params.string_to_sign;
-    var signature = req.rpc_params.signature;
+  var access_key = req.rpc_params.access_key.unwrap();
+  var string_to_sign = req.rpc_params.string_to_sign;
+  var signature = req.rpc_params.signature;
 
-    if (_.isUndefined(string_to_sign) || _.isUndefined(signature)) {
-        throw new RpcError('UNAUTHORIZED', 'signature error');
-    }
+  if (_.isUndefined(string_to_sign) || _.isUndefined(signature)) {
+    throw new RpcError("UNAUTHORIZED", "signature error");
+  }
 
-    var account = _.find(system_store.data.accounts, function(acc) {
-        if (acc.access_keys) {
-            return acc.access_keys[0].access_key.unwrap().toString() === access_key.toString();
-        } else {
-            return false;
-        }
-    });
-
-    if (!account || account.deleted) {
-        throw new RpcError('UNAUTHORIZED', 'account not found');
-    }
-
-    let secret = account.access_keys[0].secret_key.unwrap().toString();
-    let signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
-    if (signature_test !== signature) {
-        throw new RpcError('UNAUTHORIZED', 'signature error');
-    }
-
-
-    dbg.log0('create_access_key_auth:',
-        'account.name', account.email,
-        'access_key', access_key,
-        'string_to_sign', string_to_sign,
-        'signature', signature);
-
-    var role = _.find(system_store.data.roles, function(r) {
-        return r.account._id.toString() === account._id.toString();
-    });
-
-    if (!role || role.deleted) {
-        throw new RpcError('UNAUTHORIZED', 'role not found');
-    }
-
-    var system = role.system;
-
-    if (!system) {
-        throw new RpcError('UNAUTHORIZED', 'system not found');
-    }
-
-    var auth_extra;
-    if (req.rpc_params.extra) {
-        auth_extra = req.rpc_params.extra;
-        auth_extra.signature = req.rpc_params.signature;
-        auth_extra.string_to_sign = req.rpc_params.string_to_sign;
+  var account = _.find(system_store.data.accounts, function(acc) {
+    if (acc.access_keys) {
+      return (
+        acc.access_keys[0].access_key.unwrap().toString() ===
+        access_key.toString()
+      );
     } else {
-        auth_extra = {
-            signature: req.rpc_params.signature,
-            string_to_sign: req.rpc_params.string_to_sign
-        };
+      return false;
     }
+  });
 
-    var token = make_auth_token({
-        system_id: system._id,
-        account_id: account._id,
-        role: 'admin',
-        s3_auth: auth_extra,
-    });
-    dbg.log0('ACCESS TOKEN:', token);
-    return {
-        token: token
+  if (!account || account.deleted) {
+    throw new RpcError("UNAUTHORIZED", "account not found");
+  }
+
+  let secret = account.access_keys[0].secret_key.unwrap().toString();
+  let signature_test = signature_utils.get_signature_from_auth_token(
+    { string_to_sign: string_to_sign },
+    secret
+  );
+  if (signature_test !== signature) {
+    throw new RpcError("UNAUTHORIZED", "signature error");
+  }
+
+  dbg.log0(
+    "create_access_key_auth:",
+    "account.name",
+    account.email,
+    "access_key",
+    access_key,
+    "string_to_sign",
+    string_to_sign,
+    "signature",
+    signature
+  );
+
+  var role = _.find(system_store.data.roles, function(r) {
+    return r.account._id.toString() === account._id.toString();
+  });
+
+  if (!role || role.deleted) {
+    throw new RpcError("UNAUTHORIZED", "role not found");
+  }
+
+  var system = role.system;
+
+  if (!system) {
+    throw new RpcError("UNAUTHORIZED", "system not found");
+  }
+
+  var auth_extra;
+  if (req.rpc_params.extra) {
+    auth_extra = req.rpc_params.extra;
+    auth_extra.signature = req.rpc_params.signature;
+    auth_extra.string_to_sign = req.rpc_params.string_to_sign;
+  } else {
+    auth_extra = {
+      signature: req.rpc_params.signature,
+      string_to_sign: req.rpc_params.string_to_sign
     };
+  }
+
+  var token = make_auth_token({
+    system_id: system._id,
+    account_id: account._id,
+    role: "admin",
+    s3_auth: auth_extra
+  });
+  dbg.log0("ACCESS TOKEN:", token);
+  return {
+    token: token
+  };
 }
-
-
 
 /**
  *
@@ -390,20 +418,18 @@ function create_access_key_auth(req) {
  *
  */
 function read_auth(req) {
-    if (!req.auth) {
-        return {};
-    }
+  if (!req.auth) {
+    return {};
+  }
 
-    return _get_auth_info(
-        req.account,
-        req.system,
-        req.auth.authorized_by,
-        req.auth.role,
-        req.auth.extra
-    );
+  return _get_auth_info(
+    req.account,
+    req.system,
+    req.auth.authorized_by,
+    req.auth.role,
+    req.auth.extra
+  );
 }
-
-
 
 /**
  *
@@ -414,78 +440,84 @@ function read_auth(req) {
  *
  */
 function authorize(req) {
-    _prepare_auth_request(req);
-    if (req.auth_token) {
-        if (typeof req.auth_token === 'object') {
-            _authorize_signature_token(req);
-        } else {
-            _authorize_jwt_token(req);
-        }
+  _prepare_auth_request(req);
+  if (req.auth_token) {
+    if (typeof req.auth_token === "object") {
+      _authorize_signature_token(req);
+    } else {
+      _authorize_jwt_token(req);
     }
-    // This check is only for to pass RPC tests
-    if (req.method_api.auth !== false) {
-        req.load_auth();
-        if (req.auth) {
-            req.check_auth();
-        } else {
-            req.check_anonymous();
-        }
+  }
+  // This check is only for to pass RPC tests
+  if (req.method_api.auth !== false) {
+    req.load_auth();
+    if (req.auth) {
+      req.check_auth();
+    } else {
+      req.check_anonymous();
     }
+  }
 }
-
 
 function _authorize_jwt_token(req) {
-    try {
-        req.auth = jwt_utils.authorize_jwt_token(req.auth_token);
-    } catch (err) {
-        dbg.error('AUTH JWT VERIFY FAILED', req, err);
-        throw new RpcError('UNAUTHORIZED', 'verify auth failed');
-    }
+  try {
+    req.auth = jwt_utils.authorize_jwt_token(req.auth_token);
+  } catch (err) {
+    dbg.error("AUTH JWT VERIFY FAILED", req, err);
+    throw new RpcError("UNAUTHORIZED", "verify auth failed");
+  }
 }
-
 
 function _authorize_signature_token(req) {
-    const auth_token_obj = req.auth_token;
+  const auth_token_obj = req.auth_token;
 
-    const account = _.find(system_store.data.accounts, function(acc) {
-        return acc.access_keys &&
-            acc.access_keys[0].access_key.unwrap() ===
-            auth_token_obj.access_key;
-    });
-    if (!account || account.deleted) {
-        throw new RpcError('UNAUTHORIZED', 'account not found');
-    }
-    const secret_key = account.access_keys[0].secret_key;
+  const account = _.find(system_store.data.accounts, function(acc) {
+    return (
+      acc.access_keys &&
+      acc.access_keys[0].access_key.unwrap() === auth_token_obj.access_key
+    );
+  });
+  if (!account || account.deleted) {
+    throw new RpcError("UNAUTHORIZED", "account not found");
+  }
+  const secret_key = account.access_keys[0].secret_key;
 
-    const role = _.find(system_store.data.roles, function(r) {
-        return r.account._id.toString() === account._id.toString();
-    });
-    if (!role || role.deleted) {
-        throw new RpcError('UNAUTHORIZED', 'role not found');
-    }
+  const role = _.find(system_store.data.roles, function(r) {
+    return r.account._id.toString() === account._id.toString();
+  });
+  if (!role || role.deleted) {
+    throw new RpcError("UNAUTHORIZED", "role not found");
+  }
 
-    const system = role.system;
-    if (!system) {
-        throw new RpcError('UNAUTHORIZED', 'system not found');
-    }
+  const system = role.system;
+  if (!system) {
+    throw new RpcError("UNAUTHORIZED", "system not found");
+  }
 
-    req.auth = {
-        system_id: system._id,
-        account_id: account._id,
-        role: role.role,
-        client_ip: auth_token_obj.client_ip,
-    };
+  req.auth = {
+    system_id: system._id,
+    account_id: account._id,
+    role: role.role,
+    client_ip: auth_token_obj.client_ip
+  };
 
-    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, secret_key.unwrap());
+  const signature = signature_utils.get_signature_from_auth_token(
+    auth_token_obj,
+    secret_key.unwrap()
+  );
 
-    if (auth_token_obj.signature !== signature) {
-        dbg.error('Signature for access key:', auth_token_obj.access_key,
-            'expected:', signature,
-            'received:', auth_token_obj.signature);
-        throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
-    }
+  if (auth_token_obj.signature !== signature) {
+    dbg.error(
+      "Signature for access key:",
+      auth_token_obj.access_key,
+      "expected:",
+      signature,
+      "received:",
+      auth_token_obj.signature
+    );
+    throw new RpcError("UNAUTHORIZED", "SignatureDoesNotMatch");
+  }
 }
-
 
 /**
  *
@@ -496,171 +528,195 @@ function _authorize_signature_token(req) {
  *
  */
 function _prepare_auth_request(req) {
+  const options = req.method_api.auth || {};
+  // when the account field in method_api.auth is missing
+  // we consider as if account is implicitly not mandatory for the method.
+  // this is because in many internal paths we do not have an account.
+  // TODO reconsider if allow_missing_account should be explicit instead
+  const allow_missing_account = !options.account;
+  // for system in order to make it optional we require to pass explicit false.
+  const allow_missing_system = options.system === false;
+  // for anonymous access operations
+  const allow_anonymous_access = options.anonymous === true;
 
-    const options = req.method_api.auth || {};
-    // when the account field in method_api.auth is missing
-    // we consider as if account is implicitly not mandatory for the method.
-    // this is because in many internal paths we do not have an account.
-    // TODO reconsider if allow_missing_account should be explicit instead
-    const allow_missing_account = !options.account;
-    // for system in order to make it optional we require to pass explicit false.
-    const allow_missing_system = (options.system === false);
-    // for anonymous access operations
-    const allow_anonymous_access = (options.anonymous === true);
+  /**
+   * req.load_auth() sets req.account, req.system and req.role.
+   */
+  req.load_auth = function() {
+    if (req.auth) {
+      if (req.auth.account_id)
+        req.account = system_store.data.get_by_id(req.auth.account_id);
+      if (req.auth.system_id)
+        req.system = system_store.data.get_by_id(req.auth.system_id);
+      req.role = req.auth.role;
+    }
+  };
 
-    /**
-     * req.load_auth() sets req.account, req.system and req.role.
-     */
-    req.load_auth = function() {
-        if (req.auth) {
-            if (req.auth.account_id) req.account = system_store.data.get_by_id(req.auth.account_id);
-            if (req.auth.system_id) req.system = system_store.data.get_by_id(req.auth.system_id);
-            req.role = req.auth.role;
+  req.check_anonymous = function() {
+    if (!allow_anonymous_access)
+      throw new RpcError(
+        "UNAUTHORIZED",
+        "not anonymous method " + req.method_api.name
+      );
+    // Currently authorize anonymous with the system that we have
+    // Notice that we only authorize if system doesn't exist
+    // Since the anonymous methods can be called authenticated as well
+    if (!req.system) req.system = system_store.data.systems[0];
+  };
+
+  /**
+   * req.check_auth() verifies that the request auth has a valid account, system and role
+   */
+  req.check_auth = function() {
+    dbg.log1("load_auth:", options, req.auth);
+    // check that auth has account
+    if (!req.account) {
+      if (!allow_missing_account || req.auth.account_id) {
+        throw new RpcError(
+          "UNAUTHORIZED",
+          "account not found " + req.auth.account_id
+        );
+      }
+    }
+
+    // check that auth contains system
+    if (!req.system) {
+      if (!allow_missing_system || req.auth.system_id) {
+        throw new RpcError(
+          "UNAUTHORIZED",
+          "system not found " + req.auth.system_id
+        );
+      }
+    }
+
+    // check that auth contains valid system role or the account is support
+    // We should not check for roles and accounts in anonymous access
+    // if (req.system && req.account) {
+    if (req.system) {
+      let allowed_role;
+      if (
+        (req.account && req.account.is_support) ||
+        req.auth.role === "operator"
+      ) {
+        allowed_role = true;
+      } else if (typeof options.system === "string") {
+        allowed_role = options.system === req.auth.role;
+      } else if (Array.isArray(options.system)) {
+        allowed_role = _.includes(options.system, req.auth.role);
+      } else {
+        allowed_role = allow_missing_system;
+      }
+
+      if (!allowed_role) {
+        dbg.warn(
+          "role not allowed in system",
+          options,
+          req.auth,
+          req.account,
+          req.system
+        );
+        throw new RpcError("UNAUTHORIZED", "role not allowed in system");
+      }
+    }
+
+    // check ip restrictions on the account
+    if (req.account && req.account.allowed_ips) {
+      const client_ip = net_utils.unwrap_ipv6(req.auth.client_ip);
+      if (client_ip) {
+        let is_allowed = false;
+        const client_ip_val = ip_module.toLong(client_ip);
+        for (const ip_range of req.account.allowed_ips) {
+          const start = ip_module.toLong(ip_range.start);
+          const end = ip_module.toLong(ip_range.end);
+          if (client_ip_val >= start && client_ip_val <= end) {
+            is_allowed = true;
+            break;
+          }
         }
-    };
-
-    req.check_anonymous = function() {
-        if (!allow_anonymous_access) throw new RpcError('UNAUTHORIZED', 'not anonymous method ' + (req.method_api.name));
-        // Currently authorize anonymous with the system that we have
-        // Notice that we only authorize if system doesn't exist
-        // Since the anonymous methods can be called authenticated as well
-        if (!req.system) req.system = system_store.data.systems[0];
-    };
-
-    /**
-     * req.check_auth() verifies that the request auth has a valid account, system and role
-     */
-    req.check_auth = function() {
-        dbg.log1('load_auth:', options, req.auth);
-        // check that auth has account
-        if (!req.account) {
-            if (!allow_missing_account || req.auth.account_id) {
-                throw new RpcError('UNAUTHORIZED', 'account not found ' + req.auth.account_id);
-            }
+        if (!is_allowed) {
+          throw new RpcError(
+            "UNAUTHORIZED",
+            "Client IP not allowed " + client_ip
+          );
         }
+      }
+    }
 
-        // check that auth contains system
-        if (!req.system) {
-            if (!allow_missing_system || req.auth.system_id) {
-                throw new RpcError('UNAUTHORIZED', 'system not found ' + req.auth.system_id);
-            }
-        }
+    dbg.log3("load auth system:", req.system);
+  };
 
-        // check that auth contains valid system role or the account is support
-        // We should not check for roles and accounts in anonymous access
-        // if (req.system && req.account) {
-        if (req.system) {
-            let allowed_role;
-            if ((req.account && req.account.is_support) || req.auth.role === 'operator') {
-                allowed_role = true;
-            } else if (typeof options.system === 'string') {
-                allowed_role = options.system === req.auth.role;
-            } else if (Array.isArray(options.system)) {
-                allowed_role = _.includes(options.system, req.auth.role);
-            } else {
-                allowed_role = allow_missing_system;
-            }
+  req.has_bucket_permission = function(bucket) {
+    return has_bucket_permission(bucket, req.account);
+  };
 
-            if (!allowed_role) {
-                dbg.warn('role not allowed in system', options, req.auth, req.account, req.system);
-                throw new RpcError('UNAUTHORIZED', 'role not allowed in system');
-            }
-        }
+  req.has_bucket_anonymous_permission = function(bucket) {
+    return has_bucket_anonymous_permission(bucket);
+  };
 
-        // check ip restrictions on the account
-        if (req.account && req.account.allowed_ips) {
-            const client_ip = net_utils.unwrap_ipv6(req.auth.client_ip);
-            if (client_ip) {
-                let is_allowed = false;
-                const client_ip_val = ip_module.toLong(client_ip);
-                for (const ip_range of req.account.allowed_ips) {
-                    const start = ip_module.toLong(ip_range.start);
-                    const end = ip_module.toLong(ip_range.end);
-                    if (client_ip_val >= start && client_ip_val <= end) {
-                        is_allowed = true;
-                        break;
-                    }
-                }
-                if (!is_allowed) {
-                    throw new RpcError('UNAUTHORIZED', 'Client IP not allowed ' + client_ip);
-                }
-            }
-        }
+  req.check_bucket_permission = function(bucket) {
+    if (!req.has_bucket_permission(bucket)) {
+      throw new RpcError("UNAUTHORIZED", "No permission to access bucket");
+    }
+  };
 
-        dbg.log3('load auth system:', req.system);
-    };
+  req.has_s3_bucket_permission = function(bucket) {
+    // Since this method can be called both authorized and unauthorized
+    // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
+    // In case of anonymous function but with authentication flow we roll back to previous code and not return here
+    if (req.auth_token && typeof req.auth_token === "object") {
+      return req.has_bucket_permission(bucket);
+    }
+    // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
+    // There is nothing specific to bucket permissions for the management credentials
+    // So we allow bucket access to any valid auth token
+    if (req.auth && req.system && req.account) {
+      return true;
+    }
 
-    req.has_bucket_permission = function(bucket) {
-        return has_bucket_permission(bucket, req.account);
-    };
+    if (options.anonymous === true) {
+      return req.has_bucket_anonymous_permission(bucket);
+    }
 
-    req.has_bucket_anonymous_permission = function(bucket) {
-        return has_bucket_anonymous_permission(bucket);
-    };
+    return false;
+  };
 
-    req.check_bucket_permission = function(bucket) {
-        if (!req.has_bucket_permission(bucket)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
-    };
-
-    req.has_s3_bucket_permission = function(bucket) {
-        // Since this method can be called both authorized and unauthorized
-        // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
-        // In case of anonymous function but with authentication flow we roll back to previous code and not return here
-        if (req.auth_token && typeof req.auth_token === 'object') {
-            return req.has_bucket_permission(bucket);
-        }
-        // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
-        // There is nothing specific to bucket permissions for the management credentials
-        // So we allow bucket access to any valid auth token
-        if (req.auth && req.system && req.account) {
-            return true;
-        }
-
-        if (options.anonymous === true) {
-            return req.has_bucket_anonymous_permission(bucket);
-        }
-
-        return false;
-    };
-
-    req.check_s3_bucket_permission = function(bucket) {
-        if (!req.has_s3_bucket_permission(bucket)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
-    };
-
+  req.check_s3_bucket_permission = function(bucket) {
+    if (!req.has_s3_bucket_permission(bucket)) {
+      throw new RpcError("UNAUTHORIZED", "No permission to access bucket");
+    }
+  };
 }
 
 function _get_auth_info(account, system, authorized_by, role, extra) {
-    const response = { authorized_by, role, extra };
+  const response = { authorized_by, role, extra };
 
-    if (account) {
-        response.account = _.pick(account, 'name', 'email');
-        if (account.is_support) {
-            response.account.is_support = true;
-        }
-
-        let next_password_change = account.next_password_change;
-        if (next_password_change && next_password_change < Date.now()) {
-            response.account.must_change_password = true;
-        }
+  if (account) {
+    response.account = _.pick(account, "name", "email");
+    if (account.is_support) {
+      response.account.is_support = true;
     }
 
-    if (system) {
-        response.system = _.pick(system, 'name');
+    let next_password_change = account.next_password_change;
+    if (next_password_change && next_password_change < Date.now()) {
+      response.account.must_change_password = true;
     }
+  }
 
-    return response;
+  if (system) {
+    response.system = _.pick(system, "name");
+  }
+
+  return response;
 }
 
 function has_bucket_permission(bucket, account) {
-    return _.get(account, 'allowed_buckets.full_permission', false) ||
-        _.find(
-            _.get(account, 'allowed_buckets.permission_list') || [],
-            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-        );
+  return (
+    _.get(account, "allowed_buckets.full_permission", false) ||
+    _.find(
+      _.get(account, "allowed_buckets.permission_list") || [],
+      allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
+    )
+  );
 }
 
 // TODO: This should be changed to ACLs / Bucket Policy
@@ -676,18 +732,28 @@ function has_bucket_permission(bucket, account) {
 //     }]
 // }
 function has_bucket_anonymous_permission(bucket) {
-    const required_configuration = {
-        Sid: "PublicReadForGetBucketObjects",
-        Effect: "Allow",
-        Principal: "*",
-        Action: ["s3:GetObject"],
-        Resource: [`arn:aws:s3:::${bucket.name}/*`],
-    };
-    const bucket_policy = bucket.policy;
-    if (!bucket_policy) return false;
-    const statements = bucket_policy.Statement;
-    if (!statements) return false;
-    return _.some(statements, record => _.isEqual(required_configuration, record));
+  const required_configuration = {
+    Sid: "PublicReadForGetBucketObjects",
+    Effect: "Allow",
+    Principal: "*",
+    Action: ["s3:GetObject"],
+    Resource: [`arn:aws:s3:::${bucket.name.unwrap()}/*`]
+  };
+  const bucket_policy = bucket.s3_policy;
+  if (!bucket_policy) return false;
+  const statements = bucket_policy.statement;
+  if (!statements) return false;
+  return _.some(statements, record => {
+    const stmt = _.omit(
+      JSON.parse(JSON.stringify(required_configuration).toLowerCase()),
+      "principal"
+    );
+    const rec_stmt = _.omit(record, "principal");
+    const prin = _.pick(record, "principal").principal;
+    return (
+      _.some(prin, p => _.isEqual(p.unwrap(), "*")) && _.isEqual(stmt, rec_stmt)
+    );
+  });
 }
 
 /**
@@ -705,21 +771,27 @@ function has_bucket_anonymous_permission(bucket) {
  * @return <String> token
  */
 function make_auth_token(options) {
-    var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 'authorized_by');
-    auth.authorized_by = auth.authorized_by || 'noobaa';
+  var auth = _.pick(
+    options,
+    "account_id",
+    "system_id",
+    "role",
+    "extra",
+    "authorized_by"
+  );
+  auth.authorized_by = auth.authorized_by || "noobaa";
 
-    // don't incude keys if value is falsy, to minimize the token size
-    auth = _.omitBy(auth, value => !value);
+  // don't incude keys if value is falsy, to minimize the token size
+  auth = _.omitBy(auth, value => !value);
 
-    // set expiry if provided
-    var jwt_options = {};
-    if (options.expiry) {
-        jwt_options.expiresIn = options.expiry;
-    }
-    // create and return the signed token
-    return jwt_utils.make_auth_token(auth, jwt_options);
+  // set expiry if provided
+  var jwt_options = {};
+  if (options.expiry) {
+    jwt_options.expiresIn = options.expiry;
+  }
+  // create and return the signed token
+  return jwt_utils.make_auth_token(auth, jwt_options);
 }
-
 
 // EXPORTS
 exports.create_auth = create_auth;

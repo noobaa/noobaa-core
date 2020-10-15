@@ -38,7 +38,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
             },
         };
         return P.resolve()
-            .then(() => os_utils.os_info(true)
+            .then(() => os_utils.os_info()
                 .then(os_info => {
                     heartbeat.health.os_info = os_info;
                     //Adjust tolerance of minimum RAM requirement to 1 GB below actual minimum

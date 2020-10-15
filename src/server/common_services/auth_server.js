@@ -18,6 +18,7 @@ const addr_utils = require('../../util/addr_utils');
 const kube_utils = require('../../util/kube_utils');
 const jwt_utils = require('../../util/jwt_utils');
 const config = require('../../../config');
+const s3_utils = require('../../endpoint/s3/s3_utils');
 
 
 /**
@@ -676,18 +677,18 @@ function has_bucket_permission(bucket, account) {
 //     }]
 // }
 function has_bucket_anonymous_permission(bucket) {
-    const required_configuration = {
-        Sid: "PublicReadForGetBucketObjects",
-        Effect: "Allow",
-        Principal: "*",
-        Action: ["s3:GetObject"],
-        Resource: [`arn:aws:s3:::${bucket.name}/*`],
-    };
-    const bucket_policy = bucket.policy;
+    const bucket_policy = bucket.s3_policy;
     if (!bucket_policy) return false;
-    const statements = bucket_policy.Statement;
-    if (!statements) return false;
-    return _.some(statements, record => _.isEqual(required_configuration, record));
+    return s3_utils.has_bucket_policy_permission(
+        bucket_policy,
+        // Account is anonymous
+        undefined,
+        // TODO: Simplistic check, canned ACL public reads should support the following ops:
+        // for bucket - ListBucket, ListBucketVersions, ListBucketMultipartUploads
+        // for object - GetObject, GetObjectVersion, GetObjectTorrent
+        `s3:getobject`,
+        `arn:aws:s3:::${bucket.name.unwrap()}/*`
+    );
 }
 
 /**

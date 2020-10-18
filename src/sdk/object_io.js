@@ -7,7 +7,6 @@ const stream = require('stream');
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const os_utils = require('../util/os_utils');
 const Pipeline = require('../util/pipeline');
 const Semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
@@ -136,8 +135,9 @@ class ObjectIO {
 
         dbg.log0('ObjectIO Configurations:', util.inspect({
             location_info,
-            totalmem: os_utils.get_memory(),
-            IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP
+            CONTAINER_MEM_LIMIT: config.CONTAINER_MEM_LIMIT,
+            BUFFERS_MEM_LIMIT: config.BUFFERS_MEM_LIMIT,
+            IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP,
         }));
 
     }

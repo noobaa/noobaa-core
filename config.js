@@ -5,15 +5,52 @@
 // with config.NAME so that it will be consistent with the code that imports it
 // and will make searching easier.
 var config = exports;
+
 const os = require('os');
 const assert = require('assert');
 
+/////////////////////////
+// CONTAINER RESOURCES //
+/////////////////////////
 
-const CONTAINER_MEM = Number(
-    process.env.CONTAINER_MEM_REQUEST ?
-    process.env.CONTAINER_MEM_REQUEST :
-    os.totalmem()
+// The REQUEST is the "minimal" or "guaranteed" amount required for the container's operation.
+// The LIMIT is the "maximal" or "burst" amount that the container can use for extended operations.
+// In Kubernetes for "guaranteed" QOS class REQUEST and LIMIT both have to be provided and equal.
+// This means that in most cases these configs should be the same.
+// However we allow a configuration of "thin" provisioning of resources, where LIMIT is higher than REQUEST.
+//
+// When to use LIMIT:
+// - For limiting amounts of transient memory.
+// - As we do with semaphores to backpressure incoming I/O requests.
+// - Suitable for memory that will be garbage collected soon enough after being processed.
+// -  The heap will be able to burst up and down.
+//
+// When to use REQUEST:
+// - Less common and is currently unused
+// - Might be needed when limiting pinned memory like DB caches.
+
+config.CONTAINER_MEM_LIMIT = Number(process.env.CONTAINER_MEM_LIMIT || '') || os.totalmem();
+config.CONTAINER_CPU_LIMIT = Number(process.env.CONTAINER_CPU_LIMIT || '') || os.cpus().length;
+config.CONTAINER_MEM_REQUEST = Number(process.env.CONTAINER_MEM_REQUEST || '');
+config.CONTAINER_CPU_REQUEST = Number(process.env.CONTAINER_CPU_REQUEST || '');
+
+// For buffer limits we use the mem LIMIT and not REQUEST because -
+// if we are in guaranteed mode then it will equal to requests anyway,
+// but if limit is higher then we want to allow buffering using burst memory,
+// since these buffers will get garbage collected after processing.
+//
+// We divide by 4 because we don't have a central buffer manager, and we need
+// some fixed top limit to how much these buffers can consume from the total,
+// so we just picked 4 for now.
+//
+// This constant is currently used for semaphores in object_io and namespace_cache.
+//
+// TODO we need a central buffer manager to handle all cases (other namespaces too)
+config.BUFFERS_MEM_LIMIT = Math.max(
+    Math.floor(config.CONTAINER_MEM_LIMIT / 4),
+    32 * 1024 * 1024, // just some workable minimum size in case the container mem limit is too low.
 );
+
 
 //////////////////
 // NODES CONFIG //
@@ -122,15 +159,11 @@ config.IO_STREAM_SPLIT_SIZE = 32 * 1024 * 1024;
 config.IO_STREAM_SEMAPHORE_SIZE_CAP = config.IO_STREAM_SPLIT_SIZE * 8;
 config.IO_STREAM_MINIMAL_SIZE_LOCK = 1 * 1024 * 1024;
 config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
-
-config.IO_MEM_SEMAPHORE = 4;
 config.IO_STREAM_SEMAPHORE_TIMEOUT = 120 * 1000;
 config.VIDEO_READ_STREAM_PRE_FETCH_LOAD_CAP = 5 * 1000;
-config.IO_SEMAPHORE_CAP = Math.floor(
-    Math.max(
-        config.IO_STREAM_SEMAPHORE_SIZE_CAP,
-        CONTAINER_MEM / config.IO_MEM_SEMAPHORE
-    )
+config.IO_SEMAPHORE_CAP = Math.max(
+    config.BUFFERS_MEM_LIMIT, // upper limit
+    config.IO_STREAM_SEMAPHORE_SIZE_CAP, // minimal size needed to complete jobs in object_io
 );
 
 config.ERROR_INJECTON_ON_WRITE = 0;
@@ -487,7 +520,7 @@ config.NAMESPACE_CACHING = {
     CACHED_PERCENTAGE_HIGH_THRESHOLD: 80,
     UPLOAD_SEMAPHORE_TIMEOUT: 30 * 1000,
     MIN_OBJECT_AGE_FOR_GC: 1000 * 60 * 60 * 24,
-    UPLOAD_SEMAPHORE_CAP: Math.floor(CONTAINER_MEM / 8),
+    UPLOAD_SEMAPHORE_CAP: config.BUFFERS_MEM_LIMIT,
     ACL_HANDLING: /** @type { 'reject' | 'pass-through' | '' } */ (''),
 };
 
@@ -510,7 +543,15 @@ function load_config_local() {
         // eslint-disable-next-line global-require
         const local_config = require('./config-local');
         console.log('load_config_local: LOADED', local_config);
-        Object.assign(config, local_config);
+        if (typeof local_config === 'function') {
+            const local_config_func = /** @type {function} */ (local_config);
+            local_config_func(config);
+        } else if (typeof local_config === 'object') {
+            const local_config_obj = /** @type {object} */ (local_config);
+            Object.assign(config, local_config_obj);
+        } else {
+            throw new Error(`Expected object or function to be exported from config-local - ${typeof local_config}`);
+        }
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND') throw err;
         console.log('load_config_local: NO LOCAL CONFIG');

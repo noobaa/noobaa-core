@@ -25,7 +25,6 @@ const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
 const addr_utils = require('../util/addr_utils');
 const promise_utils = require('../util/promise_utils');
-const os_utils = require('../util/os_utils');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
@@ -190,11 +189,13 @@ async function start_monitor(internal_rpc_client) {
                 group_name,
                 hostname,
                 cpu: {
-                    count: os_utils.get_cpus(),
+                    // using the upper limit here which includes optional burst resources
+                    count: config.CONTAINER_CPU_LIMIT,
                     usage: cpu_usage
                 },
                 memory: {
-                    total: os_utils.get_memory(),
+                    // using the upper limit here which includes optional burst resources
+                    total: config.CONTAINER_MEM_LIMIT,
                     used: process.memoryUsage().rss,
                 },
                 s3_ops: {

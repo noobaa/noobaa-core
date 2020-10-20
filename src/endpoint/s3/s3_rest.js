@@ -269,8 +269,10 @@ function check_headers(req) {
         time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
         time_utils.parse_http_header_date(req.headers.date);
 
-    // In case of presigned urls we shouldn't fail on non provided time.
-    if (isNaN(req_time) && !req.query.Expires) {
+    const auth_token = signature_utils.make_auth_token_from_request(req);
+    const is_not_anonymous_req = Boolean(auth_token && auth_token.access_key);
+    // In case of presigned urls / anonymous requests we shouldn't fail on non provided time.
+    if (isNaN(req_time) && !req.query.Expires && is_not_anonymous_req) {
         throw new S3Error(S3Error.AccessDenied);
     }
 
@@ -314,13 +316,17 @@ async function authorize_request_policy(req) {
     if (s3_policy) {
         const arn_path = _get_arn_from_req_path(req);
         const method = _get_method_from_req(req);
-        const account = await req.object_sdk.rpc_client.account.read_account({});
-        // system owner by design can always change bucket policy
-        // bucket owner and bucket claim owner has FC ACL by design - so no need to check bucket policy
-        if (((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) ||
-            (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) ||
-            account.email.unwrap() === bucket_owner.unwrap()) return;
-        if (!has_bucket_policy_permission(s3_policy, account.email, method, arn_path)) {
+        const auth_token = req.object_sdk.get_auth_token();
+        let account;
+        if (auth_token && auth_token.access_key) {
+            account = await req.object_sdk.rpc_client.account.read_account({});
+            // system owner by design can always change bucket policy
+            // bucket owner and bucket claim owner has FC ACL by design - so no need to check bucket policy
+            if (((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) ||
+                (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) ||
+                account.email.unwrap() === bucket_owner.unwrap()) return;
+        }
+        if (!s3_utils.has_bucket_policy_permission(s3_policy, account ? account.email.unwrap() : undefined, method, arn_path)) {
             throw new S3Error(S3Error.AccessDenied);
         }
     }
@@ -346,49 +352,6 @@ function _get_arn_from_req_path(req) {
         arn_path += `/${key}`;
     }
     return arn_path;
-}
-
-function has_bucket_policy_permission(policy, account, method, arn_path) {
-    const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
-
-    // look for explicit denies
-    if (is_statements_fit(deny_statements, account, method, arn_path)) return false;
-
-    // look for explicit allows
-    if (is_statements_fit(allow_statements, account, method, arn_path)) return true;
-
-    // implicit deny
-    return false;
-}
-
-function is_statements_fit(statements, account, method, arn_path) {
-    for (const statement of statements) {
-        let action_fit = false;
-        let principal_fit = false;
-        let resource_fit = false;
-        for (const action of statement.action) {
-            dbg.log1('bucket_policy: action fit?', action, method);
-            if ((action === '*') || (action === 's3:*') || (action === method)) {
-                action_fit = true;
-            }
-        }
-        for (const principal of statement.principal) {
-            dbg.log1('bucket_policy: principal fit?', principal, account);
-            if ((principal.unwrap() === '*') || (principal.unwrap() === account.unwrap())) {
-                principal_fit = true;
-            }
-        }
-        for (const resource of statement.resource) {
-            const resource_regex = RegExp(`^${resource.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
-            dbg.log1('bucket_policy: resource fit?', resource_regex, arn_path);
-            if (resource_regex.test(arn_path)) {
-                resource_fit = true;
-            }
-        }
-        dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
-        if (action_fit && principal_fit && resource_fit) return true;
-    }
-    return false;
 }
 
 // We removed support for default website hosting (host value is a bucket name)

@@ -42,21 +42,6 @@ if (!process.env.PLATFORM) {
     dotenv.load();
 }
 
-
-if (!process.env.PLATFORM) {
-    console.log('loading .env file...');
-    dotenv.load();
-}
-
-function get_memory() {
-    return Number(process.env.CONTAINER_MEM_LIMIT) || os.totalmem();
-}
-
-function get_cpus() {
-    return Number(process.env.CONTAINER_CPU_LIMIT) || os.cpus().length;
-}
-
-
 function os_info() {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
@@ -80,7 +65,7 @@ function os_info() {
             release: os.release(),
             uptime: Date.now() - Math.floor(1000 * os.uptime()),
             loadavg: os.loadavg(),
-            totalmem: get_memory(),
+            totalmem: config.CONTAINER_MEM_LIMIT,
             freemem: free_mem,
             cpus: os.cpus(),
             networkInterfaces: interfaces
@@ -886,8 +871,6 @@ async function restart_services(services) {
 exports.IS_WIN = IS_WIN;
 exports.IS_MAC = IS_MAC;
 exports.IS_LINUX = IS_LINUX;
-exports.get_memory = get_memory;
-exports.get_cpus = get_cpus;
 exports.os_info = os_info;
 exports.read_drives = read_drives;
 exports.get_raw_storage = get_raw_storage;

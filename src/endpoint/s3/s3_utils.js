@@ -10,6 +10,8 @@ const time_utils = require('../../util/time_utils');
 const endpoint_utils = require('../endpoint_utils');
 const crypto = require('crypto');
 const config = require('../../.././config');
+const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
+const stream = require('stream');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -98,6 +100,16 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_object_uploadid: { regular: "s3:putobject" },
     put_object: { regular: "s3:putobject" },
 });
+
+function decode_chunked_upload(source_stream) {
+    const decoder = new ChunkedContentDecoder();
+    // pipeline will back-propagate errors from the decoder to stop streaming from the source,
+    // so the error callback here is only needed for logging.
+    stream.pipeline(source_stream, decoder, err => {
+        if (err) console.log('decode_chunked_upload: pipeline error', err.stack || err);
+    });
+    return decoder;
+}
 
 function format_s3_xml_date(input) {
     let date = input ? new Date(input) : new Date();
@@ -575,6 +587,7 @@ exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
+exports.decode_chunked_upload = decode_chunked_upload;
 exports.format_s3_xml_date = format_s3_xml_date;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;

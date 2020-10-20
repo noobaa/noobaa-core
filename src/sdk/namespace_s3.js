@@ -139,14 +139,25 @@ class NamespaceS3 {
             // If set, part_number is positive integer from 1 to 10000.
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
-            if (!params.part_number) {
+            // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
+            const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
+            if (can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
             }
             this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
-
-            const res = params.part_number ? await this.s3.headObject(request).promise() : await this.s3.getObject(request).promise();
-
+            let res;
+            try {
+                res = can_use_get_inline ?
+                    await this.s3.getObject(request).promise() :
+                    await this.s3.headObject(request).promise();
+            } catch (err) {
+                // catch invalid range error for objects of size 0 and trying head object instead
+                if (err.code !== 'InvalidRange') {
+                    throw err;
+                }
+                res = await this.s3.headObject({ ...request, Range: undefined }).promise();
+            }
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket, params.part_number);
         } catch (err) {

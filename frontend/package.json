@@ -63,7 +63,7 @@
     },
     "scripts": {
         "build": "./node_modules/.bin/gulp build",
-        "build-deps": "./node_modules/.bin/gulp buildDeps",
+        "build-lib": "./node_modules/.bin/gulp buildLib",
         "lint": "./node_modules/.bin/gulp lint",
         "test": "./node_modules/.bin/gulp test"
     },

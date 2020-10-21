@@ -28,4 +28,4 @@ RUN cd frontend && \
 ######################################################################
 COPY ./frontend/ ./frontend/
 RUN cd frontend && \
-    npm run build-deps
+    npm run build-lib

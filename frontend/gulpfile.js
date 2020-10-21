@@ -3,6 +3,7 @@
 /*global Buffer process */
 'use strict';
 const argv = require('yargs').argv;
+const fs = require('fs');
 const gulp = require('gulp');
 const del = require('del');
 const path = require('path');
@@ -22,6 +23,7 @@ const { version } = require('../package.json');
 const cwd = process.cwd();
 const libPath = './src/lib';
 const buildPath = './dist';
+const gitHooksPath = '../.git/hooks'
 const uglify = !!argv.uglify;
 let buildErrors = 0;
 let lintErrors = 0;
@@ -133,8 +135,35 @@ if (process.env.ALLOW_ROOT) {
 // Dependencies build tesks
 // ----------------------------------
 
-function cleanDeps() {
+function cleanLib() {
     return del([libPath]);
+}
+
+async function saveGitHooks() {
+    try {
+        await fs.promises.rename(
+            gitHooksPath, 
+            `${gitHooksPath}.backup`
+        );
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            throw err;
+        }
+    }
+}
+
+async function restoreGitHooks() {
+    try {
+        await del([gitHooksPath], { force: true });
+        await fs.promises.rename(
+            `${gitHooksPath}.backup`,
+            gitHooksPath
+        );
+    } catch (err) {
+        if (err.code !== 'ENOENT') {
+            throw err;
+        }        
+    }
 }
 
 function installDeps() {
@@ -364,14 +393,16 @@ function test() {
 // Composite Tasks
 // ----------------------------------
 
-const buildDeps = gulp.series(
-    cleanDeps,
+const buildLib = gulp.series(
+    saveGitHooks,
+    cleanLib,
     installDeps,
     compileDeps,
     gulp.parallel(
         bundleDeps,
         copyDepsAssets
-    )
+    ),
+    restoreGitHooks
 );
 
 const buildApp = gulp.series(
@@ -571,8 +602,8 @@ function formattedLog(task, message) {
 // ----------------------------------
 
 Object.assign(exports, {
-    cleanDeps,
-    buildDeps,
+    cleanLib,
+    buildLib,
     clean,
     build,
     buildAPI,

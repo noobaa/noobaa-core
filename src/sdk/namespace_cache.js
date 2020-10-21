@@ -10,6 +10,7 @@ const range_utils = require('../util/range_utils');
 const RangeStream = require('../util/range_stream');
 const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
+const stream_utils = require('../util/stream_utils');
 const Semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
@@ -258,23 +259,24 @@ class NamespaceCache {
                             content_type: params.content_type,
                             xattr: object_info_hub.xattr,
                             last_modified_time: (new Date(object_info_hub.create_time)).getTime(),
+                            upload_chunks_hook: this.update_cache_stats_hook(params.bucket)
                         };
+
+                        const start_time = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
-                        this.stats_collector.update_namespace_cache_stats({
+
+                        this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
-                            write_bytes: object_info_hub.first_range_data.length,
-                            read_bytes: object_info_hub.first_range_data.length,
-                            read_count: 1,
-                            miss_count: 1,
+                            cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
+
                         return upload_res;
                     }
                 );
             } else if (cache_etag === '') {
                 object_info_hub.should_read_from_cache = false;
             } else {
-                dbg.log0('NamespaceCache.read_object_md: etags different: removing object from cache',
-                    {params, hub_tag: object_info_hub.etag, cache_etag: cache_etag});
+                dbg.log0('NamespaceCache.read_object_md: etags different: removing object from cache', { params, hub_tag: object_info_hub.etag, cache_etag: cache_etag });
                 setImmediate(() => this._delete_object_from_cache(params, object_sdk));
             }
 
@@ -302,7 +304,7 @@ class NamespaceCache {
     //   - otherwise, it reads data from cache by providing missing_part_getter to
     //     cache's read_object_stream.
     async _read_object_stream(params, object_sdk) {
-        dbg.log0('NamespaceCache._read_object_stream', {params: params});
+        dbg.log0('NamespaceCache._read_object_stream', { params: params });
 
         params.bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         const range_hub_read = await this._range_read_hub_check(params, object_sdk);
@@ -339,26 +341,39 @@ class NamespaceCache {
         }
 
         params.missing_part_getter = async (missing_part_start, missing_part_end) => {
-            dbg.log0('NamespaceCache._read_object_stream: missing_part_getter',
-                { params: params, missing_part_start, missing_part_end });
+            dbg.log0('NamespaceCache._read_object_stream: missing_part_getter', { params: params, missing_part_start, missing_part_end });
 
             const read_params = _.omit(params, ['start', 'end']);
             read_params.start = missing_part_start;
             read_params.end = missing_part_end;
 
-            const read_stream = await this._read_hub_object_stream(read_params, object_sdk,
-                { start: missing_part_start, end: missing_part_end });
+            const read_stream = await this._read_hub_object_stream(
+                read_params, object_sdk, { start: missing_part_start, end: missing_part_end });
 
             return buffer_utils.read_stream_join(read_stream);
         };
 
         try {
+            const start_time = process.hrtime.bigint();
             const cache_read_stream = await this.namespace_nb.read_object_stream(params, object_sdk);
-            this.stats_collector.update_namespace_cache_stats({
-                bucket_name: params.bucket,
-                read_bytes: params.read_size,
+
+            // update latency stats on 'end'
+            cache_read_stream.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
+                    bucket_name: params.bucket,
+                    cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                });
             });
-            return cache_read_stream;
+
+            // update bytes stats on 'data' events but with a tap stream
+            const tap_stream = stream_utils.get_tap_stream(data => {
+                this.stats_collector.update_cache_stats({
+                    bucket_name: params.bucket,
+                    read_bytes: data.length,
+                });
+            });
+            cache_read_stream.pipe(tap_stream);
+            return tap_stream;
         } catch (err) {
             dbg.error('NamespaceCache.hub_range_read: fallback to hub after error in reading cache', err);
             return this._read_hub_object_stream(params, object_sdk, range_hub_read ? { start: params.start, end: params.end } : undefined);
@@ -377,7 +392,7 @@ class NamespaceCache {
      * Returns range_stream if range read; otherwise, hub_read_stream
      */
     async _read_hub_object_stream(params, object_sdk, hub_read_range) {
-        dbg.log0('NamespaceCache._read_hub_object_stream', {params: params, hub_read_range});
+        dbg.log0('NamespaceCache._read_hub_object_stream', { params: params, hub_read_range });
 
         let hub_read_size = params.read_size;
         // Omit the original start and end set by s3 client
@@ -403,7 +418,15 @@ class NamespaceCache {
             if (!hub_read_params.md_conditions) {
                 hub_read_params.md_conditions = { if_match_etag: params.object_md.etag };
             }
+            const start_time = process.hrtime.bigint();
             hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
+            // update latency stats on 'end'
+            hub_read_stream.once('end', () => {
+                this.stats_collector.update_cache_latency_stats({
+                    bucket_name: params.bucket,
+                    hub_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                });
+            });
         } catch (err) {
             if (err.rpc_code === 'IF_MATCH_ETAG') {
                 await this._delete_object_from_cache(params, object_sdk);
@@ -453,45 +476,51 @@ class NamespaceCache {
                     _global_cache_uploader.submit_background(
                         hub_read_size,
                         async () => {
+                            const start_time = process.hrtime.bigint();
                             const upload_res = await object_sdk.object_io.upload_object_range(
                                 _.defaults({
                                     client: object_sdk.rpc_client,
                                     bucket: this.namespace_nb.target_bucket,
                                 }, upload_params));
 
-                                this.stats_collector.update_namespace_cache_stats({
-                                    bucket_name: params.bucket,
-                                    write_bytes: upload_params.end - upload_params.start,
-                                });
+                            this.stats_collector.update_cache_latency_stats({
+                                bucket_name: params.bucket,
+                                cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                            });
+
                             return upload_res;
                         }
                     );
                     dbg.log0('NamespaceCache._read_hub_object_stream: started uploading part to cache', params.object_md);
                 } else {
-                    dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache',
-                        { md_conditions: params.md_conditions, cache_object_md: params.object_md });
+                    dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache', { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
 
-                this.stats_collector.update_namespace_cache_stats({
+                this.stats_collector.update_cache_stats({
                     bucket_name: params.bucket,
                     miss_count: 1,
                     range_op: true,
                 });
             } else {
                 upload_params.last_modified_time = (new Date(params.object_md.create_time)).getTime();
+                upload_params.upload_chunks_hook = this.update_cache_stats_hook(params.bucket);
+
                 _global_cache_uploader.submit_background(
                     params.object_md.size,
                     async () => {
+                        const start_time = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
-                        this.stats_collector.update_namespace_cache_stats({
+
+                        this.stats_collector.update_cache_latency_stats({
                             bucket_name: params.bucket,
-                            write_bytes: params.object_md.size,
+                            cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
+
                         return upload_res;
                     }
                 );
 
-                this.stats_collector.update_namespace_cache_stats({
+                this.stats_collector.update_cache_stats({
                     bucket_name: params.bucket,
                     range_op: false,
                     miss_count: 1,
@@ -527,19 +556,37 @@ class NamespaceCache {
         }
 
         let read_response;
+        let tap_stream;
         if (get_from_cache) {
             // For testing purpose: get_from_cache query parameter is on
             try {
                 dbg.log0('NamespaceCache.read_object_stream: get_from_cache is on: read object from cache', params);
+                const start_time = process.hrtime.bigint();
                 read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
+                // update latency stats on 'end'
+                read_response.once('end', () => {
+                    this.stats_collector.update_cache_latency_stats({
+                        bucket_name: params.bucket,
+                        cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                    });
+                });
+
+                // update bytes stats on 'data' events but with a tap stream
+                tap_stream = stream_utils.get_tap_stream(data => {
+                    this.stats_collector.update_cache_stats({
+                        bucket_name: params.bucket,
+                        read_bytes: data.length,
+                    });
+                });
+                read_response.pipe(tap_stream);
             } catch (err) {
                 dbg.warn('NamespaceCache.read_object_stream: cache read error', err);
             }
         }
 
-        read_response = read_response || await this._read_object_stream(params, object_sdk);
+        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
 
-        this.stats_collector.update_namespace_cache_stats({
+        this.stats_collector.update_cache_stats({
             bucket_name: params.bucket,
             range_op,
             read_count: 1,
@@ -549,11 +596,15 @@ class NamespaceCache {
         const load_for_trigger = !params.noobaa_trigger_agent &&
             object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
+            object_sdk.dispatch_triggers({
+                active_triggers: this.active_triggers,
+                operation,
+                obj: params.object_md,
+                bucket: params.bucket
+            });
         }
 
-        return read_response;
+        return tap_stream;
     }
 
     ///////////////////
@@ -572,8 +623,14 @@ class NamespaceCache {
             dbg.log0("NamespaceCache.upload_object: object is too big, skip caching");
 
             setImmediate(() => this._delete_object_from_cache(params, object_sdk));
-
+            const start_time = process.hrtime.bigint();
             upload_response = await this.namespace_hub.upload_object(params, object_sdk);
+
+            this.stats_collector.update_cache_latency_stats({
+                bucket_name: params.bucket,
+                hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+            });
+
             etag = upload_response.etag;
 
         } else {
@@ -582,29 +639,42 @@ class NamespaceCache {
 
             const hub_stream = new stream.PassThrough();
             const hub_params = { ...params, source_stream: hub_stream };
+            const start_time = process.hrtime.bigint();
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
+            // update latency stats on 'end'
+            hub_promise.then(() => this.stats_collector.update_hub_latency_stats({
+                bucket_name: params.bucket,
+                hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+            }));
 
             const cache_finalizer = callback => hub_promise.then(() => callback(), err => callback(err));
 
             const cache_stream = new stream.PassThrough({ final: cache_finalizer });
-            const cache_params = { ...params,
+            const cache_params = {
+                ...params,
                 source_stream: cache_stream,
                 async_get_last_modified_time: async () => {
                     const upload_res = await hub_promise;
                     const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
                     return last_modified_time;
                 },
+                upload_chunks_hook: this.update_cache_stats_hook(params.bucket),
             };
             const cache_promise = _global_cache_uploader.surround_count(
                 params.size,
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
             );
+            // update latency stats on 'end'
+            cache_promise.then(() => this.stats_collector.update_cache_latency_stats({
+                bucket_name: params.bucket,
+                cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+            }));
 
             // One important caveat is that if the Readable stream emits an error during processing,
             // the Writable destination is not closed automatically. If an error occurs, it will be
             // necessary to manually close each stream in order to prevent memory leaks.
             params.source_stream.on('error', err => {
-                dbg.log0("NamespaceCache.upload_object: error in read source", {params: _.omit(params, 'source_stream'), error: err});
+                dbg.log0("NamespaceCache.upload_object: error in read source", { params: _.omit(params, 'source_stream'), error: err });
                 hub_stream.destroy();
                 cache_stream.destroy();
             });
@@ -612,7 +682,7 @@ class NamespaceCache {
             params.source_stream.pipe(hub_stream);
             params.source_stream.pipe(cache_stream);
 
-            const [hub_res, cache_res] = await Promise.allSettled([ hub_promise, cache_promise ]);
+            const [hub_res, cache_res] = await Promise.allSettled([hub_promise, cache_promise]);
             const hub_ok = hub_res.status === 'fulfilled';
             const cache_ok = cache_res.status === 'fulfilled';
             if (!hub_ok) {
@@ -704,8 +774,12 @@ class NamespaceCache {
         const operation = 'ObjectRemoved';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                obj: params.object_md, bucket: params.bucket });
+            object_sdk.dispatch_triggers({
+                active_triggers: this.active_triggers,
+                operation,
+                obj: params.object_md,
+                bucket: params.bucket
+            });
         }
 
         return hub_res.value;
@@ -750,13 +824,21 @@ class NamespaceCache {
                 const deleted_obj = hub_res.value[i];
                 const head_obj = head_res[i];
                 if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
-                    object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation,
-                        obj: head_obj, bucket: params.bucket });
+                    object_sdk.dispatch_triggers({
+                        active_triggers: this.active_triggers,
+                        operation,
+                        obj: head_obj,
+                        bucket: params.bucket
+                    });
                 }
             }
         }
 
         return hub_res.value;
+    }
+
+    update_cache_stats_hook(bucket_name) {
+        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name, write_bytes });
     }
 
     ////////////////////
@@ -779,7 +861,7 @@ class NamespaceCache {
         try {
             await this.namespace_nb.delete_object_tagging(params, object_sdk);
         } catch (err) {
-            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream')});
+            dbg.log0('failed to delete tags in cache', { params: _.omit(params, 'source_stream') });
         }
         return res;
     }
@@ -790,7 +872,7 @@ class NamespaceCache {
         try {
             await this.namespace_nb.put_object_tagging(params, object_sdk);
         } catch (err) {
-            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream')});
+            dbg.log0('failed to store tags in cache', { params: _.omit(params, 'source_stream') });
         }
         return res;
     }

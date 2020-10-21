@@ -9,6 +9,7 @@ const js_utils = require('../../../util/js_utils');
 // this class is a shim that should who ever
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
+
 const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
     {
         type: 'Counter',
@@ -74,6 +75,78 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
             labelNames: ['bucket_name']
         }
     },
+    {
+        type: 'Histogram',
+        name: 'hub_read_latency',
+        configuration: {
+            help: 'hub read latency in namespace cache bucket',
+            labelNames: ['bucket_name'],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'hub_write_latency',
+        configuration: {
+            help: 'hub write latency in namespace cache bucket',
+            labelNames: ['bucket_name'],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'cache_read_latency',
+        configuration: {
+            help: 'Cache read latency in namespace cache bucket',
+            labelNames: ['bucket_name'],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
+        }
+    },
+    {
+        type: 'Histogram',
+        name: 'cache_write_latency',
+        configuration: {
+            help: 'Cache write latency in namespace cache bucket',
+            labelNames: ['bucket_name'],
+            buckets: [
+                0.001,
+                0.01,
+                0.1, 0.2, 0.5,
+                1, 2, 5,
+                10, 20, 50,
+                100, 200, 500,
+                1000, 2000, 5000,
+                10000, 20000, 50000,
+            ],
+        }
+    }
 ]);
 
 class NooBaaEndpointReport extends BasePrometheusReport {

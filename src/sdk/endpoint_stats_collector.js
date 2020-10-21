@@ -115,20 +115,36 @@ class EndpointStatsCollector {
         this._trigger_send_stats();
     }
 
-    update_namespace_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, range_op = false }) {
+    update_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, range_op = false }) {
         if (read_bytes) {
             this.prom_metrics_report.inc('cache_read_bytes', { bucket_name }, read_bytes);
         }
         if (read_count) {
-            this.prom_metrics_report.inc(range_op ? 'cache_range_read_count' : 'cache_object_read_count',
-                { bucket_name }, read_count);
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_count' : 'cache_object_read_count', { bucket_name }, read_count);
         }
         if (miss_count) {
-            this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count',
-                { bucket_name }, miss_count);
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count', { bucket_name }, miss_count);
         }
         if (write_bytes) {
             this.prom_metrics_report.inc('cache_write_bytes', { bucket_name }, write_bytes);
+        }
+    }
+
+    update_cache_latency_stats({ bucket_name, cache_read_latency, cache_write_latency }) {
+        if (cache_read_latency) {
+            this.prom_metrics_report.observe('cache_read_latency', { bucket_name }, cache_read_latency);
+        }
+        if (cache_write_latency) {
+            this.prom_metrics_report.observe('cache_write_latency', { bucket_name }, cache_write_latency);
+        }
+    }
+
+    update_hub_latency_stats({ bucket_name, hub_read_latency, hub_write_latency }) {
+        if (hub_read_latency) {
+            this.prom_metrics_report.observe('hub_read_latency', { bucket_name }, hub_read_latency);
+        }
+        if (hub_write_latency) {
+            this.prom_metrics_report.observe('hub_write_latency', { bucket_name }, hub_write_latency);
         }
     }
 

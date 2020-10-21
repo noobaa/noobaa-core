@@ -47,12 +47,12 @@ function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
             return promise_utils.retry(
                 TRIGGER_ATTEMPTS,
                 DELAY_BETWEEEN_TRIGGER_ATTEMPTS,
-                () => run_trigger(trigger, event, bucket.system, token)
+                () => run_trigger(trigger, event, token)
             );
         }));
 }
 
-function run_trigger(trigger, event, system, token) {
+function run_trigger(trigger, event, token) {
     return server_rpc.client.func.invoke_func({
             name: trigger.func_name,
             version: trigger.func_version,

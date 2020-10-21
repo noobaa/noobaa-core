@@ -93,7 +93,7 @@ async function _init() {
 
                 if (is_master) {
                     // Only the muster should update the system address.
-                    await _configure_system_address(system._id, system.owner.id);
+                    await _configure_system_address(system._id);
                 }
 
                 update_done = true;
@@ -118,7 +118,7 @@ function _resolve_routing(hint) {
     return api.new_router_from_address_list(system.system_address, hint);
 }
 
-function _initialize_debug_level(system) {
+function _initialize_debug_level() {
     return P.resolve()
         .then(() => {
             // The purpose of this code is to initialize the debug level
@@ -355,7 +355,7 @@ async function create_system(req) {
 
         dbg.log0('create_system: ensuring internal pool structure');
         await _ensure_internal_structure(system_id);
-        await _configure_system_address(system_id, account_id);
+        await _configure_system_address(system_id);
         await _init_system(system_id);
 
         // Mark the system as ready
@@ -417,10 +417,9 @@ async function _create_owner_account(
     return { auth_token };
 }
 
-async function _configure_system_address(system_id, account_id) {
+async function _configure_system_address(system_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
-        await os_utils.discover_k8s_services() :
-        [];
+        await os_utils.discover_k8s_services() : [];
 
     // This works because the lists are always sorted, see discover_k8s_services().
     const { system_address: curr_address } = system_store.data.systems[0] || {};

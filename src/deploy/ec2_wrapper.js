@@ -829,7 +829,7 @@ function create_security_group(region_name) {
  * get_regions
  *
  */
-function get_regions(func) {
+function get_regions() {
     return ec2_call('describeRegions');
 }
 

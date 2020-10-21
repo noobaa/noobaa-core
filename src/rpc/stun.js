@@ -302,13 +302,13 @@ function decode_attrs(buffer) {
             case stun.ATTRS.CHANGE_ADDRESS:
             case stun.ATTRS.SOURCE_ADDRESS:
             case stun.ATTRS.CHANGED_ADDRESS:
-                value = decode_attr_mapped_addr(buffer, offset, next);
+                value = decode_attr_mapped_addr(buffer, offset);
                 break;
             case stun.ATTRS.XOR_MAPPED_ADDRESS:
                 value = decode_attr_xor_mapped_addr(buffer, offset, next);
                 break;
             case stun.ATTRS.ERROR_CODE:
-                value = decode_attr_error_code(buffer, offset, next);
+                value = decode_attr_error_code(buffer, offset);
                 break;
             case stun.ATTRS.UNKNOWN_ATTRIBUTES:
                 value = decode_attr_unknown_attr(buffer, offset, next);
@@ -401,13 +401,13 @@ function encode_attrs(buffer, attrs) {
             case stun.ATTRS.CHANGE_ADDRESS:
             case stun.ATTRS.SOURCE_ADDRESS:
             case stun.ATTRS.CHANGED_ADDRESS:
-                encode_attr_mapped_addr(attr.value, buffer, offset, next);
+                encode_attr_mapped_addr(attr.value, buffer, offset);
                 break;
             case stun.ATTRS.XOR_MAPPED_ADDRESS:
                 encode_attr_xor_mapped_addr(attr.value, buffer, offset, next);
                 break;
             case stun.ATTRS.ERROR_CODE:
-                encode_attr_error_code(attr.value, buffer, offset, next);
+                encode_attr_error_code(attr.value, buffer, offset);
                 break;
             case stun.ATTRS.SOFTWARE:
             case stun.ATTRS.USERNAME:
@@ -433,7 +433,7 @@ function encode_attrs(buffer, attrs) {
  * this is the main reply to stun request,
  * though XOR-MAPPED-ADDRESS is preferred to avoid routers messing with it
  */
-function decode_attr_mapped_addr(buffer, start, end) {
+function decode_attr_mapped_addr(buffer, start) {
     var family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
     var port = buffer.readUInt16BE(start + 2);
     var address = ip_module.toString(buffer, start + 4, family);
@@ -476,7 +476,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
 /**
  * decode ERROR-CODE attribute
  */
-function decode_attr_error_code(buffer, start, end) {
+function decode_attr_error_code(buffer, start) {
     var block = buffer.readUInt32BE(start);
     var code = ((block & 0x700) * 100) + block & 0xff;
     var reason = buffer.readUInt32BE(start + 4);
@@ -505,7 +505,7 @@ function decode_attr_unknown_attr(buffer, start, end) {
  * this is the main reply to stun request,
  * though XOR-MAPPED-ADDRESS is preferred to avoid routers messing with it
  */
-function encode_attr_mapped_addr(addr, buffer, offset, end) {
+function encode_attr_mapped_addr(addr, buffer, offset) {
     buffer.writeUInt16BE(addr.family === 'IPv6' ? 0x02 : 0x01, offset);
 
     // xor the port against the magic key
@@ -537,7 +537,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
 /**
  * encode ERROR-CODE attribute
  */
-function encode_attr_error_code(err, buffer, start, end) {
+function encode_attr_error_code(err, buffer, start) {
     // eslint-disable-next-line no-bitwise
     var code = (((err.code / 100) | 0) << 8) | ((err.code % 100) & 0xff);
     buffer.writeUInt32BE(code, start);

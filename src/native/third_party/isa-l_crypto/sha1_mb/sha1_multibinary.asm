@@ -52,6 +52,10 @@ extern sha1_ctx_mgr_init_avx2
 extern sha1_ctx_mgr_submit_avx2
 extern sha1_ctx_mgr_flush_avx2
 
+extern sha1_ctx_mgr_init_base
+extern sha1_ctx_mgr_submit_base
+extern sha1_ctx_mgr_flush_base
+
 %ifdef HAVE_AS_KNOWS_AVX512
  extern sha1_ctx_mgr_init_avx512
  extern sha1_ctx_mgr_submit_avx512
@@ -83,23 +87,23 @@ mbin_interface sha1_ctx_mgr_flush
 %ifdef HAVE_AS_KNOWS_AVX512
  ; Reuse mbin_dispatch_init6's extension through replacing base by sse version
  %ifdef HAVE_AS_KNOWS_SHANI
-  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_init, sha1_ctx_mgr_init_sse, \
+  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_init, sha1_ctx_mgr_init_base, \
 	sha1_ctx_mgr_init_sse, sha1_ctx_mgr_init_avx, sha1_ctx_mgr_init_avx2, \
 	sha1_ctx_mgr_init_avx512, sha1_ctx_mgr_init_sse_ni, sha1_ctx_mgr_init_avx512_ni
-  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_submit, sha1_ctx_mgr_submit_sse, \
+  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_submit, sha1_ctx_mgr_submit_base, \
 	sha1_ctx_mgr_submit_sse, sha1_ctx_mgr_submit_avx, sha1_ctx_mgr_submit_avx2, \
 	sha1_ctx_mgr_submit_avx512, sha1_ctx_mgr_submit_sse_ni, sha1_ctx_mgr_submit_avx512_ni
-  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_flush, sha1_ctx_mgr_flush_sse, \
+  mbin_dispatch_base_to_avx512_shani sha1_ctx_mgr_flush, sha1_ctx_mgr_flush_base, \
 	sha1_ctx_mgr_flush_sse, sha1_ctx_mgr_flush_avx, sha1_ctx_mgr_flush_avx2, \
 	sha1_ctx_mgr_flush_avx512, sha1_ctx_mgr_flush_sse_ni, sha1_ctx_mgr_flush_avx512_ni
  %else
-  mbin_dispatch_init6 sha1_ctx_mgr_init, sha1_ctx_mgr_init_sse, \
+  mbin_dispatch_init6 sha1_ctx_mgr_init, sha1_ctx_mgr_init_base, \
 	sha1_ctx_mgr_init_sse, sha1_ctx_mgr_init_avx, sha1_ctx_mgr_init_avx2, \
 	sha1_ctx_mgr_init_avx512
-  mbin_dispatch_init6 sha1_ctx_mgr_submit, sha1_ctx_mgr_submit_sse, \
+  mbin_dispatch_init6 sha1_ctx_mgr_submit, sha1_ctx_mgr_submit_base, \
 	sha1_ctx_mgr_submit_sse, sha1_ctx_mgr_submit_avx, sha1_ctx_mgr_submit_avx2, \
 	sha1_ctx_mgr_submit_avx512
-  mbin_dispatch_init6 sha1_ctx_mgr_flush, sha1_ctx_mgr_flush_sse, \
+  mbin_dispatch_init6 sha1_ctx_mgr_flush, sha1_ctx_mgr_flush_base, \
 	sha1_ctx_mgr_flush_sse, sha1_ctx_mgr_flush_avx, sha1_ctx_mgr_flush_avx2, \
 	sha1_ctx_mgr_flush_avx512
  %endif
@@ -122,6 +126,6 @@ mbin_interface sha1_ctx_mgr_flush
 %endif
 
 ;;;       func                  core, ver, snum
-slversion sha1_ctx_mgr_init,	00,   03,  0148
-slversion sha1_ctx_mgr_submit,	00,   03,  0149
-slversion sha1_ctx_mgr_flush,	00,   03,  0150
+slversion sha1_ctx_mgr_init,	00,   04,  0148
+slversion sha1_ctx_mgr_submit,	00,   04,  0149
+slversion sha1_ctx_mgr_flush,	00,   04,  0150

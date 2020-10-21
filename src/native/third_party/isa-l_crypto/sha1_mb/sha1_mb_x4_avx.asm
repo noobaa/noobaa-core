@@ -73,16 +73,16 @@ default rel
 ;;
 ;; Magic functions defined in FIPS 180-1
 ;;
-; macro MAGIC_F0 F,B,C,D,T   ;; F = (D ^ (B & (C ^ D)))
+; macro MAGIC_F0 F,B,C,D,T   ;; F = ((B & C) | ((~ B) & D) )
 %macro MAGIC_F0 5
 %define %%regF %1
 %define %%regB %2
 %define %%regC %3
 %define %%regD %4
 %define %%regT %5
-    vpxor  %%regF, %%regC,%%regD
-    vpand  %%regF, %%regF,%%regB
-    vpxor  %%regF, %%regF,%%regD
+    vpand  %%regF, %%regB,%%regC
+    vpandn %%regT, %%regB,%%regD
+    vpor   %%regF, %%regT,%%regF
 %endmacro
 
 ; macro MAGIC_F1 F,B,C,D,T   ;; F = (B ^ C ^ D)

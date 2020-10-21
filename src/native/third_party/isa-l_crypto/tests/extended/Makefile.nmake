@@ -35,7 +35,8 @@ LINKFLAGS 	= 	/nologo
 INCLUDES 	= 	$(INCLUDES) -Ic:\OpenSSL-Win64\include
 CFLAGS   	= 	-O2 -D NDEBUG /nologo -D_USE_MATH_DEFINES -Qstd=c99 $(INCLUDES) /c
 LINKFLAGS 	= 	$(LINKFLAGS) /libpath:c:\OpenSSL-Win64\lib
-LIBS 		= 	../../isa-l_static.lib
+LIBS 		= 	../../isa-l_crypto.lib
+DLL 		= 	isa-l_crypto.dll
 
 tests: lib $(tests)
 $(tests): $(@B).obj
@@ -45,6 +46,7 @@ $(tests): $(@B).obj
 
 lib:
 	cd ../../ && nmake -f Makefile.nmake
+	cd ../../ && copy $(DLL) "tests\extended"
 
 test: $(tests)
 	!$?
@@ -53,3 +55,4 @@ test: $(tests)
 clean:
 	-if exist *.obj del *.obj
 	-if exist *.exe del *.exe
+	-if exist *.dll del *.dll

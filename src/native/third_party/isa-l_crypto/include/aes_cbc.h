@@ -31,7 +31,6 @@
  *  @file aes_cbc.h
  *  @brief AES CBC encryption/decryption function prototypes.
  *
-; References:
  */
 #ifndef _AES_CBC_h
 #define _AES_CBC_h

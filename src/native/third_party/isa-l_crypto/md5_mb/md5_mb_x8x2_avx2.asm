@@ -265,7 +265,8 @@ rot44 equ  21
 %define %%X %2
 %define %%Y %3
 %define %%Z %4
-   vpxor     %%F,%%Z,[ONES]  ; pnot     %%F
+   vpcmpeqd  %%F,%%F,%%F     ; 0xFFFF
+   vpxor     %%F,%%F,%%Z  ; pnot     %%Z
    vpor      %%F,%%F,%%X
    vpxor     %%F,%%F,%%Y
 %endmacro
@@ -913,5 +914,3 @@ MD5_TABLE:
 	dd	0x2ad7d2bb, 0x2ad7d2bb, 0x2ad7d2bb, 0x2ad7d2bb
 	dd	0xeb86d391, 0xeb86d391, 0xeb86d391, 0xeb86d391
 	dd	0xeb86d391, 0xeb86d391, 0xeb86d391, 0xeb86d391
-ONES:	dd	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
-	dd	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff

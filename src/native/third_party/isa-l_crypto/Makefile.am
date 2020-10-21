@@ -7,6 +7,11 @@ pkginclude_HEADERS = include/test.h include/types.h
 noinst_LTLIBRARIES =
 INCLUDE = -I $(srcdir)/include/
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libisal_crypto.pc
+EXTRA_DIST += libisal_crypto.pc.in
+CLEANFILES += libisal_crypto.pc
+
 lsrc=
 src_include=
 extern_hdrs=
@@ -19,28 +24,51 @@ perf_tests_extra=
 examples=
 other_tests=
 lsrc32=
+lsrc_x86_64=
+lsrc_x86_32=
+lsrc_aarch64=
+lsrc_base_aliases=
 unit_tests32=
 perf_tests32=
 
 # Include units
-include md5_mb/Makefile.am
 include sha1_mb/Makefile.am
+include mh_sha1/Makefile.am
+if !CPU_AARCH64
+include md5_mb/Makefile.am
 include sha256_mb/Makefile.am
 include sha512_mb/Makefile.am
-include mh_sha1/Makefile.am
 include mh_sha1_murmur3_x64_128/Makefile.am
 include mh_sha256/Makefile.am
 include aes/Makefile.am
 include rolling_hash/Makefile.am
+include sm3_mb/Makefile.am
+endif
 
 # LIB version info not necessarily the same as package version
 LIBISAL_CURRENT=2
-LIBISAL_REVISION=20
+LIBISAL_REVISION=22
 LIBISAL_AGE=0
 
 lib_LTLIBRARIES = libisal_crypto.la
 pkginclude_HEADERS += $(sort ${extern_hdrs})
 libisal_crypto_la_SOURCES = ${lsrc}
+if CPU_X86_64
+libisal_crypto_la_SOURCES += ${lsrc_x86_64}
+endif
+
+if CPU_X86_32
+libisal_crypto_la_SOURCES += ${lsrc_x86_32}
+endif
+
+if CPU_AARCH64
+libisal_crypto_la_SOURCES += ${lsrc_aarch64}
+endif
+
+if CPU_UNDEFINED
+libisal_crypto_la_SOURCES += ${lsrc_base_aliases}
+endif
+
 nobase_include_HEADERS = isa-l_crypto.h
 libisal_crypto_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(LIBISAL_CURRENT):$(LIBISAL_REVISION):$(LIBISAL_AGE)
@@ -81,7 +109,9 @@ endif
 if USE_NASM
   as_filter = ${srcdir}/tools/nasm-filter.sh
 endif
-
+if CPU_AARCH64
+  as_filter = gcc -D__ASSEMBLY__
+endif
 CCAS = $(as_filter)
 EXTRA_DIST += tools/yasm-filter.sh tools/nasm-filter.sh
 

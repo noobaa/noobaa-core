@@ -40,8 +40,10 @@ lsrc_stitch   = mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128.c \
 lsrc_stitch  += mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_avx512.c \
 		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_block_avx512.asm
 
-lsrc        += 	$(lsrc_murmur) \
+lsrc_x86_64  += $(lsrc_murmur) \
 		$(lsrc_stitch)
+
+lsrc_x86_32  += $(lsrc_x86_64)
 
 other_src += 	include/reg_sizes.asm \
 		include/multibinary.asm \

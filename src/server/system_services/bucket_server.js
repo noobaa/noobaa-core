@@ -1445,7 +1445,7 @@ function get_bucket_info({
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
-        policy: bucket.policy,
+        s3_policy: bucket.s3_policy,
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });

@@ -35,16 +35,16 @@ default rel
 
 ;; Magic functions defined in FIPS 180-1
 ;;
-;MAGIC_F0 MACRO regF:REQ,regB:REQ,regC:REQ,regD:REQ,regT:REQ ;; ((D ^ (B & (C ^ D)))
+;MAGIC_F0 MACRO regF:REQ,regB:REQ,regC:REQ,regD:REQ,regT:REQ ;; ((B & C) | ((~ B) & D) )
 %macro MAGIC_F0 5
 %define %%regF %1
 %define %%regB %2
 %define %%regC %3
 %define %%regD %4
 %define %%regT %5
-    vpxor  %%regF, %%regC,%%regD
-    vpand  %%regF, %%regF,%%regB
-    vpxor  %%regF, %%regF,%%regD
+    vpand  %%regF, %%regB,%%regC
+    vpandn %%regT, %%regB,%%regD
+    vpor   %%regF, %%regT,%%regF
 %endmacro
 
 ;MAGIC_F1 MACRO regF:REQ,regB:REQ,regC:REQ,regD:REQ,regT:REQ ;; (B ^ C ^ D)
@@ -344,8 +344,8 @@ func(mh_sha1_block_avx2)
 	; save rsp
 	mov	RSP_SAVE, rsp
 
-	cmp	loops, 0
-	jle	.return
+	test	loops, loops
+	jz	.return
 
 	; leave enough space to store segs_digests
 	sub     rsp, FRAMESZ
@@ -370,7 +370,7 @@ func(mh_sha1_block_avx2)
 
 .block_loop:
 	;transform to big-endian data and store on aligned_frame
-	vmovdqa F, [PSHUFFLE_BYTE_FLIP_MASK]
+	vbroadcasti128 F, [PSHUFFLE_BYTE_FLIP_MASK]
 	;transform input data from DWORD*16_SEGS*5 to DWORD*8_SEGS*5*2
 %assign I 0
 %rep 16
@@ -384,7 +384,7 @@ func(mh_sha1_block_avx2)
 %assign I (I+1)
 %endrep
 
-	mov	mh_segs, 0			;start from the first 8 segments
+	xor	mh_segs, mh_segs			;start from the first 8 segments
 	mov	pref, 1024				;avoid prefetch repeadtedly
  .segs_loop:
 	;; Initialize digests
@@ -402,7 +402,7 @@ func(mh_sha1_block_avx2)
 ;;
 ;; perform 0-79 steps
 ;;
-	vmovdqa	K, [K00_19]
+	vpbroadcastq	K, [K00_19]
 ;; do rounds 0...15
  %assign I 0
  %rep 16
@@ -422,14 +422,14 @@ func(mh_sha1_block_avx2)
 	PREFETCH_X [mh_in_p + pref+128*0]
 	PREFETCH_X [mh_in_p + pref+128*1]
 ;; do rounds 20...39
-	vmovdqa	K, [K20_39]
+	vpbroadcastq	K, [K20_39]
  %rep 20
 	SHA1_STEP_16_79 A,B,C,D,E, TMP,FUN, I, K, MAGIC_F1, mh_data_p
 	ROTATE_ARGS
  %assign I (I+1)
  %endrep
 ;; do rounds 40...59
-	vmovdqa	K, [K40_59]
+	vpbroadcastq	K, [K40_59]
  %rep 20
 	SHA1_STEP_16_79 A,B,C,D,E, TMP,FUN, I, K, MAGIC_F2, mh_data_p
 	ROTATE_ARGS
@@ -438,7 +438,7 @@ func(mh_sha1_block_avx2)
 	PREFETCH_X [mh_in_p + pref+128*2]
         PREFETCH_X [mh_in_p + pref+128*3]
 ;; do rounds 60...79
-	vmovdqa	K, [K60_79]
+	vpbroadcastq	K, [K60_79]
  %rep 20
 	SHA1_STEP_16_79 A,B,C,D,E, TMP,FUN, I, K, MAGIC_F3, mh_data_p
 	ROTATE_ARGS
@@ -494,16 +494,11 @@ func(mh_sha1_block_avx2)
 
 endproc_frame
 
-section .data align=32
+section .rodata align=32
 
 align 32
 PSHUFFLE_BYTE_FLIP_MASK: dq 0x0405060700010203, 0x0c0d0e0f08090a0b
-			 dq 0x0405060700010203, 0x0c0d0e0f08090a0b
-K00_19:			dq 0x5A8279995A827999, 0x5A8279995A827999
-			dq 0x5A8279995A827999, 0x5A8279995A827999
-K20_39:                 dq 0x6ED9EBA16ED9EBA1, 0x6ED9EBA16ED9EBA1
-			dq 0x6ED9EBA16ED9EBA1, 0x6ED9EBA16ED9EBA1
-K40_59:                 dq 0x8F1BBCDC8F1BBCDC, 0x8F1BBCDC8F1BBCDC
-			dq 0x8F1BBCDC8F1BBCDC, 0x8F1BBCDC8F1BBCDC
-K60_79:                 dq 0xCA62C1D6CA62C1D6, 0xCA62C1D6CA62C1D6
-			dq 0xCA62C1D6CA62C1D6, 0xCA62C1D6CA62C1D6
+K00_19:			dq 0x5A8279995A827999
+K20_39:                 dq 0x6ED9EBA16ED9EBA1
+K40_59:                 dq 0x8F1BBCDC8F1BBCDC
+K60_79:                 dq 0xCA62C1D6CA62C1D6

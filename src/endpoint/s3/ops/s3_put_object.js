@@ -26,13 +26,13 @@ async function put_object(req, res) {
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '', encryption || '');
 
+    const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.getType(req.params.key) || 'application/octet-stream')),
-        chunked_content: req.chunked_content,
         copy_source,
-        source_stream: req,
+        source_stream,
         size,
         md5_b64,
         sha256_b64,

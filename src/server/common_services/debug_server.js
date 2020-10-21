@@ -3,22 +3,23 @@
 
 const dbg = require('../../util/debug_module')(__filename);
 const coverage_utils = require('../../util/coverage_utils');
+const os_utils = require('../../util/os_utils');
+
 const stream = require('stream');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const { human_size } = require('../../util/size_utils');
 const { get_folder_size, create_path } = require('../../util/fs_utils');
 
 const FE_DUMP_DIR = path.join(
-    os.type() === 'Darwin' ? path.join(process.cwd(), 'logs') : '/log',
+    os_utils.IS_MAC ? path.join(process.cwd(), 'logs') : '/log',
     'nbfedump'
 );
 
 const FE_DUMP_DIR_SIZE_LIMIT = 40 * (1024 ** 2); // 40MB
 
 function set_debug_level(req) {
-    dbg.log0('Recieved set_debug_level req for level', req.rpc_params.level, 'mod', req.rpc_params.module);
+    dbg.log0('Received set_debug_level req for level', req.rpc_params.level, 'mod', req.rpc_params.module);
     dbg.set_level(req.rpc_params.level, req.rpc_params.module);
 }
 

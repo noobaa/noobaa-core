@@ -57,9 +57,9 @@
 
 static cbc_key_size const Ksize[] = { CBC_128_BITS, CBC_192_BITS, CBC_256_BITS };
 
-typedef void (*aes_cbc_generic) (uint8_t * in,
-				 uint8_t * IV,
-				 uint8_t * keys, uint8_t * out, uint64_t len_bytes);
+typedef void (*aes_cbc_generic)(uint8_t * in,
+				uint8_t * IV,
+				uint8_t * keys, uint8_t * out, uint64_t len_bytes);
 
 int OpenSslEnc(uint8_t k_len,
 	       uint8_t * key, uint8_t * in, uint8_t * iv, uint8_t * out, uint64_t len_bytes)

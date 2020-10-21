@@ -81,7 +81,7 @@ int main(void)
 	struct perf start, stop;
 
 	for (i = 0; i < TEST_BUFS; i++) {
-		bufs[i] = (unsigned char *)calloc((size_t) TEST_LEN, 1);
+		bufs[i] = (unsigned char *)calloc((size_t)TEST_LEN, 1);
 		if (bufs[i] == NULL) {
 			printf("calloc failed test aborted\n");
 			return 1;

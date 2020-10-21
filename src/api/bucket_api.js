@@ -1121,7 +1121,7 @@ module.exports = {
                 website: {
                     $ref: 'common_api#/definitions/bucket_website'
                 },
-                policy: {
+                s3_policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
                 },
             }

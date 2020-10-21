@@ -36,65 +36,65 @@
  *  @brief AES XTS encryption function prototypes.
  *
  * This defines the interface to optimized AES XTS functions
-
-<b>Pre-expanded keys</b>
-
-For key encryption, pre-expanded keys are stored in the order that they will be
-used. As an example, if Key[0] is the 128-bit initial key used for an AES-128
-encryption, the rest of the keys are stored as follows:
-
-<ul>
-      <li> Key[0] : Initial encryption key
-      <li> Key[1] : Round 1 encryption key
-      <li> Key[2] : Round 2 encryption key
-      <li> ...
-      <li> Key[10] : Round 10 encryption key
-</ul>
-
-For decryption, the order of keys is reversed. However, we apply the
-necessary aesimc instructions before storing the expanded keys. For the same key
-used above, the pre-expanded keys will be stored as follows:
-
-<ul>
-      <li> Key[0] : Round 10 encryption key
-      <li> Key[1] : aesimc(Round 9 encryption key)
-      <li> Key[2] : aesimc(Round 8 encryption key)
-      <li> ...
-      <li> Key[9] : aesimc(Round 1 encryption key)
-      <li> Key[10] : Initial encryption key
-</ul>
-
-<b>Note:</b> The expanded key decryption requires a decryption key only for the block
-decryption step. The tweak step in the expanded key decryption requires the same expanded
-encryption key that is used in the expanded key encryption.
-
-<b>Input and Output Buffers </b>
-
-The input and output buffers can be overlapping as long as the output buffer
-pointer is not less than the input buffer pointer. If the two pointers are the
-same, then encryption/decryption will occur in-place.
-
-<b>Data Length</b>
-
-<ul>
-    <li> The functions support data length of any bytes greater than or equal to 16 bytes.
-    <li> Data length is a 64-bit value, which makes the largest possible data length
-         2^64 - 1 bytes.
-    <li> For data lengths from 0 to 15 bytes, the functions return without any error
-         codes, without reading or writing any data.
-    <li> The functions only support byte lengths, not bits.
-</ul>
-
-<b>Initial Tweak</b>
-
-The functions accept a 128-bit initial tweak value. The user is responsible for
-padding the initial tweak value to this length.
-
-<b>Data Alignment</b>
-
-The input and output buffers, keys, pre-expanded keys and initial tweak value
-are not required to be aligned to 16 bytes, any alignment works.
-
+ *
+ * <b>Pre-expanded keys</b>
+ *
+ * For key encryption, pre-expanded keys are stored in the order that they will be
+ * used. As an example, if Key[0] is the 128-bit initial key used for an AES-128
+ * encryption, the rest of the keys are stored as follows:
+ *
+ * <ul>
+ *       <li> Key[0] : Initial encryption key
+ *       <li> Key[1] : Round 1 encryption key
+ *       <li> Key[2] : Round 2 encryption key
+ *       <li> ...
+ *      <li> Key[10] : Round 10 encryption key
+ * </ul>
+ *
+ * For decryption, the order of keys is reversed. However, we apply the
+ * necessary aesimc instructions before storing the expanded keys. For the same key
+ * used above, the pre-expanded keys will be stored as follows:
+ *
+ * <ul>
+ *      <li> Key[0] : Round 10 encryption key
+ *      <li> Key[1] : aesimc(Round 9 encryption key)
+ *      <li> Key[2] : aesimc(Round 8 encryption key)
+ *      <li> ...
+ *      <li> Key[9] : aesimc(Round 1 encryption key)
+ *      <li> Key[10] : Initial encryption key
+ * </ul>
+ *
+ * <b>Note:</b> The expanded key decryption requires a decryption key only for the block
+ * decryption step. The tweak step in the expanded key decryption requires the same expanded
+ * encryption key that is used in the expanded key encryption.
+ *
+ * <b>Input and Output Buffers </b>
+ *
+ * The input and output buffers can be overlapping as long as the output buffer
+ * pointer is not less than the input buffer pointer. If the two pointers are the
+ * same, then encryption/decryption will occur in-place.
+ *
+ * <b>Data Length</b>
+ *
+ * <ul>
+ *     <li> The functions support data length of any bytes greater than or equal to 16 bytes.
+ *     <li> Data length is a 64-bit value, which makes the largest possible data length
+ *          2^64 - 1 bytes.
+ *     <li> For data lengths from 0 to 15 bytes, the functions return without any error
+ *          codes, without reading or writing any data.
+ *     <li> The functions only support byte lengths, not bits.
+ * </ul>
+ *
+ * <b>Initial Tweak</b>
+ *
+ * The functions accept a 128-bit initial tweak value. The user is responsible for
+ * padding the initial tweak value to this length.
+ *
+ * <b>Data Alignment</b>
+ *
+ * The input and output buffers, keys, pre-expanded keys and initial tweak value
+ * are not required to be aligned to 16 bytes, any alignment works.
+ *
  */
 
 #include <stdint.h>

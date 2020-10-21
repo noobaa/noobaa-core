@@ -1,5 +1,5 @@
 ================================================================================
-v2.20 Intel Intelligent Storage Acceleration Library Crypto Release Notes
+v2.22 Intel Intelligent Storage Acceleration Library Crypto Release Notes
 ================================================================================
 
 ================================================================================
@@ -20,6 +20,11 @@ RELEASE NOTE CONTENTS
 ================================================================================
 2. FIXED ISSUES
 ================================================================================
+v2.21
+
+* Put correct vec instruction versions in aes_cbc_enc_{128,192,256}().  May help
+  performance on some systems.
+
 v2.20
 
 * Fix issue with new aes_gcm API, aes_gcm_pre_256 was incorrect.
@@ -50,6 +55,20 @@ v2.7
 ================================================================================
 3. CHANGE LOG & FEATURES ADDED
 ================================================================================
+v2.22
+
+* New multi-buffer SM3 functions. Experimental base functions only.
+
+* New multi-arch support.
+
+v2.21
+
+* Multi-buffer hash performance improvement for Intel(R) Atom(tm) processors.
+  New by-2 shani versions for multi-buffer sha1 & sha256.
+
+* New base functions for multi-buffer hashes.
+  md5_mb, sha1_mb, sha256_mb, sha512_mb.
+
 v2.20
 
 * New functions

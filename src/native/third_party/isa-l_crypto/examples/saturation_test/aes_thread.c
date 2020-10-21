@@ -12,10 +12,10 @@
 
 struct aes_context {
 	int const bits;
-	int (*const preproc) (struct aes_context * pCtx);
-	void (*const processor) (struct aes_context * pCtx, char *plaintext,
-				 char *ciphertext, uint64_t len);
-	void (*const postproc) (struct aes_context * pCtx);
+	int (*const preproc)(struct aes_context * pCtx);
+	void (*const processor)(struct aes_context * pCtx, char *plaintext,
+				char *ciphertext, uint64_t len);
+	void (*const postproc)(struct aes_context * pCtx);
 };
 
 #define rounds_buf 2		/* first one is plain text, second is cipher text */
@@ -32,13 +32,13 @@ static uint64_t aes_thread_func(int32_t id, struct aes_context *pCtx)
 	printfv("Thread %i is started\n", id);
 	/* memory allocate */
 	for (j = 0; j < rounds_buf; j++) {
-		carry_buf[j] = (char *)calloc((size_t) buflen, 1);
+		carry_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (carry_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;
 		}
 
-		aes_buf[j] = (char *)calloc((size_t) buflen, 1);
+		aes_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (aes_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;

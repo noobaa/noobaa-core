@@ -27,24 +27,33 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
-lsrc_sha1     =	mh_sha1/sha1_for_mh_sha1.c
+lsrc_mh_sha1_base = \
+		mh_sha1/mh_sha1_block_base.c \
+		mh_sha1/mh_sha1_finalize_base.c \
+		mh_sha1/mh_sha1_update_base.c \
+		mh_sha1/sha1_for_mh_sha1.c \
+		mh_sha1/mh_sha1.c
 
-lsrc_mh_sha1  =	mh_sha1/mh_sha1.c \
+lsrc_x86_64  += \
+		$(lsrc_mh_sha1_base) \
+		mh_sha1/mh_sha1_multibinary.asm \
 		mh_sha1/mh_sha1_block_sse.asm \
 		mh_sha1/mh_sha1_block_avx.asm \
 		mh_sha1/mh_sha1_block_avx2.asm \
-		mh_sha1/mh_sha1_multibinary.asm \
-		mh_sha1/mh_sha1_finalize_base.c \
-		mh_sha1/mh_sha1_update_base.c \
-		mh_sha1/mh_sha1_block_base.c
-
-lsrc_mh_sha1 += mh_sha1/mh_sha1_block_avx512.asm \
+		mh_sha1/mh_sha1_block_avx512.asm \
 		mh_sha1/mh_sha1_avx512.c
 
-lsrc        += 	$(lsrc_sha1) \
-		$(lsrc_mh_sha1)
+lsrc_x86_32  += $(lsrc_x86_64)
 
-other_src   += 	mh_sha1/mh_sha1_ref.c \
+lsrc_aarch64 += \
+		$(lsrc_mh_sha1_base) \
+		mh_sha1/mh_sha1_base_aliases.c
+
+lsrc_base_aliases += \
+		$(lsrc_mh_sha1_base) \
+		mh_sha1/mh_sha1_base_aliases.c
+
+other_src    += mh_sha1/mh_sha1_ref.c \
 		include/reg_sizes.asm \
 		include/multibinary.asm \
 		include/test.h \

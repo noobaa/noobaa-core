@@ -29,6 +29,7 @@ const ADMIN_WIN_USERS = Object.freeze([
     'BUILTIN\\Administrators'
 ]);
 
+const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
 const IS_LINUX = process.platform === 'linux';
 const IS_DOCKER = process.env.container === 'docker';
@@ -41,22 +42,7 @@ if (!process.env.PLATFORM) {
     dotenv.load();
 }
 
-
-if (!process.env.PLATFORM) {
-    console.log('loading .env file...');
-    dotenv.load();
-}
-
-function get_memory() {
-    return Number(process.env.CONTAINER_MEM_LIMIT) || os.totalmem();
-}
-
-function get_cpus() {
-    return Number(process.env.CONTAINER_CPU_LIMIT) || os.cpus().length;
-}
-
-
-function os_info(count_mongo_reserved_as_free) {
+function os_info() {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     var orig_ifaces = os.networkInterfaces();
@@ -70,7 +56,7 @@ function os_info(count_mongo_reserved_as_free) {
         }
     });
     return P.resolve()
-        .then(() => _calculate_free_mem(count_mongo_reserved_as_free))
+        .then(() => _calculate_free_mem())
         .then(free_mem => ({
             hostname: os.hostname(),
             ostype: os.type(),
@@ -79,14 +65,14 @@ function os_info(count_mongo_reserved_as_free) {
             release: os.release(),
             uptime: Date.now() - Math.floor(1000 * os.uptime()),
             loadavg: os.loadavg(),
-            totalmem: get_memory(),
+            totalmem: config.CONTAINER_MEM_LIMIT,
             freemem: free_mem,
             cpus: os.cpus(),
             networkInterfaces: interfaces
         }));
 }
 
-function _calculate_free_mem(count_mongo_reserved_as_free) {
+function _calculate_free_mem() {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
     if (!IS_MAC) {
@@ -284,7 +270,7 @@ function remove_linux_readonly_drives(volumes) {
         });
 }
 
-async function read_mac_linux_drives(include_all) {
+async function read_mac_linux_drives() {
     const volumes = await P.fromCallback(callback => node_df({
         // this is a hack to make node_df append the -l flag to the df command
         // in order to get only local file systems.
@@ -491,7 +477,7 @@ function read_server_secret() {
     } else {
         // in kubernetes we must have SERVER_SECRET loaded from a kubernetes secret
         if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kuberentes');
+            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kubernetes');
         }
         // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
         return '12345678';
@@ -768,8 +754,7 @@ async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
                 weight: 0
             };
 
-            return [
-                {
+            return [{
                     ...defaults,
                     kind: 'INTERNAL',
                     hostname: internal_hostname,
@@ -883,8 +868,9 @@ async function restart_services(services) {
 
 
 // EXPORTS
-exports.get_memory = get_memory;
-exports.get_cpus = get_cpus;
+exports.IS_WIN = IS_WIN;
+exports.IS_MAC = IS_MAC;
+exports.IS_LINUX = IS_LINUX;
 exports.os_info = os_info;
 exports.read_drives = read_drives;
 exports.get_raw_storage = get_raw_storage;

@@ -35,149 +35,94 @@
 #define TEST_BUFS 		SHA256_MIN_LANES
 #define ROTATION_TIMES 		10000	//total length processing = TEST_LEN * ROTATION_TIMES
 #define UPDATE_SIZE		(13*SHA256_BLOCK_SIZE)
+#define LEN_TOTAL		(TEST_LEN * ROTATION_TIMES)
 
 /* Reference digest global to reduce stack usage */
 static uint8_t digest_ref_upd[4 * SHA256_DIGEST_NWORDS];
 
-inline static unsigned int byteswap32(unsigned int x)
+static inline unsigned int byteswap32(unsigned int x)
 {
 	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
 }
 
+struct user_data {
+	int idx;
+	uint64_t processed;
+};
+
 int main(void)
 {
-	SHA256_CTX o_ctx;
+	SHA256_CTX o_ctx;	//openSSL
 	SHA256_HASH_CTX_MGR *mgr = NULL;
 	SHA256_HASH_CTX ctxpool[TEST_BUFS], *ctx = NULL;
 	uint32_t i, j, k, fail = 0;
-	long long len_done, len_rem;
 	unsigned char *bufs[TEST_BUFS];
-	unsigned char *buf_ptr[TEST_BUFS];
-	unsigned char *buf_ref_upd;
+	struct user_data udata[TEST_BUFS];
 
 	posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
 	sha256_ctx_mgr_init(mgr);
 
-	printf("\n");
+	printf("sha256_large_test\n");
 
 	// Init ctx contents
-	SHA256_Init(&o_ctx);
 	for (i = 0; i < TEST_BUFS; i++) {
-		bufs[i] = (unsigned char *)calloc((size_t) TEST_LEN, 1);
+		bufs[i] = (unsigned char *)calloc((size_t)TEST_LEN, 1);
 		if (bufs[i] == NULL) {
 			printf("malloc failed test aborted\n");
 			return 1;
 		}
 		hash_ctx_init(&ctxpool[i]);
-		ctxpool[i].user_data = (void *)((uint64_t) i);
+		ctxpool[i].user_data = (void *)&udata[i];
 	}
 
 	//Openssl SHA256 update test
-	buf_ref_upd = (unsigned char *)calloc((size_t) (TEST_LEN), 1);
+	SHA256_Init(&o_ctx);
 	for (k = 0; k < ROTATION_TIMES; k++) {
-		SHA256_Update(&o_ctx, buf_ref_upd, TEST_LEN);
+		SHA256_Update(&o_ctx, bufs[k % TEST_BUFS], TEST_LEN);
 	}
-
 	SHA256_Final(digest_ref_upd, &o_ctx);
 
-	//Multi-buffer hashing
-	for (k = 0; k < ROTATION_TIMES;) {
-		for (i = 0; i < TEST_BUFS;) {
-			buf_ptr[i] = bufs[i];
-			len_done = 0;
-			len_rem = (long long)TEST_LEN;
-			if (len_done == 0 && k == 0) {
-				ctx = sha256_ctx_mgr_submit(mgr,
-							    &ctxpool[i], buf_ptr[i],
-							    UPDATE_SIZE, HASH_FIRST);
-			}
-
-			else if (len_rem <= UPDATE_SIZE) {
-				if (k == ROTATION_TIMES - 1) {
-					ctx = sha256_ctx_mgr_submit(mgr,
-								    &ctxpool[i], buf_ptr[i],
-								    len_rem, HASH_LAST);
-					ctx = sha256_ctx_mgr_flush(mgr);
-
-				} else {
-					ctx = sha256_ctx_mgr_submit(mgr,
-								    &ctxpool[i],
-								    buf_ptr[i], len_rem,
-								    HASH_UPDATE);
-					if ((ctx == NULL) || hash_ctx_complete(ctx)) {
-						i++;
-						continue;
-					}
-
-					ctx = sha256_ctx_mgr_flush(mgr);
-					if (ctx == NULL) {
-						k++;
-						continue;
-					}
-				}
-			}
-
-			else {
-				ctx = sha256_ctx_mgr_flush(mgr);
-				ctx = sha256_ctx_mgr_submit(mgr,
-							    &ctxpool[i], buf_ptr[i],
-							    UPDATE_SIZE, HASH_UPDATE);
-			}
-
-			if ((ctx == NULL) || hash_ctx_complete(ctx)) {
-				i++;
-				continue;
-			}
-
-			i = (unsigned long)(ctx->user_data);
-			buf_ptr[i] += UPDATE_SIZE;
-		}		//end for i < test_bufs
-
-		ctx = sha256_ctx_mgr_flush(mgr);
-		while (ctx) {
-			if (hash_ctx_complete(ctx)) {
-				ctx = sha256_ctx_mgr_flush(mgr);
-				continue;
-			}
-			i = (unsigned long)(ctx->user_data);
-			buf_ptr[i] += UPDATE_SIZE;
-			len_done =
-			    (long long)((unsigned long)buf_ptr[i] - (unsigned long)bufs[i]);
-			len_rem = (long long)TEST_LEN - len_done;
-			if (len_rem <= UPDATE_SIZE) {
-				if (k == ROTATION_TIMES - 1) {
-					ctx = sha256_ctx_mgr_submit(mgr,
-								    &ctxpool[i], buf_ptr[i],
-								    len_rem, HASH_LAST);
-				} else {
-					ctx = sha256_ctx_mgr_submit(mgr,
-								    &ctxpool[i],
-								    buf_ptr[i], len_rem,
-								    HASH_UPDATE);
-					if (ctx == NULL && i == TEST_BUFS - 1)	//all test bufs are finished
-					{
-						if (k >= ROTATION_TIMES - 1)
-							break;
-						else
-							continue;
-					}
-				}
-			} else {
-				ctx = sha256_ctx_mgr_submit(mgr,
-							    &ctxpool[i],
-							    buf_ptr[i], UPDATE_SIZE,
-							    HASH_UPDATE);
-			}
-			if (ctx == NULL) {
-				ctx = sha256_ctx_mgr_flush(mgr);
-			}
-		}		//end while
-
-		if (ctx == NULL)
-			k++;
+	// Initialize pool
+	for (i = 0; i < TEST_BUFS; i++) {
+		struct user_data *u = (struct user_data *)ctxpool[i].user_data;
+		u->idx = i;
+		u->processed = 0;
 	}
 
-	printf("multibuffer sha256 digest: \n");
+	printf("Starting updates\n");
+	int highest_pool_idx = 0;
+	ctx = &ctxpool[highest_pool_idx++];
+	while (ctx) {
+		int len = UPDATE_SIZE;
+		int update_type = HASH_UPDATE;
+		struct user_data *u = (struct user_data *)ctx->user_data;
+		int idx = u->idx;
+
+		if (u->processed == 0)
+			update_type = HASH_FIRST;
+
+		else if (hash_ctx_complete(ctx)) {
+			if (highest_pool_idx < TEST_BUFS)
+				ctx = &ctxpool[highest_pool_idx++];
+			else
+				ctx = sha256_ctx_mgr_flush(mgr);
+			continue;
+		} else if (u->processed >= (LEN_TOTAL - UPDATE_SIZE)) {
+			len = (LEN_TOTAL - u->processed);
+			update_type = HASH_LAST;
+		}
+		u->processed += len;
+		ctx = sha256_ctx_mgr_submit(mgr, ctx, bufs[idx], len, update_type);
+
+		if (NULL == ctx) {
+			if (highest_pool_idx < TEST_BUFS)
+				ctx = &ctxpool[highest_pool_idx++];
+			else
+				ctx = sha256_ctx_mgr_flush(mgr);
+		}
+	}
+
+	printf("multibuffer SHA256 digest: \n");
 	for (i = 0; i < TEST_BUFS; i++) {
 		printf("Total processing size of buf[%d] is %ld \n", i,
 		       ctxpool[i].total_length);
@@ -187,7 +132,7 @@ int main(void)
 	}
 	printf("\n");
 
-	printf("openssl sha256 update digest: \n");
+	printf("openssl SHA256 update digest: \n");
 	for (i = 0; i < SHA256_DIGEST_NWORDS; i++)
 		printf("%08X - ", byteswap32(((uint32_t *) digest_ref_upd)[i]));
 	printf("\n");
@@ -202,8 +147,8 @@ int main(void)
 	}
 
 	if (fail)
-		printf("Test failed sha256 hash large file check %d\n", fail);
+		printf("Test failed SHA256 hash large file check %d\n", fail);
 	else
-		printf(" sha256_hash_large_test: Pass\n");
+		printf(" SHA256_hash_large_test: Pass\n");
 	return fail;
 }

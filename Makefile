@@ -80,6 +80,12 @@ noobaa: base
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
 
+verify-fe-lib: builder
+	@echo "\033[1;Verifying Frontend Library $(CONTAINER_ENGINE) build.\033[0m"
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/FrontendLib.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t frontend-lib . $(REDIRECT_STDOUT)
+	@echo "\033[1;32mFrontend Library build verified.\033[0m"
+.PHONY: verify-fe-lib
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

@@ -46,13 +46,13 @@ void *OSSL_THREAD_FUNC(void *arg)
 	printfv("Thread %i is started\n", id);
 	/* memory allocate */
 	for (j = 0; j < rounds_buf; j++) {
-		carry_buf[j] = (char *)calloc((size_t) buflen, 1);
+		carry_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (carry_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;
 		}
 
-		hash_buf[j] = (char *)calloc((size_t) buflen, 1);
+		hash_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (hash_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;
@@ -125,13 +125,13 @@ void *MB_THREAD_FUNC(void *arg)
 	printfv("Thread %i is started\n", id);
 	/* Memory allocate */
 	for (j = 0; j < rounds_buf; j++) {
-		carry_buf[j] = (char *)calloc((size_t) buflen, 1);
+		carry_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (carry_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;
 		}
 
-		hash_buf[j] = (char *)calloc((size_t) buflen, 1);
+		hash_buf[j] = (char *)calloc((size_t)buflen, 1);
 		if (hash_buf[j] == NULL) {
 			printf("calloc failed test aborted\n");
 			goto out;

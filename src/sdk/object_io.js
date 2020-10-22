@@ -7,7 +7,6 @@ const stream = require('stream');
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const os_utils = require('../util/os_utils');
 const Pipeline = require('../util/pipeline');
 const Semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
@@ -15,7 +14,6 @@ const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const CoalesceStream = require('../util/coalesce_stream');
-const ChunkedContentDecoder = require('../util/chunked_content_decoder');
 
 const { MapClient } = require('./map_client');
 const { ChunkAPI } = require('./map_api_types');
@@ -43,7 +41,6 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {string} [tier_id]
  * @property {string} [bucket_id]
  * @property {string} [multipart_id]
- * @property {boolean} [chunked_content]
  * @property {Object} [desc]
  * @property {number} [start]
  * @property {number} [end]
@@ -136,8 +133,9 @@ class ObjectIO {
 
         dbg.log0('ObjectIO Configurations:', util.inspect({
             location_info,
-            totalmem: os_utils.get_memory(),
-            IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP
+            CONTAINER_MEM_LIMIT: config.CONTAINER_MEM_LIMIT,
+            BUFFERS_MEM_LIMIT: config.BUFFERS_MEM_LIMIT,
+            IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP,
         }));
 
     }
@@ -424,7 +422,6 @@ class ObjectIO {
 
         const pipeline = new Pipeline(params.source_stream);
 
-        if (params.chunked_content) pipeline.pipe(new ChunkedContentDecoder());
         pipeline.pipe(splitter);
         pipeline.pipe(coder);
         pipeline.pipe(coalescer);
@@ -749,7 +746,7 @@ function slice_buffers_in_range(chunks, start, end) {
     }
     if (!chunks || !chunks.length) {
         // null data means that the part is missing.
-        return [ { start, end, data: null } ];
+        return [{ start, end, data: null }];
     }
     let pos = start;
     const buffers = [];
@@ -828,7 +825,7 @@ function slice_buffers_in_range(chunks, start, end) {
         //                           |                 |
         //                           |[    missing    ]|
 
-        buffers.push({start: pos, end, data: null});
+        buffers.push({ start: pos, end, data: null });
     }
     // const buffer = buffer_utils.join(buffers);
     // if (buffer.length !== end - start) {

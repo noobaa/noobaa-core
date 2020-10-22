@@ -11,11 +11,9 @@ const crypto = require('crypto');
 
 const P = require('./promise');
 const Semaphore = require('./semaphore');
+const os_utils = require('../util/os_utils');
 const promise_utils = require('./promise_utils');
 const get_folder_size = P.promisify(require('get-folder-size'));
-
-const is_windows = (process.platform === "win32");
-const is_mac = (process.platform === "darwin");
 
 const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
 
@@ -197,7 +195,7 @@ function create_fresh_path(dir) {
 
 function file_copy(src, dst) {
     let cmd;
-    if (is_windows) {
+    if (os_utils.IS_WIN) {
         cmd = 'copy /Y  "' +
             src.replace(/\//g, '\\') + '" "' +
             dst.replace(/\//g, '\\') + '"';
@@ -245,7 +243,7 @@ function full_dir_copy(src, dst, filter_regex) {
 
 function tar_pack(tar_file_name, source, ignore_file_changes) {
     let cmd;
-    if (is_mac) {
+    if (os_utils.IS_MAC) {
         cmd = 'tar -zcvf ' + tar_file_name + ' ' + source + '/*';
     } else {
         cmd = 'tar -zcvf ' +

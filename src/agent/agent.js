@@ -38,7 +38,7 @@ const BlockStoreAzure = require('./block_store_services/block_store_azure').Bloc
 
 const { RpcError, RPC_BUFFERS } = require('../rpc');
 
-const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 ninutes after nodes_monitor stopped communicating
+const TEST_CONNECTION_TIMEOUT_DELAY = 2 * 60 * 1000; // test connection 2 minutes after nodes_monitor stopped communicating
 const MASTER_RESPONSE_TIMEOUT = 30 * 1000; // 30 timeout for master to respond to HB
 const MASTER_MAX_CONNECT_ATTEMPTS = 20;
 
@@ -494,7 +494,7 @@ class Agent {
                         dbg.error('This agent appears to be duplicated.',
                             'exiting and starting new agent', err);
                         if (this.cloud_info || this.mongo_info) {
-                            dbg.error(`shouldnt be here. found duplicated node for cloud pool or mongo pool!!`);
+                            dbg.error(`shouldn't be here. found duplicated node for cloud pool or mongo pool!!`);
                             throw new Error('found duplicated cloud or mongo node');
                         } else {
                             this.send_message_and_exit('DUPLICATE', 68); // 68 is 'D' in ascii
@@ -505,11 +505,11 @@ class Agent {
                         dbg.error('This agent appears to be using an old token.',
                             'cleaning this agent noobaa_storage directory', this.storage_path);
                         if (this.cloud_info || this.mongo_info) {
-                            dbg.error(`shouldnt be here. node not found for cloud pool or mongo pool!!`);
+                            dbg.error(`shouldn't be here. node not found for cloud pool or mongo pool!!`);
                             throw new Error('node not found cloud or mongo node');
                         } else {
-                            // We dont exit the process in order to keep the underlaying pod alive until
-                            // the pool statefulset will scale this pod out of existance.
+                            // We don't exit the process in order to keep the underlaying pod alive until
+                            // the pool statefulset will scale this pod out of existence.
                             this.shutdown = true;
                         }
                     }
@@ -1006,7 +1006,7 @@ class Agent {
 
     collect_diagnostics(req) {
         const dbg = this.dbg;
-        dbg.log1('Recieved diag req', req);
+        dbg.log1('Received diag req', req);
         const inner_path = '/tmp/agent_diag.tgz';
 
         return P.resolve()
@@ -1024,7 +1024,7 @@ class Agent {
                     }))
                     .catch(err => {
                         dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
-                        throw new Error('Agent Collect Diag Error on reading packges diag file');
+                        throw new Error('Agent Collect Diag Error on reading packages diag file');
                     });
             })
             .catch(err => {
@@ -1037,7 +1037,7 @@ class Agent {
 
     async set_debug_node(req) {
         const dbg = this.dbg;
-        dbg.log0('Recieved set debug req ', req.rpc_params.level);
+        dbg.log0('Received set debug req ', req.rpc_params.level);
         dbg.set_level(req.rpc_params.level, 'core');
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
             await promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD);
@@ -1049,8 +1049,8 @@ class Agent {
         return P.resolve()
             .then(() => {
                 const dbg = this.dbg;
-                dbg.log1('Recieved unintsall req');
-                if (os.type() === 'Darwin') return;
+                dbg.log1('Received uninstall req');
+                if (os_utils.IS_MAC) return;
                 P.delay(30 * 1000) // this._disable_service()
                     .then(() => {
                         this.send_message_and_exit('UNINSTALL', 85); // 85 is 'U' in ascii

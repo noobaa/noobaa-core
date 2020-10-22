@@ -52,6 +52,10 @@ extern md5_ctx_mgr_flush_avx2
  extern md5_ctx_mgr_flush_avx512
 %endif
 
+extern md5_ctx_mgr_init_base
+extern md5_ctx_mgr_submit_base
+extern md5_ctx_mgr_flush_base
+
 ;;; *_mbinit are initial values for *_dispatched; is updated on first call.
 ;;; Therefore, *_dispatch_init is only executed on first call.
 
@@ -61,10 +65,9 @@ mbin_interface md5_ctx_mgr_submit
 mbin_interface md5_ctx_mgr_flush
 
 %ifdef HAVE_AS_KNOWS_AVX512
- ; Reuse mbin_dispatch_init6 through replacing base by sse version
- mbin_dispatch_init6 md5_ctx_mgr_init, md5_ctx_mgr_init_sse, md5_ctx_mgr_init_sse, md5_ctx_mgr_init_avx, md5_ctx_mgr_init_avx2, md5_ctx_mgr_init_avx512
- mbin_dispatch_init6 md5_ctx_mgr_submit, md5_ctx_mgr_submit_sse, md5_ctx_mgr_submit_sse, md5_ctx_mgr_submit_avx, md5_ctx_mgr_submit_avx2, md5_ctx_mgr_submit_avx512
- mbin_dispatch_init6 md5_ctx_mgr_flush, md5_ctx_mgr_flush_sse, md5_ctx_mgr_flush_sse, md5_ctx_mgr_flush_avx, md5_ctx_mgr_flush_avx2, md5_ctx_mgr_flush_avx512
+ mbin_dispatch_init6 md5_ctx_mgr_init, md5_ctx_mgr_init_base, md5_ctx_mgr_init_sse, md5_ctx_mgr_init_avx, md5_ctx_mgr_init_avx2, md5_ctx_mgr_init_avx512
+ mbin_dispatch_init6 md5_ctx_mgr_submit, md5_ctx_mgr_submit_base, md5_ctx_mgr_submit_sse, md5_ctx_mgr_submit_avx, md5_ctx_mgr_submit_avx2, md5_ctx_mgr_submit_avx512
+ mbin_dispatch_init6 md5_ctx_mgr_flush, md5_ctx_mgr_flush_base, md5_ctx_mgr_flush_sse, md5_ctx_mgr_flush_avx, md5_ctx_mgr_flush_avx2, md5_ctx_mgr_flush_avx512
 %else
  mbin_dispatch_init md5_ctx_mgr_init, md5_ctx_mgr_init_sse, md5_ctx_mgr_init_avx, md5_ctx_mgr_init_avx2
  mbin_dispatch_init md5_ctx_mgr_submit, md5_ctx_mgr_submit_sse, md5_ctx_mgr_submit_avx, md5_ctx_mgr_submit_avx2
@@ -72,6 +75,6 @@ mbin_interface md5_ctx_mgr_flush
 %endif
 
 ;;       func                  core, ver, snum
-slversion md5_ctx_mgr_init,	00,   03,  0189
-slversion md5_ctx_mgr_submit,	00,   03,  018a
-slversion md5_ctx_mgr_flush,	00,   03,  018b
+slversion md5_ctx_mgr_init,	00,   04,  0189
+slversion md5_ctx_mgr_submit,	00,   04,  018a
+slversion md5_ctx_mgr_flush,	00,   04,  018b

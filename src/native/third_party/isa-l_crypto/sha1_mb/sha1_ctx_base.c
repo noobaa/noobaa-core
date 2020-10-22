@@ -86,16 +86,19 @@ SHA1_HASH_CTX *sha1_ctx_mgr_submit_base(SHA1_HASH_CTX_MGR * mgr, SHA1_HASH_CTX *
 	if (flags & (~HASH_ENTIRE)) {
 		// User should not pass anything other than FIRST, UPDATE, or LAST
 		ctx->error = HASH_CTX_ERROR_INVALID_FLAGS;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_PROCESSING) && (flags == HASH_ENTIRE)) {
 		// Cannot submit a new entire job to a currently processing job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_PROCESSING;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_COMPLETE) && !(flags & HASH_FIRST)) {
 		// Cannot update a finished job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_COMPLETED;
+		return ctx;
 	}
 
 	if (flags == HASH_FIRST) {
@@ -157,6 +160,7 @@ static uint32_t sha1_update(SHA1_HASH_CTX * ctx, const void *buffer, uint32_t le
 		ctx->total_length += SHA1_BLOCK_SIZE;
 	}
 
+	ctx->status = HASH_CTX_STS_IDLE;
 	ctx->incoming_buffer = buffer;
 	return remain_len;
 }

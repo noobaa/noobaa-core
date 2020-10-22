@@ -150,7 +150,11 @@
                 'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx512.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x16x2_avx512.asm',
                 'isa-l_crypto/md5_mb/md5_ctx_avx512.c',
-            ]}]],
+            ]}, {
+                'sources': [
+                    'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
+                ]
+            }]],
         },
 
         {

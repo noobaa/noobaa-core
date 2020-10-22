@@ -54,11 +54,6 @@ void sha512_ref(uint8_t * input_data, uint64_t * digest, uint32_t len)
 
 	/* 128 bit lengths not needed as len is uint32_t, so use 64 bit length
 	 * and pad the first 64 bits with zeros. */
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	digest[0] = H0;
 	digest[1] = H1;
@@ -90,16 +85,7 @@ void sha512_ref(uint8_t * input_data, uint64_t * digest, uint32_t len)
 	else
 		i = SHA512_BLOCK_SIZE;
 
-	convert.uint = 8 * len;
-	p = buf + i - 8;
-	p[0] = convert.uchar[7];
-	p[1] = convert.uchar[6];
-	p[2] = convert.uchar[5];
-	p[3] = convert.uchar[4];
-	p[4] = convert.uchar[3];
-	p[5] = convert.uchar[2];
-	p[6] = convert.uchar[1];
-	p[7] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) len * 8);
 
 	/* Hash the padded last block */
 	sha512_single(buf, digest);
@@ -128,19 +114,10 @@ void sha512_ref(uint8_t * input_data, uint64_t * digest, uint32_t len)
 #define S0(w) (ror64(w,1) ^ ror64(w,8) ^ (w >> 7))
 #define S1(w) (ror64(w,19) ^ ror64(w,61) ^ (w >> 6))
 
-#define bswap(x)  (((x) & (0xffull << 0)) << 56) \
-		| (((x) & (0xffull << 8)) << 40) \
-		| (((x) & (0xffull <<16)) << 24) \
-		| (((x) & (0xffull <<24)) << 8)  \
-		| (((x) & (0xffull <<32)) >> 8)  \
-		| (((x) & (0xffull <<40)) >> 24) \
-		| (((x) & (0xffull <<48)) >> 40) \
-		| (((x) & (0xffull <<56)) >> 56)
-
 #define W(x) w[(x) & 15]
 
 #define step(i,a,b,c,d,e,f,g,h,k) \
-	if (i<16) W(i) = bswap(ww[i]); \
+	if (i<16) W(i) = to_be64(ww[i]); \
 	else \
 	W(i) = W(i-16) + S0(W(i-15)) + W(i-7) + S1(W(i-2)); \
 	t2 = s0(a) + maj(a,b,c); \

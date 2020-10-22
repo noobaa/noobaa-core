@@ -35,7 +35,7 @@
 // Base multi-hash SHA1 Functions
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
-#define store_w(s, i, w, ww) (w[i][s] = bswap(ww[i*HASH_SEGS+s]))	// only used for step 0 ~ 15
+#define store_w(s, i, w, ww) (w[i][s] = to_be32(ww[i*HASH_SEGS+s]))	// only used for step 0 ~ 15
 #define update_w(s, i, w) (w[i&15][s] = rol32(w[(i-3)&15][s]^w[(i-8)&15][s]^w[(i-14)&15][s]^w[(i-16)&15][s], 1))	// used for step > 15
 #define update_e_1(s, a, b, c, d, e, i, w)  (e[s] += rol32(a[s],5) + F1(b[s],c[s],d[s]) + K_00_19 + w[i&15][s])
 #define update_e_2(s, a, b, c, d, e, i, w)  (e[s] += rol32(a[s],5) + F2(b[s],c[s],d[s]) + K_20_39 + w[i&15][s])

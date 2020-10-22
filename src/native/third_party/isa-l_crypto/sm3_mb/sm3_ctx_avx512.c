@@ -45,11 +45,6 @@ void sm3_mb_mgr_init_avx512(SM3_MB_JOB_MGR * state);
 SM3_JOB *sm3_mb_mgr_submit_avx512(SM3_MB_JOB_MGR * state, SM3_JOB * job);
 SM3_JOB *sm3_mb_mgr_flush_avx512(SM3_MB_JOB_MGR * state);
 
-static inline uint32_t byteswap32(uint32_t x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
-
 void sm3_mb_mgr_init_avx512(SM3_MB_JOB_MGR * state)
 {
 	unsigned int j;
@@ -227,7 +222,7 @@ static inline uint32_t hash_pad(uint8_t padblock[SM3_BLOCK_SIZE * 2], uint64_t t
 	*((uint64_t *) & padblock[i - 16]) = 0;
 #endif
 
-	*((uint64_t *) & padblock[i - 8]) = _byteswap_uint64((uint64_t) total_len << 3);
+	*((uint64_t *) & padblock[i - 8]) = to_be64((uint64_t) total_len << 3);
 
 	return i >> SM3_LOG2_BLOCK_SIZE;	// Number of extra blocks to hash
 }

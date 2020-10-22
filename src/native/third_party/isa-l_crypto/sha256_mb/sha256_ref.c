@@ -46,7 +46,6 @@
 #define H7 0x5be0cd19
 
 #define ror32(x, r) (((x)>>(r)) ^ ((x)<<(32-(r))))
-#define bswap(x) (((x)<<24) | (((x)&0xff00)<<8) | (((x)&0xff0000)>>8) | ((x)>>24))
 
 #define W(x) w[(x) & 15]
 
@@ -59,7 +58,7 @@
 #define ch(e,f,g) ((e & f) ^ (g & ~e))
 
 #define step(i,a,b,c,d,e,f,g,h,k) \
-	if (i<16) W(i) = bswap(ww[i]); \
+	if (i<16) W(i) = to_be32(ww[i]); \
 	else \
 	W(i) = W(i-16) + S0(W(i-15)) + W(i-7) + S1(W(i-2)); \
 	t2 = s0(a) + maj(a,b,c); \
@@ -73,11 +72,6 @@ void sha256_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t le
 {
 	uint32_t i, j;
 	uint8_t buf[2 * SHA256_BLOCK_SIZE];
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	digest[0] = H0;
 	digest[1] = H1;
@@ -105,16 +99,7 @@ void sha256_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t le
 	else
 		i = SHA256_BLOCK_SIZE;
 
-	convert.uint = 8 * len;
-	p = buf + i - 8;
-	p[0] = convert.uchar[7];
-	p[1] = convert.uchar[6];
-	p[2] = convert.uchar[5];
-	p[3] = convert.uchar[4];
-	p[4] = convert.uchar[3];
-	p[5] = convert.uchar[2];
-	p[6] = convert.uchar[1];
-	p[7] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) len * 8);
 
 	sha256_single(buf, digest);
 	if (i == 2 * SHA256_BLOCK_SIZE)

@@ -106,11 +106,12 @@ int main(void)
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SM3_DIGEST_NWORDS; j++) {
-			if (ctxpool[i].job.result_digest[j] != ((uint32_t *) digest_ssl[i])[j]) {
+			if (ctxpool[i].job.result_digest[j] !=
+			    to_le32(((uint32_t *) digest_ssl[i])[j])) {
 				fail++;
 				printf("Test%d, digest%d fail %08X <=> %08X\n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       ((uint32_t *) digest_ssl[i])[j]);
+				       to_le32(((uint32_t *) digest_ssl[i])[j]));
 			}
 		}
 	}

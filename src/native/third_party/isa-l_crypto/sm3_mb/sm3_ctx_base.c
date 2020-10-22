@@ -44,11 +44,6 @@ static void sm3_final(SM3_HASH_CTX * ctx, uint32_t remain_len);
 static void sm3_single(const volatile void *data, uint32_t digest[]);
 static inline void hash_init_digest(SM3_WORD_T * digest);
 
-static inline uint32_t byteswap32(uint32_t x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
-
 static inline uint32_t P0(uint32_t X)
 {
 	return (X ^ (rol32(X, 9)) ^ (rol32(X, 17)));
@@ -76,7 +71,7 @@ static inline void sm3_message_schedule(uint32_t bi[], volatile uint32_t W[],
 	volatile uint32_t tmp;
 
 	for (j = 0; j <= 15; j++) {
-		W[j] = byteswap32(bi[j]);
+		W[j] = to_be32(bi[j]);
 	}
 
 	for (; j <= 67; j++) {
@@ -224,11 +219,6 @@ static void sm3_final(SM3_HASH_CTX * ctx, uint32_t remain_len)
 	uint32_t j;
 	volatile uint8_t buf[2 * SM3_BLOCK_SIZE] = { 0 };
 	uint32_t *digest = ctx->job.result_digest;
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	volatile uint8_t *p;
 
 	ctx->total_length += i;
 	memcpy((void *)buf, buffer, i);
@@ -237,11 +227,7 @@ static void sm3_final(SM3_HASH_CTX * ctx, uint32_t remain_len)
 	i = (i > SM3_BLOCK_SIZE - SM3_PADLENGTHFIELD_SIZE ?
 	     2 * SM3_BLOCK_SIZE : SM3_BLOCK_SIZE);
 
-	convert.uint = 8 * ctx->total_length;
-	p = buf + i - 8;
-	for (j = 0; j < 8; j++) {
-		p[j] = convert.uchar[7 - j];
-	}
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) ctx->total_length * 8);
 
 	sm3_single(buf, digest);
 	if (i == 2 * SM3_BLOCK_SIZE) {
@@ -255,7 +241,6 @@ static void sm3_final(SM3_HASH_CTX * ctx, uint32_t remain_len)
 
 	ctx->status = HASH_CTX_STS_COMPLETE;
 	memset((void *)buf, 0, sizeof(buf));
-	p = NULL;
 }
 
 static void sm3_single(const volatile void *data, uint32_t digest[])

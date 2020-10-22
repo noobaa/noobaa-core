@@ -36,7 +36,7 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 // store_w is only used for step 0 ~ 15
-#define store_w(s, i, w, ww) (w[i][s] = bswap(ww[i*HASH_SEGS+s]))
+#define store_w(s, i, w, ww) (w[i][s] = to_be32(ww[i*HASH_SEGS+s]))
 #define Ws(x, s) w[(x) & 15][s]
 // update_w is used for step > 15
 #define update_w(s, i, w) \

@@ -52,11 +52,6 @@ void rand_buffer(unsigned char *buf, const long buffer_size)
 		buf[i] = rand();
 }
 
-unsigned int byteswap(unsigned int x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
-
 int main(void)
 {
 	SHA1_HASH_CTX_MGR *mgr = NULL;
@@ -98,11 +93,11 @@ int main(void)
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SHA1_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    byteswap(((uint32_t *) digest_ssl[i])[j])) {
+			    to_be32(((uint32_t *) digest_ssl[i])[j])) {
 				fail++;
 				printf("Test%d, digest%d fail %08X <=> %08X\n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       byteswap(((uint32_t *) digest_ssl[i])[j]));
+				       to_be32(((uint32_t *) digest_ssl[i])[j]));
 			}
 		}
 	}
@@ -131,11 +126,11 @@ int main(void)
 		for (i = 0; i < jobs; i++) {
 			for (j = 0; j < SHA1_DIGEST_NWORDS; j++) {
 				if (ctxpool[i].job.result_digest[j] !=
-				    byteswap(((uint32_t *) digest_ssl[i])[j])) {
+				    to_be32(((uint32_t *) digest_ssl[i])[j])) {
 					fail++;
 					printf("Test%d, digest%d fail %08X <=> %08X\n",
 					       i, j, ctxpool[i].job.result_digest[j],
-					       byteswap(((uint32_t *) digest_ssl[i])[j]));
+					       to_be32(((uint32_t *) digest_ssl[i])[j]));
 				}
 			}
 		}

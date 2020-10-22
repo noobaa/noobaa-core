@@ -129,13 +129,13 @@ int main(void)
 
 	printf("openssl md5 update digest: \n");
 	for (i = 0; i < MD5_DIGEST_NWORDS; i++)
-		printf("%08X - ", ((uint32_t *) digest_ref_upd)[i]);
+		printf("%08X - ", to_le32(((uint32_t *) digest_ref_upd)[i]));
 	printf("\n");
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < MD5_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    ((uint32_t *) digest_ref_upd)[j]) {
+			    to_le32(((uint32_t *) digest_ref_upd)[j])) {
 				fail++;
 			}
 		}

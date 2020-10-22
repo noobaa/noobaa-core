@@ -58,11 +58,6 @@ static uint32_t *exp_result_digest[MSGS] = {
 	exp_result_digest1, exp_result_digest2
 };
 
-static inline uint32_t byteswap32(uint32_t x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
-
 int main(void)
 {
 	SM3_HASH_CTX_MGR *mgr = NULL;

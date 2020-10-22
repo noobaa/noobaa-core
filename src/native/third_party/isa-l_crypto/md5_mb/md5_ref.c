@@ -29,6 +29,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "endian_helper.h"
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -47,11 +48,6 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 {
 	uint32_t i, j;
 	uint8_t buf[128];
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	digest[0] = H0;
 	digest[1] = H1;
@@ -76,16 +72,7 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 	else
 		i = 64;
 
-	convert.uint = 8 * len;
-	p = buf + i - 8;
-	p[7] = convert.uchar[7];
-	p[6] = convert.uchar[6];
-	p[5] = convert.uchar[5];
-	p[4] = convert.uchar[4];
-	p[3] = convert.uchar[3];
-	p[2] = convert.uchar[2];
-	p[1] = convert.uchar[1];
-	p[0] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_le64((uint64_t) len * 8);
 
 	md5_single(buf, digest);
 	if (i == 128)
@@ -104,7 +91,7 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 	if (i < 32) {f = F2(b,c,d); } else \
 	if (i < 48) {f = F3(b,c,d); } else \
 				{f = F4(b,c,d); } \
-	f = a + f + k + w; \
+	f = a + f + k + to_le32(w); \
 	a = b + rol32(f, r);
 
 void md5_single(const uint8_t * data, uint32_t digest[4])

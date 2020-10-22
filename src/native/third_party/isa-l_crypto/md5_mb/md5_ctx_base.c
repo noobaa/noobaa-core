@@ -49,7 +49,7 @@
 	if (i < 32) {f = F2(b,c,d); } else \
 	if (i < 48) {f = F3(b,c,d); } else \
 				{f = F4(b,c,d); } \
-	f = a + f + k + w; \
+	f = a + f + k + to_le32(w); \
 	a = b + rol32(f, r);
 
 static void md5_init(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len);
@@ -156,11 +156,6 @@ static void md5_final(MD5_HASH_CTX * ctx, uint32_t remain_len)
 	uint32_t *digest = ctx->job.result_digest;
 
 	ctx->total_length += i;
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 	memcpy(buf, buffer, i);
 	buf[i++] = 0x80;
 	for (j = i; j < 120; j++)
@@ -171,16 +166,7 @@ static void md5_final(MD5_HASH_CTX * ctx, uint32_t remain_len)
 	else
 		i = 64;
 
-	convert.uint = 8 * ctx->total_length;
-	p = buf + i - 8;
-	p[7] = convert.uchar[7];
-	p[6] = convert.uchar[6];
-	p[5] = convert.uchar[5];
-	p[4] = convert.uchar[4];
-	p[3] = convert.uchar[3];
-	p[2] = convert.uchar[2];
-	p[1] = convert.uchar[1];
-	p[0] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_le64((uint64_t) ctx->total_length * 8);
 
 	md5_single(buf, digest);
 	if (i == 128) {

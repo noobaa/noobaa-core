@@ -94,12 +94,13 @@ int main(void)
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SM3_DIGEST_NWORDS; j++) {
-			if (ctxpool[i].job.result_digest[j] != ((uint32_t *) digest_ref[i])[j]) {
+			if (ctxpool[i].job.result_digest[j] !=
+			    to_le32(((uint32_t *) digest_ref[i])[j])) {
 				fail++;
 				printf("Test%d fixed size, digest%d "
 				       "fail 0x%08X <=> 0x%08X \n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       ((uint32_t *) digest_ref[i])[j]);
+				       to_le32(((uint32_t *) digest_ref[i])[j]));
 			}
 		}
 	}
@@ -131,12 +132,12 @@ int main(void)
 		for (i = 0; i < jobs; i++) {
 			for (j = 0; j < SM3_DIGEST_NWORDS; j++) {
 				if (ctxpool[i].job.result_digest[j] !=
-				    ((uint32_t *) digest_ref[i])[j]) {
+				    to_le32(((uint32_t *) digest_ref[i])[j])) {
 					fail++;
 					printf("Test%d, digest%d fail "
 					       "0x%08X <=> 0x%08X\n",
 					       i, j, ctxpool[i].job.result_digest[j],
-					       ((uint32_t *) digest_ref[i])[j]);
+					       to_le32(((uint32_t *) digest_ref[i])[j]));
 				}
 			}
 		}
@@ -177,11 +178,12 @@ int main(void)
 
 	for (i = 0; i < jobs; i++) {
 		for (j = 0; j < SM3_DIGEST_NWORDS; j++) {
-			if (ctxpool[i].job.result_digest[j] != ((uint32_t *) digest_ref[i])[j]) {
+			if (ctxpool[i].job.result_digest[j] !=
+			    to_le32(((uint32_t *) digest_ref[i])[j])) {
 				fail++;
 				printf("End test failed at offset %d - result: 0x%08X"
 				       ", ref: 0x%08X\n", i, ctxpool[i].job.result_digest[j],
-				       ((uint32_t *) digest_ref[i])[j]);
+				       to_le32(((uint32_t *) digest_ref[i])[j]));
 			}
 		}
 	}

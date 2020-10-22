@@ -57,19 +57,10 @@
 #define S0(w) (ror64(w,1) ^ ror64(w,8) ^ (w >> 7))
 #define S1(w) (ror64(w,19) ^ ror64(w,61) ^ (w >> 6))
 
-#define bswap(x)  (((x) & (0xffull << 0)) << 56) \
-		| (((x) & (0xffull << 8)) << 40) \
-		| (((x) & (0xffull <<16)) << 24) \
-		| (((x) & (0xffull <<24)) << 8)  \
-		| (((x) & (0xffull <<32)) >> 8)  \
-		| (((x) & (0xffull <<40)) >> 24) \
-		| (((x) & (0xffull <<48)) >> 40) \
-		| (((x) & (0xffull <<56)) >> 56)
-
 #define W(x) w[(x) & 15]
 
 #define step(i,a,b,c,d,e,f,g,h,k) \
-	if (i<16) W(i) = bswap(ww[i]); \
+	if (i<16) W(i) = to_be64(ww[i]); \
 	else \
 	W(i) = W(i-16) + S0(W(i-15)) + W(i-7) + S1(W(i-2)); \
 	t2 = s0(a) + maj(a,b,c); \
@@ -180,11 +171,6 @@ static void sha512_final(SHA512_HASH_CTX * ctx, uint32_t remain_len)
 	uint32_t i = remain_len, j;
 	uint8_t buf[2 * SHA512_BLOCK_SIZE];
 	uint64_t *digest = ctx->job.result_digest;
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	ctx->total_length += i;
 	memcpy(buf, buffer, i);
@@ -197,16 +183,7 @@ static void sha512_final(SHA512_HASH_CTX * ctx, uint32_t remain_len)
 	else
 		i = SHA512_BLOCK_SIZE;
 
-	convert.uint = 8 * ctx->total_length;
-	p = buf + i - 8;
-	p[0] = convert.uchar[7];
-	p[1] = convert.uchar[6];
-	p[2] = convert.uchar[5];
-	p[3] = convert.uchar[4];
-	p[4] = convert.uchar[3];
-	p[5] = convert.uchar[2];
-	p[6] = convert.uchar[1];
-	p[7] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) ctx->total_length * 8);
 
 	sha512_single(buf, digest);
 	if (i == 2 * SHA512_BLOCK_SIZE) {

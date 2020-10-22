@@ -40,24 +40,6 @@
 /* Reference digest global to reduce stack usage */
 static uint8_t digest_ref_upd[8 * SHA512_DIGEST_NWORDS];
 
-inline static uint64_t byteswap64(uint64_t x)
-{
-#if defined (__ICC)
-	return _bswap64(x);
-#elif defined (__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-	return __builtin_bswap64(x);
-#else
-	return (((x & (0xffull << 0)) << 56)
-		| ((x & (0xffull << 8)) << 40)
-		| ((x & (0xffull << 16)) << 24)
-		| ((x & (0xffull << 24)) << 8)
-		| ((x & (0xffull << 32)) >> 8)
-		| ((x & (0xffull << 40)) >> 24)
-		| ((x & (0xffull << 48)) >> 40)
-		| ((x & (0xffull << 56)) >> 56));
-#endif
-}
-
 struct user_data {
 	int idx;
 	uint64_t processed;
@@ -147,13 +129,13 @@ int main(void)
 
 	printf("openssl sha512 update digest: \n");
 	for (i = 0; i < SHA512_DIGEST_NWORDS; i++)
-		printf("%016lX - ", byteswap64(((uint64_t *) digest_ref_upd)[i]));
+		printf("%016lX - ", to_be64(((uint64_t *) digest_ref_upd)[i]));
 	printf("\n");
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SHA512_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    byteswap64(((uint64_t *) digest_ref_upd)[j])) {
+			    to_be64(((uint64_t *) digest_ref_upd)[j])) {
 				fail++;
 			}
 		}

@@ -47,7 +47,10 @@ lsrc_x86_32  += $(lsrc_x86_64)
 
 lsrc_aarch64 += \
 		$(lsrc_mh_sha1_base) \
-		mh_sha1/mh_sha1_base_aliases.c
+		mh_sha1/aarch64/mh_sha1_multibinary.S \
+		mh_sha1/aarch64/mh_sha1_aarch64_dispatcher.c \
+		mh_sha1/aarch64/mh_sha1_block_ce.S \
+		mh_sha1/aarch64/mh_sha1_ce.c
 
 lsrc_base_aliases += \
 		$(lsrc_mh_sha1_base) \

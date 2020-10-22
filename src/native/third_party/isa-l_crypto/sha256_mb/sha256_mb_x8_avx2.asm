@@ -30,7 +30,9 @@
 %include "sha256_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
 
+[bits 64]
 default rel
+section .text
 
 ;; code to compute oct SHA256 using SSE-256 / AVX2
 ;; outer calling routine takes care of save and restore of XMM registers
@@ -332,9 +334,10 @@ endstruc
 ;; void sha256_x8_avx2(SHA256_ARGS *args, uint64_t bytes);
 ;; arg 1 : STATE : pointer to input data
 ;; arg 2 : INP_SIZE  : size of input in blocks
-global sha256_mb_x8_avx2:function internal
+mk_global sha256_mb_x8_avx2, function, internal
 align 16
 sha256_mb_x8_avx2:
+	endbranch
 	; general registers preserved in outer calling routine
 	; outer calling routine saves all the XMM registers
 

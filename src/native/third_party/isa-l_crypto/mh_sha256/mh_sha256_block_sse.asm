@@ -31,7 +31,10 @@
 ;;
 
 %include "reg_sizes.asm"
+
+[bits 64]
 default rel
+section .text
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -345,8 +348,9 @@ align 32
 ; arg 2 pointer to aligned_frame_buffer which is used to save the big_endian data.
 ; arg 3 number  of 1KB blocks
 ;
-global mh_sha256_block_sse:function internal
+mk_global mh_sha256_block_sse, function, internal
 func(mh_sha256_block_sse)
+	endbranch
 	FUNC_SAVE
 	; save rsp
 	mov	RSP_SAVE, rsp

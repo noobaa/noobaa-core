@@ -1155,8 +1155,9 @@ default rel
 
 section .text
 
-global XTS_AES_256_enc_sse:function
+mk_global XTS_AES_256_enc_sse, function
 XTS_AES_256_enc_sse:
+	endbranch
 
 	sub     rsp, VARIABLE_OFFSET
 

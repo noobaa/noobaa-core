@@ -148,8 +148,9 @@ default rel
 section .text
 
 align 16
-global rolling_hash2_run_until_00:function
+mk_global rolling_hash2_run_until_00, function
 func(rolling_hash2_run_until_00)
+	endbranch
 	FUNC_SAVE
 	mov	pos.w, dword [idx]
 	sub	max, 2

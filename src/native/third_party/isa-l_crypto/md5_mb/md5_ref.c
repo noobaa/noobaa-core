@@ -78,6 +78,16 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 
 	convert.uint = 8 * len;
 	p = buf + i - 8;
+#if __BYTE_ORDER == __BIG_ENDIAN
+	p[0] = convert.uchar[7];
+	p[1] = convert.uchar[6];
+	p[2] = convert.uchar[5];
+	p[3] = convert.uchar[4];
+	p[4] = convert.uchar[3];
+	p[5] = convert.uchar[2];
+	p[6] = convert.uchar[1];
+	p[7] = convert.uchar[0];
+#else
 	p[7] = convert.uchar[7];
 	p[6] = convert.uchar[6];
 	p[5] = convert.uchar[5];
@@ -86,6 +96,7 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 	p[2] = convert.uchar[2];
 	p[1] = convert.uchar[1];
 	p[0] = convert.uchar[0];
+#endif
 
 	md5_single(buf, digest);
 	if (i == 128)
@@ -99,12 +110,18 @@ void md5_ref(uint8_t * input_data, uint32_t * digest, uint32_t len)
 
 #define rol32(x, r) (((x)<<(r)) ^ ((x)>>(32-(r))))
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define bswap(x) (((x)<<24) | (((x)&0xff00)<<8) | (((x)&0xff0000)>>8) | ((x)>>24))
+#else
+#define bswap(x) (x)
+#endif
+
 #define step(i,a,b,c,d,f,k,w,r) \
 	if (i < 16) {f = F1(b,c,d); } else \
 	if (i < 32) {f = F2(b,c,d); } else \
 	if (i < 48) {f = F3(b,c,d); } else \
 				{f = F4(b,c,d); } \
-	f = a + f + k + w; \
+	f = a + f + k + bswap(w); \
 	a = b + rol32(f, r);
 
 void md5_single(const uint8_t * data, uint32_t digest[4])

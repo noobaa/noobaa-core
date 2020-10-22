@@ -33,7 +33,10 @@
 %include "reg_sizes.asm"
 
 extern sha256_mb_x4_avx
+
+[bits 64]
 default rel
+section .text
 
 %ifidn __OUTPUT_FORMAT__, elf64
 ; Linux register definitions
@@ -97,8 +100,9 @@ default rel
 ; SHA256_JOB* sha256_mb_mgr_submit_avx(SHA256_MB_JOB_MGR *state, SHA256_JOB *job)
 ; arg 1 : rcx : state
 ; arg 2 : rdx : job
-global sha256_mb_mgr_submit_avx:function
+mk_global sha256_mb_mgr_submit_avx, function
 sha256_mb_mgr_submit_avx:
+	endbranch
 
 	sub     rsp, STACK_SPACE
 	mov     [rsp + _XMM_SAVE + 8*0], rbx

@@ -33,7 +33,10 @@
 %include "reg_sizes.asm"
 
 %ifdef HAVE_AS_KNOWS_AVX512
+
+[bits 64]
 default rel
+section .text
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 %define VMOVPS	vmovdqu64
@@ -332,6 +335,7 @@ align 32
 ;
 global mh_sha1_murmur3_x64_128_block_avx512
 func(mh_sha1_murmur3_x64_128_block_avx512)
+	endbranch
 	FUNC_SAVE
 
 	; save rsp

@@ -31,19 +31,20 @@
 #include <stdlib.h>		// for rand
 #include <string.h>		// for memcmp
 #include "aes_xts.h"
+#include "aes_keyexp.h"
 #include "test.h"
 
 //#define CACHED_TEST
 #ifdef CACHED_TEST
 // Cached test, loop many times over small dataset
 # define TEST_LEN     8*1024
-# define TEST_LOOPS   400000
+# define TEST_LOOPS   3000000
 # define TEST_TYPE_STR "_warm"
 #else
 // Uncached test.  Pull from large mem base.
 #  define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
 #  define TEST_LEN     (2 * GT_L3_CACHE)
-#  define TEST_LOOPS   50
+#  define TEST_LOOPS   400
 #  define TEST_TYPE_STR "_cold"
 #endif
 
@@ -71,6 +72,8 @@ int main(void)
 
 	unsigned char key1[16 * 2], key2[16 * 2], tinit[16];
 	unsigned char *pt, *ct, *dt;
+	uint8_t expkey1_enc[16 * 15], expkey2_enc[16 * 15];
+	uint8_t expkey1_dec[16 * 15], null_key[16 * 15];
 
 	printf("aes_xts_256_dec_perf:\n");
 	pt = malloc(TEST_LEN);
@@ -81,6 +84,8 @@ int main(void)
 		printf("malloc of testsize failed\n");
 		return -1;
 	}
+
+	/* Decode perf test */
 
 	xts256_mk_rand_data(key1, key2, tinit, pt, TEST_LEN);
 	XTS_AES_256_enc(key2, key1, tinit, TEST_LEN, pt, ct);
@@ -96,7 +101,25 @@ int main(void)
 
 	perf_stop(&stop);
 
-	printf("aes_xts_256_dec" TEST_TYPE_STR ": ");
+	printf("aes_xts_256_dec" TEST_TYPE_STR ":              ");
+	perf_print(stop, start, (long long)TEST_LEN * i);
+
+	/* Expanded keys perf test */
+
+	aes_keyexp_256(key1, expkey1_enc, expkey1_dec);
+	aes_keyexp_256(key2, expkey2_enc, null_key);
+	XTS_AES_256_dec_expanded_key(expkey2_enc, expkey1_dec, tinit, TEST_LEN, ct, pt);
+
+	perf_start(&start);
+
+	for (i = 0; i < TEST_LOOPS; i++) {
+		XTS_AES_256_dec_expanded_key(expkey2_enc, expkey1_dec, tinit, TEST_LEN, ct,
+					     pt);
+	}
+
+	perf_stop(&stop);
+
+	printf("aes_xts_256_dec_expanded_key" TEST_TYPE_STR ": ");
 	perf_print(stop, start, (long long)TEST_LEN * i);
 
 	return 0;

@@ -956,8 +956,9 @@ default rel
 
 section .text
 
-global XTS_AES_128_dec_expanded_key_sse:function
+mk_global XTS_AES_128_dec_expanded_key_sse, function
 XTS_AES_128_dec_expanded_key_sse:
+	endbranch
 
 	sub     rsp, VARIABLE_OFFSET
 

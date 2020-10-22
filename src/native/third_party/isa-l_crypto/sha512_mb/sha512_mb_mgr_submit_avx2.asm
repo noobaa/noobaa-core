@@ -101,8 +101,9 @@ endstruc
 ; SHA512_JOB* sha512_mb_mgr_submit_avx2(SHA512_MB_JOB_MGR *state, SHA512_JOB *job)
 ; arg 1 : rcx : state
 ; arg 2 : rdx : job
-global sha512_mb_mgr_submit_avx2:function
+mk_global sha512_mb_mgr_submit_avx2, function
 sha512_mb_mgr_submit_avx2:
+	endbranch
 
 	mov     rax, rsp
 
@@ -159,6 +160,7 @@ sha512_mb_mgr_submit_avx2:
 	mov     p, [job + _buffer]
 	mov     [state + _args_data_ptr + 8*lane], p
 
+	add     dword [state + _num_lanes_inuse], 1
 	cmp     unused_lanes, 0xff
 	jne     return_null
 
@@ -211,6 +213,8 @@ len_is_0:
 	shl     unused_lanes, 8
 	or      unused_lanes, idx
 	mov     [state + _unused_lanes], unused_lanes
+
+	sub     dword [state + _num_lanes_inuse], 1
 
 	vmovq    xmm0, [state + _args_digest + 8*idx + 0*32]
 	vpinsrq  xmm0, [state + _args_digest + 8*idx + 1*32], 1

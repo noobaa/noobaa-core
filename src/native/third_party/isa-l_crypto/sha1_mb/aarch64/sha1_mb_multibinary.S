@@ -28,9 +28,9 @@
 **********************************************************************/
 
 
-#include "multibinary_arm.h"
+#include "aarch64_multibinary.h"
 
 
-mbin_dispatch sha1_ctx_mgr_submit
-mbin_dispatch sha1_ctx_mgr_init
-mbin_dispatch sha1_ctx_mgr_flush
+mbin_interface sha1_ctx_mgr_submit
+mbin_interface sha1_ctx_mgr_init
+mbin_interface sha1_ctx_mgr_flush

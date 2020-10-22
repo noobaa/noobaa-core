@@ -29,7 +29,10 @@
 
 %include "md5_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
+
+[bits 64]
 default rel
+section .text
 
 ; clobbers all XMM registers
 ; clobbers all GPRs except arg1 and r8
@@ -342,8 +345,9 @@ STACK_SIZE      equ     MEM + 16*8 + 8
 ; arg1 and r8 are maintained by this function
 ;
 align 32
-global md5_mb_x4x2_sse:function internal
+mk_global md5_mb_x4x2_sse, function, internal
 md5_mb_x4x2_sse:
+	endbranch
         sub     rsp, STACK_SIZE
 
         ;; Initialize digests

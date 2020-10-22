@@ -48,7 +48,11 @@
 #define F4(b,c,d) (b ^ c ^ d)
 
 #define rol32(x, r) (((x)<<(r)) ^ ((x)>>(32-(r))))
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define bswap(x) (x)
+#else
 #define bswap(x) (((x)<<24) | (((x)&0xff00)<<8) | (((x)&0xff0000)>>8) | ((x)>>24))
+#endif
 
 #define W(x) w[(x) & 15]
 
@@ -110,6 +114,9 @@ void sha1_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t len)
 
 	convert.uint = 8 * len;
 	p = buf + i - 8;
+#if __BYTE_ORDER == __BIG_ENDIAN
+       memcpy(p, convert.uchar, 8);
+#else
 	p[0] = convert.uchar[7];
 	p[1] = convert.uchar[6];
 	p[2] = convert.uchar[5];
@@ -118,6 +125,7 @@ void sha1_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t len)
 	p[5] = convert.uchar[2];
 	p[6] = convert.uchar[1];
 	p[7] = convert.uchar[0];
+#endif
 
 	sha1_single(buf, digest);
 	if (i == (2 * SHA1_BLOCK_SIZE))

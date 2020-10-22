@@ -33,7 +33,10 @@
 %include "reg_sizes.asm"
 
 extern md5_mb_x4x2_sse
+
+[bits 64]
 default rel
+section .text
 
 %if 1
 %ifidn __OUTPUT_FORMAT__, win64
@@ -75,8 +78,9 @@ default rel
 ; JOB* submit_job(MB_MGR *state, JOB_MD5 *job)
 ; arg 1 : rcx : state
 ; arg 2 : rdx : job
-global md5_mb_mgr_submit_sse:function
+mk_global md5_mb_mgr_submit_sse, function
 md5_mb_mgr_submit_sse:
+	endbranch
 
         sub     rsp, STACK_SPACE
 	; we need to save/restore all GPRs because lower layer clobbers them
@@ -127,6 +131,7 @@ md5_mb_mgr_submit_sse:
         mov     p, [job + _buffer]
         mov     [state + _args_data_ptr + 8*lane], p
 
+	add     dword [state + _num_lanes_inuse], 1
         cmp     unused_lanes, 0xF
         jne     return_null
 
@@ -176,6 +181,7 @@ len_is_0:
         mov     [state + _unused_lanes], unused_lanes
 
 	mov	dword [state + _lens + 4*idx], 0xFFFFFFFF
+	sub     dword [state + _num_lanes_inuse], 1
 
         movd    xmm0, [state + _args_digest + 4*idx + 0*32]
         pinsrd  xmm0, [state + _args_digest + 4*idx + 1*32], 1

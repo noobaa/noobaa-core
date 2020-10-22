@@ -29,7 +29,10 @@
 
 %include "sha512_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
+
+[bits 64]
 default rel
+section .text
 
 ;; code to compute SHA512 by-2 using AVX
 ;; outer calling routine takes care of save and restore of XMM registers
@@ -238,9 +241,10 @@ endstruc
 ;; arg 1 : STATE    : pointer args (only 2 of the 4 lanes used)
 ;; arg 2 : INP_SIZE : size of data in blocks (assumed >= 1)
 ;;
-global sha512_mb_x2_avx:function internal
+mk_global sha512_mb_x2_avx, function, internal
 align 32
 sha512_mb_x2_avx:
+	endbranch
 	; general registers preserved in outer calling routine
 	; outer calling routine saves all the XMM registers
 

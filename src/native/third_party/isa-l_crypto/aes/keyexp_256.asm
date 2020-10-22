@@ -32,6 +32,10 @@
 
 %include "reg_sizes.asm"
 
+[bits 64]
+default rel
+section .text
+
 ; Uses the f() function of the aeskeygenassist result
 %macro key_expansion_256_sse 0
 	;; Assumes the xmm3 includes all zeros at this point.
@@ -94,8 +98,9 @@
 ; arg 2: rdx: pointer to expanded key array for encrypt
 ; arg 3: r8:  pointer to expanded key array for decrypt
 ;
-global aes_keyexp_256_sse:function
+mk_global aes_keyexp_256_sse, function
 aes_keyexp_256_sse:
+	endbranch
         movdqu	xmm1, [KEY]			; loading the AES key
 	movdqu	[EXP_ENC_KEYS + 16*0], xmm1
         movdqu	[EXP_DEC_KEYS + 16*14], xmm1	; Storing key in memory
@@ -187,8 +192,9 @@ aes_keyexp_256_sse:
 	ret
 
 
-global aes_keyexp_256_avx:function
+mk_global aes_keyexp_256_avx, function
 aes_keyexp_256_avx:
+	endbranch
         vmovdqu	xmm1, [KEY]			; loading the AES key
 	vmovdqu	[EXP_ENC_KEYS + 16*0], xmm1
         vmovdqu	[EXP_DEC_KEYS + 16*14], xmm1	; Storing key in memory

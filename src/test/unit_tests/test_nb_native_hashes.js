@@ -39,7 +39,7 @@ mocha.describe('nb_native hashes', function() {
         mocha.it(`MD5 ${s}`, function() {
             md5(Buffer.from(s));
         });
-        mocha.it.skip(`SHA1 ${s}`, function() { // known issue #6223
+        mocha.it(`SHA1 ${s}`, function() {
             sha1(Buffer.from(s));
         });
     }
@@ -49,7 +49,7 @@ mocha.describe('nb_native hashes', function() {
         mocha.it(`MD5 length${i}`, function() {
             md5(input);
         });
-        mocha.it.skip(`SHA1 length${i}`, function() { // known issue #6223
+        mocha.it(`SHA1 length${i}`, function() {
             sha1(input);
         });
     }
@@ -60,7 +60,7 @@ mocha.describe('nb_native hashes', function() {
         mocha.it(`MD5 random${i} - length${len}`, function() {
             md5(input);
         });
-        mocha.it.skip(`SHA1 random${i} - length${len}`, function() { // known issue #6223
+        mocha.it(`SHA1 random${i} - length${len}`, function() {
             sha1(input);
         });
     }

@@ -55,6 +55,8 @@ int mh_sha256_init(struct mh_sha256_ctx *ctx)
 	return MH_SHA256_CTX_ERROR_NONE;
 }
 
+#if (!defined(NOARCH)) && (defined(__i386__) || defined(__x86_64__) \
+	|| defined( _M_X64) || defined(_M_IX86))
 /***************mh_sha256_update***********/
 // mh_sha256_update_sse.c
 #define MH_SHA256_UPDATE_FUNCTION	mh_sha256_update_sse
@@ -138,3 +140,4 @@ struct slver mh_sha256_finalize_avx_slver = { 0x02b7, 0x00, 0x02 };
 
 struct slver mh_sha256_finalize_avx2_slver_040002b9;
 struct slver mh_sha256_finalize_avx2_slver = { 0x02b9, 0x00, 0x04 };
+#endif

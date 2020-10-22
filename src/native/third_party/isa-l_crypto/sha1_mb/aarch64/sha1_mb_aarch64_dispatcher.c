@@ -26,40 +26,34 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-#ifndef _MULTIBINARY_ARM_h
-#define _MULTIBINARY_ARM_h
-#ifdef __ASSEMBLY__
-/**
- * This Maco is different with ISA-L lib
- * To use it . we should define a c function \name\()_dispatch_init
- * the prototype must same with the interface .
- * and the dispatch_init function should modify \name\()_dispatched
- **/
-.macro mbin_dispatch name:req
-	.extern	\name\()_dispatch_init
-	.section	.data
-	.balign 8
-	.global \name\()_dispatched
-	.type 	\name\()_dispatched,%object
-	.size 	\name\()_dispatched,8
-	\name\()_dispatched:
-		.quad	\name\()_dispatch_init
-	.text
-	.global \name
-	.type \name,%function
-	.align	2
-	\name\():
-		adrp	x10, :got:\name\()_dispatched
-		ldr	x10, [x10, #:got_lo12:\name\()_dispatched]
-		ldr	x10,[x10]
-		br	x10
-		nop
-	.size \name,. - \name
+#include <aarch64_multibinary.h>
 
-.endm
+DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_submit)
+{
+	unsigned long auxval = getauxval(AT_HWCAP);
+	if (auxval & HWCAP_SHA1)
+		return PROVIDER_INFO(sha1_ctx_mgr_submit_ce);
 
+	return PROVIDER_BASIC(sha1_ctx_mgr_submit);
 
-#endif /* __ASSEMBLY__ */
+}
 
-#endif /* _MULTIBINARY_ARM_h */
+DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_init)
+{
+	unsigned long auxval = getauxval(AT_HWCAP);
+	if (auxval & HWCAP_SHA1)
+		return PROVIDER_INFO(sha1_ctx_mgr_init_ce);
 
+	return PROVIDER_BASIC(sha1_ctx_mgr_init);
+
+}
+
+DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_flush)
+{
+	unsigned long auxval = getauxval(AT_HWCAP);
+	if (auxval & HWCAP_SHA1)
+		return PROVIDER_INFO(sha1_ctx_mgr_flush_ce);
+
+	return PROVIDER_BASIC(sha1_ctx_mgr_flush);
+
+}

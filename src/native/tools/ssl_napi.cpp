@@ -20,6 +20,7 @@
 #endif
 
 #include "../util/common.h"
+#include "../util/endian.h"
 #include "../util/napi.h"
 
 namespace noobaa
@@ -44,14 +45,15 @@ static napi_value x509_name_to_entries(napi_env env, X509_NAME* x509_name);
 static int no_password_callback(char* buf, int size, int rwflag, void* u);
 
 #define HASHER_TEMPLATE const char ALG[],                                                 \
-                        size_t LEN,                                                       \
+                        size_t NWORDS,                                                    \
+                        bool WORDS_BE,                                                    \
                         typename MGR,                                                     \
                         typename CTX,                                                     \
                         void (*INIT)(MGR*),                                               \
                         CTX *(*SUBMIT)(MGR*, CTX*, const void*, uint32_t, HASH_CTX_FLAG), \
                         CTX *(*FLUSH)(MGR*)
 
-#define HASHER_ARGS Hasher<ALG, LEN, MGR, CTX, INIT, SUBMIT, FLUSH>
+#define HASHER_ARGS Hasher<ALG, NWORDS, WORDS_BE, MGR, CTX, INIT, SUBMIT, FLUSH>
 
 template <HASHER_TEMPLATE>
 class Hasher : public Napi::ObjectWrap<HASHER_ARGS>
@@ -87,7 +89,11 @@ public:
     {
         Napi::Env env = info.Env();
         submit_and_flush(0, 0, HASH_LAST);
-        return Napi::Buffer<uint8_t>::Copy(env, reinterpret_cast<const uint8_t*>(&hash_ctx_digest(&_ctx)[0]), LEN);
+        uint32_t digest[NWORDS];
+        for (size_t i = 0; i < NWORDS; i++) {
+            digest[i] = WORDS_BE ? be32toh(hash_ctx_digest(&_ctx)[i]) : le32toh(hash_ctx_digest(&_ctx)[i]);
+        }
+        return Napi::Buffer<uint32_t>::Copy(env, digest, NWORDS);
     }
 
     void submit_and_flush(const void* data, uint32_t size, HASH_CTX_FLAG flag)
@@ -117,7 +123,8 @@ const char SHA1_MB_ALG[] = "SHA1_MB";
 
 typedef Hasher<
     MD5_MB_ALG,
-    MD5_DIGEST_NWORDS * 4,
+    MD5_DIGEST_NWORDS,
+    false, // Digest words for MD5 are little-endian
     MD5_HASH_CTX_MGR,
     MD5_HASH_CTX,
     md5_ctx_mgr_init,
@@ -127,7 +134,8 @@ typedef Hasher<
 
 typedef Hasher<
     SHA1_MB_ALG,
-    SHA1_DIGEST_NWORDS * 4,
+    SHA1_DIGEST_NWORDS,
+    true, // Digest words for SHA1 are big-endian
     SHA1_HASH_CTX_MGR,
     SHA1_HASH_CTX,
     sha1_ctx_mgr_init,

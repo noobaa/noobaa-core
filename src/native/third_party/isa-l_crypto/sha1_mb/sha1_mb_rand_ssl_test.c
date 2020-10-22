@@ -54,7 +54,11 @@ void rand_buffer(unsigned char *buf, const long buffer_size)
 
 unsigned int byteswap(unsigned int x)
 {
+#if __BYTE_ORDER == __BIG_ENDIAN
+	return x;
+#else
 	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
+#endif
 }
 
 int main(void)

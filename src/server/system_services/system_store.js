@@ -796,9 +796,16 @@ class SystemStore extends EventEmitter {
             });
         });
 
-        await Promise.all(Object.values(bulk_per_collection).map(
+        const bulk_results = await Promise.all(Object.values(bulk_per_collection).map(
             bulk => bulk.length && bulk.execute({ j: true })
         ));
+
+        for (const res of bulk_results) {
+            if (res && !res.ok) {
+                dbg.error('got error on bulk execute', res.err);
+                // should we throw here? retry?
+            }
+        }
 
         return { any_news, last_update };
     }

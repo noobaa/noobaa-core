@@ -48,146 +48,178 @@ function get_id(data) {
     return data._id;
 }
 
+function not_implemented() {
+    throw new Error('NOT IMPLEMENTED');
+}
+
+
+let trans_counter = 1;
+
 class PgTransaction {
 
-    constructor({ client, name, ordered }) {
-        this.name = name;
-        this.ordered = ordered;
-        this.length = 0;
+    constructor(client) {
+        this.transaction_id = trans_counter;
+        trans_counter += 1;
         this.client = client;
-        this.operations = [];
         this._init = this._begin();
-        this.nInserted = 0;
-        this.nMatched = 0;
-        this.nModified = 0;
     }
 
     async _begin() {
         this.pg_client = await this.client.pool.connect();
-        await _do_query(this.pg_client, { text: 'BEGIN TRANSACTION' });
+        await _do_query(this.pg_client, { text: 'BEGIN TRANSACTION' }, this.transaction_id);
         this._init = null;
     }
 
+    async query(text, values) {
+        if (this._init) {
+            await this._init;
+        }
+        return _do_query(this.pg_client, { text, values }, this.transaction_id);
+    }
+
+    async commit() {
+        await this.query('COMMIT TRANSACTION');
+        this.pg_client.release();
+    }
+
+    async rollback() {
+        await this.query('ROLLBACK TRANSACTION');
+        this.pg_client.release();
+    }
+
+}
+
+
+class BulkOp {
+    constructor({ client, name }) {
+        this.name = name;
+        this.transaction = new PgTransaction(client);
+        this.queries = [];
+        this.length = 0;
+        // this.nInserted = 0;
+        // this.nMatched = 0;
+        // this.nModified = 0;
+    }
+
+
+
+
     insert(data) {
         const _id = get_id(data);
-        this._query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]);
-        // TODO
-        this.nInserted += 1;
+        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(data)}')`);
         return this;
     }
 
-    _query(text, values) {
-        const q = { text, values };
+    add_query(text) {
         this.length += 1;
-        this.operations.push({ q, length: this.length });
+        this.queries.push(text);
     }
 
     async execute() {
         let ok = false;
         let errmsg;
+        let nInserted = 0;
+        let nMatched = 0;
+        let nModified = 0;
+        let nRemoved = 0;
         try {
-            await promise_utils.wait_until(() => this._init === null);
-            if (this.ordered) {
-                for (const op of this.operations) {
-                    await _do_query(this.pg_client, op.q, op.length);
-                }
-            } else {
-                await Promise.all(this.operations.map(async args => _do_query(this.pg_client, args.q, args.length)));
+            const batch_query = this.queries.join('; ');
+            let results = await this.transaction.query(batch_query);
+            if (!Array.isArray(results)) {
+                results = [results];
             }
-            await this._commit();
+            for (const res of results) {
+                if (res.command === 'UPDATE') {
+                    nModified += res.rowCount;
+                    nMatched += res.rowCount;
+                } else if (res.command === 'INSERT') {
+                    nInserted += res.rowCount;
+                } else if (res.command === 'DELETE') {
+                    nRemoved += res.rowCount;
+                }
+            }
+            await this.transaction.commit();
             ok = true;
         } catch (err) {
             errmsg = err;
             dbg.error('PgTransaction execute error', err);
-            await this._rollback();
-            throw err;
-        } finally {
-            this.pg_client.release();
-            // TODO: Implement interface
-            // eslint-disable-next-line no-unsafe-finally
-            return {
-                ok,
-                nInserted: this.nInserted,
-                nMatched: this.nMatched,
-                nModified: this.nModified,
-                nUpserted: Infinity,
-                nRemoved: Infinity,
-                getInsertedIds: () => undefined,
-                getLastOp: () => undefined,
-                getRawResponse: () => undefined,
-                getUpsertedIdAt: index => undefined,
-                getUpsertedIds: () => undefined,
-                getWriteConcernError: () => (ok ? undefined : ({ code: errmsg.code || Infinity, errmsg: errmsg })),
-                getWriteErrorAt: index => (ok ? undefined : ({ code: errmsg.code || Infinity, index, errmsg: errmsg })),
-                getWriteErrorCount: () => (ok ? undefined : Infinity),
-                getWriteErrors: () => (ok ? undefined : ([])),
-                hasWriteErrors: () => !ok
-            };
+            await this.transaction.rollback();
         }
+
+        return {
+            err: errmsg,
+            ok,
+            nInserted,
+            nMatched,
+            nModified,
+            nRemoved,
+            // nUpserted is not used in our code. returning 0 
+            nUpserted: 0,
+            getInsertedIds: not_implemented,
+            getLastOp: not_implemented,
+            getRawResponse: not_implemented,
+            getUpsertedIdAt: not_implemented,
+            getUpsertedIds: not_implemented,
+            getWriteConcernError: _.noop,
+            getWriteErrorAt: i => (ok ? undefined : {
+                code: errmsg.code,
+                index: i,
+                errmsg: errmsg.message
+            }),
+            getWriteErrorCount: () => (ok ? 0 : this.queries.length),
+            getWriteErrors: () => (ok ? [] : _.times(this.queries.length, i => ({
+                code: errmsg.code,
+                index: i,
+                errmsg: errmsg.message
+            }))),
+            hasWriteErrors: () => !ok
+
+        };
+
     }
 
     findAndUpdateOne(find, update) {
         const pg_update = mongo_to_pg.convertUpdate('data', update);
         const pg_selector = mongo_to_pg('data', find);
         const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
-        this._query(query);
-        // TODO
-        this.nModified += 1;
-        this.nMatched += 1;
+        this.add_query(query);
         return this;
     }
 
-    async _commit() {
-        await _do_query(this.pg_client, { text: 'COMMIT TRANSACTION' });
-    }
-
-    async _rollback() {
-        await _do_query(this.pg_client, { text: 'ROLLBACK TRANSACTION' });
-    }
-
 }
-
-class UnorderedBulkOp extends PgTransaction {
-
-    constructor(params) {
-        super(_.defaults(params, { ordered: false }));
-    }
+class UnorderedBulkOp extends BulkOp {
 
     find(selector) {
         return {
             // TODO length?
-            length: this.length,
-            remove: () => { throw new Error('TODO'); },
+            length: this.queries.length,
+            remove: not_implemented,
             removeOne: () => this.findAndRemoveOne(selector),
-            replaceOne: doc => { throw new Error('TODO'); },
-            update: doc => { throw new Error('TODO'); },
+            replaceOne: not_implemented,
+            update: not_implemented,
             updateOne: doc => this.findAndUpdateOne(selector, doc),
-            upsert: () => { throw new Error('TODO'); }
+            upsert: not_implemented
         };
     }
 
     findAndRemoveOne(find) {
         const pg_selector = mongo_to_pg('data', find);
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
-        this._query(query);
+        this.add_query(query);
         return this;
     }
 }
 
-class OrderedBulkOp extends PgTransaction {
-
-    constructor(params) {
-        super(_.defaults(params, { ordered: true }));
-    }
+class OrderedBulkOp extends BulkOp {
 
     find(selector) {
         return {
-            delete: () => { throw new Error('TODO'); },
-            deleteOne: () => { throw new Error('TODO'); },
-            replaceOne: doc => { throw new Error('TODO'); },
-            update: doc => { throw new Error('TODO'); },
+            delete: not_implemented,
+            deleteOne: not_implemented,
+            replaceOne: not_implemented,
+            update: not_implemented,
             updateOne: doc => this.findAndUpdateOne(selector, doc),
-            upsert: () => { throw new Error('TODO'); }
+            upsert: not_implemented
         };
     }
 
@@ -291,6 +323,14 @@ class PostgresTable {
         return {};
     }
 
+    async _insertOneTransactional(transaction, data) {
+
+        const _id = this.get_id(data);
+        await transaction.query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]);
+        // TODO: Implement type
+        return {};
+    }
+
     async insertMany(data, options) {
 
         let queries = [];
@@ -323,6 +363,22 @@ class PostgresTable {
             return res;
         } catch (err) {
             dbg.error(`updateOne failed`, selector, update, query, err);
+            throw err;
+        }
+    }
+
+    async _updateOneTransactional(transaction, selector, update, options = {}) {
+        // console.warn('JENIA updateOne', selector, update, options);
+        const pg_update = mongo_to_pg.convertUpdate('data', update);
+        const pg_selector = mongo_to_pg('data', selector);
+        let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
+        try {
+            const res = await transaction.query(query);
+            assert(res.rowCount <= 1, `_id must be unique. found ${res.rowCount} rows with _id=${selector._id} in table ${this.name}`);
+            return res;
+        } catch (err) {
+            dbg.error(`updateOneTransactional failed`, selector, update, query, err);
+            throw err;
         }
     }
 
@@ -574,26 +630,25 @@ class PostgresTable {
 
     async findOneAndUpdate(query, update, options) {
         const { upsert } = options;
+        const transaction = new PgTransaction({ client: this.client, name: this.name, });
         try {
             let response = null;
-            await this.single_query('BEGIN');
-            const update_res = await this.updateOne(query, update, options);
+            const update_res = await this._updateOneTransactional(transaction, query, update, options);
             if (update_res.rowCount > 0) {
                 response = { value: update_res.rows.map(row => this.decode_json(this.schema, row.data))[0] };
             } else if (upsert) {
                 const data = { _id: this.client.generate_id() };
-                await this.insertOne(data);
+                await this._insertOneTransactional(transaction, data);
                 // TODO: This will $inc two times, since findOneAndUpdate will be called due to null response
                 // Relevant to other ops besides $inc as well
-                await this.updateOne(data, update, options);
+                await this._updateOneTransactional(transaction, data, update, options);
             }
-            await this.single_query('COMMIT');
+            await transaction.commit();
             return response;
         } catch (err) {
-            await this.single_query('ROLLBACK');
+            await transaction.rollback();
             dbg.error(`findOneAndUpdate failed`, query, update, options, err);
             throw err;
-            // TODO: Should finally release?
         }
     }
 
@@ -701,6 +756,7 @@ class PostgresClient extends EventEmitter {
 
     // JENIA TODO:
     async is_collection_indexes_ready() { return true; }
+
     async dropDatabase() {
         let pg_client;
         try {

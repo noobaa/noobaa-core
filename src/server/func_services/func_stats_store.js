@@ -55,27 +55,6 @@ class FuncStatsStore {
         });
     }
 
-    async sample_func_stats({
-        system,
-        func,
-        since_time,
-        sample_size
-    }) {
-        return this._func_stats.aggregate([{
-            $match: {
-                system: system,
-                func: func,
-                time: {
-                    $gte: since_time
-                },
-            }
-        }, {
-            $sample: {
-                size: sample_size
-            }
-        }]);
-    }
-
     async query_func_stats(params) {
         const records = await this._func_stats
             .mapReduce(

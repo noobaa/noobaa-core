@@ -89,6 +89,7 @@ function new_rpc_client() {
 function init_all_collections() {
     /* eslint-disable global-require */
     require('../../server/notifications/alerts_log_store').instance();
+    require('../../server/analytic_services/activity_log_store').ActivityLogStore.instance();
     require('../../server/analytic_services/io_stats_store').IoStatsStore.instance();
     require('../../server/analytic_services/bucket_stats_store').BucketStatsStore.instance();
     require('../../server/analytic_services/history_data_store').HistoryDataStore.instance();

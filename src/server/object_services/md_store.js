@@ -768,21 +768,17 @@ class MDStore {
 
     async count_objects_per_bucket(system_id) {
         // TODO check which index is needed to cover this aggregation
-        const res = await this._objects.aggregate([{
-            $match: {
-                system: system_id,
-                deleted: null,
-                delete_marker: null,
-                version_past: null
-            }
+        const res = await this._objects.groupBy({
+            system: system_id,
+            deleted: null,
+            delete_marker: null,
+            version_past: null
         }, {
-            $group: {
-                _id: '$bucket',
-                count: {
-                    $sum: 1
-                }
+            _id: '$bucket',
+            count: {
+                $sum: 1
             }
-        }]);
+        });
         const buckets = {};
         let total_count = 0;
         _.forEach(res, r => {
@@ -1437,19 +1433,11 @@ class MDStore {
         // This function estimates the number of items in the dedup index - it does it by sample 10K chunks - and check how much of them are deduped
         // and then calculates the aproximate number of the total indexed dedup chunks - this was the fastest soultion we found
         // both iterating over the chunks and running a query over all the chunks was too lengthy operations.
-        const sample_size = 10000;
         return Promise.all([
                 this._chunks.estimatedDocumentCount(),
-                this._chunks.aggregate([
-                    { $sample: { size: sample_size } },
-                    { $match: { dedup_key: { $exists: true } } },
-                    { $count: "count" }
-                ])
+                this._chunks.estimatedQueryCount({ dedup_key: { $exists: true } }),
             ])
-            .then(([total_count, sample_items]) => {
-                if (!sample_items.length) return total_count;
-                return Math.floor(sample_items[0].count * total_count / sample_size);
-            });
+            .then(([total_count, sample_count]) => (sample_count ? sample_count : total_count));
     }
 
     iterate_indexed_chunks(limit, marker) {

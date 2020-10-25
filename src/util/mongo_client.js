@@ -66,12 +66,13 @@ class MongoCollection {
     async updateOne(query, update, options = {}) { return this._get_mongo_col().updateOne(query, update, options); }
     async updateMany(query, update, options = {}) { return this._get_mongo_col().updateMany(query, update, options); }
     async mapReduce(map, reduce, options = {}) { return this._get_mongo_col().mapReduce(map, reduce, options); }
-    async aggregate(commands) { return this._get_mongo_col().aggregate(commands).toArray(); }
+    async groupBy(match, group) { return this._get_mongo_col().aggregate([{ $match: match }, { $group: group }]).toArray(); }
     async distinct(key, query, options = {}) { return this._get_mongo_col().distinct(key, query, options); }
     initializeUnorderedBulkOp() { return this._get_mongo_col().initializeUnorderedBulkOp(); }
     initializeOrderedBulkOp() { return this._get_mongo_col().initializeOrderedBulkOp(); }
     async countDocuments(query, options = {}) { return this._get_mongo_col().countDocuments(query, options); }
     async estimatedDocumentCount(options = {}) { return this._get_mongo_col().estimatedDocumentCount(options); }
+    async estimatedQueryCount(query) { return this._get_mongo_col().countDocuments(query); }
     async stats() { return this._get_mongo_col().stats(); }
 }
 

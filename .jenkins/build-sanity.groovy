@@ -58,7 +58,7 @@ node('cico-workspace') {
 				returnStdout: true
 			).trim().tokenize(' ')
 			if ( jobs.isEmpty() ) {
-				println "Nothing to abort"
+				println "There are no other builds for this PR, Skipping abort."
 			} else { 
 				for (JobNumber in jobs) {
 					int JobNumberint = JobNumber as int

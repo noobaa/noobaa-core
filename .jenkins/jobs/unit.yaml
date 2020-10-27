@@ -22,7 +22,7 @@
     triggers:
       - github-pull-request:
           status-context: ci/centos/unit
-          trigger-phrase: "*/(re)?test ((all)|(ci/centos/unit))*"
+          trigger-phrase: "/(re)?test ((all)|(ci/centos/unit))"
           permit-all: true
           github-hooks: true
           admin-list:

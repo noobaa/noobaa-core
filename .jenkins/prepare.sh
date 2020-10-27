@@ -90,7 +90,7 @@ done
 
 set -x
 
-dnf -y install git make
+dnf -y install git make wget
 install_docker
 
 git clone --depth=1 --branch="${base}" "${gitrepo}" "${workdir}"

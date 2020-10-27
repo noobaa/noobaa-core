@@ -8,6 +8,7 @@ def NO_CACHE = 'NO_CACHE=true'
 // Docker has some network conflicts in the CI, host-networking works
 def USE_HOSTNETWORK = 'USE_HOSTNETWORK=true'
 def CONTAINER_ENGINE = 'CONTAINER_ENGINE=docker'
+def workdir = "/opt/build/noobaa-core"
 
 node('cico-workspace') {
 	if (params.ghprbPullId != null) {
@@ -18,13 +19,6 @@ node('cico-workspace') {
 		// TODO: only need to fetch the .jenkins directory, no tags, ..
 		checkout([$class: 'GitSCM', branches: [[name: 'FETCH_HEAD']],
 			userRemoteConfigs: [[url: "${ci_git_repo}", refspec: "${ci_git_ref}"]]])
-		// fetch the first 7 characters of the current commit hash
-		HASH = sh(
-			script: 'git log -1 --format=format:%H | cut -c-7',
-			returnStdout: true
-		).trim()
-		env.IMAGE_TAG = "noobaa-${HASH}"
-		env.TESTER_TAG = "noobaa-tester-${HASH}"
 	}
 
 	stage('reserve bare-metal machine') {
@@ -47,13 +41,15 @@ node('cico-workspace') {
 
 	try {
 		stage('prepare bare-metal machine') {
+			//TODO: merge, then test the output, and the in another PR remove.
+			sh 'echo +++${GIT_REPO}+++'
 			sh 'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ./.jenkins/prepare.sh root@${CICO_NODE}:'
-			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=/opt/build/noobaa-core --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
+			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=${workdir} --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
 		}
 
 		stage('stop jobs from the same PR') {
 			jobs = sh(
-				script: "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core/.jenkins/ && ./get_job_numbers.sh --jobName ${JOB_NAME} \
+				script: "${CICO_NODE_SSH} 'cd ${workdir}/.jenkins/ && ./get_job_numbers.sh --jobName ${JOB_NAME} \
 							--currentBuild ${currentBuild.number} --JENKINS_URL ${JENKINS_URL}'",
 				returnStdout: true
 			).trim().tokenize(' ')
@@ -77,7 +73,7 @@ node('cico-workspace') {
 		stage('Unit Tests') {
 			// abort in case the test hangs
 			timeout(time:30, unit: 'MINUTES') {
-				sh "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core && make test ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
+				sh "${CICO_NODE_SSH} 'cd ${workdir} && make test ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
 			}
 		}
 	}

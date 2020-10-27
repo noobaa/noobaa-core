@@ -9,6 +9,11 @@
       - build-discarder:
           days-to-keep: 7
           artifact-days-to-keep: 7
+    parameters:
+      - hidden:
+          name: GIT_REPO
+          default: https://github.com/noobaa/noobaa-core
+          description: The git repo url
     pipeline-scm:
       scm:
         - git:

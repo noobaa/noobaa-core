@@ -2,6 +2,7 @@ def cico_retries = 16
 def cico_retry_interval = 60
 def ci_git_repo = 'https://github.com/noobaa/noobaa-core'
 def ci_git_ref = 'master' // default, will be overwritten for PRs
+def workdir = "/opt/build/noobaa-core"
 
 def HASH = '0123abcd' // default, will be overwritten
 def NO_CACHE = 'NO_CACHE=true'
@@ -48,12 +49,12 @@ node('cico-workspace') {
 	try {
 		stage('prepare bare-metal machine') {
 			sh 'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ./.jenkins/prepare.sh root@${CICO_NODE}:'
-			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=/opt/build/noobaa-core --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
+			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=${workdir} --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
 		}
 
 		stage('stop jobs from the same PR') {
 			jobs = sh (
-				script: "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core/.jenkins/ && ./get_job_numbers.sh --jobName ${JOB_NAME} \
+				script: "${CICO_NODE_SSH} 'cd ${workdir}/.jenkins/ && ./get_job_numbers.sh --jobName ${JOB_NAME} \
 							--currentBuild ${currentBuild.number} --JENKINS_URL ${JENKINS_URL}'",
 				returnStdout: true
 			).trim().tokenize(' ')
@@ -75,13 +76,13 @@ node('cico-workspace') {
 
 		// real test start here
 		stage('Build & Sanity Integration Tests') {
-			sh "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core && ./.travis/deploy_minikube.sh'"
-			sh "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core && make tester NOOBAA_TAG=localhost/${IMAGE_TAG} \
+			sh "${CICO_NODE_SSH} 'cd ${workdir} && ./.travis/deploy_minikube.sh'"
+			sh "${CICO_NODE_SSH} 'cd ${workdir} && make tester NOOBAA_TAG=localhost/${IMAGE_TAG} \
 					TESTER_TAG=localhost/${TESTER_TAG} ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
 			// if images were built with podman, import them in Docker for use with minikube
 			//sh "${CICO_NODE_SSH} 'podman image save ${IMAGE_TAG} | docker image load'"
 			//sh "${CICO_NODE_SSH} 'podman image save ${TESTER_TAG} | docker image load'"
-			sh "${CICO_NODE_SSH} 'cd /opt/build/noobaa-core && cd ./src/test/framework/ && ./run_test_job.sh --name ${HASH} \
+			sh "${CICO_NODE_SSH} 'cd ${workdir} && cd ./src/test/framework/ && ./run_test_job.sh --name ${HASH} \
 						--image localhost/${IMAGE_TAG} --tester_image localhost/${TESTER_TAG} --job_yaml ../../../.travis/travis_test_job.yaml --wait'"
 		}
 	}

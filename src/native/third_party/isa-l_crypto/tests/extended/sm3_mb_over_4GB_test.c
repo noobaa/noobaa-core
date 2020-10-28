@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sm3_mb.h"
+#include "endian_helper.h"
 #include <openssl/evp.h>
 
 #define TEST_LEN  		(1024*1024ull)	//1M

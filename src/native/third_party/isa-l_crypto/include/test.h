@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+#include "endian_helper.h"
+
 // Use sys/time.h functions for time
 #if defined (__unix__) || (__APPLE__) || (__MINGW32__)
 # include <sys/time.h>

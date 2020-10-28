@@ -298,6 +298,7 @@ install: $(sort $(extern_hdrs)) | $(install_dirs) $(lib_name) $(so_lib_name) isa
 	install -m 644 $^ $(prefix)/include/isa-l_crypto/.
 	install -m 664 isa-l_crypto.h $(prefix)/include/.
 	install -m 664 include/types.h $(prefix)/include/isa-l_crypto/.
+	install -m 664 include/endian_helper.h $(prefix)/include/isa-l_crypto/.
 	install -m 664 $(so_lib_name) $(prefix)/lib/$(so_lib_ver)
 	(cd $(prefix)/lib && ln -f -s $(so_lib_ver) $(soname) && ln -f -s $(so_lib_ver) $(so_lib_inst))
 ifeq ($(shell uname),Darwin)

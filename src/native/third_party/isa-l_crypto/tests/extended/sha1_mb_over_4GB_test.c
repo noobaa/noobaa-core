@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sha1_mb.h"
+#include "endian_helper.h"
 #include <openssl/sha.h>
 #define TEST_LEN  		(1024*1024ull)	//1M
 #define TEST_BUFS 		SHA1_MIN_LANES

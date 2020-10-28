@@ -30,6 +30,7 @@
 #include <string.h>
 #include "sha512_mb.h"
 #include "memcpy_inline.h"
+#include "endian_helper.h"
 
 #ifdef _MSC_VER
 #include <intrin.h>

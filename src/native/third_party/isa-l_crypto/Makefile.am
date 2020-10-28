@@ -3,7 +3,7 @@ CLEANFILES =
 LDADD =
 AM_MAKEFLAGS = --no-print-directory
 noinst_HEADERS =
-pkginclude_HEADERS = include/test.h include/types.h
+pkginclude_HEADERS = include/test.h include/types.h include/endian_helper.h
 noinst_LTLIBRARIES =
 INCLUDE = -I $(srcdir)/include/
 
@@ -130,6 +130,7 @@ if CPU_AARCH64
 endif
 CCAS = $(as_filter)
 EXTRA_DIST += tools/yasm-filter.sh tools/nasm-filter.sh
+EXTRA_DIST += tools/yasm-cet-filter.sh tools/nasm-cet-filter.sh
 
 AM_CFLAGS = ${my_CFLAGS} ${INCLUDE} $(src_include) ${D}
 AM_CCASFLAGS = ${yasm_args} ${INCLUDE} $(src_include) ${DEFS} ${D}

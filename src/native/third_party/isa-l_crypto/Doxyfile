@@ -15,7 +15,7 @@ INPUT                  = isa-l_crypto.h \
 			 CONTRIBUTING.md \
 			 Release_notes.txt
 
-EXCLUDE                = include/test.h include/memcpy_inline.h include/intrinreg.h
+EXCLUDE                = include/test.h include/memcpy_inline.h include/intrinreg.h include/endian_helper.h
 EXCLUDE_PATTERNS       = */include/*_multibinary.h
 EXAMPLE_PATH           = . aes md5_mb mh_sha1 mh_sha1_murmur3_x64_128 mh_sha256 rolling_hash sha1_mb sha256_mb sha512_mb
 PAPER_TYPE             = letter

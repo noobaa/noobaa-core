@@ -31,6 +31,7 @@
 #include <string.h>
 #include "sha512_mb.h"
 #include "memcpy_inline.h"
+#include "endian_helper.h"
 
 void sha512_mb_mgr_init_ce(SHA512_MB_JOB_MGR * state);
 SHA512_JOB *sha512_mb_mgr_submit_ce(SHA512_MB_JOB_MGR * state, SHA512_JOB * job);

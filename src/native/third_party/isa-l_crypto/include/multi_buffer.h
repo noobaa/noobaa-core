@@ -40,8 +40,6 @@
 extern "C" {
 #endif
 
-#include "endian_helper.h"
-
 /**
  *  @enum JOB_STS
  *  @brief Job return codes

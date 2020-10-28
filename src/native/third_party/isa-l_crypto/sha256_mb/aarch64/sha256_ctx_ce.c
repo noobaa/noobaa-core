@@ -31,6 +31,7 @@
 #include <string.h>
 #include "sha256_mb.h"
 #include "memcpy_inline.h"
+#include "endian_helper.h"
 
 void sha256_mb_mgr_init_ce(SHA256_MB_JOB_MGR * state);
 SHA256_JOB *sha256_mb_mgr_submit_ce(SHA256_MB_JOB_MGR * state, SHA256_JOB * job);

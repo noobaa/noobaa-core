@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sm3_mb.h"
+#include "endian_helper.h"
 
 #define TEST_LEN  (1024*1024)
 #define TEST_BUFS (SM3_MAX_LANES - 1)

@@ -31,6 +31,7 @@
 #include <string.h>
 #include "sm3_mb.h"
 #include "memcpy_inline.h"
+#include "endian_helper.h"
 #define SM3_LOG2_BLOCK_SIZE 6
 void sm3_mb_mgr_init_sm(SM3_MB_JOB_MGR * state);
 SM3_JOB *sm3_mb_mgr_submit_sm(SM3_MB_JOB_MGR * state, SM3_JOB * job);

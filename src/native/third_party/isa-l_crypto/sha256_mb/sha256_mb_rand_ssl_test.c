@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <openssl/sha.h>
 #include "sha256_mb.h"
+#include "endian_helper.h"
 
 #define TEST_LEN  (1024*1024)
 #define TEST_BUFS 200

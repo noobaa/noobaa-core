@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sm3_mb.h"
+#include "endian_helper.h"
 
 typedef uint32_t digest_sm3[SM3_DIGEST_NWORDS];
 

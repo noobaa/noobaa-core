@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "md5_mb.h"
+#include "endian_helper.h"
 #include <openssl/md5.h>
 #define TEST_LEN  		(1024*1024ull)	//1M
 #define TEST_BUFS 		MD5_MIN_LANES

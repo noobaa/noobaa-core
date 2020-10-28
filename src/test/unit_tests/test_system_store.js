@@ -15,6 +15,7 @@ const assert = require('assert');
 const system_store = require('../../server/system_services/system_store').get_instance();
 
 mocha.describe('system_store', function() {
+    this.timeout(90000); // eslint-disable-line no-invalid-this
 
     // eslint-disable-next-line no-undef
     afterEach(function() {

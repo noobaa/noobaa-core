@@ -17,7 +17,6 @@ const promise_utils = require('./promise_utils');
 const mongodb = require('mongodb');
 const mongo_to_pg = require('mongo-query-to-postgres-jsonb');
 const fs = require('fs');
-const crypto = require('crypto');
 // TODO: Shouldn't be like that, we shouldn't use MongoDB functions to compare
 const mongo_functions = require('./mongo_functions');
 const { RpcError } = require('../rpc');
@@ -211,6 +210,9 @@ class PostgresTable {
             });
             this.client._ajv.addSchema(schema, name);
         }
+
+        // Run once a day
+        setInterval(this.vacuumAndAnalyze, 86400000, this);
     }
 
     initializeUnorderedBulkOp() {
@@ -248,16 +250,37 @@ class PostgresTable {
         let query_string = `SELECT COUNT(*) FROM ${this.name}`;
         if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', query)}`;
         try {
-            const count = await this.single_query(query_string);
-            return count;
+            const res = await this.single_query(query_string);
+            return Number(res.rows[0].count);
         } catch (err) {
             dbg.error('countDocuments failed', query, query_string, err);
             throw err;
         }
     }
 
+    async vacuumAndAnalyze(context) {
+        try {
+            await context.single_query(`VACUUM (VERBOSE, ANALYZE) ${context.name}`);
+            dbg.log0('vacuumAndAnalyze finished', context.name);
+        } catch (err) {
+            dbg.error('vacuumAndAnalyze failed', err);
+            throw err;
+        }
+    }
+
     async estimatedDocumentCount() {
-        return this.countDocuments();
+        try {
+            const count = await this.single_query(`SELECT reltuples FROM pg_class WHERE relname = '${this.name}'`);
+            return count.rows[0].reltuples;
+        } catch (err) {
+            dbg.error('estimatedDocumentCount failed', err);
+            throw err;
+        }
+    }
+
+    async estimatedQueryCount(query) {
+        // TODO: Do an estimate
+        return this.countDocuments(query);
     }
 
     async insertOne(data) {
@@ -474,7 +497,7 @@ class PostgresTable {
         const selects = [];
         let gby;
         _.forIn(obj, (value, key) => {
-            if (_.isObject(value)) {
+            if (_.isObjectLike(value)) {
                 const op = Object.keys(value)[0];
                 switch (op) {
                     case '$sum': {
@@ -498,7 +521,18 @@ class PostgresTable {
                         break;
                     }
                     case '$push': {
-                        // JENIA TODO
+                        let v = value[op];
+                        if (_.isObjectLike(v)) {
+                            const json = [];
+                            _.forIn(v, (pv, pk) => {
+                                json.push(`'${pk}'`);
+                                if (_.isString(pv) && pv.indexOf('$') === 0) {
+                                    json.push(`data->>'${pv.substring(1)}'`);
+                                }
+                            });
+                            v = `json_agg(json_build_object(${json.join(',')}))`;
+                        }
+                        selects.push(`${v} AS ${key}`);
                         break;
                     }
                     default:
@@ -510,12 +544,11 @@ class PostgresTable {
                 selects.push(`(data->'${prop}') AS ${key}`);
             }
         });
-        return `SELECT ${selects.join(',')} FROM %TABLE% GROUP BY data->'${gby}'`;
-    }
 
-    _prepare_aggregate_match_query(obj) {
-        const where = mongo_to_pg('data', obj);
-        return `SELECT * FROM %TABLE% WHERE ${where}`;
+        return {
+            SELECT: `${selects.join(',')}`,
+            GROUP_BY: `data->'${gby}'`,
+        };
     }
 
     _prepare_aggregate_count_query(str) {
@@ -527,45 +560,14 @@ class PostgresTable {
         return `SELECT * FROM %TABLE% ORDER BY RANDOM() LIMIT ${size}`;
     }
 
-    _prepare_aggregate_with_chain_query(queries) {
-        let hash;
-        const tmp_tables = [];
-        for (let index = 0; index < queries.length - 1; index++) {
-            const pq = queries[index].replace('%TABLE%', hash || this.name);
-            hash = `AGGREGATE_TEMPORARY_TABLE_${crypto.randomBytes(16).toString('hex')}`;
-            tmp_tables.push(`${hash} AS (${pq})`);
-        }
-        return `WITH ${tmp_tables.join(',')} ${queries[queries.length - 1].replace('%TABLE%', hash || this.name)}`;
-    }
-
-    async aggregate(commands) {
-
-        const queries = [];
-        for (const cmd of commands) {
-            const op = Object.keys(cmd)[0];
-            switch (op) {
-                case '$match':
-                    queries.push(this._prepare_aggregate_match_query(cmd[op]));
-                    break;
-                case '$group':
-                    queries.push(this._prepare_aggregate_group_query(cmd[op]));
-                    break;
-                case '$count':
-                    queries.push(this._prepare_aggregate_count_query(cmd[op]));
-                    break;
-                case '$sample':
-                    queries.push(this._prepare_aggregate_sample_query(cmd[op]));
-                    break;
-                default:
-                    break;
-            }
-        }
-        const q = this._prepare_aggregate_with_chain_query(queries);
+    async groupBy(match, group) {
+        const WHERE = mongo_to_pg('data', match);
+        const P_GROUP = this._prepare_aggregate_group_query(group);
         try {
-            const res = await this.single_query(q);
+            const res = await this.single_query(`SELECT ${P_GROUP.SELECT} FROM ${this.name} WHERE ${WHERE} GROUP BY ${P_GROUP.GROUP_BY}`);
             return res.rows;
         } catch (err) {
-            dbg.error('aggregate failed', commands, queries, q, err);
+            dbg.error('groupBy failed', match, group, WHERE, P_GROUP, err);
             throw err;
         }
     }

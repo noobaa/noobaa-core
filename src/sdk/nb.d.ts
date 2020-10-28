@@ -657,13 +657,15 @@ interface DBCollection {
     updateMany(query: object, update: object, options?: object): Promise<object>;
 
     mapReduce(map: Function, reduce: Function, options?: object): Promise<Array<DBDoc>>;
-    aggregate(commands: object[]): Promise<Array<DBDoc>>;
+    groupBy(match: object, group: object): Promise<Array<DBDoc>>;
+
     distinct(key: string, query?: object, options?: object): Promise<Array<object>>;
     initializeUnorderedBulkOp(): mongodb.UnorderedBulkOperation;
     initializeOrderedBulkOp(): mongodb.OrderedBulkOperation;
 
     countDocuments(query?: object, options?: object): Promise<number>;
     estimatedDocumentCount(options?: object): Promise<number>;
+    estimatedQueryCount(query): Promise<number>;
     stats(): Promise<mongodb.CollStats>;
 
     validate(doc: object, warn?: 'warn'): object;

@@ -743,8 +743,21 @@ class NamespaceCache {
     }
 
     async complete_object_upload(params, object_sdk) {
+        const operation = 'ObjectCreated';
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
 
         const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
+        if (load_for_trigger) {
+            const head_res = await this.read_object_md(params, object_sdk);
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: head_res.size,
+                content_type: head_res.content_type,
+                etag: head_res.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+        }
         await this._delete_object_from_cache(params, object_sdk);
         return res;
     }

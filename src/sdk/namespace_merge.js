@@ -134,8 +134,23 @@ class NamespaceMerge {
         return this._ns_put(ns => ns.list_multiparts(params, object_sdk));
     }
 
-    complete_object_upload(params, object_sdk) {
-        return this._ns_put(ns => ns.complete_object_upload(params, object_sdk));
+    async complete_object_upload(params, object_sdk) {
+        const operation = 'ObjectCreated';
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+
+        const reply = await this._ns_put(ns => ns.complete_object_upload(params, object_sdk));
+        if (load_for_trigger) {
+            const head_reply = await this.read_object_md(params, object_sdk);
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: head_reply.size,
+                content_type: head_reply.content_type,
+                etag: reply.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+        }
+        return reply;
     }
 
     abort_object_upload(params, object_sdk) {

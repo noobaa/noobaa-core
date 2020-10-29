@@ -89,10 +89,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
 
 function _mapExternalConnections(externalConnections) {
     return externalConnections.connections.map(conn => {
-        const { name, auth_method, endpoint_type, identity, cp_code } = conn;
-        const endpoint = cp_code ?
-            `${conn.endpoint} at ${cp_code}` :
-            conn.endpoint;
+        const { name, auth_method, endpoint, endpoint_type, identity } = conn;
 
         const service = endpoint_type === 'S3_COMPATIBLE' ?
             (auth_method === 'AWS_V2' ? 'S3_V2_COMPATIBLE' : 'S3_V4_COMPATIBLE') :

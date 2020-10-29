@@ -53,16 +53,6 @@ function _getApiRequestParams(payload) {
             };
         }
 
-        case 'NET_STORAGE': {
-            return {
-                name,
-                endpoint_type: service,
-                endpoint: `${params.nsStorageGroup}-${params.nsHostname}`,
-                identity: params.nsKeyName,
-                secret: params.nsAuthKey,
-                cp_code: params.nsCPCode
-            };
-        }
         case 'GOOGLE': {
             const { private_key_id } = JSON.parse(params.gcKeysJson);
             return {

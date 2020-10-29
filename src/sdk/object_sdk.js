@@ -17,9 +17,6 @@ const NamespaceS3 = require('./namespace_s3');
 const NamespaceBlob = require('./namespace_blob');
 const NamespaceMerge = require('./namespace_merge');
 const NamespaceCache = require('./namespace_cache');
-const NamespaceMultipart = require('./namespace_multipart');
-const NamespaceNetStorage = require('./namespace_net_storage');
-const AccountSpaceNetStorage = require('./accountspace_net_storage');
 const AccountSpaceNB = require('./accountspace_nb');
 const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
@@ -44,9 +41,6 @@ const account_cache = new LRUCache({
     load: async ({ rpc_client, access_key }) => rpc_client.account.read_account_by_access_key({ access_key }),
 });
 
-const MULTIPART_NAMESPACES = [
-    'NET_STORAGE'
-];
 const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
 
 class ObjectSDK {
@@ -62,21 +56,6 @@ class ObjectSDK {
     }
 
     _get_account_namespace() {
-        if (process.env.AKAMAI_ACCOUNT_NS === 'true') {
-            return new AccountSpaceNetStorage({
-                // This is the endpoint
-                hostname: process.env.AKAMAI_HOSTNAME,
-                // This is the access key
-                keyName: process.env.AKAMAI_KEYNAME,
-                // This is the secret key
-                key: process.env.AKAMAI_KEY,
-                // Should be the target bucket regarding the S3 storage
-                cpCode: process.env.AKAMAI_CPCODE,
-                // Not sure if relevant since we always talk using HTTP
-                ssl: false
-            });
-        }
-
         return this.accountspace_nb;
     }
 
@@ -211,18 +190,8 @@ class ObjectSDK {
     }
 
     _setup_merge_namespace(bucket) {
-        let rr = _.cloneDeep(bucket.namespace.read_resources);
-        let wr = this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
-        if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.endpoint_type)) {
-            const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource));
-            wr = new NamespaceMultipart(
-                this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
-                this.namespace_nb);
-            rr.splice(wr_index, 1, {
-                endpoint_type: 'MULTIPART',
-                ns: wr
-            });
-        }
+        const rr = _.cloneDeep(bucket.namespace.read_resources);
+        const wr = this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
 
         return new NamespaceMerge({
             namespaces: {
@@ -244,10 +213,12 @@ class ObjectSDK {
                 return this.namespace_nb;
             }
         }
-        if (ns_info.endpoint_type === 'AWS' ||
+        if (
             ns_info.endpoint_type === 'S3_COMPATIBLE' ||
-            ns_info.endpoint_type === 'FLASHBLADE' ||
-            ns_info.endpoint_type === 'IBM_COS') {
+            ns_info.endpoint_type === 'AWS' ||
+            ns_info.endpoint_type === 'IBM_COS' ||
+            ns_info.endpoint_type === 'FLASHBLADE'
+        ) {
 
             const agent = ns_info.endpoint_type === 'AWS' ?
                 http_utils.get_default_agent(ns_info.endpoint) :
@@ -279,23 +250,7 @@ class ObjectSDK {
                 account_name: ns_info.access_key.unwrap()
             });
         }
-        // TODO: Should convert to cp_code and target_bucket as folder inside
-        // Did not do that yet because we do not understand how deep listing works
-        if (ns_info.endpoint_type === 'NET_STORAGE') {
-            return new NamespaceNetStorage({
-                // This is the endpoint
-                hostname: ns_info.endpoint,
-                // This is the access key
-                keyName: ns_info.access_key,
-                // This is the secret key
-                key: ns_info.secret_key,
-                // Should be the target bucket regarding the S3 storage
-                cpCode: ns_info.target_bucket,
-                // Just used that in order to not handle certificate mess
-                // TODO: Should I use SSL with HTTPS instead of HTTP?
-                ssl: false
-            });
-        }
+
         throw new Error('Unrecognized namespace endpoint type ' + ns_info.endpoint_type);
     }
 

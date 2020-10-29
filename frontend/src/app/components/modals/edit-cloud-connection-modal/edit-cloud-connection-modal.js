@@ -26,39 +26,39 @@ const gcEndpoint = getCloudServiceMeta('GOOGLE').defaultEndpoint;
 const gcValidateFailureMessage = 'Try to regenerate and upload a new file';
 
 const templates = deepFreeze({
+    S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
+    S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
     AWS: awsFieldsTemplate,
     AZURE: azureFieldsTemplate,
-    S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
-    S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
     GOOGLE: googleCloudTemplate,
     IBM_COS: ibmFieldsTemplate
 });
 
 const s3LikeConnKeyMappings = deepFreeze({
-    AWS: {
-        endpoint: 'awsEndpoint',
-        accessKey: 'awsAccessKey',
-        secretKey: 'awsSecretKey'
+    S3_V4_COMPATIBLE: {
+        endpoint: 's3v4Endpoint',
+        accessKey: 's3v4AccessKey',
+        secretKey: 's3v4SecretKey'
     },
     S3_V2_COMPATIBLE: {
         endpoint: 's3v2Endpoint',
         accessKey: 's3v2AccessKey',
         secretKey: 's3v2SecretKey'
     },
-    S3_V4_COMPATIBLE: {
-        endpoint: 's3v4Endpoint',
-        accessKey: 's3v4AccessKey',
-        secretKey: 's3v4SecretKey'
-    },
-    FLASHBLADE: {
-        endpoint: 'fbEndpoint',
-        accessKey: 'fbAccessKey',
-        secretKey: 'fbSecretKey'
+    AWS: {
+        endpoint: 'awsEndpoint',
+        accessKey: 'awsAccessKey',
+        secretKey: 'awsSecretKey'
     },
     IBM_COS: {
         endpoint: 'ibmEndpoint',
         accessKey: 'ibmAccessKey',
         secretKey: 'ibmSecretKey'
+    },
+    FLASHBLADE: {
+        endpoint: 'fbEndpoint',
+        accessKey: 'fbAccessKey',
+        secretKey: 'fbSecretKey'
     }
 });
 
@@ -260,10 +260,10 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
     onValidate(values, existingConnections) {
         const { service } = values;
         const serviceValidateSync =
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
             (service === 'AWS' && this.awsOnValidate) ||
             (service === 'AZURE' && this.azureOnValidate) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
             (service === 'IBM_COS' && this.ibmOnValidate) ||
             (() => {});
@@ -274,10 +274,10 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
     async onValidateAsync(values) {
         const { service } = values;
         const serviceValidateAsync =
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
             (service === 'AWS' && this.awsOnValidateAsync) ||
             (service === 'AZURE' && this.azureOnValidateAsync) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
             (service === 'IBM_COS' && this.ibmOnValidateAsync) ||
             (() => {});
@@ -288,12 +288,12 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
     onSubmit(values) {
         const { connectionName, service } = values;
         const fields =
+            (service === 'S3_V4_COMPATIBLE' && ['s3v4AccessKey', 's3v4SecretKey']) ||
+            (service === 'S3_V2_COMPATIBLE' && ['s3v2AccessKey', 's3v2SecretKey']) ||
             (service === 'AWS' && ['awsAccessKey', 'awsSecretKey']) ||
             (service === 'AZURE' && ['azureAccountKey']) ||
-            (service === 'S3_V2_COMPATIBLE' && ['s3v2AccessKey', 's3v2SecretKey']) ||
-            (service === 'S3_V4_COMPATIBLE' && ['s3v4AccessKey', 's3v4SecretKey']) ||
-            (service === 'IBM_COS' && ['ibmAccessKey', 'ibmSecretKey']) ||
-            (service === 'GOOGLE' && ['gcKeysJson']);
+            (service === 'GOOGLE' && ['gcKeysJson']) ||
+            (service === 'IBM_COS' && ['ibmAccessKey', 'ibmSecretKey']);
 
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
@@ -401,7 +401,7 @@ class EditCloudConnectionModalViewModel extends ConnectableViewModel {
     }
 
     // --------------------------------------
-    // AWS related methods:
+    // IBM COS related methods:
     // --------------------------------------
     ibmOnValidate(values, existingConnections) {
         const ibmConnections = existingConnections

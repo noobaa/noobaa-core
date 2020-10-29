@@ -102,7 +102,6 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
         .map(ns_rec => (_.omitBy({
             endpoint: ns_rec.connection.endpoint,
             endpoint_type: ns_rec.connection.endpoint_type,
-            cp_code: ns_rec.connection.cp_code || undefined,
             source_name: ns_rec.name,
             target_name: ns_rec.connection.target_bucket,
             usage_type: 'NAMESPACE_RESOURCE'

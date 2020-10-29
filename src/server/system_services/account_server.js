@@ -26,7 +26,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
 const pool_server = require('../system_services/pool_server');
 const azure_storage = require('../../util/azure_storage_wrap');
-const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 
 
@@ -711,8 +710,6 @@ async function add_external_connection(req) {
     info.access_key = req.rpc_params.identity;
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         req.rpc_params.secret, req.account.master_key_id._id);
-
-    info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
     if ((info.endpoint_type === 'AWS' || info.endpoint_type === 'S3_COMPATIBLE') &&
@@ -720,7 +717,6 @@ async function add_external_connection(req) {
         info.endpoint = 'http://' + info.endpoint;
     }
 
-    // TODO: Maybe we should check differently regarding NET_STORAGE connections
     //Verify the exact connection does not exist
     const conn = _.find(req.account.sync_credentials_cache, function(cred) {
         return cred.endpoint === info.endpoint &&
@@ -771,7 +767,6 @@ async function update_external_connection(req) {
             secret,
             endpoint_type: connection.endpoint_type,
             endpoint: connection.endpoint,
-            cp_code: connection.cp_code,
             auth_method: connection.auth_method
         });
         check_failed = status !== 'SUCCESS';
@@ -844,70 +839,49 @@ async function update_external_connection(req) {
     }
 }
 
-function check_external_connection(req) {
+async function check_external_connection(req) {
     dbg.log0('check_external_connection:', req.rpc_params);
     const { endpoint_type } = req.rpc_params;
     const params = req.rpc_params;
     const account = req.account;
 
-    const connection = req.rpc_params.name && _.find(account.sync_credentials_cache, sync_conn =>
-        sync_conn.name === req.rpc_params.name);
+    const connection = req.rpc_params.name && _.find(
+        account.sync_credentials_cache,
+        sync_conn => sync_conn.name === req.rpc_params.name
+    );
     if (connection) {
         throw new RpcError('CONNECTION_ALREADY_EXIST', 'Connection name already exists: ' + req.rpc_params.name);
     }
 
-    return P.resolve()
-        .then(() => {
-            switch (endpoint_type) {
-                case 'AZURE': {
-                    return check_azure_connection(params);
-                }
-
-                case 'AWS':
-                case 'S3_COMPATIBLE':
-                case 'FLASHBLADE':
-                case 'IBM_COS': {
-                    return check_aws_connection(params);
-                }
-
-                case 'NET_STORAGE': {
-                    return check_net_storage_connection(params);
-                }
-                case 'GOOGLE': {
-                    return check_google_connection(params);
-                }
-
-                default: {
-                    throw new Error('Unknown endpoint type');
-                }
-            }
-        });
+    switch (endpoint_type) {
+        case 'S3_COMPATIBLE':
+        case 'AWS':
+        case 'IBM_COS':
+        case 'FLASHBLADE':
+            return check_aws_connection(params);
+        case 'AZURE':
+            return check_azure_connection(params);
+        case 'GOOGLE':
+            return check_google_connection(params);
+        default:
+            throw new Error('Unknown endpoint type');
+    }
 }
 
 async function _check_external_connection(connection) {
     const { endpoint_type } = connection;
     switch (endpoint_type) {
-        case 'AZURE': {
-            return check_azure_connection(connection);
-        }
-
-        case 'AWS':
         case 'S3_COMPATIBLE':
+        case 'AWS':
+        case 'IBM_COS':
         case 'FLASHBLADE':
-        case 'IBM_COS': {
             return check_aws_connection(connection);
-        }
-
-        case 'NET_STORAGE': {
-            return check_net_storage_connection(connection);
-        }
-        case 'GOOGLE': {
+        case 'AZURE':
+            return check_azure_connection(connection);
+        case 'GOOGLE':
             return check_google_connection(connection);
-        }
-
-        default: {
+        default:
             throw new Error('Unknown endpoint type');
-        }
     }
 }
 
@@ -993,16 +967,6 @@ const aws_error_mapping = Object.freeze({
     RequestTimeTooSkewed: 'TIME_SKEW'
 });
 
-const net_storage_error_mapping = Object.freeze({
-    OperationTimeout: 'TIMEOUT',
-    UnknownEndpoint: 'INVALID_ENDPOINT',
-    NetworkingError: 'INVALID_ENDPOINT',
-    XMLParserError: 'INVALID_ENDPOINT',
-    InvalidAccessKeyId: 'INVALID_CREDENTIALS',
-    SignatureDoesNotMatch: 'INVALID_CREDENTIALS',
-    RequestTimeTooSkewed: 'TIME_SKEW'
-});
-
 async function check_google_connection(params) {
     try {
         const key_file = JSON.parse(params.secret.unwrap());
@@ -1060,43 +1024,6 @@ async function check_aws_connection(params) {
             }
         };
     }
-}
-
-function check_net_storage_connection(params) {
-    const ns = new NetStorage({
-        hostname: params.endpoint,
-        keyName: params.identity.unwrap(),
-        key: params.secret.unwrap(),
-        cpCode: params.cp_code,
-        // Just used that in order to not handle certificate mess
-        // TODO: Should I use SSL with HTTPS instead of HTTP?
-        ssl: false
-    });
-
-    const timeoutError = Object.assign(
-        new Error('Operation timeout'), { code: 'OperationTimeout' }
-    );
-
-    // TODO: Shall I use any other method istead of listing the root cpCode dir?
-    return P.timeout(
-            check_connection_timeout,
-            P.fromCallback(callback => ns.dir(params.cp_code, callback)),
-            () => timeoutError
-        )
-        .then(
-            ret => ({ status: 'SUCCESS' }),
-            err => {
-                dbg.warn(`got error on dir with params`, _.omit(params, 'secret'), ` error: ${err}`, err.message);
-                const status = net_storage_error_mapping[err.code] || 'UNKNOWN_FAILURE';
-                return {
-                    status,
-                    error: {
-                        code: err.code || '',
-                        message: err.message
-                    }
-                };
-            }
-        );
 }
 
 function delete_external_connection(req) {
@@ -1208,7 +1135,6 @@ function get_account_info(account, include_connection_cache) {
             endpoint: credentials.endpoint,
             identity: credentials.access_key,
             auth_method: credentials.auth_method,
-            cp_code: credentials.cp_code || undefined,
             endpoint_type: credentials.endpoint_type,
             usage: _list_connection_usage(account, credentials)
         }, _.isUndefined)));

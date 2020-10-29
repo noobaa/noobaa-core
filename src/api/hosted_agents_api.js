@@ -38,9 +38,8 @@ module.exports = {
                         type: 'object',
                         required: ['endpoint', 'target_bucket', 'access_keys'],
                         properties: {
-                            endpoint: {
-                                type: 'string',
-                            },
+                            endpoint: { type: 'string', },
+                            endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
                             target_bucket: { $ref: 'common_api#/definitions/bucket_name' },
                             access_keys: {
                                 type: 'object',
@@ -53,9 +52,6 @@ module.exports = {
                                     }
                                 }
                             },
-                            endpoint_type: {
-                                $ref: 'common_api#/definitions/endpoint_type'
-                            }
                         },
                     },
 

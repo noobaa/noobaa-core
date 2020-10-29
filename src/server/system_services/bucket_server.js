@@ -33,7 +33,6 @@ const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
-const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
@@ -1056,29 +1055,6 @@ function get_cloud_buckets(req) {
                     .then(data => data.entries.map(entry =>
                         _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)
                     ));
-            } else if (connection.endpoint_type === 'NET_STORAGE') {
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-
-                const ns = new NetStorage({
-                    hostname: connection.endpoint,
-                    keyName: connection.access_key.unwrap(),
-                    key: connection.secret_key.unwrap(),
-                    cpCode: connection.cp_code,
-                    // Just used that in order to not handle certificate mess
-                    // TODO: Should I use SSL with HTTPS instead of HTTP?
-                    ssl: false
-                });
-
-                // TODO: Shall I use any other method istead of listing the root cpCode dir?
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
-                        ns.dir(connection.cp_code, callback);
-                    }))
-                    .then(data => {
-                        const files = data.body.stat.file;
-                        const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
-                        return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
-                    });
             } else if (connection.endpoint_type === 'GOOGLE') {
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
@@ -1096,7 +1072,7 @@ function get_cloud_buckets(req) {
                 return storage.getBuckets()
                     .then(data => data[0].map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
-            } else { //else if AWS
+            } else { // else if S3_COMPATIBLE or AWS or IBM_COS or FLASHBLADE
                 var s3 = new AWS.S3({
                     endpoint: connection.endpoint,
                     accessKeyId: connection.access_key.unwrap(),
@@ -1107,7 +1083,7 @@ function get_cloud_buckets(req) {
                         agent: http_utils.get_unsecured_agent(connection.endpoint)
                     }
                 });
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'IBM_COS', 'FLASHBLADE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
                     .then(data => data.Buckets.map(bucket =>

@@ -194,8 +194,7 @@ module.exports = {
                     type: 'object',
                     properties: {
                         service: {
-                            type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                            $ref: 'common_api#/definitions/endpoint_type'
                         },
                         read_count: {
                             type: 'integer'

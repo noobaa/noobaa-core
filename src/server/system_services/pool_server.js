@@ -255,7 +255,6 @@ function create_namespace_resource(req) {
         target_bucket: req.rpc_params.target_bucket,
         access_key: connection.access_key,
         auth_method: connection.auth_method,
-        cp_code: connection.cp_code || undefined,
         secret_key: connection.secret_key,
         endpoint_type: connection.endpoint_type || 'AWS'
     }, _.isUndefined));
@@ -333,12 +332,12 @@ async function create_cloud_pool(req) {
     }
 
     const map_pool_type = {
-        AWS: 'BLOCK_STORE_S3',
         S3_COMPATIBLE: 'BLOCK_STORE_S3',
-        FLASHBLADE: 'BLOCK_STORE_S3',
-        IBM_COS: 'BLOCK_STORE_S3',
+        AWS: 'BLOCK_STORE_S3',
         AZURE: 'BLOCK_STORE_AZURE',
-        GOOGLE: 'BLOCK_STORE_GOOGLE'
+        GOOGLE: 'BLOCK_STORE_GOOGLE',
+        IBM_COS: 'BLOCK_STORE_S3',
+        FLASHBLADE: 'BLOCK_STORE_S3',
     };
 
     const pool_node_type = map_pool_type[connection.endpoint_type];
@@ -999,7 +998,6 @@ function get_namespace_resource_info(namespace_resource) {
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
         auth_method: namespace_resource.connection.auth_method,
-        cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         identity: namespace_resource.connection.access_key,
         mode: 'OPTIMAL',
@@ -1016,7 +1014,6 @@ function get_namespace_resource_extended_info(namespace_resource) {
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
         auth_method: namespace_resource.connection.auth_method,
-        cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key

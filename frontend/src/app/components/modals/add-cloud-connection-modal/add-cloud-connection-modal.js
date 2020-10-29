@@ -6,7 +6,6 @@ import azureFieldsTemplate from './azure-fields.html';
 import s3v2CompatibleFieldsTemplate from './s3-v2-compatible-fields.html';
 import s3v4CompatibleFieldsTemplate from './s3-v4-compatible-fields.html';
 import ibmFieldsTemplate from './ibm-fields.html';
-import netStorageTemplate from './net-storage-fields.html';
 import googleCloudTemplate from './google-cloud-fields.html';
 import flashbladeFieldsTemplate from './flashblade-fields.html';
 import ConnectableViewModel from 'components/connectable';
@@ -34,14 +33,13 @@ const serviceOptions = cloudServices
     }));
 
 const templates = deepFreeze({
+    S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
+    S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
     AWS: awsFieldsTemplate,
     AZURE: azureFieldsTemplate,
-    S3_V2_COMPATIBLE: s3v2CompatibleFieldsTemplate,
-    S3_V4_COMPATIBLE: s3v4CompatibleFieldsTemplate,
-    NET_STORAGE: netStorageTemplate,
     GOOGLE: googleCloudTemplate,
-    FLASHBLADE: flashbladeFieldsTemplate,
-    IBM_COS: ibmFieldsTemplate
+    IBM_COS: ibmFieldsTemplate,
+    FLASHBLADE: flashbladeFieldsTemplate
 });
 
 const asyncTriggers = deepFreeze([
@@ -58,11 +56,6 @@ const asyncTriggers = deepFreeze([
     's3v4Endpoint',
     's3v4AccessKey',
     's3v4SecretKey',
-    'nsHostname',
-    'nsStorageGroup',
-    'nsKeyName',
-    'nsCPCode',
-    'nsAuthKey',
     'gcKeysFileName',
     'gcKeysJson',
     'fbEndpoint',
@@ -74,30 +67,30 @@ const asyncTriggers = deepFreeze([
 ]);
 
 const s3LikeConnKeyMappings = deepFreeze({
-    AWS: {
-        endpoint: 'awsEndpoint',
-        accessKey: 'awsAccessKey',
-        secretKey: 'awsSecretKey'
+    S3_V4_COMPATIBLE: {
+        endpoint: 's3v4Endpoint',
+        accessKey: 's3v4AccessKey',
+        secretKey: 's3v4SecretKey'
     },
     S3_V2_COMPATIBLE: {
         endpoint: 's3v2Endpoint',
         accessKey: 's3v2AccessKey',
         secretKey: 's3v2SecretKey'
     },
-    S3_V4_COMPATIBLE: {
-        endpoint: 's3v4Endpoint',
-        accessKey: 's3v4AccessKey',
-        secretKey: 's3v4SecretKey'
-    },
-    FLASHBLADE: {
-        endpoint: 'fbEndpoint',
-        accessKey: 'fbAccessKey',
-        secretKey: 'fbSecretKey'
+    AWS: {
+        endpoint: 'awsEndpoint',
+        accessKey: 'awsAccessKey',
+        secretKey: 'awsSecretKey'
     },
     IBM_COS: {
         endpoint: 'ibmEndpoint',
         accessKey: 'ibmAccessKey',
         secretKey: 'ibmSecretKey'
+    },
+    FLASHBLADE: {
+        endpoint: 'fbEndpoint',
+        accessKey: 'fbAccessKey',
+        secretKey: 'fbSecretKey'
     }
 });
 
@@ -270,13 +263,6 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
                 s3v4AccessKey: '',
                 s3v4SecretKey: '',
 
-                // Net Storage fileds.
-                nsHostname: 'nsu.akamaihd.net',
-                nsStorageGroup: '',
-                nsKeyName: '',
-                nsCPCode: '',
-                nsAuthKey: '',
-
                 // Google Cloud field.
                 gcKeysFileName: '',
                 gcKeysJson: '',
@@ -316,14 +302,13 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
         }
 
         const serviceValidate =
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
             (service === 'AWS' && this.awsOnValidate) ||
             (service === 'AZURE' && this.azureOnValidate) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidate) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidate) ||
-            (service === 'NET_STORAGE' && this.nsOnValidate) ||
             (service === 'GOOGLE' && this.gcOnValidate) ||
-            (service === 'FLASHBLADE' && this.flashBladeOnValidate) ||
             (service === 'IBM_COS' && this.ibmOnValidate) ||
+            (service === 'FLASHBLADE' && this.flashBladeOnValidate) ||
             _getEmptyObj;
 
         return Object.assign(
@@ -335,14 +320,13 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
     async onValidateAsync(values) {
         const { service } = values;
         const serviceValidateAsync =
+            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
+            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
             (service === 'AWS' && this.awsOnValidateAsync) ||
             (service === 'AZURE' && this.azureOnValidateAsync) ||
-            (service === 'S3_V2_COMPATIBLE' && this.s3v2OnValidateAsync) ||
-            (service === 'S3_V4_COMPATIBLE' && this.s3v4OnValidateAsync) ||
-            (service === 'NET_STORAGE' && this.nsOnValidateAsync) ||
             (service === 'GOOGLE' && this.gcOnValidateAsync) ||
-            (service === 'FLASHBLADE' && this.flashBladeOnValidateAsync) ||
             (service === 'IBM_COS' && this.ibmOnValidateAsync) ||
+            (service === 'FLASHBLADE' && this.flashBladeOnValidateAsync) ||
             _getEmptyObj;
 
 
@@ -352,14 +336,13 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
     onSubmit(values) {
         const { connectionName, service } = values;
         const fields =
+            (service === 'S3_V4_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V4_COMPATIBLE'])) ||
+            (service === 'S3_V2_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V2_COMPATIBLE'])) ||
             (service === 'AWS' && Object.values(s3LikeConnKeyMappings['AWS'])) ||
             (service === 'AZURE' && ['azureEndpoint', 'azureAccountName', 'azureAccountKey']) ||
-            (service === 'S3_V2_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V2_COMPATIBLE'])) ||
-            (service === 'S3_V4_COMPATIBLE' && Object.values(s3LikeConnKeyMappings['S3_V4_COMPATIBLE'])) ||
-            (service === 'NET_STORAGE' && ['nsHostname', 'nsStorageGroup', 'nsKeyName', 'nsCPCode', 'nsAuthKey']) ||
             (service === 'GOOGLE' && ['gcKeysJson']) ||
-            (service === 'FLASHBLADE' && Object.values(s3LikeConnKeyMappings['FLASHBLADE'])) ||
-            (service === 'IBM_COS' && Object.values(s3LikeConnKeyMappings['IBM_COS']));
+            (service === 'IBM_COS' && Object.values(s3LikeConnKeyMappings['IBM_COS'])) ||
+            (service === 'FLASHBLADE' && Object.values(s3LikeConnKeyMappings['FLASHBLADE']));
 
         const params = pick(values, fields);
         if (service === 'GOOGLE') params.gcEndpoint = gcEndpoint;
@@ -580,57 +563,6 @@ class AddCloudConnectionModalViewModel extends ConnectableViewModel  {
         );
     }
 
-    // --------------------------------------
-    // Net Storage related methods:
-    // --------------------------------------
-    nsOnValidate(values) {
-        const errors = {};
-        const { nsStorageGroup, nsKeyName, nsCPCode, nsAuthKey } = values;
-
-        if (!nsStorageGroup) {
-            errors.nsStorageGroup = 'Please enter a valid storage group';
-        }
-
-        if (!nsKeyName) {
-            errors.nsKeyName = 'Enter a valid key name';
-        }
-
-        if (!Number(nsCPCode) || nsCPCode.length !== 6 ) {
-            errors.nsCPCode = 'Enter a 6 digit CP Code';
-        }
-
-        if (!nsAuthKey) {
-            errors.nsAuthKey = 'Please enter a valid authentication key';
-        }
-
-        return errors;
-    }
-
-    async nsOnValidateAsync(values) {
-        const errors = {};
-        const { nsHostname, nsStorageGroup, nsKeyName, nsCPCode, nsAuthKey } = values;
-        const { status } = await api.account.check_external_connection({
-            endpoint_type: 'NET_STORAGE',
-            endpoint: `${nsStorageGroup}-${nsHostname}`,
-            identity: nsKeyName,
-            secret: nsAuthKey,
-            cp_code: nsCPCode
-        });
-
-        switch (status) {
-            case 'UNKNOWN_FAILURE': {
-                // Using empty message to mark the fields as invalid.
-                errors.nsStorageGroup =
-                    errors.nsKeyName =
-                    errors.nsCPCode =
-                    errors.nsAuthKey =
-                    errors.global = '';
-                break;
-            }
-        }
-
-        return errors;
-    }
 
     // --------------------------------------
     // Google Cloud related methods:

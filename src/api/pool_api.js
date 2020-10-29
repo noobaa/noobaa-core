@@ -237,8 +237,7 @@ module.exports = {
                     type: 'object',
                     properties: {
                         service: {
-                            type: 'string',
-                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                            $ref: 'common_api#/definitions/endpoint_type'
                         },
                         read_count: {
                             type: 'integer'
@@ -440,33 +439,16 @@ module.exports = {
             type: 'object',
             required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
             properties: {
-                name: {
-                    type: 'string'
-                },
-                endpoint: {
-                    type: 'string'
-                },
-                endpoint_type: {
-                    $ref: 'common_api#/definitions/endpoint_type'
-                },
-                auth_method: {
-                    $ref: 'common_api#/definitions/cloud_auth_method'
-                },
-                target_bucket: {
-                    type: 'string'
-                },
-                cp_code: {
-                    type: 'string'
-                },
-                identity: {
-                    $ref: 'common_api#/definitions/access_key'
-                },
+                name: { type: 'string' },
+                endpoint: { type: 'string' },
+                endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
+                identity: { $ref: 'common_api#/definitions/access_key' },
+                target_bucket: { type: 'string' },
+                undeletable: { $ref: 'common_api#/definitions/undeletable_enum' },
                 mode: {
                     type: 'string',
                     enum: ['OPTIMAL']
-                },
-                undeletable: {
-                    $ref: 'common_api#/definitions/undeletable_enum'
                 },
             }
         },
@@ -476,29 +458,14 @@ module.exports = {
             type: 'object',
             required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
             properties: {
-                id: {
-                    objectid: true
-                },
-                name: {
-                    type: 'string'
-                },
-                endpoint: {
-                    type: 'string'
-                },
-                endpoint_type: {
-                    $ref: 'common_api#/definitions/endpoint_type'
-                },
-                auth_method: {
-                    $ref: 'common_api#/definitions/cloud_auth_method'
-                },
-                target_bucket: {
-                    type: 'string'
-                },
+                id: { objectid: true },
+                name: { type: 'string' },
+                endpoint: { type: 'string' },
+                endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
                 access_key: { $ref: 'common_api#/definitions/access_key' },
-                cp_code: {
-                    type: 'string'
-                },
                 secret_key: { $ref: 'common_api#/definitions/secret_key' },
+                target_bucket: { type: 'string' },
             }
         },
 
@@ -590,27 +557,14 @@ module.exports = {
                 cloud_info: {
                     type: 'object',
                     properties: {
-                        endpoint: {
-                            type: 'string'
-                        },
-                        endpoint_type: {
-                            $ref: 'common_api#/definitions/endpoint_type'
-                        },
-                        target_bucket: {
-                            type: 'string'
-                        },
-                        auth_method: {
-                            $ref: 'common_api#/definitions/cloud_auth_method'
-                        },
-                        created_by: {
-                            $ref: 'common_api#/definitions/email'
-                        },
-                        node_name: {
-                            type: 'string'
-                        },
-                        host: {
-                            type: 'string'
-                        }
+                        name: { type: 'string' },
+                        endpoint: { type: 'string' },
+                        endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                        auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
+                        target_bucket: { type: 'string' },
+                        created_by: { $ref: 'common_api#/definitions/email' },
+                        node_name: { type: 'string' },
+                        host: { type: 'string' },
                     }
                 },
                 mongo_info: {

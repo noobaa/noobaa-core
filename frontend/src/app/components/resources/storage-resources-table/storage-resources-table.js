@@ -95,6 +95,11 @@ const resourceTypeOptions = [
         icon: 'nodes-pool'
     },
     {
+        value: 'S3_COMPATIBLE',
+        label: 'S3 Compatible',
+        icon: 'cloud'
+    },
+    {
         value: 'AWS',
         label: 'AWS S3',
         icon: 'aws-s3'
@@ -110,19 +115,14 @@ const resourceTypeOptions = [
         icon: 'google-cloud'
     },
     {
-        value: 'S3_COMPATIBLE',
-        label: 'S3 Compatible',
-        icon: 'cloud'
+        value: 'IBM_COS',
+        label: 'IBM COS',
+        icon: 'ibm-cos'
     },
     {
         value: 'FLASHBLADE',
         label: 'Pure FlashBlade',
         icon: 'pure'
-    },
-    {
-        value: 'IBM_COS',
-        label: 'IBM COS',
-        icon: 'ibm-cos'
     }
 ];
 

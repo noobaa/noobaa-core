@@ -4,6 +4,20 @@ import { deepFreeze, keyByProperty } from './core-utils';
 
 export const cloudServices = deepFreeze([
     {
+        value: 'S3_V4_COMPATIBLE',
+        displayName: 'S3 V4 Compatible service',
+        subject: 'Bucket',
+        identityDisplayName: 'Access Key',
+        icon: 'cloud-v4'
+    },
+    {
+        value: 'S3_V2_COMPATIBLE',
+        displayName: 'S3 V2 Compatible service',
+        subject: 'Bucket',
+        identityDisplayName: 'Access Key',
+        icon: 'cloud-v2'
+    },
+    {
         value: 'AWS',
         displayName: 'AWS S3',
         subject: 'Bucket',
@@ -29,39 +43,18 @@ export const cloudServices = deepFreeze([
 
     },
     {
-        value: 'S3_V2_COMPATIBLE',
-        displayName: 'S3 V2 Compatible service',
+        value: 'IBM_COS',
+        displayName: 'IBM COS service',
         subject: 'Bucket',
         identityDisplayName: 'Access Key',
-        icon: 'cloud-v2'
+        icon: 'ibm-cos'
     },
-    {
-        value: 'S3_V4_COMPATIBLE',
-        displayName: 'S3 V4 Compatible service',
-        subject: 'Bucket',
-        identityDisplayName: 'Access Key',
-        icon: 'cloud-v4'
-    },
-    // {
-    //     value: 'NET_STORAGE',
-    //     displayName: 'NetStorage service',
-    //     identityDisplayName: 'Key',
-    //     subject: 'Bucket',
-    //     icon: 'net-storage'
-    // },
     {
         value: 'FLASHBLADE',
         displayName: 'Pure FlashBlade service',
         subject: 'Bucket',
         identityDisplayName: 'Access Key',
         icon: 'pure'
-    },
-    {
-        value: 'IBM_COS',
-        displayName: 'IBM COS service',
-        subject: 'Bucket',
-        identityDisplayName: 'Access Key',
-        icon: 'ibm-cos'
     }
 ]);
 

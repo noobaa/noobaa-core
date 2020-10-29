@@ -18,12 +18,12 @@ import {
 } from 'action-creators';
 
 const allowedServices = deepFreeze([
-    'AWS',
-    'S3_V2_COMPATIBLE',
     'S3_V4_COMPATIBLE',
+    'S3_V2_COMPATIBLE',
+    'AWS',
     'AZURE',
-    'NET_STORAGE',
-    'IBM_COS'
+    'IBM_COS',
+    'FLASHBLADE'
 ]);
 
 class CreateNamespaceResourceModalViewModel extends ConnectableViewModel {

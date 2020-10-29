@@ -16,9 +16,17 @@ module.exports = {
 
     definitions: {
 
-        bucket_trigger_event: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
-            enum: ['ObjectCreated', 'ObjectRemoved', 'ObjectRead', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
+        bucket_trigger_event: {
+            // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
             type: 'string',
+            enum: [
+                'ObjectCreated',
+                'ObjectRemoved',
+                'ObjectRead',
+                // 'ObjectCreated:Put', 
+                // 'ObjectCreated:CompleteMultipartUpload',
+                // ...
+            ],
         },
 
         storage_info: {
@@ -459,7 +467,14 @@ module.exports = {
 
         endpoint_type: {
             type: 'string',
-            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+            enum: [
+                'S3_COMPATIBLE',
+                'AWS',
+                'AZURE',
+                'GOOGLE',
+                'IBM_COS',
+                'FLASHBLADE',
+            ]
         },
 
         block_md: {
@@ -481,11 +496,11 @@ module.exports = {
         node_type: {
             type: 'string',
             enum: [
+                'BLOCK_STORE_FS',
                 'BLOCK_STORE_S3',
-                'BLOCK_STORE_MONGO',
                 'BLOCK_STORE_AZURE',
                 'BLOCK_STORE_GOOGLE',
-                'BLOCK_STORE_FS'
+                'BLOCK_STORE_MONGO',
             ]
         },
 
@@ -759,7 +774,7 @@ module.exports = {
 
         bucket_cache_config: {
             type: 'object',
-            required: [ ],
+            required: [],
             properties: {
                 ttl_ms: {
                     $ref: '#/definitions/bucket_cache_ttl'

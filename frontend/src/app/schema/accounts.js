@@ -79,14 +79,13 @@ export default {
                         service: {
                             type: 'string',
                             enum: [
+                                'S3_V4_COMPATIBLE',
+                                'S3_V2_COMPATIBLE',
                                 'AWS',
                                 'AZURE',
-                                'S3_V2_COMPATIBLE',
-                                'S3_V4_COMPATIBLE',
-                                'NET_STORAGE',
                                 'GOOGLE',
-                                'FLASHBLADE',
-                                'IBM_COS'
+                                'IBM_COS',
+                                'FLASHBLADE'
                             ]
                         },
                         endpoint: {

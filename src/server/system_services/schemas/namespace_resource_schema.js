@@ -31,25 +31,12 @@ module.exports = {
             type: 'object',
             required: ['endpoint_type', 'endpoint', 'target_bucket', 'access_key', 'secret_key'],
             properties: {
-                endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
-                },
-                auth_method: {
-                    type: 'string',
-                    enum: ['AWS_V2', 'AWS_V4']
-                },
-                endpoint: {
-                    type: 'string'
-                },
-                target_bucket: {
-                    type: 'string'
-                },
+                endpoint: { type: 'string' },
+                endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
                 access_key: { $ref: 'common_api#/definitions/access_key' },
                 secret_key: { $ref: 'common_api#/definitions/secret_key' },
-                cp_code: {
-                    type: 'string'
-                }
+                target_bucket: { type: 'string' },
             }
         },
     }

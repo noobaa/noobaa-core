@@ -339,24 +339,12 @@ module.exports = {
                 type: 'object',
                 required: ['name', 'identity', 'secret', 'endpoint', 'endpoint_type'],
                 properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    endpoint: {
-                        type: 'string'
-                    },
+                    name: { type: 'string' },
+                    endpoint: { type: 'string' },
+                    endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                    auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
-                    auth_method: {
-                        $ref: 'common_api#/definitions/cloud_auth_method'
-                    },
-                    cp_code: {
-                        type: 'string'
-                    },
-                    endpoint_type: {
-                        $ref: 'common_api#/definitions/endpoint_type'
-                    }
-
                 }
             },
             auth: {
@@ -389,23 +377,12 @@ module.exports = {
                 type: 'object',
                 required: ['identity', 'secret', 'endpoint'],
                 properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    endpoint: {
-                        type: 'string'
-                    },
+                    name: { type: 'string' },
+                    endpoint: { type: 'string' },
+                    endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                    auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
-                    auth_method: {
-                        $ref: 'common_api#/definitions/cloud_auth_method'
-                    },
-                    cp_code: {
-                        type: 'string'
-                    },
-                    endpoint_type: {
-                        $ref: 'common_api#/definitions/endpoint_type'
-                    }
                 }
             },
             reply: {
@@ -579,22 +556,11 @@ module.exports = {
                             items: {
                                 type: 'object',
                                 properties: {
-                                    name: {
-                                        type: 'string'
-                                    },
-                                    endpoint: {
-                                        type: 'string'
-                                    },
+                                    name: { type: 'string' },
+                                    endpoint: { type: 'string' },
+                                    endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                                    auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
                                     identity: { $ref: 'common_api#/definitions/access_key' },
-                                    cp_code: {
-                                        type: 'string'
-                                    },
-                                    auth_method: {
-                                        $ref: 'common_api#/definitions/cloud_auth_method'
-                                    },
-                                    endpoint_type: {
-                                        $ref: 'common_api#/definitions/endpoint_type'
-                                    },
                                     usage: {
                                         type: 'array',
                                         items: {

@@ -36,13 +36,12 @@ export default {
             type: {
                 type: 'string',
                 enum: [
+                    'S3_COMPATIBLE',
                     'AWS',
                     'AZURE',
-                    'S3_COMPATIBLE',
                     'GOOGLE',
-                    'FLASHBLADE',
-                    'NET_STORAGE',
-                    'IBM_COS'
+                    'IBM_COS',
+                    'FLASHBLADE'
                 ]
             },
             endpoint: {

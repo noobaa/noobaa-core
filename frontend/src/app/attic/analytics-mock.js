@@ -24,13 +24,12 @@ const accounts = [
 ];
 
 const cloudServices = [
+    'S3_COMPATIBLE',
     'AWS',
     'AZURE',
-    'S3_COMPATIBLE',
     'GOOGLE',
-    'FLASHBLADE',
     'IBM_COS',
-    'NET_STORAGE'
+    'FLASHBLADE'
 ];
 
 const anHour = moment.duration(1, 'hour').asMilliseconds();

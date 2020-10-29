@@ -88,16 +88,10 @@ module.exports = {
             required: ['endpoint', 'target_bucket', 'access_keys'],
             properties: {
                 // Target endpoint, location + bucket
-                endpoint: {
-                    type: 'string'
-                },
-                target_bucket: {
-                    type: 'string'
-                },
-                auth_method: {
-                    type: 'string',
-                    enum: ['AWS_V2', 'AWS_V4']
-                },
+                endpoint: { type: 'string' },
+                endpoint_type: { $ref: 'common_api#/definitions/endpoint_type' },
+                auth_method: { $ref: 'common_api#/definitions/cloud_auth_method' },
+                target_bucket: { type: 'string' },
                 backingstore: {
                     type: 'object',
                     properties: {
@@ -122,10 +116,6 @@ module.exports = {
                             objectid: true
                         }
                     }
-                },
-                endpoint_type: {
-                    type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 agent_info: {
                     type: 'object',

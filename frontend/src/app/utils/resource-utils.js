@@ -173,6 +173,10 @@ const namespaceResourceModeToStateIcon = deepFreeze({
 });
 
 const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
+    S3_COMPATIBLE: {
+        name: 'cloud',
+        tooltip: 'Generic S3 compatible resource'
+    },
     AWS: {
         name: 'aws-s3',
         tooltip: 'AWS S3 resource'
@@ -185,21 +189,13 @@ const cloudAndNamespaceResourceTypeToIcon = deepFreeze({
         name: 'google-cloud',
         tooltip: 'Google Cloud resource'
     },
-    S3_COMPATIBLE: {
-        name: 'cloud',
-        tooltip: 'Generic S3 compatible resource'
-    },
-    NET_STORAGE: {
-        name: 'net-storage',
-        tooltip: 'NetStorage resource'
+    IBM_COS: {
+        name: 'ibm-cos',
+        tooltip: 'IBM COS'
     },
     FLASHBLADE: {
         name: 'pure',
         tooltip: 'Pure FlashBlade'
-    },
-    IBM_COS: {
-        name: 'ibm-cos',
-        tooltip: 'IBM COS'
     }
 });
 

@@ -23,10 +23,9 @@ export default {
             service: {
                 type: 'string',
                 enum: [
+                    'S3_COMPATIBLE',
                     'AWS',
                     'AZURE',
-                    'S3_COMPATIBLE',
-                    'NET_STORAGE',
                     'IBM_COS'
                 ]
             },

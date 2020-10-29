@@ -27,5 +27,6 @@ RUN cd frontend && \
 #   Cache: Rebuild when changing any file which is copied
 ######################################################################
 COPY ./frontend/ ./frontend/
+RUN echo '{ "allow_root": true }' > /root/.bowerrc
 RUN cd frontend && \
     npm run build-lib

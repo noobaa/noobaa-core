@@ -1,6 +1,5 @@
 def cico_retries = 16
 def cico_retry_interval = 60
-def ci_git_repo = 'https://github.com/noobaa/noobaa-core'
 def ci_git_ref = 'master' // default, will be overwritten for PRs
 def workdir = "/opt/build/noobaa-core"
 
@@ -18,7 +17,7 @@ node('cico-workspace') {
 	stage('checkout ci repository') {
 		// TODO: only need to fetch the .jenkins directory, no tags, ..
 		checkout([$class: 'GitSCM', branches: [[name: 'FETCH_HEAD']],
-			userRemoteConfigs: [[url: "${ci_git_repo}", refspec: "${ci_git_ref}"]]])
+			userRemoteConfigs: [[url: "${GIT_REPO}", refspec: "${ci_git_ref}"]]])
 		// fetch the first 7 characters of the current commit hash
 		HASH = sh(
 			script: 'git log -1 --format=format:%H | cut -c-7',
@@ -49,7 +48,7 @@ node('cico-workspace') {
 	try {
 		stage('prepare bare-metal machine') {
 			sh 'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ./.jenkins/prepare.sh root@${CICO_NODE}:'
-			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=${workdir} --gitrepo=${ci_git_repo} --ref=${ci_git_ref}"
+			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=${workdir} --gitrepo=${GIT_REPO} --ref=${ci_git_ref}"
 		}
 
 		stage('stop jobs from the same PR') {

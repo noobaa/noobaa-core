@@ -3,22 +3,22 @@
     name: noobaa-core_unit
     project-type: pipeline
     concurrent: true
-    properties:
-      - github:
-          url: https://github.com/noobaa/noobaa-core
-      - build-discarder:
-          days-to-keep: 7
-          artifact-days-to-keep: 7
     parameters:
       - hidden:
           name: GIT_REPO
           default: https://github.com/noobaa/noobaa-core
           description: The git repo url
+    properties:
+      - github:
+          url: $GIT_REPO
+      - build-discarder:
+          days-to-keep: 7
+          artifact-days-to-keep: 7
     pipeline-scm:
       scm:
         - git:
             name: origin
-            url: https://github.com/noobaa/noobaa-core
+            url: $GIT_REPO
             refspec: "+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head"
             branches:
               - origin/pr/${ghprbPullId}/head
@@ -28,6 +28,7 @@
       - github-pull-request:
           status-context: ci/centos/unit
           trigger-phrase: "/(re)?test ((all)|(ci/centos/unit))"
+          status-url: $RUN_DISPLAY_URL
           permit-all: true
           github-hooks: true
           admin-list:

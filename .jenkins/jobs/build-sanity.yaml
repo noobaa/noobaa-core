@@ -10,7 +10,7 @@
           description: The git repo url
     properties:
       - github:
-          url: $GIT_REPO
+          url: https://github.com/noobaa/noobaa-core
       - build-discarder:
           days-to-keep: 7
           artifact-days-to-keep: 7
@@ -28,6 +28,7 @@
       - github-pull-request:
           status-context: ci/centos/build-sanity
           trigger-phrase: "/(re)?test ((all)|(ci/centos/build-sanity))"
+          status-url: $RUN_DISPLAY_URL
           permit-all: true
           github-hooks: true
           admin-list:

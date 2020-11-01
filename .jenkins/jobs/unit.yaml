@@ -10,7 +10,7 @@
           description: The git repo url
     properties:
       - github:
-          url: $GIT_REPO
+          url: https://github.com/noobaa/noobaa-core
       - build-discarder:
           days-to-keep: 7
           artifact-days-to-keep: 7
@@ -18,7 +18,7 @@
       scm:
         - git:
             name: origin
-            url: $GIT_REPO
+            url: https://github.com/noobaa/noobaa-core
             refspec: "+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head"
             branches:
               - origin/pr/${ghprbPullId}/head

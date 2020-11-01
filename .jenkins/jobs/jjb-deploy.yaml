@@ -3,15 +3,22 @@
     name: jjb-deploy
     project-type: pipeline
     concurrent: false
+    parameters:
+      - string:
+          name: GIT_REPO
+          default: https://github.com/noobaa/noobaa-core
+          description: The git repo url
+      - string:
+          name: GIT_BRANCH
+          default: master
+          description: The git branch
     properties:
       - github:
-          url: https://github.com/noobaa/noobaa-core
+          url: $GIT_REPO
       - build-discarder:
           days-to-keep: 7
           artifact-days-to-keep: 7
     dsl: |
-      def GIT_REPO = 'http://github.com/noobaa/noobaa-core'
-      def GIT_BRANCH = 'master'
       node {
         stage('checkout ci repository') {
           git url: "${GIT_REPO}", branch: "${GIT_BRANCH}", changelog: false
@@ -23,7 +30,7 @@
     scm:
       - git:
           name: origin
-          url: https://github.com/noobaa/noobaa-core
+          url: $GIT_REPO
           branches:
             - master
     triggers:

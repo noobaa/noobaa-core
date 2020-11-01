@@ -25,7 +25,7 @@ objects:
               image: image-registry.openshift-image-registry.svc:5000/noobaa/jjb:latest
               env:
                 - name: GIT_REPO
-                  value: https://github.com/noobaa/noobaa-core
+                  value: "${GIT_REPO}"
                 - name: GIT_REF
                   value: "${GIT_REF}"
                 - name: MAKE_TARGET
@@ -46,4 +46,8 @@ parameters:
   - name: GIT_REF
     description: the git branch or other ref to checkout and deploy
     value: master
+    required: false
+  - name: GIT_REPO
+    description: the git repo or other fork to checkout and deploy
+    value: https://github.com/noobaa/noobaa-core
     required: false

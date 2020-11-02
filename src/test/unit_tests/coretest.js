@@ -7,10 +7,13 @@ console.log('loading .env file');
 require('../../util/dotenv').load();
 require('../../util/panic').enable_heapdump('coretest');
 require('../../util/fips');
+const crypto = require('crypto');
 
 const CORETEST = 'coretest';
 process.env.CORETEST = CORETEST;
 process.env.JWT_SECRET = CORETEST;
+process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
+
 
 const config = require('../../../config.js');
 const db_client = require('../../util/db_client');

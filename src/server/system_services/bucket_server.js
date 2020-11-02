@@ -68,7 +68,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
         versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
         object_lock_configuration: config.WORM_ENABLED ? {
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
-        } : undefined
+        } : undefined,
     };
 }
 
@@ -129,13 +129,16 @@ async function create_bucket(req) {
         changes.insert.tiers = [tier];
     }
 
-    const bucket = new_bucket_defaults(
-        req.rpc_params.name,
-        req.system._id,
-        tiering_policy._id,
-        req.account._id,
-        req.rpc_params.tag,
-        req.rpc_params.lock_enabled);
+
+    let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
+        tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
+
+    const bucket_m_key = system_store.master_key_manager.new_master_key({
+        description: `master key of ${bucket._id} bucket`,
+        master_key_id: req.system.master_key_id._id,
+        cipher_type: req.system.master_key_id.cipher_type
+    });
+    bucket.master_key_id = bucket_m_key._id;
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
@@ -173,6 +176,8 @@ async function create_bucket(req) {
         bucket.bucket_claim = req.rpc_params.bucket_claim;
     }
     changes.insert.buckets = [bucket];
+    changes.insert.master_keys = [bucket_m_key];
+
     Dispatcher.instance().activity({
         event: 'bucket.create',
         level: 'info',

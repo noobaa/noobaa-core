@@ -115,7 +115,8 @@ async function create_object_upload(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        encryption
+        encryption,
+        bucket_master_key_id: req.bucket.master_key_id._id,
     };
 }
 
@@ -517,7 +518,8 @@ async function create_multipart(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        encryption: obj.encryption
+        encryption: obj.encryption,
+        bucket_master_key_id: req.bucket.master_key_id._id
     };
 }
 

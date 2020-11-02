@@ -17,6 +17,7 @@ const tier_schema = require('./schemas/tier_schema');
 const pool_schema = require('./schemas/pool_schema');
 const agent_config_schema = require('./schemas/agent_config_schema');
 const chunk_config_schema = require('./schemas/chunk_config_schema');
+const master_key_schema = require('./schemas/master_key_schema');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
@@ -29,6 +30,7 @@ const config = require('../../../config');
 const db_client = require('../../util/db_client');
 
 const { RpcError } = require('../../rpc');
+const master_key_manager = require('./master_key_manager');
 
 const COLLECTIONS = [{
     name: 'clusters',
@@ -203,6 +205,13 @@ const COLLECTIONS = [{
         context: 'system',
         key: '_id'
     }],
+}, {
+    name: 'master_keys',
+    schema: master_key_schema,
+    mem_indexes: [{
+        name: 'master_keys_by_id',
+        key: '_id'
+    }],
 }];
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
@@ -244,6 +253,7 @@ class SystemStoreData {
         /** @type {nb.ChunkConfig[]} */
         this.chunk_configs = undefined;
         this.agent_configs = undefined;
+        this.master_keys_by_id = undefined;
     }
 
     /**
@@ -415,6 +425,7 @@ class SystemStore extends EventEmitter {
         super();
         // // TODO: This is currently used as a cache, maybe will be moved in the future
         // this.valid_for_alloc_by_tier = {};
+        this.master_key_manager = master_key_manager.get_instance();
         this.last_update_time = config.NOOBAA_EPOCH;
         this.is_standalone = options.standalone;
         this.is_cluster_master = false;
@@ -479,6 +490,7 @@ class SystemStore extends EventEmitter {
                     this.last_update_time = since;
                 }
 
+                await this.master_key_manager.load_root_key();
                 let new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
@@ -494,7 +506,15 @@ class SystemStore extends EventEmitter {
                 this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
+                if (this.data.master_keys_by_id) {
+                    this.master_key_manager.update_master_keys(this.data.master_keys_by_id);
+                }
                 dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
+                await this.master_key_manager.decrypt_all_accounts_secret_keys({
+                    accounts: this.data.accounts,
+                    pools: this.data.pools,
+                    namespace_resources: this.data.namespace_resources
+                });
                 this.emit('load');
                 this.is_finished_initial_load = true;
                 return this.data;

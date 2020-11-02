@@ -69,6 +69,7 @@ module.exports = {
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    bucket_master_key_id: { objectid: true },
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -238,7 +239,8 @@ module.exports = {
                     tier_id: { objectid: true },
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
-                    encryption: { $ref: 'common_api#/definitions/object_encryption' }
+                    encryption: { $ref: 'common_api#/definitions/object_encryption' },
+                    bucket_master_key_id: { objectid: true }
                 }
             },
             auth: { system: ['admin', 'user'] }
@@ -1427,6 +1429,7 @@ module.exports = {
                 _id: { objectid: true },
                 bucket_id: { objectid: true },
                 tier_id: { objectid: true },
+                master_key_id: { objectid: true },
                 dup_chunk: { objectid: true },
                 chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                 size: { type: 'integer' },

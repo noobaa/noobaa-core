@@ -150,9 +150,10 @@ class BlockStoreClient {
                 bucket = google.bucket(bs_info.target_bucket);
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const file = bucket.file(block_key);
-                const [data, md_res] = await P.join(
+                const [data, md_res] = await Promise.all([
                     buffer_utils.read_stream_join(file.createReadStream()),
-                    file.getMetadata());
+                    file.getMetadata()
+                ]);
                 const block_md_b64 =
                     _.get(md_res[0], 'metadata.noobaablockmd') ||
                     _.get(md_res[0], 'metadata.noobaa_block_md');

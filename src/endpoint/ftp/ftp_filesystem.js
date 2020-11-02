@@ -90,7 +90,6 @@ class FtpFileSystemNB {
                 delimiter: '/',
                 limit: 100
             }))
-            .tap(console.log)
             .then(res => {
                 console.log(`in get - got res = `, res);
                 if (res.objects.length) {
@@ -101,7 +100,10 @@ class FtpFileSystemNB {
                     return this._get_new_file_stats_object(name, true, 0, new Date());
                 }
             })
-            .tap(console.log)
+            .then(res => {
+                console.log(res);
+                return res;
+            })
             .catch(err => {
                 dbg.error('got error in get(). ', err);
                 err.code = 'ENOENT';
@@ -123,12 +125,18 @@ class FtpFileSystemNB {
         console.log(`calling list_objects with params =`, params);
 
         return this.authenticate.then(() => this.object_sdk.list_objects(params))
-            .tap(console.log)
+            .then(res => {
+                console.log(res);
+                return res;
+            })
             .then(res => [this._get_new_file_stats_object('.', true, 0, new Date())]
                 .concat(res.objects.filter(obj => !obj.key.endsWith('/')) // filter out dirs
                     .map(obj => this._get_new_file_stats_object(path.parse(obj.key).base, false, obj.size, obj.create_time)))
                 .concat(res.common_prefixes.map(prefix => this._get_new_file_stats_object(path.parse(prefix).base, true, 0, new Date()))))
-            .tap(list => console.log(`retruning list`, list));
+            .then(list => {
+                console.log(`returning list`, list);
+                return list;
+            });
     }
 
     chdir(dir_path = '.') {

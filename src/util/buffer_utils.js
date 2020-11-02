@@ -2,7 +2,6 @@
 'use strict';
 
 const stream = require('stream');
-const P = require('./promise');
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
@@ -152,7 +151,7 @@ function count_length(buffers) {
 }
 
 function write_to_stream(writable, buf) {
-    return new P((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         writable.once('error', reject);
         writable.write(buf, err => {
             if (err) {

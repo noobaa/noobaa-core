@@ -221,7 +221,7 @@ function read_and_parse_body(req, options) {
 }
 
 function read_request_body(req, options) {
-    return new P((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         let data = '';
         let content_len = 0;
         const sha256 = crypto.createHash('sha256');

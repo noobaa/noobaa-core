@@ -17,7 +17,6 @@ const db_client = require('../../util/db_client');
 const dotenv = require('../../util/dotenv');
 
 let monitoring_status = {};
-let server_conf = {};
 
 if (!process.env.PLATFORM) {
     console.log('loading .env file...');
@@ -27,9 +26,9 @@ if (!process.env.PLATFORM) {
 async function run() {
     dbg.log0('SERVER_MONITOR: BEGIN');
     monitoring_status = {
-        dns_status: "UNKNOWN",
+        dns_status: "OPERATIONAL",
         ph_status: {
-            status: "UNKNOWN",
+            status: "OPERATIONAL",
             test_time: moment().unix()
         },
     };
@@ -41,8 +40,6 @@ async function run() {
         dbg.log0('system does not exist, skipping');
         return;
     }
-
-    server_conf = system_store.get_local_cluster_info(true);
 
     await system_store.refresh();
     await run_monitors();
@@ -69,10 +66,7 @@ async function run_monitors() {
 }
 
 function _check_dns_and_phonehome() {
-    if (!_.isEmpty(server_conf.dns_servers)) {
-        monitoring_status.dns_status = "OPERATIONAL";
-    }
-
+    monitoring_status.dns_status = "OPERATIONAL";
     monitoring_status.ph_status = {
         status: "OPERATIONAL",
         test_time: moment().unix()

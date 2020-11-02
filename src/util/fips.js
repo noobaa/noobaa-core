@@ -55,10 +55,11 @@ function set_fips_mode(mode = detect_fips_mode()) {
     nb_native().set_fips_mode(mode);
     if (mode) {
         // monkey-patch the crypto.createHash() function to provide a non-crypto md5 flow
+        const { MD5_MB } = nb_native();
         crypto.createHash = function(algorithm, options) {
             switch (algorithm) {
                 case 'md5': {
-                    return new HashWrap(new(nb_native().MD5_MB)());
+                    return new HashWrap(new MD5_MB());
                 }
                 default:
                     return original_crypto.createHash(algorithm, options);

@@ -131,7 +131,13 @@ module.exports = {
 
         'function-call-argument-newline': 'off',
 
-        'space-unary-ops': ['error', { words: false, nonwords: false }],
+        'space-unary-ops': ['error', {
+            words: true,
+            nonwords: false,
+            overrides: {
+                typeof: false,
+            },
+        }],
 
         // max line length is 80 by default, allow some slack
         // TODO eslint max-len for code lines should be error and reduced to ~100 instead of 140

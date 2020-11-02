@@ -2,8 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
-const path = require('path');
 
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -310,6 +308,7 @@ async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
     const policy_info = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+    if (!policy_info) return;
     const s3_policy = policy_info.s3_policy;
     const system_owner = policy_info.system_owner;
     const bucket_owner = policy_info.bucket_owner;
@@ -408,8 +407,8 @@ function get_bucket_and_key(req) {
 
 function parse_op_name(req) {
     const method = req.method.toLowerCase();
+    const { bucket, key, is_virtual_hosted_bucket } = get_bucket_and_key(req);
 
-    let { bucket, key, is_virtual_hosted_bucket } = get_bucket_and_key(req);
     req.params = { bucket, key };
     if (is_virtual_hosted_bucket) {
         req.virtual_hosted_bucket = bucket;
@@ -420,19 +419,23 @@ function parse_op_name(req) {
         return `${method}_service`;
     }
 
+    const query_keys = Object.keys(req.query);
+
     // bucket url
     if (!key) {
-        const query_keys = Object.keys(req.query);
         for (let i = 0; i < query_keys.length; ++i) {
-            if (BUCKET_SUB_RESOURCES[query_keys[i]]) return `${method}_bucket_${BUCKET_SUB_RESOURCES[query_keys[i]]}`;
+            if (BUCKET_SUB_RESOURCES[query_keys[i]]) {
+                return `${method}_bucket_${BUCKET_SUB_RESOURCES[query_keys[i]]}`;
+            }
         }
         return `${method}_bucket`;
     }
 
     // object url
-    const query_keys = Object.keys(req.query);
     for (let i = 0; i < query_keys.length; ++i) {
-        if (OBJECT_SUB_RESOURCES[query_keys[i]]) return `${method}_object_${OBJECT_SUB_RESOURCES[query_keys[i]]}`;
+        if (OBJECT_SUB_RESOURCES[query_keys[i]]) {
+            return `${method}_object_${OBJECT_SUB_RESOURCES[query_keys[i]]}`;
+        }
     }
     return `${method}_object`;
 }
@@ -599,15 +602,81 @@ function consume_usage_report() {
 }
 
 function load_ops() {
-    return js_utils.deep_freeze(new js_utils.PackedObject(
-        _.mapValues(
-            _.mapKeys(
-                fs.readdirSync(path.join(__dirname, 'ops')),
-                file => file.match(/^s3_([a-zA-Z0-9_]+)\.js$/)[1]
-            ),
-            file => require(`./ops/${file}`) // eslint-disable-line global-require
-        )
-    ));
+    /* eslint-disable global-require */
+    return js_utils.deep_freeze({
+        delete_bucket: require('./ops/s3_delete_bucket'),
+        delete_bucket_analytics: require('./ops/s3_delete_bucket_analytics'),
+        delete_bucket_cors: require('./ops/s3_delete_bucket_cors'),
+        delete_bucket_encryption: require('./ops/s3_delete_bucket_encryption'),
+        delete_bucket_inventory: require('./ops/s3_delete_bucket_inventory'),
+        delete_bucket_lifecycle: require('./ops/s3_delete_bucket_lifecycle'),
+        delete_bucket_metrics: require('./ops/s3_delete_bucket_metrics'),
+        delete_bucket_policy: require('./ops/s3_delete_bucket_policy'),
+        delete_bucket_replication: require('./ops/s3_delete_bucket_replication'),
+        delete_bucket_tagging: require('./ops/s3_delete_bucket_tagging'),
+        delete_bucket_website: require('./ops/s3_delete_bucket_website'),
+        delete_object: require('./ops/s3_delete_object'),
+        delete_object_tagging: require('./ops/s3_delete_object_tagging'),
+        delete_object_uploadId: require('./ops/s3_delete_object_uploadId'),
+        get_bucket: require('./ops/s3_get_bucket'),
+        get_bucket_accelerate: require('./ops/s3_get_bucket_accelerate'),
+        get_bucket_acl: require('./ops/s3_get_bucket_acl'),
+        get_bucket_analytics: require('./ops/s3_get_bucket_analytics'),
+        get_bucket_cors: require('./ops/s3_get_bucket_cors'),
+        get_bucket_encryption: require('./ops/s3_get_bucket_encryption'),
+        get_bucket_inventory: require('./ops/s3_get_bucket_inventory'),
+        get_bucket_lifecycle: require('./ops/s3_get_bucket_lifecycle'),
+        get_bucket_location: require('./ops/s3_get_bucket_location'),
+        get_bucket_logging: require('./ops/s3_get_bucket_logging'),
+        get_bucket_metrics: require('./ops/s3_get_bucket_metrics'),
+        get_bucket_notification: require('./ops/s3_get_bucket_notification'),
+        get_bucket_object_lock: require('./ops/s3_get_bucket_object_lock'),
+        get_bucket_policy: require('./ops/s3_get_bucket_policy'),
+        get_bucket_replication: require('./ops/s3_get_bucket_replication'),
+        get_bucket_requestPayment: require('./ops/s3_get_bucket_requestPayment'),
+        get_bucket_tagging: require('./ops/s3_get_bucket_tagging'),
+        get_bucket_uploads: require('./ops/s3_get_bucket_uploads'),
+        get_bucket_versioning: require('./ops/s3_get_bucket_versioning'),
+        get_bucket_versions: require('./ops/s3_get_bucket_versions'),
+        get_bucket_website: require('./ops/s3_get_bucket_website'),
+        get_object: require('./ops/s3_get_object'),
+        get_object_acl: require('./ops/s3_get_object_acl'),
+        get_object_legal_hold: require('./ops/s3_get_object_legal_hold'),
+        get_object_retention: require('./ops/s3_get_object_retention'),
+        get_object_tagging: require('./ops/s3_get_object_tagging'),
+        get_object_uploadId: require('./ops/s3_get_object_uploadId'),
+        get_service: require('./ops/s3_get_service'),
+        head_bucket: require('./ops/s3_head_bucket'),
+        head_object: require('./ops/s3_head_object'),
+        post_bucket: require('./ops/s3_post_bucket'),
+        post_bucket_delete: require('./ops/s3_post_bucket_delete'),
+        post_object_uploadId: require('./ops/s3_post_object_uploadId'),
+        post_object_uploads: require('./ops/s3_post_object_uploads'),
+        put_bucket: require('./ops/s3_put_bucket'),
+        put_bucket_accelerate: require('./ops/s3_put_bucket_accelerate'),
+        put_bucket_acl: require('./ops/s3_put_bucket_acl'),
+        put_bucket_analytics: require('./ops/s3_put_bucket_analytics'),
+        put_bucket_cors: require('./ops/s3_put_bucket_cors'),
+        put_bucket_encryption: require('./ops/s3_put_bucket_encryption'),
+        put_bucket_inventory: require('./ops/s3_put_bucket_inventory'),
+        put_bucket_lifecycle: require('./ops/s3_put_bucket_lifecycle'),
+        put_bucket_logging: require('./ops/s3_put_bucket_logging'),
+        put_bucket_metrics: require('./ops/s3_put_bucket_metrics'),
+        put_bucket_notification: require('./ops/s3_put_bucket_notification'),
+        put_bucket_object_lock: require('./ops/s3_put_bucket_object_lock'),
+        put_bucket_policy: require('./ops/s3_put_bucket_policy'),
+        put_bucket_replication: require('./ops/s3_put_bucket_replication'),
+        put_bucket_requestPayment: require('./ops/s3_put_bucket_requestPayment'),
+        put_bucket_tagging: require('./ops/s3_put_bucket_tagging'),
+        put_bucket_versioning: require('./ops/s3_put_bucket_versioning'),
+        put_bucket_website: require('./ops/s3_put_bucket_website'),
+        put_object: require('./ops/s3_put_object'),
+        put_object_acl: require('./ops/s3_put_object_acl'),
+        put_object_legal_hold: require('./ops/s3_put_object_legal_hold'),
+        put_object_retention: require('./ops/s3_put_object_retention'),
+        put_object_tagging: require('./ops/s3_put_object_tagging'),
+        put_object_uploadId: require('./ops/s3_put_object_uploadId'),
+    });
 }
 
 // EXPORTS

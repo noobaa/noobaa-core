@@ -187,7 +187,7 @@ function parse_sse_c(req, copy_source) {
 function parse_sse(req) {
     const algorithm = req.headers['x-amz-server-side-encryption'];
     const kms_key_id = req.headers['x-amz-server-side-encryption-aws-kms-key-id'];
-    const context_b64 = (algorithm === 'aws:kms') && req.headers['x-amz-server-side-encryption-context'];
+    const context_b64 = algorithm === 'aws:kms' ? req.headers['x-amz-server-side-encryption-context'] : undefined;
 
     if (!algorithm) {
         if (kms_key_id) {

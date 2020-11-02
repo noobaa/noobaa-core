@@ -547,6 +547,50 @@ function parse_website_to_body(website) {
     return reply;
 }
 
+function has_bucket_policy_permission(policy, account, method, arn_path) {
+    const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
+
+    // look for explicit denies
+    if (_is_statements_fit(deny_statements, account, method, arn_path)) return false;
+
+    // look for explicit allows
+    if (_is_statements_fit(allow_statements, account, method, arn_path)) return true;
+
+    // implicit deny
+    return false;
+}
+
+function _is_statements_fit(statements, account, method, arn_path) {
+    for (const statement of statements) {
+        let action_fit = false;
+        let principal_fit = false;
+        let resource_fit = false;
+        for (const action of statement.action) {
+            dbg.log0('bucket_policy: action fit?', action, method);
+            if ((action === '*') || (action === 's3:*') || (action === method)) {
+                action_fit = true;
+            }
+        }
+        for (const principal of statement.principal) {
+            dbg.log0('bucket_policy: principal fit?', principal, account);
+            if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+                principal_fit = true;
+            }
+        }
+        for (const resource of statement.resource) {
+            const resource_regex = RegExp(`^${resource.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
+            dbg.log0('bucket_policy: resource fit?', resource_regex, arn_path);
+            if (resource_regex.test(arn_path)) {
+                resource_fit = true;
+            }
+        }
+        dbg.log0('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
+        if (action_fit && principal_fit && resource_fit) return true;
+    }
+    return false;
+}
+
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
@@ -571,3 +615,4 @@ exports.parse_lock_header = parse_lock_header;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;
+exports.has_bucket_policy_permission = has_bucket_policy_permission;

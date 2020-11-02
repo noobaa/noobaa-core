@@ -243,12 +243,17 @@ class PostgresTable {
             this.client._ajv.addSchema(schema, name);
         }
 
-        // Run once a day
-        setInterval(this.vacuumAndAnalyze, 86400000, this);
+        if (!process.env.CORETEST) {
+            // Run once a day
+            setInterval(this.vacuumAndAnalyze, 86400000, this);
+        }
     }
 
     initializeUnorderedBulkOp() {
-        return new UnorderedBulkOp({ name: this.name, client: this.client });
+        return new UnorderedBulkOp({
+            name: this.name,
+            client: this.client
+        });
     }
 
     initializeOrderedBulkOp() {

@@ -688,7 +688,7 @@ function has_bucket_anonymous_permission(bucket) {
         // for object - GetObject, GetObjectVersion, GetObjectTorrent
         `s3:getobject`,
         `arn:aws:s3:::${bucket.name.unwrap()}/*`
-    );
+    ) === 'ALLOW';
 }
 
 /**

@@ -21,18 +21,17 @@ const GPL_TYPE = 'GPL';
  */
 class LicenseDetector extends events.EventEmitter {
 
-    init_templates() {
+    async init_templates() {
         if (this.LICENSE_TEMPLATES) return P.resolve();
         const templates_dir = path.join(__dirname, 'license_templates');
-        return fs.promises.readdir(templates_dir)
-            .map(name => fs.promises.readFile(path.join(templates_dir, name), 'utf8')
-                .then(text => this.parse_text(text, name))
-            )
-            .then(templates => {
-                // sorting licenses to check ones with fewer symbols first
-                templates.sort((a, b) => a.symbols.length - b.symbols.length);
-                this.LICENSE_TEMPLATES = templates;
-            });
+        const names = await fs.promises.readdir(templates_dir);
+        const templates = await Promise.all(names.map(async name => {
+            const text = await fs.promises.readFile(path.join(templates_dir, name), 'utf8');
+            return this.parse_text(text, name);
+        }));
+        // sorting licenses to check ones with fewer symbols first
+        templates.sort((a, b) => a.symbols.length - b.symbols.length);
+        this.LICENSE_TEMPLATES = templates;
     }
 
     detect_license_text(text, file_path) {
@@ -102,40 +101,38 @@ class LicenseScanner extends events.EventEmitter {
         this._scanned_count = 0;
     }
 
-    scan_rpms() {
-        return promise_utils.exec(
-                `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`, {
-                    ignore_rc: false,
-                    return_stdout: true,
-                })
-            .then(text => text.split('\n'))
-            .map(l => {
-                this._increase_scanned_count();
-                const [
-                    name = '',
-                    version = '',
-                    url = '',
-                    license = ''
-                ] = l.split('|');
-                if (!name && !version && !url && !license) return P.resolve();
-                const paths = [
-                    `/usr/share/doc/${name}-${version}`,
-                    `/usr/share/doc/${name}`,
-                    `/usr/share/${name}-${version}`,
-                    `/usr/share/${name}`,
-                ];
-                return P.map(paths, stat_if_exists)
-                    .then(stats => {
-                        const index = _.findIndex(stats, stat => Boolean(stat));
-                        this._emit_license({
-                            path: paths[index < 0 ? 0 : index] + '/RPM',
-                            license,
-                            name,
-                            version,
-                            url,
-                        });
-                    });
+    async scan_rpms() {
+        const text = await promise_utils.exec(
+            `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`, {
+                ignore_rc: false,
+                return_stdout: true,
+            }
+        );
+        await Promise.all(text.split('\n').map(async l => {
+            this._increase_scanned_count();
+            const [
+                name = '',
+                version = '',
+                url = '',
+                license = ''
+            ] = l.split('|');
+            if (!name && !version && !url && !license) return;
+            const paths = [
+                `/usr/share/doc/${name}-${version}`,
+                `/usr/share/doc/${name}`,
+                `/usr/share/${name}-${version}`,
+                `/usr/share/${name}`,
+            ];
+            const stats = Promise.all(paths.map(file_path => fs.promises.stat(file_path).catch(fs_utils.ignore_enoent)));
+            const index = _.findIndex(stats, stat => Boolean(stat));
+            this._emit_license({
+                path: paths[index < 0 ? 0 : index] + '/RPM',
+                license,
+                name,
+                version,
+                url,
             });
+        }));
     }
 
     scan_dir(dir) {
@@ -164,74 +161,66 @@ class LicenseScanner extends events.EventEmitter {
         });
     }
 
-    scan_license_file(file_path) {
-        return fs.promises.readFile(file_path, 'utf8')
-            .then(text => {
-                const license = this.detector.detect_license_text(text, file_path);
-                this._emit_license({
-                    path: file_path,
-                    license,
-                });
-            })
-            .catch(err => {
-                console.warn('scan_license_file: FAILED', file_path, err.message);
+    async scan_license_file(file_path) {
+        try {
+            const text = await fs.promises.readFile(file_path, 'utf8');
+            const license = this.detector.detect_license_text(text, file_path);
+            this._emit_license({
+                path: file_path,
+                license,
             });
+        } catch (err) {
+            console.warn('scan_license_file: FAILED', file_path, err.message);
+        }
     }
 
-    scan_package_json_file(file_path) {
-        return fs.promises.readFile(file_path)
-            .then(data => JSON.parse(data))
-            .then(({
+    async scan_package_json_file(file_path) {
+        try {
+            const text = await fs.promises.readFile(file_path, 'utf8');
+            const {
                 name = '',
-                version = '',
-                license = '',
-                licenses = '',
-                url = '',
-                repository = '',
-                homepage = '',
-                author = ''
-            }) => {
-                url = url || homepage || (repository && repository.url) || '';
-                license = license || licenses;
-                if (!license && !url && !author) {
-                    // empty package, just a folder with package.json but no info or license,
-                    // we just ignore these assuming they do not have any license claims.
-                    return;
-                }
-                _.forEach(_.isArray(license) ? license : [license],
-                    l => this._emit_license({
-                        path: file_path,
-                        license: l.type || l,
-                        name,
-                        version,
-                        url,
-                    })
-                );
-            })
-            .catch(err => {
-                console.warn('scan_package_json_file: FAILED', file_path, err.message);
-            });
+                    version = '',
+                    license = '',
+                    licenses = '',
+                    url = '',
+                    repository = '',
+                    homepage = '',
+                    author = '',
+            } = JSON.parse(text);
+            const u = url || homepage || (repository && repository.url) || '';
+            if (!license && !licenses && !url && !author) {
+                // empty package, just a folder with package.json but no info or license,
+                // we just ignore these assuming they do not have any license claims.
+                return;
+            }
+            const license_list = [license || licenses].flat();
+            license_list.map(l => this._emit_license({
+                path: file_path,
+                license: l.type || l,
+                name,
+                version,
+                url: u,
+            }));
+        } catch (err) {
+            console.warn('scan_package_json_file: FAILED', file_path, err.message);
+        }
     }
 
-    scan_code_file(file_path) {
+    async scan_code_file(file_path) {
         const buffer = Buffer.allocUnsafe(10 * 1024);
-        return fs.promises.open(file_path, 'r')
-            .then(fd => P.resolve()
-                .then(() => fs.promises.read(fd, buffer, 0, buffer.length, 0))
-                .then(bytes_read => {
-                    const text = buffer.slice(0, bytes_read).toString('utf8');
-                    const license = this.detector.detect_license_text(text, file_path);
-                    if (!license) return;
-                    this._emit_license({
-                        path: file_path,
-                        license,
-                    });
-                })
-                .finally(() => fs.closeSync(fd))
-            )
-            .catch(err => {
-                console.warn('scan_code_file: FAILED', file_path, err.message);
-            });
+        let fh;
+        try {
+            fh = await fs.promises.open(file_path, 'r');
+            const bytes_read = await fh.read(buffer, 0, buffer.length, 0);
+            const text = buffer.slice(0, bytes_read).toString('utf8');
+            const license = this.detector.detect_license_text(text, file_path);
+            if (!license) return;
+            this._emit_license({ path: file_path, license });
+        } catch (err) {
+            console.warn('scan_code_file: FAILED', file_path, err.message);
+        } finally {
+            if (fh) await fh.close();
+        }
     }
 
     _increase_scanned_count() {
@@ -249,13 +238,6 @@ class LicenseScanner extends events.EventEmitter {
         this.emit('license', license);
     }
 
-}
-
-function stat_if_exists(file_path) {
-    return fs.promises.stat(file_path)
-        .catch(err => {
-            if (err.code !== 'ENOENT') throw err;
-        });
 }
 
 function get_license_type(name) {

@@ -230,7 +230,7 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
     // get uid and gid of common path, to set for new dbpath
     let stats;
     try {
-        stats = await fs.statAsync(config.MONGO_DEFAULTS.COMMON_PATH);
+        stats = await fs.promises.stat(config.MONGO_DEFAULTS.COMMON_PATH);
     } catch (err) {
         dbg.error(`could not get stats for ${config.MONGO_DEFAULTS.COMMON_PATH}. mongod uid and gid are unkown`);
     }
@@ -265,7 +265,7 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
         dbg.log0('adding server to an existing cluster. cleaning dbpath:', dbpath);
         await fs_utils.create_fresh_path(dbpath);
         if (stats) {
-            await fs.chownAsync(dbpath, stats.uid, stats.gid);
+            await fs.promises.chown(dbpath, stats.uid, stats.gid);
         }
         await SupervisorCtl.add_program(program_obj);
     }

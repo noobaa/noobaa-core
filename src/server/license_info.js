@@ -23,7 +23,7 @@ const serial = new Semaphore(1);
 function serve_http(req, res) {
     console.log('license_info: serve_http');
     serial.surround(() => P.resolve()
-            .then(() => fs.statAsync(LICENSE_INFO_JSON_PATH))
+            .then(() => fs.promises.stat(LICENSE_INFO_JSON_PATH))
             .catch(err => {
                 if (err.code === 'ENOENT') {
                     console.log('license_info: no file yet, generating ...');
@@ -123,7 +123,7 @@ function main() {
                 process.stdout.write(text);
                 return;
             }
-            return fs.writeFileAsync(argv.out, text);
+            return fs.promises.writeFile(argv.out, text);
         });
 }
 

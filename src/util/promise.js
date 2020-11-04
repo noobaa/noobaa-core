@@ -36,9 +36,6 @@ P.config({
     monitoring: false
 });
 
-P.promisifyAll(require('fs'));
-P.promisifyAll(require('child_process'));
-
 // TODO remove backward compatibility to Q functions
 P.defer = function defer() {
     // see! http://bluebirdjs.com/docs/api/deferred-migration.html

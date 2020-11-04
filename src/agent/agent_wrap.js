@@ -112,12 +112,12 @@ async function clean_old_files() {
         await fs_utils.file_delete(CONFIGURATION.SETUP_FILE);
 
         // clean previous backup dir
-        const files = await fs.readdirAsync(process.cwd());
+        const files = await fs.promises.readdir(process.cwd());
         const backup_dir = files.find(file => file.startsWith('backup_'));
         if (backup_dir) {
             dbg.log0(`found backup dir ${backup_dir}, deleting old backup dir, and renaming ${backup_dir} to backup`);
             await fs_utils.folder_delete(CONFIGURATION.BACKUP_DIR);
-            await fs.renameAsync(backup_dir, CONFIGURATION.BACKUP_DIR);
+            await fs.promises.rename(backup_dir, CONFIGURATION.BACKUP_DIR);
         }
     } catch (err) {
         dbg.error('failed on clean_old_files. continue as usual', err);
@@ -129,7 +129,7 @@ async function upgrade_agent() {
     await _download_file(`https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`, fs.createWriteStream(CONFIGURATION.SETUP_FILE));
 
     // make setup file executable
-    await fs.chmodAsync(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL);
+    await fs.promises.chmod(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL);
 
     // backup agent dir before upgrade:
     new_backup_dir += '_' + String(Date.now());
@@ -140,7 +140,7 @@ async function upgrade_agent() {
         const new_path = path.join(new_backup_dir, file);
         dbg.log0(`moving ${old_path} to ${new_path}`);
         try {
-            await fs.renameAsync(old_path, new_path);
+            await fs.promises.rename(old_path, new_path);
         } catch (err) {
             dbg.error(`failed moving ${old_path} to ${new_path}`);
         }
@@ -167,7 +167,7 @@ async function main() {
     await clean_old_files();
 
     // get server address from agent_conf
-    address = url.parse(JSON.parse(await fs.readFileAsync(os_utils.get_agent_platform_path().concat('agent_conf.json'))).address).host;
+    address = url.parse(JSON.parse(await fs.promises.readFile(os_utils.get_agent_platform_path().concat('agent_conf.json'))).address).host;
 
     try {
         dbg.log0('Starting agent_cli');

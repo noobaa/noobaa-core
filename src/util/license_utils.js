@@ -24,8 +24,8 @@ class LicenseDetector extends events.EventEmitter {
     init_templates() {
         if (this.LICENSE_TEMPLATES) return P.resolve();
         const templates_dir = path.join(__dirname, 'license_templates');
-        return fs.readdirAsync(templates_dir)
-            .map(name => fs.readFileAsync(path.join(templates_dir, name), 'utf8')
+        return fs.promises.readdir(templates_dir)
+            .map(name => fs.promises.readFile(path.join(templates_dir, name), 'utf8')
                 .then(text => this.parse_text(text, name))
             )
             .then(templates => {
@@ -165,7 +165,7 @@ class LicenseScanner extends events.EventEmitter {
     }
 
     scan_license_file(file_path) {
-        return fs.readFileAsync(file_path, 'utf8')
+        return fs.promises.readFile(file_path, 'utf8')
             .then(text => {
                 const license = this.detector.detect_license_text(text, file_path);
                 this._emit_license({
@@ -179,7 +179,7 @@ class LicenseScanner extends events.EventEmitter {
     }
 
     scan_package_json_file(file_path) {
-        return fs.readFileAsync(file_path)
+        return fs.promises.readFile(file_path)
             .then(data => JSON.parse(data))
             .then(({
                 name = '',
@@ -215,9 +215,9 @@ class LicenseScanner extends events.EventEmitter {
 
     scan_code_file(file_path) {
         const buffer = Buffer.allocUnsafe(10 * 1024);
-        return fs.openAsync(file_path, 'r')
+        return fs.promises.open(file_path, 'r')
             .then(fd => P.resolve()
-                .then(() => fs.readAsync(fd, buffer, 0, buffer.length, 0))
+                .then(() => fs.promises.read(fd, buffer, 0, buffer.length, 0))
                 .then(bytes_read => {
                     const text = buffer.slice(0, bytes_read).toString('utf8');
                     const license = this.detector.detect_license_text(text, file_path);
@@ -227,7 +227,7 @@ class LicenseScanner extends events.EventEmitter {
                         license,
                     });
                 })
-                .finally(() => fs.closeAsync(fd))
+                .finally(() => fs.closeSync(fd))
             )
             .catch(err => {
                 console.warn('scan_code_file: FAILED', file_path, err.message);
@@ -252,7 +252,7 @@ class LicenseScanner extends events.EventEmitter {
 }
 
 function stat_if_exists(file_path) {
-    return fs.statAsync(file_path)
+    return fs.promises.stat(file_path)
         .catch(err => {
             if (err.code !== 'ENOENT') throw err;
         });

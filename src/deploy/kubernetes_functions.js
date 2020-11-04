@@ -31,7 +31,7 @@ class KubernetesFunctions {
     async init() {
         if (!this.namespace) {
             if (IS_IN_POD) {
-                this.namespace = (await fs.readFileAsync('/var/run/secrets/kubernetes.io/serviceaccount/namespace')).toString();
+                this.namespace = (await fs.promises.readFile('/var/run/secrets/kubernetes.io/serviceaccount/namespace')).toString();
             } else {
                 this.namespace = await this.kubectl(`config view --minify --output 'jsonpath={..namespace}'`, { ignore_namespace: true });
             }
@@ -82,7 +82,7 @@ class KubernetesFunctions {
      */
     async write_resources(file, resources) {
         const file_content = _.map(resources, resource => JSON.stringify(resource)).join('\n');
-        await fs.writeFileAsync(file, file_content);
+        await fs.promises.writeFile(file, file_content);
     }
 
     async kubectl_get(resource, name) {

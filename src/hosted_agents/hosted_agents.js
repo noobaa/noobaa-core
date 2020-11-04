@@ -208,7 +208,7 @@ class HostedAgents {
         let local_create_node_token = auth_server.make_auth_token(auth_parmas);
 
         const token_wrapper = {
-            read: () => fs.readFileAsync(path.join(storage_path, 'token')),
+            read: () => fs.promises.readFile(path.join(storage_path, 'token')),
             write: token => fs_utils.replace_file(path.join(storage_path, 'token'), token),
         };
         const create_node_token_wrapper = {

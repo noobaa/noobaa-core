@@ -475,9 +475,9 @@ async function ceph_test_setup() {
     console.info(`Updating ${CEPH_TEST.ceph_config} with host = ${s3_ip}...`);
     // update config with the s3 endpoint
     const conf_file = `${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
-    const conf_file_content = (await fs.readFileAsync(conf_file)).toString();
+    const conf_file_content = (await fs.promises.readFile(conf_file)).toString();
     const new_conf_file_content = conf_file_content.replace(/host = localhost/g, `host = ${s3_ip}`);
-    await fs.writeFileAsync(conf_file, new_conf_file_content);
+    await fs.promises.writeFile(conf_file, new_conf_file_content);
     console.log('conf file updated');
 
     //await test_utils.create_hosts_pool(client, CEPH_TEST.pool, 3);

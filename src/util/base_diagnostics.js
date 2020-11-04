@@ -44,7 +44,7 @@ function collect_basic_diagnostics(limit_logs_size) {
 }
 
 function write_agent_diag_file(data) {
-    return fs.writeFileAsync(TMP_WORK_DIR + '/from_agent_diag.tgz', data);
+    return fs.promises.writeFile(TMP_WORK_DIR + '/from_agent_diag.tgz', data);
 }
 
 function pack_diagnostics(dst, working_dir) {
@@ -67,7 +67,7 @@ function pack_diagnostics(dst, working_dir) {
                     throw new Error('Error while creating tar package ' + err2);
                 });
         })
-        .then(() => fs.statAsync(dst))
+        .then(() => fs.promises.stat(dst))
         .then(stats => dbg.log0(`created diag tar package sized ${stats.size}`))
         .then(() => archive_diagnostics_pack(dst))
         .catch(err => {
@@ -88,7 +88,7 @@ function archive_diagnostics_pack(dst) {
         })
         .then(function() {
             console.log('archive_diagnostics_pack2');
-            return fs.readdirAsync(config.central_stats.previous_diag_packs_dir);
+            return fs.promises.readdir(config.central_stats.previous_diag_packs_dir);
         })
         .then(function(files) {
             console.log('archive_diagnostics_pack3');
@@ -99,7 +99,7 @@ function archive_diagnostics_pack(dst) {
                 console.log('archive_diagnostics_pack4');
 
                 var sorted_files = _.orderBy(files);
-                return fs.unlinkAsync(config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
+                return fs.promises.unlink(config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 console.log('archive_diagnostics_pack5');
             }

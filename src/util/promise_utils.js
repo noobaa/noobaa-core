@@ -102,9 +102,10 @@ function pwhile(condition, body) {
  * simple promise loop, similar to _.times but ignores the return values,
  * and only returns a promise for completion or failure
  *
- * @param attempts number of attempts. can be Infinity.
- * @param delay_ms number of milliseconds between retries
- * @param func with signature function(attempts), passing remaining attempts just fyi
+ * @param {number} attempts number of attempts. can be Infinity.
+ * @param {number} delay_ms number of milliseconds between retries
+ * @param {(attemtpts:number) => Promise} func passing remaining attempts just fyi
+ * @param {(err:Error) => void} [error_logger]
  */
 function retry(attempts, delay_ms, func, error_logger) {
 

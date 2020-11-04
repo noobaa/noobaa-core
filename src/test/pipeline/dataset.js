@@ -256,7 +256,7 @@ function update_dataset_sizes() {
 }
 
 function log_journal_file(item) {
-    return fs.appendFileAsync(JOURNAL_FILE, item + '\n');
+    return fs.promises.appendFile(JOURNAL_FILE, item + '\n');
 }
 
 /*

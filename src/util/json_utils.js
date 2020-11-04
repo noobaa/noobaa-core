@@ -35,7 +35,7 @@ class JsonFileWrapper {
 
     _read_internal() {
         return P.resolve()
-            .then(() => fs.readFileAsync(this.json_path))
+            .then(() => fs.promises.readFile(this.json_path, 'utf8'))
             .then(data => JSON.parse(data))
             .catch(err => {
                 if (err.code === 'ENOENT') {

@@ -51,33 +51,30 @@ function _init() {
 //
 
 //Return new cluster info, if doesn't exists in db
-function new_cluster_info(params) {
+async function new_cluster_info(params) {
     if (system_store.get_local_cluster_info()) {
         return;
     }
 
-    return P.fcall(function() {
-            var address = (params && params.address) || os_utils.get_local_ipv4_ips()[0];
-            var cluster = {
-                _id: system_store.new_system_store_id(),
-                debug_level: 0,
-                is_clusterized: false,
-                owner_secret: system_store.get_server_secret(),
-                cluster_id: system_store.get_server_secret(),
-                owner_address: address,
-                owner_shardname: 'shard1',
-                location: 'DC1',
-                shards: [{
-                    shardname: 'shard1',
-                    servers: [{
-                        address: address //TODO:: on multiple nics support, fix this
-                    }],
-                }],
-                config_servers: [],
-            };
-            return cluster;
-        })
-        .then(cluster => _attach_server_configuration(cluster));
+    const address = (params && params.address) || os_utils.get_local_ipv4_ips()[0];
+    const cluster = {
+        _id: system_store.new_system_store_id(),
+        debug_level: 0,
+        is_clusterized: false,
+        owner_secret: system_store.get_server_secret(),
+        cluster_id: system_store.get_server_secret(),
+        owner_address: address,
+        owner_shardname: 'shard1',
+        location: 'DC1',
+        shards: [{
+            shardname: 'shard1',
+            servers: [{
+                address: address //TODO:: on multiple nics support, fix this
+            }],
+        }],
+        config_servers: [],
+    };
+    return _attach_server_configuration(cluster);
 }
 
 function init_cluster() {
@@ -171,7 +168,8 @@ function add_member_to_cluster_invoke(req, my_address) {
     const is_clusterized = topology.is_clusterized;
     const first_server = !is_clusterized;
 
-    return P.fcall(function() {
+    return Promise.resolve()
+        .then(() => {
             //If this is the first time we are adding to the cluster, special handling is required
             if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
@@ -188,9 +186,9 @@ function add_member_to_cluster_invoke(req, my_address) {
         .then(() => {
             dbg.log0(`read mongo certs from /data/mongo/ssl/`);
             return Promise.all([
-                fs.readFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, 'utf8'),
-                fs.readFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, 'utf8'),
-                fs.readFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, 'utf8')
+                fs.promises.readFile(config.MONGO_DEFAULTS.ROOT_CA_PATH, 'utf8'),
+                fs.promises.readFile(config.MONGO_DEFAULTS.SERVER_CERT_PATH, 'utf8'),
+                fs.promises.readFile(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, 'utf8'),
             ]);
         })
         .then(([root_ca, server_cert, client_cert]) => {
@@ -240,7 +238,7 @@ function add_member_to_cluster_invoke(req, my_address) {
         })
         // TODO: solve in a better way
         // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
-        .delay(500)
+        .then(() => P.delay(500))
         .then(function() {
             dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
@@ -322,15 +320,15 @@ function _check_candidate_version(req) {
                 result: 'OKAY'
             };
         })
-        .catch(RpcError, rpc_err => {
-            if (rpc_err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
+        .catch(err => {
+            if (err.rpc_code === 'NO_SUCH_RPC_SERVICE') {
                 dbg.warn('_check_candidate_version got NO_SUCH_RPC_SERVICE from a server with an old version');
                 // Called server is too old to have this code
                 return {
                     result: 'VERSION_MISMATCH'
                 };
             }
-            throw rpc_err;
+            throw err;
         });
 }
 
@@ -369,7 +367,7 @@ function verify_candidate_join_conditions(req) {
                     }
                 });
         })
-        .catch(RpcError, err => {
+        .catch(err => {
             if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
                 err.rpc_code === 'RPC_REQUEST_TIMEOUT') {
                 dbg.warn('received', err, ' on verify_candidate_join_conditions');
@@ -424,9 +422,9 @@ function join_to_cluster(req) {
         .then(() => {
             dbg.log0(`overwrite mongo certs to /data/mongo/ssl/`);
             return Promise.all([
-                fs.writeFileAsync(config.MONGO_DEFAULTS.ROOT_CA_PATH, req.rpc_params.ssl_certs.root_ca),
-                fs.writeFileAsync(config.MONGO_DEFAULTS.SERVER_CERT_PATH, req.rpc_params.ssl_certs.server_cert),
-                fs.writeFileAsync(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, req.rpc_params.ssl_certs.client_cert)
+                fs.promises.writeFile(config.MONGO_DEFAULTS.ROOT_CA_PATH, req.rpc_params.ssl_certs.root_ca),
+                fs.promises.writeFile(config.MONGO_DEFAULTS.SERVER_CERT_PATH, req.rpc_params.ssl_certs.server_cert),
+                fs.promises.writeFile(config.MONGO_DEFAULTS.CLIENT_CERT_PATH, req.rpc_params.ssl_certs.client_cert),
             ]);
         })
         // before joining to cluster stop bg workers to avoid sudden restarts (due to configuration mismatches, ntp, etc.)
@@ -607,7 +605,7 @@ function update_member_of_cluster(req) {
         })
         // TODO: solve in a better way
         // added this delay, otherwise the next system_store.load doesn't catch the new servers HB
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(function() {
             dbg.log0('Edited member', req.rpc_params.old_address, 'of cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
@@ -827,8 +825,8 @@ function _set_debug_level_internal(req, level) {
             if (req.rpc_params.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
                 if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:',
-                        req.rpc_params.target_secret, ' was not found');
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
+                        `Server with secret key: ${req.rpc_params.target_secret} was not found`);
                 }
                 if (level > 0) {
                     update_object.clusters = [{
@@ -923,7 +921,7 @@ function diagnose_system(req) {
                     const server_hostname = (server.heartbeat && server.heartbeat.health.os_info.hostname) || 'unknown';
                     // Should never exist since above we delete the root folder
                     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
-                        .then(() => fs.writeFileAsync(
+                        .then(() => fs.promises.writeFile(
                             `${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`,
                             data
                         ));
@@ -950,7 +948,7 @@ function collect_server_diagnostics(req) {
         })
         .then(out_path => {
             dbg.log1('Reading packed file');
-            return fs.readFileAsync(`${INNER_PATH}${out_path}`)
+            return fs.promises.readFile(`${INNER_PATH}${out_path}`)
                 .then(data => ({
                     [RPC_BUFFERS]: { data }
                 }))
@@ -979,7 +977,8 @@ function collect_server_diagnostics(req) {
 function read_server_time(req) {
     let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
     if (!cluster_server) {
-        throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+        throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
+            `Server with secret key: ${req.rpc_params.target_secret} was not found`);
     }
 
     return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {

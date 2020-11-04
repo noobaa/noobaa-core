@@ -9,7 +9,6 @@ const assert = require('assert');
 const crypto = require('crypto');
 const chance = require('chance')();
 
-const P = require('../../util/promise');
 const zip_utils = require('../../util/zip_utils');
 const fs_utils = require('../../util/fs_utils');
 
@@ -17,80 +16,70 @@ mocha.describe('zip_utils', function() {
 
     var temp_dir;
 
-    mocha.before(function() {
-        return fs.mkdtempAsync('/tmp/test_zip_utils_')
-            .then(dir => {
-                temp_dir = dir;
-            });
+    mocha.before(async function() {
+        temp_dir = await fs.promises.mkdtemp('/tmp/test_zip_utils_');
     });
 
-    mocha.after(function() {
-        return temp_dir && fs_utils.folder_delete(temp_dir);
+    mocha.after(async function() {
+        if (temp_dir) await fs_utils.folder_delete(temp_dir);
     });
 
-    mocha.it('should zip to buffer', function() {
+    mocha.it('should zip to buffer', async function() {
         const files = generate_files();
-        return P.resolve()
-            .then(() => zip_utils.zip_from_files(files))
-            .then(zipfile => zip_utils.zip_to_buffer(zipfile))
-            .then(buffer => assert(Buffer.isBuffer(buffer)) || buffer)
-            .then(buffer => zip_utils.unzip_from_buffer(buffer))
-            .then(zipfile => zip_utils.unzip_to_mem(zipfile))
-            .then(files2 => check_files(files, files2));
+        const zipfile = await zip_utils.zip_from_files(files);
+        const buffer = await zip_utils.zip_to_buffer(zipfile);
+        assert(Buffer.isBuffer(buffer));
+        const unzipfile = await zip_utils.unzip_from_buffer(buffer);
+        const files2 = await zip_utils.unzip_to_mem(unzipfile);
+        check_files(files, files2);
     });
-    mocha.it('should zip to file', function() {
+
+    mocha.it('should zip to file', async function() {
         const files = generate_files();
         const fname = path.join(temp_dir, 'zip-to-file');
-        return P.resolve()
-            .then(() => zip_utils.zip_from_files(files))
-            .then(zipfile => zip_utils.zip_to_file(zipfile, fname))
-            .then(() => zip_utils.unzip_from_file(fname))
-            .then(zipfile => zip_utils.unzip_to_mem(zipfile))
-            .then(files2 => check_files(files, files2));
+        const zipfile = await zip_utils.zip_from_files(files);
+        await zip_utils.zip_to_file(zipfile, fname);
+        const unzipfile = await zip_utils.unzip_from_file(fname);
+        const files2 = await zip_utils.unzip_to_mem(unzipfile);
+        check_files(files, files2);
     });
 
-    mocha.it('should zip from dir', function() {
+    mocha.it('should zip from dir', async function() {
         const files = generate_files();
         const dname = path.join(temp_dir, 'zip-from-dir');
-        return P.resolve()
-            .then(() => fs_utils.create_path(dname))
-            .then(() => P.map(files, file =>
-                fs_utils.create_path(path.dirname(path.join(dname, file.path)))
-                .then(() => fs.writeFileAsync(path.join(dname, file.path), file.data))
-            ))
-            .then(() => zip_utils.zip_from_dir(dname))
-            .then(zipfile => zip_utils.zip_to_buffer(zipfile))
-            .then(buffer => assert(Buffer.isBuffer(buffer)) || buffer)
-            .then(buffer => zip_utils.unzip_from_buffer(buffer))
-            .then(zipfile => zip_utils.unzip_to_mem(zipfile))
-            .then(files2 => check_files(files, files2));
+        await fs_utils.create_path(dname);
+        await Promise.all(files.map(async file => {
+            await fs_utils.create_path(path.dirname(path.join(dname, file.path)));
+            await fs.promises.writeFile(path.join(dname, file.path), file.data);
+        }));
+        const zipfile = await zip_utils.zip_from_dir(dname);
+        const buffer = await zip_utils.zip_to_buffer(zipfile);
+        assert(Buffer.isBuffer(buffer));
+        const unzipfile = await zip_utils.unzip_from_buffer(buffer);
+        const files2 = await zip_utils.unzip_to_mem(unzipfile);
+        check_files(files, files2);
     });
 
-    mocha.it('should unzip to dir', function() {
+    mocha.it('should unzip to dir', async function() {
         const files = generate_files();
         const files2 = [];
         const dname = path.join(temp_dir, 'unzip-to-dir');
-        return P.resolve()
-            .then(() => zip_utils.zip_from_files(files))
-            .then(zipfile => zip_utils.zip_to_buffer(zipfile))
-            .then(buffer => assert(Buffer.isBuffer(buffer)) || buffer)
-            .then(buffer => zip_utils.unzip_from_buffer(buffer))
-            .then(zipfile => zip_utils.unzip_to_dir(zipfile, dname))
-            .then(() => fs_utils.read_dir_recursive({
-                root: dname,
-                on_entry: entry => {
-                    const relative_path = path.relative(dname, entry.path);
-                    if (!entry.stat.isFile()) return;
-                    return fs.readFileAsync(entry.path)
-                        .then(data => {
-                            files2.push({
-                                path: relative_path,
-                                data,
-                            });
-                        });
-                }
-            }))
-            .then(() => check_files(files, files2));
+
+        const zipfile = await zip_utils.zip_from_files(files);
+        const buffer = await zip_utils.zip_to_buffer(zipfile);
+        assert(Buffer.isBuffer(buffer));
+        const unzipfile = await zip_utils.unzip_from_buffer(buffer);
+        await zip_utils.unzip_to_dir(unzipfile, dname);
+        await fs_utils.read_dir_recursive({
+            root: dname,
+            on_entry: async entry => {
+                const relative_path = path.relative(dname, entry.path);
+                if (!entry.stat.isFile()) return;
+                const data = await fs.promises.readFile(entry.path);
+                files2.push({ path: relative_path, data });
+            }
+        });
+        check_files(files, files2);
     });
 
 });
@@ -127,10 +116,18 @@ const file_name_charset =
     charset_range('א—ת') +
     ' ';
 
+/**
+ * @param {number} len
+ * @returns {string}
+ */
 function random_file_name(len) {
     return chance.string({ pool: file_name_charset });
 }
 
+/**
+ * @param {string} range 
+ * @returns {string}
+ */
 function charset_range(range) {
     var charset = '';
     const start = range.charCodeAt(0);

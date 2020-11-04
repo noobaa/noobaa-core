@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETAnalyticsConfig.html
  */
-function get_bucket_analytics(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            AnalyticsConfiguration: ''
-        }));
+async function get_bucket_analytics(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        AnalyticsConfiguration: ''
+    };
 }
 
 module.exports = {

@@ -6,12 +6,10 @@ const S3Error = require('../s3_errors').S3Error;
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html
  */
-function put_bucket_logging(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 put_bucket_logging not implemented
-            throw new S3Error(S3Error.NotImplemented);
-        });
+async function put_bucket_logging(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    // TODO S3 put_bucket_logging not implemented
+    throw new S3Error(S3Error.NotImplemented);
 }
 
 module.exports = {

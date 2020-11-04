@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const BlobError = require('./blob_errors').BlobError;
@@ -18,12 +17,15 @@ const RPC_ERRORS_TO_BLOB = Object.freeze({
 
 const BLOB_OPS = load_ops();
 
-function blob_rest(req, res) {
-    return P.try(() => handle_request(req, res))
-        .catch(err => handle_error(req, res, err));
+async function blob_rest(req, res) {
+    try {
+        await handle_request(req, res);
+    } catch (err) {
+        handle_error(req, res, err);
+    }
 }
 
-function handle_request(req, res) {
+async function handle_request(req, res) {
 
     // fill up standard response headers
     res.setHeader('x-ms-request-id', req.request_id);
@@ -73,11 +75,10 @@ function handle_request(req, res) {
         error_body_sha256_mismatch: BlobError.InternalError,
     };
 
-    return P.resolve()
-        .then(() => http_utils.read_and_parse_body(req, options))
-        .then(() => op.handler(req, res))
-        .then(reply => http_utils.send_reply(req, res, reply, options));
-    // .then(() => submit_usage_report(req));
+    await http_utils.read_and_parse_body(req, options);
+    const reply = await op.handler(req, res);
+    http_utils.send_reply(req, res, reply, options);
+    // submit_usage_report(req);
 }
 
 function check_headers(req) {

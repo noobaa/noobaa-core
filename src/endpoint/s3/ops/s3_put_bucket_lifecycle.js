@@ -9,7 +9,8 @@ const S3Error = require('../s3_errors').S3Error;
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlifecycle.html
  */
-function put_bucket_lifecycle(req) {
+async function put_bucket_lifecycle(req) {
+
     // <Rule>
     //   <ID>id2</ID>
     //   <Prefix>logs/</Prefix>
@@ -18,7 +19,7 @@ function put_bucket_lifecycle(req) {
     //     <Days>365</Days>
     //   </Expiration>
     // </Rule>
-    var lifecycle_rules = _.map(req.body.LifecycleConfiguration.Rule, rule => {
+    const lifecycle_rules = _.map(req.body.LifecycleConfiguration.Rule, rule => {
         var rule_id = uuid().split('-')[0];
         if (rule.ID) {
             rule_id = rule.ID[0];
@@ -72,13 +73,13 @@ function put_bucket_lifecycle(req) {
         }
         return current_rule;
     });
-    return req.object_sdk.set_bucket_lifecycle_configuration_rules({
-            name: req.params.bucket,
-            rules: lifecycle_rules
-        })
-        .then(() => {
-            dbg.log('set_bucket_lifecycle', req.params.rule);
-        });
+
+    await req.object_sdk.set_bucket_lifecycle_configuration_rules({
+        name: req.params.bucket,
+        rules: lifecycle_rules
+    });
+
+    dbg.log('set_bucket_lifecycle', req.params.rule);
 }
 
 module.exports = {

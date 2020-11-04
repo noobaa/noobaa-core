@@ -3,19 +3,19 @@
 
 const lambda_utils = require('../lambda_utils');
 
-function get_func(req, res) {
+async function get_func(req, res) {
     console.log('read_func', req.params, req.query);
-    return req.func_sdk.read_func({
-            name: req.params.func_name,
-            version: req.query.Qualifier || '$LATEST'
-        })
-        .then(func => ({
-            Configuration: lambda_utils.get_func_config(func),
-            Code: {
-                Location: func.code_location.url,
-                RepositoryType: func.code_location.repository,
-            }
-        }));
+    const func = await req.func_sdk.read_func({
+        name: req.params.func_name,
+        version: req.query.Qualifier || '$LATEST'
+    });
+    return {
+        Configuration: lambda_utils.get_func_config(func),
+        Code: {
+            Location: func.code_location.url,
+            RepositoryType: func.code_location.repository,
+        }
+    };
 }
 
 module.exports = {

@@ -3,12 +3,10 @@
 
 // const BlobError = require('../blob_errors').BlobError;
 
-function put_blob_lease(req, res) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO implement put_blob_lease
-            // throw new BlobError(BlobError.NotImplemented);
-        });
+async function put_blob_lease(req, res) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    // TODO implement put_blob_lease
+    // throw new BlobError(BlobError.NotImplemented);
 }
 
 module.exports = {

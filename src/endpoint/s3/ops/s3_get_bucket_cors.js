@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETcors.html
  */
-function get_bucket_cors(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            CORSConfiguration: ''
-        }));
+async function get_bucket_cors(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        CORSConfiguration: ''
+    };
 }
 
 module.exports = {

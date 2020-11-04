@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETMetricConfiguration.html
  */
-function get_bucket_metrics(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            MetricsConfiguration: ''
-        }));
+async function get_bucket_metrics(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        MetricsConfiguration: ''
+    };
 }
 
 module.exports = {

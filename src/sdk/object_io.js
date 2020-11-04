@@ -51,6 +51,8 @@ Object.isFrozen(RpcError); // otherwise unused
  * @property {boolean} [complete_upload]
  * @property {number} [last_modified_time]
  * @property {function} [async_get_last_modified_time]
+ * @property {function} [upload_chunks_hook]
+ * @property {string} [bucket_master_key_id]
  *
  * @typedef {Object} ReadParams
  * @property {Object} client
@@ -222,6 +224,7 @@ class ObjectIO {
             params.bucket_id = create_reply.bucket_id;
             params.chunk_split_config = create_reply.chunk_split_config;
             params.chunk_coder_config = create_reply.chunk_coder_config;
+            params.bucket_master_key_id = create_reply.bucket_master_key_id;
             complete_params.obj_id = create_reply.obj_id;
             if (params.copy_source) {
                 await this._upload_copy(params, complete_params);
@@ -283,6 +286,7 @@ class ObjectIO {
             params.multipart_id = multipart_reply.multipart_id;
             params.chunk_split_config = multipart_reply.chunk_split_config;
             params.chunk_coder_config = multipart_reply.chunk_coder_config;
+            params.bucket_master_key_id = multipart_reply.bucket_master_key_id;
             complete_params.multipart_id = multipart_reply.multipart_id;
             if (params.copy_source) {
                 await this._upload_copy(params, complete_params);
@@ -472,6 +476,7 @@ class ObjectIO {
                 chunk_info.tier_id = params.tier_id;
                 chunk_info.bucket_id = params.bucket_id;
                 chunk_info.parts = [part];
+                chunk_info.master_key_id = params.bucket_master_key_id;
                 for (const frag of chunk_info.frags) frag.blocks = [];
                 const chunk = new ChunkAPI(chunk_info);
                 params.seq += 1;

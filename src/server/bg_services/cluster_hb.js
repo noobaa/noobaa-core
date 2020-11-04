@@ -50,7 +50,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     heartbeat.health.usage = os_utils.calc_cpu_usage(os.cpus(), this.cpu_info);
                     this.cpu_info = os_info.cpu_info;
                 }))
-            .then(() => P.join(
+            .then(() => Promise.all([
                 P.resolve()
                 .then(() => {
                     if (current_clustering.is_clusterized) {
@@ -60,8 +60,9 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     }
                 }),
                 os_utils.read_drives(),
-                os_utils.get_raw_storage()))
-            .spread((mongo_status, drives, raw_storage) => {
+                os_utils.get_raw_storage()
+            ]))
+            .then(([mongo_status, drives, raw_storage]) => {
                 let root = drives.find(drive => drive.mount === '/');
                 if (root) {
                     root.storage.total = raw_storage;
@@ -121,7 +122,9 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                 }
                 return P.resolve();
             })
-            .return();
+            .then(() => {
+                // return nothing. 
+            });
     } else {
         dbg.log0('no local cluster info. HB is not written');
         return P.resolve();

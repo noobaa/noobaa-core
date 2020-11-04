@@ -68,11 +68,11 @@ class BlockStoreMongo extends BlockStoreBase {
         // Notice that I do not worry about PETABYTES because this is for local use only
         // We should not write PETABYTES to mongo so there should be no problems
         return P.resolve()
-            .then(() => P.join(
+            .then(() => Promise.all([
                 mongo_client.instance().collection(GRID_FS_BUCKET_NAME_FILES).stats(),
                 mongo_client.instance().collection(GRID_FS_BUCKET_NAME_CHUNKS).stats()
-            ))
-            .spread((files_res, chunks_res) => ({
+            ]))
+            .then(([files_res, chunks_res]) => ({
                 // Notice that storageSize includes actual storage size and not only block sizes
                 size: ((files_res && files_res.storageSize) || 0) + ((chunks_res && chunks_res.storageSize) || 0),
                 count: (files_res && files_res.count) || 0
@@ -123,10 +123,10 @@ class BlockStoreMongo extends BlockStoreBase {
     _read_block(block_md) {
         const block_name = this._block_key(block_md.id);
         return sem_read.surround(() =>
-            P.join(
+            Promise.all([
                 buffer_utils.read_stream_join(this._blocks_fs.gridfs().openDownloadStreamByName(block_name)),
                 this.head_block(block_name)
-            )
+            ])
             .then(([data, head]) => ({
                 data,
                 block_md: this._decode_block_md(head.metadata)
@@ -160,7 +160,7 @@ class BlockStoreMongo extends BlockStoreBase {
             })
             .then(() => {
                 dbg.log3('writing block id to mongo: ', block_name);
-                return new P((resolve, reject) => {
+                return new Promise((resolve, reject) => {
                     const upload_stream = this._blocks_fs.gridfs().openUploadStream(block_name, {
                         metadata: block_metadata
                     });

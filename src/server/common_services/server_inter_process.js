@@ -33,7 +33,9 @@ function update_mongo_connection_string(req) {
                 load_system_store();
             }
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function update_master_change(req) {

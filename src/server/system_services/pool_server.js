@@ -250,6 +250,9 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
 function create_namespace_resource(req) {
     const name = req.rpc_params.name;
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    connection.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        connection.secret_key, req.account.master_key_id._id);
+
     const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
@@ -290,6 +293,9 @@ function create_namespace_resource(req) {
 async function create_cloud_pool(req) {
     var name = req.rpc_params.name;
     var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    connection.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        connection.secret_key, req.account.master_key_id._id);
+
     var cloud_info = _.omitBy({
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
@@ -577,7 +583,9 @@ function delete_namespace_resource(req) {
                 }
             });
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 async function delete_hosts_pool(req, pool) {
@@ -713,7 +721,9 @@ function delete_resource_pool(req, pool) {
                 });
             }
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function get_associated_buckets(req) {

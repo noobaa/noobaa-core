@@ -240,7 +240,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
     }
 
     function verify_nodes_mapping() {
-        return P.all(_.map(nodes_list, node => P.join(
+        return Promise.all([_.map(nodes_list, node => Promise.all([
             rpc_client.object.read_node_mapping({
                 name: node.name,
                 adminfo: true,
@@ -250,7 +250,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
                 by_host: true,
                 adminfo: true,
             })
-        )));
+        ]))]);
     }
 
 });

@@ -75,6 +75,7 @@ module.exports = {
         cipher_iv: { binary: true },
         cipher_auth_tag: { binary: true },
 
+        master_key_id: { objectid: true },
         frags: {
             type: 'array',
             items: {

@@ -37,7 +37,10 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => db_client.instance().fix_id_type(res.nodes));
+            .then(res => {
+                db_client.instance().fix_id_type(res.nodes);
+                return res;
+            });
     }
 
     list_nodes_by_pool(pool_name, system_id) {
@@ -52,7 +55,10 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => db_client.instance().fix_id_type(res.nodes));
+            .then(res => {
+                db_client.instance().fix_id_type(res.nodes);
+                return res;
+            });
     }
 
     list_nodes_by_identity(system_id, nodes_identities, fields) {
@@ -65,7 +71,10 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(res => db_client.instance().fix_id_type(res.nodes));
+            .then(res => {
+                db_client.instance().fix_id_type(res.nodes);
+                return res;
+            });
     }
 
     get_nodes_stats_by_cloud_service(system_id, start_date, end_date) {
@@ -148,7 +157,10 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(node => db_client.instance().fix_id_type(node));
+            .then(node => {
+                db_client.instance().fix_id_type(node);
+                return node;
+            });
     }
 
     read_node_by_id(system_id, node_id) {
@@ -164,7 +176,10 @@ class NodesClient {
                     role: 'admin'
                 })
             })
-            .tap(node => db_client.instance().fix_id_type(node));
+            .then(node => {
+                db_client.instance().fix_id_type(node);
+                return node;
+            });
     }
 
     get_node_ids_by_name(system_id, identity, by_host) {
@@ -215,7 +230,10 @@ class NodesClient {
                     role: 'admin'
                 })
             }))
-            .tap(res => res.latency_groups.forEach(group => db_client.instance().fix_id_type(group.nodes)));
+            .then(res => {
+                res.latency_groups.forEach(group => db_client.instance().fix_id_type(group.nodes));
+                return res;
+            });
     }
 
     /**

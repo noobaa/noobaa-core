@@ -164,11 +164,23 @@ async function create_account(req) {
             desc: `${account.email.unwrap()} was created ` + (req.account ? `by ${req.account.email.unwrap()}` : ``),
         });
     }
-
+    const account_mkey = system_store.master_key_manager.new_master_key({
+        description: `master key of ${account._id} account`,
+        cipher_type: system_store.data.systems[0].master_key_id.cipher_type,
+        master_key_id: system_store.data.systems[0].master_key_id._id
+    });
+    account.master_key_id = account_mkey._id;
+    const decrypted_access_keys = _.cloneDeep(account.access_keys);
+    account.access_keys[0] = {
+        access_key: account.access_keys[0].access_key,
+        secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+            account.access_keys[0].secret_key, account_mkey._id)
+    };
     await system_store.make_changes({
         insert: {
             accounts: [account],
-            roles
+            roles,
+            master_keys: [account_mkey]
         }
     });
 
@@ -188,7 +200,7 @@ async function create_account(req) {
     });
     return {
         token: auth_server.make_auth_token(auth),
-        access_keys: account.access_keys
+        access_keys: decrypted_access_keys
     };
 }
 
@@ -273,13 +285,16 @@ async function generate_account_keys(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
+    const access_keys = generate_access_keys();
+    access_keys.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        access_keys.secret_key, account.master_key_id._id);
 
     await system_store.make_changes({
         update: {
             accounts: [{
                 _id: account._id,
                 access_keys: [
-                    generate_access_keys()
+                    access_keys
                 ]
             }]
         }
@@ -553,7 +568,9 @@ function reset_password(req) {
             account: account._id,
             desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
         }))
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 
 }
 
@@ -695,7 +712,9 @@ async function add_external_connection(req) {
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
-    info.secret_key = req.rpc_params.secret;
+    info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        req.rpc_params.secret, req.account.master_key_id._id);
+
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -715,15 +734,12 @@ async function add_external_connection(req) {
         throw new RpcError('External Connection Already Exists');
     }
 
-    var updates = {
-        _id: req.account._id,
-        sync_credentials_cache: req.account.sync_credentials_cache || []
-    };
-    updates.sync_credentials_cache.push(info);
-
     await system_store.make_changes({
         update: {
-            accounts: [updates]
+            accounts: [{
+                _id: req.account._id,
+                $push: { sync_credentials_cache: info }
+            }]
         }
     });
 
@@ -746,6 +762,9 @@ async function update_external_connection(req) {
         identity = connection.access_key,
         secret
     } = req.rpc_params;
+
+    const encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        secret, req.account.master_key_id._id);
 
     let check_failed = false;
     try {
@@ -770,16 +789,14 @@ async function update_external_connection(req) {
     }
 
     const accounts_updates = [{
-        _id: req.account._id,
-        sync_credentials_cache: req.account.sync_credentials_cache.map(conn => {
-            if (conn.name === name) {
-                conn = _.cloneDeep(connection);
-                conn.access_key = identity;
-                conn.secret_key = secret;
-            }
-
-            return conn;
-        })
+        $find: {
+            _id: req.account._id,
+            "sync_credentials_cache.name": name
+        },
+        $set: {
+            "sync_credentials_cache.$.access_key": identity,
+            "sync_credentials_cache.$.secret_key": encrypted_secret
+        }
     }];
 
     const pools_updates = system_store.data.pools
@@ -793,7 +810,7 @@ async function update_external_connection(req) {
         .map(pool => ({
             _id: pool._id,
             'cloud_pool_info.access_keys.access_key': identity,
-            'cloud_pool_info.access_keys.secret_key': secret,
+            'cloud_pool_info.access_keys.secret_key': encrypted_secret,
         }));
 
     const ns_resources_updates = system_store.data.namespace_resources
@@ -806,7 +823,7 @@ async function update_external_connection(req) {
         .map(ns_resource => ({
             _id: ns_resource._id,
             'connection.access_key': identity,
-            'connection.secret_key': secret
+            'connection.secret_key': encrypted_secret
         }));
 
     await system_store.make_changes({

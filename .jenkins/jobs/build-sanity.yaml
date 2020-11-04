@@ -3,6 +3,11 @@
     name: noobaa-core_build-sanity
     project-type: pipeline
     concurrent: true
+    parameters:
+      - hidden:
+          name: GIT_REPO
+          default: https://github.com/noobaa/noobaa-core
+          description: The git repo url
     properties:
       - github:
           url: https://github.com/noobaa/noobaa-core
@@ -13,8 +18,8 @@
       scm:
         - git:
             name: origin
-            url: https://github.com/noobaa/noobaa-core
-            refspec: '+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head'
+            url: $GIT_REPO
+            refspec: "+refs/pull/${ghprbPullId}/head:refs/remotes/origin/pr/${ghprbPullId}/head"
             branches:
               - origin/pr/${ghprbPullId}/head
       script-path: .jenkins/build-sanity.groovy
@@ -22,7 +27,8 @@
     triggers:
       - github-pull-request:
           status-context: ci/centos/build-sanity
-          trigger-phrase: '/(re)?test ci/centos/build-sanity'
+          trigger-phrase: "/(re)?test ((all)|(ci/centos/build-sanity))"
+          status-url: $RUN_DISPLAY_URL
           permit-all: true
           github-hooks: true
           admin-list:

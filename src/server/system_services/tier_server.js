@@ -8,7 +8,6 @@
 
 const _ = require('lodash');
 const config = require('../../../config');
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
@@ -101,11 +100,13 @@ function read_tier(req) {
         });
     });
 
-    return P.join(
+    return Promise.all([
             nodes_client.instance().aggregate_nodes_by_pool(_.compact(pool_names), req.system._id),
             nodes_client.instance().aggregate_data_free_by_tier([String(tier._id)], req.system._id)
-        )
-        .spread(function(nodes_aggregate_pool, available_to_upload) {
+        ])
+        .then(function(res) {
+            let nodes_aggregate_pool = res[0];
+            let available_to_upload = res[1];
             return get_tier_info(tier, nodes_aggregate_pool, { mirror_storage: available_to_upload[String(tier._id)] });
         });
 }
@@ -538,11 +539,13 @@ function read_policy(req) {
     });
     pools = _.compact(pools);
     const pool_names = pools.map(pool => pool.name);
-    return P.join(
+    return Promise.all([
             nodes_client.instance().aggregate_nodes_by_pool(pool_names, req.system._id),
             nodes_client.instance().aggregate_hosts_by_pool(pool_names, req.system._id),
-        )
-        .spread(function(nodes_aggregate_pool, hosts_aggregate_pool) {
+        ])
+        .then(function(res) {
+            let nodes_aggregate_pool = res[0];
+            let hosts_aggregate_pool = res[1];
             return get_tiering_policy_info(policy,
                 node_allocator.get_tiering_status(policy),
                 nodes_aggregate_pool,

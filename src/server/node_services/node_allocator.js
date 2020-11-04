@@ -127,10 +127,10 @@ async function refresh_tiering_alloc(tiering, force) {
             })
         });
     }
-    await P.join(
+    await Promise.all([
         P.map(pools, pool => refresh_pool_alloc(pool, force)).then(() => { /*void*/ }),
         refresh_tiers_alloc([tiering], force),
-    );
+    ]);
 }
 
 /**

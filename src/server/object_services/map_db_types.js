@@ -51,6 +51,7 @@ class ChunkDB {
     get _id() { return this.chunk_db._id; }
     get bucket_id() { return this.chunk_db.bucket; }
     get tier_id() { return this.chunk_db.tier; }
+    get master_key_id() { return this.chunk_db.master_key_id; }
     get size() { return this.chunk_db.size; }
     get compress_size() { return this.chunk_db.compress_size; }
     get frag_size() { return this.chunk_db.frag_size; }
@@ -85,6 +86,11 @@ class ChunkDB {
         throw new Error(`ChunkDB.set_new_chunk_id: unexpected call for existing chunk ${this._id}`);
     }
 
+    _decrypt_cipher_key(cipher_key, master_key_id) {
+        if (!master_key_id) return cipher_key;
+        return system_store.master_key_manager.decrypt_value_with_master_key_id(cipher_key, master_key_id);
+    }
+
     /**
      * @param {nb.Frag} frag
      * @param {nb.Pool[]} pools
@@ -117,11 +123,12 @@ class ChunkDB {
             _id: optional_id_str(this._id),
             bucket_id: optional_id_str(this.bucket_id),
             tier_id: optional_id_str(this.tier_id),
+            master_key_id: this.master_key_id,
             size: this.size,
             compress_size: this.compress_size,
             frag_size: this.frag_size,
             digest_b64: this.digest_b64,
-            cipher_key_b64: this.cipher_key_b64,
+            cipher_key_b64: to_b64(this._decrypt_cipher_key(this.cipher_key_b64, this.chunk_db.master_key_id)),
             cipher_iv_b64: this.cipher_iv_b64,
             cipher_auth_tag_b64: this.cipher_auth_tag_b64,
             chunk_coder_config: this.chunk_coder_config,

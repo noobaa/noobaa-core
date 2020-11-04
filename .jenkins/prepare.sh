@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export PS4='\e[36m+ ${FUNCNAME:-main}@${BASH_SOURCE}:${LINENO} \e[0m'
 set -e -o pipefail
 
 function usage() {
@@ -90,10 +91,16 @@ done
 
 set -x
 
-dnf -y install git make
+dnf -y install git make wget
 install_docker
 
 git clone --depth=1 --branch="${base}" "${gitrepo}" "${workdir}"
 cd "${workdir}"
 git fetch origin "${ref}:tip/${ref}"
 git checkout "tip/${ref}"
+
+# Bypassing the building of base and noobaa-builder by pointing to noobaa/noobaa-base instead of noobaa-base
+# We don't want to build it, so we reduce the overall time for builds/test.
+# The base and noobaa-builder are not often changing. once they do We need to push into dockerhub.io 
+sed -i -e 's|FROM noobaa-base .*|FROM noobaa/noobaa-base as server_builder|' ${workdir}/src/deploy/NVA_build/NooBaa.Dockerfile
+sed -i -e 's|noobaa: base|noobaa:|' ${workdir}/Makefile

@@ -53,29 +53,24 @@ class BucketStatsStore {
     }
 
     get_all_buckets_stats({ system }) {
-        return this._bucket_stats.aggregate([{
-            $match: {
-                system
-            }
+        return this._bucket_stats.groupBy({
+            system
         }, {
-            $group: {
-                _id: '$bucket',
-                stats: {
-                    // TODO: Support in PostgreSQL aggregation
-                    $push: {
-                        content_type: '$content_type',
-                        reads: '$reads',
-                        writes: '$writes',
-                        last_write: "$last_write",
-                        last_read: "$last_read",
-                    }
-                },
-                total_reads: { $sum: '$reads' },
-                total_writes: { $sum: '$writes' },
-                last_write: { $max: '$last_write' },
-                last_read: { $max: '$last_read' },
+            _id: '$bucket',
+            stats: {
+                $push: {
+                    content_type: '$content_type',
+                    reads: '$reads',
+                    writes: '$writes',
+                    last_write: "$last_write",
+                    last_read: "$last_read",
+                }
             },
-        }]);
+            total_reads: { $sum: '$reads' },
+            total_writes: { $sum: '$writes' },
+            last_write: { $max: '$last_write' },
+            last_read: { $max: '$last_read' },
+        });
     }
 
 }

@@ -23,7 +23,7 @@ function zip_from_files(files) {
             }
         }))
         .then(() => zipfile.end())
-        .return(zipfile);
+        .then(() => zipfile);
 }
 
 function zip_from_dir(dir) {
@@ -41,7 +41,7 @@ function zip_from_dir(dir) {
             }
         }))
         .then(() => zipfile.end())
-        .return(zipfile);
+        .then(() => zipfile);
 }
 
 function zip_to_buffer(zipfile) {
@@ -65,7 +65,7 @@ function unzip_from_file(file_path) {
 }
 
 function unzip_to_callback(zipfile, on_entry) {
-    return new P((resolve, reject) => zipfile
+    return new Promise((resolve, reject) => zipfile
         .once('error', reject)
         .once('end', resolve)
         .on('entry', entry => P.resolve()
@@ -86,7 +86,7 @@ function unzip_to_mem(zipfile) {
                     data: buffer,
                 });
             }))
-        .return(files);
+        .then(() => files);
 }
 
 function unzip_to_dir(zipfile, dir) {

@@ -12,6 +12,7 @@ const os = require('os');
 const util = require('util');
 
 const P = require('../util/promise');
+const Bluebird = require('bluebird');
 const api = require('../api');
 const pkg = require('../../package.json');
 const DebugLogger = require('../util/debug_module');
@@ -638,9 +639,11 @@ class Agent {
                 'old', params.old_base_address);
             // test this new address first by pinging it
             try {
-                await this.client.node.ping(null, {
-                        address: params.base_address
-                    })
+                await Bluebird.resolve(
+                        this.client.node.ping(null, {
+                            address: params.base_address
+                        })
+                    )
                     .timeout(MASTER_RESPONSE_TIMEOUT);
             } catch (err) {
                 dbg.error(`failed ping to new base_address ${params.base_address}. leave base_address at ${this.base_address}`);
@@ -660,9 +663,11 @@ class Agent {
             const { old_master_address = this.master_address } = params;
             if (params.master_address !== old_master_address) {
                 try {
-                    await this.client.node.ping(null, {
-                            address: params.master_address
-                        })
+                    await Bluebird.resolve(
+                            this.client.node.ping(null, {
+                                address: params.master_address
+                            })
+                        )
                         .timeout(MASTER_RESPONSE_TIMEOUT);
                 } catch (err) {
                     dbg.error(`failed ping to new master_address ${params.master_address}.`,
@@ -700,11 +705,11 @@ class Agent {
         clearTimeout(this._test_connection_timeout);
 
         this._test_connection_timeout = setTimeout(() => {
-            this.client.node.ping()
-                .timeout(MASTER_RESPONSE_TIMEOUT)
-                .then(() => {
-                    this._test_connection_timeout = null;
-                })
+            Bluebird.resolve(this.client.node.ping())
+                    .timeout(MASTER_RESPONSE_TIMEOUT)
+                    .then(() => {
+                        this._test_connection_timeout = null;
+                    })
                 .catch(P.TimeoutError, err => {
                     dbg.error('node_server did not respond to ping. closing connection', err);
                     this._server_connection.close();
@@ -857,7 +862,7 @@ class Agent {
                 //     }
                 // });
             })
-            .return(reply);
+            .then(() => reply);
     }
 
     async get_agent_storage_info(req) {
@@ -1001,7 +1006,7 @@ class Agent {
                 });
         };
 
-        return P.all(_.times(concur, next)).return(reply);
+        return P.all(_.times(concur, next)).then(() => reply);
     }
 
     collect_diagnostics(req) {

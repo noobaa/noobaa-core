@@ -37,7 +37,9 @@ function create_auth() {
     return P.fcall(function() {
             return client.create_auth_token(auth_params);
         })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 // Services is an array of strings for each service or ['all']
@@ -125,7 +127,7 @@ function prepare_buckets_with_objects() {
         })
         .then(() => control_services('restart', ['all']))
         .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS))
-        .return(buckets_used);
+        .then(() => buckets_used);
 }
 
 function calculate_expected_storage_stats_for_buckets(buckets_array, storage_read_by_bucket) {
@@ -225,7 +227,9 @@ function wait_for_s3_and_web(max_seconds_to_wait) {
             wait_for_server_to_start(max_seconds_to_wait, String(process.env.PORT) || 8080),
             wait_for_mongodb_to_start(max_seconds_to_wait)
         ])
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function wait_for_mongodb_to_start(max_seconds_to_wait) {
@@ -262,7 +266,9 @@ function wait_for_mongodb_to_start(max_seconds_to_wait) {
                         return P.delay(1000);
                     });
             })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function wait_for_server_to_start(max_seconds_to_wait, port) {
@@ -295,5 +301,7 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
                         return P.delay(1000);
                     });
             })
-        .return();
+        .then(() => {
+            // do nothing. 
+        });
 }

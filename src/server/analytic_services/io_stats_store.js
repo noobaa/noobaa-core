@@ -95,14 +95,12 @@ class IoStatsStore {
     async _get_stats_for_resource_type({ start_date, end_date, system, resource_type }) {
         let start_time;
         if (start_date || end_date) start_time = _.omitBy({ $gte: start_date, $lte: end_date }, _.isUndefined);
-        return this._io_stats.aggregate([{
-            $match: _.omitBy({
+        return this._io_stats.groupBy(
+            _.omitBy({
                 system,
                 resource_type,
                 start_time
-            }, _.isUndefined)
-        }, {
-            $group: {
+            }, _.isUndefined), {
                 _id: '$resource_id',
                 read_count: { $sum: '$read_count' },
                 write_count: { $sum: '$write_count' },
@@ -112,8 +110,8 @@ class IoStatsStore {
                 error_write_count: { $sum: '$error_write_count' },
                 error_read_bytes: { $sum: '$error_read_bytes' },
                 error_write_bytes: { $sum: '$error_write_bytes' },
-            },
-        }]);
+            }
+        );
     }
 }
 

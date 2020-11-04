@@ -12,6 +12,7 @@ module.exports = {
     properties: {
 
         _id: { objectid: true },
+        master_key_id: { objectid: true },
         deleted: { date: true },
         name: { type: 'string' },
         owner: { objectid: true }, // account id

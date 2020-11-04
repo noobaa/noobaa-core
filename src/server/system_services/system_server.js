@@ -194,7 +194,17 @@ function new_system_changes(name, owner_account_id) {
     // const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
     const default_bucket_name = 'first.bucket';
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-    const system = new_system_defaults(name, owner_account_id);
+
+
+    let system = new_system_defaults(name, owner_account_id);
+
+    const m_key = system_store.master_key_manager.new_master_key({
+        description: `master key of ${system._id} system`,
+        master_key_id: system_store.master_key_manager.get_root_key_id(),
+        cipher_type: system_store.master_key_manager.get_root_key().cipher_type
+    });
+    system.master_key_id = m_key._id;
+
     // const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
     const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
@@ -234,7 +244,21 @@ function new_system_changes(name, owner_account_id) {
             disabled: false
         }]
     );
-    const bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id, owner_account_id);
+
+    let bucket = bucket_server.new_bucket_defaults(
+        default_bucket_name,
+        system._id,
+        policy._id,
+        owner_account_id
+    );
+
+    const first_bucket_m_key = system_store.master_key_manager.new_master_key({
+        description: `master key of ${bucket._id} bucket`,
+        master_key_id: m_key._id,
+        cipher_type: m_key.cipher_type
+    });
+    bucket.master_key_id = first_bucket_m_key._id;
+
     return {
         insert: {
             systems: [system],
@@ -243,6 +267,7 @@ function new_system_changes(name, owner_account_id) {
             tiers: [tier],
             chunk_configs: [default_chunk_config, ec_chunk_config],
             pools: [mongo_pool],
+            master_keys: [m_key, first_bucket_m_key]
         }
     };
 }
@@ -419,8 +444,7 @@ async function _create_owner_account(
 
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
-        await os_utils.discover_k8s_services() :
-        [];
+        await os_utils.discover_k8s_services() : [];
 
     // This works because the lists are always sorted, see discover_k8s_services().
     const { system_address: curr_address } = system_store.data.systems[0] || {};
@@ -882,7 +906,7 @@ function attempt_server_resolve(req) {
                 return P.fromCallback(callback => request(options, callback), {
                         multiArgs: true
                     })
-                    .spread(function(response, reply) {
+                    .then(([response, reply]) => {
                         dbg.log0('Received Response From DNS Name', response.statusCode);
                         if (response.statusCode !== 200 || String(reply) !== pkg.version) {
                             dbg.error('version failed');

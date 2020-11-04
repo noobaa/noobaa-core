@@ -30,7 +30,7 @@ class FuncNode {
 
     invoke_func(req) {
         return this._load_func_code(req)
-            .then(func => new P((resolve, reject) => {
+            .then(func => new Promise((resolve, reject) => {
                 const proc = child_process.fork(FUNC_PROC_PATH, [], {
                         cwd: func.code_dir,
                         stdio: 'inherit',

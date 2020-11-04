@@ -61,7 +61,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     get_storage_info() {
-        return P.join(
+        return Promise.all([
                 this._get_usage(),
                 os_utils.get_drive_of_path(this.root_path)
                 .catch(err => {
@@ -69,8 +69,8 @@ class BlockStoreFs extends BlockStoreBase {
                     this._test_root_path_exists();
                     throw err;
                 })
-            )
-            .spread((usage, drive) => {
+            ])
+            .then(([usage, drive]) => {
                 const storage = drive.storage;
                 storage.used = usage.size;
                 const total_unreserved = Math.max(storage.total - config.NODES_FREE_SPACE_RESERVE, 0);
@@ -89,10 +89,10 @@ class BlockStoreFs extends BlockStoreBase {
         const block_path = this._get_block_data_path(block_md.id);
         const meta_path = this._get_block_meta_path(block_md.id);
         dbg.log1('fs read block', block_path);
-        return P.join(
+        return Promise.all([
                 fs.readFileAsync(block_path),
-                fs.readFileAsync(meta_path))
-            .spread((data_file, meta_file) => ({
+                fs.readFileAsync(meta_path)])
+            .then(([data_file, meta_file]) => ({
                 block_md: block_md,
                 data: data_file,
             }))
@@ -119,9 +119,9 @@ class BlockStoreFs extends BlockStoreBase {
                 overwrite_stat = stat;
                 dbg.log1('_write_block', block_path, data.length, overwrite_stat);
                 // create/replace the block on fs
-                return P.join(
+                return Promise.all([
                     fs.writeFileAsync(block_path, data),
-                    fs.writeFileAsync(meta_path, block_md_data));
+                    fs.writeFileAsync(meta_path, block_md_data)]);
             })
             .catch(err => {
                 if (err.code === 'ENOENT') {
@@ -185,7 +185,7 @@ class BlockStoreFs extends BlockStoreBase {
         let del_stat;
         let md_del_stat;
         dbg.log1("delete block", block_id);
-        return P.join(
+        return Promise.all([
                 fs.statAsync(block_path).catch(ignore_not_found)
                 .then(stat => {
                     del_stat = stat;
@@ -195,7 +195,7 @@ class BlockStoreFs extends BlockStoreBase {
                 .then(stat => {
                     md_del_stat = stat;
                     return fs.unlinkAsync(meta_path).catch(ignore_not_found);
-                }))
+                })])
             .then(() => {
                 if (this._usage && del_stat) {
                     let usage = {
@@ -218,7 +218,8 @@ class BlockStoreFs extends BlockStoreBase {
                 this._usage = usage; // object with properties size and count
                 // update usage file
                 let usage_data = JSON.stringify(this._usage);
-                return fs.writeFileAsync(this.usage_path, usage_data).return(usage);
+                return fs.writeFileAsync(this.usage_path, usage_data)
+                    .then(() => usage);
             });
     }
 

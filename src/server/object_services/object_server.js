@@ -115,7 +115,8 @@ async function create_object_upload(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        encryption
+        encryption,
+        bucket_master_key_id: req.bucket.master_key_id._id,
     };
 }
 
@@ -517,7 +518,8 @@ async function create_multipart(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        encryption: obj.encryption
+        encryption: obj.encryption,
+        bucket_master_key_id: req.bucket.master_key_id._id
     };
 }
 
@@ -1943,13 +1945,13 @@ async function _complete_object_multiparts(obj, multipart_req) {
     // for (const mp of unused_multiparts) dbg.log0('TODO GGG DELETE UNUSED MULTIPART', JSON.stringify(mp));
     // for (const part of unused_parts) dbg.log0('TODO GGG DELETE UNUSED PART', JSON.stringify(part));
 
-    await P.join(
+    await Promise.all([
         context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
         used_multiparts_ids.length && MDStore.instance().update_multiparts_by_ids(used_multiparts_ids, undefined, { uncommitted: 1 }),
         unused_parts.length && MDStore.instance().delete_parts(unused_parts),
         unused_multiparts.length && MDStore.instance().delete_multiparts(unused_multiparts),
         chunks_to_dereference.length && map_deleter.delete_chunks_if_unreferenced(chunks_to_dereference),
-    );
+    ]);
 
     return {
         size: context.pos,

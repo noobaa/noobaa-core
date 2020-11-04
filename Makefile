@@ -58,7 +58,7 @@ base: builder
 	@echo "\033[1;32mBase done.\033[0m"
 .PHONY: base
 
-tester: base noobaa
+tester: noobaa
 	@echo "\033[1;34mStarting Tester $(CONTAINER_ENGINE) build.\033[0m"
 	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-tester $(TESTER_TAG)

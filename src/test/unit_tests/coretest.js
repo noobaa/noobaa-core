@@ -7,10 +7,13 @@ console.log('loading .env file');
 require('../../util/dotenv').load();
 require('../../util/panic').enable_heapdump('coretest');
 require('../../util/fips');
+const crypto = require('crypto');
 
 const CORETEST = 'coretest';
 process.env.CORETEST = CORETEST;
 process.env.JWT_SECRET = CORETEST;
+process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
+
 
 const config = require('../../../config.js');
 const db_client = require('../../util/db_client');
@@ -89,9 +92,11 @@ function new_rpc_client() {
 function init_all_collections() {
     /* eslint-disable global-require */
     require('../../server/notifications/alerts_log_store').instance();
+    require('../../server/analytic_services/activity_log_store').ActivityLogStore.instance();
     require('../../server/analytic_services/io_stats_store').IoStatsStore.instance();
     require('../../server/analytic_services/bucket_stats_store').BucketStatsStore.instance();
     require('../../server/analytic_services/history_data_store').HistoryDataStore.instance();
+    require('../../server/analytic_services/activity_log_store').ActivityLogStore.instance();
     // eslint-disable-next-line no-unused-expressions
     require('../../server/analytic_services/endpoint_stats_store').EndpointStatsStore.instance;
 }

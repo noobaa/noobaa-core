@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../util/promise');
 const stream = require('stream');
 
 /**
@@ -14,7 +13,7 @@ const stream = require('stream');
 class Pipeline {
 
     constructor(input) {
-        this._promise = new P((resolve, reject) => {
+        this._promise = new Promise((resolve, reject) => {
             this._resolve = resolve;
             this._reject = reject;
         });

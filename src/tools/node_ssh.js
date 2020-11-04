@@ -19,8 +19,8 @@ let nodes_left;
 if (require.main === module) main();
 
 function main() {
-    return P.join(get_nodes_ips(), read_stdin())
-        .spread(nodes_ssh);
+    return Promise.all([get_nodes_ips(), read_stdin()])
+        .then(([nodes]) => (nodes_ssh(nodes)));
 }
 
 function get_nodes_ips() {
@@ -63,7 +63,7 @@ function nodes_ssh(nodes) {
 function node_ssh(node) {
     const client = new ssh2.Client();
     client.can_continue = true;
-    return new P((resolve, reject) => client
+    return new Promise((resolve, reject) => client
             .once('ready', resolve)
             .once('error', reject)
             .once('close', () => reject(new Error(`${node.ip} SSH CLOSED`)))
@@ -87,7 +87,7 @@ function node_ssh(node) {
 }
 
 function node_exec(node, client) {
-    return new P((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         client.can_continue = client.exec(argv.exec, (err, channel) => {
             if (err) return reject(err);
             channel.once('error', reject);
@@ -106,7 +106,7 @@ function node_exec(node, client) {
 
 function ssh_continue(client) {
     if (client.can_continue) return;
-    return new P((resolve, reject) => client
+    return new Promise((resolve, reject) => client
         .once('continue', () => {
             client.can_continue = true;
             return resolve();

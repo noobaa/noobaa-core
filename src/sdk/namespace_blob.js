@@ -133,7 +133,7 @@ class NamespaceBlob {
             this.container,
             inspect(_.omit(params, 'object_md.ns'))
         );
-        return new P((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
                 stats_collector.instance(this.rpc_client).update_namespace_read_stats({

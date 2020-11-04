@@ -299,7 +299,7 @@ function send_master_update(is_master, master_address) {
         target: '', // required but irrelevant
         request_params: { master_address, is_master }
     });
-    return P.join(
+    return Promise.all([
             server_rpc.client.system.set_webserver_master_state({
                 is_master: is_master
             }, {
@@ -310,8 +310,10 @@ function send_master_update(is_master, master_address) {
             }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
             hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
             update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
-        )
-        .return();
+    ])
+        .then(() => {
+            // do nothing. 
+        });
 }
 
 function get_min_requirements() {

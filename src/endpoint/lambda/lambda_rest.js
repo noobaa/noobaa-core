@@ -190,13 +190,13 @@ function handle_error(req, res, err) {
 }
 
 function load_ops() {
-    const r = x => require(x); // eslint-disable-line global-require
+    /* eslint-disable global-require */
     return js_utils.deep_freeze({
-        get_service: r('./ops/lambda_list_funcs'),
-        get_func: r('./ops/lambda_get_func'),
-        delete_func: r('./ops/lambda_delete_func'),
-        post_service: r('./ops/lambda_create_func'),
-        post_func_invocations: r('./ops/lambda_invoke_func'),
+        get_service: require('./ops/lambda_list_funcs'),
+        get_func: require('./ops/lambda_get_func'),
+        delete_func: require('./ops/lambda_delete_func'),
+        post_service: require('./ops/lambda_create_func'),
+        post_func_invocations: require('./ops/lambda_invoke_func'),
     });
 }
 

@@ -77,6 +77,11 @@ function named_array_push(obj, arr_name, item) {
     return arr;
 }
 
+/**
+ * @template T
+ * @param {T} obj
+ * @returns {T}
+ */
 function deep_freeze(obj) {
 
     // Checking isFrozen is the break condition for the recursion

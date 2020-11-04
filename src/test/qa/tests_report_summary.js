@@ -98,9 +98,9 @@ class ReportsSummarizer {
         for (const summary of suite_summaries) {
             if (this.output_prefix) {
                 const filename = `${this.output_prefix}_${summary.suite_name}.csv`;
-                await fs.writeFileAsync(filename, '');
+                await fs.promises.writeFile(filename, '');
                 for (const line of summary.lines) {
-                    await fs.appendFileAsync(filename, line + '\n');
+                    await fs.promises.appendFile(filename, line + '\n');
                 }
             } else {
                 console.log(`------------------${summary.suite_name}------------------`);

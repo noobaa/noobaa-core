@@ -11,7 +11,7 @@ function _default_error_factory(message) {
 
 async function read_namespace(make_error = _default_error_factory) {
     try {
-        const buffer = await fs.readFileAsync(config.KUBE_NAMESPACE_FILE);
+        const buffer = await fs.promises.readFile(config.KUBE_NAMESPACE_FILE);
         return buffer.toString('utf8').trim();
 
     } catch (err) {
@@ -21,7 +21,7 @@ async function read_namespace(make_error = _default_error_factory) {
 
 async function read_sa_token(make_error = _default_error_factory) {
     try {
-       const buffer = await fs.readFileAsync(config.KUBE_SA_TOKEN_FILE);
+       const buffer = await fs.promises.readFile(config.KUBE_SA_TOKEN_FILE);
        return buffer.toString('utf8').trim();
 
     } catch (err) {

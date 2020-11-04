@@ -937,7 +937,7 @@ function export_bucket_bandwidth_usage(req) {
                 lines.push(`${entry.date}, ${entry.read_count}, ${entry.read_bytes}, ${entry.write_count}, ${entry.write_bytes}`);
                 return lines;
             }, [`Date, Read Count, Bytes Read, Write Count, Bytes Written`]);
-            return fs.writeFileAsync(inner_path, out_lines.join('\n'));
+            return fs.promises.writeFile(inner_path, out_lines.join('\n'));
         })
         .then(() => out_path)
         .catch(err => {

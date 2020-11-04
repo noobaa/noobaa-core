@@ -13,7 +13,6 @@ const repl = require('repl');
 const uuid = require('uuid/v4');
 const argv = require('minimist')(process.argv);
 const S3Auth = require('aws-sdk/lib/signers/s3');
-const child_process = require('child_process');
 
 const P = require('../util/promise');
 const api = require('../api');
@@ -152,7 +151,7 @@ class AgentCLI {
                             let storage_path = storage_path_info.mount;
                             let target_path = storage_path.replace('noobaa_storage', target_noobaa_storage);
                             dbg.log0('moving', storage_path, 'to', target_path);
-                            return fs.renameAsync(storage_path, target_path);
+                            return fs.promises.rename(storage_path, target_path);
                         }))
                         // remove host_id from agent_conf
                         .then(() => self.agent_conf.update({
@@ -219,7 +218,7 @@ class AgentCLI {
                 .then(() => fs_utils.file_must_not_exist(mount_point.mount))
                 .then(() => {
                     dbg.log0(`renaming ${old_path} to ${mount_point.mount}`);
-                    return fs.renameAsync(old_path, mount_point.mount)
+                    return fs.promises.rename(old_path, mount_point.mount)
                         .catch(err => {
                             dbg.error(`failed renaming ${old_path} to ${mount_points.mount}. got error:`, err);
                             throw err;
@@ -266,7 +265,7 @@ class AgentCLI {
                             dbg.error('Windows - failed to hide', err.stack || err);
                             // TODO really continue on error?
                         }))
-                    .then(() => fs.readdirAsync(storage_path))
+                    .then(() => fs.promises.readdir(storage_path))
                     .then(nodes_names => {
                         const ignore_names = ['agent_conf.json', 'lost+found'];
                         // filter out cloud and mongo agents:
@@ -328,15 +327,18 @@ class AgentCLI {
             current_path = current_path.substring(0, current_path.length - 1);
             current_path = current_path.replace('./', '');
             //hiding storage folder
-            return child_process.execAsync('attrib +H ' + current_path)
-                .then(() => Promise.all([os_utils.is_folder_permissions_set(current_path), fs.readdirAsync(current_path)]))
+            return promise_utils.exec('attrib +H ' + current_path)
+                .then(() => Promise.all([
+                    os_utils.is_folder_permissions_set(current_path),
+                    fs.promises.readdir(current_path)
+                ]))
                 .then(([permissions_set, noobaa_storage_initialization]) => {
                     if (!permissions_set) {
                         if (_.isEmpty(noobaa_storage_initialization)) {
                             dbg.log0('First time icacls configuration');
                             //Setting system full permissions and remove builtin users permissions.
                             //TODO: remove other users
-                            child_process.execAsync('icacls ' + current_path +
+                            promise_utils.exec('icacls ' + current_path +
                                     ' /grant:r administrators:(oi)(ci)F' +
                                     ' /grant:r system:F' +
                                     ' /remove:g BUILTIN\\Users' +
@@ -444,7 +446,7 @@ class AgentCLI {
         //create root path last. First, create all other.
         // for internal_agents only use root path
         return P.all(_.map(_.drop(storage_paths_to_add, 1), function(current_storage_path) {
-                return fs.readdirAsync(current_storage_path.mount)
+                return fs.promises.readdir(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.
@@ -456,7 +458,7 @@ class AgentCLI {
             .then(function() {
                 //create root folder
                 if (storage_paths_to_add.length > 1) {
-                    return fs.readdirAsync(storage_paths_to_add[0].mount)
+                    return fs.promises.readdir(storage_paths_to_add[0].mount)
                         .then(function(files) {
                             if (files.length > 0 && number_of_nodes === 0) {
                                 //if new HD introduced,  skip existing HD.
@@ -517,7 +519,7 @@ class AgentCLI {
             // token wrapper is used by agent to read\write token
             let token_path = path.join(node_path, 'token');
             let token_wrapper = {
-                read: () => fs.readFileAsync(token_path),
+                read: () => fs.promises.readFile(token_path),
                 write: token => fs_utils.replace_file(token_path, token),
             };
             let create_node_token_wrapper = {

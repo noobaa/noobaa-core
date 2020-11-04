@@ -17,7 +17,7 @@ let {
 res_files = res_files.concat(result);
 console.log(res_files);
 async function read_json(path) {
-    const buf = await fs.readFileAsync(path);
+    const buf = await fs.promises.readFile(path);
     return JSON.parse(buf.toString());
 }
 
@@ -63,7 +63,7 @@ async function convert() {
     console.log('out:', out);
     console.log('out sum:', sum_results);
 
-    await fs.writeFileAsync(output_file, object_to_csv(out) + object_to_csv(sum_results));
+    await fs.promises.writeFile(output_file, object_to_csv(out) + object_to_csv(sum_results));
     console.log(`The report saved in: ${output_file}`);
 }
 

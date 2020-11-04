@@ -1023,7 +1023,7 @@ class Agent {
             })
             .then(() => {
                 dbg.log1('Reading packed file');
-                return fs.readFileAsync(inner_path)
+                return fs.promises.readFile(inner_path)
                     .then(data => ({
                         [RPC_BUFFERS]: { data }
                     }))

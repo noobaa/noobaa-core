@@ -22,12 +22,12 @@ class SupervisorCtrl {
             return;
         }
 
-        return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
+        return fs.promises.stat(config.CLUSTERING_PATHS.SUPER_FILE)
             .catch(function(err) {
                 console.warn('Error on reading supervisor file', err);
                 throw err;
             })
-            .then(() => fs.readFileAsync(config.CLUSTERING_PATHS.SUPER_FILE))
+            .then(() => fs.promises.readFile(config.CLUSTERING_PATHS.SUPER_FILE))
             .then(data => this._parse_config(data.toString()))
             .then(() => {
                 this._inited = true;
@@ -209,7 +209,7 @@ class SupervisorCtrl {
             });
             data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
         });
-        return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
+        return fs.promises.writeFile(config.CLUSTERING_PATHS.SUPER_FILE, data);
     }
 
     _parse_config(data) {

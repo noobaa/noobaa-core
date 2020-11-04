@@ -10,10 +10,6 @@ const child_process = require('child_process');
 
 const async_exec = util.promisify(child_process.exec);
 const async_delay = util.promisify(setTimeout);
-const async_open_fd = util.promisify(fs.open);
-const async_close_fd = util.promisify(fs.close);
-const async_read_fd = util.promisify(fs.read);
-const async_read_file = util.promisify(fs.readFile);
 
 var nb_native_napi;
 
@@ -63,31 +59,31 @@ async function init_rand_seed() {
 
 async function read_rand_seed(seed_bytes) {
     if (process.platform === 'win32') return;
-    let fd = 0;
+    let fh;
     let offset = 0;
     const buf = Buffer.allocUnsafe(seed_bytes);
     while (offset < buf.length) {
         try {
             const count = buf.length - offset;
             const random_dev = process.env.DISABLE_DEV_RANDOM_SEED ? '/dev/urandom' : '/dev/random';
-            if (!fd) {
+            if (!fh) {
                 console.log(`read_rand_seed: opening ${random_dev} ...`);
-                fd = await async_open_fd(random_dev, 'r');
+                fh = await fs.promises.open(random_dev, 'r');
             }
             console.log(`read_rand_seed: reading ${count} bytes from ${random_dev} ...`);
-            const { bytesRead } = await async_read_fd(fd, buf, offset, count, null);
+            const { bytesRead } = await fh.read(buf, offset, count, null);
             offset += bytesRead;
             console.log(`read_rand_seed: got ${bytesRead} bytes from ${random_dev}, total ${offset} ...`);
         } catch (err) {
             console.log('read_rand_seed: error', err);
-            if (fd) {
+            if (fh) {
                 console.log('read_rand_seed: closing fd ...');
                 try {
-                    await async_close_fd(fd);
+                    await fh.close();
                 } catch (close_err) {
                     console.log('read_rand_seed: closing fd error', close_err);
                 }
-                fd = 0;
+                fh = undefined;
             }
             console.log('read_rand_seed: delay before retry');
             await async_delay(1000);
@@ -102,7 +98,7 @@ async function generate_entropy(loop_cond) {
         try {
             await async_delay(1000);
             const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
-            const entropy_avail = parseInt(await async_read_file(ENTROPY_AVAIL_PATH, 'utf8'), 10);
+            const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
             console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
             if (entropy_avail < 512) {
                 const bs = 1024 * 1024;

@@ -1,15 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const dbg = require('../../util/debug_module')(__filename);
-const coverage_utils = require('../../util/coverage_utils');
-const os_utils = require('../../util/os_utils');
 
-const stream = require('stream');
-const path = require('path');
 const fs = require('fs');
-const { human_size } = require('../../util/size_utils');
-const { get_folder_size, create_path } = require('../../util/fs_utils');
+const path = require('path');
+const stream = require('stream');
+
+const dbg = require('../../util/debug_module')(__filename);
+const fs_utils = require('../../util/fs_utils');
+const os_utils = require('../../util/os_utils');
+const size_utils = require('../../util/size_utils');
+const coverage_utils = require('../../util/coverage_utils');
 
 const FE_DUMP_DIR = path.join(
     os_utils.IS_MAC ? path.join(process.cwd(), 'logs') : '/log',
@@ -39,7 +40,7 @@ async function upload_fe_dump(req) {
 
     try {
         dbg.log0(`upload_fe_dump: Ensuring FE dump directory ${FE_DUMP_DIR}`);
-        await create_path(FE_DUMP_DIR);
+        await fs_utils.create_path(FE_DUMP_DIR);
 
         const source = new stream.Readable({
             read(size) {
@@ -62,20 +63,21 @@ async function upload_fe_dump(req) {
 
 async function _clean_excess_fe_dumps(dir, size_limit) {
     try {
-        let size_over_limit = (await get_folder_size(dir)) - size_limit;
+        const folder_disk_size = await fs_utils.disk_usage(dir);
+        let size_over_limit = folder_disk_size.size - size_limit;
         if (size_over_limit > 0) {
-            dbg.log0(`_clean_excess_fe_dumps: trying to clean ${human_size(size_over_limit)}`);
+            dbg.log0(`_clean_excess_fe_dumps: trying to clean ${size_utils.human_size(size_over_limit)}`);
 
-            const sorted_by_timestamp = (await fs.readdirAsync(FE_DUMP_DIR))
+            const sorted_by_timestamp = (await fs.promises.readdir(FE_DUMP_DIR))
                 .filter(name => !name.startsWith('.'))
                 .sort();
 
             for (const file of sorted_by_timestamp) {
                 const filepath = path.join(dir, file);
-                const { size } = await fs.statAsync(filepath);
+                const { size } = await fs.promises.stat(filepath);
 
-                dbg.log0(`_clean_excess_fe_dumps: deleting dump file ${file} (${human_size(size)})`);
-                await fs.unlinkAsync(filepath);
+                dbg.log0(`_clean_excess_fe_dumps: deleting dump file ${file} (${size_utils.human_size(size)})`);
+                await fs.promises.unlink(filepath);
 
                 size_over_limit -= size;
                 if (size_over_limit <= 0) break;

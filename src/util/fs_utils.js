@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const fs = require('fs');
 const ncp = require('ncp').ncp;
 const path = require('path');
@@ -13,7 +12,6 @@ const P = require('./promise');
 const Semaphore = require('./semaphore');
 const os_utils = require('../util/os_utils');
 const promise_utils = require('./promise_utils');
-const get_folder_size = P.promisify(require('get-folder-size'));
 
 const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
 
@@ -23,7 +21,7 @@ const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
  *
  */
 function file_must_not_exist(file_path) {
-    return fs.statAsync(file_path)
+    return fs.promises.stat(file_path)
         .then(function() {
             throw new Error(`${file_path} exists`);
         }, function(err) {
@@ -33,16 +31,11 @@ function file_must_not_exist(file_path) {
 
 
 /**
- *
  * file_must_exist
- *
  */
-function file_must_exist(file_path) {
-    return fs.statAsync(file_path).then(() => {
-        // do nothing. 
-    });
+async function file_must_exist(file_path) {
+    await fs.promises.stat(file_path);
 }
-
 
 async function file_exists(file_path) {
     try {
@@ -57,7 +50,7 @@ async function file_exists(file_path) {
  * options.on_entry - function({path, stat})
  *      returning false from on_entry will stop recursing to entry
  */
-function read_dir_recursive(options) {
+async function read_dir_recursive(options) {
     const on_entry = options.on_entry;
     const root = options.root || '.';
     const depth = options.depth || Infinity;
@@ -68,103 +61,84 @@ function read_dir_recursive(options) {
     options.stat_semaphore = stat_sem;
     const sub_dirs = [];
 
-    return dir_sem.surround(() => {
-            // first step:
-            // readdir and stat all entries in this level.
-            // run this under semaphores to limit I/O
-            // before recurse to sub dirs, we have to free the full list
-            // of entries and keep only sub dirs which is usually much less,
-            // and release the semaphore too to avoid reentry under acquired sem.
-            if (!level) {
-                console.log('read_dir_recursive: readdir', root);
+    // first step:
+    // readdir and stat all entries in this level.
+    // run this under semaphores to limit I/O
+    // before recurse to sub dirs, we have to free the full list
+    // of entries and keep only sub dirs which is usually much less,
+    // and release the semaphore too to avoid reentry under acquired sem.
+
+    await dir_sem.surround(async () => {
+        if (!level) console.log(`read_dir_recursive: readdir ${root}`);
+
+        const entries = await fs.promises.readdir(root);
+
+        await Promise.all(entries.map(async entry => {
+            const entry_path = path.join(root, entry);
+            try {
+                const stat = await stat_sem.surround(() => fs.promises.stat(entry_path));
+                if (on_entry) {
+                    const res = await on_entry({ path: entry_path, stat });
+                    // when on_entry returns explicit false, we stop recursing.
+                    if (res === false) return;
+                }
+                if (stat.isDirectory() && level < depth) {
+                    if (stat.size > 64 * 1024 * 1024) {
+                        // what to do AAAHH
+                        console.error(`read_dir_recursive: huge dir might crash the process ${entry_path}`);
+                    }
+                    sub_dirs.push(entry_path);
+                }
+            } catch (err) {
+                console.warn(`read_dir_recursive: entry error ${entry_path}:`, err);
             }
-            return fs.readdirAsync(root)
-                .map(entry => {
-                    const entry_path = path.join(root, entry);
-                    let stat;
-                    return stat_sem.surround(() => fs.statAsync(entry_path))
-                        .then(stat_arg => {
-                            stat = stat_arg;
-                            return on_entry && on_entry({
-                                path: entry_path,
-                                stat: stat
-                            });
-                        })
-                        .then(res => {
-                            // when on_entry returns false, we stop recursing.
-                            if (res === false) return;
-                            if (stat.isDirectory() && level < depth) {
-                                if (stat.size > 64 * 1024 * 1024) {
-                                    console.error('read_dir_recursive:',
-                                        'dir is huge and might crash the process',
-                                        entry_path);
-                                    // what to do AAAHH
-                                }
-                                sub_dirs.push(entry_path);
-                            }
-                        })
-                        .catch(err => {
-                            console.warn('read_dir_recursive:',
-                                'entry error', entry_path, err);
-                        });
-                })
-                .then(() => {
-                    // do nothing. 
-                });
-        })
-        .then(() => {
-            // second step: recurse to sub dirs
-            if (!level) {
-                console.log('read_dir_recursive: recursing', root,
-                    'with', sub_dirs.length, 'sub dirs');
-            }
-            return P.map(sub_dirs, sub_dir =>
-                read_dir_recursive(_.extend(options, {
-                    root: sub_dir,
-                    level: level + 1,
-                })));
-        })
-        .then(() => {
-            if (!level) {
-                console.log('read_dir_recursive: finished', root);
-            }
-        });
+        }));
+    });
+
+    // second step: recurse to sub dirs
+
+    if (!level) console.log(`read_dir_recursive: recursing ${root} with ${sub_dirs.length} sub dirs`);
+
+    await Promise.all(sub_dirs.map(sub_dir => read_dir_recursive({
+        ...options,
+        root: sub_dir,
+        level: level + 1
+    })));
+
+    if (!level) console.log(`read_dir_recursive: finished ${root}`);
 }
 
 /**
- *
  * disk_usage
- *
+ * @param {string} root dir
+ * @returns {Promise<{size: number, count: number}>}
  */
-function disk_usage(root) {
+async function disk_usage(root) {
     let size = 0;
     let count = 0;
-    return read_dir_recursive({
-            root: root,
-            on_entry: entry => {
-                if (entry.stat.isFile()) {
-                    size += entry.stat.size;
-                    count += 1;
-                }
+    await read_dir_recursive({
+        root: root,
+        on_entry: entry => {
+            if (entry.stat.isFile()) {
+                size += entry.stat.size;
+                count += 1;
             }
-        })
-        .then(() => ({
-            size: size,
-            count: count,
-        }));
+        }
+    });
+    return { size, count };
 }
 
 
 // returns the first line in the file that contains the substring
 function find_line_in_file(file_name, line_sub_string) {
-    return fs.readFileAsync(file_name, 'utf8')
+    return fs.promises.readFile(file_name, 'utf8')
         .then(data => data.split('\n')
             .find(line => line.indexOf(line_sub_string) > -1));
 }
 
 // returns all lines in the file that contains the substring
 function find_all_lines_in_file(file_name, line_sub_string) {
-    return fs.readFileAsync(file_name, 'utf8')
+    return fs.promises.readFile(file_name, 'utf8')
         .then(data => data.split('\n')
             .filter(function(line) {
                 return line.indexOf(line_sub_string) > -1;
@@ -172,7 +146,7 @@ function find_all_lines_in_file(file_name, line_sub_string) {
 }
 
 function get_last_line_in_file(file_name) {
-    return fs.readFileAsync(file_name, 'utf8')
+    return fs.promises.readFile(file_name, 'utf8')
         .then(data => {
             let lines = data.split('\n');
             let idx = lines.length - 1;
@@ -214,12 +188,12 @@ function folder_delete(dir) {
     return P.fromCallback(callback => rimraf(dir, callback));
 }
 
-function file_delete(file_name) {
-    return fs.unlinkAsync(file_name)
-        .catch(ignore_enoent)
-        .then(() => {
-            // do nothing. 
-        });
+async function file_delete(file_name) {
+    try {
+        await fs.promises.unlink(file_name);
+    } catch (err) {
+        ignore_enoent(err);
+    }
 }
 
 function full_dir_copy(src, dst, filter_regex) {
@@ -290,9 +264,9 @@ function replace_file(file_path, data) {
     const lock = process_file_locks.get(lock_key);
     return lock.surround(() =>
             P.resolve()
-            .then(() => fs.writeFileAsync(tmp_name, data))
-            .then(() => fs.renameAsync(tmp_name, file_path))
-            .catch(err => fs.unlinkAsync(tmp_name)
+            .then(() => fs.promises.writeFile(tmp_name, data))
+            .then(() => fs.promises.rename(tmp_name, file_path))
+            .catch(err => fs.promises.unlink(tmp_name)
                 .then(() => {
                     throw err;
                 })
@@ -333,5 +307,4 @@ exports.replace_file = replace_file;
 exports.ignore_eexist = ignore_eexist;
 exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
-exports.get_folder_size = get_folder_size;
 exports.file_exists = file_exists;

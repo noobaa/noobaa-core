@@ -1,11 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-function delete_container(req, res) {
-    return req.object_sdk.delete_bucket({ name: req.params.bucket })
-        .then(() => {
-            res.statusCode = 202;
-        });
+async function delete_container(req, res) {
+    await req.object_sdk.delete_bucket({ name: req.params.bucket });
+    res.statusCode = 202;
 }
 
 module.exports = {

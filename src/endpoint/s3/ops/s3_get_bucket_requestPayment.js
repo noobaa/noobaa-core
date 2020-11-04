@@ -4,13 +4,13 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTrequestPaymentGET.html
  */
-function get_bucket_requestPayment(req) {
-    return req.object_sdk.read_bucket({name: req.params.bucket })
-        .then(bucket_info => ({
-            RequestPaymentConfiguration: {
-                Payer: 'BucketOwner'
-            }
-        }));
+async function get_bucket_requestPayment(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        RequestPaymentConfiguration: {
+            Payer: 'BucketOwner'
+        }
+    };
 }
 
 module.exports = {

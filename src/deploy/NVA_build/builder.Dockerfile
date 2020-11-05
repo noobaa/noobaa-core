@@ -11,7 +11,7 @@ ENV container docker
 RUN dnf update -y -q && \
     dnf clean all
 RUN dnf install -y -q wget unzip which vim python2 python3 && \
-    dnf --enablerepo=PowerTools install -y -q yasm && \
+    dnf --enablerepo=PowerTools install -y -q nasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3

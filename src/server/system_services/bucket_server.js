@@ -461,11 +461,11 @@ async function read_bucket_sdk_info(req) {
         ),
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
-        bucket_info: await P.map_values({
+        bucket_info: await P.map_props({
                 bucket,
                 nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
                 hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
-                num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
+                // num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
                 func_configs: get_bucket_func_configs(req, bucket),
                 unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
             })
@@ -1405,7 +1405,8 @@ function get_bucket_info({
     nodes_aggregate_pool,
     hosts_aggregate_pool,
     func_configs,
-    bucket_stats,
+    bucket_stats = undefined,
+    unused_refresh_tiering_alloc = undefined,
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
     const tiering = tier_server.get_tiering_policy_info(

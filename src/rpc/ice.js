@@ -1319,7 +1319,7 @@ function IceSession(local, remote, packet, udp) {
     self.state = 'init';
     js_utils.self_bind(self, 'run_udp_request_loop');
     js_utils.self_bind(self, 'run_udp_indication_loop');
-    self.defer = P.defer();
+    self.defer = new P.Defer();
     self.defer.promise.catch(_.noop); // to ignore 'Unhandled rejection' printouts
     // set session timeout
     self.ready_timeout = setTimeout(function() {

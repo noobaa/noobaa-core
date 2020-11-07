@@ -190,7 +190,7 @@ class RPC extends EventEmitter {
         // initialize the request
         const req = new RpcRequest();
         req._new_request(api, method_api, params, options.auth_token);
-        req._response_defer = P.defer();
+        req._response_defer = new P.Defer();
         req._response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
         if (options.tracker) {
             options.tracker(req);
@@ -854,9 +854,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * start_http_server
-     *
      */
     start_http_server(options) {
         dbg.log0('RPC start_http_server', options);
@@ -874,9 +872,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_http_app
-     *
      */
     register_http_app(express_app) {
         dbg.log0('RPC register_http_app');
@@ -887,9 +883,7 @@ class RPC extends EventEmitter {
     }
 
     /**
-     *
      * register_http_transport
-     *
      */
     register_http_transport(server) {
         dbg.log0('RPC register_http_transport');
@@ -901,9 +895,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_ws_transport
-     *
      */
     register_ws_transport(http_server) {
         dbg.log0('RPC register_ws_transport');
@@ -914,9 +906,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_tcp_transport
-     *
      */
     async register_tcp_transport(port, tls_options) {
         dbg.log0('RPC register_tcp_transport');
@@ -928,9 +918,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
-     * register_tcp_transport
-     *
+     * register_ntcp_transport
      */
     async register_ntcp_transport(port, tls_options) {
         dbg.log0('RPC register_ntcp_transport');
@@ -942,17 +930,15 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_nudp_transport
      *
      * this is not really like tcp listening, it only creates a one time
      * nudp connection that binds to the given port, and waits for a peer
      * to connect. after that connection is made, it ceases to listen for new connections,
      * and that udp port is used for the nudp connection.
-     *
      */
     async register_nudp_transport(port) {
-        dbg.log0('RPC register_tcp_transport');
+        dbg.log0('RPC register_nudp_transport');
         const conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
         conn.on('connect', () => this._accept_new_connection(conn));
         return conn.accept(port);
@@ -960,9 +946,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_n2n_agent
-     *
      */
     register_n2n_agent(send_signal_func) {
         if (this.n2n_agent) {
@@ -988,9 +972,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
      * register_n2n_proxy
-     *
      */
     register_n2n_proxy(proxy_func) {
         dbg.log0('RPC register_n2n_proxy');

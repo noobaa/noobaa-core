@@ -103,7 +103,7 @@ function getSignedUrl(bucket, obj, expiry) {
                 Expires: expiry || 604800
             });
         })
-        .then(() => P.then(() => P.delay(1000)))
+        .then(() => P.delay(1000))
         .then(url => url,
             error => {
                 console.warn('Failed with', error, error.stack);
@@ -114,13 +114,10 @@ function getSignedUrl(bucket, obj, expiry) {
 
 function httpGetAsPromise(url) {
     console.log('TEST SIGNED_URL: ', url);
-    return new P(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
         return http.get(url, res => {
             if (res.statusCode >= 400) {
-                reject(({
-                    url: url,
-                    res: res
-                }));
+                reject(new Error(`httpGetAsPromise failed ${url} ${res.statusCode} ${res.body}`));
             } else {
                 resolve(res);
             }

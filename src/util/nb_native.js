@@ -60,6 +60,16 @@ async function init_rand_seed() {
 async function read_rand_seed(seed_bytes) {
     if (process.platform === 'win32') return;
     let fh;
+    const clean_fh = async () => {
+        if (!fh) return;
+        console.log('read_rand_seed: closing fd ...');
+        try {
+            await fh.close();
+        } catch (err) {
+            console.log('read_rand_seed: closing fd error', err);
+        }
+        fh = undefined;
+    };
     let offset = 0;
     const buf = Buffer.allocUnsafe(seed_bytes);
     while (offset < buf.length) {
@@ -76,19 +86,12 @@ async function read_rand_seed(seed_bytes) {
             console.log(`read_rand_seed: got ${bytesRead} bytes from ${random_dev}, total ${offset} ...`);
         } catch (err) {
             console.log('read_rand_seed: error', err);
-            if (fh) {
-                console.log('read_rand_seed: closing fd ...');
-                try {
-                    await fh.close();
-                } catch (close_err) {
-                    console.log('read_rand_seed: closing fd error', close_err);
-                }
-                fh = undefined;
-            }
+            await clean_fh();
             console.log('read_rand_seed: delay before retry');
             await async_delay(1000);
         }
     }
+    await clean_fh();
     return buf;
 }
 

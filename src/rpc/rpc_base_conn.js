@@ -39,7 +39,7 @@ class RpcBaseConnection extends events.EventEmitter {
 
         // the connecting_defer is used by connect() to wait for the connected event
         this._connect_promise = events.once(this, 'connect');
-        this.connecting_defer = P.defer();
+        this.connecting_defer = new P.Defer();
         this._connect_promise.catch(_.noop); // to prevent error log of unhandled rejection
 
         this._connect_timeout_ms = config.RPC_CONNECT_TIMEOUT;

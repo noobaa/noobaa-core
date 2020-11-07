@@ -156,7 +156,7 @@ mocha.describe('system_servers', function() {
             }))
             .then(
                 () => assert.ifError('should fail with UNAUTHORIZED'),
-                err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
+                err => assert.strictEqual(err.rpc_code, 'UNAUTHORIZED')
             );
     });
 

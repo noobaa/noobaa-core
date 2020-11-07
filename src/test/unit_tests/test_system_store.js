@@ -114,7 +114,7 @@ mocha.describe('system_store', function() {
     mocha.it('Check make_changes returns diff when changing last_update', async function() {
         const system_id = system_store.new_system_store_id();
         const orig_name = `JenTheMajesticSlothSystemStoreLoop3`;
-        await system_store.load()
+        await system_store.load();
         await system_store.make_changes({
             insert: {
                 systems: [{

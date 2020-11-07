@@ -25,7 +25,9 @@ class RpcTcpServer extends events.EventEmitter {
             net.createServer(tcp_conn => this._on_tcp_conn(tcp_conn));
         this.server.on('close', err => {
             dbg.log0('on close:', err);
-            this.emit('error', new Error('TCP SERVER CLOSED'));
+            // emitting this as error is not desirable since no one is listening and it gives Uncaught Error.
+            // this happens on test_rpc as after each test we call disconnect. 
+            // this.emit('error', new Error('TCP SERVER CLOSED'));
         });
         this.server.on('error', err => this.emit('error', err));
     }

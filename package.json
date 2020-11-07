@@ -77,7 +77,6 @@
     "express": "4.17.1",
     "express-http-proxy": "1.6.0",
     "ftp-srv": "4.3.4",
-    "get-folder-size": "2.0.1",
     "getos": "3.2.0",
     "glob-to-regexp": "0.4.1",
     "googleapis": "59.0.0",

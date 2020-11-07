@@ -43,11 +43,11 @@ class RpcN2NConnection extends RpcBaseConnection {
                 dbg.log1('N2N CONNECTED TO TCP',
                     // session.tcp.localAddress + ':' + session.tcp.localPort, '=>',
                     session.tcp.remoteAddress + ':' + session.tcp.remotePort);
-                this._send = msg => session.tcp.frame_stream.send_message(msg);
+                this._send = async msg => session.tcp.frame_stream.send_message(msg);
                 session.tcp.on('message', msg => this.emit('message', msg));
                 this.emit('connect');
             } else {
-                this._send = msg => P.ninvoke(this.ice.udp, 'send', msg);
+                this._send = async msg => P.ninvoke(this.ice.udp, 'send', msg);
                 this.ice.udp.on('message', msg => this.emit('message', msg));
                 if (this.controlling) {
                     dbg.log1('N2N CONNECTING NUDP', session.key);

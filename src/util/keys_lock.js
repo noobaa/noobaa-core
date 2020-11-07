@@ -43,7 +43,7 @@ class KeysLock {
             return P.resolve();
         }
 
-        const defer = P.defer();
+        const defer = new P.Defer();
         lock_item.defer = defer;
         this._wait_list.push_back(lock_item);
         return defer.promise;

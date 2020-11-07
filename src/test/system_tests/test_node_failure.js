@@ -68,7 +68,7 @@ async function create_agents() {
                 access_key: '123',
                 secret_key: 'abc'
             }
-        })
+        });
     }
     return names;
 }

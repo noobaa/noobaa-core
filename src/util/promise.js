@@ -7,21 +7,7 @@ const Semaphore = require('./semaphore');
 
 require('setimmediate'); // shim for the browser
 
-/**
- * Callback is a template typedef to help propagate types correctly
- * when using nodejs callback functions.
- * @template T
- * @typedef {(err?:Error, res?:T) => void} Callback
- */
-
-/**
- * CallbackReceiver is a template typedef to help propagate types correctly
- * when using nodejs callback functions.
- * @template T
- * @typedef {(callback: Callback<T>) => void} CallbackReceiver
- */
-
-
+// the basics which are not exposed by node.js yet
 const next_tick = util.promisify(process.nextTick);
 const immediate = util.promisify(setImmediate);
 const delay = util.promisify(setTimeout);
@@ -54,36 +40,18 @@ async function map(arr, func) {
 }
 
 /**
- * Deconstruct and reconstruct the object keys after awaiting all its values,
- * after mapping by the given func (optional).
- * 
- * @param {object} obj
- * @param {(val:any, key:string) => Promise<any>} func
- * @returns {Promise<object>}
- */
-async function map_values(obj, func = (val, key) => val) {
-    return Object.fromEntries(
-        await Promise.all(
-            Object.entries(obj).map(
-                async ([key, val]) => ([key, await func(val, key)])
-            )
-        )
-    );
-}
-
-/**
  * Map with limited concurrency.
  * 
  * @template K
  * @template V
  * @param {number} concurrency 
  * @param {Array<K>} arr
- * @param {(key:K) => Promise<V>} func
+ * @param {(key:K, index?:number) => Promise<V>} func
  * @returns {Promise<Array<V>>}
  */
 async function map_with_concurrency(concurrency, arr, func) {
     const sem = new Semaphore(concurrency);
-    return Promise.all(arr.map(async key => sem.surround(async () => func(key))));
+    return Promise.all(arr.map(async (key, index) => sem.surround(async () => func(key, index))));
 }
 
 /**
@@ -92,7 +60,7 @@ async function map_with_concurrency(concurrency, arr, func) {
  * @template K
  * @template V
  * @param {Array<K>} arr
- * @param {(key:K) => Promise<V>} func
+ * @param {(key:K, index?:number) => Promise<V>} func
  * @returns {Promise<Array<V>>}
  */
 async function map_one_by_one(arr, func) {
@@ -100,13 +68,48 @@ async function map_one_by_one(arr, func) {
     const r = [];
     r.length = l;
     for (let i = 0; i < l; ++i) {
-        r[i] = await func(arr[i]);
+        r[i] = await func(arr[i], i);
     }
     return r;
 }
 
 /**
+ * @see https://stackoverflow.com/questions/48011353/how-to-unwrap-type-of-a-promise
+ * @template T
+ * @typedef {T extends PromiseLike<infer U> 
+ *  ? { 0:P.Unwrap<U>; 1:U }[T extends PromiseLike<any> ? 0 : 1]
+ *  : T
+ * } P.Unwrap;
+ */
+
+/**
+ * Return a new object with the same properties of obj
+ * after awaiting all its values, concurrently.
+ * 
+ * Example:
+ *          const { buckets, accounts } = await P.map_props({
+ *              buckets: this.load_buckets(),
+ *              accounts: this.load_accounts(),
+ *          });
+ * 
+ * @template T
+ * @param {T} obj
+ * @returns {Promise<{[K in keyof T]: P.Unwrap<T[K]>}>}
+ */
+async function map_props(obj) {
+    return Object.fromEntries(
+        await Promise.all(
+            Object.entries(obj).map(
+                async ([key, val]) => ([key, await val])
+            )
+        )
+    );
+}
+
+/**
  * any returns the result of the first promise to resolve.
+ * first promise to succeed will resolve the entire call and we're done.
+ * but if all are settled without anyone resolving, we call reject.
  * 
  * @template K
  * @template V
@@ -116,96 +119,11 @@ async function map_one_by_one(arr, func) {
  */
 async function map_any(arr, func) {
     return new Promise((resolve, reject) => {
-        const make_anti_promise = p => p.then(Promise.reject, Promise.resolve);
-        const promises = arr.map(func);
-        const anti_promises = promises.map(make_anti_promise);
-        const ignore = () => undefined;
-        // first promise to succeed will resolve the entire call.
-        promises.forEach(p => p.then(resolve, ignore));
-        // fail iff all promises failed
-        Promise.all(anti_promises).then(
-            () => reject(new Error('map_any: all has failed')),
-            ignore
-        );
+        Promise.allSettled(arr.map(it => func(it).then(resolve)))
+            .then(() => reject(new Error('P.map_any: all failed')));
     });
 }
 
-let next_defer_id = 1;
-
-class Defer {
-
-    constructor() {
-        // GGG DEFER DEBUG ----
-        this.id = next_defer_id;
-        next_defer_id += 1;
-        // GGG DEFER DEBUG ----
-        this.isPending = true;
-        this.isResolved = false;
-        this.isRejected = false;
-        this.resolve = /** @type {(res?:any) => void} */ (res => {
-            throw new Error('defer resolve called before initialized');
-        });
-        this.reject = /** @type {(err:Error) => void} */ (err => {
-            throw err;
-        });
-        this.promise = new Promise((resolve, reject) => {
-            this.resolve = resolve;
-            this.reject = reject;
-            console.log(`GGG DEFER DEBUG: #${this.id} initialized`);
-        });
-        this.promise.then(
-            res => {
-                console.log(`GGG DEFER DEBUG: #${this.id} resolve`, res);
-                this.isPending = false;
-                this.isResolved = true;
-                Object.freeze(this);
-            },
-            err => {
-                console.log(`GGG DEFER DEBUG: #${this.id} reject`, err);
-                this.isPending = false;
-                this.isRejected = true;
-                Object.freeze(this);
-            }
-        );
-        Object.seal(this);
-    }
-}
-
-function defer() {
-    return new Defer();
-}
-
-async function fcall(func, ...args) {
-    return func(...args);
-}
-
-/**
- * @template T
- * @param {object} obj object on which to make the method call
- * @param {string} fn function name
- * @param  {...any} args arguments to pass to the call
- * @returns {Promise<T>}
- */
-async function ninvoke(obj, fn, ...args) {
-    return new Promise((resolve, reject) => {
-        /** @type {Callback<T>} */
-        const callback = (err, res) => (err ? reject(err) : resolve(res));
-        obj[fn](...args, callback);
-    });
-}
-
-/**
- * @template T
- * @param {CallbackReceiver<T>} receiver
- * @returns {Promise<T>}
- */
-async function fromCallback(receiver) {
-    return new Promise((resolve, reject) => {
-        /** @type {Callback<T>} */
-        const callback = (err, res) => (err ? reject(err) : resolve(res));
-        receiver(callback);
-    });
-}
 
 class TimeoutError extends Error {
     constructor(msg = 'TimeoutError') {
@@ -217,21 +135,23 @@ class TimeoutError extends Error {
  * @template T
  * @param {number} millis
  * @param {Promise<T>} promise
- * @param {Error|undefined} [custom_timeout_err]
+ * @param {Error|undefined} [timeout_err]
  * @returns {Promise<T>}
  */
-async function timeout(millis, promise, custom_timeout_err = undefined) {
+async function timeout(millis, promise, timeout_err = new TimeoutError()) {
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
+        let timer = setTimeout(() => {
             // wish we could let the promise know so it could save some redundant work 
-            reject(custom_timeout_err || new TimeoutError());
-        }, millis);
+            reject(timeout_err);
+        }, millis).unref();
         promise.then(res => {
             clearTimeout(timer);
+            timer = null;
             resolve(res);
         });
         promise.catch(err => {
             clearTimeout(timer);
+            timer = null;
             reject(err);
         });
     });
@@ -274,8 +194,117 @@ async function retry({ attempts, delay_ms, func, error_logger }) {
     }
 }
 
+
+/////////////////////////////////////
+/////////////////////////////////////
+// LEGACY UTILITIES - DEPRECATED ! //
+/////////////////////////////////////
+/////////////////////////////////////
+
 /**
- * 
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
+ */
+class Defer {
+
+    constructor() {
+        this.isPending = true;
+        this.isResolved = false;
+        this.isRejected = false;
+        this.promise =
+            new Promise((resolve, reject) => {
+                this.resolve = resolve;
+                this.reject = reject;
+            })
+            .then(res => {
+                this.isPending = false;
+                this.isResolved = true;
+                Object.freeze(this);
+                return res;
+            }, err => {
+                this.isPending = false;
+                this.isRejected = true;
+                Object.freeze(this);
+                throw err;
+            });
+        Object.seal(this);
+    }
+
+    // setting resolve and reject to assert that the current code assumes 
+    // the Promise ctor is calling the callback synchronously and not deferring it,
+    // otherwise we might have weird cases that we miss the caller's resolve/reject
+    // events, so we throw to assert 
+
+    /**
+     * @param {any} [res]
+     * @returns {void}
+     */
+    resolve(res) {
+        throw new Error('defer resolve called before initialized');
+    }
+
+    /**
+     * @param {Error} err
+     * @returns {void}
+     */
+    reject(err) {
+        throw err;
+    }
+}
+
+/**
+ * Callback is a template typedef to help propagate types correctly
+ * when using nodejs callback functions.
+ * @template T
+ * @typedef {(err?:Error, res?:T) => void} Callback
+ */
+
+/**
+ * CallbackReceiver is a template typedef to help propagate types correctly
+ * when using nodejs callback functions.
+ * @template T
+ * @typedef {(callback: Callback<T>) => void} CallbackReceiver
+ */
+
+/**
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
+ */
+async function fcall(func, ...args) {
+    return func(...args);
+}
+
+/**
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
+ * @template T
+ * @param {object} obj object on which to make the method call
+ * @param {string} fn function name
+ * @param  {...any} args arguments to pass to the call
+ * @returns {Promise<T>}
+ */
+async function ninvoke(obj, fn, ...args) {
+    return new Promise((resolve, reject) => {
+        /** @type {Callback<T>} */
+        const callback = (err, res) => (err ? reject(err) : resolve(res));
+        obj[fn](...args, callback);
+    });
+}
+
+/**
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
+ * @template T
+ * @param {CallbackReceiver<T>} receiver
+ * @returns {Promise<T>}
+ */
+async function fromCallback(receiver) {
+    return new Promise((resolve, reject) => {
+        /** @type {Callback<T>} */
+        const callback = (err, res) => (err ? reject(err) : resolve(res));
+        receiver(callback);
+    });
+}
+
+
+/**
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
  * @param {() => boolean} condition 
  * @param {() => Promise} body 
  */
@@ -287,7 +316,7 @@ async function pwhile(condition, body) {
 
 /**
  * Wait until an async condition is met.
- *
+ * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
  * @param {() => boolean | Promise<boolean>} async_cond an async condition function with a boolean return value.
  * @param {number} [timeout_ms] A timeout to bail out of the loop, will throw timeout error.
  * @param {number} [delay_ms] delay number of milliseconds between invocation of the condition.
@@ -303,32 +332,31 @@ async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
 }
 
 
-
 // EXPORTS
 
-exports.resolve = val => Promise.resolve(val);
-exports.reject = err => Promise.reject(err);
-exports.all = arr => Promise.all(arr);
-
-exports.Defer = Defer;
-exports.TimeoutError = TimeoutError;
-
+// timing
 exports.next_tick = next_tick;
 exports.immediate = immediate;
 exports.delay = delay;
 exports.delay_unblocking = delay_unblocking;
-
+// mapping
 exports.map = map;
-exports.map_values = map_values;
 exports.map_with_concurrency = map_with_concurrency;
 exports.map_one_by_one = map_one_by_one;
+exports.map_props = map_props;
 exports.map_any = map_any;
-
-exports.defer = defer;
-exports.fcall = fcall;
-exports.ninvoke = ninvoke;
-exports.fromCallback = fromCallback;
+// control flow
 exports.timeout = timeout;
+exports.TimeoutError = TimeoutError;
 exports.retry = retry;
-exports.pwhile = pwhile;
-exports.wait_until = wait_until;
+// should we deprecated usage of P.resolve/reject/all ?
+exports.resolve = val => Promise.resolve(val);
+exports.reject = err => Promise.reject(err);
+exports.all = arr => Promise.all(arr);
+// deprecated
+exports.fromCallback = fromCallback; // 96 occurences
+exports.fcall = fcall; // 64 occurences
+exports.ninvoke = ninvoke; // 32 occurences
+exports.wait_until = wait_until; // 21 occurences
+exports.Defer = Defer; // 18 occurences
+exports.pwhile = pwhile; // 17 occurences

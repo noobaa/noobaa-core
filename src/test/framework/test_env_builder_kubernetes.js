@@ -91,7 +91,9 @@ function get_env_vars() {
     }
 }
 
-
+/**
+ * @param {KubernetesFunctions} kf 
+ */
 async function build_env(kf, params) {
     const {
         server_cpu,
@@ -248,7 +250,7 @@ async function run_single_test_env(params) {
 
     //Will not delete the namespace if the test has failed.
     if (should_delete_namespace(delete_on_fail, test_failed, clean, clean_single_test)) {
-        console.log('cleaning test environment');
+        console.log(`cleaning test environment - deleting namespace ${namespace}`);
         try {
             // for now by default delete namespaces in background. if running tests concurrently we might want to await
             if (await_clean) {

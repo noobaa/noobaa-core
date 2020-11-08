@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
 
@@ -75,11 +76,13 @@ kubectl create namespace ${NAMESPACE}
 echo "Deploying test account and role"
 kubectl -n ${NAMESPACE} apply -f ./test_account.yaml
 
+NAMESPACE_PREFIX=${TEST_RUN_NAME:0:7}
+
 echo "Running test job ${TEST_RUN_NAME}"
 sed -e "s~NOOBAA_IMAGE_PLACEHOLDER~${IMAGE}~" \
 -e "s~TESTER_IMAGE_PLACEHOLDER~${TESTER_IMAGE}~" \
 -e "s~TEST_JOB_NAME_PLACEHOLDER~${TEST_RUN_NAME}~" \
--e "s~NAMESPACE_PREFIX_PLACEHOLDER~${TEST_RUN_NAME:0:7}~" \
+-e "s~NAMESPACE_PREFIX_PLACEHOLDER~${NAMESPACE_PREFIX}~" \
 -e "s~TESTS_LIST_PLACEHOLDER~${TESTS_LIST}~" \
 -e "s~TESTS_CONCURRENCY_PLACEHOLDER~${TESTS_CONCURRENCY}~" \
 -e "s~DELETE_ON_FAIL_PLACEHOLDER~${TESTS_DELETE_ON_FAIL}~" \
@@ -89,11 +92,32 @@ ${JOB_YAML} \
 #Wait for completion of job
 sleep 10
 pod=$(kubectl get pods -n ${NAMESPACE} | tail -1 | awk '{print $1}' | cut -f 2 -d'-')
+server_namespace=$(kubectl get ns -o name | grep namespace/$NAMESPACE_PREFIX | cut -d/ -f2-)
 
 if [ ${WAIT_COMPLETION} ]; then
     kubectl wait --for=condition=complete job/${TEST_RUN_NAME} --timeout=500s -n ${NAMESPACE}
     test_exit_code=$?
     #Display logs of run
-    kubectl logs ${TEST_RUN_NAME}-${pod} -n ${NAMESPACE}
+
+    { echo ""; echo "LIST PODS:"; echo ""; } 2>/dev/null
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+    kubectl get pod -A
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+
+    { echo ""; echo "DUMP LOGS OF TEST JOB:"; echo ""; } 2>/dev/null
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+    kubectl logs -n ${NAMESPACE} --tail 10000 ${TEST_RUN_NAME}-${pod} 
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+
+    { echo ""; echo "DUMP LOGS OF NOOBAA CORE:"; echo ""; } 2>/dev/null
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+    kubectl logs -n ${server_namespace} --tail 10000 noobaa-server-0 -c noobaa-server
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+
+    { echo ""; echo "DUMP LOGS OF NOOBAA ENDPOINT:"; echo ""; } 2>/dev/null
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+    kubectl logs -n ${server_namespace} --tail 10000 noobaa-server-0 -c endpoint
+    { echo "--------------------------------------------------------------------------------"; } 2>/dev/null
+
     exit "$test_exit_code"
 fi

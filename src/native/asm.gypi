@@ -34,10 +34,12 @@
                 'extension': 'asm',
                 'outputs': ['<(INTERMEDIATE_DIR)/<(RULE_INPUT_ROOT).o'],
                 'action': [
-                    'nasm',
+                    # TODO fix nasm on Mac
+                    'yasm',
+                    # 'nasm',
                     '-fmacho64',
-                    '-DHAVE_AS_KNOWS_AVX512',
-                    '-DHAVE_AS_KNOWS_SHANI',
+                    # '-DHAVE_AS_KNOWS_AVX512',
+                    # '-DHAVE_AS_KNOWS_SHANI',
                     '--prefix=_',
                     '<!@(for i in <(_include_dirs); do echo -I $i; done)',
                     '-o', '<@(_outputs)',

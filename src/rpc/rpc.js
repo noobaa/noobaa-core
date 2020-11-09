@@ -63,7 +63,8 @@ class RPC extends EventEmitter {
         this._served_requests = 0;
         this.RPC_BUFFERS = RPC_BUFFERS;
         this._routing_authority = null;
-        this._error_handler = null;
+        this.should_emit_request_errors = false;
+        this.should_emit_stats = false;
         this.routing_hint = undefined;
     }
 
@@ -183,247 +184,208 @@ class RPC extends EventEmitter {
      *  return_rpc_req?: boolean,
      * }} options
      */
-    _request(api, method_api, params, options) {
-        // const millistamp = time_utils.millistamp();
-        options = options || {};
-
-        // initialize the request
+    async _request(api, method_api, params, options) {
         const req = new RpcRequest();
-        req._new_request(api, method_api, params, options.auth_token);
-        req._response_defer = new P.Defer();
-        req._response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
-        if (options.tracker) {
-            options.tracker(req);
-        }
+        try {
+            options = options || {};
 
-        if (!this._disable_validation) {
-            req.method_api.validate_params(req.params, 'CLIENT');
-        }
+            // initialize the request
+            req._new_request(api, method_api, params, options.auth_token);
+            req._response_defer = new P.Defer();
+            req._response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
-        // assign a connection to the request
-        const conn = this._assign_connection(req, options);
-        if (!conn) { // proxying
-            return this._proxy(api, method_api, params, options);
-        }
+            if (options.tracker) {
+                options.tracker(req);
+            }
 
-        let request_promise = P.resolve()
-            .then(() => {
+            if (this._disconnected_state) {
+                throw new RpcError('RPC_DISCONNECTED_STATE', 'RPC_DISCONNECTED_STATE - failing request ' + req.base_info);
+            }
+            if (!this._disable_validation) {
+                req.method_api.validate_params(req.params, 'CLIENT');
+            }
 
-                dbg.log1('RPC._request: START',
-                    'srv', req.srv,
-                    'reqid', req.reqid);
+            // assign a connection to the request
+            const conn = this._assign_connection(req, options);
+            if (!conn) { // proxying
+                return this._proxy(api, method_api, params, options);
+            }
 
-                // connect the connection
-                return req.connection.connect();
+            dbg.log1('RPC._request: START', req.base_info);
 
-            })
-            .then(() => {
-
-                dbg.log1('RPC._request: SEND',
-                    'srv', req.srv,
-                    'reqid', req.reqid);
-
-                if (this._request_logger) {
-                    this._request_logger('RPC REQUEST SEND', req.srv, params);
-                }
-
-                // send request over the connection
-                return req.connection.send(req.make_request_message(), req);
-
-            })
-            .then(() => {
-
-                dbg.log1('RPC._request: WAIT',
-                    'srv', req.srv,
-                    'reqid', req.reqid);
-
-                return req._response_defer.promise;
-
-            })
-            .then(reply => {
-
-                if (!this._disable_validation) {
-                    req.method_api.validate_reply(reply, 'CLIENT');
-                }
-
-                if (this._request_logger) {
-                    this._request_logger('RPC REQUEST REPLY', req.srv, '==>', reply);
-                }
-
-                // if failed without getting a response (connect/send) we fill times for printing
-                if (!req.took_srv) req._set_times(0);
-
-                dbg.log1(`RPC._request: DONE srv ${
-                    req.srv
-                } reqid ${
-                    req.reqid
-                } took [${
-                    req.took_srv.toFixed(1)
-                }+${
-                    req.took_flight.toFixed(1)
-                }=${
-                    req.took_total.toFixed(1)
-                }]`);
-
-                // return_rpc_req mode allows callers to get back the request
-                // instead of a bare reply, and the reply is in req.reply
-                this._update_flight_avg(req.took_flight);
-                if (this._stats_handler) {
-                    this._stats_handler(this._aggregated_flight_time / this._served_requests);
-                }
-                return options.return_rpc_req ? req : reply;
-            })
-            .catch(err => {
-
-                // if failed without getting a response (connect/send) we fill times for printing
-                if (!req.took_srv) req._set_times(0);
-
-                if (this._request_logger) {
-                    this._request_logger('RPC REQUEST CATCH', req.srv, '==>', err);
-                }
-
-                dbg.error(`RPC._request: response ERROR srv ${
-                    req.srv
-                } params ${
-                    util.inspect(params, true, null, true)
-                } reqid ${
-                    req.reqid
-                } took [${
-                    req.took_srv.toFixed(1)
-                }+${
-                    req.took_flight.toFixed(1)
-                }=${
-                    req.took_total.toFixed(1)
-                }]`, err.stack || err);
-
-                throw err;
-            })
-            .finally(() => {
-                // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
-                this._release_connection(req);
-            });
-
-        if (options.timeout) {
-            request_promise = P.timeout(options.timeout, request_promise,
-                new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT')
+            // connect the connection
+            await P.timeout(options.timeout,
+                req.connection.connect(),
+                () => new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT while connecting' + req.base_info)
             );
-        }
 
-        if (typeof this._error_handler === 'function') {
-            request_promise = request_promise.catch(err => {
-                if (this._error_handler(err) !== true) throw err;
-            });
-        }
 
-        return request_promise;
+            dbg.log1('RPC._request: SEND', req.base_info);
+
+            if (this._request_logger) {
+                this._request_logger('RPC REQUEST SEND', req.srv, params);
+            }
+
+            // send request over the connection
+            await P.timeout(options.timeout,
+                req.connection.send(req.make_request_message(), req),
+                () => new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT while sending request ' + req.base_info)
+            );
+
+            dbg.log1('RPC._request: WAIT', req.base_info);
+
+            const reply = await P.timeout(options.timeout,
+                req._response_defer.promise,
+                () => new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT while waiting for response ' + req.base_info)
+            );
+
+            if (!this._disable_validation) {
+                req.method_api.validate_reply(reply, 'CLIENT');
+            }
+
+            if (this._request_logger) {
+                this._request_logger('RPC REQUEST REPLY', req.srv, '==>', reply);
+            }
+
+            dbg.log1('RPC._request: DONE', req.base_info, req.took_info);
+
+            this._update_flight_avg(req.took_flight);
+            if (this.should_emit_stats) {
+                this.emit('stats', this._aggregated_flight_time / this._served_requests);
+            }
+
+            // return_rpc_req mode allows callers to get back the request
+            // instead of a bare reply, and the reply is in req.reply
+            return options.return_rpc_req ? req : reply;
+
+        } catch (err) {
+
+            if (this._request_logger) {
+                this._request_logger('RPC REQUEST CATCH', req.srv, '==>', err);
+            }
+
+            dbg.error('RPC._request: response ERROR',
+                req.base_info,
+                'params', util.inspect(params, true, null, true),
+                req.took_info,
+                err.stack || err
+            );
+
+            if (this.should_emit_request_errors) {
+                this.emit('request_error', err);
+            }
+
+            throw err;
+
+        } finally {
+            this._release_connection(req);
+        }
     }
 
 
     /**
-     *
-     * _on_request
-     *
+     * @param {RpcBaseConnection} conn
+     * @param {RpcMessage} msg
      */
-    _on_request(conn, msg) {
-        // const millistamp = time_utils.millistamp();
+    async _on_request(conn, msg) {
         const req = new RpcRequest();
+        // const millistamp = time_utils.millistamp();
         req.connection = conn;
         req.reqid = msg.body.reqid;
+        req.srv = msg.body.api + '.' + msg.body.method;
 
         // find the requested service
-        const srv = msg.body.api +
-            '.' + msg.body.method;
-        const service = this._services[srv];
+        const service = this._services[req.srv];
         if (!service) {
-            dbg.warn('RPC._on_request: NOT FOUND', srv,
-                'reqid', msg.body.reqid,
-                'connid', conn.connid);
-            req.error = new RpcError('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv);
-            return conn.send(req.make_response_message(), req);
+            dbg.warn('RPC._on_request: NO_SUCH_RPC_SERVICE', req.base_info);
+            req.error = new RpcError('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + req.srv);
+            req.error.stack = ''; // don't print this stack
+            await this._send_response(conn, req);
+            return;
         }
 
-        return P.resolve()
-            .then(() => {
+        try {
+            // set api info to the request
+            req._set_request(msg, service.api, service.method_api);
 
-                // set api info to the request
-                req._set_request(msg, service.api, service.method_api);
+            if (this._disconnected_state) {
+                throw new RpcError('RPC_DISCONNECTED_STATE', 'RPC_DISCONNECTED_STATE - failing request ' + req.base_info);
+            }
+            if (!this._disable_validation) {
+                req.method_api.validate_params(req.params, 'SERVER');
+            }
 
-                if (!this._disable_validation) {
-                    req.method_api.validate_params(req.params, 'SERVER');
+            dbg.log3('RPC._on_request: ENTER', req.base_info);
+
+            // call service middlewares if provided
+            if (service.options.middleware) {
+                for (const middleware of service.options.middleware) {
+                    await middleware(req);
                 }
+            }
 
-                dbg.log3('RPC._on_request: ENTER',
-                    'srv', req.srv,
-                    'reqid', req.reqid,
-                    'connid', conn.connid);
-
-                // call service middlewares if provided
-                return _.reduce(service.options.middleware,
-                    (promise, middleware) => promise.then(() => middleware(req)),
-                    P.resolve());
-            })
-            .then(() => {
-
-                // check if this request was already received and served,
-                // and if so then join the requests promise so that it will try
-                // not to call the server more than once.
-                const cached_req = conn._received_requests.get(req.reqid);
-                if (cached_req) {
-                    return cached_req._server_promise;
-                }
-
-                // insert to requests map and process using the server func
+            // if this request id was already received
+            // (network retry? not sure we need this much today but prefer to keep for now)
+            const prev_req = conn._received_requests.get(req.reqid);
+            if (prev_req) {
+                // in this case use the same promise to return the same reply/error
+                // and avoid calling the server func again for the same request.
+                req._server_promise = prev_req._server_promise;
+            } else {
+                // insert to requests map and call the server func
                 conn._received_requests.set(req.reqid, req);
-                req._server_promise = P.resolve()
-                    .then(() => service.server_func(req))
-                    .finally(() => {
+                req._server_promise = (async () => {
+                    try {
+                        // must keep this await inside here otherwise finally block will not apply
+                        return await service.server_func(req);
+                    } finally {
                         // FUTURE TODO keep received requests for some time after with LRU?
                         conn._received_requests.delete(req.reqid);
-                    });
+                    }
+                })();
+            }
 
-                return req._server_promise;
+            req.reply = await req._server_promise;
 
-            })
-            .then(reply => {
+            if (!this._disable_validation) {
+                req.method_api.validate_reply(req.reply, 'SERVER');
+            }
 
-                if (!this._disable_validation) {
-                    req.method_api.validate_reply(reply, 'SERVER');
-                }
+            dbg.log3('RPC._on_request: COMPLETED', req.base_info);
+            await this._send_response(conn, req);
 
-                req.reply = reply;
-
-                dbg.log3('RPC._on_request: COMPLETED',
-                    'srv', req.srv,
-                    'reqid', req.reqid,
-                    'connid', conn.connid);
-
-                return conn.send(req.make_response_message(), req);
-            })
-            .catch(err => {
-
-                console.error('RPC._on_request: ERROR',
-                    'srv', req.srv,
-                    'reqid', req.reqid,
-                    'connid', conn.connid,
-                    err.stack || err);
-
-                // propagate rpc errors from inner rpc client calls (using err.rpc_code)
-                // set default internal error if no other error was specified
-                if (err instanceof RpcError) {
-                    req.error = err;
-                } else {
-                    req.error = new RpcError(err.rpc_code || 'INTERNAL', err.message, { retryable: true });
-                }
-
-                return conn.send(req.make_response_message(), req);
-            });
+        } catch (err) {
+            console.error('RPC._on_request: ERROR', req.base_info, err.stack || err);
+            // propagate rpc errors from inner rpc client calls (using err.rpc_code)
+            // set default internal error if no other error was specified
+            if (err instanceof RpcError) {
+                req.error = err;
+            } else {
+                req.error = new RpcError(err.rpc_code || 'INTERNAL', err.message, { retryable: true });
+                req.error.stack = ''; // don't print this stack
+            }
+            await this._send_response(conn, req);
+        }
     }
 
+    /**
+     * @param {RpcBaseConnection} conn
+     * @param {RpcRequest} req
+     */
+    async _send_response(conn, req) {
+        try {
+            await conn.send(req.make_response_message(), req);
+        } catch (err) {
+            const desc = `srv ${req.srv} reqid ${req.reqid} connid ${conn.connid}`;
+            console.error('RPC._on_request: send response message ERROR', desc, err.stack || err);
+        }
+    }
 
     /**
      *
      * _on_response
-     *
+     * @param {RpcBaseConnection} conn
+     * @param {RpcMessage} msg
      */
     _on_response(conn, msg) {
         dbg.log1('RPC._on_response:',
@@ -447,6 +409,9 @@ class RPC extends EventEmitter {
     }
 
 
+    /**
+     * @param {RpcRequest} req 
+     */
     _get_remote_address(req, options) {
         var address = options.address;
         if (!address) {
@@ -465,9 +430,8 @@ class RPC extends EventEmitter {
     }
 
     /**
-     *
-     * _assign_connection
-     *
+     * @param {RpcRequest} req
+     * @returns {RpcBaseConnection}
      */
     _assign_connection(req, options) {
         var conn = options.connection;
@@ -488,6 +452,7 @@ class RPC extends EventEmitter {
      *
      * _release_connection
      *
+     * @param {RpcRequest} req
      */
     _release_connection(req) {
         if (req.connection) {
@@ -497,9 +462,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
-     * _get_connection
-     *
+     * @returns {RpcBaseConnection}
      */
     _get_connection(addr_url, srv) {
         var conn = this._connection_by_address.get(addr_url.href);
@@ -540,7 +503,7 @@ class RPC extends EventEmitter {
     }
 
     /**
-     *
+     * @returns {RpcBaseConnection}
      */
     _new_connection(addr_url) {
         dbg.log1('RPC _new_connection:', addr_url);
@@ -589,16 +552,15 @@ class RPC extends EventEmitter {
     }
 
     /**
-     *
+     * @param {RpcBaseConnection} conn
      */
     _accept_new_connection(conn) {
+        if (this._disconnected_state) {
+            conn.close(new RpcError('RPC_DISCONNECTED_STATE', 'RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid));
+            return;
+        }
         conn._sent_requests = new Map();
         conn._received_requests = new Map();
-        if (this._disconnected_state) {
-            const err = new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
-            conn.emit('error', err);
-            throw err;
-        }
         conn.once('connect', () => {
             if (this.routing_hint) {
                 dbg.log0('RPC ROUTING REQ SEND', this.routing_hint, conn.connid, conn.url.href);
@@ -687,7 +649,7 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
+     * @param {boolean} state
      */
     set_disconnected_state(state) {
         if (state) {
@@ -712,7 +674,8 @@ class RPC extends EventEmitter {
 
 
     /**
-     *
+     * @param {RpcBaseConnection} conn
+     * @param {Error} [err]
      */
     _connection_closed(conn, err) {
         dbg.log3('RPC _connection_closed:', conn.connid);
@@ -725,6 +688,7 @@ class RPC extends EventEmitter {
         // reject pending requests
         for (const req of conn._sent_requests.values()) {
             req.error = new RpcError('DISCONNECTED', 'connection closed ' + conn.connid + ' reqid ' + req.reqid, { retryable: true });
+            req.error.stack = ''; // don't print this stack
             req._response_defer.reject(req.error);
         }
 
@@ -998,18 +962,6 @@ class RPC extends EventEmitter {
 
     set_request_logger(request_logger) {
         this._request_logger = request_logger;
-    }
-
-    /**
-     * Statistics & Performance metrics
-     */
-    set_stats_handler(stats_handler) {
-        this._stats_handler = stats_handler;
-    }
-
-    set_error_handler(error_handler) {
-        dbg.log0('RPC set_error_handler');
-        this._error_handler = error_handler;
     }
 
 }

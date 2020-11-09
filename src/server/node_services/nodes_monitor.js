@@ -341,8 +341,8 @@ class NodesMonitor extends EventEmitter {
             this._add_new_node(req.connection, req.system._id, agent_config, req.rpc_params.pool_name);
             dbg.log0('connecting new node with agent_config =', {
                 ...agent_config,
-                system: agent_config.system.name,
-                pool: agent_config.pool.name
+                system: agent_config.system && agent_config.system.name,
+                pool: agent_config.pool && agent_config.pool.name
             });
             return reply;
         }

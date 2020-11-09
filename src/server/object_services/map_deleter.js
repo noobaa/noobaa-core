@@ -50,7 +50,7 @@ async function delete_chunks_if_unreferenced(chunk_ids) {
  * if the same object will be cached again later.
  *
  * @param  {nb.ObjectMD} object
-*/
+ */
 async function delete_object_if_no_parts(object) {
     if (!object) return;
     dbg.log1('delete_object_if_no_parts: object_ids', object);
@@ -129,9 +129,14 @@ async function delete_blocks_from_nodes(blocks) {
  * @param {nb.Block[]} blocks
  */
 async function delete_blocks_from_node(blocks) {
-    if (!blocks || !blocks.length) return;
+    if (!blocks || !blocks.length) return [];
     const node = blocks[0].node;
     const block_ids = _.map(blocks, block => String(block._id));
+    if (!node.rpc_address) {
+        dbg.warn('delete_blocks_from_node: no address for node', node._id, node.name,
+            'block_ids', block_ids.length);
+        return [];
+    }
     dbg.log0('delete_blocks_from_node: node', node._id, node.rpc_address,
         'block_ids', block_ids.length);
     try {
@@ -139,18 +144,19 @@ async function delete_blocks_from_node(blocks) {
             address: node.rpc_address,
             timeout: config.IO_DELETE_BLOCK_TIMEOUT,
         });
-        if (res.failed_block_ids.length) {
+        if (res.failed_block_ids && res.failed_block_ids.length) {
             dbg.warn('delete_blocks_from_node: node', node._id, node.rpc_address,
                 'failed_block_ids', res.failed_block_ids.length);
         }
-        if (res.succeeded_block_ids.length) {
+        if (res.succeeded_block_ids && res.succeeded_block_ids.length) {
             dbg.log0('delete_blocks_from_node: node', node._id, node.rpc_address,
                 'succeeded_block_ids', res.succeeded_block_ids.length);
         }
-        return res.succeeded_block_ids;
+        return res.succeeded_block_ids || [];
     } catch (err) {
         dbg.warn('delete_blocks_from_node: ERROR node', node._id, node.rpc_address,
             'block_ids', block_ids.length, err);
+        return [];
     }
 }
 

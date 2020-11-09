@@ -22,7 +22,7 @@ const delay = util.promisify(setTimeout);
 function delay_unblocking(delay_ms) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(resolve, delay_ms);
-        if (timer.unref) timer.unref();
+        if (timer.unref) timer.unref(); // browsers don't have unref
     });
 }
 
@@ -131,19 +131,27 @@ class TimeoutError extends Error {
     }
 }
 
+const default_create_timeout_err = () => new TimeoutError();
+
 /**
+ * When millis is undefined we do NOT set a timeout, and return the provided promise as is.
+ * This allows to use it for optional timeout params: P.timeout(options.timeout, promise) 
+ * 
  * @template T
- * @param {number} millis
+ * @param {number|undefined} millis when millis is undefined promise is returned as is
  * @param {Promise<T>} promise
- * @param {Error|undefined} [timeout_err]
+ * @param {() => Error} [create_timeout_err]
  * @returns {Promise<T>}
  */
-async function timeout(millis, promise, timeout_err = new TimeoutError()) {
+async function timeout(millis, promise, create_timeout_err = default_create_timeout_err) {
+    if (!promise) throw new Error('P.timeout: promise is required');
+    if (typeof millis === 'undefined') return promise;
     return new Promise((resolve, reject) => {
         let timer = setTimeout(() => {
             // wish we could let the promise know so it could save some redundant work 
-            reject(timeout_err);
-        }, millis).unref();
+            reject(create_timeout_err());
+        }, millis);
+        if (timer.unref) timer.unref(); // browsers don't have unref
         promise.then(res => {
             clearTimeout(timer);
             timer = null;
@@ -210,22 +218,10 @@ class Defer {
         this.isPending = true;
         this.isResolved = false;
         this.isRejected = false;
-        this.promise =
-            new Promise((resolve, reject) => {
-                this.resolve = resolve;
-                this.reject = reject;
-            })
-            .then(res => {
-                this.isPending = false;
-                this.isResolved = true;
-                Object.freeze(this);
-                return res;
-            }, err => {
-                this.isPending = false;
-                this.isRejected = true;
-                Object.freeze(this);
-                throw err;
-            });
+        this.promise = new Promise((resolve, reject) => {
+            this._promise_resolve = resolve;
+            this._promise_reject = reject;
+        });
         Object.seal(this);
     }
 
@@ -239,7 +235,13 @@ class Defer {
      * @returns {void}
      */
     resolve(res) {
-        throw new Error('defer resolve called before initialized');
+        if (!this.isPending) {
+            return;
+        }
+        this.isPending = false;
+        this.isResolved = true;
+        Object.freeze(this);
+        this._promise_resolve(res);
     }
 
     /**
@@ -247,7 +249,13 @@ class Defer {
      * @returns {void}
      */
     reject(err) {
-        throw err;
+        if (!this.isPending) {
+            return;
+        }
+        this.isPending = false;
+        this.isRejected = true;
+        Object.freeze(this);
+        this._promise_reject(err);
     }
 }
 

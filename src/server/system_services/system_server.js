@@ -397,8 +397,9 @@ async function create_system(req) {
         if (system_id) {
             // Mark the system as not initialized
             await _update_system_state(system_id, 'COULD_NOT_INITIALIZE');
-            throw err;
         }
+
+        throw err;
     }
 }
 

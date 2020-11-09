@@ -279,7 +279,8 @@ class MongoClient extends EventEmitter {
      * @returns {nb.ID}
      */
     parse_object_id(id_str) {
-        return new mongodb.ObjectId(String(id_str || undefined));
+        if (!id_str) throw new TypeError('parse_object_id: arg required ' + id_str);
+        return new mongodb.ObjectId(String(id_str));
     }
 
     fix_id_type(doc) {

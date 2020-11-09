@@ -1,13 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+/** @typedef {import('./rpc_base_conn')} RpcBaseConnection */
+/** @typedef {import('../util/promise').Defer} Defer */
+
 const _ = require('lodash');
 const RpcMessage = require('./rpc_message');
 const RpcError = require('./rpc_error');
 const time_utils = require('../util/time_utils');
 const buffer_utils = require('../util/buffer_utils');
 const js_utils = require('../util/js_utils');
-
 
 const RPC_BUFFERS = Symbol('RPC_BUFFERS');
 
@@ -22,8 +24,11 @@ class RpcRequest {
 
     constructor() {
         this.ts = time_utils.millistamp();
+        /** @type {RpcBaseConnection} */
         this.connection = undefined;
+        /** @type {Defer} */
         this._response_defer = undefined;
+        /** @type {Promise} */
         this._server_promise = undefined;
     }
 
@@ -36,6 +41,27 @@ class RpcRequest {
 
     set rpc_params(val) {
         this.params = val;
+    }
+
+    get base_info() {
+        return `srv ${
+            this.srv
+        } reqid ${
+            this.reqid || '<no-reqid-yet>'
+        } connid ${
+            this.connection ? this.connection.connid : '<no-connection-yet>'
+        }`;
+    }
+
+    get took_info() {
+        if (!this.took_srv) return '';
+        return `took [${
+            this.took_srv.toFixed(1)
+        }+${
+            this.took_flight.toFixed(1)
+        }=${
+            this.took_total.toFixed(1)
+        }]`;
     }
 
     _new_request(api, method_api, params, auth_token) {
@@ -128,6 +154,7 @@ class RpcRequest {
         const err = msg.body.error;
         if (err) {
             this.error = new RpcError(err.rpc_code, err.message, err.rpc_data);
+            this.error.stack = ''; // don't print this stack
             this._response_defer.reject(this.error);
         } else {
             this.reply = msg.body.reply;

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Create a new Job in OCP that runs the jbb-validate container once. This
 # script will wait for completion of the validation, and uses the result of the
@@ -19,10 +19,10 @@ GIT_REPO="https://github.com/noobaa/noobaa-core"
 
 function usage() {
     echo "Options:"
-    echo "--cmd			the mod of this script. can be validate or deploy"
-    echo "--GIT_REF		specify the branch to build from (default: ${GIT_REF})"
-    echo "--GIT_REPO	specify the repo to build from (default: ${GIT_REPO})"
-    echo "--help|-h		specify the flags"
+    echo "--cmd         the mode of this script. can be validate or deploy"
+    echo "--GIT_REF     specify the branch to build from (default: ${GIT_REF})"
+    echo "--GIT_REPO    specify the repo to build from (default: ${GIT_REPO})"
+    echo "--help        specify the flags"
     echo " "
     exit 0
 }
@@ -51,16 +51,16 @@ eval set -- "${opts}"
 
 while true; do
     case "${1}" in
-        --cmd)			CMD=${2}
-                  	 	shift 2
-						if [ "${CMD}" != "deploy" ] && [ "${CMD}" != "validate" ]
-						then
-							echo "no such command: ${CMD}"
-							exit 1
-						fi ;;
-        --GIT_REF)  	GIT_REF=${2}
-						shift 2 ;;
-        --GIT_REPO)		GIT_REPO=${2}
+        --cmd)          CMD=${2}
+                        shift 2
+                        if [ "${CMD}" != "deploy" ] && [ "${CMD}" != "validate" ]
+                        then
+                            echo "no such command: ${CMD}"
+                            exit 1
+                        fi ;;
+        --GIT_REF)      GIT_REF=${2}
+                        shift 2 ;;
+        --GIT_REPO)     GIT_REPO=${2}
                         shift 2 ;;
         --help)         usage ;;
         --)             shift 1
@@ -68,7 +68,7 @@ while true; do
     esac
 done
 
-if [ -z ${CMD} ]
+if [ -z "${CMD}" ]
 then
 	echo "missing --cmd <command>."
 	usage

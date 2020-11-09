@@ -17,7 +17,7 @@ process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
 
 console.log('loading .env file');
 require('../../util/dotenv').load();
-require('../../util/panic').enable_heapdump('coretest');
+require('../../util/panic');
 require('../../util/fips');
 
 const config = require('../../../config.js');
@@ -333,6 +333,8 @@ async function init_test_pools(pools_to_create) {
 
     // Wait until all pools have hosts in optimal state.
     await P.wait_until(async () => {
+        await node_server.sync_monitor_to_store();
+
         const { hosts } = await rpc_client.host.list_hosts({
             query: {
                 pools: pools_to_create.map(pool_info => pool_info.name),

@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var P = require('../../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-
+const P = require('../../util/promise');
+const mocha = require('mocha');
+const assert = require('assert');
 
 mocha.describe('promise utils', function() {
 
@@ -33,7 +32,7 @@ mocha.describe('promise utils', function() {
 
         mocha.it('return fastest', async function() {
             const start_time = process.hrtime.bigint();
-            const res = await P.map_any([1000, 100, 10, 1], async n => {
+            const res = await P.map_any([500, 100, 10, 1], async n => {
                 await P.delay(n);
                 return n;
             });
@@ -44,7 +43,7 @@ mocha.describe('promise utils', function() {
 
         mocha.it('ignores fast errors', async function() {
             const start_time = process.hrtime.bigint();
-            const res = await P.map_any([1, 100, 10, 1000], async n => {
+            const res = await P.map_any([1, 100, 10, 500], async n => {
                 await P.delay(n);
                 if (n < 100) throw new Error('FAST ERROR');
                 return n;

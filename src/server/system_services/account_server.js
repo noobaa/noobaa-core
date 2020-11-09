@@ -917,7 +917,7 @@ async function check_azure_connection(params) {
         const res = await P.timeout(
             check_connection_timeout,
             _check_azure_connection_internal(params),
-            new Error('TIMEOUT')
+            () => new Error('TIMEOUT')
         );
         return res;
     } catch (err) {
@@ -1045,7 +1045,7 @@ async function check_aws_connection(params) {
     );
 
     try {
-        await P.timeout(check_connection_timeout, s3.listBuckets().promise(), timeoutError);
+        await P.timeout(check_connection_timeout, s3.listBuckets().promise(), () => timeoutError);
         return { status: 'SUCCESS' };
     } catch (err) {
         dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'),
@@ -1081,7 +1081,7 @@ function check_net_storage_connection(params) {
     return P.timeout(
             check_connection_timeout,
             P.fromCallback(callback => ns.dir(params.cp_code, callback)),
-            timeoutError
+            () => timeoutError
         )
         .then(
             ret => ({ status: 'SUCCESS' }),

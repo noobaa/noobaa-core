@@ -19,7 +19,9 @@ rpc.register_service(
     {}
 );
 
-rpc.set_error_handler(err => {
+// using rpc hook to handle UNAUTHORIZED errors in any flow and go to login
+rpc.should_emit_request_errors = true;
+rpc.on('request_error', err => {
     if (err.rpc_code === 'UNAUTHORIZED') {
         action$.next(expireSession());
     }

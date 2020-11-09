@@ -38,13 +38,26 @@ class RpcBaseConnection extends events.EventEmitter {
         this._state = STATE_INIT;
 
         // the connecting_defer is used by connect() to wait for the connected event
-        this._connect_promise = events.once(this, 'connect');
         this.connecting_defer = new P.Defer();
+        this._connect_promise = events.once(this, 'connect');
         this._connect_promise.catch(_.noop); // to prevent error log of unhandled rejection
 
         this._connect_timeout_ms = config.RPC_CONNECT_TIMEOUT;
 
+        /** @type {Map<string,RpcRequest>} */
+        this._sent_requests = undefined;
+        /** @type {Map<string,RpcRequest>} */
+        this._received_requests = undefined;
+
+        /** @type {ReturnType<setInterval>} */
+        this._ping_interval = undefined;
+        /** @type {Set<string>} */
         this._ping_reqid_set = undefined;
+
+        /** @type {ReturnType<setTimeout>} */
+        this._reconnect_timeout = undefined;
+        this._no_reconnect = false;
+        this._reconn_backoff = 0;
 
         // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
         // and is expected after calling _connect() or when a connection is accepted
@@ -97,7 +110,7 @@ class RpcBaseConnection extends events.EventEmitter {
      * but this can be useful when calling explicitly for separating timeouts
      * or reconnecting.
      */
-    connect() {
+    async connect() {
         switch (this._state) {
             case STATE_INIT:
                 // start connecting and wait for the 'connect' event
@@ -139,7 +152,7 @@ class RpcBaseConnection extends events.EventEmitter {
             }
             await P.timeout(config.RPC_SEND_TIMEOUT,
                 send_promise,
-                new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')
+                () => new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')
             );
         } catch (err) {
             this.emit_error(err);

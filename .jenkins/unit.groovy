@@ -2,8 +2,6 @@ def cico_retries = 16
 def cico_retry_interval = 60
 def ci_git_ref = 'master' // default, will be overwritten for PRs
 
-def HASH = '0123abcd' // default, will be overwritten
-def NO_CACHE = 'NO_CACHE=true'
 // Docker has some network conflicts in the CI, host-networking works
 def USE_HOSTNETWORK = 'USE_HOSTNETWORK=true'
 def CONTAINER_ENGINE = 'CONTAINER_ENGINE=docker'
@@ -28,6 +26,7 @@ node('cico-workspace') {
 			}
 			firstAttempt = false
 			cico = sh(
+				label:	"cico node get",
 				script: "cico node get -f value -c hostname -c comment --release=8 \
 							--retry-count=${cico_retries} --retry-interval=${cico_retry_interval}",
 				returnStdout: true
@@ -40,12 +39,16 @@ node('cico-workspace') {
 
 	try {
 		stage('prepare bare-metal machine') {
-			sh 'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ./.jenkins/prepare.sh root@${CICO_NODE}:'
-			sh "${CICO_NODE_SSH} ./prepare.sh --workdir=${workdir} --gitrepo=${GIT_REPO} --ref=${ci_git_ref}"
+			sh	'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ./.jenkins/prepare.sh root@${CICO_NODE}:'
+			sh(
+				label:  "Running prepare.sh --workdir ${workdir} --gitrepo ${GIT_REPO} --ref ${ci_git_ref}",
+				script: "${CICO_NODE_SSH} ./prepare.sh --workdir ${workdir} --gitrepo ${GIT_REPO} --ref ${ci_git_ref}"
+			)
 		}
 
 		stage('stop jobs from the same PR') {
 			jobs = sh(
+				label:	"Running get_job_numbers.sh",
 				script: "${CICO_NODE_SSH} 'cd ${workdir}/.jenkins/ && ./get_job_numbers.sh --jobName ${JOB_NAME} \
 							--currentBuild ${currentBuild.number} --JENKINS_URL ${JENKINS_URL}'",
 				returnStdout: true
@@ -63,6 +66,7 @@ node('cico-workspace') {
 									new java.io.IOException("Aborting build")
 								);	
 				}
+
 			}
 		}
 
@@ -70,14 +74,20 @@ node('cico-workspace') {
 		stage('Unit Tests') {
 			// abort in case the test hangs
 			timeout(time:30, unit: 'MINUTES') {
-				sh "${CICO_NODE_SSH} 'cd ${workdir} && make test ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
+				sh(
+					label:	"Running Unit Tests",
+					script:	"${CICO_NODE_SSH} 'cd ${workdir} && make test ${USE_HOSTNETWORK} ${CONTAINER_ENGINE}'"
+				)
 			}
 		}
 	}
 
 	finally {
 		stage('return bare-metal machine') {
-			sh 'cico node done ${CICO_SSID}'
+			sh(
+				label:	'cico node done',
+				script:	'cico node done ${CICO_SSID}'
+			)
 		}
 	}
 }

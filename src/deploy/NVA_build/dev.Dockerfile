@@ -5,13 +5,13 @@ ENV container docker
 
 RUN dnf update -y -q && \
     dnf install -y -q \
-        bash bash-completion \
-        wget curl nc unzip which less vim \
-        python2 python2-setuptools \
-        python3 python3-setuptools \
-        gdb strace lsof \
-        openssl && \
-    dnf --enablerepo=PowerTools install -y -q nasm && \
+    bash bash-completion \
+    wget curl nc unzip which less vim \
+    python2 python2-setuptools \
+    python3 python3-setuptools \
+    gdb strace lsof \
+    openssl && \
+    dnf --enablerepo=PowerTools install -y -q nasm yasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 

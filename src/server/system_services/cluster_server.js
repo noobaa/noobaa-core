@@ -9,7 +9,6 @@ const net = require('net');
 const request = require('request');
 
 const P = require('../../util/promise');
-const Bluebird = require('bluebird');
 const dbg = require('../../util/debug_module')(__filename);
 const pkg = require('../../../package.json');
 const diag = require('../utils/server_diagnostics');
@@ -23,7 +22,6 @@ const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
-const promise_utils = require('../../util/promise_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const cutils = require('../utils/clustering_utils');
 
@@ -303,11 +301,12 @@ function verify_join_conditions(req) {
 
 function _check_candidate_version(req) {
     dbg.log0('_check_candidate_version for address', req.rpc_params.address);
-    return Bluebird.resolve(
-        server_rpc.client.cluster_internal.get_version(undefined, {
+    return P.resolve(
+            server_rpc.client.cluster_internal.get_version(undefined, {
                 address: server_rpc.get_base_address(req.rpc_params.address),
                 timeout: 60000 //60s
-            }))
+            })
+        )
         .then(({ version }) => {
             dbg.log0('_check_candidate_version got version', version);
             if (version !== pkg.version) {
@@ -332,59 +331,61 @@ function _check_candidate_version(req) {
         });
 }
 
-function verify_candidate_join_conditions(req) {
-    dbg.log0('Got verify_candidate_join_conditions for server secret:', req.rpc_params.secret,
-        'address:', req.rpc_params.address);
-    if (req.rpc_params.secret === system_store.get_server_secret()) {
-        dbg.error('lol trying to add self to cluster - self secret received:', req.rpc_params.secret);
-        return {
-            result: 'ADDING_SELF'
-        };
-    }
-    return _check_candidate_version(req)
-        .then(version_check_res => {
-            if (version_check_res.result !== 'OKAY') return version_check_res;
-            return Bluebird.resolve(promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true }))
-                .then(response => {
-                    if (response.includes('Connection timed out')) {
-                        dbg.warn(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT}, might be due to a FW blocking`);
-                        return {
-                            result: 'CONNECTION_TIMEOUT_ORIGIN'
-                        };
-                    } else {
-                        return P.resolve()
-                            .then(() => server_rpc.client.cluster_internal.verify_join_conditions({
-                                secret: req.rpc_params.secret
-                            }, {
-                                address: server_rpc.get_base_address(req.rpc_params.address),
-                                timeout: 60000 //60s
-                            }))
-                            .then(res => ({
-                                hostname: res.hostname,
-                                result: res.result,
-                                version: version_check_res.version
-                            }));
-                    }
-                });
-        })
-        .catch(err => {
-            if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
-                err.rpc_code === 'RPC_REQUEST_TIMEOUT') {
-                dbg.warn('received', err, ' on verify_candidate_join_conditions');
-                return {
-                    result: 'UNREACHABLE'
-                };
-            }
-            throw err;
+async function verify_candidate_join_conditions(req) {
+    try {
+        dbg.log0('Got verify_candidate_join_conditions for server secret:', req.rpc_params.secret,
+            'address:', req.rpc_params.address);
+
+        if (req.rpc_params.secret === system_store.get_server_secret()) {
+            dbg.error('lol trying to add self to cluster - self secret received:', req.rpc_params.secret);
+            return {
+                result: 'ADDING_SELF'
+            };
+        }
+
+        const version_check_res = await _check_candidate_version(req);
+        if (version_check_res.result !== 'OKAY') return version_check_res;
+
+        const nc_res = await os_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, {
+            ignore_rc: true,
+            return_stdout: true
         });
+        if (nc_res.includes('Connection timed out')) {
+            dbg.warn(`Could not reach ${req.rpc_params.address}:${config.MONGO_DEFAULTS.SHARD_SRV_PORT}, might be due to a FW blocking`);
+            return {
+                result: 'CONNECTION_TIMEOUT_ORIGIN'
+            };
+        }
+
+        const verify_res = await server_rpc.client.cluster_internal.verify_join_conditions({
+            secret: req.rpc_params.secret
+        }, {
+            address: server_rpc.get_base_address(req.rpc_params.address),
+            timeout: 60000 //60s
+        });
+        return {
+            result: verify_res.result,
+            hostname: verify_res.hostname,
+            version: version_check_res.version,
+        };
+
+    } catch (err) {
+        if (err.rpc_code === 'RPC_CONNECT_TIMEOUT' ||
+            err.rpc_code === 'RPC_REQUEST_TIMEOUT') {
+            dbg.warn('received', err, ' on verify_candidate_join_conditions');
+            return {
+                result: 'UNREACHABLE'
+            };
+        }
+        throw err;
+    }
 }
 
-function get_version(req) {
+async function get_version(req) {
     dbg.log0('get_version sending version', pkg.version);
-    return P.resolve()
-        .then(() => ({
-            version: pkg.version
-        }));
+    return {
+        version: pkg.version
+    };
 }
 
 function join_to_cluster(req) {
@@ -723,7 +724,9 @@ function set_debug_level(req) {
             if (debug_params.target_secret) {
                 let cluster_server = system_store.data.cluster_by_server[debug_params.target_secret];
                 if (!cluster_server) {
-                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', debug_params.target_secret, ' was not found');
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
+                        `Server with secret key: ${debug_params.target_secret} was not found`
+                    );
                 }
                 audit_activity = {
                     event: 'dbg.set_server_debug_level',
@@ -737,7 +740,7 @@ function set_debug_level(req) {
                 _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
 
-            return P.each(target_servers, function(server) {
+            return P.map_one_by_one(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
                     address: server_rpc.get_base_address(server.owner_address),
                     auth_token: req.auth_token
@@ -766,7 +769,7 @@ function apply_set_debug_level(req) {
     if (req.rpc_params.target_secret) {
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
         if (!cluster_server) {
-            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', `Server with secret key: ${req.rpc_params.target_secret} was not found`);
         }
         if (cluster_server.debug_level === req.rpc_params.level) {
             dbg.log0('requested to set debug level to the same as current level. skipping..', req.rpc_params);
@@ -780,7 +783,7 @@ function apply_set_debug_level(req) {
     return _set_debug_level_internal(req, req.rpc_params.level)
         .then(() => {
             if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                P.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
                     .then(() => _set_debug_level_internal(req, 0));
             }
         })
@@ -793,13 +796,13 @@ function _start_services() {
     dbg.log0(`starting services: s3rver bg_workers hosted_agents`);
     // set timeout to restart services in 1 second
     setTimeout(() => {
-        promise_utils.exec('supervisorctl start s3rver bg_workers hosted_agents');
+        os_utils.exec('supervisorctl start s3rver bg_workers hosted_agents');
     }, 1000);
 }
 
 function _stop_services() {
     dbg.log0(`stopping services: s3rver bg_workers hosted_agents`);
-    return promise_utils.exec('supervisorctl stop s3rver bg_workers hosted_agents');
+    return os_utils.exec('supervisorctl stop s3rver bg_workers hosted_agents');
 }
 
 
@@ -888,7 +891,9 @@ function diagnose_system(req) {
 
         let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
         if (!cluster_server) {
-            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
+                `Server with secret key: ${req.rpc_params.target_secret} was not found`
+            );
         }
         target_servers.push(cluster_server);
     } else {
@@ -927,7 +932,7 @@ function diagnose_system(req) {
                         ));
                 });
         }))
-        .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
+        .then(() => os_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
         .then(() => diag.pack_diagnostics(WORKING_PATH, TMP_WORK_DIR))
         .then(() => (OUT_PATH));
 }
@@ -1097,7 +1102,7 @@ function _validate_member_request(req) {
 
     //Check mongo port 27000
     //TODO on sharding will also need to add verification to the cfg port
-    return promise_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+    return os_utils.exec(`echo -n | nc -w5 ${req.rpc_params.address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
         .then(response => {
             if (response.includes('Connection timed out')) {
                 throw new Error(`Could not reach ${req.rpc_params.address} at port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT},
@@ -1128,7 +1133,7 @@ function _verify_join_preconditons(req) {
                 dbg.error('Secrets do not match!');
                 return 'SECRET_MISMATCH';
             }
-            return promise_utils.exec(`echo -n | nc -w5 ${caller_address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
+            return os_utils.exec(`echo -n | nc -w5 ${caller_address} ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} 2>&1`, { ignore_rc: true, return_stdout: true })
                 .then(response => {
                     if (response.includes('Connection timed out')) {
                         throw new Error('CONNECTION_TIMEOUT');
@@ -1419,27 +1424,30 @@ function _get_aws_owner() {
             }
 
             const email = `${process.env.AWS_INSTANCE_ID}@noobaa.com`;
-            return promise_utils.retry(10, 30000, () =>
-                    P.fromCallback(callback => request({
-                        method: 'GET',
-                        url: `https://store.zapier.com/api/records?secret=${email}`
-                    }, callback))
-                    .then(res => {
-                        dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
-                        const { code } = JSON.parse(res.body);
-                        if (!code) {
-                            throw new Error('expected returned json to have a code property but it doesnt');
-                        }
-                        return {
-                            activation_code: code,
-                            email: email
-                        };
-                    })
-                    .catch(err => {
-                        dbg.error(`got error when trying to get activation code for ${email} from zappier:`, err);
-                        throw err;
-                    })
-                )
+            return P.retry({
+                    attempts: 10,
+                    delay_ms: 30000,
+                    func: () =>
+                        P.fromCallback(callback => request({
+                            method: 'GET',
+                            url: `https://store.zapier.com/api/records?secret=${email}`
+                        }, callback))
+                        .then(res => {
+                            dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
+                            const { code } = JSON.parse(res.body);
+                            if (!code) {
+                                throw new Error('expected returned json to have a code property but it doesnt');
+                            }
+                            return {
+                                activation_code: code,
+                                email: email
+                            };
+                        })
+                        .catch(err => {
+                            dbg.error(`got error when trying to get activation code for ${email} from zappier:`, err);
+                            throw err;
+                        })
+                })
                 .catch(err => {
                     dbg.error(`FAILED GETTING ACTIVATION CODE FROM ZAPPIER FOR ${email}`, err);
                 });
@@ -1455,12 +1463,12 @@ async function _attach_server_configuration(cluster_server) {
 function check_cluster_status() {
     var servers = system_store.data.clusters;
     dbg.log2('check_cluster_status', servers);
-    return P.map(_.filter(servers,
-            server => server.owner_secret !== system_store.get_server_secret()),
-        server => server_rpc.client.cluster_server.ping({}, {
+    const other_servers = _.filter(servers,
+        server => server.owner_secret !== system_store.get_server_secret());
+    return P.map(other_servers, server =>
+        P.timeout(30000, server_rpc.client.cluster_server.ping({}, {
             address: server_rpc.get_base_address(server.owner_address)
-        })
-        .timeout(30000)
+        }))
         .then(res => {
             if (res === "PONG") {
                 return {
@@ -1479,7 +1487,8 @@ function check_cluster_status() {
                 secret: server.owner_secret,
                 status: "UNREACHABLE"
             };
-        }));
+        })
+    );
 }
 
 function ping() {

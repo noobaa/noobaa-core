@@ -250,28 +250,28 @@ function read_request_body(req, options) {
     });
 }
 
-function parse_request_body(req, options) {
+async function parse_request_body(req, options) {
     if (!req.body && !options.body.optional) {
         throw new options.ErrorClass(options.error_missing_body);
     }
     if (options.body.type === 'xml') {
-        return parse_xml_to_js(req.body, options.body.xml_options)
-            .then(data => {
-                req.body = data;
-            })
-            .catch(err => {
-                console.error('parse_request_body: XML parse problem', err);
-                throw new options.ErrorClass(options.error_invalid_body);
-            });
+        try {
+            const data = await parse_xml_to_js(req.body, options.body.xml_options);
+            req.body = data;
+            return;
+        } catch (err) {
+            console.error('parse_request_body: XML parse problem', err);
+            throw new options.ErrorClass(options.error_invalid_body);
+        }
     }
     if (options.body.type === 'json') {
-        return P.try(() => {
-                req.body = JSON.parse(req.body);
-            })
-            .catch(err => {
-                console.error('parse_request_body: JSON parse problem', err);
-                throw new options.ErrorClass(options.error_invalid_body);
-            });
+        try {
+            req.body = JSON.parse(req.body);
+            return;
+        } catch (err) {
+            console.error('parse_request_body: JSON parse problem', err);
+            throw new options.ErrorClass(options.error_invalid_body);
+        }
     }
     dbg.error('HTTP BODY UNEXPECTED TYPE', req.method, req.originalUrl,
         JSON.stringify(req.headers), options);

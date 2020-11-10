@@ -3,15 +3,16 @@
 
 const os = require('os');
 const path = require('path');
-const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
 const argv = require('minimist')(process.argv);
-const server_functions = require('../utils/server_functions');
-const promise_utils = require('../../util/promise_utils');
-const P = require('../../util/promise');
-const Semaphore = require('../../util/semaphore');
 
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('test_env_builder_k8s');
+
+const P = require('../../util/promise');
+const os_utils = require('../../util/os_utils');
+const server_functions = require('../utils/server_functions');
+const Semaphore = require('../../util/semaphore');
+const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
 
 //Define colors 
 const GREEN = "\x1b[32;1m";
@@ -237,7 +238,7 @@ async function run_single_test_env(params) {
                 '--log_file', log_file,
                 ...additional_flags
             ];
-            await promise_utils.fork(test, args, { env: process.env });
+            await os_utils.fork(test, args, { env: process.env });
             console.log(`test ${test_name} passed`);
         }
     } catch (err) {

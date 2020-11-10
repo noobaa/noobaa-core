@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-/** @typedef {import('./rpc_base_conn')} RpcBaseConnection **/
+/** @typedef {import('./rpc_base_conn')} RpcBaseConnection */
+/** @typedef {import('./rpc_schema')} RpcSchema */
 
 const _ = require('lodash');
 const util = require('util');
@@ -40,6 +41,14 @@ const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
  */
 class RPC extends EventEmitter {
 
+    /**
+     * 
+     * @param {{
+     *  schema?: RpcSchema,
+     *  router?: object,
+     *  api_routes?: object,
+     * }} options 
+     */
     constructor(options) {
         super();
         options = options || {};
@@ -161,13 +170,18 @@ class RPC extends EventEmitter {
     }
 
     /**
+     * Make a client request
      *
-     * _request
-     *
-     * @param options Object:
-     * - address: String - url for the request target.
-     * - auth_token: String - token to send for request quthorization.
-     * - timeout: Number - ms to wait for send-request/wait-for-reponse to complete
+     * @param {string} api
+     * @param {string} method_api
+     * @param {any} params
+     * @param {{
+     *  address?: string, // url for the request target.
+     *  auth_token?: string, // token to send for request quthorization.
+     *  timeout?: number, // ms to wait for send-request/wait-for-reponse to complete
+     *  tracker?: (req: RpcRequest) => void,
+     *  return_rpc_req?: boolean,
+     * }} options
      */
     _request(api, method_api, params, options) {
         // const millistamp = time_utils.millistamp();
@@ -289,13 +303,17 @@ class RPC extends EventEmitter {
                 this._release_connection(req);
             });
 
-        request_promise = options.timeout ?
-            request_promise.timeout(options.timeout, new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT')) :
-            request_promise;
+        if (options.timeout) {
+            request_promise = P.timeout(options.timeout, request_promise,
+                new RpcError('RPC_REQUEST_TIMEOUT', 'RPC REQUEST TIMEOUT')
+            );
+        }
 
-        request_promise = (typeof this._error_handler === 'function') ?
-            request_promise.catch(err => { if (this._error_handler(err) !== true) throw err; }) :
-            request_promise;
+        if (typeof this._error_handler === 'function') {
+            request_promise = request_promise.catch(err => {
+                if (this._error_handler(err) !== true) throw err;
+            });
+        }
 
         return request_promise;
     }
@@ -900,12 +918,12 @@ class RPC extends EventEmitter {
      * register_tcp_transport
      *
      */
-    register_tcp_transport(port, tls_options) {
+    async register_tcp_transport(port, tls_options) {
         dbg.log0('RPC register_tcp_transport');
         const tcp_server = new RpcTcpServer(tls_options);
         tcp_server.on('connection', conn => this._accept_new_connection(conn));
-        return Promise.resolve(tcp_server.listen(port))
-            .then(() => tcp_server);
+        await tcp_server.listen(port);
+        return tcp_server;
     }
 
 
@@ -914,12 +932,12 @@ class RPC extends EventEmitter {
      * register_tcp_transport
      *
      */
-    register_ntcp_transport(port, tls_options) {
+    async register_ntcp_transport(port, tls_options) {
         dbg.log0('RPC register_ntcp_transport');
         const ntcp_server = new RpcNtcpServer(tls_options);
         ntcp_server.on('connection', conn => this._accept_new_connection(conn));
-        return Promise.resolve(ntcp_server.listen(port))
-            .then(() => ntcp_server);
+        await ntcp_server.listen(port);
+        return ntcp_server;
     }
 
 
@@ -933,7 +951,7 @@ class RPC extends EventEmitter {
      * and that udp port is used for the nudp connection.
      *
      */
-    register_nudp_transport(port) {
+    async register_nudp_transport(port) {
         dbg.log0('RPC register_tcp_transport');
         const conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
         conn.on('connect', () => this._accept_new_connection(conn));
@@ -964,7 +982,7 @@ class RPC extends EventEmitter {
      * this function allows the n2n protocol to accept connections.
      * it should called when a signal is accepted in order to process it by the n2n_agent.
      */
-    accept_n2n_signal(params) {
+    async accept_n2n_signal(params) {
         return this.n2n_agent.accept_signal(params);
     }
 

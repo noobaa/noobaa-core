@@ -8,16 +8,16 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
+const crypto = require('crypto');
+const mongodb = require('mongodb');
+
+const P = require('../../util/promise');
+const config = require('../../../config');
+const db_client = require('../../util/db_client');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const ObjectIO = require('../../sdk/object_io');
-const P = require('../../util/promise');
-const crypto = require('crypto');
 const SliceReader = require('../../util/slice_reader');
 const AgentBlocksReclaimer = require('../../server/bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
-const db_client = require('../../util/db_client');
-const mongodb = require('mongodb');
-const config = require('../../../config');
-const promise_utils = require('../../util/promise_utils');
 
 class ReclaimerMock extends AgentBlocksReclaimer {
 
@@ -152,9 +152,10 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
                 });
             })
             .then(() => agent_blocks_reclaimer.run_batch())
-            .then(() => promise_utils.pwhile(
+            .then(() => P.pwhile(
                 () => agent_blocks_reclaimer.marker,
-                () => agent_blocks_reclaimer.run_batch()))
+                () => agent_blocks_reclaimer.run_batch()
+            ))
             .then(() => MDStore.instance()._blocks.find({
                 _id: { $in: blocks_uploaded.map(block => block._id) }
             }))

@@ -78,7 +78,7 @@ class RpcHttpConnection extends RpcBaseConnection {
      * send
      *
      */
-    _send(msg, op, req) {
+    async _send(msg, op, req) {
         return op === 'res' ?
             this.send_http_response(msg, req) :
             this.send_http_request(msg, req);

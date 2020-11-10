@@ -171,8 +171,9 @@ Didn't Run: ${JSON.stringify(
                     method: 'POST',
                     json: payload
                 };
-                await P.fromCallback(callback => request(options, callback))
-                    .timeout(60 * 1000);
+                await P.timeout(60 * 1000,
+                    P.fromCallback(callback => request(options, callback))
+                );
             } else {
                 console.info('skip report send');
                 return;

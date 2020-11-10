@@ -14,7 +14,6 @@ const fs_utils = require('../util/fs_utils');
 const Agent = require('../agent/agent');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
-const promise_utils = require('../util/promise_utils');
 const addr_utils = require('../util/addr_utils');
 const config = require('../../config');
 
@@ -81,7 +80,7 @@ class HostedAgents {
 
 
     _monitor_stats() {
-        promise_utils.pwhile(() => true, () => {
+        P.pwhile(() => true, () => {
             const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since last sample
             const mem_usage = process.memoryUsage();
             dbg.log0(`hosted_agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
@@ -94,6 +93,7 @@ class HostedAgents {
                     dbg.log0(`hosted_agent_stats_values - ${agent}: ` + agent_stats_keys.map(key => agent_stats[key]).join(', '));
                 }
             }
+            this.cpu_usage = cpu_usage;
             return P.delay(60000);
         });
     }
@@ -382,7 +382,7 @@ function _get_pool_and_path_for_token(token_pool) {
     };
 }
 
-
+HostedAgents._instance = null;
 
 // EXPORTS
 exports.create_pool_agent = create_pool_agent;

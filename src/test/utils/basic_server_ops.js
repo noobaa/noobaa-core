@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const util = require('util');
 const P = require('../../util/promise');
 const ec2_wrap = require('../../deploy/ec2_wrapper');
-const promise_utils = require('../../util/promise_utils');
+const os_utils = require('../../util/os_utils');
 const api = require('../../api');
 
 const request_promise = util.promisify(request);
@@ -160,11 +160,11 @@ function verify_upload_download(ip, path) {
 }
 
 
-function generate_random_file(size_mb, extension) {
+async function generate_random_file(size_mb, extension) {
     extension = extension || '.dat';
     let ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
     if (!extension.startsWith('.')) extension = '.' + extension;
-    if (!ext_regex.test(extension)) return P.reject();
+    if (!ext_regex.test(extension)) throw new Error('bad extension');
     var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + extension;
     var fname = test_file + suffix;
     var dd_cmd;
@@ -175,10 +175,8 @@ function generate_random_file(size_mb, extension) {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
     }
 
-    return promise_utils.exec(dd_cmd)
-        .then(function() {
-            return fname;
-        });
+    await os_utils.exec(dd_cmd);
+    return fname;
 }
 
 function get_rpc_client(ip) {
@@ -220,7 +218,7 @@ function wait_on_agents_upgrade(ip) {
             var old_agents = true;
             var wait_time = 0;
             return P.delay(5000).then(function() {
-                return promise_utils.pwhile(
+                return P.pwhile(
                     function() {
                         return old_agents;
                     },

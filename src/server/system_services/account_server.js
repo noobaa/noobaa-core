@@ -1,12 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
-/**
- *
- * ACCOUNT_SERVER
- *
- */
 'use strict';
-const P = require('../../util/promise');
 
+/** @typedef {import('azure-storage').BlobService} BlobService */
+
+const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
 const AWS = require('aws-sdk');
@@ -914,7 +911,29 @@ async function _check_external_connection(connection) {
     }
 }
 
-function check_azure_connection(params) {
+async function check_azure_connection(params) {
+    try {
+        // set a timeout for the entire flow
+        const res = await P.timeout(
+            check_connection_timeout,
+            _check_azure_connection_internal(params),
+            new Error('TIMEOUT')
+        );
+        return res;
+    } catch (err) {
+        dbg.warn(`check_azure_connection: params`, _.omit(params, 'secret'), ` error: ${err}`);
+        return {
+            status: err.message,
+            error: {
+                code: err.err_code,
+                message: err.err_message
+            }
+        };
+    }
+}
+
+async function _check_azure_connection_internal(params) {
+
     const conn_str = cloud_utils.get_azure_connection_string({
         endpoint: params.endpoint,
         access_key: params.identity,
@@ -922,57 +941,46 @@ function check_azure_connection(params) {
     });
 
     function err_to_status(err, status) {
-        const ret_error = new Error(status);
-        ret_error.err_code = err.code || 'Error';
-        ret_error.err_message = err.message || 'Unknown Error';
-        return ret_error;
+        return Object.assign(new Error(status), {
+            err_code: err.code || 'Error',
+            err_message: err.message || 'Unknown Error',
+        });
     }
 
-    return P.resolve()
-        .then(() => P.resolve()
-            .then(() => {
-                let blob = azure_storage.createBlobService(conn_str);
-                return blob;
-            })
-            .catch(err => {
-                dbg.warn(`got error on createBlobService with params`, _.omit(params, 'secret'), ` error: ${err}`);
-                throw err_to_status(err, err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
-            })
-        )
-        .then(blob_svc => P.fromCallback(callback => blob_svc.listContainersSegmented(null, callback))
-            .then(() => blob_svc)
-            .catch(err => {
-                dbg.warn(`got error on listContainersSegmented with params`, _.omit(params, 'secret'), ` error: ${err}`);
-                if (err.code === 'AuthenticationFailed' &&
-                    err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
-                    throw err_to_status(err, 'TIME_SKEW');
-                }
-                throw err_to_status(err, err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
-            })
-        )
-        .then(blob_svc => P.fromCallback(callback => blob_svc.getServiceProperties(callback))
-            .catch(err => {
-                dbg.warn(`got error on getServiceProperties with params`, _.omit(params, 'secret'), ` error: ${err}`);
-                throw err_to_status(err, 'NOT_SUPPORTED');
-            })
-        )
-        .timeout(check_connection_timeout, new Error('TIMEOUT'))
-        .then(service => {
-            if (!service.Logging) {
-                dbg.warn(`Error - connection for Premium account with params`, _.omit(params, 'secret'));
-                throw err_to_status({}, 'NOT_SUPPORTED');
-            }
-        })
-        .then(
-            () => ({ status: 'SUCCESS' }),
-            err => ({
-                status: err.message,
-                error: {
-                    code: err.err_code,
-                    message: err.err_message
-                }
-            })
-        );
+    /** @type {BlobService} */
+    let blob;
+    try {
+        blob = azure_storage.createBlobService(conn_str);
+    } catch (err) {
+        dbg.warn(`got error on createBlobService with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        throw err_to_status(err, err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
+    }
+
+    try {
+        await P.fromCallback(callback => blob.listContainersSegmented(null, callback));
+    } catch (err) {
+        dbg.warn(`got error on listContainersSegmented with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        if (err.code === 'AuthenticationFailed' &&
+            err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
+            throw err_to_status(err, 'TIME_SKEW');
+        }
+        throw err_to_status(err, err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
+    }
+
+    let service_properties;
+    try {
+        service_properties = await P.fromCallback(callback => blob.getServiceProperties(callback));
+    } catch (err) {
+        dbg.warn(`got error on getServiceProperties with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        throw err_to_status(err, 'NOT_SUPPORTED');
+    }
+
+    if (!service_properties.Logging) {
+        dbg.warn(`Error - connection for Premium account with params`, _.omit(params, 'secret'));
+        throw err_to_status({}, 'NOT_SUPPORTED');
+    }
+
+    return { status: 'SUCCESS' };
 }
 
 const aws_error_mapping = Object.freeze({
@@ -1017,7 +1025,7 @@ async function check_google_connection(params) {
 
 
 
-function check_aws_connection(params) {
+async function check_aws_connection(params) {
     if (!params.endpoint.startsWith('http://') && !params.endpoint.startsWith('https://')) {
         params.endpoint = 'http://' + params.endpoint;
     }
@@ -1036,22 +1044,22 @@ function check_aws_connection(params) {
         new Error('Operation timeout'), { code: 'OperationTimeout' }
     );
 
-    return P.fromCallback(callback => s3.listBuckets(callback))
-        .timeout(check_connection_timeout, timeoutError)
-        .then(
-            ret => ({ status: 'SUCCESS' }),
-            err => {
-                dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'), ` error: ${err}, code: ${err.code}, message: ${err.message}`);
-                const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
-                return {
-                    status,
-                    error: {
-                        code: err.code,
-                        message: err.message || 'Unknown Error'
-                    }
-                };
-            }
+    try {
+        await P.timeout(check_connection_timeout, s3.listBuckets().promise(), timeoutError);
+        return { status: 'SUCCESS' };
+    } catch (err) {
+        dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'),
+            ` error: ${err}, code: ${err.code}, message: ${err.message}`
         );
+        const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+        return {
+            status,
+            error: {
+                code: err.code,
+                message: err.message || 'Unknown Error'
+            }
+        };
+    }
 }
 
 function check_net_storage_connection(params) {
@@ -1070,8 +1078,11 @@ function check_net_storage_connection(params) {
     );
 
     // TODO: Shall I use any other method istead of listing the root cpCode dir?
-    return P.fromCallback(callback => ns.dir(params.cp_code, callback))
-        .timeout(check_connection_timeout, timeoutError)
+    return P.timeout(
+            check_connection_timeout,
+            P.fromCallback(callback => ns.dir(params.cp_code, callback)),
+            timeoutError
+        )
         .then(
             ret => ({ status: 'SUCCESS' }),
             err => {

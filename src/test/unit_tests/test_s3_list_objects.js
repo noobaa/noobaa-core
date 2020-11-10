@@ -12,7 +12,6 @@ const mocha = require('mocha');
 
 const P = require('../../util/promise');
 const ObjectIO = require('../../sdk/object_io');
-const promise_utils = require('../../util/promise_utils');
 
 const { rpc_client } = coretest;
 let object_io = new ObjectIO();
@@ -564,7 +563,7 @@ function truncated_listing(params, use_upload_id_marker, upload_mode) {
                 query_obj.upload_id_marker = listObjectsResponse.upload_id_marker;
             }
 
-            return promise_utils.pwhile(
+            return P.pwhile(
                     function() {
                         return listObjectsResponse.is_truncated;
                     },

@@ -1,9 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const P = require('../util/promise');
 const RpcBaseConnection = require('./rpc_base_conn');
-
-require('setimmediate');
 
 class RpcFcallConnection extends RpcBaseConnection {
     _close() {
@@ -14,8 +13,9 @@ class RpcFcallConnection extends RpcBaseConnection {
         setImmediate(() => this.emit('connect'));
     }
 
-    _send(msg) {
-        setImmediate(() => this.emit('message', msg));
+    async _send(msg) {
+        await P.immediate();
+        this.emit('message', msg);
     }
 
     /**

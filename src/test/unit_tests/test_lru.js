@@ -4,8 +4,8 @@
 const mocha = require('mocha');
 const assert = require('assert');
 
+const P = require('../../util/promise');
 const LRU = require('../../util/lru');
-const promise_utils = require('../../util/promise_utils');
 
 mocha.describe('lru', function() {
 
@@ -57,13 +57,13 @@ mocha.describe('lru', function() {
         item.foo = 'bar';
         lru._sanity();
 
-        await promise_utils.delay(1);
+        await P.delay(1);
 
         item = lru.find_or_add_item(1);
         assert.strictEqual(item.foo, 'bar');
         lru._sanity();
 
-        await promise_utils.delay(110);
+        await P.delay(110);
 
         lru._sanity();
         item = lru.find_or_add_item(1);

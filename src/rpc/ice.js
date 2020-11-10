@@ -12,8 +12,8 @@ const tls = require('tls');
 const util = require('util');
 const crypto = require('crypto');
 const chance = require('chance')();
+const events = require('events');
 const ip_module = require('ip');
-const EventEmitter = require('events').EventEmitter;
 
 const dbg = require('../util/debug_module')(__filename);
 const stun = require('./stun');
@@ -21,7 +21,6 @@ const js_utils = require('../util/js_utils');
 const url_utils = require('../util/url_utils');
 const FrameStream = require('../util/frame_stream');
 const buffer_utils = require('../util/buffer_utils');
-const promise_utils = require('../util/promise_utils');
 
 
 const CAND_TYPE_HOST = 'host';
@@ -44,7 +43,7 @@ const ICE_FRAME_CONFIG = {
 };
 const ICE_FRAME_STUN_MSG_TYPE = 1;
 
-util.inherits(Ice, EventEmitter);
+util.inherits(Ice, events.EventEmitter);
 
 /**
  *
@@ -110,7 +109,7 @@ util.inherits(Ice, EventEmitter);
  */
 function Ice(connid, config, signal_target) {
     var self = this;
-    EventEmitter.call(self);
+    events.EventEmitter.call(self);
     self.setMaxListeners(100);
 
     // connid is provided externally for debugging
@@ -383,9 +382,11 @@ Ice.prototype._add_tcp_permanent_passive_candidates = function() {
                 };
             }
 
-            if (!conf.listen_promise ||
-                conf.listen_promise.isRejected()) {
+            if (!conf.listen_promise) {
                 conf.listen_promise = listen_on_port_range(conf);
+                conf.listen_promise.catch(() => {
+                    conf.listen_promise = null;
+                });
             }
             return conf.listen_promise;
         })
@@ -1304,11 +1305,11 @@ function IceCandidate(cand) {
     return cand;
 }
 
-util.inherits(IceSession, EventEmitter);
+util.inherits(IceSession, events.EventEmitter);
 
 function IceSession(local, remote, packet, udp) {
     var self = this;
-    EventEmitter.call(self);
+    events.EventEmitter.call(self);
     self.local = local;
     self.remote = remote;
     self.packet = packet;
@@ -1495,7 +1496,7 @@ function listen_on_port_range(port_range) {
         attempts += 1;
         server.listen(port);
         // wait for listen even, while also watching for error/close.
-        return promise_utils.wait_for_event(server, 'listening')
+        return events.once(server, 'listening')
             .then(() => server)
             .catch(function(err) {
                 dbg.log1('ICE listen_on_port_range: FAILED', port, err);

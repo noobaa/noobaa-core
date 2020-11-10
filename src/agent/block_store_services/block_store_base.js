@@ -175,7 +175,7 @@ class BlockStoreBase {
 
     async verify_blocks(req) {
         const { verify_blocks } = req.rpc_params;
-        await P.map(verify_blocks, block_md => this.verify_block(block_md), { concurrency: 10 });
+        await P.map_with_concurrency(10, verify_blocks, block_md => this.verify_block(block_md));
     }
 
     /**

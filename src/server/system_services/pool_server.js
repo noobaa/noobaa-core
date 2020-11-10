@@ -13,7 +13,6 @@ const config = require('../../../config');
 const { RpcError } = require('../../rpc');
 const size_utils = require('../../util/size_utils');
 const addr_utils = require('../../util/addr_utils');
-const promise_utils = require('../../util/promise_utils');
 const server_rpc = require('../server_rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
@@ -57,9 +56,7 @@ let create_pool_controller = default_create_pool_controller;
 // This code should fix and pending changes to hosts pools in the case
 // that the server process was stopped unexpectedly.
 async function _init() {
-    await promise_utils.wait_until(() =>
-        system_store.is_finished_initial_load
-    );
+    await P.wait_until(() => system_store.is_finished_initial_load);
 
     // Ensure that all account are not using mongo pool as default resource after
     // at least one pool is in optimal state.
@@ -686,9 +683,9 @@ function delete_resource_pool(req, pool) {
                     auth_token: req.auth_token
                 });
             }
-            return P.each(pool_nodes.nodes, node => {
-                    nodes_client.instance().delete_node_by_name(req.system._id, node.name);
-                })
+            return P.map_one_by_one(pool_nodes.nodes, node =>
+                    nodes_client.instance().delete_node_by_name(req.system._id, node.name)
+                )
                 .then(function() {
                     // rename the deleted pool to avoid an edge case where there are collisions
                     // with a new resource pool name
@@ -1228,7 +1225,7 @@ async function update_account_default_resource() {
             // Ignore errors so we could continue with another iteration of the loop.
             _.noop();
         }
-        await promise_utils.delay_unblocking(5000);
+        await P.delay_unblocking(5000);
     }
 }
 

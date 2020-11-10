@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-/** @typedef {import('./rpc_request')} RpcRequest **/
+/** @typedef {import('./rpc_request')} RpcRequest */
 
 const _ = require('lodash');
-const EventEmitter = require('events').EventEmitter;
+const events = require('events');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -19,7 +19,7 @@ const STATE_CONNECTING = 'connecting';
 const STATE_CONNECTED = 'connected';
 const STATE_CLOSED = 'closed';
 
-class RpcBaseConnection extends EventEmitter {
+class RpcBaseConnection extends events.EventEmitter {
 
     constructor(addr_url) {
         super();
@@ -38,8 +38,9 @@ class RpcBaseConnection extends EventEmitter {
         this._state = STATE_INIT;
 
         // the connecting_defer is used by connect() to wait for the connected event
+        this._connect_promise = events.once(this, 'connect');
         this.connecting_defer = P.defer();
-        this.connecting_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
+        this._connect_promise.catch(_.noop); // to prevent error log of unhandled rejection
 
         this._connect_timeout_ms = config.RPC_CONNECT_TIMEOUT;
 
@@ -83,6 +84,11 @@ class RpcBaseConnection extends EventEmitter {
         this.emit_error = err => this.emit('error', err);
     }
 
+    // by default we assume non transient, but http connections use transient mode
+    get transient() {
+        return false;
+    }
+
     /**
      *
      * connect
@@ -119,20 +125,25 @@ class RpcBaseConnection extends EventEmitter {
      *
      * @param {RpcMessage} msg
      * @param {RpcRequest} [req]
-     * @returns Promise
+     * @returns {Promise}
      */
-    send(msg, req) {
+    async send(msg, req) {
         if (this._state !== STATE_CONNECTED) {
             throw new Error('RPC CONN NOT CONNECTED ' + this._state + ' ' + this.connid);
         }
-        return P.resolve()
-            .then(() => {
-                const encoded_message = this._encode_message(msg);
-                return this._send(encoded_message, msg.body && msg.body.op, req);
-            })
-            .timeout(config.RPC_SEND_TIMEOUT)
-            .catch(P.TimeoutError, () => this.emit_error(new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')))
-            .catch(this.emit_error);
+        try {
+            const encoded_message = this._encode_message(msg);
+            const send_promise = this._send(encoded_message, msg.body && msg.body.op, req);
+            if (!send_promise) {
+                console.error('GGG NO SEND PROMISE', this);
+            }
+            await P.timeout(config.RPC_SEND_TIMEOUT,
+                send_promise,
+                new RpcError('RPC_SEND_TIMEOUT', 'RPC SEND TIMEOUT')
+            );
+        } catch (err) {
+            this.emit_error(err);
+        }
     }
 
     close(err) {
@@ -153,13 +164,13 @@ class RpcBaseConnection extends EventEmitter {
 
     /**
      * @param {RpcMessage} msg
-     * @returns {object}
+     * @returns {Buffer[]}
      */
     _encode_message(msg) {
         return msg.encode();
     }
 
-     /**
+    /**
      * @param {object} encoded_message
      * @returns {RpcMessage}
      */
@@ -173,19 +184,32 @@ class RpcBaseConnection extends EventEmitter {
         return reqid;
     }
 
-    /* ----------------------------------------------------------------
-     * The following methods should be overriden by every concrete type
-     * extending RpcBaseConnection
-     * ----------------------------------------------------------------
+    // ----------------------------------------------------------
+    // The following methods are overriden by every concrete type
+    // extending RpcBaseConnection
+    // ----------------------------------------------------------
+
+    /**
+     * start the connection
      */
     _connect() {
         throw new Error("Not Implemented");
     }
 
-    _send(msg, op, req) {
+    /**
+     * send a message
+     * @param {Buffer[]} msg
+     * @param {string} op 
+     * @param {RpcRequest} req 
+     * @returns {Promise<void>}
+     */
+    async _send(msg, op, req) {
         throw new Error("Not Implemented");
     }
 
+    /**
+     * close the underlying connection
+     */
     _close() {
         throw new Error("Not Implemented");
     }

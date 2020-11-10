@@ -15,6 +15,12 @@ const http = require('http');
 const https = require('https');
 const FtpSrv = require('ftp-srv');
 const os = require('os');
+
+const P = require('../util/promise');
+const config = require('../../config');
+const s3_rest = require('./s3/s3_rest');
+const blob_rest = require('./blob/blob_rest');
+const lambda_rest = require('./lambda/lambda_rest');
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -23,10 +29,6 @@ const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
 const addr_utils = require('../util/addr_utils');
-const promise_utils = require('../util/promise_utils');
-const s3_rest = require('./s3/s3_rest');
-const blob_rest = require('./blob/blob_rest');
-const lambda_rest = require('./lambda/lambda_rest');
 const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 const system_store = require('../server/system_services/system_store');
 const md_server = require('../server/md_server');
@@ -34,7 +36,6 @@ const auth_server = require('../server/common_services/auth_server');
 const server_rpc = require('../server/server_rpc');
 const { ENDPOINT_MONITOR_INTERVAL } = require('../../config');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
-const config = require('../../config');
 
 const {
     ENDPOINT_BLOB_ENABLED,
@@ -151,7 +152,7 @@ async function get_auth_token(env) {
 
     } else if (env.JWT_SECRET && LOCAL_MD_SERVER) {
         const system_store_inst = system_store.get_instance();
-        await promise_utils.wait_until(() =>
+        await P.wait_until(() =>
             system_store_inst.is_finished_initial_load
         );
         const system = system_store_inst.data.systems[0];
@@ -173,7 +174,7 @@ async function start_monitor(internal_rpc_client) {
     dbg.log0('Endpoint monitor started');
     for (;;) {
         try {
-            await promise_utils.delay_unblocking(ENDPOINT_MONITOR_INTERVAL);
+            await P.delay_unblocking(ENDPOINT_MONITOR_INTERVAL);
             const end_time = process.hrtime.bigint() / 1000n;
             const cpu_time = process.cpuUsage();
             const elap_cpu_time = (cpu_time.system + cpu_time.user) - (base_cpu_time.system + base_cpu_time.user);

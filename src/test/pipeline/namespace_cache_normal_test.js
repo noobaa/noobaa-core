@@ -2,7 +2,6 @@
 'use strict';
 
 const assert = require('assert');
-const promise_utils = require('../../util/promise_utils');
 const config = require('../../../config');
 const P = require('../../util/promise');
 
@@ -138,7 +137,7 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
             file_name,
             expect_same: true
         });
-        await promise_utils.wait_until(async () => {
+        await P.wait_until(async () => {
             try {
                 await ns_context.validate_cache_noobaa_md({
                     type,
@@ -179,7 +178,7 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
             file_name,
             expect_same: true
         });
-        await promise_utils.wait_until(async () => {
+        await P.wait_until(async () => {
             try {
                 await ns_context.validate_cache_noobaa_md({
                     type,
@@ -392,7 +391,7 @@ async function run_namespace_cache_tests_non_range_read({ type, ns_context }) {
             file_name,
             expect_same: true
         });
-        await promise_utils.wait_until(async () => {
+        await P.wait_until(async () => {
             try {
                 await ns_context.validate_cache_noobaa_md({
                     type,

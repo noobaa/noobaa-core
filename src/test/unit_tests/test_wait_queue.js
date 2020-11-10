@@ -41,7 +41,7 @@ mocha.describe('wait_queue', function() {
                 wq.wakeup();
 
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 assert.strictEqual(wq.length, 0);
                 assert.strictEqual(woke, 1);
@@ -56,7 +56,7 @@ mocha.describe('wait_queue', function() {
                 wq.wakeup();
 
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 assert.strictEqual(wq.length, 0);
                 assert.strictEqual(woke, 2);
@@ -89,7 +89,7 @@ mocha.describe('wait_queue', function() {
                 wq.wakeup(item, error);
                 return promise;
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 // This is an error since we should reject and not resolve
                 assert.strictEqual('Majestic', 'Sloth');

@@ -35,7 +35,7 @@ mocha.describe('prefetch', function() {
                     }
                 });
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 log('A - length', pr.length);
                 var promise = P.resolve();
@@ -48,7 +48,7 @@ mocha.describe('prefetch', function() {
                 });
                 return promise;
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 log('B - length', pr.length);
                 return P.all(_.times(10, function() {
@@ -57,7 +57,7 @@ mocha.describe('prefetch', function() {
                     });
                 }));
             })
-            .delay(10)
+            .then(() => P.delay(10))
             .then(function() {
                 log('length', pr.length);
             });

@@ -120,7 +120,7 @@ class RpcRequest {
     }
 
     _set_response(msg) {
-        const is_pending = this._response_defer.promise.isPending();
+        const is_pending = this._response_defer.isPending;
         if (!is_pending) {
             return is_pending;
         }

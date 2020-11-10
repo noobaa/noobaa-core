@@ -35,7 +35,6 @@ const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
-const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const cluster_server = require('./cluster_server');
@@ -74,7 +73,7 @@ async function _init() {
 
     while (!update_done) {
         try {
-            await promise_utils.delay_unblocking(DEFAULT_DELAY);
+            await P.delay_unblocking(DEFAULT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
                 const [system] = system_store.data.systems;
 
@@ -480,7 +479,7 @@ async function _configure_system_address(system_id, account_id) {
  */
 function read_system(req) {
     const system = req.system;
-    return P.props({
+    return P.map_values({
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_aggregate_pool_no_cloud_and_mongo: nodes_client.instance()
             .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true, /*skip_mongo_nodes=*/ true),
@@ -870,78 +869,75 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-function attempt_server_resolve(req) {
-    let result;
-    //If already in IP form, no need for resolving
+async function attempt_server_resolve(req) {
+
+    // If already in IP form, no need for resolving
     if (net.isIP(req.rpc_params.server_name)) {
         dbg.log2('attempt_server_resolve received an IP form', req.rpc_params.server_name);
-        return P.resolve({ valid: true });
+        return { valid: true };
     }
 
-    dbg.log0('attempt_server_resolve', req.rpc_params.server_name);
-    return P.promisify(dns.resolve)(req.rpc_params.server_name)
-        .timeout(30000)
-        .then(() => {
-            dbg.log0('resolution passed, testing ping');
-            if (req.rpc_params.ping) {
-                return net_utils.ping(req.rpc_params.server_name)
-                    .catch(err => {
-                        dbg.error('ping failed', err);
-                        result = {
-                            valid: false,
-                            reason: err.code
-                        };
-                    });
-            }
-        })
-        .then(() => {
-            dbg.log0('resolution passed, testing version');
-            if (req.rpc_params.version_check && !result) {
-                let options = {
-                    url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
-                    method: 'GET',
-                    strictSSL: false, // means rejectUnauthorized: false
+    try {
+        dbg.log0('attempt_server_resolve: testing dns resolve', req.rpc_params.server_name);
+        await P.timeout(30000, dns.promises.resolve(req.rpc_params.server_name));
+        dbg.log0('attempt_server_resolve: dns resolve OK');
+    } catch (err) {
+        if (err instanceof P.TimeoutError) {
+            dbg.error('attempt_server_resolve: dns resolve timeout', req.rpc_params.server_name);
+            return { valid: false, reason: 'TimeoutError' };
+        } else {
+            dbg.error('attempt_server_resolve: dns resolve failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    if (req.rpc_params.ping) {
+        try {
+            dbg.log0('attempt_server_resolve: testing ping', req.rpc_params.server_name);
+            await net_utils.ping(req.rpc_params.server_name);
+            dbg.error('attempt_server_resolve: ping OK');
+        } catch (err) {
+            dbg.error('attempt_server_resolve: ping failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    if (req.rpc_params.version_check) {
+        try {
+            const options = {
+                url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
+                method: 'GET',
+                strictSSL: false, // means rejectUnauthorized: false
+            };
+
+            dbg.log0('attempt_server_resolve: testing version', options);
+            /** @type {request.Response} */
+            const res = await P.fromCallback(callback => request(options, callback));
+            dbg.log0('attempt_server_resolve: version response', res.statusCode, res.body);
+
+            if (res.statusCode !== 200) {
+                dbg.error('attempt_server_resolve: version failed', res.statusCode);
+                return {
+                    valid: false,
+                    reason: `Provided DNS Name doesn't seem to point to the current server (bad status)`
                 };
-                dbg.log0('Sending Get Version Request To DNS Name:', options);
-                return P.fromCallback(callback => request(options, callback), {
-                        multiArgs: true
-                    })
-                    .then(([response, reply]) => {
-                        dbg.log0('Received Response From DNS Name', response.statusCode);
-                        if (response.statusCode !== 200 || String(reply) !== pkg.version) {
-                            dbg.error('version failed');
-                            result = {
-                                valid: false,
-                                reason: `Provided DNS Name doesn't seem to point to the current server`
-                            };
-                        }
-                    })
-                    .catch(err => {
-                        dbg.error('version failed', err);
-                        result = {
-                            valid: false,
-                            reason: err.code
-                        };
-                    });
             }
-        })
-        .then(() => (result ? result : {
-            valid: true
-        }))
-        .catch(P.TimeoutError, () => {
-            dbg.error('resolve timedout');
-            return {
-                valid: false,
-                reason: 'TimeoutError'
-            };
-        })
-        .catch(err => {
-            dbg.error('resolve failed', err);
-            return {
-                valid: false,
-                reason: err.code
-            };
-        });
+
+            if (res.body !== pkg.version) {
+                dbg.error('attempt_server_resolve: version mismatch', res.statusCode);
+                return {
+                    valid: false,
+                    reason: `Provided DNS Name doesn't seem to point to the current server (version mismatch)`
+                };
+            }
+
+        } catch (err) {
+            dbg.error('attempt_server_resolve: version failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    return { valid: true };
 }
 
 

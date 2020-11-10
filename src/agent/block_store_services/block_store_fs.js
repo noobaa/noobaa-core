@@ -39,9 +39,7 @@ class BlockStoreFs extends BlockStoreBase {
         }
         dir_list.push(path.join(this.blocks_path_root, 'other.blocks'));
 
-        return P.map(dir_list, dir => fs_utils.create_path(dir), {
-                concurrency: 10
-            })
+        return P.map_with_concurrency(10, dir_list, dir => fs_utils.create_path(dir))
             .then(() => fs.promises.stat(this.usage_path)
                 .catch(ignore_not_found)
             )
@@ -162,8 +160,8 @@ class BlockStoreFs extends BlockStoreBase {
 
     _delete_blocks(block_ids) {
         let failed_to_delete_block_ids = [];
-        return P.map(block_ids,
-                block_id => this._delete_block(block_id)
+        return P.map_with_concurrency(10, block_ids, block_id =>
+                this._delete_block(block_id)
                 .catch(err => {
                     // This check is already performed inside _delete_block by calling ignore_not_found
                     // but just in case something changes we perform it once again here explicitly
@@ -172,10 +170,8 @@ class BlockStoreFs extends BlockStoreBase {
                     }
                     // TODO handle failed deletions - report to server and reclaim later
                     dbg.warn('delete block failed due to', err);
-                }), {
-                    // limit concurrency with semaphore
-                    concurrency: 10
                 })
+            )
             .then(() => ({
                 failed_block_ids: failed_to_delete_block_ids,
                 succeeded_block_ids: _.difference(block_ids, failed_to_delete_block_ids)
@@ -231,8 +227,8 @@ class BlockStoreFs extends BlockStoreBase {
 
     _read_config() {
         return fs.promises.readFile(this.config_path, 'utf8')
-        .then(data => JSON.parse(data))
-        .catch(ignore_not_found);
+            .then(data => JSON.parse(data))
+            .catch(ignore_not_found);
     }
 
     _get_alloc() {

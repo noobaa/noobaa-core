@@ -3,7 +3,7 @@
 
 const mime = require('mime');
 
-const promise_utils = require('../util/promise_utils');
+const P = require('../util/promise');
 const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const prom_report = require('../server/analytic_services/prometheus_reporting');
@@ -32,7 +32,7 @@ class EndpointStatsCollector {
     }
 
     async _send_stats() {
-        await promise_utils.delay_unblocking(SEND_STATS_DELAY);
+        await P.delay_unblocking(SEND_STATS_DELAY);
         // clear this.send_stats to allow new updates to trigger another _send_stats
         this.send_stats = null;
         try {
@@ -167,7 +167,7 @@ class EndpointStatsCollector {
     }
 }
 
-
+EndpointStatsCollector._instance = null;
 
 // EXPORTS
 exports.EndpointStatsCollector = EndpointStatsCollector;

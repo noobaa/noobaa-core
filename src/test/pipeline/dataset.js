@@ -11,7 +11,6 @@ const seedrandom = require('seedrandom');
 const { S3OPS } = require('../utils/s3ops');
 const Report = require('../framework/report');
 const argv = require('minimist')(process.argv);
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
 const test_name = 'dataset';
@@ -741,7 +740,7 @@ function run_test(throw_on_fail) {
                 if (TEST_CFG.aging_timeout !== 0) {
                     console.log(`will run aging for ${TEST_CFG.aging_timeout} minutes`);
                 }
-                return promise_utils.pwhile(() =>
+                return P.pwhile(() =>
                     (TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout), () => {
                         console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
                             TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
@@ -800,7 +799,7 @@ function run_replay() {
             let idx;
             let current_action;
             let current_params;
-            return promise_utils.pwhile(
+            return P.pwhile(
                 () => iline < journal.length,
                 () => P.resolve()
                 .then(() => {

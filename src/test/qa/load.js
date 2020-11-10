@@ -1,49 +1,51 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const promise_utils = require('../util/promise_utils');
-var mocha = require('mocha');
-var assert = require('chai').assert;
-var basic_size = 5;
-var basic_name = 'file_' + Math.floor(Date.now() / 1000);
-var P = require('../util/promise');
-var end_point = '127.0.0.1';
+const mocha = require('mocha');
+const assert = require('chai').assert;
+
+const P = require('../util/promise');
+const os_utils = require('../util/os_utils');
+
+const basic_size = 5;
+const basic_name = 'file_' + Math.floor(Date.now() / 1000);
+const end_point = '127.0.0.1';
 
 mocha.describe('UPLOAD TESTS:', function() {
-    var index = 0;
+
+    let index = 0;
+
     [basic_size, 10 * basic_size, 100 * basic_size].forEach(function(file_size) {
-        var file_name = basic_name + index;
+        let file_name = basic_name + index;
         index += 1;
-        mocha.it('Upload single file of size:' + file_size + ' MB in one thread', function() {
+
+        mocha.it('Upload single file of size:' + file_size + ' MB in one thread', async function() {
             console.info('> Uploading file: ' + file_name + ' to Noobaa with size of:' + file_size + ' MB');
-            return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file_name + ' --size ' + file_size)
-                .then(() => promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
-                    ignore_rc: false,
-                    return_stdout: true
-                }))
-                .then(reply => {
-                    assert.include(reply, file_name, 'file wasn\'t found in NooBaa!');
-                    console.info('> File: ' + file_name + ' was found on Noobaa');
-                    assert.include(reply, file_name, 'file size isn\'t correct!');
-                    console.info('> File size was correct');
-                });
-            // .catch((err) => {
-            //   console.error(err);
-            // });
+            await os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file_name + ' --size ' + file_size);
+            const reply = await os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
+                ignore_rc: false,
+                return_stdout: true
+            });
+            assert.include(reply, file_name, 'file wasn\'t found in NooBaa!');
+            console.info('> File: ' + file_name + ' was found on Noobaa');
+            assert.include(reply, file_name, 'file size isn\'t correct!');
+            console.info('> File size was correct');
         });
     });
-    var file_name = 'file_' + (Math.floor(Date.now() / 1000) + 1);
-    var file_size = 10;
-    var num_of_files = 10;
+
+    let file_name = 'file_' + (Math.floor(Date.now() / 1000) + 1);
+    let file_size = 10;
+    let num_of_files = 10;
+
     mocha.it('Upload multiple file of size:' + file_size + ' MB in different threads', function() {
-        var promises = [];
+        let promises = [];
         console.info('> Uploading ' + num_of_files + ' files to Noobaa in differnet threads');
-        for (var i = 0; i < num_of_files; i++) {
+        for (let i = 0; i < num_of_files; i++) {
             console.info('* Uploading file number ' + (i + 1) + ' out of ' + num_of_files + ' named: ' + (file_name + i));
-            promises[i] = promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + (file_name + i) + ' --size ' + file_size);
+            promises[i] = os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + (file_name + i) + ' --size ' + file_size);
         }
         return P.all(promises)
-            .then(() => promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
+            .then(() => os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
                 ignore_rc: false,
                 return_stdout: true
             }))
@@ -59,21 +61,20 @@ mocha.describe('UPLOAD TESTS:', function() {
 
     file_name = 'file_' + (Math.floor(Date.now() / 1000) + 2);
     file_size = 512; // 1/2GB
-    var concur = 10; // number of multiparts used
-    var part_size = Math.floor(file_size / concur);
-    mocha.it('Upload one big file ' + file_size + ' using multi part', function() {
+    let concur = 10; // number of multiparts used
+    let part_size = Math.floor(file_size / concur);
+
+    mocha.it('Upload one big file ' + file_size + ' using multi part', async function() {
         console.info('> Uploading file: ' + file_name + ' to Noobaa with size of:' + file_size + ' MB');
-        return promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file_name + ' --size ' + file_size +
-                ' --part_size ' + part_size + ' --concur ' + concur)
-            .then(() => promise_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
-                ignore_rc: false,
-                return_stdout: true
-            }))
-            .then(reply => {
-                assert.include(reply, file_name, 'file wasn\'t found in NooBaa!');
-                console.info('> File: ' + file_name + ' was found on Noobaa');
-                assert.include(reply, file_name, 'file size isn\'t correct!');
-                console.info('> File size was correct');
-            });
+        await os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --upload ' + file_name + ' --size ' + file_size +
+            ' --part_size ' + part_size + ' --concur ' + concur);
+        const reply = await os_utils.exec('node ' + process.cwd() + '/src/tools/s3cat.js --endpoint ' + end_point + ' --ls --prefix ' + file_name, {
+            ignore_rc: false,
+            return_stdout: true
+        });
+        assert.include(reply, file_name, 'file wasn\'t found in NooBaa!');
+        console.info('> File: ' + file_name + ' was found on Noobaa');
+        assert.include(reply, file_name, 'file size isn\'t correct!');
+        console.info('> File size was correct');
     });
 });

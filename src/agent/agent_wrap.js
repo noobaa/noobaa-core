@@ -16,10 +16,7 @@ dbg.set_process_name('agent_wrapper');
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
-const promise_utils = require('../util/promise_utils');
 const child_process = require('child_process');
-
-
 
 const AGENT_MSG_CODES = Object.freeze([
     'UPGRADE',
@@ -148,16 +145,22 @@ async function upgrade_agent() {
     await P.delay(2000); // Not sure why this is necessary, but it is.
 
     dbg.log0('running agent installation command: ', CONFIGURATION.INSTALLATION_COMMAND);
-    await promise_utils.exec(CONFIGURATION.INSTALLATION_COMMAND);
+    await os_utils.exec(CONFIGURATION.INSTALLATION_COMMAND);
 
     // installation of new version should eventually stop this agent_wrapper instance and restart in the new version
     // wait for agent_wrapper to get killed
-    await promise_utils.retry(CONFIGURATION.NUM_UPGRADE_WARNINGS,
-        CONFIGURATION.TIME_BETWEEN_WARNINGS, attempts => {
-            let msg = `Still upgrading. ${(CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) * (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
+    await P.retry({
+        attempts: CONFIGURATION.NUM_UPGRADE_WARNINGS,
+        delay_ms: CONFIGURATION.TIME_BETWEEN_WARNINGS,
+        func: attempts => {
+            const msg = `Still upgrading. ${
+                (CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) *
+                (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)
+            } seconds have passed.`;
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
             throw new Error(msg);
-        });
+        }
+    });
 }
 
 async function main() {
@@ -180,11 +183,11 @@ async function main() {
                 break;
             case 'DUPLICATE':
                 dbg.log0('Duplicate token. calling agent_cli with --duplicate flag');
-                await promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
+                await os_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
                 break;
             case 'NOTFOUND':
                 dbg.log0('Agent not found. calling agent_cli with --notfound flag');
-                await promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
+                await os_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
                 break;
             default:
                 break;

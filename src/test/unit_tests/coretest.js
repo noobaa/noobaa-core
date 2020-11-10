@@ -1,37 +1,29 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const wtf = require("wtfnode");
+const _ = require('lodash');
+const wtf = require('wtfnode');
+const argv = require('minimist')(process.argv);
+const mocha = require('mocha');
+const assert = require('assert');
+const crypto = require('crypto');
+
+// keep me first - this is setting envs that should be set before other modules are required.
+const CORETEST = 'coretest';
+process.env.DEBUG_MODE = 'true';
+process.env.CORETEST = CORETEST;
+process.env.JWT_SECRET = CORETEST;
+process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
 
 console.log('loading .env file');
 require('../../util/dotenv').load();
 require('../../util/panic').enable_heapdump('coretest');
 require('../../util/fips');
-const crypto = require('crypto');
-
-const CORETEST = 'coretest';
-process.env.CORETEST = CORETEST;
-process.env.JWT_SECRET = CORETEST;
-process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
-
 
 const config = require('../../../config.js');
-const db_client = require('../../util/db_client');
-
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 
-const P = require('../../util/promise');
-P.config({
-    longStackTraces: true
-});
-
-const _ = require('lodash');
-// const util = require('util');
-const mocha = require('mocha');
-const assert = require('assert');
-
-const argv = require('minimist')(process.argv);
 const dbg = require('../../util/debug_module')(__filename);
 const dbg_level =
     (process.env.SUPPRESS_LOGS && -5) ||
@@ -39,7 +31,9 @@ const dbg_level =
     0;
 dbg.set_level(dbg_level, 'core');
 
+const P = require('../../util/promise');
 const endpoint = require('../../endpoint/endpoint');
+const db_client = require('../../util/db_client');
 const server_rpc = require('../../server/server_rpc');
 const auth_server = require('../../server/common_services/auth_server');
 const node_server = require('../../server/node_services/node_server');
@@ -47,12 +41,11 @@ const account_server = require('../../server/system_services/account_server');
 const system_server = require('../../server/system_services/system_server');
 const system_store = require('../../server/system_services/system_store').get_instance();
 const MDStore = require('../../server/object_services/md_store').MDStore;
-const promise_utils = require('../../util/promise_utils');
+const pool_server = require('../../server/system_services/pool_server');
+const pool_ctrls = require('../../server/system_services/pool_controllers');
 
 // Set the pools server pool controller factory to create pools with
 // backed by in process agents.
-const pool_server = require('../../server/system_services/pool_server');
-const pool_ctrls = require('../../server/system_services/pool_controllers');
 pool_server.set_pool_controller_factory((system, pool) =>
     new pool_ctrls.InProcessAgentsPoolController(system.name, pool.name)
 );
@@ -164,7 +157,6 @@ function setup(options = {}) {
             method_name: 'load_system_store',
             target: '',
             request_params: {}
-
         });
         await announce('ensure_support_account()');
         await account_server.ensure_support_account();
@@ -292,7 +284,7 @@ async function overwrite_system_address(system_name) {
     // that this overwrite will not be undone when the system server
     // discover system addresses during it's init phase.
     console.log('Waiting for system server to initialize');
-    await promise_utils.wait_until(
+    await P.wait_until(
         () => system_server.is_initialized(),
         2 * 60 * 1000,
         1000
@@ -340,7 +332,7 @@ async function init_test_pools(pools_to_create) {
     ));
 
     // Wait until all pools have hosts in optimal state.
-    await promise_utils.wait_until(async () => {
+    await P.wait_until(async () => {
         const { hosts } = await rpc_client.host.list_hosts({
             query: {
                 pools: pools_to_create.map(pool_info => pool_info.name),
@@ -394,7 +386,7 @@ async function clear_test_pools() {
 
         await Promise.all(CREATED_POOLS.map(async pool => {
             try {
-                await promise_utils.wait_until(async () => {
+                await P.wait_until(async () => {
                     try {
                         console.log(`deleting pool`, pool.name);
                         await rpc_client.pool.delete_pool({ name: pool.name });

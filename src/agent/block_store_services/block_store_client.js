@@ -7,7 +7,6 @@ const _ = require('lodash');
 const Storage = require('../../util/google_storage_wrap');
 const azure_storage = require('../../util/azure_storage_wrap');
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
 const http_utils = require('../../util/http_utils');
@@ -73,7 +72,7 @@ class BlockStoreClient {
         const data = params[RPC_BUFFERS].data;
         let bs_info;
         let bucket;
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -125,7 +124,7 @@ class BlockStoreClient {
                 }
                 throw new Error(err.message || 'unknown error');
             }
-        }, timeout);
+        })());
     }
 
     async _delegate_read_block_google(rpc_client, params, options) {
@@ -133,7 +132,7 @@ class BlockStoreClient {
         const { block_md } = params;
         let bs_info;
         let bucket;
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -180,7 +179,7 @@ class BlockStoreClient {
                     }
                 }
             }
-        }, timeout);
+        })());
     }
 
     async _delegate_write_block_azure(rpc_client, params, options) {
@@ -188,7 +187,7 @@ class BlockStoreClient {
         const { block_md } = params;
         const data = params[RPC_BUFFERS].data;
         let bs_info;
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -225,7 +224,7 @@ class BlockStoreClient {
                 }
                 throw err;
             }
-        }, timeout);
+        })());
     }
 
 
@@ -235,7 +234,7 @@ class BlockStoreClient {
         const { block_md } = params;
         let bs_info;
         // get signed access signature from the agent
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -267,7 +266,7 @@ class BlockStoreClient {
                 }
                 throw err;
             }
-        }, timeout);
+        })());
     }
 
     async _delegate_write_block_s3(rpc_client, params, options) {
@@ -276,7 +275,7 @@ class BlockStoreClient {
         const data = params[RPC_BUFFERS].data;
         let bs_info;
 
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -315,7 +314,7 @@ class BlockStoreClient {
                 }
                 throw err;
             }
-        }, timeout);
+        })());
     }
 
 
@@ -323,7 +322,7 @@ class BlockStoreClient {
         const { timeout = config.IO_READ_BLOCK_TIMEOUT } = options;
         let bs_info;
         const { block_md } = params;
-        return promise_utils.timeout(async () => {
+        return P.timeout(timeout, (async () => {
             try {
                 bs_info = await block_store_info_cache.get_with_cache({ options, rpc_client });
                 if (!bs_info) throw new Error('couldn\'t resolve cloud credentials');
@@ -363,7 +362,7 @@ class BlockStoreClient {
                 }
                 throw err;
             }
-        }, timeout);
+        })());
 
     }
 
@@ -396,7 +395,7 @@ class BlockStoreClient {
 
     async send_usage_stats() {
         for (;;) {
-            await promise_utils.delay_unblocking(config.BLOCK_STORE_USAGE_INTERVAL);
+            await P.delay_unblocking(config.BLOCK_STORE_USAGE_INTERVAL);
 
             const updates = Array.from(this.io_stats.entries());
             this.io_stats = new Map();

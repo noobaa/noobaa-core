@@ -4,24 +4,24 @@
 const _ = require('lodash');
 const os = require('os');
 const fs = require('fs');
+const ps = require('ps-node');
+const util = require('util');
 const path = require('path');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
-var spawn = require('child_process').spawn;
+const child_process = require('child_process');
 const ip_module = require('ip');
-const ps = require('ps-node');
 
 const P = require('./promise');
+const dbg = require('./debug_module')(__filename);
+const dotenv = require('./dotenv');
 const config = require('../../config.js');
-const promise_utils = require('./promise_utils');
 const fs_utils = require('./fs_utils');
 const net_utils = require('./net_utils');
 const kube_utils = require('./kube_utils');
-const { get_default_ports } = require('../util/addr_utils');
-const dbg = require('./debug_module')(__filename);
 const os_detailed_info = require('getos');
-const dotenv = require('./dotenv');
+const { get_default_ports } = require('../util/addr_utils');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 const ADMIN_WIN_USERS = Object.freeze([
@@ -41,6 +41,123 @@ if (!process.env.PLATFORM) {
     console.log('loading .env file...');
     dotenv.load();
 }
+
+const exec_async = util.promisify(child_process.exec);
+// const fork_async = util.promisify(child_process.fork);
+// const spawn_async = util.promisify(child_process.spawn);
+
+/**
+ * @param {string} command
+ * @param {{
+ *  timeout?: number,
+ *  ignore_rc?: boolean,
+ *  return_stdout?: boolean,
+ *  trim_stdout?: boolean,
+ * }} [options]
+ */
+async function exec(command, options) {
+    const timeout_ms = (options && options.timeout) || 0;
+    const ignore_rc = (options && options.ignore_rc) || false;
+    const return_stdout = (options && options.return_stdout) || false;
+    const trim_stdout = (options && options.trim_stdout) || false;
+    try {
+        dbg.log2('promise exec', command, ignore_rc);
+        const res = await exec_async(command, {
+            maxBuffer: 5000 * 1024, //5MB, should be enough
+            timeout: timeout_ms,
+        });
+        if (return_stdout) {
+            return trim_stdout ? res.stdout.trim() : res.stdout;
+        }
+    } catch (err) {
+        if (ignore_rc) {
+            dbg.warn(`${command} exited with error ${err} and ignored`);
+        } else {
+            throw err;
+        }
+    }
+}
+
+/*
+ * Run a node child process spawn wrapped by a promise
+ */
+function fork(command, input_args, opts, ignore_rc) {
+    return new Promise((resolve, reject) => {
+        let options = opts || {};
+        let args = input_args || [];
+        dbg.log0('fork:', command, args.join(' '), options, ignore_rc);
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.fork(command, args, options);
+        proc.on('exit', code => {
+            if (code === 0 || ignore_rc) {
+                resolve();
+            } else {
+                const err = new Error('fork "' +
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code);
+                Object.assign(err, { code });
+                reject(err);
+            }
+        });
+        proc.on('error', error => {
+            if (ignore_rc) {
+                dbg.warn('fork ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error +
+                    ' and ignored');
+                resolve();
+            } else {
+                reject(new Error('fork ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error));
+            }
+        });
+    });
+}
+
+/*
+ * Run child process spawn wrapped by a promise
+ */
+function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
+    return new Promise((resolve, reject) => {
+        options = options || {};
+        args = args || [];
+        dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.spawn(command, args, options);
+        proc.on('exit', code => {
+            if (code === 0 || ignore_rc) {
+                resolve();
+            } else {
+                reject(new Error('spawn "' +
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code));
+            }
+        });
+        proc.on('error', error => {
+            if (ignore_rc) {
+                dbg.warn('spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error +
+                    ' and ignored');
+                resolve();
+            } else {
+                reject(new Error('spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error));
+            }
+        });
+        if (timeout_ms) {
+            setTimeout(() => {
+                const pid = proc.pid;
+                proc.kill();
+                reject(new Error(`Timeout: Execution of ${command + args.join(' ')} took longer than ${timeout_ms} ms. killed process (${pid})`));
+            }, timeout_ms);
+        }
+        if (unref) proc.unref();
+    });
+}
+
 
 function os_info() {
 
@@ -91,16 +208,14 @@ function _calculate_free_mem() {
     return res;
 }
 
-function _exec_and_extract_num(command, regex_line) {
+async function _exec_and_extract_num(command, regex_line) {
     const regex = new RegExp(regex_line + '[\\s]*([\\d]*)[\\s]');
-    return promise_utils.exec(command, {
-            ignore_rc: true,
-            return_stdout: true,
-        })
-        .then(res => {
-            const regex_res = regex.exec(res);
-            return (regex_res && regex_res[1] && parseInt(regex_res[1], 10)) || 0;
-        });
+    const res = await exec(command, {
+        ignore_rc: true,
+        return_stdout: true,
+    });
+    const regex_res = regex.exec(res);
+    return (regex_res && regex_res[1] && parseInt(regex_res[1], 10)) || 0;
 }
 
 function read_drives() {
@@ -258,7 +373,7 @@ function remove_linux_readonly_drives(volumes) {
     if (IS_MAC) return volumes;
     // grep command to get read only filesystems from /proc/mount
     let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
-    return promise_utils.exec(grep_command, {
+    return exec(grep_command, {
             ignore_rc: true,
             return_stdout: true,
         })
@@ -325,9 +440,9 @@ function linux_volume_to_drive(vol, size_by_bd, skip) {
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
-        return promise_utils.exec('top -c -l 1' + file_redirect);
+        return exec('top -c -l 1' + file_redirect);
     } else if (IS_LINUX) {
-        return promise_utils.exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
+        return exec('COLUMNS=512 top -c -b -n 1' + file_redirect);
     } else {
         throw new Error('top_single ' + os.type + ' not supported');
     }
@@ -336,7 +451,7 @@ function top_single(dst) {
 function slabtop(dst) {
     const file_redirect = dst ? ' &> ' + dst : '';
     if (IS_LINUX) {
-        return promise_utils.exec('slabtop -o' + file_redirect);
+        return exec('slabtop -o' + file_redirect);
     } else {
         return P.resolve();
     }
@@ -378,7 +493,7 @@ function _set_dns_server(servers) {
     return fs_utils.replace_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, forwarders_str)
         .then(() => {
             // perform named restart in the background
-            promise_utils.exec('systemctl restart named')
+            exec('systemctl restart named')
                 .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
                 .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
         });
@@ -391,7 +506,7 @@ function get_time_config() {
         status: false
     };
     reply.status = true;
-    return promise_utils.exec('ls -l /etc/localtime', {
+    return exec('ls -l /etc/localtime', {
             ignore_rc: false,
             return_stdout: true,
         })
@@ -429,7 +544,7 @@ function is_folder_permissions_set(current_path) {
     let administrators_has_inheritance = false;
     let system_has_full_control = false;
     let found_other_permissions = false;
-    return promise_utils.exec(`icacls ${current_path}`, {
+    return exec(`icacls ${current_path}`, {
             ignore_rc: false,
             return_stdout: true
         })
@@ -501,7 +616,7 @@ async function get_services_ps_info(services) {
     try {
         // look for the service name in "arguments" and not "command".
         // for node services the command is node, and for mongo_wrapper it's bash
-        const ps_data = await P.map(services, async srv => {
+        const ps_data = await P.map_with_concurrency(1, services, async srv => {
             const ps_info = await P.fromCallback(callback => ps.lookup({
                 arguments: srv,
                 psargs: '-elf'
@@ -510,7 +625,7 @@ async function get_services_ps_info(services) {
                 info.srv = srv;
             });
             return ps_info;
-        }, { concurrency: 1 });
+        });
         return _.groupBy(_.flatten(ps_data), 'srv');
     } catch (err) {
         dbg.error('got error on get_services_ps_info:', err);
@@ -544,8 +659,8 @@ function set_hostname(hostname) {
         return P.resolve();
     }
 
-    return promise_utils.exec(`hostname ${hostname}`)
-        .then(() => promise_utils.exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`)); // keep it permanent
+    return exec(`hostname ${hostname}`)
+        .then(() => exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`)); // keep it permanent
 }
 
 function is_valid_hostname(hostname_string) {
@@ -630,7 +745,7 @@ function get_iptables_rules() {
         return P.resolve([]);
     }
     const iptables_command = 'iptables -L INPUT -nv';
-    return promise_utils.exec(iptables_command, {
+    return exec(iptables_command, {
             ignore_rc: false,
             return_stdout: true,
             timeout: 10000
@@ -831,7 +946,7 @@ async function restart_services(services) {
 
         let status = '';
         try {
-            status = await promise_utils.exec('supervisorctl status', { return_stdout: true });
+            status = await exec('supervisorctl status', { return_stdout: true });
 
         } catch (err) {
             console.error('restart_services: Could not list supervisor services');
@@ -856,7 +971,7 @@ async function restart_services(services) {
 
     try {
         dbg.log0(`restart_services: restarting noobaa services: ${services.join(', ')}`);
-        await promise_utils.spawn('supervisorctl', ['restart', ...services], { detached: true }, false);
+        await spawn('supervisorctl', ['restart', ...services], { detached: true }, false);
         await P.delay(5000);
 
     } catch (err) {
@@ -871,6 +986,9 @@ async function restart_services(services) {
 exports.IS_WIN = IS_WIN;
 exports.IS_MAC = IS_MAC;
 exports.IS_LINUX = IS_LINUX;
+exports.exec = exec;
+exports.fork = fork;
+exports.spawn = spawn;
 exports.os_info = os_info;
 exports.read_drives = read_drives;
 exports.get_raw_storage = get_raw_storage;

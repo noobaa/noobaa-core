@@ -38,8 +38,7 @@ mocha.describe('node_allocator', function() {
     mocha.it('kmeans divided to groups', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
 
-        return P.resolve()
-            .delay(10000)
+        return P.delay(10000)
             .then(() => system_store.data.pools.find(pool => pool.name === POOL))
             .then(pool => Promise.all([
                 rpc_client.node.allocate_nodes({ pool_id: String(pool._id), fields: NODE_FIELDS_FOR_MAP }),

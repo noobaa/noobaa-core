@@ -6,15 +6,13 @@
  */
 'use strict';
 
-const AWS = require('aws-sdk');
 const _ = require('lodash');
-
+const AWS = require('aws-sdk');
 
 const P = require('../../util/promise');
-const config = require('../../../config');
-const promise_utils = require('../../util/promise_utils');
-const size_utils = require('../../util/size_utils');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
 
 const marketplacemetering = new AWS.MarketplaceMetering({
@@ -54,15 +52,18 @@ function background_worker() {
 
     const retries = 5;
     const delay = 30000;
-    promise_utils.retry(retries, delay, () => P.fromCallback(callback => marketplacemetering.meterUsage(params, callback))
-            .then(res => {
-                dbg.log0(`sent usage report successfully. MeteringRecordId = ${res.MeteringRecordId}`);
-            })
-            .catch(err => {
-                dbg.error(`got error on marketplacemetering.meterUsage. will retry in ${delay / 1000} seconds`, err);
-                throw err;
-            })
-        )
+    P.retry({
+            attempts: retries,
+            delay_ms: delay,
+            func: () => P.fromCallback(callback => marketplacemetering.meterUsage(params, callback))
+                .then(res => {
+                    dbg.log0(`sent usage report successfully. MeteringRecordId = ${res.MeteringRecordId}`);
+                })
+                .catch(err => {
+                    dbg.error(`got error on marketplacemetering.meterUsage. will retry in ${delay / 1000} seconds`, err);
+                    throw err;
+                })
+        })
         .catch(err => dbg.error(`Failed sending usage report. stop trying after ${retries} retries`, err));
 
 }

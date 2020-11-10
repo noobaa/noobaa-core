@@ -17,14 +17,14 @@ async function main() {
         .map(filename => '/log/' + filename);
     noobaa_log_files.push('/tmp/res_1.tgz'); // runner log files
     noobaa_log_files.push('/tmp/ceph_deploy.log'); // ceph build and deploy log
-    await P.map(noobaa_log_files, async log_file => {
+    await P.map_with_concurrency(10, noobaa_log_files, async log_file => {
         try {
             const blob_key = process.env.TEST_RUN_NAME + '/' + log_file;
             await P.fromCallback(callback => blob.createBlockBlobFromLocalFile(CONTAINER, blob_key, log_file, callback));
         } catch (err) {
             console.error(`Failed uploading ${log_file} to azure`, err);
         }
-    }, { concurrency: 10 });
+    });
 }
 
 

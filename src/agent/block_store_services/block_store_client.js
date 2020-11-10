@@ -151,7 +151,7 @@ class BlockStoreClient {
                 const file = bucket.file(block_key);
                 const [data, md_res] = await Promise.all([
                     buffer_utils.read_stream_join(file.createReadStream()),
-                    file.getMetadata()
+                    file.getMetadata(),
                 ]);
                 const block_md_b64 =
                     _.get(md_res[0], 'metadata.noobaablockmd') ||

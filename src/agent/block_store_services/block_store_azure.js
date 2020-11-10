@@ -311,8 +311,9 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
     _write_usage_internal() {
-        const metadata = {};
-        metadata[this.usage_md_key] = this._encode_block_md(this._usage);
+        const metadata = {
+            [this.usage_md_key]: this._encode_block_md(this._usage)
+        };
 
         return P.fromCallback(callback =>
             this.blob.createBlockBlobFromText(

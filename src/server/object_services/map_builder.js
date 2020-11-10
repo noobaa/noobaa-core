@@ -144,8 +144,8 @@ class MapBuilder {
                     chunks_to_delete.push(chunk);
                     return;
                 }
-
-                chunks_to_build.push(chunk);
+                const rotate_checked_chunk = await this.handle_chunk_master_keys(chunk);
+                chunks_to_build.push(rotate_checked_chunk);
 
             } catch (err) {
                 dbg.error(`failed to load chunk ${chunk._id} for builder`, err);
@@ -220,6 +220,49 @@ class MapBuilder {
         }
     }
 
+    async handle_chunk_master_keys(chunk_db_obj) {
+
+        const chunk = chunk_db_obj.chunk_db;
+        const mkm = system_store.master_key_manager;
+        const cipher_key_string = chunk.cipher_key && chunk.cipher_key.toString('base64');
+        const chunk_master_key_id = chunk.master_key_id && chunk.master_key_id.toString();
+        const chunk_m_key = chunk.master_key_id && system_store.data.master_keys.find(
+            m_key => m_key._id.toString() === chunk_master_key_id);
+
+        const bucket = system_store.data.buckets.find(buck => buck._id.toString() === chunk.bucket.toString());
+        if (!bucket) {
+            console.log('chunk.bucket does not exist: ', chunk.bucket);
+            return chunk_db_obj;
+        }
+        const bucket_m_key = bucket.master_key_id;
+
+        // check if chunk master_key is disabled
+        if (chunk_m_key && chunk_m_key.disabled === true) {
+            const decrypted_cipher_key = mkm.decrypt_value_with_master_key_id(cipher_key_string, chunk_master_key_id);
+            await MDStore.instance().update_chunk_by_id(chunk._id, { cipher_key: decrypted_cipher_key}, { master_key_id: 1 });
+            chunk.cipher_key = decrypted_cipher_key;
+            chunk.master_key_id = undefined;
+
+        // check if chunk master_key is rotated 
+        } else if (chunk_master_key_id && bucket_m_key && chunk_master_key_id !== bucket_m_key._id.toString()) {
+            const decrypted_cipher_key = mkm.decrypt_value_with_master_key_id(cipher_key_string, chunk_master_key_id);
+            const buffer_dec_cipher_key = Buffer.from(decrypted_cipher_key, 'base64');
+            const reencrypted_cipher = mkm.encrypt_buffer_with_master_key_id(buffer_dec_cipher_key, bucket_m_key._id);
+            await MDStore.instance().update_chunk_by_id(chunk._id,
+                { cipher_key: reencrypted_cipher, master_key_id: bucket_m_key._id });
+            chunk.cipher_key = reencrypted_cipher;
+            chunk.master_key_id = bucket_m_key._id;
+
+        // check if bucket master_key is enabled and chunk master keys disabled
+        } else if (!chunk_master_key_id && bucket_m_key && bucket_m_key.disabled === false) {
+            const encrypted_cipher = mkm.encrypt_buffer_with_master_key_id(chunk.cipher_key.buffer, bucket_m_key._id);
+            await MDStore.instance().update_chunk_by_id(chunk._id,
+                { cipher_key: encrypted_cipher, master_key_id: bucket_m_key._id });
+            chunk.cipher_key = encrypted_cipher;
+            chunk.master_key_id = bucket_m_key._id;
+        }
+        return chunk_db_obj;
+    }
 }
 
 exports.MapBuilder = MapBuilder;

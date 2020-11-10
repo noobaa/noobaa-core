@@ -177,6 +177,7 @@ class ObjectIO {
         params.complete_upload = true;
         params.size = upload_params.end - upload_params.start;
         params.seq = 0;
+        params.bucket_master_key_id = obj_upload.bucket_master_key_id;
 
         try {
             dbg.log0('upload_object_range: start upload stream', upload_params);

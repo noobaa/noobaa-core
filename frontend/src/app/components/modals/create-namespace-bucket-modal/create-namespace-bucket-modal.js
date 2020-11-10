@@ -47,8 +47,7 @@ const readPolicyTableColumns = deepFreeze([
 
 const fieldsByStep = deepFreeze({
     0: [ 'bucketName' ],
-    1: [ 'readPolicy', 'writePolicy' ],
-    2: [ 'cacheTTL' ]
+    1: [ 'readPolicy', 'writePolicy' ]
 });
 
 class ResourceRowViewModel {
@@ -87,14 +86,12 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     resourceServiceMapping = {};
     readPolicy = [];
     writePolicy = '';
-    enableCaching = ko.observable(false);
 
     fields = {
         step: 0,
         bucketName: '',
         readPolicy: [],
         writePolicy: undefined,
-        cacheTTL: 60000,
         enableCaching: false
     };
 
@@ -115,7 +112,6 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         const bucketName = getFieldValue(form, 'bucketName');
         const readPolicy = getFieldValue(form, 'readPolicy');
         const writePolicy = getFieldValue(form, 'writePolicy');
-        const cacheTTL = getFieldValue(form, 'cacheTTL');
         const existingNames = [
             ...Object.keys(buckets),
             ...Object.keys(namespaceBuckets)
@@ -166,8 +162,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
             resourceServiceMapping,
             isStepValid: isFormValid(form),
             readPolicy,
-            writePolicy,
-            cacheTTL
+            writePolicy
         });
 
     }
@@ -243,13 +238,15 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
     }
 
     onSubmit(values) {
-        const { bucketName, readPolicy, writePolicy, cacheTTL } = values;
+        const { bucketName, readPolicy, writePolicy, enableCaching } = values;
         this.dispatch(
             closeModal(),
-            createNamespaceBucket(bucketName, readPolicy, writePolicy,
-                this.enableCaching() ? {
-                    ttl_ms: cacheTTL
-                } : undefined)
+            createNamespaceBucket(
+                bucketName, 
+                readPolicy, 
+                writePolicy,
+                enableCaching ? { ttl_ms: 60000 } : undefined
+            )
         );
     }
 

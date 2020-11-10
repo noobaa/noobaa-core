@@ -13,7 +13,6 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
 const zip_utils = require('../../util/zip_utils');
-const promise_utils = require('../../util/promise_utils');
 const config = require('../../../config');
 
 mocha.describe('system_servers', function() {
@@ -157,7 +156,7 @@ mocha.describe('system_servers', function() {
             }))
             .then(
                 () => assert.ifError('should fail with UNAUTHORIZED'),
-                err => assert.deepEqual(err.rpc_code, 'UNAUTHORIZED')
+                err => assert.strictEqual(err.rpc_code, 'UNAUTHORIZED')
             );
     });
 
@@ -197,7 +196,7 @@ mocha.describe('system_servers', function() {
         await rpc_client.pool.delete_pool({ name: pool_name });
 
         // Need to wait or the test will not finish.
-        await promise_utils.wait_until(async () => {
+        await P.wait_until(async () => {
             const system = await rpc_client.system.read_system();
             return !system.pools.find(pool => pool.name === pool_name);
         }, 10 * 60 * 1000, 2500);

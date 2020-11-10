@@ -4,15 +4,13 @@
 // const blob_utils = require('../blob_utils');
 const http_utils = require('../../../util/http_utils');
 
-function delete_blob(req, res) {
-    return req.object_sdk.delete_object({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-        })
-        .then(() => {
-            res.statusCode = 202;
-        });
+async function delete_blob(req, res) {
+    await req.object_sdk.delete_object({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        md_conditions: http_utils.get_md_conditions(req),
+    });
+    res.statusCode = 202;
 }
 
 module.exports = {

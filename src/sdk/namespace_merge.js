@@ -10,6 +10,9 @@ const EXCEPT_REASONS = [
     'NO_SUCH_OBJECT'
 ];
 
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceMerge {
 
     constructor({ namespaces, active_triggers }) {
@@ -19,6 +22,15 @@ class NamespaceMerge {
 
     get_write_resource() {
         return this.namespaces.write_resource;
+    }
+
+    is_same_namespace(other) {
+        // we do not allow server side copy for merge
+        return false;
+    }
+
+    get_bucket(bucket) {
+        return bucket;
     }
 
     /////////////////
@@ -310,41 +322,67 @@ class NamespaceMerge {
         return this._ns_put(ns => ns.put_object_acl(params, object_sdk));
     }
 
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    async get_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async put_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async get_object_retention() {
+        throw new Error('TODO');
+    }
+    async put_object_retention() {
+        throw new Error('TODO');
+    }
+
+
     //////////////
     // INTERNAL //
     //////////////
 
-    _ns_get(func) {
-        var i = -1;
-        const try_next = err => {
-            i += 1;
-            if (i >= this.namespaces.read_resources.length) {
-                return P.reject(err || new Error('NamespaceMerge._ns_get exhausted'));
+    /**
+     * @param {(ns:nb.Namespace) => Promise} func
+     */
+    async _ns_get(func) {
+        for (const ns of this.namespaces.read_resources) {
+            try {
+                const res = await func(ns);
+                return res;
+            } catch (err) {
+                continue;
             }
-            const ns = this.namespaces.read_resources[i];
-            return P.try(() => func(ns)).catch(try_next);
-        };
-        return try_next();
+        }
+        throw new Error('NamespaceMerge._ns_get exhausted');
     }
 
-    _ns_put(func) {
+    /**
+     * @param {(ns:nb.Namespace) => Promise} func
+     */
+    async _ns_put(func) {
         const ns = this.namespaces.write_resource;
-        return P.try(() => func(ns));
+        const res = await func(ns);
+        return res;
     }
 
-
-    async _ns_map(func, except_reasons, cast_error_func) {
-        const replies = await P.map(this.namespaces.read_resources, ns =>
-            P.try(() => func(ns))
-            .then(reply => ({
-                reply,
-                success: true
-            }))
-            .catch(error => ({
-                error: cast_error_func ? cast_error_func(error) : error,
-                success: false
-            }))
-        );
+    /**
+     * @param {(ns:nb.Namespace) => Promise} func
+     */
+    async _ns_map(func, except_reasons, cast_error_func = null) {
+        const replies = await P.map(this.namespaces.read_resources, async ns => {
+            try {
+                const res = await func(ns);
+                return { reply: res, success: true };
+            } catch (err) {
+                return {
+                    error: cast_error_func ? cast_error_func(err) : err,
+                    success: false
+                };
+            }
+        });
         return this._throw_if_any_failed_or_get_succeeded(replies, except_reasons);
     }
 

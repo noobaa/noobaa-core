@@ -103,7 +103,7 @@ function getSignedUrl(bucket, obj, expiry) {
                 Expires: expiry || 604800
             });
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(url => url,
             error => {
                 console.warn('Failed with', error, error.stack);
@@ -114,13 +114,10 @@ function getSignedUrl(bucket, obj, expiry) {
 
 function httpGetAsPromise(url) {
     console.log('TEST SIGNED_URL: ', url);
-    return new P(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
         return http.get(url, res => {
             if (res.statusCode >= 400) {
-                reject(({
-                    url: url,
-                    res: res
-                }));
+                reject(new Error(`httpGetAsPromise failed ${url} ${res.statusCode} ${res.body}`));
             } else {
                 resolve(res);
             }
@@ -330,51 +327,51 @@ function run_test() {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'first.bucket', file_names[0]);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => head_object('first.bucket', file_names[0]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => get_object('first.bucket', file_names[0]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => getSignedUrl('first.bucket', file_names[0]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => create_bucket('s3testbucket'))
         .then(() => basic_server_ops.generate_random_file(file_sizes[1]))
         .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', file_names[1]);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => head_object('s3testbucket', file_names[1]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => get_object('s3testbucket', file_names[1]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => getSignedUrl('s3testbucket', file_names[1]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => create_folder('s3testbucket', 's3folder'))
         .then(() => basic_server_ops.generate_random_file(file_sizes[2]))
         .then(fl => {
             fkey = fl;
             return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', 's3folder/' + file_names[2]);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => head_object('s3testbucket', 's3folder/' + file_names[2]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => get_object('s3testbucket', 's3folder/' + file_names[2]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2], 1))
         .then(url => {
             signed_url = url;
@@ -390,17 +387,17 @@ function run_test() {
             console.error(err.stack || err);
             throw new Error(err);
         })
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => delete_object('first.bucket', file_names[0]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => delete_object('s3testbucket', file_names[1]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => delete_object('s3testbucket', 's3folder/' + file_names[2]))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => delete_folder('s3testbucket', 's3folder'))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => delete_bucket('s3testbucket'))
-        .delay(1000)
+        .then(() => P.delay(1000))
         .then(() => {
             console.log('test_s3_authentication PASSED');
             rpc.disconnect_all();

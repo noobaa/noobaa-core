@@ -78,7 +78,7 @@ class RpcHttpConnection extends RpcBaseConnection {
      * send
      *
      */
-    _send(msg, op, req) {
+    async _send(msg, op, req) {
         return op === 'res' ?
             this.send_http_response(msg, req) :
             this.send_http_request(msg, req);
@@ -148,7 +148,7 @@ class RpcHttpConnection extends RpcBaseConnection {
 
         dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 
-        let send_defer = P.defer();
+        let send_defer = new P.Defer();
 
         // reject on send errors
         http_req.on('error', send_defer.reject);

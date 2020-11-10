@@ -12,7 +12,7 @@ dbg.set_process_name('test_ceph_s3');
 
 const _ = require('lodash');
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
+const os_utils = require('../../util/os_utils');
 
 require('../../util/dotenv').load();
 
@@ -475,9 +475,9 @@ async function ceph_test_setup() {
     console.info(`Updating ${CEPH_TEST.ceph_config} with host = ${s3_ip}...`);
     // update config with the s3 endpoint
     const conf_file = `${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`;
-    const conf_file_content = (await fs.readFileAsync(conf_file)).toString();
+    const conf_file_content = (await fs.promises.readFile(conf_file)).toString();
     const new_conf_file_content = conf_file_content.replace(/host = localhost/g, `host = ${s3_ip}`);
-    await fs.writeFileAsync(conf_file, new_conf_file_content);
+    await fs.promises.writeFile(conf_file, new_conf_file_content);
     console.log('conf file updated');
 
     //await test_utils.create_hosts_pool(client, CEPH_TEST.pool, 3);
@@ -503,19 +503,19 @@ async function ceph_test_setup() {
 
     console.info('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
     const { access_key, secret_key } = ceph_account.access_keys[0];
-    await promise_utils.exec(`echo access_key = ${access_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await promise_utils.exec(`echo secret_key = ${secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await os_utils.exec(`echo access_key = ${access_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await os_utils.exec(`echo secret_key = ${secret_key.unwrap()} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 
     const { access_key: access_key_tenant, secret_key: secret_key_tenant } = ceph_account_tenant.access_keys[0];
     if (process.platform === 'darwin') {
-        await promise_utils.exec(`sed -i "" "s|tenant_access_key|${access_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-        await promise_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i "" "s|tenant_access_key|${access_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant.unwrap()}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 
     } else {
-        await promise_utils.exec(`sed -i -e 's:tenant_access_key:${access_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-        await promise_utils.exec(`sed -i -e 's:tenant_secret_key:${secret_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-        await promise_utils.exec(`sed -i -e 's:s3_access_key:${s3_acc_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-        await promise_utils.exec(`sed -i -e 's:s3_secret_key:${s3_sec_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i -e 's:tenant_access_key:${access_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i -e 's:tenant_secret_key:${secret_key_tenant.unwrap()}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i -e 's:s3_access_key:${s3_acc_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i -e 's:s3_secret_key:${s3_sec_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     }
 }
 
@@ -523,7 +523,7 @@ async function ceph_test_setup() {
 //     console.info('Starting Deployment Of Ceph Tests...');
 //     let command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy} ${os.platform() === 'darwin' ? 'mac' : ''} > /tmp/ceph_deploy.log`;
 //     try {
-//         let res = await promise_utils.exec(command, {
+//         let res = await os_utils.exec(command, {
 //             ignore_rc: false,
 //             return_stdout: true
 //         });
@@ -550,7 +550,7 @@ async function run_single_test(test) {
                 base_cmd = `${ceph_args} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -v -s -A 'not fails_on_rgw'`;
             }
             //test_name = test_name.replace(S3_CEPH_TEST_STEMS_2_REGEXP, pref => `${pref.slice(0, -1)}:`); //Match against test_realistic path
-            res = await promise_utils.exec(`${base_cmd} ${test_name}`, { ignore_rc: false, return_stdout: true });
+            res = await os_utils.exec(`${base_cmd} ${test_name}`, { ignore_rc: false, return_stdout: true });
             if (res.indexOf('SKIP') >= 0) {
                 console.warn('Test skipped:', test);
                 stats.skip.push(test);
@@ -578,7 +578,7 @@ async function run_all_tests() {
     const tests_list_command =
         `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}  ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -v --collect-only  2>&1 | awk '{print $1}' | grep test`;
     try {
-        tests_list = await promise_utils.exec(tests_list_command, { ignore_rc: false, return_stdout: true });
+        tests_list = await os_utils.exec(tests_list_command, { ignore_rc: false, return_stdout: true });
     } catch (err) {
         console.error('Failed getting tests list');
         throw new Error(`Failed getting tests list ${err}`);

@@ -30,7 +30,7 @@ class LRUCache {
      *  make_val?: (T) => V,
      *  item_usage?: (V, T) => number,
      *  use_negative_cache?: boolean,
-     *  max_usage?: boolean, // lru max length
+     *  max_usage?: number, // lru max length
      *  expiry_ms?: number, // time after which the item is considered expired
      * }} options
      */

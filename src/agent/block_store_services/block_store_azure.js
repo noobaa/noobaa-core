@@ -156,7 +156,7 @@ class BlockStoreAzure extends BlockStoreBase {
                     prev_continuation_token,
                     callback));
                 if (list_res.entries.length !== 0) {
-                    await P.map(list_res.entries, async entry => {
+                    await P.map_with_concurrency(10, list_res.entries, async entry => {
                         try {
                             await P.fromCallback(callback =>
                                 this.blob.deleteBlob(
@@ -168,9 +168,6 @@ class BlockStoreAzure extends BlockStoreBase {
                             dbg.warn('BlockStoreAzure _delete_blocks failed for block',
                                 this.container_name, entry.name, err);
                         }
-                    }, {
-                        // limit concurrency to 10
-                        concurrency: 10
                     });
                 }
 
@@ -194,7 +191,7 @@ class BlockStoreAzure extends BlockStoreBase {
             count: 0
         };
         let failed_to_delete_block_ids = [];
-        return P.map(block_ids, block_id => {
+        return P.map_with_concurrency(10, block_ids, block_id => {
                 const block_key = this._block_key(block_id);
                 let info;
                 return P.fromCallback(callback =>
@@ -226,9 +223,6 @@ class BlockStoreAzure extends BlockStoreBase {
                         dbg.warn('BlockStoreAzure _delete_blocks failed for block',
                             this.container_name, block_key, err);
                     });
-            }, {
-                // limit concurrency to 10
-                concurrency: 10
             })
             .then(() => this._update_usage(deleted_storage))
             .then(() => ({
@@ -317,8 +311,9 @@ class BlockStoreAzure extends BlockStoreBase {
     }
 
     _write_usage_internal() {
-        const metadata = {};
-        metadata[this.usage_md_key] = this._encode_block_md(this._usage);
+        const metadata = {
+            [this.usage_md_key]: this._encode_block_md(this._usage)
+        };
 
         return P.fromCallback(callback =>
             this.blob.createBlockBlobFromText(

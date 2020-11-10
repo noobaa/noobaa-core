@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
-var promise_utils = require('../../util/promise_utils');
 var os_utils = require('../../util/os_utils');
 var config = require('../../../config.js');
 
@@ -22,12 +21,12 @@ class SupervisorCtrl {
             return;
         }
 
-        return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
+        return fs.promises.stat(config.CLUSTERING_PATHS.SUPER_FILE)
             .catch(function(err) {
                 console.warn('Error on reading supervisor file', err);
                 throw err;
             })
-            .then(() => fs.readFileAsync(config.CLUSTERING_PATHS.SUPER_FILE))
+            .then(() => fs.promises.readFile(config.CLUSTERING_PATHS.SUPER_FILE))
             .then(data => this._parse_config(data.toString()))
             .then(() => {
                 this._inited = true;
@@ -43,14 +42,14 @@ class SupervisorCtrl {
                 }
                 return this._serialize();
             })
-            .then(() => promise_utils.exec('supervisorctl update'));
+            .then(() => os_utils.exec('supervisorctl update'));
     }
 
     restart(services) {
-        return promise_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to restart services', services);
                 throw new Error('failed to restart services ' + services + err);
@@ -58,10 +57,10 @@ class SupervisorCtrl {
     }
 
     start(services) {
-        return promise_utils.spawn('supervisorctl', ['start', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['start', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to start services', services);
                 throw new Error('failed to start services ' + services + err);
@@ -69,10 +68,10 @@ class SupervisorCtrl {
     }
 
     stop(services) {
-        return promise_utils.spawn('supervisorctl', ['stop', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['stop', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to stop services', services);
                 throw new Error('failed to stop services ' + services + err);
@@ -184,10 +183,10 @@ class SupervisorCtrl {
     }
 
     restart_supervisord() {
-        return promise_utils.spawn('/etc/init.d/supervisord', ['restart'], {
+        return os_utils.spawn('/etc/init.d/supervisord', ['restart'], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to restart supervisor daemon');
                 throw new Error('failed to restart supervisor daemon ' + err);
@@ -209,7 +208,7 @@ class SupervisorCtrl {
             });
             data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
         });
-        return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
+        return fs.promises.writeFile(config.CLUSTERING_PATHS.SUPER_FILE, data);
     }
 
     _parse_config(data) {

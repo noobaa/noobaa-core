@@ -61,7 +61,7 @@ async function clean_md_store(last_date_to_remove) {
     const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
     dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
     if (objects_to_remove.length) {
-        await P.map(objects_to_remove, obj => db_delete_object_parts(obj), { concurrency: 10 });
+        await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
         await MDStore.instance().db_delete_objects(objects_to_remove);
     }
     const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);

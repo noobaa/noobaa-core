@@ -1854,12 +1854,16 @@ async function update_endpoint_stats(req) {
     const namespace_stats = req.rpc_params.namespace_stats || [];
     const bucket_counters = req.rpc_params.bucket_counters || [];
     await P.all([
-        P.map(namespace_stats, stats => IoStatsStore.instance().update_namespace_resource_io_stats({
-            system: req.system._id,
-            namespace_resource_id: stats.namespace_resource_id,
-            stats: stats.io_stats
-        }), { concurrency: 10 }),
-        P.map(bucket_counters, counter => update_bucket_counters({ ...counter, system: req.system }), { concurrency: 10 })
+        P.map_with_concurrency(10, namespace_stats, stats =>
+            IoStatsStore.instance().update_namespace_resource_io_stats({
+                system: req.system._id,
+                namespace_resource_id: stats.namespace_resource_id,
+                stats: stats.io_stats
+            })
+        ),
+        P.map_with_concurrency(10, bucket_counters, counter =>
+            update_bucket_counters({ ...counter, system: req.system })
+        )
     ]);
 }
 

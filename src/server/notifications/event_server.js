@@ -52,7 +52,7 @@ function export_activity_log(req) {
                 }, ['time,level,account,event,entity,description']
             );
 
-            return fs.writeFileAsync(inner_path, out_lines.join('\n'), 'utf8');
+            return fs.promises.writeFile(inner_path, out_lines.join('\n'), 'utf8');
         })
         .then(() => out_path)
         .catch(err => {

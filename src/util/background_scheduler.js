@@ -8,7 +8,6 @@
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
-const promise_utils = require('./promise_utils');
 
 /**
  *
@@ -41,10 +40,10 @@ class Background_Scheduler {
                         return worker.run_batch();
                     })
                     .then(function(delay) {
-                        return promise_utils.delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
+                        return P.delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
                     }, function(err) {
                         dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
-                        return promise_utils.delay_unblocking(worker.delay || DEFUALT_DELAY);
+                        return P.delay_unblocking(worker.delay || DEFUALT_DELAY);
                     })
                     .then(run);
             }
@@ -54,7 +53,7 @@ class Background_Scheduler {
         if (!worker.run_immediate) {
             initial_delay = worker.boot_delay || worker.delay || DEFUALT_DELAY;
         }
-        promise_utils.delay_unblocking(initial_delay).then(run);
+        P.delay_unblocking(initial_delay).then(run);
         return worker;
     }
 

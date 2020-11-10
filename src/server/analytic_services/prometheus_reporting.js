@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const http = require('http');
 const config = require('../../../config');
-const promise_utils = require('../../util/promise_utils');
 
 // Import the reports.
 const { NodeJsReport } = require('./prometheus_reports/nodejs_report');
@@ -82,7 +82,7 @@ async function start_server(
         } catch (err) {
             if (retry_count) {
                 dbg.error(`Metrics server failed to listen on ${port} (retries left: ${retry_count}), got`, err);
-                await promise_utils.delay_unblocking(delay);
+                await P.delay_unblocking(delay);
             } else {
                 dbg.error(`Metrics server failed to listen on ${port} too many times, existing the process`);
                 process.exit();

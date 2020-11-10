@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const crypto = require('crypto');
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
 const { ObjectAPIFunctions } = require('../utils/object_api_functions');
 
 //define colors
@@ -349,7 +348,7 @@ class NamespaceContext {
 
         if (!_.isUndefined(cache_last_valid_time_range) || !_.isUndefined(expect_num_parts) ||
             !_.isUndefined(expect_upload_size)) {
-            await promise_utils.wait_until(async () => {
+            await P.wait_until(async () => {
                 try {
                     await this.validate_cache_noobaa_md({
                         type,

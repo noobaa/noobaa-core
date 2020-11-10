@@ -52,7 +52,7 @@ function nodes_ssh(nodes) {
     nodes_left = new Set(nodes);
     console.log(`COMMAND: ${argv.exec}`);
     setInterval(log_progress, 1000).unref();
-    return P.map(nodes, node => node_ssh(node).catch(_.noop), { concurrency: 10 })
+    return P.map_with_concurrency(10, nodes, node => node_ssh(node).catch(_.noop))
         .then(() => {
             log_progress();
             console.log('done.');

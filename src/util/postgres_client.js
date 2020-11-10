@@ -10,10 +10,10 @@ const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client } = require('pg');
 
+const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const common_api = require('../api/common_api');
 const schema_utils = require('./schema_utils');
-const promise_utils = require('./promise_utils');
 const mongodb = require('mongodb');
 const mongo_to_pg = require('mongo-query-to-postgres-jsonb');
 const fs = require('fs');
@@ -997,7 +997,7 @@ class PostgresClient extends EventEmitter {
                 pool = null;
                 this.pool = null;
             }
-            await promise_utils.delay_unblocking(3000);
+            await P.delay_unblocking(3000);
             return this._connect(skip_init_db);
         }
     }

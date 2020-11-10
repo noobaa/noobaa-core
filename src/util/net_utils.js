@@ -12,7 +12,6 @@ const ip_module = require('ip');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const os_utils = require('./os_utils');
-const promise_utils = require('./promise_utils');
 
 const DEFAULT_PING_OPTIONS = {
     timeout: 5000,
@@ -20,22 +19,20 @@ const DEFAULT_PING_OPTIONS = {
     packetSize: 64
 };
 
-function ping(target, options) {
+async function ping(target, options) {
     dbg.log1('pinging', target);
 
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
     let session = net_ping.createSession(options);
-    return P.resolve()
-        .then(() => {
-            let candidate_ip = url.parse(target).hostname || target;
-            if (net.isIP(candidate_ip)) {
-                return _ping_ip(session, candidate_ip);
-            }
-            return dns_resolve(target)
-                .then(ip_table =>
-                    P.any(_.map(ip_table, ip => _ping_ip(session, ip))));
-        });
+    let candidate_ip = url.parse(target).hostname || target;
+
+    if (net.isIP(candidate_ip)) {
+        await _ping_ip(session, candidate_ip);
+    } else {
+        const ip_table = await dns_resolve(target);
+        await P.map_any(ip_table, ip => _ping_ip(session, ip));
+    }
 }
 
 function _ping_ip(session, ip) {
@@ -50,12 +47,11 @@ function _ping_ip(session, ip) {
     });
 }
 
-function dns_resolve(target, options) {
+async function dns_resolve(target, options) {
     const modified_target = url.parse(target).hostname || target;
-    return os_utils.get_dns_config()
-        .then(dns_config => P.fromCallback(callback =>
-            dns.resolve(modified_target, (options && options.rrtype) || 'A', callback)
-        ));
+    await os_utils.get_dns_config(); // unused? needed?
+    const res = await dns.promises.resolve(modified_target, (options && options.rrtype) || 'A');
+    return res;
 }
 
 function is_hostname(target) {
@@ -90,18 +86,17 @@ function ip_to_long(ip) {
 async function retrieve_public_ip() {
     const IPIFY_TIMEOUT = 30 * 1000;
     try {
-        return promise_utils.timeout(async () => {
-            const res = await P.fromCallback(callback =>
-                request.get('http://api.ipify.org/', callback)
-            );
-            if (!is_ip(res.body)) {
-                return undefined;
-            }
+        const res = await P.fromCallback(callback =>
+            request({
+                url: 'http://api.ipify.org/',
+                timeout: IPIFY_TIMEOUT,
+            }, callback)
+        );
+        if (is_ip(res.body)) {
             return res.body;
-        }, IPIFY_TIMEOUT);
+        }
     } catch (err) {
         dbg.log0_throttled('failed to ipify', err);
-        return undefined;
     }
 }
 

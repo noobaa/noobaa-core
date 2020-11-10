@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlocation.html
  */
-function get_bucket_location(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            LocationConstraint: '' // default US East
-        }));
+async function get_bucket_location(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        LocationConstraint: '' // default US East
+    };
 }
 
 module.exports = {

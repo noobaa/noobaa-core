@@ -1,74 +1,115 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-var promise_utils = require('../../util/promise_utils');
+const P = require('../../util/promise');
+const mocha = require('mocha');
+const assert = require('assert');
 
+mocha.describe('promise utils', function() {
 
-mocha.describe('promise_utils', function() {
+    mocha.describe('P.map_props', function() {
 
-    mocha.describe('iterate', function() {
-
-        mocha.it('should handle small array', function() {
-            return promise_utils.iterate([1, 2, 3, 4], function(i) {
-                return promise_utils.delay();
+        mocha.it('awaits promise values', async function() {
+            const res = await P.map_props({
+                one: (async () => {
+                    await P.delay(10);
+                    return 'OK';
+                })(),
+                two: (async () => {
+                    await P.delay(1);
+                    return [1, 2, 3];
+                })(),
             });
-        });
-
-        mocha.it('should handle large array', function() {
-            var len = 1000;
-            var func = Math.sqrt;
-            var input = _.times(len);
-            var output = _.times(len, func);
-            return promise_utils.iterate(input, function(i) {
-                    return func(i);
-                })
-                .then(function(res) {
-                    assert(_.isEqual(res, output), 'unexpected output');
-                });
-        });
-
-        mocha.it('should return empty array when given empty array', function() {
-            return promise_utils.iterate([], function thrower() {
-                    throw new Error('shouldnt call me');
-                })
-                .then(function(res) {
-                    assert(_.isArray(res));
-                    assert.strictEqual(res.length, 0);
-                });
-        });
-
-        mocha.it('should return empty array when given null values', function() {
-            var falsy_values = [null, undefined, false, NaN, 0, ''];
-            return P.all(_.map(falsy_values, function(val) {
-                return promise_utils.iterate(val).then(function(res) {
-                    assert(_.isArray(res));
-                    assert.strictEqual(res.length, 0);
-                });
-            }));
+            assert.deepStrictEqual(res, {
+                one: 'OK',
+                two: [1, 2, 3],
+            });
         });
 
     });
 
+    mocha.describe('P.map_any', function() {
 
-    mocha.describe('loop', function() {
-        function test_loop_count(n) {
-            var count = 0;
-            return P.fcall(function() {
-                    return promise_utils.loop(n, function() {
-                        count += 1;
-                    });
-                })
-                .then(function() {
-                    assert.strictEqual(count, n);
+        mocha.it('return fastest', async function() {
+            const start_time = process.hrtime.bigint();
+            const res = await P.map_any([500, 100, 10, 1], async n => {
+                await P.delay(n);
+                return n;
+            });
+            const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
+            console.log(`the race took: ${took_ms.toFixed(3)} ms`);
+            assert.deepStrictEqual(res, 1);
+        });
+
+        mocha.it('ignores fast errors', async function() {
+            const start_time = process.hrtime.bigint();
+            const res = await P.map_any([1, 100, 10, 500], async n => {
+                await P.delay(n);
+                if (n < 100) throw new Error('FAST ERROR');
+                return n;
+            });
+            const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
+            console.log(`the race took: ${took_ms.toFixed(3)} ms`);
+            assert.deepStrictEqual(res, 100);
+        });
+
+        mocha.it('fails when all fail', async function() {
+            const start_time = process.hrtime.bigint();
+            try {
+                const res = await P.map_any([1, 100, 10], async n => {
+                    await P.delay(n);
+                    throw new Error('ERRORS FOR ALL');
                 });
-        }
-        mocha.it('should work with 0', test_loop_count.bind(null, 0));
-        mocha.it('should work with 10', test_loop_count.bind(null, 10));
-        mocha.it('should work with 98', test_loop_count.bind(null, 98));
+                assert.fail(`expected error but got result ${res}`);
+            } catch (err) {
+                const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
+                console.log(`the race took: ${took_ms.toFixed(3)} ms`);
+                assert.deepStrictEqual(err.message, 'P.map_any: all failed');
+            }
+        });
+    });
+
+    mocha.describe('P.map_with_concurrency', function() {
+        mocha.it('works', async function() {
+            const res = await P.map_with_concurrency(10, Array(100).fill(), async () => {
+                await P.delay(Math.floor(Math.random() * 10));
+                return 1;
+            });
+            assert.deepStrictEqual(res, Array(100).fill(1));
+        });
+    });
+
+    mocha.describe('P.map_one_by_one', function() {
+        mocha.it('works', async function() {
+            const res = await P.map_with_concurrency(10, Array(100).fill(), async () => {
+                await P.delay(Math.floor(Math.random() * 10));
+                return 1;
+            });
+            assert.deepStrictEqual(res, Array(100).fill(1));
+        });
+    });
+
+    mocha.describe('P.defer', function() {
+        mocha.it('resolves immediately', /** @this {Mocha.Context} */ async function() {
+            const defer = new P.Defer();
+            defer.resolve(this.test.title);
+            assert.strictEqual(await defer.promise, this.test.title);
+        });
+        mocha.it('resolves later', /** @this {Mocha.Context} */ async function() {
+            const defer = new P.Defer();
+            setTimeout(() => defer.resolve(this.test.title), 12);
+            assert.strictEqual(await defer.promise, this.test.title);
+        });
+        mocha.it('rejects immediately', /** @this {Mocha.Context} */ async function() {
+            const defer = new P.Defer();
+            defer.reject(new Error(this.test.title));
+            assert.rejects(defer.promise);
+        });
+        mocha.it('rejects later', /** @this {Mocha.Context} */ async function() {
+            const defer = new P.Defer();
+            setTimeout(() => defer.reject(new Error(this.test.title)), 12);
+            assert.rejects(defer.promise);
+        });
     });
 
 });

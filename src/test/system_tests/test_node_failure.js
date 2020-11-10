@@ -12,7 +12,6 @@ let _ = require('lodash');
 let P = require('../../util/promise');
 let api = require('../../api');
 let ops = require('../utils/basic_server_ops');
-let promise_utils = require('../../util/promise_utils');
 var dotenv = require('../../util/dotenv');
 const uuid = require('uuid/v4');
 dotenv.load();
@@ -59,26 +58,30 @@ function authenticate() {
     });
 }
 
-function create_agents() {
+async function create_agents() {
     console.log('creating agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
-    return P.each(names, name => client.hosted_agents.create_agent({
+    for (const name of names) {
+        await client.hosted_agents.create_agent({
             name: name,
             access_keys: {
                 access_key: '123',
                 secret_key: 'abc'
             }
-        }))
-        .then(() => names);
+        });
+    }
+    return names;
 }
 
-function remove_agents() {
+async function remove_agents() {
     console.log('removing agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
-    return P.each(names, name => client.hosted_agents.remove_agent({
+    for (const name of names) {
+        await client.hosted_agents.remove_agent({
             name: 'noobaa-internal-agent-' + name,
-        }))
-        .then(() => names);
+        });
+    }
+    return names;
 }
 
 
@@ -150,7 +153,7 @@ function setup() {
         .then(() => {
             console.log('created %s agents. waiting for %s seconds to init', TEST_CTX.num_of_agents, TEST_CTX.init_delay);
         })
-        .delay(TEST_CTX.init_delay * 1000)
+        .then(() => P.delay(TEST_CTX.init_delay * 1000))
         .then(() => create_test_pool())
         .then(() => create_test_bucket());
 }
@@ -217,10 +220,14 @@ function test_node_fail_replicate() {
         .then(() => {
             console.log(`removed agent ${node}. waiting for 60 seconds for the change to take place`);
         })
-        .delay(60000)
-        .then(() => promise_utils.retry(10, 5000, () => {
-            read_mappings();
-            validate_mappings();
+        .then(() => P.delay(60000))
+        .then(() => P.retry({
+            attempts: 10,
+            delay_ms: 5000,
+            func: async () => {
+                await read_mappings();
+                validate_mappings();
+            }
         }));
 }
 

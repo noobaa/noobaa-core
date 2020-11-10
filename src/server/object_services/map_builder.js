@@ -110,7 +110,7 @@ class MapBuilder {
             for (const frag of chunk.frags) {
                 for (const block of frag.blocks) {
                     if (!block.to_db().deleted) {
-                        dbg.log0('found unreferenced blocks of a deleted chunk', block);
+                        dbg.log0('found unreferenced blocks of a deleted chunk', block.to_db());
                         blocks_to_delete.push(block);
                     }
                 }

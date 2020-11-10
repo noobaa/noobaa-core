@@ -16,10 +16,7 @@ dbg.set_process_name('agent_wrapper');
 const P = require('../util/promise');
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
-const promise_utils = require('../util/promise_utils');
 const child_process = require('child_process');
-
-
 
 const AGENT_MSG_CODES = Object.freeze([
     'UPGRADE',
@@ -112,12 +109,12 @@ async function clean_old_files() {
         await fs_utils.file_delete(CONFIGURATION.SETUP_FILE);
 
         // clean previous backup dir
-        const files = await fs.readdirAsync(process.cwd());
+        const files = await fs.promises.readdir(process.cwd());
         const backup_dir = files.find(file => file.startsWith('backup_'));
         if (backup_dir) {
             dbg.log0(`found backup dir ${backup_dir}, deleting old backup dir, and renaming ${backup_dir} to backup`);
             await fs_utils.folder_delete(CONFIGURATION.BACKUP_DIR);
-            await fs.renameAsync(backup_dir, CONFIGURATION.BACKUP_DIR);
+            await fs.promises.rename(backup_dir, CONFIGURATION.BACKUP_DIR);
         }
     } catch (err) {
         dbg.error('failed on clean_old_files. continue as usual', err);
@@ -129,7 +126,7 @@ async function upgrade_agent() {
     await _download_file(`https://${address}/public/${CONFIGURATION.SETUP_FILENAME}`, fs.createWriteStream(CONFIGURATION.SETUP_FILE));
 
     // make setup file executable
-    await fs.chmodAsync(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL);
+    await fs.promises.chmod(CONFIGURATION.SETUP_FILE, EXECUTABLE_MOD_VAL);
 
     // backup agent dir before upgrade:
     new_backup_dir += '_' + String(Date.now());
@@ -140,7 +137,7 @@ async function upgrade_agent() {
         const new_path = path.join(new_backup_dir, file);
         dbg.log0(`moving ${old_path} to ${new_path}`);
         try {
-            await fs.renameAsync(old_path, new_path);
+            await fs.promises.rename(old_path, new_path);
         } catch (err) {
             dbg.error(`failed moving ${old_path} to ${new_path}`);
         }
@@ -148,16 +145,22 @@ async function upgrade_agent() {
     await P.delay(2000); // Not sure why this is necessary, but it is.
 
     dbg.log0('running agent installation command: ', CONFIGURATION.INSTALLATION_COMMAND);
-    await promise_utils.exec(CONFIGURATION.INSTALLATION_COMMAND);
+    await os_utils.exec(CONFIGURATION.INSTALLATION_COMMAND);
 
     // installation of new version should eventually stop this agent_wrapper instance and restart in the new version
     // wait for agent_wrapper to get killed
-    await promise_utils.retry(CONFIGURATION.NUM_UPGRADE_WARNINGS,
-        CONFIGURATION.TIME_BETWEEN_WARNINGS, attempts => {
-            let msg = `Still upgrading. ${(CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) * (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)} seconds have passed.`;
+    await P.retry({
+        attempts: CONFIGURATION.NUM_UPGRADE_WARNINGS,
+        delay_ms: CONFIGURATION.TIME_BETWEEN_WARNINGS,
+        func: attempts => {
+            const msg = `Still upgrading. ${
+                (CONFIGURATION.NUM_UPGRADE_WARNINGS - attempts) *
+                (CONFIGURATION.TIME_BETWEEN_WARNINGS / 1000)
+            } seconds have passed.`;
             if (attempts !== CONFIGURATION.NUM_UPGRADE_WARNINGS) dbg.warn(msg);
             throw new Error(msg);
-        });
+        }
+    });
 }
 
 async function main() {
@@ -167,7 +170,7 @@ async function main() {
     await clean_old_files();
 
     // get server address from agent_conf
-    address = url.parse(JSON.parse(await fs.readFileAsync(os_utils.get_agent_platform_path().concat('agent_conf.json'))).address).host;
+    address = url.parse(JSON.parse(await fs.promises.readFile(os_utils.get_agent_platform_path().concat('agent_conf.json'))).address).host;
 
     try {
         dbg.log0('Starting agent_cli');
@@ -180,11 +183,11 @@ async function main() {
                 break;
             case 'DUPLICATE':
                 dbg.log0('Duplicate token. calling agent_cli with --duplicate flag');
-                await promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
+                await os_utils.fork(CONFIGURATION.AGENT_CLI, ['--duplicate'], { stdio: 'ignore' });
                 break;
             case 'NOTFOUND':
                 dbg.log0('Agent not found. calling agent_cli with --notfound flag');
-                await promise_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
+                await os_utils.fork(CONFIGURATION.AGENT_CLI, ['--notfound'], { stdio: 'ignore' });
                 break;
             default:
                 break;

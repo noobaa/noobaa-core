@@ -6,8 +6,7 @@
 let net = require('net');
 let tls = require('tls');
 let url = require('url');
-let promise_utils = require('../util/promise_utils');
-let EventEmitter = require('events').EventEmitter;
+let events = require('events');
 let RpcTcpConnection = require('./rpc_tcp');
 let dbg = require('../util/debug_module')(__filename);
 
@@ -16,7 +15,7 @@ let dbg = require('../util/debug_module')(__filename);
  * RpcTcpServer
  *
  */
-class RpcTcpServer extends EventEmitter {
+class RpcTcpServer extends events.EventEmitter {
 
     constructor(tls_options) {
         super();
@@ -26,7 +25,9 @@ class RpcTcpServer extends EventEmitter {
             net.createServer(tcp_conn => this._on_tcp_conn(tcp_conn));
         this.server.on('close', err => {
             dbg.log0('on close:', err);
-            this.emit('error', new Error('TCP SERVER CLOSED'));
+            // emitting this as error is not desirable since no one is listening and it gives Uncaught Error.
+            // this happens on test_rpc as after each test we call disconnect. 
+            // this.emit('error', new Error('TCP SERVER CLOSED'));
         });
         this.server.on('error', err => this.emit('error', err));
     }
@@ -53,7 +54,7 @@ class RpcTcpServer extends EventEmitter {
             this.emit('listening', this.port);
         });
         // will wait for the listening event, but also listen for failures and reject
-        return promise_utils.wait_for_event(this, 'listening');
+        return events.once(this, 'listening');
     }
 
     _on_tcp_conn(tcp_conn) {

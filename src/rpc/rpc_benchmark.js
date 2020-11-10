@@ -57,7 +57,6 @@ argv.novalidation = argv.novalidation || false;
 // retry delay in seconds on failures
 argv.retry = argv.retry || undefined;
 const retry_ms = 1000 * (Number(argv.retry) || 0);
-const retry_func = argv.retry && (() => P.delay(retry_ms));
 
 let target_addresses;
 
@@ -193,50 +192,49 @@ async function start() {
         }
 
         // start report interval (both server and client)
-        setInterval(report, 1000);
+        setInterval(report, 1000).unref();
 
         if (argv.client || argv.fcall) {
             // run io with concurrency
-            return P.all(_.times(argv.concur, () => call_next_io()));
+            await Promise.all(_.times(argv.concur, run_client_worker));
         }
 
     } catch (err) {
         dbg.error('BENCHMARK ERROR', err.stack || err);
-        process.exit(0);
+        // process.exit(0);
     }
 }
 
 // test loop
-function call_next_io(req) {
-    if (req) {
-        const reply = req.reply;
-        if (reply) {
-            io_count += 1;
-            io_wbytes += argv.wsize;
-            if (reply.data) {
-                io_rbytes += reply.data.length;
+async function run_client_worker() {
+    for (;;) {
+        try {
+            const data = Buffer.alloc(argv.wsize, 0xFA);
+            const req = await client.rpcbench.io({
+                [RPC_BUFFERS]: { data },
+                wsize: argv.wsize,
+                rsize: argv.rsize,
+            }, {
+                address: chance.pickone(target_addresses),
+                return_rpc_req: true
+            });
+            const reply = req.reply;
+            if (reply) {
+                io_count += 1;
+                io_wbytes += argv.wsize;
+                if (reply.data) {
+                    io_rbytes += reply.data.length;
+                }
             }
-        }
-        const conn = req.connection;
-        if (conn && argv.closeconn) {
-            setTimeout(() => {
-                conn.close();
-            }, argv.closeconn);
+            const conn = req.connection;
+            if (conn && argv.closeconn) {
+                setTimeout(() => conn.close(), argv.closeconn);
+            }
+        } catch (err) {
+            if (!argv.retry) throw err;
+            await P.delay(retry_ms);
         }
     }
-    const data = Buffer.alloc(argv.wsize, 0xFA);
-    let promise = client.rpcbench.io({
-        [RPC_BUFFERS]: { data },
-        wsize: argv.wsize,
-        rsize: argv.rsize,
-    }, {
-        address: chance.pick(target_addresses),
-        return_rpc_req: true
-    });
-    if (retry_func) {
-        promise = promise.catch(retry_func);
-    }
-    return promise.then(call_next_io);
 }
 
 function io_service(req) {

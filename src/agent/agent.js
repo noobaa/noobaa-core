@@ -12,7 +12,6 @@ const os = require('os');
 const util = require('util');
 
 const P = require('../util/promise');
-const Bluebird = require('bluebird');
 const api = require('../api');
 const pkg = require('../../package.json');
 const DebugLogger = require('../util/debug_module');
@@ -27,7 +26,6 @@ const ssl_utils = require('../util/ssl_utils');
 const time_utils = require('../util/time_utils');
 const json_utils = require('../util/json_utils');
 const cloud_utils = require('../util/cloud_utils');
-const promise_utils = require('../util/promise_utils');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
 const BlockStoreGoogle = require('./block_store_services/block_store_google').BlockStoreGoogle;
@@ -639,12 +637,11 @@ class Agent {
                 'old', params.old_base_address);
             // test this new address first by pinging it
             try {
-                await Bluebird.resolve(
-                        this.client.node.ping(null, {
-                            address: params.base_address
-                        })
-                    )
-                    .timeout(MASTER_RESPONSE_TIMEOUT);
+                await P.timeout(MASTER_RESPONSE_TIMEOUT,
+                    this.client.node.ping(null, {
+                        address: params.base_address,
+                    })
+                );
             } catch (err) {
                 dbg.error(`failed ping to new base_address ${params.base_address}. leave base_address at ${this.base_address}`);
                 throw new Error(`failed ping to new base_address ${params.base_address}`);
@@ -663,12 +660,11 @@ class Agent {
             const { old_master_address = this.master_address } = params;
             if (params.master_address !== old_master_address) {
                 try {
-                    await Bluebird.resolve(
-                            this.client.node.ping(null, {
-                                address: params.master_address
-                            })
-                        )
-                        .timeout(MASTER_RESPONSE_TIMEOUT);
+                    await P.timeout(MASTER_RESPONSE_TIMEOUT,
+                        this.client.node.ping(null, {
+                            address: params.master_address
+                        })
+                    );
                 } catch (err) {
                     dbg.error(`failed ping to new master_address ${params.master_address}.`,
                         `leave master_address at ${this.master_address}`);
@@ -705,20 +701,20 @@ class Agent {
         clearTimeout(this._test_connection_timeout);
 
         this._test_connection_timeout = setTimeout(() => {
-            Bluebird.resolve(this.client.node.ping())
-                    .timeout(MASTER_RESPONSE_TIMEOUT)
-                    .then(() => {
-                        this._test_connection_timeout = null;
-                    })
-                .catch(P.TimeoutError, err => {
-                    dbg.error('node_server did not respond to ping. closing connection', err);
-                    this._server_connection.close();
+            P.timeout(MASTER_RESPONSE_TIMEOUT, this.client.node.ping())
+                .then(() => {
                     this._test_connection_timeout = null;
                 })
                 .catch(err => {
-                    dbg.error('Ping to server returned error:', err);
-                    this._server_connection.close();
-                    this._test_connection_timeout = null;
+                    if (err instanceof P.TimeoutError) {
+                        dbg.error('node_server did not respond to ping. closing connection', err);
+                        this._server_connection.close();
+                        this._test_connection_timeout = null;
+                    } else {
+                        dbg.error('Ping to server returned error:', err);
+                        this._server_connection.close();
+                        this._test_connection_timeout = null;
+                    }
                 });
         }, TEST_CONNECTION_TIMEOUT_DELAY).unref();
     }
@@ -1023,7 +1019,7 @@ class Agent {
             })
             .then(() => {
                 dbg.log1('Reading packed file');
-                return fs.readFileAsync(inner_path)
+                return fs.promises.readFile(inner_path)
                     .then(data => ({
                         [RPC_BUFFERS]: { data }
                     }))
@@ -1045,7 +1041,7 @@ class Agent {
         dbg.log0('Received set debug req ', req.rpc_params.level);
         dbg.set_level(req.rpc_params.level, 'core');
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
-            await promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD);
+            await P.delay_unblocking(config.DEBUG_MODE_PERIOD);
             dbg.set_level(0, 'core');
         }
     }

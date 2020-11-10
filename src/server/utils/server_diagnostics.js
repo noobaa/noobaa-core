@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
+const os_utils = require('../../util/os_utils');
 const base_diagnostics = require('../../util/base_diagnostics');
 const stats_aggregator = require('../system_services/stats_aggregator');
 const system_store = require('../system_services/system_store').get_instance();
@@ -65,7 +65,7 @@ const operations = [
 
     async () => {
         try {
-            await promise_utils.exec(`lsof &> ${TMP_WORK_DIR}/lsof.out`, {
+            await os_utils.exec(`lsof &> ${TMP_WORK_DIR}/lsof.out`, {
                 ignore_rc: false,
                 return_stdout: false,
                 timeout: LONG_EXEC_TIMEOUT
@@ -78,7 +78,7 @@ const operations = [
 
     async () => {
         try {
-            await promise_utils.exec(`chkconfig &> ${TMP_WORK_DIR}/chkconfig.out`, {
+            await os_utils.exec(`chkconfig &> ${TMP_WORK_DIR}/chkconfig.out`, {
                 ignore_rc: false,
                 return_stdout: false,
                 timeout: LONG_EXEC_TIMEOUT
@@ -100,7 +100,7 @@ const operations = [
 
     async () => {
         try {
-            await promise_utils.exec(`df -h &> ${TMP_WORK_DIR}/df.out`, {
+            await os_utils.exec(`df -h &> ${TMP_WORK_DIR}/df.out`, {
                 ignore_rc: false,
                 return_stdout: false,
                 timeout: LONG_EXEC_TIMEOUT
@@ -153,7 +153,7 @@ async function collect_server_diagnostics(req) {
     try {
         await base_diagnostics.prepare_diag_dir();
         await base_diagnostics.collect_basic_diagnostics();
-        await P.map(operations, op => op(req), { concurrency: 10 });
+        await P.map_with_concurrency(10, operations, op => op(req));
 
     } catch (err) {
         console.error('Error in collecting server diagnostics (should never happen)', err);
@@ -164,7 +164,7 @@ async function collect_server_diagnostics(req) {
 async function copy_files(src, dest, flags) {
     const f = flags ? `-${flags}` : '';
     try {
-        await promise_utils.exec(`cp ${f} ${src} ${dest}`, {
+        await os_utils.exec(`cp ${f} ${src} ${dest}`, {
             ignore_rc: false,
             return_stdout: true,
             timeout: LONG_EXEC_TIMEOUT
@@ -192,7 +192,7 @@ function collect_supervisor_logs() {
             if (process.platform === 'linux') {
                 // compress supervisor logs to the destination directory with compression level 1 (fastest).
                 // it appears to be faster than copying and then compressing
-                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /log/supervisor/* ', {
+                return os_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /log/supervisor/* ', {
                         ignore_rc: false,
                         return_stdout: false,
                         timeout: LONG_EXEC_TIMEOUT

@@ -274,6 +274,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
             is_cloud_node: false,
             is_mongo_node: false,
             host_id: 'bla',
+            host_seq: 'bla',
             heartbeat: 12,
             os_info: {
                 hostname: node_name,

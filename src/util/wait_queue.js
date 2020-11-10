@@ -20,7 +20,7 @@ class WaitQueue {
      */
     wait(item) {
         item = item || {};
-        const defer = P.defer();
+        const defer = new P.Defer();
         item[this._name] = defer;
         this._q.push_back(item);
         return defer.promise;

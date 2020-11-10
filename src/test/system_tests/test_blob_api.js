@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('bluebird');
+const P = require('../../util/promise');
 const crypto = require('crypto');
 
 const buffer_utils = require('../../util/buffer_utils');

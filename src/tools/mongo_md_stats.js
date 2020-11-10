@@ -32,7 +32,7 @@ function stat_collection(name) {
     total_index_size += stats.totalIndexSize;
     print(`Collection ${name}:`);
     print(`  Count                : ${stats.count}`);
-    print(`  Count per Object     : ${count_per_object.toFixed(2)}`);
+    print(`  Average per Object   : ${count_per_object.toFixed(2)}`);
     print(`  Average Storage Size : ${human_bytes(storage_size)}`);
     print(`  Average Index Size   : ${human_bytes(index_size)}`);
     print();

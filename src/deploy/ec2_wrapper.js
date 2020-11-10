@@ -9,7 +9,6 @@ var util = require('util');
 var dotenv = require('../util/dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
-var promise_utils = require('../util/promise_utils');
 var moment = require('moment');
 
 /**
@@ -385,7 +384,7 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
             var start_moment = moment();
             var wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
             console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
-            return promise_utils.pwhile(
+            return P.pwhile(
                 function() {
                     return wait_for_agents;
                 },
@@ -659,7 +658,7 @@ function get_agent_ami_image_id(region_name, is_win) {
  *
  *************************************/
 function ec2_call(func_name, params) {
-    return P.nfcall(_ec2[func_name].bind(_ec2), params);
+    return _ec2[func_name](params).promise();
 }
 
 
@@ -668,7 +667,7 @@ function ec2_region_call(region_name, func_name, params) {
         region: region_name
     });
     _ec2_per_region[region_name] = ec2;
-    return P.nfcall(ec2[func_name].bind(ec2), params);
+    return ec2[func_name](params).promise();
 }
 
 //Set the app_name to use

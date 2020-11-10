@@ -9,15 +9,12 @@ const http_utils = require('../../../util/http_utils');
  */
 async function put_blob_properties(req, res) {
     // TODO: implement PUT Blob Properties. for now just return success if blob exist 
-    return req.object_sdk.read_object_md({
-            bucket: req.params.bucket,
-            key: req.params.key,
-            md_conditions: http_utils.get_md_conditions(req),
-        })
-        .then(object_md => {
-            res.statusCode = 200;
-        });
-
+    await req.object_sdk.read_object_md({
+        bucket: req.params.bucket,
+        key: req.params.key,
+        md_conditions: http_utils.get_md_conditions(req),
+    });
+    res.statusCode = 200;
 }
 
 module.exports = {

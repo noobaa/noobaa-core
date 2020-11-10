@@ -22,6 +22,9 @@ const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, 
     timeout_error_code: 'NAMESPACE_CACHE_UPLOAD_TIMEOUT'
 });
 
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceCache {
 
     constructor({ namespace_hub, namespace_nb, caching, active_triggers }) {
@@ -934,6 +937,24 @@ class NamespaceCache {
 
         await this.read_object_md(params, object_sdk);
     }
+
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    async get_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async put_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async get_object_retention() {
+        throw new Error('TODO');
+    }
+    async put_object_retention() {
+        throw new Error('TODO');
+    }
+
 }
 
 

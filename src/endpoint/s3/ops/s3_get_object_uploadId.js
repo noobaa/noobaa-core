@@ -10,7 +10,7 @@ const s3_utils = require('../s3_utils');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListParts.html
  * AKA List Multipart Upload Parts
  */
-function get_object_uploadId(req) {
+async function get_object_uploadId(req) {
     const max = Number(req.query['max-parts'] || 1000);
     if (!Number.isInteger(max) || max < 0) {
         dbg.warn('Invalid max-parts', req.query['max-parts']);
@@ -23,36 +23,36 @@ function get_object_uploadId(req) {
         throw new S3Error(S3Error.InvalidArgument);
     }
 
-    return req.object_sdk.list_multiparts({
-            obj_id: req.query.uploadId,
-            bucket: req.params.bucket,
-            key: req.params.key,
-            max: Math.min(max, 1000),
-            num_marker,
-        })
-        .then(reply => ({
-            ListPartsResult: [{
-                    Bucket: req.params.bucket,
-                    Key: req.params.key,
-                    UploadId: req.query.uploadId,
-                    Initiator: s3_utils.DEFAULT_S3_USER,
-                    Owner: s3_utils.DEFAULT_S3_USER,
-                    StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
-                    MaxParts: max,
-                    PartNumberMarker: num_marker,
-                    IsTruncated: reply.is_truncated,
-                    NextPartNumberMarker: reply.next_num_marker,
-                },
-                _.map(reply.multiparts, part => ({
-                    Part: {
-                        PartNumber: part.num,
-                        Size: part.size,
-                        ETag: `"${part.etag}"`,
-                        LastModified: s3_utils.format_s3_xml_date(part.last_modified),
-                    }
-                }))
-            ]
-        }));
+    const reply = await req.object_sdk.list_multiparts({
+        obj_id: req.query.uploadId,
+        bucket: req.params.bucket,
+        key: req.params.key,
+        max: Math.min(max, 1000),
+        num_marker,
+    });
+    return {
+        ListPartsResult: [{
+                Bucket: req.params.bucket,
+                Key: req.params.key,
+                UploadId: req.query.uploadId,
+                Initiator: s3_utils.DEFAULT_S3_USER,
+                Owner: s3_utils.DEFAULT_S3_USER,
+                StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
+                MaxParts: max,
+                PartNumberMarker: num_marker,
+                IsTruncated: reply.is_truncated,
+                NextPartNumberMarker: reply.next_num_marker,
+            },
+            _.map(reply.multiparts, part => ({
+                Part: {
+                    PartNumber: part.num,
+                    Size: part.size,
+                    ETag: `"${part.etag}"`,
+                    LastModified: s3_utils.format_s3_xml_date(part.last_modified),
+                }
+            }))
+        ]
+    };
 }
 
 module.exports = {

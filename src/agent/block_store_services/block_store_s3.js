@@ -370,7 +370,7 @@ class BlockStoreS3 extends BlockStoreBase {
             size: 0,
             count: 0
         };
-        await P.map(block_ids, async block_id => {
+        await P.map_with_concurrency(10, block_ids, async block_id => {
             try {
                 const res = await this.s3cloud.headObject({
                     Bucket: this.cloud_info.target_bucket,
@@ -383,7 +383,7 @@ class BlockStoreS3 extends BlockStoreBase {
             } catch (err) {
                 dbg.warn('_get_blocks_usage:', err);
             }
-        }, { concurrency: 10 });
+        });
         return usage;
     }
 

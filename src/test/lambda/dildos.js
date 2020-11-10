@@ -139,7 +139,7 @@ function install_func(fn) {
 
 function clear() {
     return P.fromCallback(callback => lambda.listFunctions({}, callback))
-        .then(res => P.each(res.Functions,
+        .then(res => P.map_one_by_one(res.Functions,
             f => P.fromCallback(callback => lambda.deleteFunction({
                 FunctionName: f.FunctionName,
             }, callback))

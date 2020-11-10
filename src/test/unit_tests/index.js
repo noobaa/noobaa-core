@@ -11,7 +11,6 @@ coretest.setup({ incomplete_rpc_coverage: 'show' });
 // ---------------------------------------
 
 // UTILS
-require('./test_job_queue');
 require('./test_linked_list');
 require('./test_keys_lock');
 require('./test_lru');

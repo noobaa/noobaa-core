@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const config = require('../../config');
-const promise_utils = require('./promise_utils');
+const os_utils = require('./os_utils');
 
 function _default_error_factory(message) {
     return new Error(message);
@@ -11,7 +11,7 @@ function _default_error_factory(message) {
 
 async function read_namespace(make_error = _default_error_factory) {
     try {
-        const buffer = await fs.readFileAsync(config.KUBE_NAMESPACE_FILE);
+        const buffer = await fs.promises.readFile(config.KUBE_NAMESPACE_FILE);
         return buffer.toString('utf8').trim();
 
     } catch (err) {
@@ -21,7 +21,7 @@ async function read_namespace(make_error = _default_error_factory) {
 
 async function read_sa_token(make_error = _default_error_factory) {
     try {
-       const buffer = await fs.readFileAsync(config.KUBE_SA_TOKEN_FILE);
+       const buffer = await fs.promises.readFile(config.KUBE_SA_TOKEN_FILE);
        return buffer.toString('utf8').trim();
 
     } catch (err) {
@@ -36,7 +36,7 @@ async function exec_kubectl(command, output_format) {
         '' :
         `-o=${output_format}`;
 
-    const response = await promise_utils.exec(
+    const response = await os_utils.exec(
         `kubectl ${command} ${output_opt}`,
         { return_stdout: true }
     );
@@ -53,7 +53,7 @@ async function exec_kubectl(command, output_format) {
 }
 
 function apply_conf(conf) {
-    return promise_utils.exec(
+    return os_utils.exec(
         `echo '${JSON.stringify(conf)}' | kubectl apply -f -`,
         { return_stdout: true }
     );

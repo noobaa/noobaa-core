@@ -10,7 +10,6 @@ const argv = require('minimist')(process.argv);
 // const ObjectId = require('mongodb').ObjectID;
 const Dispatcher = require('../server/notifications/dispatcher');
 const db_client = require('../util/db_client');
-const promise_utils = require('../util/promise_utils');
 
 const EXISTING_AUDIT_LOGS = {
     'node': ['create',
@@ -186,7 +185,7 @@ EventsGenerator.prototype.generate_alerts = function(num, pri) {
     const pri_size = priorites.length;
     const alerts_size = ALERTS_SAMPLES.length;
     let count = 0;
-    return promise_utils.pwhile(() => count < num,
+    return P.pwhile(() => count < num,
         () => {
             count += 1;
             const alchosen = Math.floor(Math.random() * (alerts_size));
@@ -195,7 +194,7 @@ EventsGenerator.prototype.generate_alerts = function(num, pri) {
                 .then(() => Dispatcher.instance().alert(priorites[prichosen],
                     sysid,
                     ALERTS_SAMPLES[alchosen]))
-                .delay(1000);
+                .then(() => P.delay(1000));
         });
 };
 
@@ -240,13 +239,13 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
 
     const logs_size = events_pool.length;
     let count = 0;
-    return promise_utils.pwhile(() => count < num,
+    return P.pwhile(() => count < num,
         () => {
             count += 1;
             const chosen = Math.floor(Math.random() * (logs_size));
             return P.resolve()
                 .then(() => Dispatcher.instance().activity(_.clone(events_pool[chosen])))
-                .delay(1000);
+                .then(() => P.delay(1000));
         });
 };
 EventsGenerator.prototype.send_alert = function(alert, sev, rule) {
@@ -269,7 +268,7 @@ EventsGenerator.prototype.send_alert = function(alert, sev, rule) {
                 );
             }
         })
-        .delay(500);
+        .then(() => P.delay(500));
 };
 
 EventsGenerator.prototype.print_usage = function() {

@@ -115,6 +115,69 @@ module.exports = {
             }
         },
 
+        rotate_master_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['entity', 'entity_type'],
+                properties: {
+                    // Sensitive String
+                    // For each entity it's unique identifier
+                    // System Name, Bucket Name, Account Email
+                    entity: { $ref: 'common_api#/definitions/entity' },
+                    entity_type: {
+                        type: 'string',
+                        enum: ['SYSTEM', 'BUCKET', 'ACCOUNT']
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        disable_master_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['entity', 'entity_type'],
+                properties: {
+                    // Sensitive String
+                    // For each entity it's unique identifier
+                    // System Name, Bucket Name, Account Email
+                    entity: { $ref: 'common_api#/definitions/entity' },
+                    entity_type: {
+                        type: 'string',
+                        enum: ['SYSTEM', 'BUCKET', 'ACCOUNT']
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        enable_master_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['entity', 'entity_type'],
+                properties: {
+                    // Sensitive String
+                    // For each entity it's unique identifier
+                    // System Name, Bucket Name, Account Email
+                    entity: { $ref: 'common_api#/definitions/entity' },
+                    entity_type: {
+                        type: 'string',
+                        enum: ['SYSTEM', 'BUCKET', 'ACCOUNT']
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         set_maintenance_mode: {
             doc: 'Configure system maintenance',
             method: 'PUT',

@@ -116,7 +116,7 @@ async function create_object_upload(req) {
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
         encryption,
-        bucket_master_key_id: req.bucket.master_key_id._id,
+        bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined,
     };
 }
 
@@ -519,7 +519,7 @@ async function create_multipart(req) {
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
         encryption: obj.encryption,
-        bucket_master_key_id: req.bucket.master_key_id._id
+        bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined
     };
 }
 
@@ -1446,7 +1446,8 @@ async function get_upload_object_range_info(req) {
         tier_id: tier._id,
         chunk_split_config: req.bucket.tiering.chunk_split_config,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
-        encryption
+        encryption,
+        bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined
     };
 }
 

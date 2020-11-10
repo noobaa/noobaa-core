@@ -1218,10 +1218,10 @@ class MDStore {
         return this._chunks.insertMany(chunks, unordered_insert_options());
     }
 
-    update_chunk_by_id(chunk_id, set_updates) {
+    update_chunk_by_id(chunk_id, set_updates, unset_updates) {
         return this._chunks.updateOne({
                 _id: chunk_id
-            }, compact_updates(set_updates))
+            }, compact_updates(set_updates, unset_updates))
             .then(res => db_client.instance().check_update_one(res, 'chunk'));
     }
 

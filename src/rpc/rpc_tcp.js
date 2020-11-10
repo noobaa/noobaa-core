@@ -29,13 +29,19 @@ class RpcTcpConnection extends RpcBaseConnection {
      *
      */
     _connect() {
-        let connector = (this.url.protocol === 'tls:' ? tls : net);
-        this.tcp_conn = connector.connect({
-            port: this.url.port,
-            host: this.url.hostname,
-            // we allow self generated certificates to avoid public CA signing:
-            rejectUnauthorized: false,
-        }, () => this.emit('connect'));
+        if (this.url.protocol === 'tls:') {
+            this.tcp_conn = tls.connect({
+                port: this.url.port,
+                host: this.url.hostname,
+                // we allow self generated certificates to avoid public CA signing:
+                rejectUnauthorized: false,
+            }, () => this.emit('connect'));
+        } else {
+            this.tcp_conn = net.connect({
+                port: this.url.port,
+                host: this.url.hostname,
+            }, () => this.emit('connect'));
+        }
         this._init_tcp();
     }
 
@@ -55,7 +61,7 @@ class RpcTcpConnection extends RpcBaseConnection {
      * send
      *
      */
-    _send(msg) {
+    async _send(msg) {
         return this.frame_stream.send_message(msg);
     }
 

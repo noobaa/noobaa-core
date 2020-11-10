@@ -26,7 +26,6 @@ const server_rpc = require('../server_rpc');
 const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
-const promise_utils = require('../../util/promise_utils');
 const os_utils = require('../../util/os_utils');
 const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
@@ -264,10 +263,11 @@ class NodesMonitor extends EventEmitter {
             if (item.node.deleted) continue;
             if (!item.connection) continue;
             if (!item.node_from_store) continue;
-            const info = await this.client.agent.get_agent_storage_info(undefined, {
+            const info = await P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.get_agent_storage_info(undefined, {
                     connection: item.connection
                 })
-                .timeout(AGENT_RESPONSE_TIMEOUT);
+            );
             if (info.storage) {
                 item.node.storage = info.storage;
                 this._set_need_update.add(item);
@@ -339,7 +339,11 @@ class NodesMonitor extends EventEmitter {
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
             let agent_config = (extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id)) || {};
             this._add_new_node(req.connection, req.system._id, agent_config, req.rpc_params.pool_name);
-            dbg.log0('connecting new node with agent_config =', agent_config);
+            dbg.log0('connecting new node with agent_config =', {
+                ...agent_config,
+                system: agent_config.system.name,
+                pool: agent_config.pool.name
+            });
             return reply;
         }
 
@@ -1051,12 +1055,13 @@ class NodesMonitor extends EventEmitter {
             })
         }));
 
-        return this.client.agent.get_agent_info_and_update_masters({
-                addresses: potential_masters
-            }, {
-                connection: item.connection
-            })
-            .timeout(AGENT_RESPONSE_TIMEOUT)
+        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.get_agent_info_and_update_masters({
+                    addresses: potential_masters
+                }, {
+                    connection: item.connection
+                })
+            )
             .then(info => {
                 if (!info) return;
                 this._handle_agent_response(item, info);
@@ -1282,12 +1287,13 @@ class NodesMonitor extends EventEmitter {
         let token = auth_server.make_auth_token(auth_parmas);
         dbg.log0(`new create_node_token: ${token}`);
 
-        return this.client.agent.update_create_node_token({
+        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+            this.client.agent.update_create_node_token({
                 create_node_token: token
             }, {
                 connection: item.connection
             })
-            .timeout(AGENT_RESPONSE_TIMEOUT);
+        );
 
     }
 
@@ -1340,10 +1346,11 @@ class NodesMonitor extends EventEmitter {
         // skip the update when no changes detected
         if (_.isEmpty(rpc_config)) return;
         dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
-        return this.client.agent.update_rpc_config(rpc_config, {
-                connection: item.connection
-            })
-            .timeout(AGENT_RESPONSE_TIMEOUT)
+        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.update_rpc_config(rpc_config, {
+                    connection: item.connection
+                })
+            )
             .then(() => {
                 _.extend(item.node, rpc_config);
                 this._set_need_update.add(item);
@@ -1351,9 +1358,11 @@ class NodesMonitor extends EventEmitter {
     }
 
     async _test_store_validity(item) {
-        await promise_utils.timeout(() => this.client.agent.test_store_validity(null, {
-            connection: item.connection
-        }), AGENT_RESPONSE_TIMEOUT);
+        await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            this.client.agent.test_store_validity(null, {
+                connection: item.connection
+            })
+        );
     }
 
     async _test_store_perf(item) {
@@ -1362,11 +1371,13 @@ class NodesMonitor extends EventEmitter {
 
 
         dbg.log0('running _test_store_perf::', item.node.name);
-        const res = await promise_utils.timeout(() => this.client.agent.test_store_perf({
-            count: 5
-        }, {
-            connection: item.connection
-        }), AGENT_RESPONSE_TIMEOUT);
+        const res = await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            this.client.agent.test_store_perf({
+                count: 5
+            }, {
+                connection: item.connection
+            })
+        );
         item.last_store_perf_test = Date.now();
         dbg.log0('_test_store_perf returned:', res);
         this._set_need_update.add(item);
@@ -1430,15 +1441,16 @@ class NodesMonitor extends EventEmitter {
         const start = Date.now();
 
         dbg.log0('_test_network_to_server::', item.node.name);
-        return this.n2n_client.agent.test_network_perf({
-                source: this.n2n_agent.rpc_address,
-                target: item.node.rpc_address,
-                response_length: 1,
-            }, {
-                address: item.node.rpc_address,
-                return_rpc_req: true // we want to check req.connection
-            })
-            .timeout(AGENT_TEST_CONNECTION_TIMEOUT)
+        return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
+                this.n2n_client.agent.test_network_perf({
+                    source: this.n2n_agent.rpc_address,
+                    target: item.node.rpc_address,
+                    response_length: 1,
+                }, {
+                    address: item.node.rpc_address,
+                    return_rpc_req: true // we want to check req.connection
+                })
+            )
             .then(req => {
                 var took = Date.now() - start;
                 this._set_need_update.add(item);
@@ -1468,10 +1480,11 @@ class NodesMonitor extends EventEmitter {
         if (!item.node.rpc_address) return;
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
-        return P.each(items_without_issues, item_without_issues => {
+        return P.map_one_by_one(items_without_issues, item_without_issues => {
                 dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
                     item.node.rpc_address, item_without_issues.node.rpc_address);
-                return this.client.agent.test_network_perf_to_peer({
+                return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
+                    this.client.agent.test_network_perf_to_peer({
                         source: item_without_issues.node.rpc_address,
                         target: item.node.rpc_address,
                         request_length: 1,
@@ -1481,7 +1494,7 @@ class NodesMonitor extends EventEmitter {
                     }, {
                         connection: item_without_issues.connection
                     })
-                    .timeout(AGENT_TEST_CONNECTION_TIMEOUT);
+                );
             })
             .then(() => {
                 dbg.log0('_test_network_perf:: success in test', item.node.name);
@@ -1569,7 +1582,7 @@ class NodesMonitor extends EventEmitter {
                     this._update_existing_nodes(existing_nodes),
                     this._update_new_nodes(new_nodes),
                     this._update_deleted_nodes(deleted_nodes)
-            ])
+                ])
                 .catch(err => {
                     dbg.warn('_update_nodes_store: had errors', err);
                 });
@@ -1596,7 +1609,7 @@ class NodesMonitor extends EventEmitter {
     _update_new_nodes(new_nodes) {
         if (!new_nodes.length) return;
         const items_to_create = [];
-        return P.map(new_nodes, item => {
+        return P.map_with_concurrency(10, new_nodes, item => {
                 if (!item.connection) {
                     // we discard nodes that disconnected before being created
                     dbg.warn('discard node that was not created', item.node.name);
@@ -1610,18 +1623,19 @@ class NodesMonitor extends EventEmitter {
                     return;
                 }
                 dbg.log0('_update_new_nodes: update_auth_token', item.node.name);
-                return this.client.agent.update_auth_token({
-                        auth_token: auth_server.make_auth_token({
-                            system_id: String(item.node.system),
-                            role: 'agent',
-                            extra: {
-                                node_id: item.node._id
-                            }
+                return P.timeout(AGENT_RESPONSE_TIMEOUT,
+                        this.client.agent.update_auth_token({
+                            auth_token: auth_server.make_auth_token({
+                                system_id: String(item.node.system),
+                                role: 'agent',
+                                extra: {
+                                    node_id: item.node._id
+                                }
+                            })
+                        }, {
+                            connection: item.connection
                         })
-                    }, {
-                        connection: item.connection
-                    })
-                    .timeout(AGENT_RESPONSE_TIMEOUT)
+                    )
                     .then(() => items_to_create.push(item))
                     .catch(err => {
                         // we couldn't update the agent with the token
@@ -1630,8 +1644,6 @@ class NodesMonitor extends EventEmitter {
                             item.node.name, item, err);
                         this._set_need_update.add(item);
                     });
-            }, {
-                concurrency: 10
             })
             .then(() => dbg.log0('_update_new_nodes: nodes to create',
                 _.map(items_to_create, 'node.name')))
@@ -1674,7 +1686,7 @@ class NodesMonitor extends EventEmitter {
     _update_deleted_nodes(deleted_nodes) {
         if (!deleted_nodes.length) return;
         const items_to_update = [];
-        return P.map(deleted_nodes, item => {
+        return P.map_with_concurrency(10, deleted_nodes, item => {
                 dbg.log0('_update_nodes_store deleted_node:', item);
 
                 if (item.node.deleted) {
@@ -1718,8 +1730,6 @@ class NodesMonitor extends EventEmitter {
                         // We will just wait another cycle and attempt to delete it fully again
                         dbg.warn('delete_cloud_or_mongo_pool_node ERROR node', item.node, err);
                     });
-            }, {
-                concurrency: 10
             })
             .then(() => NodesStore.instance().bulk_update(items_to_update))
             .then(res => {
@@ -2207,7 +2217,7 @@ class NodesMonitor extends EventEmitter {
         this._num_running_rebuilds += 1;
         this._set_need_rebuild.delete(item);
         // use small delay skew to avoid running together
-        return promise_utils.delay_unblocking(5 * i)
+        return P.delay_unblocking(5 * i)
             .then(() => this._rebuild_node(item))
             .finally(() => {
                 this._num_running_rebuilds -= 1;
@@ -3326,10 +3336,11 @@ class NodesMonitor extends EventEmitter {
         const item = this._get_node({
             rpc_address: rpc_params.source
         });
-        return this.client.agent.test_network_perf_to_peer(rpc_params, {
-                connection: item.connection
-            })
-            .timeout(AGENT_RESPONSE_TIMEOUT)
+        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.test_network_perf_to_peer(rpc_params, {
+                    connection: item.connection
+                })
+            )
             .then(res => {
                 dbg.log2('test_node_network', rpc_params, 'returned', res);
                 return res;

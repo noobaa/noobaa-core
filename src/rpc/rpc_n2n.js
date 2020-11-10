@@ -89,7 +89,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         this.ice.close();
     }
 
-    _send(msg) {
+    async _send(msg) {
         // this default error impl will be overridden once ice emit's connect
         throw new Error('N2N NOT CONNECTED');
     }

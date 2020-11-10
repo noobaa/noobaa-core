@@ -485,7 +485,7 @@
 
 //         dbg.log0('find_objects:', query);
 
-//         const [objects, non_paginated, completed, uploading] = await P.join(
+//         const [objects, non_paginated, completed, uploading] = await P.all([
 
 //             this._objects.col().find(query, {
 //                 limit: Math.min(limit, 1000),
@@ -502,7 +502,7 @@
 
 //             // uploading count
 //             this._objects.col().countDocuments(uploading_query)
-//         );
+//         ]);
 
 //         return {
 //             objects,
@@ -1412,14 +1412,14 @@
 //         // and then calculates the aproximate number of the total indexed dedup chunks - this was the fastest soultion we found
 //         // both iterating over the chunks and running a query over all the chunks was too lengthy operations.
 //         const sample_size = 10000;
-//         return P.join(
+//         return P.all([
 //                 this._chunks.col().estimatedDocumentCount(),
 //                 this._chunks.col().aggregate([
 //                     { $sample: { size: sample_size } },
 //                     { $match: { dedup_key: { $exists: true } } },
 //                     { $count: "count" }
 //                 ])
-//             )
+//             ])
 //             .then(([total_count, sample_items]) => {
 //                 if (!sample_items.length) return total_count;
 //                 return Math.floor(sample_items[0].count * total_count / sample_size);

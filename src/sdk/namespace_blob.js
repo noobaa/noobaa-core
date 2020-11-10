@@ -21,6 +21,10 @@ const MAP_BLOCK_LIST_TYPE = Object.freeze({
     committed: 'CommittedBlocks'
 });
 
+
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceBlob {
 
     constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name }) {
@@ -583,11 +587,11 @@ class NamespaceBlob {
     async delete_multiple_objects(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_multiple_objects:', this.container, inspect(params));
 
-        const res = await P.map(params.objects, obj => P.fromCallback(
+        const res = await P.map_with_concurrency(10, params.objects, obj => P.fromCallback(
                 callback => this.blob.deleteBlob(this.container, obj.key, callback)
             )
             .then(() => ({}))
-            .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })), { concurrency: 10 });
+            .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })));
 
         dbg.log0('NamespaceBlob.delete_multiple_objects:',
             this.container,
@@ -637,6 +641,24 @@ class NamespaceBlob {
     async put_object_acl(params, object_sdk) {
         await this.read_object_md(params, object_sdk);
     }
+
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    async get_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async put_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async get_object_retention() {
+        throw new Error('TODO');
+    }
+    async put_object_retention() {
+        throw new Error('TODO');
+    }
+
 
 }
 

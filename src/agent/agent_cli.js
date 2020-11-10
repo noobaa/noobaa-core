@@ -22,7 +22,6 @@ const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
 const json_utils = require('../util/json_utils');
-const promise_utils = require('../util/promise_utils');
 const addr_utils = require('../util/addr_utils');
 
 
@@ -54,8 +53,8 @@ class AgentCLI {
         this.agent_conf = new json_utils.JsonFileWrapper(os_utils.get_agent_platform_path().concat(agent_conf_name));
     }
 
-    monitor_stats() {
-        promise_utils.pwhile(() => true, () => {
+    async monitor_stats() {
+        setInterval(() => {
             const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since init
             const mem_usage = process.memoryUsage();
             dbg.log0(`agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
@@ -68,8 +67,7 @@ class AgentCLI {
                     dbg.log0(`agent_stats_values - ${agent}: ` + agent_stats_keys.map(key => agent_stats[key]).join(', '));
                 }
             }
-            return P.delay(60000);
-        });
+        }, 60000).unref();
     }
 
     /**
@@ -327,7 +325,7 @@ class AgentCLI {
             current_path = current_path.substring(0, current_path.length - 1);
             current_path = current_path.replace('./', '');
             //hiding storage folder
-            return promise_utils.exec('attrib +H ' + current_path)
+            return os_utils.exec('attrib +H ' + current_path)
                 .then(() => Promise.all([
                     os_utils.is_folder_permissions_set(current_path),
                     fs.promises.readdir(current_path)
@@ -338,7 +336,7 @@ class AgentCLI {
                             dbg.log0('First time icacls configuration');
                             //Setting system full permissions and remove builtin users permissions.
                             //TODO: remove other users
-                            promise_utils.exec('icacls ' + current_path +
+                            os_utils.exec('icacls ' + current_path +
                                     ' /grant:r administrators:(oi)(ci)F' +
                                     ' /grant:r system:F' +
                                     ' /remove:g BUILTIN\\Users' +
@@ -506,7 +504,7 @@ class AgentCLI {
      * start agent
      *
      */
-    start(node_name, node_path) {
+    async start(node_name, node_path) {
         var self = this;
         dbg.log0('agent started ', node_path, node_name);
         var agent = self.agents[node_name];
@@ -551,15 +549,19 @@ class AgentCLI {
             self.agents[node_name] = agent;
             dbg.log0('agent inited', node_name, self.params.address, self.params.port, self.params.secure_port, node_path);
         }
-        return P.fcall(function() {
-            return promise_utils.retry(100, 1000, agent.start.bind(agent));
-        }).then(function(res) {
+
+        try {
+            const res = await P.retry({
+                attempts: 100,
+                delay_ms: 1000,
+                func: agent.start.bind(agent)
+            });
             dbg.log0('agent started', node_name, 'res', res);
             return node_name;
-        }, function(err) {
+        } catch (err) {
             dbg.log0('FAILED TO START AGENT', node_name, err);
             throw err;
-        });
+        }
     }
 
     /**
@@ -617,15 +619,18 @@ class AgentCLI {
         }
     }
 
-    create_auth_token(auth_params) {
-        return P.resolve()
-            .then(() => this.client.create_access_key_auth(auth_params))
-            .timeout(CREATE_TOKEN_RESPONSE_TIMEOUT)
-            .catch(err => {
+    async create_auth_token(auth_params) {
+        for (;;) {
+            try {
+                const res = await P.timeout(CREATE_TOKEN_RESPONSE_TIMEOUT,
+                    this.client.create_access_key_auth(auth_params)
+                );
+                return res;
+            } catch (err) {
                 dbg.error('create_auth_token failed', err);
-                return P.delay(CREATE_TOKEN_RETRY_INTERVAL)
-                    .then(() => this.create_auth_token(auth_params));
-            });
+                await P.delay(CREATE_TOKEN_RETRY_INTERVAL);
+            }
+        }
     }
 
     list_agents() {

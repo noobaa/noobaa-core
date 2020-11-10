@@ -8,8 +8,8 @@ const events = require('events');
 
 const P = require('./promise');
 const fs_utils = require('./fs_utils');
+const os_utils = require('./os_utils');
 const string_utils = require('./string_utils');
-const promise_utils = require('./promise_utils');
 
 const PROPRIETARY_TYPE = 'PROPRIETARY';
 const PERMISSIVE_TYPE = 'PERMISSIVE';
@@ -102,7 +102,7 @@ class LicenseScanner extends events.EventEmitter {
     }
 
     async scan_rpms() {
-        const text = await promise_utils.exec(
+        const text = await os_utils.exec(
             `rpm -qa --qf "%{NAME}|%{VERSION}|%{URL}|%{LICENSE}\n"`, {
                 ignore_rc: false,
                 return_stdout: true,

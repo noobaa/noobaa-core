@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const P = require('./promise');
 const Semaphore = require('./semaphore');
 const os_utils = require('../util/os_utils');
-const promise_utils = require('./promise_utils');
 
 const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
 
@@ -181,7 +180,7 @@ function file_copy(src, dst) {
         cmd = 'cp -fp ' + src + ' ' + dst;
     }
     console.log('file_copy:', cmd);
-    return promise_utils.exec(cmd);
+    return os_utils.exec(cmd);
 }
 
 function folder_delete(dir) {
@@ -233,7 +232,7 @@ function tar_pack(tar_file_name, source, ignore_file_changes) {
             tar_file_name + ' ' + source + '/*';
     }
     console.log('tar_pack:', cmd);
-    return promise_utils.exec(cmd);
+    return os_utils.exec(cmd);
 }
 
 function write_file_from_stream(file_path, read_stream) {

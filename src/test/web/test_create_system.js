@@ -1,13 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const _ = require('lodash');
-// const assert = require('assert');
 const mocha = require('mocha');
 const wd = require('selenium-webdriver');
-
-const promise_utils = require('../../util/promise_utils');
-
+const P = require('../../util/promise');
 const selenium = require('./selenium');
 
 selenium.init_mocha();
@@ -41,7 +37,7 @@ mocha.describe('create_system', function() {
             .then(buttons => {
                 self.buttons = buttons;
             })
-            .then(() => promise_utils.delay(500))
+            .then(() => P.delay(500))
             .then(() => console.log('Wait for button to click next ...'))
             .then(() => d.wait(wd.until.elementIsVisible(self.buttons[1]), 1000))
             .then(() => self.buttons[1].click())
@@ -50,7 +46,7 @@ mocha.describe('create_system', function() {
             .then(() => console.log('Wait for button to create system ...'))
             .then(() => d.wait(wd.until.elementIsVisible(self.buttons[2]), 1000))
             .then(() => self.inputs[4].sendKeys('demo'))
-            .then(() => promise_utils.delay(500))
+            .then(() => P.delay(500))
             .then(() => self.buttons[2].click())
             .then(() => console.log('Wait for url to open the created system ...'))
             .then(() => d.wait(wd.until.urlIs(URL + '/fe/systems/demo'), 3000))

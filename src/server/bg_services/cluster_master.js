@@ -7,7 +7,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const system_store = require('../system_services/system_store').get_instance();
-const promise_utils = require('../../util/promise_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const bg_workers = require('../bg_workers');
 // const server_rpc = require('../server_rpc');
@@ -41,7 +40,7 @@ function background_worker() {
                 } else if (is_master.ismaster && !is_cluster_master) {
                     dbg.log0(`this server is master now and wasn't before. start services in ${config.CLUSTER_MASTER_INTERVAL / 1000} seconds`);
                     // Used in order to disable race condition on master switch
-                    promise_utils.delay_unblocking(config.CLUSTER_MASTER_INTERVAL)
+                    P.delay_unblocking(config.CLUSTER_MASTER_INTERVAL)
                         .then(() => {
 
                             // Need to run the workers only if the server still master

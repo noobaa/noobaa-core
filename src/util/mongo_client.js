@@ -102,7 +102,6 @@ class MongoClient extends EventEmitter {
         this.cfg_url =
             'mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
         this.config = {
-            promiseLibrary: P,
             // promoteBuffers makes the driver directly expose node.js Buffer's for bson binary fields
             // instead of mongodb.Binary, which is just a skinny buffer wrapper class.
             // I opened this issue: https://jira.mongodb.org/browse/NODE-1168
@@ -420,7 +419,7 @@ class MongoClient extends EventEmitter {
         } catch (err) {
             // autoReconnect only works once initial connection is created,
             // so we need to handle retry in initial connect.
-            dbg.error('_connect: initial connect failed, will retry', err.message);
+            dbg.error('_connect: initial connect failed, will retry', err.stack);
             if (client) {
                 client.close();
                 client = null;
@@ -690,21 +689,22 @@ class MongoClient extends EventEmitter {
             replSetGetStatus: 1
         };
 
-        return P.resolve()
-            .then(() => {
+        return P.timeout(COMMAND_TIMEOUT, (async () => {
                 if (is_config_set) {
                     return this._send_command_config_rs(command);
                 } else {
                     return this.mongo_client.db().admin().command(command);
                 }
-            })
-            .timeout(COMMAND_TIMEOUT)
-            .catch(P.TimeoutError, err => {
-                dbg.error(`running replSetGetStatus command got TimeoutError`);
-                return this.reconnect()
-                    .then(() => {
-                        throw err;
-                    });
+            })())
+            .catch(err => {
+                if (err instanceof P.TimeoutError) {
+                    dbg.error(`running replSetGetStatus command got TimeoutError`);
+                    return this.reconnect()
+                        .then(() => {
+                            throw err;
+                        });
+                }
+                throw err;
             });
     }
 
@@ -752,41 +752,39 @@ class MongoClient extends EventEmitter {
         timeout = timeout || 2 * 60000; // default timeout 2 minutes
         let waiting_exhausted = false;
         try {
-            await P.resolve()
-                .then(async () => {
-                    // wait until all replica set members are operational
-                    if (process.env.MONGO_RS_URL) {
-                        let all_members_up = false;
-                        // eslint-disable-next-line no-unmodified-loop-condition
-                        while (!all_members_up && !waiting_exhausted) {
-                            let rs_status;
-                            try {
-                                rs_status = await this.get_mongo_rs_status();
-                                all_members_up = rs_status.members.every(member =>
-                                    (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY'));
-                                if (!all_members_up) throw new Error('not all members are up');
-                                // wait 5 seconds before retesting
-                            } catch (err) {
-                                dbg.warn('waiting for all members to be operational. current status =', util.inspect(rs_status));
-                                await P.delay(5000);
-                            }
-                        }
-                    }
-                    // after connected, make sure we can access the db by calling db.stats
-                    let db_is_down = true;
+            await P.timeout(timeout, (async () => {
+                // wait until all replica set members are operational
+                if (process.env.MONGO_RS_URL) {
+                    let all_members_up = false;
                     // eslint-disable-next-line no-unmodified-loop-condition
-                    while (db_is_down && !waiting_exhausted) {
+                    while (!all_members_up && !waiting_exhausted) {
+                        let rs_status;
                         try {
-                            let stats = this.mongo_client && await this.mongo_client.db().stats();
-                            db_is_down = _.get(stats, 'ok') !== 1;
+                            rs_status = await this.get_mongo_rs_status();
+                            all_members_up = rs_status.members.every(member =>
+                                (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY'));
+                            if (!all_members_up) throw new Error('not all members are up');
+                            // wait 5 seconds before retesting
                         } catch (err) {
-                            dbg.error('db is still down. got error on db.stats():', err.message);
-
+                            dbg.warn('waiting for all members to be operational. current status =', util.inspect(rs_status));
+                            await P.delay(5000);
                         }
-                        if (db_is_down) await P.delay(2000);
                     }
-                })
-                .timeout(timeout);
+                }
+                // after connected, make sure we can access the db by calling db.stats
+                let db_is_down = true;
+                // eslint-disable-next-line no-unmodified-loop-condition
+                while (db_is_down && !waiting_exhausted) {
+                    try {
+                        let stats = this.mongo_client && await this.mongo_client.db().stats();
+                        db_is_down = _.get(stats, 'ok') !== 1;
+                    } catch (err) {
+                        dbg.error('db is still down. got error on db.stats():', err.message);
+
+                    }
+                    if (db_is_down) await P.delay(2000);
+                }
+            })());
         } catch (err) {
             waiting_exhausted = true;
             dbg.error('failed waiting for members:', err);

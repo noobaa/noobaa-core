@@ -1,20 +1,19 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-var fs = require('fs');
-var DebugModule = require('../../util/debug_module');
-var promise_utils = require('../../util/promise_utils');
+const _ = require('lodash');
+const P = require('../../util/promise');
+const mocha = require('mocha');
+const assert = require('assert');
+const fs = require('fs');
+const DebugModule = require('../../util/debug_module');
 const os_utils = require('../../util/os_utils');
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
     return P.delay(1000).then(function() {
 
-        var content;
+        let content;
         if (os_utils.IS_MAC) {
             content = fs.readFileSync("./logs/noobaa.log", "utf8");
         } else {
@@ -93,7 +92,7 @@ mocha.describe('debug_module', function() {
         } else {
             rotation_command = '/usr/sbin/logrotate /etc/logrotate.d/noobaa';
         }
-        return promise_utils.exec(rotation_command).then(function() {
+        return os_utils.exec(rotation_command).then(function() {
             var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
             dbg.log0("test_debug_module: log0 should appear in the log");
             return file_content_verify("text", "test_debug_module: log0 should appear in the log");

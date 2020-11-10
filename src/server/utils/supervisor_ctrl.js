@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
-var promise_utils = require('../../util/promise_utils');
 var os_utils = require('../../util/os_utils');
 var config = require('../../../config.js');
 
@@ -43,14 +42,14 @@ class SupervisorCtrl {
                 }
                 return this._serialize();
             })
-            .then(() => promise_utils.exec('supervisorctl update'));
+            .then(() => os_utils.exec('supervisorctl update'));
     }
 
     restart(services) {
-        return promise_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to restart services', services);
                 throw new Error('failed to restart services ' + services + err);
@@ -58,10 +57,10 @@ class SupervisorCtrl {
     }
 
     start(services) {
-        return promise_utils.spawn('supervisorctl', ['start', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['start', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to start services', services);
                 throw new Error('failed to start services ' + services + err);
@@ -69,10 +68,10 @@ class SupervisorCtrl {
     }
 
     stop(services) {
-        return promise_utils.spawn('supervisorctl', ['stop', services.join(' ')], {
+        return os_utils.spawn('supervisorctl', ['stop', services.join(' ')], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to stop services', services);
                 throw new Error('failed to stop services ' + services + err);
@@ -184,10 +183,10 @@ class SupervisorCtrl {
     }
 
     restart_supervisord() {
-        return promise_utils.spawn('/etc/init.d/supervisord', ['restart'], {
+        return os_utils.spawn('/etc/init.d/supervisord', ['restart'], {
                 detached: true
             }, false)
-            .delay(5000) //TODO:: Better solution
+            .then(() => P.delay(5000)) //TODO:: Better solution
             .catch(function(err) {
                 console.error('failed to restart supervisor daemon');
                 throw new Error('failed to restart supervisor daemon ' + err);

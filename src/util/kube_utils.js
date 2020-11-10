@@ -3,7 +3,7 @@
 
 const fs = require('fs');
 const config = require('../../config');
-const promise_utils = require('./promise_utils');
+const os_utils = require('./os_utils');
 
 function _default_error_factory(message) {
     return new Error(message);
@@ -36,7 +36,7 @@ async function exec_kubectl(command, output_format) {
         '' :
         `-o=${output_format}`;
 
-    const response = await promise_utils.exec(
+    const response = await os_utils.exec(
         `kubectl ${command} ${output_opt}`,
         { return_stdout: true }
     );
@@ -53,7 +53,7 @@ async function exec_kubectl(command, output_format) {
 }
 
 function apply_conf(conf) {
-    return promise_utils.exec(
+    return os_utils.exec(
         `echo '${JSON.stringify(conf)}' | kubectl apply -f -`,
         { return_stdout: true }
     );

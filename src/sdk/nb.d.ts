@@ -1,6 +1,7 @@
 export as namespace nb;
 
 import * as mongodb from 'mongodb';
+import { Readable } from 'stream';
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -20,10 +21,13 @@ type NodeType =
     'BLOCK_STORE_GOOGLE' |
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
-type MapByID<T> = { [id: string]: T };
+
+interface MapByID<T> {
+    [id: string]: T;
+}
 
 interface Base {
-    toJSON?(): Object | string;
+    toJSON?(): object | string;
     toString?(): string;
 }
 
@@ -52,11 +56,11 @@ interface Account extends Base {
     allowed_buckets: {
         full_permission: boolean;
         permission_list: Bucket[];
-    },
-    access_keys: {
+    };
+    access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;
-    }[];
+    }>;
     master_key_id: ID;
 }
 
@@ -77,14 +81,16 @@ interface NodeAPI extends Base {
     heartbeat: number;
     os_info: {
         hostname: string,
-    },
+    };
     drive: {
         mount: string,
-    },
+    };
     // incomplete...
 }
 
-type NodesById = { [node_id: string]: NodeAPI };
+interface NodesById {
+    [node_id: string]: NodeAPI;
+}
 
 interface Pool extends Base {
     _id: ID;
@@ -128,12 +134,12 @@ interface Tiering extends Base {
         avg_chunk: number;
         delta_chunk: number;
     };
-    tiers: {
+    tiers: Array<{
         order: number;
         tier: Tier;
         spillover?: boolean;
         disabled?: boolean;
-    }[];
+    }>;
 }
 
 interface TierStatus {
@@ -142,7 +148,7 @@ interface TierStatus {
 }
 
 interface TieringStatus {
-    [tier_id: string]: TierStatus
+    [tier_id: string]: TierStatus;
 }
 
 interface PoolsStatus {
@@ -150,7 +156,7 @@ interface PoolsStatus {
         valid_for_allocation: boolean;
         num_nodes: number;
         resource_type: ResourceType;
-    }
+    };
 }
 
 interface MirrorStatus {
@@ -173,12 +179,12 @@ interface Bucket extends Base {
         write_resource: NamespaceResource;
         caching?: CacheConfig;
     };
-    quota?: Object;
+    quota?: object;
     storage_stats: {
         last_update: number;
     };
-    lifecycle_configuration_rules?: Object;
-    lambda_triggers?: Object;
+    lifecycle_configuration_rules?: object;
+    lambda_triggers?: object;
     master_key_id: ID;
 }
 
@@ -190,7 +196,7 @@ interface NamespaceResource {
     name: string;
     system: System;
     account: Account;
-    connection: Object;
+    connection: object;
 }
 
 interface ChunkConfig extends Base {
@@ -374,7 +380,7 @@ interface ObjectMD {
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
-    tagging: { key: string; value: string; }[],
+    tagging: Array<{ key: string; value: string; }>;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
 }
 
@@ -400,7 +406,7 @@ interface ObjectInfo {
     xattr: {};
     stats: { reads: number; last_read: number; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
-    tagging: { key: string; value: string; }[],
+    tagging: Array<{ key: string; value: string; }>;
     tag_count: number;
     s3_signed_url?: string;
     capacity_size?: number;
@@ -577,40 +583,63 @@ interface PartSchemaDB {
  *
  **********************************************************/
 
+type APIMethod = (params?: object, options?: object) => Promise<any>;
+
+interface APIGroup {
+    [key: string]: APIMethod;
+}
+
 interface APIClient {
-    RPC_BUFFERS: Symbol;
+    readonly auth: APIGroup;
+    readonly account: APIGroup;
+    readonly system: APIGroup;
+    readonly tier: APIGroup;
+    readonly node: APIGroup;
+    readonly host: APIGroup;
+    readonly bucket: APIGroup;
+    readonly events: APIGroup;
+    readonly object: APIGroup;
+    readonly agent: APIGroup;
+    readonly block_store: APIGroup;
+    readonly stats: APIGroup;
+    readonly scrubber: APIGroup;
+    readonly debug: APIGroup;
+    readonly redirector: APIGroup;
+    readonly tiering_policy: APIGroup;
+    readonly pool: APIGroup;
+    readonly cluster_server: APIGroup;
+    readonly cluster_internal: APIGroup;
+    readonly server_inter_process: APIGroup;
+    readonly hosted_agents: APIGroup;
+    readonly frontend_notifications: APIGroup;
+    readonly func: APIGroup;
+    readonly func_node: APIGroup;
+
+    options: {
+        auth_token?: string;
+        address?: string;
+        connection?: object;
+        return_rpc_req?: boolean;
+    };
+
+    RPC_BUFFERS: symbol;
 
     create_auth_token(params: object): Promise<object>;
     create_access_key_auth(params: object): Promise<object>;
     create_k8s_auth(params: object): Promise<object>;
-
-    readonly auth: object;
-    readonly account: object;
-    readonly system: object;
-    readonly tier: object;
-    readonly node: object;
-    readonly host: object;
-    readonly bucket: object;
-    readonly events: object;
-    readonly object: object;
-    readonly agent: object;
-    readonly block_store: object;
-    readonly stats: object;
-    readonly scrubber: object;
-    readonly debug: object;
-    readonly redirector: object;
-    readonly tiering_policy: object;
-    readonly pool: object;
-    readonly cluster_server: object;
-    readonly cluster_internal: object;
-    readonly server_inter_process: object;
-    readonly hosted_agents: object;
-    readonly frontend_notifications: object;
-    readonly func: object;
-    readonly func_node: object;
 }
 
+
+/**********************************************************
+ *
+ * DB CLIENT
+ *
+ **********************************************************/
+
+
 interface DBClient {
+    operators: Set<string>;
+
     connect(skip_init_db?: 'skip_init_db'): Promise<void>;
     reconnect(): Promise<void>;
     disconnect(): Promise<void>;
@@ -632,16 +661,15 @@ interface DBClient {
     define_gridfs(params: object): { gridfs(): mongodb.GridFSBucket };
 
     // Utils
-    operators: Set<string>;
-    obj_ids_difference(base: Array<any>, values: Array<any>): Array<any>;
-    uniq_ids(docs: Array<object>, doc_path: string): Array<any>;
-    populate(docs: Array<object> | object, doc_path: string, collection: DBCollection, fields: object): Promise<Array<object> | object>;
+    obj_ids_difference(base: any[], values: any[]): any[];
+    uniq_ids(docs: object[], doc_path: string): any[];
+    populate(docs: object[] | object, doc_path: string, collection: DBCollection, fields: object): Promise<object[] | object>;
     resolve_object_ids_recursive(idmap: object, item: object): object;
     resolve_object_ids_paths(idmap: object, item: object, paths: string[], allow_missing: boolean): object;
     new_object_id(): mongodb.ObjectId;
     parse_object_id(id_str: string): mongodb.ObjectId;
-    fix_id_type(doc: Array<object> | object): Array<object> | object;
-    is_object_id(id: Array<object> | object): boolean;
+    fix_id_type(doc: object[] | object): object[] | object;
+    is_object_id(id: object[] | object): boolean;
     is_err_duplicate_key(err: object): boolean;
     is_err_namespace_exists(err: object): boolean;
     check_duplicate_key_conflict(err: object, entity: string): void;
@@ -652,7 +680,7 @@ interface DBClient {
 }
 
 interface DBCollection {
-    find(query?: object, options?: object): Promise<Array<DBDoc>>;
+    find(query?: object, options?: object): Promise<DBDoc[]>;
     findOne(query?: object, options?: object): Promise<DBDoc>;
     findOneAndUpdate(query: object, update: object, options?: object): Promise<DBDoc>;
     deleteOne(query: object, options?: object): Promise<object>;
@@ -662,10 +690,10 @@ interface DBCollection {
     updateOne(query: object, update: object, options?: object): Promise<object>;
     updateMany(query: object, update: object, options?: object): Promise<object>;
 
-    mapReduce(map: Function, reduce: Function, options?: object): Promise<Array<DBDoc>>;
-    groupBy(match: object, group: object): Promise<Array<DBDoc>>;
+    mapReduce(map: Function, reduce: Function, options?: object): Promise<DBDoc[]>;
+    groupBy(match: object, group: object): Promise<DBDoc[]>;
 
-    distinct(key: string, query?: object, options?: object): Promise<Array<object>>;
+    distinct(key: string, query?: object, options?: object): Promise<object[]>;
     initializeUnorderedBulkOp(): mongodb.UnorderedBulkOperation;
     initializeOrderedBulkOp(): mongodb.OrderedBulkOperation;
 
@@ -678,3 +706,55 @@ interface DBCollection {
 }
 
 type DBDoc = any;
+
+
+/**********************************************************
+ *
+ * NAMESPACE
+ *
+ **********************************************************/
+
+interface ObjectSDK {
+    [key: string]: any;
+}
+
+interface Namespace {
+    
+    is_same_namespace(other: Namespace): boolean;
+    get_write_resource(): Namespace;
+    get_bucket(): string;
+
+    list_objects(params: object, object_sdk: ObjectSDK): Promise<any>;
+    list_uploads(params: object, object_sdk: ObjectSDK): Promise<any>;
+    list_object_versions(params: object, object_sdk: ObjectSDK): Promise<any>;
+    
+    read_object_md(params: object, object_sdk: ObjectSDK): Promise<ObjectInfo>;
+    read_object_stream(params: object, object_sdk: ObjectSDK): Promise<Readable>;
+    
+    upload_object(params: object, object_sdk: ObjectSDK): Promise<any>;
+    delete_object(params: object, object_sdk: ObjectSDK): Promise<any>;
+    delete_multiple_objects(params: object, object_sdk: ObjectSDK): Promise<any>;
+    
+    create_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
+    complete_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
+    abort_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
+    upload_multipart(params: object, object_sdk: ObjectSDK): Promise<any>;
+    list_multiparts(params: object, object_sdk: ObjectSDK): Promise<any>;
+    
+    get_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
+    put_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
+    delete_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
+
+    get_object_acl(params: object, object_sdk: ObjectSDK): Promise<any>;
+    put_object_acl(params: object, object_sdk: ObjectSDK): Promise<any>;
+   
+    get_object_legal_hold(params: object, object_sdk: ObjectSDK): Promise<any>;
+    put_object_legal_hold(params: object, object_sdk: ObjectSDK): Promise<any>;
+    get_object_retention(params: object, object_sdk: ObjectSDK): Promise<any>;
+    put_object_retention(params: object, object_sdk: ObjectSDK): Promise<any>;
+
+    upload_blob_block(params: object, object_sdk: ObjectSDK): Promise<any>;
+    commit_blob_block_list(params: object, object_sdk: ObjectSDK): Promise<any>;
+    get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
+
+}

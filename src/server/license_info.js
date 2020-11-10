@@ -9,7 +9,7 @@ const minimist = require('minimist');
 const P = require('../util/promise');
 const pkg = require('../../package.json');
 const Semaphore = require('../util/semaphore');
-const promise_utils = require('../util/promise_utils');
+const os_utils = require('../util/os_utils');
 const license_utils = require('../util/license_utils');
 
 const LICENSE_INFO_JSON_PATH = path.resolve('license_info.json');
@@ -31,7 +31,7 @@ function serve_http(req, res) {
                     console.log('license_info: error reading and parsing file, re-generating ...', err.stack || err);
                 }
                 // fork and run main() in separate process
-                return promise_utils.fork(__filename, [
+                return os_utils.fork(__filename, [
                     '--rpms',
                     '--dir', '/usr',
                     '--dir', '/root',

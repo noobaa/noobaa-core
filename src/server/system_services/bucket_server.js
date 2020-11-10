@@ -461,7 +461,7 @@ async function read_bucket_sdk_info(req) {
         ),
         system_owner: bucket.system.owner.email,
         bucket_owner: bucket.owner_account.email,
-        bucket_info: await P.props({
+        bucket_info: await P.map_values({
                 bucket,
                 nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
                 hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
@@ -1050,8 +1050,9 @@ function get_cloud_buckets(req) {
                 let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.fromCallback(callback => blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback))
-                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
+                        blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback);
+                    }))
                     .then(data => data.entries.map(entry =>
                         _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)
                     ));
@@ -1070,8 +1071,9 @@ function get_cloud_buckets(req) {
                 });
 
                 // TODO: Shall I use any other method istead of listing the root cpCode dir?
-                return P.fromCallback(callback => ns.dir(connection.cp_code, callback))
-                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
+                        ns.dir(connection.cp_code, callback);
+                    }))
                     .then(data => {
                         const files = data.body.stat.file;
                         const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
@@ -1107,22 +1109,20 @@ function get_cloud_buckets(req) {
                 });
                 const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.ninvoke(s3, "listBuckets")
-                    .timeout(EXTERNAL_BUCKET_LIST_TO)
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
                     .then(data => data.Buckets.map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
                     ));
             }
         })
-        .catch(P.TimeoutError, err => {
-            dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
-            throw err;
-        })
-        .catch(function(err) {
-            dbg.error("get_cloud_buckets ERROR", err.stack || err);
+        .catch(err => {
+            if (err instanceof P.TimeoutError) {
+                dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
+            } else {
+                dbg.error("get_cloud_buckets ERROR", err.stack || err);
+            }
             throw err;
         });
-
 }
 
 /**

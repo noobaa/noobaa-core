@@ -6,7 +6,7 @@ const fs = require('fs');
 const _ = require('lodash');
 const request = require('request');
 const P = require('../util/promise');
-const promise_utils = require('../util/promise_utils');
+const os_utils = require('../util/os_utils');
 const crypto = require('crypto');
 
 const IS_IN_POD = process.env.CONTAINER_PLATFORM === 'KUBERNETES';
@@ -49,7 +49,7 @@ class KubernetesFunctions {
             const context = this.context ? `--context ${this.context}` : '';
             const namespace = ignore_namespace || !this.namespace ? '' : `-n ${this.namespace}`;
             const command_to_exec = `kubectl ${context} ${namespace} ${command}`;
-            return promise_utils.exec(command_to_exec, { return_stdout: true, trim_stdout: true });
+            return os_utils.exec(command_to_exec, { return_stdout: true, trim_stdout: true });
         } catch (err) {
             throw new Error(`kubectl error: failed to run command '${command}'. error:` + err.message);
         }
@@ -242,24 +242,22 @@ class KubernetesFunctions {
         } else {
             console.log('waiting for external ips to be allocated. may take some time..');
             // 20 minutes timeout by default
-            return P.resolve()
-                .then(async () => {
-                    const delay = 10000;
-                    let address = null;
-                    // get external ip
-                    while (!address) {
-                        service = await this.kubectl_get('service', service_name);
-                        const ingress = _.get(service, 'status.loadBalancer.ingress.0.ip');
-                        const hostname = _.get(service, 'status.loadBalancer.ingress.0.hostname');
-                        const external_ip = _.get(service, 'spec.externalIPs.0');
-                        address = ingress || hostname || external_ip;
-                        if (!address) {
-                            await P.delay(delay);
-                        }
+            return P.timeout(timeout, (async () => {
+                const delay = 10000;
+                let address = null;
+                // get external ip
+                while (!address) {
+                    service = await this.kubectl_get('service', service_name);
+                    const ingress = _.get(service, 'status.loadBalancer.ingress.0.ip');
+                    const hostname = _.get(service, 'status.loadBalancer.ingress.0.hostname');
+                    const external_ip = _.get(service, 'spec.externalIPs.0');
+                    address = ingress || hostname || external_ip;
+                    if (!address) {
+                        await P.delay(delay);
                     }
-                    return { address, ports };
-                })
-                .timeout(timeout);
+                }
+                return { address, ports };
+            })());
         }
     }
 
@@ -268,26 +266,24 @@ class KubernetesFunctions {
         console.log(`waiting for pod ${pod_name} to become ready..`);
         // 20 minutes timeout by default
         const { timeout = 10 * 60000 } = options;
-        return P.resolve()
-            .then(async () => {
-                let ready = false;
-                while (!ready) {
-                    try {
-                        const pod = await this.kubectl_get('pod', pod_name);
-                        ready = (pod.status.containerStatuses[0].ready);
-                        if (additional_test) {
-                            ready = ready && additional_test();
-                        }
-                        if (!ready) {
-                            throw new Error('not ready');
-                        }
-                    } catch (err) {
-                        await P.delay(delay);
+        return P.timeout(timeout, (async () => {
+            let ready = false;
+            while (!ready) {
+                try {
+                    const pod = await this.kubectl_get('pod', pod_name);
+                    ready = (pod.status.containerStatuses[0].ready);
+                    if (additional_test) {
+                        ready = ready && additional_test();
                     }
+                    if (!ready) {
+                        throw new Error('not ready');
+                    }
+                } catch (err) {
+                    await P.delay(delay);
                 }
-                console.log(`pod ${pod_name} is ready`);
-            })
-            .timeout(timeout);
+            }
+            console.log(`pod ${pod_name} is ready`);
+        })());
     }
 
     async test_http_req(test_url, expected_status, timeout) {

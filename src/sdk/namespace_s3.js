@@ -12,14 +12,18 @@ const blob_translator = require('./blob_translator');
 const stats_collector = require('./endpoint_stats_collector');
 const config = require('../../config');
 
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceS3 {
+
 
     constructor({ namespace_resource_id, rpc_client, s3_params }) {
         this.namespace_resource_id = namespace_resource_id;
         this.access_key = s3_params.accessKeyId;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
-        this.bucket = this.s3.config.params.Bucket;
+        this.bucket = String(this.s3.config.params.Bucket);
         this.rpc_client = rpc_client;
     }
 

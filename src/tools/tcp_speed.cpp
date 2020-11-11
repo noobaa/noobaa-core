@@ -1,5 +1,5 @@
 /**
- * compile with: g++ --std=c++11
+ * compile with: g++ --std=c++17
  */
 
 #include <iostream>

@@ -18,10 +18,13 @@
                     '-fno-exceptions',
                 ],
                 'cflags': [
+                    '-Wno-cast-function-type',
+                ],
+                'cflags_c': [
                     '-std=c99',
                 ],
                 'cflags_cc': [
-                    '-std=c++11'
+                    '-std=c++17'
                 ],
                 'ldflags': [
                     '-lrt', # librt
@@ -48,9 +51,9 @@
             [ 'OS=="mac"', {
                 'xcode_settings': {
                     # Reference - http://help.apple.com/xcode/mac/8.0/#/itcaec37c2a6
-                    'MACOSX_DEPLOYMENT_TARGET': '10.9',
+                    'MACOSX_DEPLOYMENT_TARGET': '10.14',
                     'CLANG_CXX_LIBRARY': 'libc++',
-                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++11', # -std=c++11
+                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++17', # -std=c++17
                     'GCC_C_LANGUAGE_STANDARD': 'c99', # -std=c99
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                 },

@@ -6,9 +6,9 @@
 /**
  * https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-acl
  */
-function get_container_acl(req, res) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({ SignedIdentifiers: {} }));
+async function get_container_acl(req, res) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return { SignedIdentifiers: {} };
 }
 
 module.exports = {

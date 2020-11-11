@@ -3,15 +3,16 @@
 
 const os = require('os');
 const path = require('path');
-const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
 const argv = require('minimist')(process.argv);
-const server_functions = require('../utils/server_functions');
-const promise_utils = require('../../util/promise_utils');
-const P = require('../../util/promise');
-const Semaphore = require('../../util/semaphore');
 
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('test_env_builder_k8s');
+
+const P = require('../../util/promise');
+const os_utils = require('../../util/os_utils');
+const server_functions = require('../utils/server_functions');
+const Semaphore = require('../../util/semaphore');
+const { KubernetesFunctions } = require('../../deploy/kubernetes_functions');
 
 //Define colors 
 const GREEN = "\x1b[32;1m";
@@ -90,7 +91,9 @@ function get_env_vars() {
     }
 }
 
-
+/**
+ * @param {KubernetesFunctions} kf 
+ */
 async function build_env(kf, params) {
     const {
         server_cpu,
@@ -237,7 +240,7 @@ async function run_single_test_env(params) {
                 '--log_file', log_file,
                 ...additional_flags
             ];
-            await promise_utils.fork(test, args, { env: process.env });
+            await os_utils.fork(test, args, { env: process.env });
             console.log(`test ${test_name} passed`);
         }
     } catch (err) {
@@ -247,7 +250,7 @@ async function run_single_test_env(params) {
 
     //Will not delete the namespace if the test has failed.
     if (should_delete_namespace(delete_on_fail, test_failed, clean, clean_single_test)) {
-        console.log('cleaning test environment');
+        console.log(`cleaning test environment - deleting namespace ${namespace}`);
         try {
             // for now by default delete namespaces in background. if running tests concurrently we might want to await
             if (await_clean) {

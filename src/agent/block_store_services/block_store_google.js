@@ -4,7 +4,6 @@
 const _ = require('lodash');
 
 const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
@@ -94,7 +93,11 @@ class BlockStoreGoogle extends BlockStoreBase {
         const MAX_RETRIES = 5;
         let block_data;
         try {
-            block_data = await promise_utils.retry(MAX_RETRIES, 500, async () => this._try_read_block(block_md));
+            block_data = await P.retry({
+                attempts: MAX_RETRIES,
+                delay_ms: 500,
+                func: async () => this._try_read_block(block_md),
+            });
             return block_data;
         } catch (err) {
             await this._handle_error(err, block_md.id);
@@ -226,7 +229,8 @@ class BlockStoreGoogle extends BlockStoreBase {
             count: 0
         };
         let failed_to_delete_block_ids = [];
-        await P.map(block_ids, async block_id => {
+        // limit concurrency to 10
+        await P.map_with_concurrency(10, block_ids, async block_id => {
             const block_key = this._block_key(block_id);
             const file = this.bucket.file(block_key);
             try {
@@ -242,9 +246,6 @@ class BlockStoreGoogle extends BlockStoreBase {
                 // Should all failures be reported as failed_block_ids?
                 failed_to_delete_block_ids.push(block_id);
             }
-        }, {
-            // limit concurrency to 10
-            concurrency: 10
         });
         this._update_usage(deleted_storage);
         return {

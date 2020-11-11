@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const BlobError = require('./blob_errors').BlobError;
@@ -18,12 +17,15 @@ const RPC_ERRORS_TO_BLOB = Object.freeze({
 
 const BLOB_OPS = load_ops();
 
-function blob_rest(req, res) {
-    return P.try(() => handle_request(req, res))
-        .catch(err => handle_error(req, res, err));
+async function blob_rest(req, res) {
+    try {
+        await handle_request(req, res);
+    } catch (err) {
+        handle_error(req, res, err);
+    }
 }
 
-function handle_request(req, res) {
+async function handle_request(req, res) {
 
     // fill up standard response headers
     res.setHeader('x-ms-request-id', req.request_id);
@@ -73,11 +75,10 @@ function handle_request(req, res) {
         error_body_sha256_mismatch: BlobError.InternalError,
     };
 
-    return P.resolve()
-        .then(() => http_utils.read_and_parse_body(req, options))
-        .then(() => op.handler(req, res))
-        .then(reply => http_utils.send_reply(req, res, reply, options));
-    // .then(() => submit_usage_report(req));
+    await http_utils.read_and_parse_body(req, options);
+    const reply = await op.handler(req, res);
+    http_utils.send_reply(req, res, reply, options);
+    // submit_usage_report(req);
 }
 
 function check_headers(req) {
@@ -144,36 +145,36 @@ function handle_error(req, res, err) {
 }
 
 function load_ops() {
-    const r = x => require(x); // eslint-disable-line global-require
+    /* eslint-disable global-require */
     return js_utils.deep_freeze({
 
         // SERVICE
-        get_service_list: r('./ops/blob_get_service_list'),
-        get_service_stats: r('./ops/blob_get_service_stats'),
-        get_service_properties: r('./ops/blob_get_service_properties'),
-        put_service_properties: r('./ops/blob_put_service_properties'),
+        get_service_list: require('./ops/blob_get_service_list'),
+        get_service_stats: require('./ops/blob_get_service_stats'),
+        get_service_properties: require('./ops/blob_get_service_properties'),
+        put_service_properties: require('./ops/blob_put_service_properties'),
 
         // CONTAINER
-        get_container: r('./ops/blob_get_container'),
-        get_container_acl: r('./ops/blob_get_container_acl'),
-        get_container_list: r('./ops/blob_get_container_list'),
-        get_container_metadata: r('./ops/blob_get_container_metadata'),
-        put_container: r('./ops/blob_put_container'),
-        put_container_acl: r('./ops/blob_put_container_acl'),
-        put_container_lease: r('./ops/blob_put_container_lease'),
-        put_container_metadata: r('./ops/blob_put_container_metadata'),
-        delete_container: r('./ops/blob_delete_container'),
+        get_container: require('./ops/blob_get_container'),
+        get_container_acl: require('./ops/blob_get_container_acl'),
+        get_container_list: require('./ops/blob_get_container_list'),
+        get_container_metadata: require('./ops/blob_get_container_metadata'),
+        put_container: require('./ops/blob_put_container'),
+        put_container_acl: require('./ops/blob_put_container_acl'),
+        put_container_lease: require('./ops/blob_put_container_lease'),
+        put_container_metadata: require('./ops/blob_put_container_metadata'),
+        delete_container: require('./ops/blob_delete_container'),
 
         // BLOB
-        get_blob: r('./ops/blob_get_blob'),
-        get_blob_metadata: r('./ops/blob_get_blob_metadata'),
-        get_blob_blocklist: r('./ops/blob_get_blob_blocklist'),
-        put_blob: r('./ops/blob_put_blob'),
-        put_blob_block: r('./ops/blob_put_blob_block'),
-        put_blob_blocklist: r('./ops/blob_put_blob_blocklist'),
-        put_blob_properties: r('./ops/blob_put_blob_properties'),
-        put_blob_lease: r('./ops/blob_put_blob_lease'),
-        delete_blob: r('./ops/blob_delete_blob'),
+        get_blob: require('./ops/blob_get_blob'),
+        get_blob_metadata: require('./ops/blob_get_blob_metadata'),
+        get_blob_blocklist: require('./ops/blob_get_blob_blocklist'),
+        put_blob: require('./ops/blob_put_blob'),
+        put_blob_block: require('./ops/blob_put_blob_block'),
+        put_blob_blocklist: require('./ops/blob_put_blob_blocklist'),
+        put_blob_properties: require('./ops/blob_put_blob_properties'),
+        put_blob_lease: require('./ops/blob_put_blob_lease'),
+        delete_blob: require('./ops/blob_delete_blob'),
     });
 }
 

@@ -20,16 +20,15 @@ const ops = require('../utils/basic_server_ops');
 const dotenv = require('../../util/dotenv');
 const ObjectIO = require('../../sdk/object_io');
 const test_utils = require('./test_utils');
-const promise_utils = require('../../util/promise_utils');
 // const { RPC_BUFFERS } = require('../../rpc');
 
 dotenv.load();
 
 const {
     mgmt_ip = '127.0.0.1',
-    mgmt_port = '8080',
-    s3_ip = '127.0.0.1',
-    s3_port = '80',
+        mgmt_port = '8080',
+        s3_ip = '127.0.0.1',
+        s3_port = '80',
 } = argv;
 
 
@@ -147,7 +146,7 @@ function get_blocks(obj_mapping) {
 
 async function verify_object(obj_mapping) {
     try {
-         const { bucket, key } = obj_mapping.object_md;
+        const { bucket, key } = obj_mapping.object_md;
         const object_io_verifier = new ObjectIO();
         object_io_verifier.set_verification_mode();
 
@@ -297,13 +296,15 @@ async function decomission_pool_nodes(obj_mapping, num_nodes, pool_names) {
             const id = node._id;
             console.log(`decommissioning node: ${node.name}`);
             await client.node.decommission_node({ id });
-            return promise_utils.timeout(async () => {
-                for (;;) {
-                    const { decommissioned } = await client.node.read_node({ id });
-                    if (decommissioned) break;
+            return P.timeout(3 * 60 * 1000, (
+                async () => {
+                    for (;;) {
+                        const { decommissioned } = await client.node.read_node({ id });
+                        if (decommissioned) break;
+                    }
+                    console.log(`node: ${node.name} has been decommissioned`);
                 }
-                console.log(`node: ${node.name} has been decommissioned`);
-            }, 3 * 60 * 1000);
+            )());
         })
     );
 }
@@ -435,31 +436,31 @@ async function test_rebuild_two_unavailable_blocks() {
 //     }
 // }
 
-   // if (cloud_pool) {
+// if (cloud_pool) {
 
-    // }
+// }
 
-    // await client.tier.create_tier({
-    //     name: TEST_CTX.default_tier_name,
-    //     attached_pools: cloud_pool ? _.concat(pool_names, [TEST_CTX.cloud_pool_name]) : pool_names,
-    //     // cloud_pools: cloud_pool ? [TEST_CTX.cloud_pool_name] : undefined,
-    //     data_placement: mirrored ? 'MIRROR' : 'SPREAD'
-    // });
+// await client.tier.create_tier({
+//     name: TEST_CTX.default_tier_name,
+//     attached_pools: cloud_pool ? _.concat(pool_names, [TEST_CTX.cloud_pool_name]) : pool_names,
+//     // cloud_pools: cloud_pool ? [TEST_CTX.cloud_pool_name] : undefined,
+//     data_placement: mirrored ? 'MIRROR' : 'SPREAD'
+// });
 
-    // await client.tiering_policy.create_policy({
-    //     name: TEST_CTX.default_tier_policy_name,
-    //     tiers: [{
-    //         order: 0,
-    //         tier: TEST_CTX.default_tier_name,
-    //         spillover: false,
-    //         disabled: false
-    //     }]
-    // });
+// await client.tiering_policy.create_policy({
+//     name: TEST_CTX.default_tier_policy_name,
+//     tiers: [{
+//         order: 0,
+//         tier: TEST_CTX.default_tier_name,
+//         spillover: false,
+//         disabled: false
+//     }]
+// });
 
-    // await client.bucket.create_bucket({
-    //     name: bucket_name,
-    //     tiering: TEST_CTX.default_tier_policy_name,
-    // });
+// await client.bucket.create_bucket({
+//     name: bucket_name,
+//     tiering: TEST_CTX.default_tier_policy_name,
+// });
 
 // function scale_pool(pool_name, host_count) {
 //     console.log(`Scaling pool ${pool_name} to ${host_count} hosts`);

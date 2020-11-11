@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETnotification.html
  */
-function get_bucket_notification(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            NotificationConfiguration: ''
-        }));
+async function get_bucket_notification(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        NotificationConfiguration: ''
+    };
 }
 
 module.exports = {

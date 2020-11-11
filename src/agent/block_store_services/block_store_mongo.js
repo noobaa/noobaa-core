@@ -189,20 +189,18 @@ class BlockStoreMongo extends BlockStoreBase {
         let failed_to_delete_block_ids = [];
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
         return sem_delete.surround(() =>
-            P.map(block_names, block_name => this._blocks_fs.gridfs().find({
-                    filename: block_name
-                })
+            P.map_with_concurrency(10, block_names, block_name =>
+                this._blocks_fs.gridfs().find({ filename: block_name })
                 .toArray()
-                .then(blocks => P.map(blocks, block => this._blocks_fs.gridfs().delete(block._id)
+                .then(blocks => P.map_with_concurrency(10, blocks, block =>
+                    this._blocks_fs.gridfs().delete(block._id)
                     .catch(err => {
                         dbg.error('_delete_blocks: could not delete', block, err);
                         failed_to_delete_block_ids.push(this._block_id_from_key(block.filename));
                         throw err;
-                    }), {
-                        concurrency: 10
-                    })), {
-                    concurrency: 10
-                })
+                    })
+                ))
+            )
             .catch(err => {
                 dbg.error('_delete_blocks failed:', err);
             })
@@ -228,7 +226,7 @@ class BlockStoreMongo extends BlockStoreBase {
                 }
 
                 const err = new Error(`head_block: Block ${block_name} response ${usage_file_res}`);
-                err.code = 'NOT_FOUND';
+                Object.assign(err, { code: 'NOT_FOUND' });
                 throw err;
                 // throw new RpcError('NOT_FOUND', `head_block: Block ${block_name} response ${usage_file_res}`);
             })

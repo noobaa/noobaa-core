@@ -1,15 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var _ = require('lodash');
-var fs = require('fs');
-var argv = require('minimist')(process.argv);
-var AWS = require('aws-sdk');
-var P = require('../../util/promise');
-var Semaphore = require('../../util/semaphore');
-var promise_utils = require('../../util/promise_utils');
+const _ = require('lodash');
+const fs = require('fs');
+const argv = require('minimist')(process.argv);
+const AWS = require('aws-sdk');
+const P = require('../../util/promise');
+const Semaphore = require('../../util/semaphore');
+const os_utils = require('../../util/os_utils');
 
-var UL_TEST = {
+const UL_TEST = {
     target: '',
     bucket_name: '',
     access_key: '',
@@ -46,19 +46,19 @@ function show_usage() {
 function pre_generation() {
     var dirs = Math.ceil(UL_TEST.num_files / UL_TEST.files_per_dir);
     console.log('Creating directory structure');
-    return promise_utils.exec('mkdir -p ' + UL_TEST.base_dir)
+    return os_utils.exec('mkdir -p ' + UL_TEST.base_dir)
         .then(function() {
-            return promise_utils.exec('rm -rf ' + UL_TEST.base_dir + '/*');
+            return os_utils.exec('rm -rf ' + UL_TEST.base_dir + '/*');
         })
         .then(function() {
             var i = 0;
-            return promise_utils.pwhile(
+            return P.pwhile(
                 function() {
                     return i < dirs;
                 },
                 function() {
                     i += 1;
-                    return promise_utils.exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
+                    return os_utils.exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
                 });
         })
         .catch(function(err) {
@@ -68,7 +68,7 @@ function pre_generation() {
         .then(function() {
             console.log('Generating files (this might take some time) ...');
             var d = 0;
-            return promise_utils.pwhile(
+            return P.pwhile(
                 function() {
                     return d < dirs;
                 },
@@ -79,7 +79,7 @@ function pre_generation() {
                     for (var i = 1; i <= files; ++i) {
                         UL_TEST.files.push(UL_TEST.base_dir + '/dir' + d + '/file_' + i);
                     }
-                    return promise_utils.exec('for i in `seq 1 ' + files + '` ; do' +
+                    return os_utils.exec('for i in `seq 1 ' + files + '` ; do' +
                         ' dd if=/dev/urandom of=' + UL_TEST.base_dir + '/dir' + d +
                         '/file_$i  bs=' + UL_TEST.file_size + 'k count=1 ; done');
                 });
@@ -230,13 +230,13 @@ function main() {
         .then(function() {
             print_summary();
             if (!UL_TEST.skip_cleanup) {
-                return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
+                return os_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }
             console.log('Finished running upload test');
         })
         .catch(function() {
             if (!UL_TEST.skip_cleanup) {
-                return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
+                return os_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }
         });
 }

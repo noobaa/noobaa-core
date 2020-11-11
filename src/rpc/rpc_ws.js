@@ -45,7 +45,7 @@ class RpcWsConnection extends RpcBaseConnection {
         ws.on('message', (fragments, flags) => this.emit('message', fragments));
     }
 
-    _send_node(msg) {
+    async _send_node(msg) {
         const opts = {
             // fin marks the last fragment of the message
             fin: false,
@@ -89,7 +89,7 @@ class RpcWsConnection extends RpcBaseConnection {
         };
     }
 
-    _send_browser(msg) {
+    async _send_browser(msg) {
         const blob = new global.Blob(msg);
         this.ws.send(blob);
     }

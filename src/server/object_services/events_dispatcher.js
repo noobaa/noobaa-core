@@ -1,12 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const server_rpc = require('../server_rpc');
-const P = require('../../util/promise');
 const _ = require('lodash');
-const promise_utils = require('../../util/promise_utils');
-const system_store = require('../system_services/system_store').get_instance();
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const server_rpc = require('../server_rpc');
+const system_store = require('../system_services/system_store').get_instance();
 
 const TRIGGER_ATTEMPTS = 2;
 const DELAY_BETWEEEN_TRIGGER_ATTEMPTS = 5000; // ?
@@ -44,11 +43,11 @@ function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
                 event_name: trigger.event_name,
                 id: trigger._id
             });
-            return promise_utils.retry(
-                TRIGGER_ATTEMPTS,
-                DELAY_BETWEEEN_TRIGGER_ATTEMPTS,
-                () => run_trigger(trigger, event, bucket.system, token)
-            );
+            return P.retry({
+                attempts: TRIGGER_ATTEMPTS,
+                delay_ms: DELAY_BETWEEEN_TRIGGER_ATTEMPTS,
+                func: () => run_trigger(trigger, event, bucket.system, token),
+            });
         }));
 }
 

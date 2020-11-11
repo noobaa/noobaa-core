@@ -48,6 +48,30 @@ class HashWrap extends stream.Transform {
 }
 
 /**
+ * @returns {crypto.Hash}
+ */
+function create_hash_md5_mb() {
+    const { MD5_MB } = nb_native();
+    const wrap = new HashWrap(new MD5_MB());
+    // @ts-ignore
+    return wrap;
+}
+
+/**
+ * @param {string} algorithm 
+ * @param {object} options 
+ * @returns {crypto.Hash}
+ */
+function create_hash_fips(algorithm, options) {
+    switch (algorithm) {
+        case 'md5':
+            return create_hash_md5_mb();
+        default:
+            return original_crypto.createHash(algorithm, options);
+    }
+}
+
+/**
  * @param {Boolean} mode
  */
 function set_fips_mode(mode = detect_fips_mode()) {
@@ -55,15 +79,7 @@ function set_fips_mode(mode = detect_fips_mode()) {
     nb_native().set_fips_mode(mode);
     if (mode) {
         // monkey-patch the crypto.createHash() function to provide a non-crypto md5 flow
-        crypto.createHash = function(algorithm, options) {
-            switch (algorithm) {
-                case 'md5': {
-                    return new HashWrap(new(nb_native().MD5_MB)());
-                }
-                default:
-                    return original_crypto.createHash(algorithm, options);
-            }
-        };
+        crypto.createHash = create_hash_fips;
     } else if (crypto.createHash !== original_crypto.createHash) {
         crypto.createHash = original_crypto.createHash;
     }
@@ -90,7 +106,9 @@ function detect_fips_mode() {
 
 set_fips_mode();
 
+exports.original_crypto = original_crypto;
+exports.create_hash_md5_mb = create_hash_md5_mb;
+exports.create_hash_fips = create_hash_fips;
 exports.get_fips_mode = get_fips_mode;
 exports.set_fips_mode = set_fips_mode;
 exports.detect_fips_mode = detect_fips_mode;
-exports.original_crypto = original_crypto;

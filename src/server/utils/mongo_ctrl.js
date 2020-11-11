@@ -11,7 +11,7 @@ const mongo_client = require('../../util/mongo_client');
 const dotenv = require('../../util/dotenv');
 const dbg = require('../../util/debug_module')(__filename);
 const cutil = require('./clustering_utils');
-const promise_utils = require('../../util/promise_utils');
+const os_utils = require('../../util/os_utils');
 
 const fs = require('fs');
 
@@ -37,7 +37,7 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
     return self._remove_single_mongo_program()
         .then(() => self._add_replica_set_member_program(name, first_server))
         .then(() => SupervisorCtl.apply_changes())
-        .delay(5000) // TODO: find better solution
+        .then(() => P.delay(5000)) // TODO: find better solution
         .then(() => {
             if (first_server) {
                 self._init_replica_set_from_shell(cutil.extract_servers_ip(servers)[0]);
@@ -54,7 +54,7 @@ MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     return self._remove_single_mongo_program()
         .then(() => self._add_new_shard_program(name, first_shard))
         .then(() => SupervisorCtl.apply_changes())
-        .delay(5000); // TODO: find better solution;
+        .then(() => P.delay(5000)); // TODO: find better solution;
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
@@ -62,14 +62,14 @@ MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     return P.resolve()
         .then(() => self._add_new_mongos_program(cfg_array))
         .then(() => SupervisorCtl.apply_changes())
-        .delay(5000); // TODO: find better solution
+        .then(() => P.delay(5000)); // TODO: find better solution
 };
 
 MongoCtrl.prototype.add_new_config = function() {
     let self = this;
     return self._add_new_config_program()
         .then(() => SupervisorCtl.apply_changes())
-        .delay(5000); // TODO: find better solution
+        .then(() => P.delay(5000)); // TODO: find better solution
 };
 
 MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {
@@ -213,7 +213,7 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
     let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}` +
         ` --eval "rs.initiate({_id: 'shard1',members: [{_id: 0,host: '${host}'}]})"`;
     dbg.log0(`init replica set: running command ${mongo_shell_command}`);
-    return promise_utils.exec(mongo_shell_command, {
+    return os_utils.exec(mongo_shell_command, {
         ignore_rc: false,
         return_stdout: false
     });
@@ -230,7 +230,7 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
     // get uid and gid of common path, to set for new dbpath
     let stats;
     try {
-        stats = await fs.statAsync(config.MONGO_DEFAULTS.COMMON_PATH);
+        stats = await fs.promises.stat(config.MONGO_DEFAULTS.COMMON_PATH);
     } catch (err) {
         dbg.error(`could not get stats for ${config.MONGO_DEFAULTS.COMMON_PATH}. mongod uid and gid are unkown`);
     }
@@ -265,7 +265,7 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
         dbg.log0('adding server to an existing cluster. cleaning dbpath:', dbpath);
         await fs_utils.create_fresh_path(dbpath);
         if (stats) {
-            await fs.chownAsync(dbpath, stats.uid, stats.gid);
+            await fs.promises.chown(dbpath, stats.uid, stats.gid);
         }
         await SupervisorCtl.add_program(program_obj);
     }
@@ -334,7 +334,7 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
         ` --eval "var host='${host}', user='${process.env.MONGO_SSL_USER}'"` +
         ' /root/node_modules/noobaa-core/src/deploy/NVA_build/mongo_init_rs.js';
     dbg.log0(`running command ${mongo_shell_command}`);
-    return promise_utils.exec(mongo_shell_command, {
+    return os_utils.exec(mongo_shell_command, {
         ignore_rc: false,
         return_stdout: false
     });

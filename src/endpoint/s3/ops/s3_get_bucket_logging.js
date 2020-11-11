@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlogging.html
  */
-function get_bucket_logging(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            BucketLoggingStatus: ''
-        }));
+async function get_bucket_logging(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        BucketLoggingStatus: ''
+    };
 }
 
 module.exports = {

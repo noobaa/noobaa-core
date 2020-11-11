@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 
-const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
@@ -23,12 +22,15 @@ const RPC_ERRORS_TO_LAMBDA = Object.freeze({
 
 const LAMBDA_OPS = load_ops();
 
-function lambda_rest(req, res) {
-    return P.try(() => handle_request(req, res))
-        .catch(err => handle_error(req, res, err));
+async function lambda_rest(req, res) {
+    try {
+        await handle_request(req, res);
+    } catch (err) {
+        handle_error(req, res, err);
+    }
 }
 
-function handle_request(req, res) {
+async function handle_request(req, res) {
     // fill up standard amz response headers
     res.setHeader('x-amz-request-id', req.request_id);
     res.setHeader('x-amz-id-2', req.request_id);
@@ -77,10 +79,9 @@ function handle_request(req, res) {
         error_body_sha256_mismatch: LambdaError.XAmzContentSHA256Mismatch,
     };
 
-    return P.resolve()
-        .then(() => http_utils.read_and_parse_body(req, options))
-        .then(() => op.handler(req, res))
-        .then(reply => http_utils.send_reply(req, res, reply, options));
+    await http_utils.read_and_parse_body(req, options);
+    const reply = await op.handler(req, res);
+    http_utils.send_reply(req, res, reply, options);
 }
 
 function check_headers(req) {
@@ -190,82 +191,15 @@ function handle_error(req, res, err) {
 }
 
 function load_ops() {
-    const r = x => require(x); // eslint-disable-line global-require
+    /* eslint-disable global-require */
     return js_utils.deep_freeze({
-        get_service: r('./ops/lambda_list_funcs'),
-        get_func: r('./ops/lambda_get_func'),
-        delete_func: r('./ops/lambda_delete_func'),
-        post_service: r('./ops/lambda_create_func'),
-        post_func_invocations: r('./ops/lambda_invoke_func'),
+        get_service: require('./ops/lambda_list_funcs'),
+        get_func: require('./ops/lambda_get_func'),
+        delete_func: require('./ops/lambda_delete_func'),
+        post_service: require('./ops/lambda_create_func'),
+        post_func_invocations: require('./ops/lambda_invoke_func'),
     });
 }
 
 // EXPORTS
 module.exports = lambda_rest;
-
-
-/*
-
-function lambda_call(action_name, req, res, next) {
-    dbg.log0('LAMBDA REQUEST', action_name, req.method, req.originalUrl, req.headers);
-    let action = controller[action_name];
-    if (!action) {
-        dbg.error('LAMBDA TODO (NotImplemented)', action_name, req.method, req.originalUrl);
-        next(new Error('NotImplemented'));
-        return;
-    }
-    P.fcall(() => action.call(controller, req, res))
-        .then(reply => {
-            dbg.log1('LAMBDA REPLY', action_name, req.method, req.originalUrl, reply);
-            if (!res.statusCode) {
-                if (req.method === 'POST') {
-                    // HTTP Created is the common reply to POST method
-                    // BUT some APIs might require 200 or 202
-                    res.statusCode = 201;
-                } else if (req.method === 'DELETE') {
-                    // HTTP No Content is the common reply to DELETE method
-                    // BUT some APIs might require 200 or 202
-                    res.statusCode = 204;
-                } else {
-                    // HTTP OK for GET, PUT, HEAD, OPTIONS
-                    res.statusCode = 200;
-                }
-            }
-            if (reply) {
-                dbg.log0('LAMBDA REPLY', action_name, req.method, req.originalUrl,
-                    JSON.stringify(req.headers), reply);
-                res.send(reply);
-            } else {
-                dbg.log0('LAMBDA EMPTY REPLY', action_name, req.method, req.originalUrl,
-                    JSON.stringify(req.headers));
-                res.end();
-            }
-        })
-        .catch(err => next(err));
-}
-
-function read_json_body(req, res, next) {
-    let data = '';
-    req.setEncoding('utf8');
-    req.on('data', function(chunk) {
-        data += chunk;
-    });
-    req.on('end', function() {
-        try {
-            if (data) {
-                req.body = JSON.parse(data);
-            }
-            const content_sha256_hex = req.headers['x-amz-content-sha256'];
-            req.content_sha256 =
-                content_sha256_hex ? Buffer.from(content_sha256_hex, 'hex') :
-                (crypto.createHash('sha256')
-                    .update(data)
-                    .digest());
-            return next();
-        } catch (err) {
-            return next(err);
-        }
-    });
-}
-
-*/

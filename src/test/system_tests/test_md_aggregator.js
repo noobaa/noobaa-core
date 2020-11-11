@@ -1,15 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
-"use strict";
-const basic_server_ops = require('../utils/basic_server_ops');
-const P = require('../../util/promise');
-const promise_utils = require('../../util/promise_utils');
-const api = require('../../api');
-const request = require('request');
+'use strict';
+
 const _ = require('lodash');
-const argv = require('minimist')(process.argv);
-const dotenv = require('../../util/dotenv');
 const util = require('util');
+const argv = require('minimist')(process.argv);
+const request = require('request');
+
+const dotenv = require('../../util/dotenv');
 dotenv.load();
+
+const P = require('../../util/promise');
+const api = require('../../api');
+const os_utils = require('../../util/os_utils');
+const basic_server_ops = require('../utils/basic_server_ops');
 
 const SERVICES_WAIT_IN_SECONDS = 30;
 //This was implemented to work on local servers only
@@ -23,9 +26,6 @@ var client = rpc.new_client({
     address: 'ws://' + argv.ip + ':' + process.env.PORT
 });
 
-module.exports = {
-    run_test: run_test
-};
 
 // Does the Auth and returns the nodes in the system
 function create_auth() {
@@ -45,7 +45,7 @@ function create_auth() {
 // Services is an array of strings for each service or ['all']
 // Command: stop, start, restart
 function control_services(command, services) {
-    return promise_utils.exec(`supervisorctl ${command} ${(services || []).join(' ')}`, {
+    return os_utils.exec(`supervisorctl ${command} ${(services || []).join(' ')}`, {
             ignore_rc: false,
             return_stdout: true
         })
@@ -94,52 +94,42 @@ function upload_file_to_bucket(bucket_name) {
         });
 }
 
-function prepare_buckets_with_objects() {
+async function prepare_buckets_with_objects() {
     const CYCLES_TO_TEST = 2;
-    let buckets_used = [];
+    const buckets_used = [];
 
-    return promise_utils.loop(CYCLES_TO_TEST, cycle => {
-            let current_fkey;
-            const cycle_bucket_name = `slothaggregator${cycle}`;
-
-            //TODO:: used to update system time by milli cycke_jump * FIVE_MINUTES_IN_MILLI
-            return P.resolve()
-                .then(() => create_bucket(cycle_bucket_name))
-                .then(() => upload_file_to_bucket(cycle_bucket_name))
-                .then(fkey => {
-                    current_fkey = fkey;
-                })
-                .then(() => P.each(buckets_used, function(bucket_obj) {
-                    return upload_file_to_bucket(bucket_obj.bucket_name)
-                        .then(fkey => {
-                            let bucket_f = buckets_used.find(function(b_obj) {
-                                return String(b_obj.bucket_name) === String(bucket_obj.bucket_name);
-                            });
-                            bucket_f.file_names.push(fkey);
-                        });
-                }))
-                .then(() => {
-                    buckets_used.push({
-                        bucket_name: cycle_bucket_name,
-                        file_names: [current_fkey]
-                    });
-                });
-        })
-        .then(() => control_services('restart', ['all']))
-        .then(() => wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS))
-        .then(() => buckets_used);
+    for (let cycle = 0; cycle < CYCLES_TO_TEST; ++cycle) {
+        const cycle_bucket_name = `slothaggregator${cycle}`;
+        //TODO:: used to update system time by milli cycke_jump * FIVE_MINUTES_IN_MILLI
+        await create_bucket(cycle_bucket_name);
+        const current_fkey = await upload_file_to_bucket(cycle_bucket_name);
+        await Promise.all(buckets_used.map(async bucket_obj => {
+            const fkey = await upload_file_to_bucket(bucket_obj.bucket_name);
+            const bucket_f = buckets_used.find(
+                b => String(b.bucket_name) === String(bucket_obj.bucket_name)
+            );
+            bucket_f.file_names.push(fkey);
+        }));
+        buckets_used.push({
+            bucket_name: cycle_bucket_name,
+            file_names: [current_fkey]
+        });
+    }
+    await control_services('restart', ['all']);
+    await wait_for_s3_and_web(SERVICES_WAIT_IN_SECONDS);
+    return buckets_used;
 }
 
 function calculate_expected_storage_stats_for_buckets(buckets_array, storage_read_by_bucket) {
     console.log('calculate_expected_storage_stats_for_buckets started');
-    return P.each(buckets_array, bucket => {
+    return P.map_one_by_one(buckets_array, bucket => {
         let current_bucket_storage = {
             chunks_capacity: 0,
             objects_size: 0,
             blocks_size: 0
         };
 
-        return P.each(bucket.file_names, function(file_name) {
+        return P.map_one_by_one(bucket.file_names, function(file_name) {
                 return client.object.read_object_mapping_admin({
                         bucket: bucket.bucket_name,
                         key: file_name,
@@ -178,7 +168,7 @@ function run_test() {
             console.log('Waiting for calculations', buckets);
             test_buckets = buckets;
         })
-        .delay(5 * 60 * 1000)
+        .then(() => P.delay(5 * 60 * 1000))
         .then(() => client.system.read_system({}))
         .then(sys_res => {
             let storage_by_bucket = {};
@@ -239,12 +229,12 @@ function wait_for_mongodb_to_start(max_seconds_to_wait) {
     //wait up to 10 seconds
     console.log('waiting for mongodb to start (1)');
 
-    return promise_utils.pwhile(
+    return P.pwhile(
             function() {
                 return isNotListening;
             },
             function() {
-                return promise_utils.exec('supervisorctl status mongo_wrapper', {
+                return os_utils.exec('supervisorctl status mongo_wrapper', {
                         ignore_rc: false,
                         return_stdout: true
                     })
@@ -278,7 +268,7 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
     //wait up to 10 seconds
     console.log('waiting for server to start (1)');
 
-    return promise_utils.pwhile(
+    return P.pwhile(
             function() {
                 return isNotListening;
             },
@@ -305,3 +295,5 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
             // do nothing. 
         });
 }
+
+exports.run_test = run_test;

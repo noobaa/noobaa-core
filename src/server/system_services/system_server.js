@@ -35,7 +35,6 @@ const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
-const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const cluster_server = require('./cluster_server');
@@ -74,7 +73,7 @@ async function _init() {
 
     while (!update_done) {
         try {
-            await promise_utils.delay_unblocking(DEFAULT_DELAY);
+            await P.delay_unblocking(DEFAULT_DELAY);
             if (system_store.is_finished_initial_load && system_store.data.systems.length) {
                 const [system] = system_store.data.systems;
 
@@ -398,8 +397,9 @@ async function create_system(req) {
         if (system_id) {
             // Mark the system as not initialized
             await _update_system_state(system_id, 'COULD_NOT_INITIALIZE');
-            throw err;
         }
+
+        throw err;
     }
 }
 
@@ -478,9 +478,20 @@ async function _configure_system_address(system_id, account_id) {
  * READ_SYSTEM
  *
  */
-function read_system(req) {
+async function read_system(req) {
     const system = req.system;
-    return P.props({
+    const {
+        nodes_aggregate_pool_no_cloud_and_mongo,
+        nodes_aggregate_pool_with_cloud_and_mongo,
+        nodes_aggregate_pool_with_cloud_no_mongo,
+        hosts_aggregate_pool,
+        accounts,
+        undeletable_buckets,
+        rs_status,
+        funcs,
+        buckets_stats,
+        endpoint_groups
+    } = await P.map_props({
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_aggregate_pool_no_cloud_and_mongo: nodes_client.instance()
             .aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true, /*skip_mongo_nodes=*/ true),
@@ -523,157 +534,146 @@ function read_system(req) {
         buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id }),
         endpoint_groups: _get_endpoint_groups()
 
-    }).then(({
-        nodes_aggregate_pool_no_cloud_and_mongo,
-        nodes_aggregate_pool_with_cloud_and_mongo,
-        nodes_aggregate_pool_with_cloud_no_mongo,
-        hosts_aggregate_pool,
-        accounts,
-        undeletable_buckets,
-        rs_status,
-        funcs,
-        buckets_stats,
-        endpoint_groups
-    }) => {
-        const cluster_info = cutil.get_cluster_info(rs_status);
-        const objects_sys = {
-            count: size_utils.BigInteger.zero,
-            size: size_utils.BigInteger.zero,
-        };
-        _.forEach(system_store.data.buckets, bucket => {
-            if (String(bucket.system._id) !== String(system._id)) return;
-            objects_sys.size = objects_sys.size.plus(
-                (bucket.storage_stats && bucket.storage_stats.objects_size) || 0
-            );
-            objects_sys.count = objects_sys.count.plus(
-                (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
-            );
-        });
-        const ip_address = ip_module.address();
-        const n2n_config = system.n2n_config;
-        const debug_time = system.debug_mode ?
-            Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - system.debug_mode)) :
-            undefined;
-
-        const debug = _.omitBy({
-            level: system.debug_level,
-            time_left: debug_time
-        }, _.isUndefined);
-
-        const maintenance_mode = {
-            state: system_utils.system_in_maintenance(system._id)
-        };
-        if (maintenance_mode.state) {
-            const now = Date.now();
-            maintenance_mode.time_left = Math.max(0, system.maintenance_mode - now);
-        }
-
-        let phone_home_config = {};
-        if (system.freemium_cap.phone_home_unable_comm) {
-            phone_home_config.phone_home_unable_comm = true;
-        }
-
-        let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
-
-        // TODO use n2n_config.stun_servers ?
-        // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
-        // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
-        // n2n_config.stun_servers = n2n_config.stun_servers || [];
-        // if (!_.includes(n2n_config.stun_servers, stun_address)) {
-        //     n2n_config.stun_servers.unshift(stun_address);
-        //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
-        // }
-
-        let last_upgrade = system.upgrade_history.successful_upgrades[0] && {
-            timestamp: system.upgrade_history.successful_upgrades[0].timestamp
-        };
-
-        const stats_by_bucket = _.keyBy(buckets_stats, stats => _.get(system_store.data.get_by_id(stats._id), 'name'));
-
-        const base_address = addr_utils.get_base_address(system.system_address);
-        const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
-        const tiering_status_by_tier = {};
-        const undeletable_bucket_set = new Set(undeletable_buckets);
-
-        return {
-            name: system.name,
-            objects: objects_sys.count.toJSNumber(),
-            roles: _.map(system.roles_by_account, function(roles, account_id) {
-                var account = system_store.data.get_by_id(account_id);
-                if (!account) return;
-                return {
-                    roles: roles,
-                    account: _.pick(account, 'name', 'email')
-                };
-            }).filter(account => !_.isUndefined),
-            buckets: _.filter(system.buckets_by_name, bucket => _.isUndefined(bucket.deleting)).map(
-                bucket => {
-                    const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
-                    Object.assign(tiering_status_by_tier, tiering_pools_status);
-                    const func_configs = funcs.map(func => func.config);
-                    let b = bucket_server.get_bucket_info({
-                        bucket,
-                        nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
-                        hosts_aggregate_pool,
-                        func_configs,
-                        bucket_stats: stats_by_bucket[bucket.name],
-                    });
-                    const bucket_name = bucket.name.unwrap();
-                    if (undeletable_bucket_set.has(bucket_name)) {
-                        b.undeletable = 'NOT_EMPTY';
-                    }
-                    return b;
-                }),
-            namespace_resources: _.map(system.namespace_resources_by_name,
-                ns => pool_server.get_namespace_resource_info(ns)),
-            pools: _.filter(system.pools_by_name,
-                    pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
-                .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),
-            tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier,
-                    nodes_aggregate_pool_with_cloud_and_mongo,
-                    tiering_status_by_tier[String(tier._id)])),
-            accounts: accounts,
-            functions: funcs,
-            storage: size_utils.to_bigint_storage(_.defaults({
-                used: objects_sys.size,
-            }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS)),
-            nodes_storage: size_utils.to_bigint_storage(_.defaults({
-                used: objects_sys.size,
-            }, nodes_aggregate_pool_no_cloud_and_mongo.storage, SYS_STORAGE_DEFAULTS)),
-            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud_and_mongo.nodes, SYS_NODES_INFO_DEFAULTS),
-            hosts: _.omit(_.defaults({}, hosts_aggregate_pool.nodes, SYS_NODES_INFO_DEFAULTS), 'storage_count'),
-            owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
-            last_stats_report: system.last_stats_report || 0,
-            maintenance_mode: maintenance_mode,
-            ssl_port: process.env.SSL_PORT,
-            n2n_config: n2n_config,
-            ip_address: ip_address,
-            dns_name: dns_name,
-            base_address: base_address.toString(),
-            phone_home_config: phone_home_config,
-            version: pkg.version,
-            node_version: process.version,
-            debug: debug,
-            system_cap: system_cap,
-            has_ssl_cert: !ssl_utils.is_using_generated_certs(),
-            cluster: cluster_info,
-            upgrade: { last_upgrade },
-            defaults: {
-                tiers: {
-                    data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
-                    parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
-                    replicas: config.CHUNK_CODER_REPLICAS,
-                    failure_tolerance_threshold: config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD
-                }
-            },
-            platform_restrictions: restrict[process.env.PLATFORM || 'dev'], // dev will be default for now
-            s3_service: {
-                addresses: _list_s3_addresses(system)
-            },
-            endpoint_groups
-        };
     });
+
+    const cluster_info = cutil.get_cluster_info(rs_status);
+    const objects_sys = {
+        count: size_utils.BigInteger.zero,
+        size: size_utils.BigInteger.zero,
+    };
+    _.forEach(system_store.data.buckets, bucket => {
+        if (String(bucket.system._id) !== String(system._id)) return;
+        objects_sys.size = objects_sys.size.plus(
+            (bucket.storage_stats && bucket.storage_stats.objects_size) || 0
+        );
+        objects_sys.count = objects_sys.count.plus(
+            (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
+        );
+    });
+    const ip_address = ip_module.address();
+    const n2n_config = system.n2n_config;
+    const debug_time = system.debug_mode ?
+        Math.max(0, config.DEBUG_MODE_PERIOD - (Date.now() - system.debug_mode)) :
+        undefined;
+
+    const debug = _.omitBy({
+        level: system.debug_level,
+        time_left: debug_time
+    }, _.isUndefined);
+
+    const maintenance_mode = {
+        state: system_utils.system_in_maintenance(system._id)
+    };
+    if (maintenance_mode.state) {
+        const now = Date.now();
+        maintenance_mode.time_left = Math.max(0, system.maintenance_mode - now);
+    }
+
+    let phone_home_config = {};
+    if (system.freemium_cap.phone_home_unable_comm) {
+        phone_home_config.phone_home_unable_comm = true;
+    }
+
+    let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
+
+    // TODO use n2n_config.stun_servers ?
+    // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
+    // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
+    // n2n_config.stun_servers = n2n_config.stun_servers || [];
+    // if (!_.includes(n2n_config.stun_servers, stun_address)) {
+    //     n2n_config.stun_servers.unshift(stun_address);
+    //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
+    // }
+
+    let last_upgrade = system.upgrade_history.successful_upgrades[0] && {
+        timestamp: system.upgrade_history.successful_upgrades[0].timestamp
+    };
+
+    const stats_by_bucket = _.keyBy(buckets_stats, stats => _.get(system_store.data.get_by_id(stats._id), 'name'));
+
+    const base_address = addr_utils.get_base_address(system.system_address);
+    const dns_name = net.isIP(base_address.hostname) === 0 ? base_address.hostname : undefined;
+    const tiering_status_by_tier = {};
+    const undeletable_bucket_set = new Set(undeletable_buckets);
+
+    return {
+        name: system.name,
+        objects: objects_sys.count.toJSNumber(),
+        roles: _.map(system.roles_by_account, function(roles, account_id) {
+            var account = system_store.data.get_by_id(account_id);
+            if (!account) return;
+            return {
+                roles: roles,
+                account: _.pick(account, 'name', 'email')
+            };
+        }).filter(account => !_.isUndefined),
+        buckets: _.filter(system.buckets_by_name, bucket => _.isUndefined(bucket.deleting)).map(
+            bucket => {
+                const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
+                Object.assign(tiering_status_by_tier, tiering_pools_status);
+                const func_configs = funcs.map(func => func.config);
+                let b = bucket_server.get_bucket_info({
+                    bucket,
+                    nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
+                    hosts_aggregate_pool,
+                    func_configs,
+                    bucket_stats: stats_by_bucket[bucket.name],
+                });
+                const bucket_name = bucket.name.unwrap();
+                if (undeletable_bucket_set.has(bucket_name)) {
+                    b.undeletable = 'NOT_EMPTY';
+                }
+                return b;
+            }),
+        namespace_resources: _.map(system.namespace_resources_by_name,
+            ns => pool_server.get_namespace_resource_info(ns)),
+        pools: _.filter(system.pools_by_name,
+                pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
+            .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),
+        tiers: _.map(system.tiers_by_name,
+            tier => tier_server.get_tier_info(tier,
+                nodes_aggregate_pool_with_cloud_and_mongo,
+                tiering_status_by_tier[String(tier._id)])),
+        accounts: accounts,
+        functions: funcs,
+        storage: size_utils.to_bigint_storage(_.defaults({
+            used: objects_sys.size,
+        }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS)),
+        nodes_storage: size_utils.to_bigint_storage(_.defaults({
+            used: objects_sys.size,
+        }, nodes_aggregate_pool_no_cloud_and_mongo.storage, SYS_STORAGE_DEFAULTS)),
+        nodes: _.defaults({}, nodes_aggregate_pool_no_cloud_and_mongo.nodes, SYS_NODES_INFO_DEFAULTS),
+        hosts: _.omit(_.defaults({}, hosts_aggregate_pool.nodes, SYS_NODES_INFO_DEFAULTS), 'storage_count'),
+        owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+        last_stats_report: system.last_stats_report || 0,
+        maintenance_mode: maintenance_mode,
+        ssl_port: process.env.SSL_PORT,
+        n2n_config: n2n_config,
+        ip_address: ip_address,
+        dns_name: dns_name,
+        base_address: base_address.toString(),
+        phone_home_config: phone_home_config,
+        version: pkg.version,
+        node_version: process.version,
+        debug: debug,
+        system_cap: system_cap,
+        has_ssl_cert: !ssl_utils.is_using_generated_certs(),
+        cluster: cluster_info,
+        upgrade: { last_upgrade },
+        defaults: {
+            tiers: {
+                data_frags: config.CHUNK_CODER_EC_DATA_FRAGS,
+                parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
+                replicas: config.CHUNK_CODER_REPLICAS,
+                failure_tolerance_threshold: config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD
+            }
+        },
+        platform_restrictions: restrict[process.env.PLATFORM || 'dev'], // dev will be default for now
+        s3_service: {
+            addresses: _list_s3_addresses(system)
+        },
+        endpoint_groups
+    };
 }
 
 function update_system(req) {
@@ -870,78 +870,75 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-function attempt_server_resolve(req) {
-    let result;
-    //If already in IP form, no need for resolving
+async function attempt_server_resolve(req) {
+
+    // If already in IP form, no need for resolving
     if (net.isIP(req.rpc_params.server_name)) {
         dbg.log2('attempt_server_resolve received an IP form', req.rpc_params.server_name);
-        return P.resolve({ valid: true });
+        return { valid: true };
     }
 
-    dbg.log0('attempt_server_resolve', req.rpc_params.server_name);
-    return P.promisify(dns.resolve)(req.rpc_params.server_name)
-        .timeout(30000)
-        .then(() => {
-            dbg.log0('resolution passed, testing ping');
-            if (req.rpc_params.ping) {
-                return net_utils.ping(req.rpc_params.server_name)
-                    .catch(err => {
-                        dbg.error('ping failed', err);
-                        result = {
-                            valid: false,
-                            reason: err.code
-                        };
-                    });
-            }
-        })
-        .then(() => {
-            dbg.log0('resolution passed, testing version');
-            if (req.rpc_params.version_check && !result) {
-                let options = {
-                    url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
-                    method: 'GET',
-                    strictSSL: false, // means rejectUnauthorized: false
+    try {
+        dbg.log0('attempt_server_resolve: testing dns resolve', req.rpc_params.server_name);
+        await P.timeout(30000, dns.promises.resolve(req.rpc_params.server_name));
+        dbg.log0('attempt_server_resolve: dns resolve OK');
+    } catch (err) {
+        if (err instanceof P.TimeoutError) {
+            dbg.error('attempt_server_resolve: dns resolve timeout', req.rpc_params.server_name);
+            return { valid: false, reason: 'TimeoutError' };
+        } else {
+            dbg.error('attempt_server_resolve: dns resolve failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    if (req.rpc_params.ping) {
+        try {
+            dbg.log0('attempt_server_resolve: testing ping', req.rpc_params.server_name);
+            await net_utils.ping(req.rpc_params.server_name);
+            dbg.error('attempt_server_resolve: ping OK');
+        } catch (err) {
+            dbg.error('attempt_server_resolve: ping failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    if (req.rpc_params.version_check) {
+        try {
+            const options = {
+                url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
+                method: 'GET',
+                strictSSL: false, // means rejectUnauthorized: false
+            };
+
+            dbg.log0('attempt_server_resolve: testing version', options);
+            /** @type {request.Response} */
+            const res = await P.fromCallback(callback => request(options, callback));
+            dbg.log0('attempt_server_resolve: version response', res.statusCode, res.body);
+
+            if (res.statusCode !== 200) {
+                dbg.error('attempt_server_resolve: version failed', res.statusCode);
+                return {
+                    valid: false,
+                    reason: `Provided DNS Name doesn't seem to point to the current server (bad status)`
                 };
-                dbg.log0('Sending Get Version Request To DNS Name:', options);
-                return P.fromCallback(callback => request(options, callback), {
-                        multiArgs: true
-                    })
-                    .then(([response, reply]) => {
-                        dbg.log0('Received Response From DNS Name', response.statusCode);
-                        if (response.statusCode !== 200 || String(reply) !== pkg.version) {
-                            dbg.error('version failed');
-                            result = {
-                                valid: false,
-                                reason: `Provided DNS Name doesn't seem to point to the current server`
-                            };
-                        }
-                    })
-                    .catch(err => {
-                        dbg.error('version failed', err);
-                        result = {
-                            valid: false,
-                            reason: err.code
-                        };
-                    });
             }
-        })
-        .then(() => (result ? result : {
-            valid: true
-        }))
-        .catch(P.TimeoutError, () => {
-            dbg.error('resolve timedout');
-            return {
-                valid: false,
-                reason: 'TimeoutError'
-            };
-        })
-        .catch(err => {
-            dbg.error('resolve failed', err);
-            return {
-                valid: false,
-                reason: err.code
-            };
-        });
+
+            if (res.body !== pkg.version) {
+                dbg.error('attempt_server_resolve: version mismatch', res.statusCode);
+                return {
+                    valid: false,
+                    reason: `Provided DNS Name doesn't seem to point to the current server (version mismatch)`
+                };
+            }
+
+        } catch (err) {
+            dbg.error('attempt_server_resolve: version failed', err);
+            return { valid: false, reason: err.code };
+        }
+    }
+
+    return { valid: true };
 }
 
 

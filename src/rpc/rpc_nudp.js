@@ -37,7 +37,7 @@ class RpcNudpConnection extends RpcBaseConnection {
         }
     }
 
-    _send(msg) {
+    async _send(msg) {
         return P.ninvoke(this.nudp, 'send', msg);
     }
 

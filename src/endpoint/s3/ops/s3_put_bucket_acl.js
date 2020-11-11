@@ -4,12 +4,10 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTacl.html
  */
-function put_bucket_acl(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 put_bucket_acl not implemented
-            // we do not throw here and just ignore since it is common for applications to call this api
-        });
+async function put_bucket_acl(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    // TODO S3 put_bucket_acl not implemented
+    // we do not throw here and just ignore since it is common for applications to call this api
 }
 
 module.exports = {

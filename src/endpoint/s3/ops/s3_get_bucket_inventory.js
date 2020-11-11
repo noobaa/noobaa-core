@@ -4,11 +4,11 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html
  */
-function get_bucket_inventory(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => ({
-            InventoryConfiguration: ''
-        }));
+async function get_bucket_inventory(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    return {
+        InventoryConfiguration: ''
+    };
 }
 
 module.exports = {

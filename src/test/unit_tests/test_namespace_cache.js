@@ -2,11 +2,11 @@
 'use strict';
 
 const _ = require('lodash');
-const P = require('../../util/promise');
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
-const promise_utils = require('../../util/promise_utils');
+
+const P = require('../../util/promise');
 const metric_utils = require('../utils/metrics');
 const { RpcError } = require('../../rpc');
 const buffer_utils = require('../../util/buffer_utils');
@@ -381,7 +381,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
         assert(ret.etag === etag);
         const hub_obj_create_time = recorder.get_event('hub', bucket, key, EVENT_CREATE_OBJ_MD);
         assert(!_.isUndefined(hub_obj_create_time));
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj_create_time = recorder.get_event('cache', bucket, key, EVENT_CREATE_OBJ_MD);
             return !_.isUndefined(cache_obj_create_time);
         }, 5000);
@@ -453,7 +453,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
         const size = 8;
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size, ttl_ms, object_sdk });
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj_create_time = recorder.get_event('cache', obj.bucket, obj.key, EVENT_CREATE_OBJ_MD);
             return !_.isUndefined(cache_obj_create_time);
         }, 2000, 100);
@@ -596,7 +596,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         });
         params.object_md = await ns_cache.read_object_md(params, object_sdk);
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const _obj = cache.get_obj(obj.bucket, obj.key);
             return _obj.cache_last_valid_time > old_cache_last_valid_time;
         }, 2000, 100);
@@ -636,7 +636,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         const read_etag = crypto.createHash('md5').update(read_buf).digest('hex');
         assert(read_etag === hub_obj.etag);
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const _obj = cache.get_obj(cache_obj_md.bucket, cache_obj_md.key);
             return _obj.cache_last_valid_time > old_cache_last_valid_time && _obj.etag === hub_obj_md.etag;
         }, 2000, 100);
@@ -699,7 +699,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         const read_etag = crypto.createHash('md5').update(params.object_md.first_range_data).digest('hex');
         assert(read_etag === obj.etag);
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             try {
                 const cache_obj = cache.get_obj(obj.bucket, obj.key);
                 return cache_obj.etag === obj.etag;
@@ -856,7 +856,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
 
         const hub_obj_create_time = recorder.get_event('hub', obj.bucket, obj.key, EVENT_CREATE_OBJ_MD);
         assert(!_.isUndefined(hub_obj_create_time));
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
             return !_.isUndefined(cache_obj) && cache_obj.num_parts === 1 && cache_obj.upload_size === block_size;
         }, 2000, 100);
@@ -886,7 +886,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         expect_etag = crypto.createHash('md5').update(obj.buf.slice(start, end)).digest('hex');
         assert(read_etag === expect_etag);
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
             return (cache_obj.num_parts === 2) && (cache_obj.upload_size === block_size * 3);
         }, 2000, 100);
@@ -979,7 +979,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         params.object_md = object_md;
         await ns_cache.read_object_stream(params, object_sdk);
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
             return (cache_obj.num_parts === 1) && (cache_obj.upload_size === block_size);
         }, 2000, 100);
@@ -1057,7 +1057,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
         const { obj } = await create_namespace_cache_and_read_obj({
             recorder, size, ttl_ms, object_sdk, start, end });
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             try {
                 const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
                 return !_.isUndefined(cache_obj) && cache_obj.num_parts === 0;
@@ -1101,7 +1101,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             object_sdk: object_sdk,
             start, end,
         });
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             try {
                 const cache_obj = recorder.get_obj('cache', obj.bucket, obj.key);
                 return !_.isUndefined(cache_obj);
@@ -1149,7 +1149,7 @@ mocha.describe('namespace caching: delete scenario', () => {
     mocha.it('delete object from both cache and hub', async () => {
         const { ns_cache, obj } = await create_namespace_cache_and_read_obj({ recorder, size: 8, ttl_ms, object_sdk });
 
-        await promise_utils.wait_until(() => {
+        await P.wait_until(() => {
             const cache_obj_create_time = recorder.get_event('cache', obj.bucket, obj.key, EVENT_CREATE_OBJ_MD);
             return !_.isUndefined(cache_obj_create_time);
         }, 2000, 100);

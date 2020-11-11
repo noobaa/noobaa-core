@@ -8,14 +8,14 @@ const nb_native = require('../../util/nb_native');
 
 mocha.describe('nb_native hashes', function() {
     function md5(input) {
-        const MD5 = new(nb_native().MD5_MB)();
+        const MD5 = new (nb_native().MD5_MB)();
         const native_md5 = MD5.update(Buffer.from(input)).digest().toString('hex');
         const crypto_md5 = crypto.createHash('md5').update(input).digest('hex');
         assert.strictEqual(native_md5, crypto_md5);
     }
 
     function sha1(input) {
-        const SHA1 = new(nb_native().SHA1_MB)();
+        const SHA1 = new (nb_native().SHA1_MB)();
         const native_sha1 = SHA1.update(Buffer.from(input)).digest().toString('hex');
         const crypto_sha1 = crypto.createHash('sha1').update(input).digest('hex');
         assert.strictEqual(native_sha1, crypto_sha1);

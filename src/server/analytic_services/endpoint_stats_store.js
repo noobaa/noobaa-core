@@ -134,7 +134,7 @@ class EndpointStatsStore {
         const start_time = Math.floor(report.timestamp / ENDPOINT_MONITOR_INTERVAL) * ENDPOINT_MONITOR_INTERVAL;
         const end_time = start_time + ENDPOINT_MONITOR_INTERVAL - 1;
 
-        await P.map(report.bandwidth, async record => {
+        await P.map_with_concurrency(10, report.bandwidth, async record => {
             const selector = {
                 start_time,
                 end_time,
@@ -160,8 +160,6 @@ class EndpointStatsStore {
                 .findOneAndUpdate(selector, update, options);
 
             this._bandwidth_reports.validate(res.value, 'warn');
-        }, {
-            concurrency: 10
         });
     }
 

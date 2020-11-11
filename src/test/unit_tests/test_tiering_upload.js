@@ -24,7 +24,7 @@ object_io.set_verification_mode();
 
 const seed = crypto.randomBytes(16);
 const generator = crypto.createCipheriv('aes-128-gcm', seed, Buffer.alloc(12));
-const core_agent_control = require('./core_agent_control');
+const core_agent_control = {}; // TODO require('./core_agent_control');
 const node_server = require('../../server/node_services/node_server');
 
 mocha.describe('tiering upload', function() {

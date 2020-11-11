@@ -12,14 +12,18 @@ const blob_translator = require('./blob_translator');
 const stats_collector = require('./endpoint_stats_collector');
 const config = require('../../config');
 
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceS3 {
+
 
     constructor({ namespace_resource_id, rpc_client, s3_params }) {
         this.namespace_resource_id = namespace_resource_id;
         this.access_key = s3_params.accessKeyId;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
-        this.bucket = this.s3.config.params.Bucket;
+        this.bucket = String(this.s3.config.params.Bucket);
         this.rpc_client = rpc_client;
     }
 
@@ -46,6 +50,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params));
 
         const res = await this.s3.listObjects({
+            Bucket: this.bucket,
             Prefix: params.prefix,
             Delimiter: params.delimiter,
             Marker: params.key_marker,
@@ -67,6 +72,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params));
 
         const res = await this.s3.listMultipartUploads({
+            Bucket: this.bucket,
             Prefix: params.prefix,
             Delimiter: params.delimiter,
             KeyMarker: params.key_marker,
@@ -81,7 +87,7 @@ class NamespaceS3 {
             objects: _.map(res.Uploads, obj => this._get_s3_object_info(obj, params.bucket)),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
-            next_marker: res.NextMarker,
+            next_marker: res.NextKeyMarker,
             next_upload_id_marker: res.UploadIdMarker,
         };
     }
@@ -90,6 +96,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.list_object_versions:', this.bucket, inspect(params));
 
         const res = await this.s3.listObjectVersions({
+            Bucket: this.bucket,
             Prefix: params.prefix,
             Delimiter: params.delimiter,
             KeyMarker: params.key_marker,
@@ -108,7 +115,7 @@ class NamespaceS3 {
             ),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
-            next_marker: res.NextMarker,
+            next_marker: res.NextKeyMarker,
             next_version_id_marker: res.NextVersionIdMarker,
         };
     }
@@ -134,7 +141,11 @@ class NamespaceS3 {
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
-            const request = { Key: params.key, PartNumber: params.part_number };
+            const request = {
+                Bucket: this.bucket,
+                Key: params.key,
+                PartNumber: params.part_number,
+            };
             // If set, part_number is positive integer from 1 to 10000.
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
@@ -170,6 +181,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         return new Promise((resolve, reject) => {
             const request = {
+                Bucket: this.bucket,
                 Key: params.key,
                 Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
                 PartNumber: params.part_number,
@@ -203,7 +215,8 @@ class NamespaceS3 {
                         // clear count for next updates
                         count = 0;
                     });
-                    const read_stream = res.httpResponse.createUnbufferedStream();
+                    const read_stream = /** @type {import('stream').Readable} */
+                        (res.httpResponse.createUnbufferedStream());
                     return resolve(read_stream.pipe(count_stream));
                 });
             req.send();
@@ -219,13 +232,14 @@ class NamespaceS3 {
         let res;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
-            const { copy_source } = s3_utils.format_copy_source(params.copy_source);
-            if (copy_source.ranges) {
+            const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
+            if (copy_source_range) {
                 // note that CopySourceRange is only supported by s3.uploadPartCopy()
                 throw new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()');
             }
 
             const request = {
+                Bucket: this.bucket,
                 Key: params.key,
                 CopySource: copy_source,
                 ContentType: params.content_type,
@@ -252,6 +266,7 @@ class NamespaceS3 {
             });
 
             const request = {
+                Bucket: this.bucket,
                 Key: params.key,
                 Body: params.source_stream.pipe(count_stream),
                 ContentLength: params.size,
@@ -295,6 +310,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         const request = {
+            Bucket: this.bucket,
             Key: params.key,
             ContentType: params.content_type,
             Metadata: params.xattr,
@@ -313,6 +329,7 @@ class NamespaceS3 {
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
             const request = {
+                Bucket: this.bucket,
                 Key: params.key,
                 UploadId: params.obj_id,
                 PartNumber: params.num,
@@ -336,6 +353,7 @@ class NamespaceS3 {
             });
 
             const request = {
+                Bucket: this.bucket,
                 Key: params.key,
                 UploadId: params.obj_id,
                 PartNumber: params.num,
@@ -356,6 +374,7 @@ class NamespaceS3 {
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params));
         const res = await this.s3.listParts({
+            Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
             MaxParts: params.max,
@@ -378,6 +397,7 @@ class NamespaceS3 {
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params));
         const res = await this.s3.completeMultipartUpload({
+            Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
             MultipartUpload: {
@@ -396,6 +416,7 @@ class NamespaceS3 {
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params));
         const res = await this.s3.abortMultipartUpload({
+            Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
         }).promise();
@@ -416,6 +437,7 @@ class NamespaceS3 {
         }));
 
         const res = await this.s3.putObjectTagging({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id,
             Tagging: { TagSet }
@@ -431,6 +453,7 @@ class NamespaceS3 {
     async delete_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params));
         const res = await this.s3.deleteObjectTagging({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
         }).promise();
@@ -445,6 +468,7 @@ class NamespaceS3 {
     async get_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params));
         const res = await this.s3.getObjectTagging({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
         }).promise();
@@ -470,6 +494,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params));
 
         const res = await this.s3.getObjectAcl({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
         }).promise();
@@ -486,6 +511,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params));
 
         const res = await this.s3.putObjectAcl({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id,
             ACL: params.acl
@@ -502,6 +528,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.delete_object:', this.bucket, inspect(params));
 
         const res = await this.s3.deleteObject({
+            Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id,
         }).promise();
@@ -528,6 +555,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.delete_multiple_objects:', this.bucket, inspect(params));
 
         const res = await this.s3.deleteObjects({
+            Bucket: this.bucket,
             Delete: {
                 Objects: _.map(params.objects, obj => ({
                     Key: obj.key,

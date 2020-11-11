@@ -2,19 +2,17 @@
 /* eslint-disable no-bitwise */
 'use strict';
 
-var _ = require('lodash');
-var util = require('util');
-var P = require('../util/promise');
-const promise_utils = require('../util/promise_utils');
-var url = require('url');
-// var util = require('util');
-var dgram = require('dgram');
-var crypto = require('crypto');
-var ip_module = require('ip');
-var chance = require('chance')();
+const _ = require('lodash');
+const util = require('util');
+const P = require('../util/promise');
+const url = require('url');
+const dgram = require('dgram');
+const crypto = require('crypto');
+const ip_module = require('ip');
+const chance = require('chance')();
 
 // https://tools.ietf.org/html/rfc5389
-var stun = {
+const stun = {
 
     is_stun_packet: is_stun_packet,
     new_packet: new_packet,
@@ -618,7 +616,7 @@ function test() {
                 return Promise.all([
                         P.ninvoke(socket, 'send', req, 0, req.length, stun_url.port, stun_url.hostname),
                         P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname)])
-                    .then(promise_utils.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER)))
+                    .then(() => P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER)))
                     .then(loop);
             }
         });

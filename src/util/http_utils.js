@@ -2,29 +2,30 @@
 'use strict';
 
 const _ = require('lodash');
+const ip = require('ip');
 const url = require('url');
 const http = require('http');
 const https = require('https');
-const HttpProxyAgent = require('http-proxy-agent');
-const HttpsProxyAgent = require('https-proxy-agent');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const ip = require('ip');
-const P = require('./promise');
+const createHttpProxyAgent = require('http-proxy-agent');
+const createHttpsProxyAgent = require('https-proxy-agent');
+
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
-const http_proxy_agent = HTTP_PROXY ? new HttpProxyAgent(url.parse(HTTP_PROXY)) : null;
 const https_agent = new https.Agent();
-const https_proxy_agent = HTTPS_PROXY ? new HttpsProxyAgent(url.parse(HTTPS_PROXY)) : null;
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
+const http_proxy_agent = HTTP_PROXY ?
+    createHttpProxyAgent(url.parse(HTTP_PROXY)) : null;
+const https_proxy_agent = HTTPS_PROXY ?
+    createHttpsProxyAgent(url.parse(HTTPS_PROXY)) : null;
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent({ ...url.parse(HTTPS_PROXY), rejectUnauthorized: false }) :
-    null;
+    createHttpsProxyAgent({ ...url.parse(HTTPS_PROXY), rejectUnauthorized: false }) : null;
 
 const no_proxy_list =
     (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
@@ -82,8 +83,25 @@ function parse_client_ip(req) {
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
 }
 
+
+/**
+ * @typedef {{
+ *  if_modified_since?: number,
+ *  if_unmodified_since?: number,
+ *  if_match_etag?: string,
+ *  if_none_match_etag?: string,
+ * }} MDConditions
+ */
+
+/**
+ * 
+ * @param {*} req 
+ * @param {*} prefix
+ * @returns {MDConditions|void}
+ */
 function get_md_conditions(req, prefix) {
-    var cond;
+    /** @type {MDConditions} */
+    let cond;
     prefix = prefix || '';
     if (req.headers[prefix + 'if-modified-since']) {
         cond = cond || {};
@@ -192,12 +210,9 @@ function normalize_http_ranges(ranges, size, throw_error_ranges = false) {
             r.end = size;
         } else if (r.end > size) {
             if (throw_error_ranges) {
-                let err = new Error('Invalid Argument');
-                err.code = 'InvalidArgument';
-                throw err;
-            } else {
-                r.end = size;
+                throw Object.assign(new Error('Invalid Argument'), { code: 'InvalidArgument' });
             }
+            r.end = size;
         }
         if (r.start < 0 || r.start > r.end) throw_ranges_error(416);
     }
@@ -205,19 +220,17 @@ function normalize_http_ranges(ranges, size, throw_error_ranges = false) {
     return ranges;
 }
 
-function throw_ranges_error(code) {
-    const err = new Error('Bad Request');
-    err.ranges_code = code;
-    throw err;
+function throw_ranges_error(ranges_code) {
+    throw Object.assign(new Error('Bad Request'), { ranges_code });
 }
 
-function read_and_parse_body(req, options) {
+async function read_and_parse_body(req, options) {
     if (options.body.type === 'empty' ||
         options.body.type === 'raw') {
-        return P.resolve();
+        return;
     }
-    return read_request_body(req, options)
-        .then(() => parse_request_body(req, options));
+    await read_request_body(req, options);
+    await parse_request_body(req, options);
 }
 
 function read_request_body(req, options) {
@@ -250,28 +263,28 @@ function read_request_body(req, options) {
     });
 }
 
-function parse_request_body(req, options) {
+async function parse_request_body(req, options) {
     if (!req.body && !options.body.optional) {
         throw new options.ErrorClass(options.error_missing_body);
     }
     if (options.body.type === 'xml') {
-        return parse_xml_to_js(req.body, options.body.xml_options)
-            .then(data => {
-                req.body = data;
-            })
-            .catch(err => {
-                console.error('parse_request_body: XML parse problem', err);
-                throw new options.ErrorClass(options.error_invalid_body);
-            });
+        try {
+            const data = await parse_xml_to_js(req.body, options.body.xml_options);
+            req.body = data;
+            return;
+        } catch (err) {
+            console.error('parse_request_body: XML parse problem', err);
+            throw new options.ErrorClass(options.error_invalid_body);
+        }
     }
     if (options.body.type === 'json') {
-        return P.try(() => {
-                req.body = JSON.parse(req.body);
-            })
-            .catch(err => {
-                console.error('parse_request_body: JSON parse problem', err);
-                throw new options.ErrorClass(options.error_invalid_body);
-            });
+        try {
+            req.body = JSON.parse(req.body);
+            return;
+        } catch (err) {
+            console.error('parse_request_body: JSON parse problem', err);
+            throw new options.ErrorClass(options.error_invalid_body);
+        }
     }
     dbg.error('HTTP BODY UNEXPECTED TYPE', req.method, req.originalUrl,
         JSON.stringify(req.headers), options);

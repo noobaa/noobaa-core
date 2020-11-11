@@ -847,6 +847,10 @@ class SystemStore extends EventEmitter {
         }
     }
 
+    /**
+     * @param {boolean} [get_hb]
+     * @returns {object}
+     */
     get_local_cluster_info(get_hb) {
         let owner_secret = this.get_server_secret();
         let reply;

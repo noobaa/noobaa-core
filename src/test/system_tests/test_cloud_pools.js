@@ -11,7 +11,6 @@ var P = require('../../util/promise');
 var basic_server_ops = require('../utils/basic_server_ops');
 var dotenv = require('../../util/dotenv');
 dotenv.load();
-var promise_utils = require('../../util/promise_utils');
 var test_utils = require('./test_utils');
 
 const s3 = new AWS.S3({
@@ -93,7 +92,7 @@ function list_all_s3_objects(bucket_name) {
         key_marker: ''
     };
 
-    return promise_utils.pwhile(
+    return P.pwhile(
             function() {
                 return listObjectsResponse.is_truncated;
             },
@@ -168,7 +167,7 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
     let start_ts;
     let blocks_to_return;
 
-    return promise_utils.pwhile(
+    return P.pwhile(
             function() {
                 return !blocks_correct;
             },
@@ -263,7 +262,7 @@ function run_test() {
                 });
         })
         .then(function() {
-            return P.each(file_names, function(fname) {
+            return P.map_one_by_one(file_names, function(fname) {
                 return basic_server_ops.generate_random_file(file_sizes[0])
                     .then(function(fl) {
                         return basic_server_ops.upload_file(TEST_CTX.source_ip, fl, TEST_CTX.source_bucket, fname);

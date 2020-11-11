@@ -4,11 +4,9 @@
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEcors.html
  */
-function delete_bucket_cors(req) {
-    return req.object_sdk.read_bucket({ name: req.params.bucket })
-        .then(bucket_info => {
-            // TODO S3 delete_bucket_cors not implemented
-        });
+async function delete_bucket_cors(req) {
+    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    // TODO S3 delete_bucket_cors not implemented
 }
 
 module.exports = {

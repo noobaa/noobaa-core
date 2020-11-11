@@ -46,7 +46,7 @@ class RpcNtcpConnection extends RpcBaseConnection {
      * send
      *
      */
-    _send(msg) {
+    async _send(msg) {
         this.ntcp.write(msg);
     }
 

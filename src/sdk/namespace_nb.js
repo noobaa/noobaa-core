@@ -11,6 +11,10 @@ const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const EXCEPT_REASONS = [
     'NO_SUCH_OBJECT'
 ];
+
+/**
+ * @implements {nb.Namespace}
+ */
 class NamespaceNB {
 
     constructor(target_bucket) {

@@ -49,7 +49,7 @@ Barrier.prototype.call = function(item) {
 
         // add the item to the pending barrier and assign a defer
         // that will be resolved/rejected per this item.
-        var defer = P.defer();
+        var defer = new P.Defer();
         self.barrier.items.push(item);
         self.barrier.defers.push(defer);
 

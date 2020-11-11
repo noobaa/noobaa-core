@@ -57,7 +57,7 @@ function demo_compile() {
         -Isrc/aws-cpp-sdk-s3/include \
         -Lbld/aws-cpp-sdk-s3/ \
         -laws-cpp-sdk-s3 \
-        -std=c++11 \
+        -std=c++17 \
         -lstdc++ \
         -o s3-demo $source
     # -stdlib=libstdc++ \

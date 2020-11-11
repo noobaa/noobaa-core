@@ -5,12 +5,7 @@
 #include <node_api.h>
 
 #ifdef __cplusplus
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-// opened an issue on -Wgnu-zero-variadic-macro-arguments -
-// https://github.com/nodejs/node-addon-api/issues/174
 #include <napi.h>
-#pragma GCC diagnostic pop
 #endif
 
 namespace noobaa

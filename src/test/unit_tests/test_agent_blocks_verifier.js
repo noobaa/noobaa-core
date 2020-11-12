@@ -13,6 +13,7 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const AgentBlocksVerifier = require('../../server/bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 const db_client = require('../../util/db_client');
+const schema_utils = require('../../util/schema_utils');
 const mongodb = require('mongodb');
 const config = require('../../../config');
 const { ChunkDB, BlockDB } = require('../../server/object_services/map_db_types');
@@ -54,7 +55,7 @@ class VerifierMock extends AgentBlocksVerifier {
     }
 
     is_valid_md_id(id_str) {
-        return mongodb.ObjectId.isValid(id_str);
+        return schema_utils.is_object_id(id_str);
     }
 
     /**

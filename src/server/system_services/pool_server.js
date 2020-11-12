@@ -26,6 +26,7 @@ const pool_ctrls = require('./pool_controllers');
 const func_store = require('../func_services/func_store');
 const { KubeStore } = require('../kube-store.js');
 
+
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,
     free: 0,
@@ -1216,6 +1217,40 @@ async function update_account_default_resource() {
     }
 }
 
+function update_issues_report(req) {
+
+    const { namespace_resource_id, error_code, time} = req.rpc_params;
+    const invalid_bucket_errors = ['ContainerNotFound', 'NotSignedUp', 'NoSuchBucket', 'InvalidSecurity',
+    'InvalidBucketState', 'InternalError', 'AccessDenied', 'InvalidAccessKeyId', 'AccountProblem'];
+
+    if (!_.includes(invalid_bucket_errors, error_code)) {
+        return;
+    }
+
+    const ns_resource = system_store.data.namespace_resources.find(
+        ns => ns._id.toString() === namespace_resource_id);
+
+    if (!ns_resource) {
+        dbg.log0('update_issues_report: can not find namespace_resource, ignoring update of issues report');
+        return;
+    }
+    const cur_issues_report = ns_resource.issues_report || [];
+
+    // save the last 10 errors
+    if (cur_issues_report.length === 10) {
+        cur_issues_report.shift();
+    }
+    cur_issues_report.push({error_code, time});
+
+    return system_store.make_changes({
+        update: { namespace_resources: [{
+                    _id: ns_resource._id,
+                    $set: { issues_report: cur_issues_report }
+                }]
+        }
+    });
+}
+
 // EXPORTS
 exports._init = _init;
 exports.set_pool_controller_factory = set_pool_controller_factory;
@@ -1241,3 +1276,4 @@ exports.update_hosts_pool = update_hosts_pool;
 exports.update_cloud_pool_limit = update_cloud_pool_limit;
 exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;
 exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;
+exports.update_issues_report = update_issues_report;

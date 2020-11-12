@@ -123,6 +123,11 @@ class NamespaceBlob {
         } catch (err) {
             this._translate_error_code(err);
             dbg.warn('NamespaceBlob.read_object_md:', inspect(err));
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: err.code,
+                time: Date.now(),
+            });
             throw err;
         }
     }
@@ -256,6 +261,11 @@ class NamespaceBlob {
             } catch (err) {
                 this._translate_error_code(err);
                 dbg.warn('NamespaceBlob.upload_object:', inspect(err));
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code,
+                    time: Date.now(),
+                });
                 throw err;
             }
         }
@@ -273,7 +283,7 @@ class NamespaceBlob {
     // BLOCK BLOB UPLOADS //
     ////////////////////////
 
-    async upload_blob_block(params) {
+    async upload_blob_block(params, object_sdk) {
         dbg.log0('NamespaceBlob.upload_blob_block:',
             this.container,
             inspect(_.omit(params, 'source_stream'))
@@ -422,15 +432,24 @@ class NamespaceBlob {
                 // clear count for next updates
                 count = 0;
             });
-            res = await P.fromCallback(callback =>
-                this.blob.createBlockFromStream(
-                    block_id,
-                    this.container,
-                    params.key,
-                    params.source_stream.pipe(count_stream),
-                    params.size, // streamLength really required ???
-                    callback)
-            );
+            try {
+                res = await P.fromCallback(callback =>
+                    this.blob.createBlockFromStream(
+                        block_id,
+                        this.container,
+                        params.key,
+                        params.source_stream.pipe(count_stream),
+                        params.size, // streamLength really required ???
+                        callback)
+                );
+            } catch (err) {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code,
+                    time: Date.now(),
+                });
+                throw err;
+            }
         }
         dbg.log0('NamespaceBlob.upload_multipart:',
             this.container,

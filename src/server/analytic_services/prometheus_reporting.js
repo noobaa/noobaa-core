@@ -147,6 +147,14 @@ const METRIC_RECORDS = Object.freeze([{
     generate_default_set: true,
 }, {
     metric_type: 'Gauge',
+    metric_variable: 'num_namespace_buckets',
+    configuration: {
+        name: get_metric_name('num_namespace_buckets'),
+        help: 'Namespace Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
     metric_variable: 'total_usage',
     configuration: {
         name: get_metric_name('total_usage'),
@@ -175,6 +183,14 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('num_unhealthy_buckets'),
         help: 'Unhealthy Buckets',
+    },
+    generate_default_set: true,
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'num_unhealthy_namespace_buckets',
+    configuration: {
+        name: get_metric_name('num_unhealthy_namespace_buckets'),
+        help: 'Unhealthy Namespace Buckets',
     },
     generate_default_set: true,
 }, {
@@ -263,6 +279,14 @@ const METRIC_RECORDS = Object.freeze([{
     configuration: {
         name: get_metric_name('bucket_status'),
         help: 'Bucket Health',
+        labelNames: ['bucket_name'],
+    },
+}, {
+    metric_type: 'Gauge',
+    metric_variable: 'namespace_bucket_healthy',
+    configuration: {
+        name: get_metric_name('namespace_bucket_status'),
+        help: 'Namespace Bucket Health',
         labelNames: ['bucket_name'],
     },
 }, {
@@ -457,6 +481,14 @@ class PrometheusReporting {
             this._metrics.bucket_healthy.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
             this._metrics.bucket_quota_precent.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
             this._metrics.bucket_capacity_precent.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
+        });
+    }
+
+    set_namespace_bucket_status(buckets_info) {
+        if (!this.enabled()) return;
+        this._metrics.namespace_bucket_healthy.reset();
+        buckets_info.forEach(bucket_info => {
+            this._metrics.namespace_bucket_healthy.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
         });
     }
 

@@ -32,6 +32,7 @@ const { google } = require('googleapis');
 const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
 const system_utils = require('../utils/system_utils');
+const moment = require('moment');
 
 
 const ops_aggregation = {};
@@ -104,6 +105,12 @@ const PARTIAL_BUCKETS_STATS_DEFAULTS = {
     unhealthy_bucket_claims: 0,
 };
 
+const PARTIAL_NAMESPACE_BUCKETS_STATS_DEFAULTS = {
+    namespace_buckets: [],
+    namespace_buckets_num: 0,
+    unhealthy_namespace_buckets: 0,
+};
+
 const PARTIAL_SYSTEM_STATS_DEFAULTS = {
     systems: [],
 };
@@ -135,6 +142,7 @@ const PARTIAL_SINGLE_SYS_DEFAULTS = {
         physical_size: 0,
     },
     buckets_stats: PARTIAL_BUCKETS_STATS_DEFAULTS,
+    namespace_buckets_stats: PARTIAL_NAMESPACE_BUCKETS_STATS_DEFAULTS,
     usage_by_project: {
         'Cluster-wide': 0,
     },
@@ -337,6 +345,7 @@ async function get_partial_systems_stats(req) {
 
             const {
                 buckets_stats,
+                namespace_buckets_stats,
                 objects_sys,
                 objects_non_namespace_buckets_sys,
                 usage_by_bucket_class,
@@ -388,6 +397,7 @@ async function get_partial_systems_stats(req) {
                 savings,
                 total_usage,
                 buckets_stats,
+                namespace_buckets_stats,
                 usage_by_bucket_class,
                 usage_by_project,
             }, PARTIAL_SINGLE_SYS_DEFAULTS);
@@ -403,6 +413,7 @@ async function get_partial_systems_stats(req) {
 
 async function _partial_buckets_info(req) {
     const buckets_stats = _.cloneDeep(PARTIAL_BUCKETS_STATS_DEFAULTS);
+    const namespace_buckets_stats = _.cloneDeep(PARTIAL_NAMESPACE_BUCKETS_STATS_DEFAULTS);
     const objects_sys = {
         size: size_utils.BigInteger.zero,
         count: 0,
@@ -433,9 +444,38 @@ async function _partial_buckets_info(req) {
             );
             objects_sys.count += bucket_info.num_objects.value || 0;
 
+            const OPTIMAL_MODES = [
+                'LOW_CAPACITY',
+                'DATA_ACTIVITY',
+                'OPTIMAL',
+            ];
 
-            if (bucket_info.namespace) continue;
+            const CAPACITY_MODES = [
+                'OPTIMAL',
+                'NO_RESOURCES_INTERNAL',
+                'DATA_ACTIVITY',
+                'APPROUCHING_QUOTA',
+                'TIER_LOW_CAPACITY',
+                'LOW_CAPACITY',
+                'TIER_NO_CAPACITY',
+                'EXCEEDING_QUOTA',
+                'NO_CAPACITY',
+            ];
 
+            if (bucket_info.namespace) {
+                const now = moment().valueOf();
+                const five_min_ago = moment().subtract(5, 'minutes').valueOf();
+
+                namespace_buckets_stats.namespace_buckets_num += 1;
+                const ns_bucket_mode_optimal = calc_ns_bucket_health(bucket_info.namespace, bucket,
+                    {start_date: five_min_ago, end_date: now});
+                namespace_buckets_stats.namespace_buckets.push({
+                    bucket_name: bucket_info.name.unwrap(),
+                    is_healthy: ns_bucket_mode_optimal,
+                });
+                if (!ns_bucket_mode_optimal) namespace_buckets_stats.unhealthy_namespace_buckets += 1;
+                continue;
+            }
             objects_non_namespace_buckets_sys.chunks_capacity = objects_non_namespace_buckets_sys.chunks_capacity.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.chunks_capacity)) || 0
             );
@@ -454,24 +494,6 @@ async function _partial_buckets_info(req) {
             usage_by_bucket_class[bucket_class] = existing_bucket_class.plus(
                 (bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size)) || 0
             );
-
-            const OPTIMAL_MODES = [
-                'LOW_CAPACITY',
-                'DATA_ACTIVITY',
-                'OPTIMAL',
-            ];
-
-            const CAPACITY_MODES = [
-                'OPTIMAL',
-                'NO_RESOURCES_INTERNAL',
-                'DATA_ACTIVITY',
-                'APPROUCHING_QUOTA',
-                'TIER_LOW_CAPACITY',
-                'LOW_CAPACITY',
-                'TIER_NO_CAPACITY',
-                'EXCEEDING_QUOTA',
-                'NO_CAPACITY',
-            ];
 
             if (bucket_info.bucket_claim) {
                 buckets_stats.bucket_claims += 1;
@@ -503,7 +525,8 @@ async function _partial_buckets_info(req) {
             usage_by_project[key] = usage_by_project[key].toJSNumber();
         });
 
-        return { buckets_stats, objects_sys, objects_non_namespace_buckets_sys, usage_by_project, usage_by_bucket_class };
+        return { buckets_stats, objects_sys, objects_non_namespace_buckets_sys, usage_by_project, usage_by_bucket_class,
+             namespace_buckets_stats };
     } catch (err) {
         dbg.warn('Error in collecting partial buckets stats,',
             'skipping current sampling point', err.stack || err);
@@ -626,6 +649,21 @@ function get_bucket_sizes_stats(req) {
         }
     }
     return ret;
+}
+
+function calc_ns_bucket_health(namespace_info, bucket, {start_date, end_date}) {
+    const errors_in_last_5_min = issues_report => _.reduce(
+        issues_report, (sum, issue) => sum + ((issue.time <= end_date && issue.time >= start_date && 1) || 0), 0);
+
+    let num_err_in_last_5_min = 0;
+
+    // calc num of errors in read resources  (write resource is always one of the read resources)
+    _.map(namespace_info.read_resources, read_resource => {
+        const read_namespace_resource_stats = bucket.system.namespace_resources_by_name[read_resource].issues_report;
+        if (!read_namespace_resource_stats) return;
+        num_err_in_last_5_min += errors_in_last_5_min(read_namespace_resource_stats) || 0;
+    });
+    return num_err_in_last_5_min <= 3;
 }
 
 function get_pool_stats(req) {
@@ -882,6 +920,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     // TODO: Support multiple systems
     const {
         buckets_stats,
+        namespace_buckets_stats,
         capacity,
         reduction_ratio,
         savings,
@@ -901,6 +940,11 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         objects_in_bucket_claims,
         unhealthy_bucket_claims,
     } = buckets_stats;
+    const {
+        namespace_buckets,
+        namespace_buckets_num,
+        unhealthy_namespace_buckets
+    } = namespace_buckets_stats;
     const { unhealthy_pool_count, pool_count, resources } = cloud_pool_stats;
     const { logical_size, physical_size } = savings;
 
@@ -922,6 +966,9 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     prom_report.instance().set_resource_status(resources);
     prom_report.instance().set_num_objects(objects_in_buckets);
     prom_report.instance().set_num_unhealthy_buckets(unhealthy_buckets);
+    prom_report.instance().set_num_namespace_buckets(namespace_buckets_num);
+    prom_report.instance().set_namespace_bucket_status(namespace_buckets);
+    prom_report.instance().set_num_unhealthy_namespace_buckets(unhealthy_namespace_buckets);
     prom_report.instance().set_health_status(health_status);
     prom_report.instance().set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
     prom_report.instance().set_num_buckets_claims(bucket_claims);

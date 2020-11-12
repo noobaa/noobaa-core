@@ -10,7 +10,6 @@ var _ = require('lodash');
 
 var wrapperConsole = _.create(console);
 var origConsole = console;
-var clonedConsole = _.clone(console);
 var dbg_logger;
 
 /*
@@ -47,43 +46,13 @@ wrapperConsole.warn = function() {
  */
 var syslog_levels = ["trace", "log", "info", "error", "warn"];
 exports.syslog_levels = syslog_levels;
-var log_once_exception = false;
+// var log_once_exception = false;
 
 exports.original_console = function() {
-    //browser doesn't hold a "regular" console object
-    //need special handling => simply switch objectd instead of funcsa
-    try {
-        if (global.window === global) {
-            global.console = origConsole;
-            return;
-        }
-    } catch (ex) {
-        if (!log_once_exception) {
-            clonedConsole.log(" Caught exception trying to set global.console, mockup window?", ex);
-        }
-        log_once_exception = true;
-    }
-    for (var i = 0; i < syslog_levels.length; ++i) {
-        console[syslog_levels[i]] = clonedConsole[syslog_levels[i]];
-    }
+    global.console = origConsole;
 };
-
 exports.wrapper_console = function() {
-    //See above
-    try {
-        if (global.window === global) {
-            global.console = wrapperConsole;
-            return;
-        }
-    } catch (ex) {
-        if (!log_once_exception) {
-            clonedConsole.log(" Caught exception trying to set global.console, mockup window?", ex);
-        }
-        log_once_exception = true;
-    }
-    for (var i = 0; i < syslog_levels.length; ++i) {
-        console[syslog_levels[i]] = wrapperConsole[syslog_levels[i]];
-    }
+    global.console = wrapperConsole;
 };
 
 exports.register_logger = function(dbg) {

@@ -1,9 +1,7 @@
-<div id="top" />
-
 [![slack](https://img.shields.io/badge/slack-noobaa-brightgreen.svg?logo=slack)](https://www.noobaa.io/community)
 [![noobaa-core](https://img.shields.io/github/v/release/noobaa/noobaa-core?label=noobaa-core)](https://github.com/noobaa/noobaa-core/releases/latest)
 [![noobaa-operator](https://img.shields.io/github/v/release/noobaa/noobaa-operator?label=noobaa-operator)](https://github.com/noobaa/noobaa-operator/releases/latest)
-
+<div id="top"></div>
 <img src="/images/noobaa_logo.png" width="200" />
 
 ----

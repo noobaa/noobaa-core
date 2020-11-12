@@ -5,7 +5,6 @@ const fs = require('fs');
 const ncp = require('ncp').ncp;
 const path = require('path');
 const rimraf = require('rimraf');
-const mkdirp = require('mkdirp');
 const crypto = require('crypto');
 
 const P = require('./promise');
@@ -157,11 +156,7 @@ function get_last_line_in_file(file_name) {
 }
 
 function create_path(dir, mode) {
-    if (mode) {
-        return P.fromCallback(callback => mkdirp(dir, mode, callback));
-    } else {
-        return P.fromCallback(callback => mkdirp(dir, callback));
-    }
+    return fs.promises.mkdir(dir, { mode, recursive: true });
 }
 
 function create_fresh_path(dir) {

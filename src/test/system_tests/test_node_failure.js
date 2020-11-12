@@ -13,7 +13,7 @@ let P = require('../../util/promise');
 let api = require('../../api');
 let ops = require('../utils/basic_server_ops');
 var dotenv = require('../../util/dotenv');
-const uuid = require('uuid/v4');
+const { v4: uuid } = require('uuid');
 dotenv.load();
 
 

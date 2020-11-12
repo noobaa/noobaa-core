@@ -344,5 +344,7 @@ module.exports = {
         // Allow async function without await, for `return P.map(...)`
         'require-await': 'off',
 
+        'no-promise-executor-return': 'off',
+
     }
 };

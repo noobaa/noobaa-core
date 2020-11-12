@@ -92,16 +92,6 @@ class AgentFunctions {
         return installationString.KUBERNETES;
     }
 
-    async activeAgents(mgmt_ip, mgmt_port_https, deactivated_nodes_list) {
-        const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
-        const client = rpc.new_client({});
-        await client.create_auth_token(auth_params);
-        for (const name of deactivated_nodes_list) {
-            console.log('calling recommission_node on', name);
-            return client.node.recommission_node({ name });
-        }
-    }
-
     async deactivateAgents(mgmt_ip, mgmt_port_https, activated_nodes_list) {
         const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
         const client = rpc.new_client({});

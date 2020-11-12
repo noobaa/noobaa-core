@@ -232,6 +232,28 @@ function empty_schema_validator(json) {
     return false;
 }
 
+function is_object_id_class(id) {
+    return (id && id.constructor && id.constructor.name === 'ObjectID');
+}
+
+function is_object_id_string(id) {
+    return (/^[0-9a-fA-F]{24}$/).test(id);
+}
+
+function is_object_id(id) {
+    switch (typeof id) {
+        case 'object':
+            return is_object_id_class(id);
+        case 'string':
+            return is_object_id_string(id);
+        default:
+            return false;
+    }
+}
+
 exports.KEYWORDS = KEYWORDS;
 exports.strictify = strictify;
 exports.empty_schema_validator = empty_schema_validator;
+exports.is_object_id_class = is_object_id_class;
+exports.is_object_id_string = is_object_id_string;
+exports.is_object_id = is_object_id;

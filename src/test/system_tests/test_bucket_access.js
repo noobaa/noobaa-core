@@ -16,7 +16,7 @@ const test_utils = require('./test_utils');
 
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const uuid = require('uuid/v4');
+const { v4: uuid } = require('uuid');
 const assert = require('assert');
 
 

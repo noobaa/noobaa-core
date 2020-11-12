@@ -10,7 +10,7 @@ const os = require('os');
 const path = require('path');
 const util = require('util');
 const repl = require('repl');
-const uuid = require('uuid/v4');
+const { v4: uuid } = require('uuid');
 const argv = require('minimist')(process.argv);
 const S3Auth = require('aws-sdk/lib/signers/s3');
 

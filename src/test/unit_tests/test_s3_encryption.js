@@ -143,13 +143,14 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     let aws_s3;
     let local_s3;
 
+    if (SKIP_TEST) {
+        coretest.log('No AWS credentials found in env. Skipping test');
+        this.skip(); // eslint-disable-line no-invalid-this
+    }
+
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-        if (SKIP_TEST) {
-            coretest.log('No AWS credentials found in env. Skipping test');
-            self.skip();
-        }
         [aws_s3, local_s3] = Object.values(await get_s3_instances());
         const read_resources = [RESOURCE_NAME];
         const write_resource = RESOURCE_NAME;
@@ -239,10 +240,6 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
-        if (SKIP_TEST) {
-            coretest.log('No AWS credentials found in env. Skipping test');
-            self.skip();
-        }
         await rpc_client.bucket.delete_bucket({ name: BKT });
         await rpc_client.pool.delete_namespace_resource({
             name: RESOURCE_NAME,

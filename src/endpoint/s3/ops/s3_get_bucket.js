@@ -52,7 +52,7 @@ async function get_bucket(req) {
                 'ContinuationToken': cont_tok,
                 'StartAfter': start_after,
                 'KeyCount': reply.objects.length,
-                'NextContinuationToken': key_marker_to_cont_tok(reply.next_marker),
+                'NextContinuationToken': key_marker_to_cont_tok(reply.next_marker, reply.objects, reply.is_truncated),
             } : { // list_type v1
                 'Marker': req.query.marker || '',
                 'NextMarker': reply.next_marker,
@@ -88,9 +88,11 @@ function cont_tok_to_key_marker(cont_tok) {
     }
 }
 
-function key_marker_to_cont_tok(key_marker) {
-    if (!key_marker) return;
-    const j = JSON.stringify({ key: key_marker });
+function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
+    if (!key_marker && !is_truncated) return;
+    // next marker is the key marker we got or the key of the last item in the objects list.
+    const next_marker = key_marker || objects_arr[objects_arr.length - 1].key;
+    const j = JSON.stringify({ key: next_marker });
     return Buffer.from(j).toString('base64');
 }
 

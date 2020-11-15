@@ -6,6 +6,7 @@ const _ = require('lodash');
 // const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 const bucket_stats_schema = require('./bucket_stats_schema');
+const bucket_stats_indexes = require('./bucket_stats_indexes');
 
 class BucketStatsStore {
 
@@ -18,11 +19,7 @@ class BucketStatsStore {
         this._bucket_stats = db_client.instance().define_collection({
             name: 'bucketstats',
             schema: bucket_stats_schema,
-            db_indexes: [{
-                fields: {
-                    bucket: 1
-                }
-            }],
+            db_indexes: bucket_stats_indexes,
         });
     }
 

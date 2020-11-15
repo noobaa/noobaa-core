@@ -14,7 +14,6 @@ class AlertsLogStore {
         this._alertslogs = db_client.instance().define_collection({
             name: 'alertslogs',
             schema: alerts_log_schema,
-            db_indexes: []
         });
     }
 

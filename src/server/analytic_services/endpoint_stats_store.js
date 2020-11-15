@@ -7,7 +7,11 @@ const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 const s3_usage_schema = require('./s3_usage_schema');
 const usage_report_schema = require('./usage_report_schema');
-const endpoint_group_report_schema = require('./endpoint_group_report_schema.js');
+const endpoint_group_report_schema = require('./endpoint_group_report_schema');
+const s3_usage_indexes = require('./s3_usage_indexes');
+const usage_report_indexes = require('./usage_report_indexes');
+const endpoint_group_report_indexes = require('./endpoint_group_report_indexes');
+
 const { ENDPOINT_MONITOR_INTERVAL } = require('../../../config');
 
 class EndpointStatsStore {
@@ -22,38 +26,19 @@ class EndpointStatsStore {
         this._s3_ops_counters = db_client.instance().define_collection({
             name: 'objectstats',
             schema: s3_usage_schema,
-            db_indexes: [{
-                fields: {
-                    system: 1,
-                },
-                options: {
-                    unique: true,
-                }
-            }],
+            db_indexes: s3_usage_indexes,
         });
 
         this._bandwidth_reports = db_client.instance().define_collection({
             name: 'usagereports',
             schema: usage_report_schema,
-            db_indexes: [{
-                fields: {
-                    start_time: 1,
-                    aggregated_time: -1,
-                    aggregated_time_range: 1,
-                }
-            }],
+            db_indexes: usage_report_indexes,
         });
 
         this._endpoint_group_reports = db_client.instance().define_collection({
             name: 'endpointgroupreports',
             schema: endpoint_group_report_schema,
-            db_indexes: [{
-                fields: {
-                    start_time: 1,
-                    aggregated_time: -1,
-                    aggregated_time_range: 1,
-                }
-            }]
+            db_indexes: endpoint_group_report_indexes,
         });
     }
 

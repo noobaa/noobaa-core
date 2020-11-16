@@ -194,7 +194,7 @@ async function create_bucket(req) {
 
     await system_store.make_changes(changes);
     req.load_auth();
-    if (req.rpc_params.bucket_claim) {
+    if (req.rpc_params.bucket_claim || req.rpc_params.namespace) {
         try {
             // Trigger partial aggregation for the Prometheus metrics
             server_rpc.client.stats.get_partial_stats({

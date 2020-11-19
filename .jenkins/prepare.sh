@@ -35,7 +35,7 @@ gitrepo="https://github.com/noobaa/noobaa-core"
 workdir="tip/"
 ref="master"
 base="master"
-build_all="true" #TODO: change to false
+build_all="false"
 
 ARGUMENT_LIST=(
     "ref"

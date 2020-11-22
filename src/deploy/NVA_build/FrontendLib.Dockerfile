@@ -30,3 +30,7 @@ COPY ./frontend/ ./frontend/
 RUN echo '{ "allow_root": true }' > /root/.bowerrc
 RUN cd frontend && \
     npm run build-lib
+
+COPY ./frontend/src/lib/lib* /tmp/
+RUN diff ./frontend/src/lib/lib.js /tmp/
+RUN diff ./frontend/src/lib/lib.js.map /tmp/

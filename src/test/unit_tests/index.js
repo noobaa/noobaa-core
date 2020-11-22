@@ -81,3 +81,6 @@ require('./test_namespace_cache');
 require('./test_encryption');
 // require('./test_tiering_upload');
 //require('./test_s3_worm');
+
+// UPGRADE
+// require('./test_postgres_upgrade'); // TODO currently working with mongo -> once changing to postgres - need to uncomment  

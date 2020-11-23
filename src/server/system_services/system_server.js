@@ -955,7 +955,7 @@ function _init_system(sysid) {
         .then(() => Dispatcher.instance().alert(
             'INFO',
             sysid,
-            'Welcome to NooBaa! It\'s time to get started. Connect your first resources, either 3 nodes or 1 cloud resource',
+            "Welcome to NooBaa! It is time to get started. Connect your first resources, either 3 nodes or 1 cloud resource",
             Dispatcher.rules.only_once
         ));
 }

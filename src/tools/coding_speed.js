@@ -12,11 +12,12 @@ const crypto = require('crypto');
 
 // const P = require('../util/promise');
 const config = require('../../config');
-const Pipeline = require('../util/pipeline');
+
 const ChunkCoder = require('../util/chunk_coder');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 const ChunkEraser = require('../util/chunk_eraser');
+const stream_utils = require('../../util/stream_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const FlattenStream = require('../util/flatten_stream');
 // const CoalesceStream = require('../util/coalesce_stream');
@@ -115,19 +116,20 @@ function main() {
         }
     });
 
-    const p = new Pipeline(input);
-    p.pipe(splitter);
+    let transforms = [input,
+        splitter,
+    ];
     if (argv.encode) {
-        p.pipe(coder);
-        p.pipe(new FlattenStream());
+        transforms.push(coder);
+        transforms.push(new FlattenStream());
     }
-    if (argv.erase) p.pipe(eraser);
+    if (argv.erase) transforms.push(eraser);
     if (argv.decode) {
-        p.pipe(decoder);
-        p.pipe(new FlattenStream());
+        transforms.push(decoder);
+        transforms.push(new FlattenStream());
     }
-    p.pipe(reporter);
-    return p.promise()
+    transforms.push(reporter);
+    return stream_utils.pipeline(transforms)
         .then(() => {
             console.log('AVERAGE CHUNK SIZE', (total_size / num_parts).toFixed(0));
             if (splitter.md5) {

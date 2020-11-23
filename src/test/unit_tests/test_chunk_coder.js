@@ -8,14 +8,13 @@ const crypto = require('crypto');
 const Chance = require('chance');
 const assert = require('assert');
 
-// const P = require('../../util/promise');
 const config = require('../../../config');
-const Pipeline = require('../../util/pipeline');
 const nb_native = require('../../util/nb_native');
 const RandStream = require('../../util/rand_stream');
 const ChunkCoder = require('../../util/chunk_coder');
 const ChunkEraser = require('../../util/chunk_eraser');
 const Speedometer = require('../../util/speedometer');
+const stream_utils = require('../../util/stream_utils');
 const FlattenStream = require('../../util/flatten_stream');
 const ChunkSplitter = require('../../util/chunk_splitter');
 
@@ -253,71 +252,74 @@ mocha.describe('nb_native chunk_coder', function() {
     });
 });
 
-function test_stream({ erase, decode, generator, input_size, chunk_split_config, chunk_coder_config }) {
+async function test_stream({ erase, decode, generator, input_size, chunk_split_config, chunk_coder_config }) {
+    try {
+        const speedometer = new Speedometer('Chunk Coder Speed');
 
-    const speedometer = new Speedometer('Chunk Coder Speed');
+        const input = new RandStream(input_size, {
+            highWaterMark: 16 * 1024,
+            generator,
+        });
 
-    const input = new RandStream(input_size, {
-        highWaterMark: 16 * 1024,
-        generator,
-    });
+        const splitter = new ChunkSplitter({
+            watermark: 100,
+            calc_md5: true,
+            calc_sha256: false,
+            chunk_split_config,
+        });
 
-    const splitter = new ChunkSplitter({
-        watermark: 100,
-        calc_md5: true,
-        calc_sha256: false,
-        chunk_split_config,
-    });
+        const coder = new ChunkCoder({
+            watermark: 20,
+            concurrency: 20,
+            coder: 'enc',
+            chunk_coder_config,
+        });
 
-    const coder = new ChunkCoder({
-        watermark: 20,
-        concurrency: 20,
-        coder: 'enc',
-        chunk_coder_config,
-    });
+        const eraser = new ChunkEraser({
+            watermark: 50,
+        });
 
-    const eraser = new ChunkEraser({
-        watermark: 50,
-    });
+        const decoder = new ChunkCoder({
+            watermark: 20,
+            concurrency: 20,
+            coder: 'dec',
+        });
 
-    const decoder = new ChunkCoder({
-        watermark: 20,
-        concurrency: 20,
-        coder: 'dec',
-    });
+        const reporter = new stream.Transform({
+            objectMode: true,
+            allowHalfOpen: false,
+            highWaterMark: 50,
+            transform(chunk, encoding, callback) {
+                this.count = (this.count || 0) + 1;
+                this.pos = this.pos || 0;
+                // checking the position is continuous
+                assert.strictEqual(this.pos, chunk.pos);
+                this.pos += chunk.size;
+                speedometer.update(chunk.size);
+                callback();
+            },
+            flush(callback) {
+                speedometer.clear_interval();
+                // speedometer.report();
+                // console.log('AVERAGE CHUNK SIZE', (this.pos / this.count).toFixed(0));
+                callback();
+            }
+        });
 
-    const reporter = new stream.Transform({
-        objectMode: true,
-        allowHalfOpen: false,
-        highWaterMark: 50,
-        transform(chunk, encoding, callback) {
-            this.count = (this.count || 0) + 1;
-            this.pos = this.pos || 0;
-            // checking the position is continuous
-            assert.strictEqual(this.pos, chunk.pos);
-            this.pos += chunk.size;
-            speedometer.update(chunk.size);
-            callback();
-        },
-        flush(callback) {
-            speedometer.clear_interval();
-            // speedometer.report();
-            // console.log('AVERAGE CHUNK SIZE', (this.pos / this.count).toFixed(0));
-            callback();
+        let transforms = [input,
+            splitter,
+            coder,
+        ];
+        if (erase) transforms.push(eraser);
+        if (decode) {
+            transforms.push(decoder);
+            transforms.push(new FlattenStream());
         }
-    });
-
-    const p = new Pipeline(input);
-    p.pipe(splitter);
-    p.pipe(coder);
-    p.pipe(new FlattenStream());
-    if (erase) p.pipe(eraser);
-    if (decode) {
-        p.pipe(decoder);
-        p.pipe(new FlattenStream());
+        transforms.push(reporter);
+        await stream_utils.pipeline(transforms);
+    } catch (err) {
+        throw_chunk_err(err);
     }
-    p.pipe(reporter);
-    return p.promise().catch(throw_chunk_err);
 }
 
 function call_chunk_coder_must_succeed(coder, chunk) {

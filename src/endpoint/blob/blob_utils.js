@@ -64,12 +64,12 @@ function parse_copy_source(req) {
 async function list_objects(params, account_name, container, sasToken) {
 
     const hostname = `${account_name}.blob.core.windows.net`;
-    const delimiter = params.delimiter || '/';
-    const maxResults = params.limit === 0 ? 1 : params.limit;
 
-    let path = `https://${account_name}.blob.core.windows.net/${container}?restype=container&comp=list&delimiter=${delimiter}` +
-        `&maxresults=${maxResults}&${sasToken}`;
+    let path = `https://${account_name}.blob.core.windows.net/${container}?restype=container&comp=list` +
+        `&maxresults=${params.limit}&${sasToken}`;
     if (params.key_marker) path += `&marker=${params.key_marker}`;
+    if (params.delimiter) path += `&delimiter=${params.delimiter}`;
+    if (params.prefix) path += `&prefix=${params.prefix}`;
 
     let response;
     try {
@@ -80,15 +80,24 @@ async function list_objects(params, account_name, container, sasToken) {
     const status_code = response.statusCode;
     const buffer = await read_stream_join(response);
     const body = buffer.toString('utf8');
-    if (status_code !== 200) {
-        throw new Error(`Could not get blobs and diresctories list, (status code: ${status_code}) got ${body}`);
-    }
 
     let blobs;
     let dirs;
     let next_marker;
     try {
         const parsed = await parse_xml_to_js(body);
+        if (status_code !== 200) {
+            if (parsed.Error) {
+                const code = parsed.Error.Code && parsed.Error.Code[0];
+                const faulty_query_param = parsed.Error.QueryParameterName &&
+                    parsed.Error.QueryParameterName[0];
+                if (code === 'OutOfRangeQueryParameterValue' &&
+                    faulty_query_param === 'maxresults' && params.limit === 0) {
+                        return { blobs: [], dirs: [], next_marker: '' };
+                    }
+            }
+            throw new Error(`Could not get blobs and diresctories list, (status code: ${status_code}) got ${body}`);
+        }
         blobs = parsed.EnumerationResults.Blobs[0].Blob;
         dirs = parsed.EnumerationResults.Blobs[0].BlobPrefix;
         next_marker = parsed.EnumerationResults.NextMarker[0];

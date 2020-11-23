@@ -35,12 +35,14 @@ gitrepo="https://github.com/noobaa/noobaa-core"
 workdir="tip/"
 ref="master"
 base="master"
+build_all="false"
 
 ARGUMENT_LIST=(
     "ref"
     "workdir"
     "gitrepo"
     "base"
+    "build_all"
 )
 
 opts=$(getopt \
@@ -61,32 +63,21 @@ eval set -- "${opts}"
 
 while true; do
     case "${1}" in
-    --help)
-        usage
-        ;;
-    --gitrepo)
-        shift
-        gitrepo=${1}
-        ;;
-    --workdir)
-        shift
-        workdir=${1}
-        ;;
-    --ref)
-        shift
-        ref=${1}
-        echo "${ref}"
-        ;;
-    --base)
-        shift
-        base=${1}
-        ;;
-    --)
-        shift
-        break
-        ;;
+    --help)         usage ;;
+    --gitrepo)      gitrepo=${2}
+                    shift 2 ;;
+    --workdir)      workdir=${2}
+                    shift 2 ;;
+    --ref)          ref=${2}
+                    echo "${ref}"
+                    shift 2 ;;
+    --base)         base=${2}
+                    shift 2 ;;
+    --build_all)    build_all="true"
+                    shift 1 ;;
+    --)             shift 1
+                    break ;;
     esac
-    shift
 done
 
 set -x
@@ -99,8 +90,11 @@ cd "${workdir}"
 git fetch origin "${ref}:tip/${ref}"
 git checkout "tip/${ref}"
 
-# Bypassing the building of base and noobaa-builder by pointing to noobaa/noobaa-base instead of noobaa-base
-# We don't want to build it, so we reduce the overall time for builds/test.
-# The base and noobaa-builder are not often changing. once they do We need to push into dockerhub.io 
-sed -i -e 's|FROM noobaa-base .*|FROM noobaa/noobaa-base as server_builder|' ${workdir}/src/deploy/NVA_build/NooBaa.Dockerfile
-sed -i -e 's|noobaa: base|noobaa:|' ${workdir}/Makefile
+if [ "${build_all}" == "false" ]
+then
+    # Bypassing the building of base and noobaa-builder by pointing to noobaa/noobaa-base instead of noobaa-base
+    # We don't want to build it, so we reduce the overall time for builds/test.
+    # The base and noobaa-builder are not often changing. once they do We need to push into dockerhub.io 
+    sed -i -e 's|FROM noobaa-base .*|FROM noobaa/noobaa-base as server_builder|' ${workdir}/src/deploy/NVA_build/NooBaa.Dockerfile
+    sed -i -e 's|noobaa: base|noobaa:|' ${workdir}/Makefile
+fi

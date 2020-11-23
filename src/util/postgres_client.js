@@ -20,10 +20,90 @@ const fs = require('fs');
 // TODO: Shouldn't be like that, we shouldn't use MongoDB functions to compare
 const mongo_functions = require('./mongo_functions');
 const { RpcError } = require('../rpc');
+const SensitiveString = require('./sensitive_string');
 
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
+
+
+
+// temporary solution for encode\decode
+// perfrom encode\decode json for every query to\from the DB
+// TODO: eventually we want to perform this using the ajv process
+// in schema_utils - handle 
+function decode_json(schema, val) {
+    if (!schema) {
+        return val;
+    }
+    if (schema.objectid === true) {
+        return new mongodb.ObjectId(val);
+    }
+    if (schema.date === true) {
+        return new Date(val);
+    }
+
+    if (schema.binary) {
+        return Buffer.from(val, 'base64');
+    }
+
+    if (schema.type === 'object') {
+        const obj = {};
+        for (const key of Object.keys(val)) {
+            obj[key] = decode_json(schema.properties[key], val[key]);
+        }
+        return obj;
+    }
+
+    if (schema.type === 'array') {
+        const item_schema = schema.items;
+        const arr = [];
+        for (const item of val) {
+            arr.push(decode_json(item_schema, item));
+        }
+        return arr;
+    }
+
+    if (schema.wrapper && schema.wrapper === SensitiveString) {
+        return new SensitiveString(val);
+    }
+
+    return val;
+}
+
+// convert certain types to a known representation 
+function encode_json(schema, val) {
+    if (!val || !schema) {
+        return val;
+    }
+
+    if (schema.binary === true) {
+        // assuming val is of type Buffer. convert to base64 string
+        return val.toString('base64');
+    }
+
+    if (schema.type === 'object') {
+        const obj = {};
+        for (const key of Object.keys(val)) {
+            obj[key] = encode_json(schema.properties[key], val[key]);
+        }
+        return obj;
+    }
+
+    if (schema.type === 'array') {
+        const item_schema = schema.items;
+        const arr = [];
+        for (const item of val) {
+            arr.push(encode_json(item_schema, item));
+        }
+        return arr;
+    }
+
+    return val;
+}
+
+
+
 
 let query_counter = 0;
 
@@ -91,8 +171,9 @@ class PgTransaction {
 
 
 class BulkOp {
-    constructor({ client, name }) {
+    constructor({ client, name, schema }) {
         this.name = name;
+        this.schema = schema;
         this.transaction = new PgTransaction(client);
         this.queries = [];
         this.length = 0;
@@ -106,7 +187,7 @@ class BulkOp {
 
     insert(data) {
         const _id = get_id(data);
-        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(data)}')`);
+        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(encode_json(this.schema, data))}')`);
         return this;
     }
 
@@ -252,12 +333,13 @@ class PostgresTable {
     initializeUnorderedBulkOp() {
         return new UnorderedBulkOp({
             name: this.name,
-            client: this.client
+            client: this.client,
+            schema: this.schema
         });
     }
 
     initializeOrderedBulkOp() {
-        return new OrderedBulkOp({ name: this.name, client: this.client });
+        return new OrderedBulkOp({ name: this.name, client: this.client, schema: this.schema });
     }
 
     async _create_table(pool) {
@@ -323,7 +405,7 @@ class PostgresTable {
     async insertOne(data) {
 
         const _id = this.get_id(data);
-        await this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]);
+        await this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), encode_json(this.schema, data)]);
         // TODO: Implement type
         return {};
     }
@@ -331,7 +413,7 @@ class PostgresTable {
     async _insertOneTransactional(transaction, data) {
 
         const _id = this.get_id(data);
-        await transaction.query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), data]);
+        await transaction.query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), encode_json(this.schema, data)]);
         // TODO: Implement type
         return {};
     }
@@ -342,7 +424,7 @@ class PostgresTable {
         const ordered = _.isUndefined(options.ordered) ? true : options.ordered;
         for (const doc of data) {
             const _id = this.get_id(doc);
-            queries.push([String(_id), doc]);
+            queries.push([String(_id), encode_json(this.schema, doc)]);
         }
         if (ordered) {
             for (const args of queries) {
@@ -440,7 +522,7 @@ class PostgresTable {
         }
         try {
             const res = await this.single_query(query_string);
-            return res.rows.map(row => this.decode_json(this.schema, row.data));
+            return res.rows.map(row => decode_json(this.schema, row.data));
         } catch (err) {
             dbg.error('find failed', query, options, query_string, err);
             throw err;
@@ -458,7 +540,7 @@ class PostgresTable {
         try {
             const res = await this.single_query(query_string);
             if (res.rowCount === 0) return null;
-            return res.rows.map(row => this.decode_json(this.schema, row.data))[0];
+            return res.rows.map(row => decode_json(this.schema, row.data))[0];
         } catch (err) {
             dbg.error('findOne failed', query, query_string, err);
             throw err;
@@ -484,7 +566,7 @@ class PostgresTable {
             const res = await this.single_query(mr_q);
             return res.rows.map(row => {
                 if (row.value) {
-                    return _.defaults({ value: this.decode_json(this.schema, row.value) }, row);
+                    return _.defaults({ value: decode_json(this.schema, row.value) }, row);
                 } else {
                     return row;
                 }
@@ -547,7 +629,7 @@ class PostgresTable {
         }
         try {
             const res = await this.single_query(query_string);
-            return res.rows.map(row => this.decode_json(this.schema, row.data)[property]);
+            return res.rows.map(row => decode_json(this.schema, row.data)[property]);
         } catch (err) {
             dbg.error('distinct failed', query, options, query_string, err);
             throw err;
@@ -635,12 +717,12 @@ class PostgresTable {
 
     async findOneAndUpdate(query, update, options) {
         const { upsert } = options;
-        const transaction = new PgTransaction({ client: this.client, name: this.name, });
+        const transaction = new PgTransaction(this.client);
         try {
             let response = null;
             const update_res = await this._updateOneTransactional(transaction, query, update, options);
             if (update_res.rowCount > 0) {
-                response = { value: update_res.rows.map(row => this.decode_json(this.schema, row.data))[0] };
+                response = { value: update_res.rows.map(row => decode_json(this.schema, row.data))[0] };
             } else if (upsert) {
                 const data = { _id: this.client.generate_id() };
                 await this._insertOneTransactional(transaction, data);
@@ -711,37 +793,6 @@ class PostgresTable {
             }
         }
         return doc;
-    }
-
-    decode_json(schema, val) {
-        if (!schema) {
-            return val;
-        }
-        if (schema.objectid === true) {
-            return new mongodb.ObjectId(val);
-        }
-        if (schema.date === true) {
-            return new Date(val);
-        }
-
-        if (schema.type === 'object') {
-            const obj = {};
-            for (const key of Object.keys(val)) {
-                obj[key] = this.decode_json(schema.properties[key], val[key]);
-            }
-            return obj;
-        }
-
-        if (schema.type === 'array') {
-            const item_schema = schema.items;
-            const arr = [];
-            for (const item of val) {
-                arr.push(this.decode_json(item_schema, item));
-            }
-            return arr;
-        }
-
-        return val;
     }
 
     col() {
@@ -900,7 +951,7 @@ class PostgresClient extends EventEmitter {
         this.tables.push(table);
 
         if (this.pool) {
-            table._create_table(this.pool).catch(_.noop); // TODO what is best to do when init_collection fails here?
+            table.init_promise = table._create_table(this.pool).catch(_.noop); // TODO what is best to do when init_collection fails here?
         }
 
         return table;

@@ -1,4 +1,4 @@
-FROM centos:latest
+FROM registry.centos.org/centos:latest
 
 RUN true \
  && yum -y install git make python3-pip \

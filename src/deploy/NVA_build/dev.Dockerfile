@@ -1,5 +1,5 @@
 # dev.Dockerfile is meant to be used manually for developer testing
-FROM centos:8 
+FROM registry.centos.org/centos:8
 
 ENV container docker
 

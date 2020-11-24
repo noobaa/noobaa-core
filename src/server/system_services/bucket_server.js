@@ -754,10 +754,6 @@ function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
 async function delete_bucket_and_objects(req) {
     var bucket = find_bucket(req);
 
-    // fail on namespace bucket
-    if (bucket.namespace) {
-        throw new RpcError('BAD_REQUEST', 'cannot perform delete_bucket_and_objects on namespace bucket');
-    }
     const now = new Date();
     // mark the bucket as deleting. it will be excluded from system_store indexes
     // rename the bucket to prevent collisions if the a new bucket with the same name is created immediately.

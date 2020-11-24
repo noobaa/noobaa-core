@@ -14,6 +14,7 @@ const mongodb = require('mongodb');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const db_client = require('../../util/db_client');
+const schema_utils = require('../../util/schema_utils');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const ObjectIO = require('../../sdk/object_io');
 const SliceReader = require('../../util/slice_reader');
@@ -57,7 +58,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
     }
 
     is_valid_md_id(id_str) {
-        return mongodb.ObjectId.isValid(id_str);
+        return schema_utils.is_object_id(id_str);
     }
 
     populate_nodes_for_blocks(blocks) {

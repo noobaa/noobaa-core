@@ -13,7 +13,7 @@ const azure_storage = require('../util/azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const stats_collector = require('./endpoint_stats_collector');
 const s3_utils = require('../endpoint/s3/s3_utils');
-const mongodb = require('mongodb');
+const schema_utils = require('../util/schema_utils');
 
 const MAP_BLOCK_LIST_TYPE = Object.freeze({
     uncommitted: 'UncommittedBlocks',
@@ -525,7 +525,7 @@ class NamespaceBlob {
         );
 
         const obj_id = Buffer.from(params.obj_id, 'base64').toString();
-        if (mongodb.ObjectId.isValid(obj_id)) {
+        if (schema_utils.is_object_id(obj_id)) {
             let obj_md = await object_sdk.rpc_client.object.read_object_md({
                 obj_id,
                 bucket: params.bucket,

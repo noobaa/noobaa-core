@@ -40,12 +40,24 @@ WORKDIR /noobaa-core/
 
 ##############################################################
 # Layers:
+#   Title: deploy ceph tests
+#   Size: ~ 83.9 MB
+#
+##############################################################
+
+RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
+RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
+    ./bootstrap
+
+##############################################################
+# Layers:
 #   Title: npm install to add dev dependencies (noobaa is build with npm install --prod) 
 #   Size: ~ 33 MB
 #
 ##############################################################
 RUN npm install
 
+RUN chmod 777 /noobaa-core/
 RUN mkdir -p /noobaa-core/.nyc_output && \
     chmod 777 /noobaa-core/.nyc_output
 # create dirs and fix permissions required by tests
@@ -55,17 +67,6 @@ RUN mkdir -p /noobaa-core/coverage && \
     chmod 777 /noobaa-core/coverage
 RUN chmod -R 777 /noobaa-core/src/test
 
-##############################################################
-# Layers:
-#   Title: deploy ceph tests
-#   Size: ~ 83.9 MB
-#
-##############################################################
-
-
-RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
-RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
-    ./bootstrap
 COPY .eslintrc.js /noobaa-core
 COPY .eslintignore /noobaa-core
 

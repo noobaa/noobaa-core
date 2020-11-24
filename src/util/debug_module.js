@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const os = require('os');
+const { createStream: createRotatingFileStream } = require('rotating-file-stream');
 
 const nb_native = require('./nb_native');
 const LRU = require('./lru');
@@ -53,7 +54,6 @@ util.inspect.defaultOptions.breakLength = Infinity;
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example rotating file steam usage or console wrapping
-const rfs = _should_log_to_file() && require("rotating-file-stream");
 var syslog;
 var console_wrapper;
 if (typeof process !== 'undefined' &&
@@ -200,7 +200,7 @@ class InternalDebugLogger {
         this._proc_name = '';
         this._pid = process.pid;
         this._log_console = console;
-        if (!rfs) {
+        if (!_should_log_to_file()) {
             return;
         }
 
@@ -218,7 +218,7 @@ class InternalDebugLogger {
         if (!syslog && syslog) { // TODO GUYM UNDO
             const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
             const filename_generator = (time, index) => (`noobaa${suffix}${index ? `.${index}.log.gz` : '.log'}`);
-            this._log_file = rfs(filename_generator, {
+            this._log_file = createRotatingFileStream(filename_generator, {
                 path: "./logs/",
                 maxFiles: 100,
                 size: "100MB", // rotate every 100 MegaBytes written
@@ -428,6 +428,8 @@ class InternalDebugLogger {
         }
     }
 }
+
+InternalDebugLogger._instance = null;
 
 const int_dbg = InternalDebugLogger.instance();
 

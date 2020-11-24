@@ -7,11 +7,11 @@ const stream = require('stream');
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const Pipeline = require('../util/pipeline');
 const Semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
+const stream_utils = require('../util/stream_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const CoalesceStream = require('../util/coalesce_stream');
 
@@ -424,13 +424,14 @@ class ObjectIO {
                 this._upload_chunks(params, complete_params, chunks, callback)
         });
 
-        const pipeline = new Pipeline(params.source_stream);
+        const transforms = [params.source_stream,
+            splitter,
+            coder,
+            coalescer,
+            uploader,
+        ];
 
-        pipeline.pipe(splitter);
-        pipeline.pipe(coder);
-        pipeline.pipe(coalescer);
-        pipeline.pipe(uploader);
-        await pipeline.promise();
+        await stream_utils.pipeline(transforms);
 
         complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');

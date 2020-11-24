@@ -8,7 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const { KubeStore } = require('../kube-store.js');
 const yaml = require('yamljs');
 const Agent = require('../../agent/agent');
-const uuid = require('uuid/v4');
+const { v4: uuid } = require('uuid');
 const js_utils = require('../../util/js_utils');
 const size_utils = require('../../util/size_utils');
 

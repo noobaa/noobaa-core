@@ -31,7 +31,8 @@ class RpcWsConnection extends RpcBaseConnection {
     _connect_node() {
         const ws = new WS(this.url.href, [], {
             // accept self signed ssl certificates
-            agent: http_utils.get_unsecured_agent(this.url.href)
+            agent: http_utils.get_unsecured_agent(this.url.href),
+            perMessageDeflate: false,
         });
         ws.on('open', () => this.emit('connect'));
         this._init_node(ws);
@@ -57,7 +58,7 @@ class RpcWsConnection extends RpcBaseConnection {
             // may send fake http messages inside the websocket
             // in order to poison intermediate proxy caches.
             // reduces rpc throughput to ~70 MB/s
-            mask: false,
+            // mask: false,
             // zlib compression reduces throughput to ~15 MB/s
             compress: false,
         };

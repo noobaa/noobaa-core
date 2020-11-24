@@ -2,6 +2,7 @@
 'use strict';
 
 const stream = require('stream');
+const util = require('util');
 
 
 
@@ -17,7 +18,7 @@ function get_tap_stream(func) {
 
 }
 
-
-
+const pipeline = util.promisify(stream.pipeline);
 
 exports.get_tap_stream = get_tap_stream;
+exports.pipeline = pipeline;

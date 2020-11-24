@@ -1,0 +1,168 @@
+# Deployment for a docker.io mirror
+#
+# By using the mirror to pull images from Docker Hub, the images are stored in
+# the Pod running in OpenShift. The mirror connects to docker.io with a user
+# account/token, so that the restrictions of the Docker rate limit on image
+# pulls get minimised.
+#
+# Usage:
+# - make a local copy of this file
+# - replace the variables indicated with @@ with real values
+# - any occurence of "noobaa" in this file needs replacing with the namespace
+#   where this mirror gets deployed
+# - apply the local configuration with:
+#     $ oc create -f /tmp/docker-mirror.yaml
+# - configure the mirror for usage with Podman:
+#     - login on the service with details from the docker-mirror-auth Secret
+#        $ podman login mirror-noobaa.apps.ocp.ci.centos.org
+#     - use container-registry.conf for the mirror configuration
+#
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-mirror-auth
+  labels:
+    app: docker-mirror
+stringData:
+  # username and password will need to be shared with the systems that pull
+  # images from this mirror
+  username: "@@USERNAME@@"
+  password: "@@RANDOM_STRING@@"
+  # contents created with:
+  #   $ htpasswd -Bbn $USER $PASSWD
+  htpasswd: |-
+    "@@REPLACE_WITH_OUTPUT_OF_HTPASSWD_CMD@@"
+  # contents created with:
+  #   $ podman login -u $USER -p $PASSWD --authfile=config.json $URL
+  config.json: |-
+    {
+      "auths": {
+        "mirror-noobaa.apps.ocp.ci.centos.org": {
+          "auth": "@@SOME_B64ENCODED_STRING@@"
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-mirror-config
+  labels:
+    app: docker-mirror
+stringData:
+  # /etc/docker/registry/config.yml
+  config.yml: |-
+    version: 0.1
+    log:
+      fields:
+        service: registry
+    storage:
+      cache:
+        blobdescriptor: inmemory
+      filesystem:
+        rootdirectory: /var/lib/registry
+    http:
+      addr: :5000
+      headers:
+        X-Content-Type-Options: [nosniff]
+    health:
+      storagedriver:
+        enabled: true
+        interval: 10s
+        threshold: 3
+    proxy:
+      remoteurl: https://docker.io
+      username: @@DOCKER_USERNAME@@
+      password: @@DOCKER_TOKEN@@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: image-registry
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  # PersistenVolume requested at https://pagure.io/centos-infra/issue/160
+  volumeName: @@PV_NAME@@
+  volumeMode: Filesystem
+---
+kind: DeploymentConfig
+apiVersion: apps.openshift.io/v1
+metadata:
+  name: docker-mirror
+  labels:
+    app: docker-mirror
+spec:
+  triggers:
+    - type: ConfigChange
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: docker-mirror
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: docker-registry
+          image: docker.io/library/registry:2
+          volumeMounts:
+            - name: container-images
+              mountPath: /var/lib/registry
+            - name: config
+              mountPath: /etc/docker/registry
+            - name: htpasswd
+              mountPath: /auth
+          env:
+            - name: REGISTRY_AUTH
+              value: htpasswd
+            - name: REGISTRY_AUTH_HTPASSWD_REALM
+              value: Ceph-CSI CI Container Registry
+            - name: REGISTRY_AUTH_HTPASSWD_PATH
+              value: /auth/htpasswd
+      volumes:
+        - name: container-images
+          persistentVolumeClaim:
+            claimName: image-registry
+        - name: config
+          secret:
+            secretName: docker-mirror-config
+        - name: htpasswd
+          secret:
+            secretName: docker-mirror-auth
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-mirror
+  labels:
+    app: docker-mirror
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      protocol: TCP
+      targetPort: 5000
+  selector:
+    name: docker-mirror
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mirror
+  labels:
+    app: docker-mirror
+spec:
+  port:
+    targetPort: 5000
+  tls:
+    insecureEdgeTerminationPolicy: Allow
+    termination: edge
+  to:
+    kind: Service
+    name: docker-mirror
+    weight: 100
+  wildcardPolicy: None

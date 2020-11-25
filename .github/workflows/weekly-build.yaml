@@ -38,5 +38,5 @@ jobs:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
         run: |
             make noobaa
-            docker tag noobaa ${{ steps.prep.outputs.tags }}
-            docker push ${{ steps.prep.outputs.tags }}
+            docker tag noobaa ${{ steps.prep.outputs.coretags }}
+            docker push ${{ steps.prep.outputs.coretags }}

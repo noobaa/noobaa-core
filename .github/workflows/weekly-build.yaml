@@ -33,4 +33,4 @@ jobs:
         run: |
             make noobaa
             docker tag noobaa ${{ steps.prep.outputs.tags }}
-            docker push
+            docker push ${{ steps.prep.outputs.tags }}

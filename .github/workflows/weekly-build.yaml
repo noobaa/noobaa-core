@@ -1,9 +1,9 @@
 name: Weekly Build
 
-# Run the Weekly on Sundays 8 AM UTC
-on: push
-  #schedule:
-    #- cron: "0 10 * * 4"
+# Run the Weekly on Monday 8 AM UTC
+on: 
+  schedule:
+    - cron: "0 8 * * 1"
 
 jobs:
   publish-image:
@@ -24,9 +24,9 @@ jobs:
           DOCKER_CORE_IMAGE=noobaa/noobaa-core
           VERSION="${{ steps.date.outputs.date }}"
           echo "::warning ${VERSION}"
-          BASE_TAGS="${DOCKER_BASE_IMAGE}:master-:${VERSION}"
-          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:master-:${VERSION}"
-          CORE_TAGS="${DOCKER_CORE_IMAGE}:master-:${VERSION}"
+          BASE_TAGS="${DOCKER_BASE_IMAGE}:master-${VERSION}"
+          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:master-${VERSION}"
+          CORE_TAGS="${DOCKER_CORE_IMAGE}:master-${VERSION}"
           echo "::warning ${CORE_TAGS}"
           echo ::set-output name=basetags::${BASE_TAGS}
           echo ::set-output name=buildertags::${BUILDER_TAGS}

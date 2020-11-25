@@ -14,7 +14,7 @@ jobs:
 
       - name: Get Current Date
         id: date
-        run: echo "name=$(date +'%Y%m%d')" >> $GITHUB_ENV
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
 
       - name: Prepare Tags
         id: prep

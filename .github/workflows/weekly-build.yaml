@@ -12,17 +12,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Get current date
+      - name: Get Current Date
         id: date
         run: echo "name=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
-      - name: Prepare
+      - name: Prepare Tags
         id: prep
         run: |
-          DOCKER_IMAGE=noobaa/noobaa-core
+          DOCKER_BASE_IMAGE=noobaa/noobaa-base
+          DOCKER_BUILDER_IMAGE=noobaa/noobaa-builder
+          DOCKER_CORE_IMAGE=noobaa/noobaa-core
           VERSION="${{ steps.date.outputs.date }}"
-          TAGS="${DOCKER_IMAGE}:master-${VERSION}"
-          echo ::set-output name=tags::${TAGS}
+          BASE_TAGS="${DOCKER_BASE_IMAGE}:master-:${VERSION}"
+          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:master-:${VERSION}"
+          CORE_TAGS="${DOCKER_CORE_IMAGE}:master-:${VERSION}"
+          echo ::set-output name=basetags::${BASE_TAGS}
+          echo ::set-output name=buildertags::${BUILDER_TAGS}
+          echo ::set-output name=coretags::${CORE_TAGS}
 
       - name: Login to DockerHub Registry
         run: echo ${{ secrets.GHACTIONSDOCKERHUB }} | docker login -u ${{ secrets.GHACTIONSDOCKERHUBNAME }} --password-stdin

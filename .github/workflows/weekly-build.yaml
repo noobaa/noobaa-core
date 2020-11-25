@@ -1,9 +1,9 @@
 name: Weekly Build
 
 # Run the Weekly on Sundays 8 AM UTC
-on:
-  schedule:
-    - cron: "0 10 * * 4"
+on: push
+  #schedule:
+    #- cron: "0 10 * * 4"
 
 jobs:
   docker:

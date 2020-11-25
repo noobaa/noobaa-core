@@ -23,9 +23,11 @@ jobs:
           DOCKER_BUILDER_IMAGE=noobaa/noobaa-builder
           DOCKER_CORE_IMAGE=noobaa/noobaa-core
           VERSION="${{ steps.date.outputs.date }}"
+          echo "::warning ${VERSION}"
           BASE_TAGS="${DOCKER_BASE_IMAGE}:master-:${VERSION}"
           BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:master-:${VERSION}"
           CORE_TAGS="${DOCKER_CORE_IMAGE}:master-:${VERSION}"
+          echo "::warning ${CORE_TAGS}"
           echo ::set-output name=basetags::${BASE_TAGS}
           echo ::set-output name=buildertags::${BUILDER_TAGS}
           echo ::set-output name=coretags::${CORE_TAGS}

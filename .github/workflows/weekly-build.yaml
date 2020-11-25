@@ -6,7 +6,7 @@ on: push
     #- cron: "0 10 * * 4"
 
 jobs:
-  docker:
+  publish-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -14,17 +14,14 @@ jobs:
 
       - name: Get current date
         id: date
-        run: echo "name=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+        run: echo "name=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - name: Prepare
         id: prep
         run: |
           DOCKER_IMAGE=noobaa/noobaa-core
-          VERSION=""
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            VERSION="master-${{ steps.date.outputs.date }}"
-          fi
-          TAGS="${DOCKER_IMAGE}:${VERSION}"
+          VERSION="${{ steps.date.outputs.date }}"
+          TAGS="${DOCKER_IMAGE}:master-${VERSION}"
           echo ::set-output name=tags::${TAGS}
 
       - name: Login to DockerHub Registry

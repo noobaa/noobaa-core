@@ -30,6 +30,7 @@ jobs:
       - name: Build & Push Docker Images
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
-        run: make noobaa \
-             docker tag noobaa ${{ steps.prep.outputs.tags }} \
-             docker push
+        run: |
+            make noobaa
+            docker tag noobaa ${{ steps.prep.outputs.tags }}
+            docker push

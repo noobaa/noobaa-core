@@ -14,7 +14,7 @@ jobs:
 
       - name: Get Current Date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
 
       - name: Prepare Tags
         id: prep
@@ -40,5 +40,10 @@ jobs:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
         run: |
             make noobaa
+            docker tag noobaa-base ${{ steps.prep.outputs.basetags }}
+            docker push ${{ steps.prep.outputs.basetags }}
+            docker tag noobaa-builder ${{ steps.prep.outputs.buildertags }}
+            docker push ${{ steps.prep.outputs.buildertags }}
             docker tag noobaa ${{ steps.prep.outputs.coretags }}
             docker push ${{ steps.prep.outputs.coretags }}
+            

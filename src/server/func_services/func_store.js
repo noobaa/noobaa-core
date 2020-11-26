@@ -12,6 +12,7 @@ const P = require('../../util/promise');
 
 const buffer_utils = require('../../util/buffer_utils');
 const func_schema = require('./func_schema');
+const func_indexes = require('./func_indexes');
 
 class FuncStore {
 
@@ -19,17 +20,7 @@ class FuncStore {
         this._funcs = db_client.instance().define_collection({
             name: 'funcs',
             schema: func_schema,
-            db_indexes: [{
-                fields: {
-                    system: 1,
-                    name: 1,
-                    version: 1,
-                    deleted: 1, // allow to filter deleted
-                },
-                options: {
-                    unique: true,
-                }
-            }]
+            db_indexes: func_indexes,
         });
         this._func_code = db_client.instance().define_gridfs({
             name: 'func_code_gridfs'

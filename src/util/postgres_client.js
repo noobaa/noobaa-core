@@ -326,6 +326,7 @@ class PostgresTable {
 
         if (!process.env.CORETEST) {
             // Run once a day
+            // TODO: Configure from PostgreSQL
             setInterval(this.vacuumAndAnalyze, 86400000, this);
         }
     }
@@ -352,7 +353,39 @@ class PostgresTable {
             dbg.error('got error on _init_table:', err);
             throw err;
         }
-        // TODO: create indexes
+
+        if (this.db_indexes) {
+            try {
+                await Promise.all(this.db_indexes.map(async index => {
+                    const { fields, options = {} } = index;
+                    try {
+                        const index_name = options.name || Object.keys(fields).join('_');
+                        dbg.log0(`creating index ${index_name} in table ${this.name}`);
+                        const col_arr = [];
+                        _.forIn(fields, (value, key) => {
+                            col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+                        });
+                        const col_idx = `(${col_arr.join(',')})`;
+                        const uniq = options.unique ? 'UNIQUE' : '';
+                        const partial = options.partialFilterExpression ? `WHERE ${mongo_to_pg('data', options.partialFilterExpression)}` : '';
+                        const idx_str = `CREATE ${uniq} INDEX idx_btree_${this.name}_${index_name} ON ${this.name} USING BTREE ${col_idx} ${partial}`;
+                        await this.single_query(idx_str, undefined, pool);
+                        dbg.log0('db_indexes: created index', idx_str);
+                    } catch (err) {
+                        // TODO: Handle conflicts and re-declaration
+                        // if (err.codeName !== 'IndexOptionsConflict') throw err;
+                        // await db.collection(col.name).dropIndex(index.fields);
+                        // const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
+                        // dbg.log0('_init_collection: re-created index with new options', col.name, res);
+                        dbg.error('got error on db_indexes: FAILED', this.name, err);
+                        throw err;
+                    }
+                }));
+            } catch (err) {
+                dbg.error('got error on creating db_indexes: FAILED', this.name, err);
+                throw err;
+            }
+        }
     }
 
     async single_query(text, values, pool) {
@@ -958,7 +991,7 @@ class PostgresClient extends EventEmitter {
     }
 
     async _init_collections(pool) {
-        await Promise.all(this.tables.map(table => table._create_table(pool)));
+        await Promise.all(this.tables.map(async table => table._create_table(pool)));
         await this._load_sql_functions(pool);
     }
 

@@ -6,6 +6,7 @@ const moment = require('moment');
 
 const db_client = require('../../util/db_client');
 const io_stats_schema = require('./io_stats_schema');
+const io_stats_indexes = require('./io_stats_indexes');
 
 class IoStatsStore {
 
@@ -18,15 +19,7 @@ class IoStatsStore {
         this._io_stats = db_client.instance().define_collection({
             name: 'iostats',
             schema: io_stats_schema,
-            db_indexes: [{
-                fields: {
-                    system: 1,
-                    resource_id: 1,
-                    resource_type: 1,
-                    start_time: 1,
-                    end_time: 1
-                }
-            }],
+            db_indexes: io_stats_indexes,
         });
     }
 

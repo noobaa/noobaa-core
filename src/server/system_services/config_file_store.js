@@ -6,6 +6,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 const mongodb = require('mongodb');
 const config_file_schema = require('./schemas/config_file_schema');
+const config_file_indexes = require('./schemas/config_file_indexes');
 
 class ConfigFileStore {
 
@@ -13,14 +14,7 @@ class ConfigFileStore {
         this._config_files = db_client.instance().define_collection({
             name: 'config_files',
             schema: config_file_schema,
-            db_indexes: [{
-                fields: {
-                    filename: 1,
-                },
-                options: {
-                    unique: true,
-                }
-            }]
+            db_indexes: config_file_indexes,
         });
     }
 

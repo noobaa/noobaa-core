@@ -62,7 +62,7 @@ class MongoCollection {
     async deleteOne(query, options = {}) { return this._get_mongo_col().deleteOne(query, options); }
     async deleteMany(query, options = {}) { return this._get_mongo_col().deleteMany(query, options); }
     async insertOne(doc, options = {}) { return this._get_mongo_col().insertOne(doc, options); }
-    async insertMany(docs, options = {}) { return this._get_mongo_col().insertMany(docs, options); }
+    async insertManyUnordered(docs) { return this._get_mongo_col().insertMany(docs, { ordered: false }); }
     async updateOne(query, update, options = {}) { return this._get_mongo_col().updateOne(query, update, options); }
     async updateMany(query, update, options = {}) { return this._get_mongo_col().updateMany(query, update, options); }
     async mapReduce(map, reduce, options = {}) { return this._get_mongo_col().mapReduce(map, reduce, options); }

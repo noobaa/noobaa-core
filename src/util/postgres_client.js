@@ -451,21 +451,15 @@ class PostgresTable {
         return {};
     }
 
-    async insertMany(data, options) {
+    // This is done mainly to be quick
+    // Notice that the behaviour between MongoDB and PostgreSQL differs
+    // In PostgreSQL we either push everything at once or do not push anything at all
+    // In MongoDB we might push partially (succeed pushing several documents and fail on others), and it is done in parallel
+    async insertManyUnordered(data) {
 
-        let queries = [];
-        const ordered = _.isUndefined(options.ordered) ? true : options.ordered;
-        for (const doc of data) {
-            const _id = this.get_id(doc);
-            queries.push([String(_id), encode_json(this.schema, doc)]);
-        }
-        if (ordered) {
-            for (const args of queries) {
-                await this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, args);
-            }
-        } else {
-            await Promise.all(queries.map(args => this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, args)));
-        }
+        const args = _.flatten(data.map(doc => [String(this.get_id(doc)), encode_json(this.schema, doc)]));
+        const values_str = _.times(data.length, i => `($${(i * 2) + 1}, $${(i * 2) + 2})`).join(', ');
+        await this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ${values_str}`, args);
         // TODO: Implement type
         return {};
     }

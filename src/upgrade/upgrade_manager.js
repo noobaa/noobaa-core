@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const system_store = require('../server/system_services/system_store').get_instance({ standalone: true });
+const system_server = require('../server/system_services/system_server');
 const dbg = require('../util/debug_module')('UPGRADE');
 const db_client = require('../util/db_client');
 
@@ -140,7 +141,7 @@ async function run_upgrade() {
             for (const script of upgrade_scripts) {
                 dbg.log0(`running upgrade script ${script.file}: ${script.description}`);
                 try {
-                    await script.run({ dbg, db_client, system_store });
+                    await script.run({ dbg, db_client, system_store, system_server });
                     this_upgrade.completed_scripts.push(script.file);
                 } catch (err) {
                     dbg.log0(`failed running upgrade script ${script.file}`, err);

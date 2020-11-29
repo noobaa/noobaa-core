@@ -215,9 +215,9 @@ class MasterKeysManager {
         let updated_value = cipher.update(Buffer.from(value.unwrap()));
         if (m_key.cipher_type !== 'aes-256-gcm') updated_value = Buffer.concat([updated_value, cipher.final()]);
 
-        const ciphered_value = new SensitiveString(updated_value.toString('base64'));
+        const ciphered_value = updated_value.toString('base64');
         this.secret_keys_cache.put_in_cache(ciphered_value, value);
-        return ciphered_value;
+        return new SensitiveString(ciphered_value);
     }
 
     is_m_key_disabled(id) {
@@ -245,10 +245,9 @@ class MasterKeysManager {
                 if (this.is_m_key_disabled(account.master_key_id._id)) {
                     continue;
                 }
-                const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
-
                 if (account.access_keys) {
                     for (const keys of account.access_keys) {
+                        const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                         keys.secret_key = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: keys.secret_key.unwrap(),
                             decipher
@@ -257,6 +256,7 @@ class MasterKeysManager {
                 }
                 if (account.sync_credentials_cache) {
                     for (const keys of account.sync_credentials_cache) {
+                        const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                         keys.secret_key = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: keys.secret_key.unwrap(),
                             decipher

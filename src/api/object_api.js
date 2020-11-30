@@ -102,7 +102,8 @@ module.exports = {
                     chunk_split_config: { $ref: 'common_api#/definitions/chunk_split_config' },
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
-                    upload_size: { type: 'integer' }
+                    upload_size: { type: 'integer' },
+                    bucket_master_key_id: { objectid: true }
                 }
             },
             auth: { system: ['admin'] }

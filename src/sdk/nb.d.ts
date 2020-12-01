@@ -686,7 +686,7 @@ interface DBCollection {
     deleteOne(query: object, options?: object): Promise<object>;
     deleteMany(query: object, options?: object): Promise<mongodb.DeleteWriteOpResultObject>;
     insertOne(doc: DBDoc, options?: object): Promise<object>;
-    insertMany(docs: DBDoc[], options?: object): Promise<object>;
+    insertManyUnordered(docs: DBDoc[]): Promise<object>;
     updateOne(query: object, update: object, options?: object): Promise<object>;
     updateMany(query: object, update: object, options?: object): Promise<object>;
 
@@ -719,7 +719,7 @@ interface ObjectSDK {
 }
 
 interface Namespace {
-    
+
     is_same_namespace(other: Namespace): boolean;
     get_write_resource(): Namespace;
     get_bucket(): string;
@@ -727,27 +727,27 @@ interface Namespace {
     list_objects(params: object, object_sdk: ObjectSDK): Promise<any>;
     list_uploads(params: object, object_sdk: ObjectSDK): Promise<any>;
     list_object_versions(params: object, object_sdk: ObjectSDK): Promise<any>;
-    
+
     read_object_md(params: object, object_sdk: ObjectSDK): Promise<ObjectInfo>;
     read_object_stream(params: object, object_sdk: ObjectSDK): Promise<Readable>;
-    
+
     upload_object(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_object(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_multiple_objects(params: object, object_sdk: ObjectSDK): Promise<any>;
-    
+
     create_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
     complete_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
     abort_object_upload(params: object, object_sdk: ObjectSDK): Promise<any>;
     upload_multipart(params: object, object_sdk: ObjectSDK): Promise<any>;
     list_multiparts(params: object, object_sdk: ObjectSDK): Promise<any>;
-    
+
     get_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
     put_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_object_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     get_object_acl(params: object, object_sdk: ObjectSDK): Promise<any>;
     put_object_acl(params: object, object_sdk: ObjectSDK): Promise<any>;
-   
+
     get_object_legal_hold(params: object, object_sdk: ObjectSDK): Promise<any>;
     put_object_legal_hold(params: object, object_sdk: ObjectSDK): Promise<any>;
     get_object_retention(params: object, object_sdk: ObjectSDK): Promise<any>;

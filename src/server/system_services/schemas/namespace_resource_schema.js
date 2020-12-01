@@ -52,5 +52,19 @@ module.exports = {
                 }
             }
         },
+        issues_report: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    time: {
+                        idate: true
+                    },
+                    error_code: {
+                        type: 'string'
+                    }
+                }
+            }
+        },
     }
 };

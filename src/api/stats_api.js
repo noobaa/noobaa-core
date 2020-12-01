@@ -549,6 +549,7 @@ module.exports = {
                             'savings',
                             'total_usage',
                             'buckets_stats',
+                            'namespace_buckets_stats',
                             'usage_by_project',
                             'usage_by_bucket_class',
                         ],
@@ -597,6 +598,9 @@ module.exports = {
                             },
                             buckets_stats: {
                                 $ref: '#/definitions/partial_buckets_stats'
+                            },
+                            namespace_buckets_stats: {
+                                $ref: '#/definitions/partial_namespace_buckets_stats'
                             },
                             // TODO: Fix the regex for the projects name
                             usage_by_project: {
@@ -705,6 +709,29 @@ module.exports = {
                 unhealthy_bucket_claims: { type: 'integer' },
             }
         },
-    },
 
+        partial_namespace_buckets_stats: {
+            type: 'object',
+            required: ['namespace_buckets', 'namespace_buckets_num', 'unhealthy_namespace_buckets'],
+            properties: {
+                namespace_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['bucket_name', 'is_healthy'],
+                        properties: {
+                            bucket_name: {
+                                type: 'string'
+                            },
+                            is_healthy: {
+                                type: 'boolean'
+                            },
+                        }
+                    }
+                },
+                namespace_buckets_num: { type: 'integer' },
+                unhealthy_namespace_buckets: { type: 'integer' },
+            },
+        },
+    },
 };

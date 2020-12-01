@@ -1550,6 +1550,97 @@ function get_entity_info(entity, entity_type) {
             sys.name === entity.unwrap())) || undefined;
 }
 
+async function upgrade_master_keys() {
+    let master_keys = [];
+    let buckets_updates = [];
+    let accounts_updates = [];
+    let pools_updates = [];
+    let namespace_resources_updates = [];
+    let system_master_key = system_store.data.systems[0].master_key_id;
+    // upgrade system master key if it doesn't exist
+    if (!system_master_key) {
+        system_master_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${system_store.data.systems[0]._id.toString()} system`,
+            master_key_id: system_store.master_key_manager.get_root_key_id(),
+            cipher_type: system_store.master_key_manager.get_root_key().cipher_type
+        });
+        master_keys.push(system_master_key);
+    }
+    // upgrade buckets master keys
+    _.map(system_store.data.buckets, bucket => {
+        if (bucket.master_key_id) return;
+        const bucket_m_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${bucket._id} bucket`,
+            master_key_id: system_master_key._id,
+            cipher_type: system_master_key.cipher_type
+        });
+        buckets_updates.push({
+                _id: bucket._id,
+                $set: {
+                    "master_key_id": bucket_m_key._id
+                }
+        });
+        master_keys.push(bucket_m_key);
+
+     });
+    // upgrade accounts master keys
+     _.map(system_store.data.accounts, account => {
+        if (account.master_key_id || account.email.unwrap() === 'support@noobaa.com') return;
+        const account_m_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${account._id} account`,
+            master_key_id: system_master_key._id,
+            cipher_type: system_master_key.cipher_type
+        });
+
+        // encrypt access
+        const encrypted_access_keys = _.map(account.access_keys, acc => {
+            const encrypted_secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                acc.secret_key, account_m_key._id);
+            acc.secret_key = encrypted_secret_key;
+            return acc;
+        });
+        // encrypt sync creds
+        const encrypted_sync_creds = _.map(account.sync_credentials_cache, acc => {
+            const encrypted_secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                acc.secret_key, account_m_key._id);
+            acc.secret_key = encrypted_secret_key;
+            return acc;
+        });
+
+        // get updated for pools and ns_resources
+        const pool_and_ns_resources_updates = get_pools_and_ns_resources_changes(encrypted_sync_creds, account._id);
+        accounts_updates.push({
+                _id: account._id,
+                $set: {
+                    "access_keys": encrypted_access_keys,
+                    "sync_credentials_cache": encrypted_sync_creds,
+                    "master_key_id": account_m_key._id
+                }
+        });
+        pools_updates.push(...pool_and_ns_resources_updates.pools);
+        namespace_resources_updates.push(...pool_and_ns_resources_updates.namespace_resources);
+        master_keys.push(account_m_key);
+     });
+
+    await system_store.make_changes({
+            update: {
+                systems: [{
+                        _id: system_store.data.systems[0]._id,
+                        $set: {
+                            "master_key_id": system_master_key._id
+                        }
+                }],
+                buckets: buckets_updates,
+                accounts: accounts_updates,
+                pools: pools_updates,
+                namespace_resources: namespace_resources_updates
+            },
+            insert: {
+                master_keys: master_keys
+            }
+        });
+    }
+
 // EXPORTS
 exports._init = _init;
 exports.is_initialized = is_initialized;
@@ -1583,3 +1674,4 @@ exports.get_endpoints_history = get_endpoints_history;
 exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;
+exports.upgrade_master_keys = upgrade_master_keys;

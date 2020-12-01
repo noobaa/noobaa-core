@@ -440,15 +440,15 @@ class SystemStore extends EventEmitter {
                 this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
+                dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
                 if (this.data.master_keys_by_id) {
                     this.master_key_manager.update_master_keys(this.data.master_keys_by_id);
+                    await this.master_key_manager.decrypt_all_accounts_secret_keys({
+                        accounts: this.data.accounts,
+                        pools: this.data.pools,
+                        namespace_resources: this.data.namespace_resources
+                    });
                 }
-                dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
-                await this.master_key_manager.decrypt_all_accounts_secret_keys({
-                    accounts: this.data.accounts,
-                    pools: this.data.pools,
-                    namespace_resources: this.data.namespace_resources
-                });
                 this.emit('load');
                 this.is_finished_initial_load = true;
                 return this.data;

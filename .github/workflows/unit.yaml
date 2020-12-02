@@ -4,7 +4,7 @@ name: Unit Tests
 on: [push, pull_request]
 
 jobs:
-  run-tests:
+  run-unit-tests:
     runs-on: ubuntu-latest
     steps:
       - name: checkout

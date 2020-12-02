@@ -22,8 +22,16 @@ class MasterKeysManager {
             expiry_ms: Infinity,
             max_usage: Infinity,
             make_key: params => params.encrypted_value,
-            load: params => new SensitiveString(params.decipher.update(
-                Buffer.from(params.encrypted_value, 'base64')).toString())
+            load: params => {
+                let decipher = params.decipher;
+                if (!decipher) {
+                    const m_key = this.get_master_key_by_id(params.master_key_id);
+                    if (!m_key) throw new Error('NO_SUCH_KEY');
+                    decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
+                }
+                return new SensitiveString(decipher.update(
+                Buffer.from(params.encrypted_value, 'base64')).toString());
+            }
         });
     }
 
@@ -91,7 +99,7 @@ class MasterKeysManager {
             cipher_type: cipher_type || config.CHUNK_CODER_CIPHER_TYPE,
             cipher_key: crypto.randomBytes(32),
             cipher_iv: crypto.randomBytes(16),
-            disabled: false
+            disabled: this.is_m_key_disabled(master_key_id),
         }, _.isUndefined);
 
         const encrypted_m_key = _.cloneDeep(m_key);
@@ -143,6 +151,19 @@ class MasterKeysManager {
 
     /**
      * 
+     * @param {String} m_key_id 
+     * @param {String} new_father_m_key_id 
+     * @returns {Object}  
+     */
+    _reencrypt_master_key(m_key_id, new_father_m_key_id) {
+        const decrypted_mkey = this.get_master_key_by_id(m_key_id); // returns the decrypted m_key
+        if (!decrypted_mkey) throw new Error('NO_SUCH_KEY');
+        const reencrypted_mkey = this.encrypt_buffer_with_master_key_id(decrypted_mkey.cipher_key, new_father_m_key_id);
+        return reencrypted_mkey;
+    }
+
+    /**
+     * 
      * @param {Buffer} value 
      * @param {String} _id
      * @returns {Buffer} 
@@ -165,7 +186,7 @@ class MasterKeysManager {
      * @returns {Buffer} 
      */
     decrypt_value_with_master_key_id(value, _id) {
-        if (!_id) Buffer.from(value, 'base64');
+        if (!_id) return Buffer.from(value, 'base64');
         const m_key = this.get_master_key_by_id(_id);
         if (!m_key) throw new Error('NO_SUCH_KEY');
 
@@ -186,14 +207,34 @@ class MasterKeysManager {
         if (!_id) return value;
         const m_key = this.get_master_key_by_id(_id);
         if (!m_key) throw new Error('NO_SUCH_KEY');
-
+        if (this.is_m_key_disabled(m_key._id)) {
+            console.log('encrypt_sensitive_string_with_master_key_id: master key is disabled, ignoring encrypting...');
+            return value;
+        }
         const cipher = crypto.createCipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
         let updated_value = cipher.update(Buffer.from(value.unwrap()));
         if (m_key.cipher_type !== 'aes-256-gcm') updated_value = Buffer.concat([updated_value, cipher.final()]);
 
-        const ciphered_value = new SensitiveString(updated_value.toString('base64'));
+        const ciphered_value = updated_value.toString('base64');
         this.secret_keys_cache.put_in_cache(ciphered_value, value);
-        return ciphered_value;
+        return new SensitiveString(ciphered_value);
+    }
+
+    is_m_key_disabled(id) {
+        const db_m_key = id === ROOT_KEY ? this.get_root_key() : this.master_keys_by_id[id.toString()];
+        if (!db_m_key) throw new Error(`is_m_key_disabled: master key id ${id} was not found`);
+        return db_m_key.disabled === true;
+    }
+
+    set_m_key_disabled_val(_id, val) {
+        if (!_id) throw new Error(`set_m_key_disabled_val: master key id ${_id} was not found`);
+        const m_key = this.get_master_key_by_id(_id);
+        if (!m_key) throw new Error('NO_SUCH_KEY');
+        this.resolved_master_keys_by_id[_id.toString()] = {...m_key, disabled: val };
+    }
+
+    remove_secret_key_pair_from_cache(old_encrypted_sec_key) {
+        this.secret_keys_cache.invalidate_key(old_encrypted_sec_key);
     }
 
     async decrypt_all_accounts_secret_keys({ accounts, pools, namespace_resources }) {
@@ -201,10 +242,12 @@ class MasterKeysManager {
             if (account.master_key_id && account.master_key_id._id) {
                 const m_key = this.get_master_key_by_id(account.master_key_id._id);
                 if (!m_key) throw new Error('NO_SUCH_KEY');
-                const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
-
+                if (this.is_m_key_disabled(account.master_key_id._id)) {
+                    continue;
+                }
                 if (account.access_keys) {
                     for (const keys of account.access_keys) {
+                        const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                         keys.secret_key = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: keys.secret_key.unwrap(),
                             decipher
@@ -213,6 +256,7 @@ class MasterKeysManager {
                 }
                 if (account.sync_credentials_cache) {
                     for (const keys of account.sync_credentials_cache) {
+                        const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                         keys.secret_key = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: keys.secret_key.unwrap(),
                             decipher
@@ -224,25 +268,32 @@ class MasterKeysManager {
 
         for (const pool of pools) {
             if (pool.cloud_pool_info && pool.cloud_pool_info.access_keys) {
-                pool.cloud_pool_info.access_keys.secret_key = await this.secret_keys_cache.get_with_cache({
-                    encrypted_value: pool.cloud_pool_info.access_keys.secret_key.unwrap(),
-                    undefined
-                }, undefined);
+                if (!this.is_m_key_disabled(pool.cloud_pool_info.access_keys.account_id.master_key_id._id)) {
+                    pool.cloud_pool_info.access_keys.secret_key = await this.secret_keys_cache.get_with_cache({
+                        encrypted_value: pool.cloud_pool_info.access_keys.secret_key.unwrap(),
+                        undefined,
+                        master_key_id: pool.cloud_pool_info.access_keys.account_id.master_key_id._id
+                    }, undefined);
+                }
             }
         }
 
         for (const ns_resource of namespace_resources) {
             if (ns_resource.connection) {
-                ns_resource.connection.secret_key = await this.secret_keys_cache.get_with_cache({
-                    encrypted_value: ns_resource.connection.secret_key.unwrap(),
-                    undefined
-                }, undefined);
+                if (!this.is_m_key_disabled(ns_resource.account.master_key_id._id)) {
+                    ns_resource.connection.secret_key = await this.secret_keys_cache.get_with_cache({
+                        encrypted_value: ns_resource.connection.secret_key.unwrap(),
+                        undefined,
+                        master_key_id: ns_resource.account.master_key_id._id
+                    }, undefined);
+                }
             }
         }
     }
 
     [util.inspect.custom]() { return 'MasterKeysManager'; }
 }
+
 
 MasterKeysManager._instance = undefined;
 

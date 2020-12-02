@@ -1001,7 +1001,7 @@ class MDStore {
         for (const part of parts) {
             this._parts.validate(part);
         }
-        return this._parts.insertMany(parts, unordered_insert_options());
+        return this._parts.insertManyUnordered(parts);
     }
 
     /**
@@ -1215,13 +1215,13 @@ class MDStore {
         for (const chunk of chunks) {
             this._chunks.validate(chunk);
         }
-        return this._chunks.insertMany(chunks, unordered_insert_options());
+        return this._chunks.insertManyUnordered(chunks);
     }
 
-    update_chunk_by_id(chunk_id, set_updates) {
+    update_chunk_by_id(chunk_id, set_updates, unset_updates) {
         return this._chunks.updateOne({
                 _id: chunk_id
-            }, compact_updates(set_updates))
+            }, compact_updates(set_updates, unset_updates))
             .then(res => db_client.instance().check_update_one(res, 'chunk'));
     }
 
@@ -1540,7 +1540,7 @@ class MDStore {
         for (const block of blocks) {
             this._blocks.validate(block);
         }
-        return this._blocks.insertMany(blocks, unordered_insert_options());
+        return this._blocks.insertManyUnordered(blocks);
     }
 
     update_blocks_by_ids(block_ids, set_updates, unset_updates) {
@@ -1762,12 +1762,6 @@ function compact_updates(set_updates, unset_updates, inc_updates) {
     });
     if (_.isEmpty(updates)) throw new Error(`INVALID EMPTY UPDATES`);
     return updates;
-}
-
-function unordered_insert_options() {
-    return {
-        ordered: false
-    };
 }
 
 function normalize_list_mr_results(mr_results, prefix) {

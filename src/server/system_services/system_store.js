@@ -18,6 +18,16 @@ const pool_schema = require('./schemas/pool_schema');
 const agent_config_schema = require('./schemas/agent_config_schema');
 const chunk_config_schema = require('./schemas/chunk_config_schema');
 const master_key_schema = require('./schemas/master_key_schema');
+const system_indexes = require('./schemas/system_indexes');
+const cluster_indexes = require('./schemas/cluster_indexes');
+const namespace_resource_indexes = require('./schemas/namespace_resource_indexes');
+const account_indexes = require('./schemas/account_indexes');
+const bucket_indexes = require('./schemas/bucket_indexes');
+const tiering_policy_indexes = require('./schemas/tiering_policy_indexes');
+const tier_indexes = require('./schemas/tier_indexes');
+const pool_indexes = require('./schemas/pool_indexes');
+const agent_config_indexes = require('./schemas/agent_config_indexes');
+
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
@@ -39,14 +49,7 @@ const COLLECTIONS = [{
         name: 'cluster_by_server',
         key: 'owner_secret'
     }],
-    db_indexes: [{
-        fields: {
-            owner_secret: 1,
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: cluster_indexes,
 }, {
     name: 'namespace_resources',
     schema: namespace_resource_schema,
@@ -55,15 +58,7 @@ const COLLECTIONS = [{
         context: 'system',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: namespace_resource_indexes,
 }, {
     name: 'systems',
     schema: system_schema,
@@ -71,15 +66,7 @@ const COLLECTIONS = [{
         name: 'systems_by_name',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: system_indexes,
 }, {
     name: 'roles',
     schema: role_schema,
@@ -96,7 +83,6 @@ const COLLECTIONS = [{
         val: 'role',
         val_array: true,
     }],
-    db_indexes: [],
 }, {
     name: 'accounts',
     schema: account_schema,
@@ -104,15 +90,7 @@ const COLLECTIONS = [{
         name: 'accounts_by_email',
         key: 'email'
     }],
-    db_indexes: [{
-        fields: {
-            email: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: account_indexes,
 }, {
     name: 'buckets',
     schema: bucket_schema,
@@ -121,16 +99,7 @@ const COLLECTIONS = [{
         context: 'system',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: bucket_indexes,
 }, {
     name: 'tieringpolicies',
     schema: tiering_policy_schema,
@@ -139,16 +108,7 @@ const COLLECTIONS = [{
         context: 'system',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: tiering_policy_indexes,
 }, {
     name: 'tiers',
     schema: tier_schema,
@@ -157,16 +117,7 @@ const COLLECTIONS = [{
         context: 'system',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: tier_indexes,
 }, {
     name: 'pools',
     schema: pool_schema,
@@ -175,28 +126,11 @@ const COLLECTIONS = [{
         context: 'system',
         key: 'name'
     }],
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-            deleted: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: pool_indexes,
 }, {
     name: 'agent_configs',
     schema: agent_config_schema,
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1
-        },
-        options: {
-            unique: true,
-        }
-    }],
+    db_indexes: agent_config_indexes,
 }, {
     name: 'chunk_configs',
     schema: chunk_config_schema,
@@ -506,15 +440,15 @@ class SystemStore extends EventEmitter {
                 this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
+                dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
                 if (this.data.master_keys_by_id) {
                     this.master_key_manager.update_master_keys(this.data.master_keys_by_id);
+                    await this.master_key_manager.decrypt_all_accounts_secret_keys({
+                        accounts: this.data.accounts,
+                        pools: this.data.pools,
+                        namespace_resources: this.data.namespace_resources
+                    });
                 }
-                dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
-                await this.master_key_manager.decrypt_all_accounts_secret_keys({
-                    accounts: this.data.accounts,
-                    pools: this.data.pools,
-                    namespace_resources: this.data.namespace_resources
-                });
                 this.emit('load');
                 this.is_finished_initial_load = true;
                 return this.data;

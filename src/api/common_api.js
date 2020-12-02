@@ -717,6 +717,10 @@ module.exports = {
             wrapper: SensitiveString,
         },
 
+        entity: {
+            wrapper: SensitiveString,
+        },
+
         port: {
             type: 'integer',
             minimum: 0,

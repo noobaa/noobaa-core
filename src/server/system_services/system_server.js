@@ -955,7 +955,7 @@ function _init_system(sysid) {
         .then(() => Dispatcher.instance().alert(
             'INFO',
             sysid,
-            'Welcome to NooBaa! It\'s time to get started. Connect your first resources, either 3 nodes or 1 cloud resource',
+            "Welcome to NooBaa! It is time to get started. Connect your first resources, either 3 nodes or 1 cloud resource",
             Dispatcher.rules.only_once
         ));
 }
@@ -1309,6 +1309,338 @@ async function _get_endpoint_groups() {
     });
 }
 
+/**
+ *
+ * ROTATE MASTER KEY
+ *
+ */
+// when rotating system, we need to reencrypt the lower sub trees master keys.
+// when rotating account - need to reencrypt all the access keys.
+// when rotating bucket, the map builder bg worker will reencrypt the cipher chunks and set the new master key id of the bucket
+// to the chunk.
+async function rotate_master_key(req) {
+    const { entity, entity_type } = req.rpc_params; // System Name, Bucket Name, Account Email
+    const entity_info = get_entity_info(entity, entity_type);
+    if (!entity_info) throw new Error(`rotate_master_key: entity doesn't exist ${entity}`);
+
+    const old_master_key = entity_info.master_key_id;
+
+    if (!old_master_key || old_master_key.disabled === true) {
+        throw new Error(`rotate_master_key: can not rotate master key, current master key is ${old_master_key}`);
+    }
+    // create the new master key and update in db
+    const ROOT_KEY = system_store.master_key_manager.get_root_key_id();
+    const master_key_base_props = {
+        'master_key_id': old_master_key.master_key_id === ROOT_KEY ? ROOT_KEY :
+            old_master_key.master_key_id._id,
+        'description': old_master_key.description,
+        'cipher_type': old_master_key.cipher_type
+    };
+    const new_master_key = system_store.master_key_manager.new_master_key(master_key_base_props);
+    await upsert_master_key({ insert: new_master_key });
+
+    // update the entity with the new master key
+    const change = [{
+        _id: entity_info._id,
+        $set: { master_key_id: new_master_key._id },
+    }];
+
+    const update_type = (entity_type === 'ACCOUNT' && { accounts: change }) ||
+        (entity_type === 'BUCKET' && { buckets: change }) ||
+        (entity_type === 'SYSTEM' && { systems: change }) ||
+        undefined;
+
+    await system_store.make_changes({
+        update: update_type
+    });
+
+    await system_store.load();
+    const mkm = system_store.master_key_manager;
+
+    if (entity_type === 'SYSTEM') {
+        await P.all(_.map(system_store.data.buckets, async function(bucket) {
+            const reencrypted = mkm._reencrypt_master_key(bucket.master_key_id._id, new_master_key._id);
+            await upsert_master_key({ _id: bucket.master_key_id._id,
+                    update: { cipher_key: reencrypted, master_key_id: new_master_key._id}});
+        }));
+        await P.all(_.map(system_store.data.accounts, async function(account) {
+            if (account.email.unwrap() === "support@noobaa.com") return;
+            const reencrypted = mkm._reencrypt_master_key(account.master_key_id._id, new_master_key._id);
+            await upsert_master_key({ _id: account.master_key_id._id,
+                    update: { cipher_key: reencrypted, master_key_id: new_master_key._id}});
+        }));
+    }
+
+    if (entity_type === 'ACCOUNT') {
+        const new_s3_secret_keys_list = _.map(entity_info.access_keys, function(creds) {
+            creds.secret_key = mkm.encrypt_sensitive_string_with_master_key_id(creds.secret_key, new_master_key._id);
+            return creds;
+        });
+        const new_sync_creds_list = _.map(entity_info.sync_credentials_cache, function(creds) {
+            creds.secret_key = mkm.encrypt_sensitive_string_with_master_key_id(creds.secret_key, new_master_key._id);
+            return creds;
+        });
+        const pools_ns_resource_updates = get_pools_and_ns_resources_changes(new_sync_creds_list, entity_info._id);
+        await update_account_secrets(entity_info._id, new_s3_secret_keys_list, new_sync_creds_list, pools_ns_resource_updates);
+        // TODO: delete the old { encrypted secret key : decrypted secret key } pair from access keys LRU cache in master key manager
+    }
+}
+
+/**
+ *
+ * DISABLE MASTER KEY
+ *
+ */
+async function disable_master_key(req) {
+    const { entity, entity_type } = req.rpc_params; // System Name, Bucket Name, Account Email
+    await _disable_master_key(entity, entity_type);
+}
+
+// when disabling system, we need to disable the lower sub trees.
+// when disabling account - need to decrypt all the access keys.
+// when disabling bucket, the map builder bg worker will decrypt 
+// the cipher chunks and remove the master key id of the chunk.
+async function _disable_master_key(entity, entity_type) {
+    const entity_info = get_entity_info(entity, entity_type);
+    if (!entity_info) throw new Error(`_disable_master_key: entity doesn't exist ${entity}`);
+
+    if (!entity_info.master_key_id || entity_info.master_key_id.disabled === true) {
+        throw new Error(`_disable_master_key: can not disable master key, current master key is: ${util.inspect(entity_info)}`);
+    }
+
+    await upsert_master_key({ _id: entity_info.master_key_id._id, update: {disabled: true}});
+    system_store.master_key_manager.set_m_key_disabled_val(entity_info.master_key_id._id, true);
+
+    await system_store.load();
+    if (entity_type === 'ACCOUNT') {
+        const decrypted_s3_creds = entity_info.access_keys;
+        const decrypted_sync_creds = entity_info.sync_credentials_cache;
+        const pools_ns_resource_updates = get_pools_and_ns_resources_changes(decrypted_sync_creds, entity_info._id);
+        await update_account_secrets(entity_info._id, decrypted_s3_creds, decrypted_sync_creds, pools_ns_resource_updates);
+        // TODO: delete the old { encrypted secret key : decrypted secret key } pair from access keys LRU cache in master key manager
+    }
+    if (entity_type === 'SYSTEM') {
+        await P.all(_.map(system_store.data.buckets, async function(bucket) {
+            await _disable_master_key(bucket.name, 'BUCKET');
+        }));
+        await P.all(_.map(system_store.data.accounts, async function(account) {
+            if (account.email.unwrap() === "support@noobaa.com") return;
+            await _disable_master_key(account.email, 'ACCOUNT');
+        }));
+    }
+}
+
+/**
+ *
+ * ENABLE MASTER KEY
+ *
+ */
+// enabling system - we don't enable the lower sub trees
+// enabling account - need to encrypt all the access keys.
+// enabling bucket - the map builder bg worker will encrypt the cipher chunks and set the bucket master key to the chunk. 
+async function enable_master_key(req) {
+    const { entity, entity_type } = req.rpc_params; // System Name, Bucket Name, Account Email
+    const entity_info = get_entity_info(entity, entity_type);
+    if (!entity_info) throw new Error(`_enable_master_key: entity doesn't exist ${entity}`);
+
+    if (!entity_info.master_key_id || entity_info.master_key_id.disabled === false) {
+        throw new Error(`_enable_master_key: can not enable master key, current master key is: ${entity_info.master_key_id}`);
+    }
+
+    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: false }});
+    system_store.master_key_manager.set_m_key_disabled_val(entity_info.master_key_id._id, false);
+
+    if (entity_type === 'ACCOUNT') {
+        await system_store.load();
+
+        const enabled_master_key = entity_info.master_key_id._id;
+        const new_s3_secret_keys_list = _.map(entity_info.access_keys, function(creds) {
+            creds.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                creds.secret_key, enabled_master_key);
+            return creds;
+        });
+        const new_sync_creds_list = _.map(entity_info.sync_credentials_cache, function(creds) {
+            creds.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                creds.secret_key, enabled_master_key);
+            return creds;
+        });
+        const pools_ns_resource_updates = get_pools_and_ns_resources_changes(new_sync_creds_list, entity_info._id);
+        await update_account_secrets(entity_info._id, new_s3_secret_keys_list, new_sync_creds_list, pools_ns_resource_updates);
+    }
+}
+
+async function update_account_secrets(account_id, access_keys, sync_credentials_cache, pools_ns_resource_updates) {
+    await system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: account_id,
+                $set: _.omitBy({
+                    access_keys: access_keys,
+                    sync_credentials_cache: sync_credentials_cache
+                }, _.isUndefined),
+            }],
+            pools: pools_ns_resource_updates.pools,
+            namespace_resources: pools_ns_resource_updates.namespace_resources
+        }
+    });
+}
+
+async function upsert_master_key(params) {
+    if (params.update) {
+        await system_store.make_changes({
+            update: {
+                master_keys: [{
+                    _id: params._id,
+                    $set: params.update
+                }]
+            }
+        });
+    }
+    if (params.insert) {
+        await system_store.make_changes({
+            insert: {
+                master_keys: [params.insert]
+            }
+        });
+    }
+}
+
+// find and set the account's pools and namespace resources and 
+// set the new secrets by the new sync creds 
+function get_pools_and_ns_resources_changes(sync_creds, account_id) {
+    let pools_updates = [];
+    let ns_resources_updates = [];
+
+    _.map(sync_creds, creds => {
+        const pool_update = system_store.data.pools
+            .filter(pool => pool.cloud_pool_info &&
+                pool.cloud_pool_info.endpoint_type === creds.endpoint_type &&
+                pool.cloud_pool_info.endpoint === creds.endpoint &&
+                pool.cloud_pool_info.access_keys.account_id._id.toString() === account_id.toString() &&
+                pool.cloud_pool_info.access_keys.access_key.unwrap() === creds.access_key.unwrap()
+            )
+            .map(pool => ({
+                _id: pool._id,
+                'cloud_pool_info.access_keys.secret_key': creds.secret_key,
+            }));
+        pools_updates.push(...pool_update);
+
+        const ns_resource_update = system_store.data.namespace_resources
+            .filter(ns_resource => ns_resource.connection.endpoint_type === creds.endpoint_type &&
+                ns_resource.connection.endpoint === creds.endpoint &&
+                ns_resource.account._id.toString() === account_id.toString() &&
+                ns_resource.connection.access_key.unwrap() === creds.access_key.unwrap()
+            )
+            .map(ns_resource => ({
+                _id: ns_resource._id,
+                'connection.secret_key': creds.secret_key
+            }));
+        ns_resources_updates.push(...ns_resource_update);
+    });
+    return { pools: pools_updates,
+            namespace_resources: ns_resources_updates };
+}
+
+function get_entity_info(entity, entity_type) {
+    return (entity_type === 'ACCOUNT' && system_store.data.accounts.find(acc =>
+            acc.email.unwrap() === entity.unwrap())) ||
+        (entity_type === 'BUCKET' && system_store.data.buckets.find(bkt =>
+            bkt.name.unwrap() === entity.unwrap())) ||
+        (entity_type === 'SYSTEM' && system_store.data.systems.find(sys =>
+            sys.name === entity.unwrap())) || undefined;
+}
+
+async function upgrade_master_keys() {
+    let master_keys = [];
+    let buckets_updates = [];
+    let accounts_updates = [];
+    let pools_updates = [];
+    let namespace_resources_updates = [];
+    let system_master_key = system_store.data.systems[0].master_key_id;
+    // upgrade system master key if it doesn't exist
+    if (!system_master_key) {
+        system_master_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${system_store.data.systems[0]._id.toString()} system`,
+            master_key_id: system_store.master_key_manager.get_root_key_id(),
+            cipher_type: system_store.master_key_manager.get_root_key().cipher_type
+        });
+        master_keys.push(system_master_key);
+    }
+    // upgrade buckets master keys
+    _.map(system_store.data.buckets, bucket => {
+        if (bucket.master_key_id) return;
+        const bucket_m_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${bucket._id} bucket`,
+            master_key_id: system_master_key._id,
+            cipher_type: system_master_key.cipher_type
+        });
+        buckets_updates.push({
+                _id: bucket._id,
+                $set: {
+                    "master_key_id": bucket_m_key._id
+                }
+        });
+        master_keys.push(bucket_m_key);
+
+     });
+    // upgrade accounts master keys
+     _.map(system_store.data.accounts, account => {
+        if (account.master_key_id || account.email.unwrap() === 'support@noobaa.com') return;
+        const account_m_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${account._id} account`,
+            master_key_id: system_master_key._id,
+            cipher_type: system_master_key.cipher_type
+        });
+
+        // encrypt access
+        const encrypted_access_keys = _.map(account.access_keys, acc => {
+            const encrypted_secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                acc.secret_key, account_m_key._id);
+            acc.secret_key = encrypted_secret_key;
+            return acc;
+        });
+        // encrypt sync creds
+        const encrypted_sync_creds = _.map(account.sync_credentials_cache, acc => {
+            const encrypted_secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                acc.secret_key, account_m_key._id);
+            acc.secret_key = encrypted_secret_key;
+            return acc;
+        });
+
+        // get updated for pools and ns_resources
+        const pool_and_ns_resources_updates = get_pools_and_ns_resources_changes(encrypted_sync_creds, account._id);
+        accounts_updates.push({
+                _id: account._id,
+                $set: {
+                    "access_keys": encrypted_access_keys,
+                    "sync_credentials_cache": encrypted_sync_creds,
+                    "master_key_id": account_m_key._id
+                }
+        });
+        pools_updates.push(...pool_and_ns_resources_updates.pools);
+        namespace_resources_updates.push(...pool_and_ns_resources_updates.namespace_resources);
+        master_keys.push(account_m_key);
+     });
+
+    await system_store.make_changes({
+            update: {
+                systems: [{
+                        _id: system_store.data.systems[0]._id,
+                        $set: {
+                            "master_key_id": system_master_key._id
+                        }
+                }],
+                buckets: buckets_updates,
+                accounts: accounts_updates,
+                pools: pools_updates,
+                namespace_resources: namespace_resources_updates
+            },
+            insert: {
+                master_keys: master_keys
+            }
+        });
+    }
+
 // EXPORTS
 exports._init = _init;
 exports.is_initialized = is_initialized;
@@ -1338,3 +1670,8 @@ exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;
+
+exports.rotate_master_key = rotate_master_key;
+exports.disable_master_key = disable_master_key;
+exports.enable_master_key = enable_master_key;
+exports.upgrade_master_keys = upgrade_master_keys;

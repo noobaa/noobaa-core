@@ -9,6 +9,7 @@ const db_client = require('../../util/db_client');
 const P = require('../../util/promise');
 
 const func_stats_schema = require('./func_stats_schema');
+const func_stats_indexes = require('./func_stats_indexes');
 const {
     map_func_stats,
     reduce_func_stats,
@@ -21,13 +22,7 @@ class FuncStatsStore {
         this._func_stats = db_client.instance().define_collection({
             name: 'func_stats',
             schema: func_stats_schema,
-            db_indexes: [{
-                fields: {
-                    system: 1,
-                    id: 1,
-                    latency_ms: 1,
-                }
-            }]
+            db_indexes: func_stats_indexes,
         });
     }
 

@@ -21,7 +21,8 @@ class RpcWsServer extends EventEmitter {
         super();
 
         let ws_server = new WS.Server({
-            server: http_server
+            server: http_server,
+            perMessageDeflate: false,
         });
 
         ws_server.on('connection', ws => {

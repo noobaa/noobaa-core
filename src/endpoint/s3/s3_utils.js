@@ -587,13 +587,13 @@ function has_bucket_policy_permission(policy, account, method, arn_path) {
     const [allow_statements, deny_statements] = _.partition(policy.statement, statement => statement.effect === 'allow');
 
     // look for explicit denies
-    if (_is_statements_fit(deny_statements, account, method, arn_path)) return false;
+    if (_is_statements_fit(deny_statements, account, method, arn_path)) return 'DENY';
 
     // look for explicit allows
-    if (_is_statements_fit(allow_statements, account, method, arn_path)) return true;
+    if (_is_statements_fit(allow_statements, account, method, arn_path)) return 'ALLOW';
 
     // implicit deny
-    return false;
+    return 'IMPLICIT_DENY';
 }
 
 function _is_statements_fit(statements, account, method, arn_path) {

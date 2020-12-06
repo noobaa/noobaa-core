@@ -78,7 +78,7 @@ module.exports = {
                 properties: {
                     service: {
                         type: 'string',
-                        enum: ['noobaa-mgmt', 's3', 'noobaa-db']
+                        enum: ['noobaa-mgmt', 's3', 'noobaa-db', 'noobaa-db-pg']
                     },
                     kind: {
                         type: 'string',
@@ -88,7 +88,7 @@ module.exports = {
                     port: { $ref: 'common_api#/definitions/port' },
                     api: {
                         type: 'string',
-                        enum: ['mgmt', 's3', 'md', 'bg', 'hosted_agents', 'mongodb', 'metrics']
+                        enum: ['mgmt', 's3', 'md', 'bg', 'hosted_agents', 'mongodb', 'metrics', 'postgres']
                     },
                     secure: { type: 'boolean' },
                     weight: { type: 'integer' }

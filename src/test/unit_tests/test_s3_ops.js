@@ -66,6 +66,8 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('bucket-ops', function() {
+        // eslint-disable-next-line no-invalid-this
+        this.timeout(60000);
         mocha.it('should create bucket', async function() {
             await s3.createBucket({ Bucket: BKT1 }).promise();
         });

@@ -387,12 +387,8 @@ class MDStore {
         // empty query, we maintain a single doc in this collection
         const query = {};
         const update = { $inc: { object_version_seq: 1 } };
-        const options = { upsert: true };
-        // if the first update returns null it means we just inserted the doc for the first time
-        // so we just call again in order to increase the sequence and get the first seq.
+        const options = { upsert: true, returnOriginal: false };
         let res = await this._sequences.findOneAndUpdate(query, update, options);
-        if (res && res.value && res.value.object_version_seq) return res.value.object_version_seq;
-        res = await this._sequences.findOneAndUpdate(query, update, options);
         return res.value.object_version_seq;
     }
 

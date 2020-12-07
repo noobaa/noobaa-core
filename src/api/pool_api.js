@@ -329,6 +329,29 @@ module.exports = {
             }
         },
 
+        update_issues_report: {
+            doc: 'Add issue to the issues report',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['namespace_resource_id', 'time', 'error_code'],
+                properties: {
+                    time: {
+                        idate: true,
+                    },
+                    error_code: {
+                        type: 'string',
+                    },
+                    namespace_resource_id: {
+                        objectid: true
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         scale_hosts_pool: {
             doc: 'Change the pool\'s underlaying host count',
             method: 'POST',

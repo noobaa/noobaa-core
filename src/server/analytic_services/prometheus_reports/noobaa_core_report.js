@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const { BasePrometheusReport } = require('./base_prometheus_report');
+const dbg = require('../../../util/debug_module')(__filename);
 const js_utils = require('../../../util/js_utils');
 
 // -----------------------------------------
@@ -132,6 +133,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         }
     }, {
         type: 'Gauge',
+        name: 'num_namespace_buckets',
+        generate_default_set: true,
+        configuration: {
+            help: 'Namespace Buckets',
+        },
+    }, {
+        type: 'Gauge',
         name: 'total_usage',
         generate_default_set: true,
         configuration: {
@@ -159,6 +167,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'Unhealthy Buckets'
         }
+    }, {
+        type: 'Gauge',
+        name: 'num_unhealthy_namespace_buckets',
+        generate_default_set: true,
+        configuration: {
+            help: 'Unhealthy Namespace Buckets',
+        },
     }, {
         type: 'Gauge',
         name: 'num_unhealthy_pools',
@@ -238,6 +253,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         }
     }, {
         type: 'Gauge',
+        name: 'namespace_bucket_status',
+        configuration: {
+            help: 'Namespace Bucket Health',
+            labelNames: ['bucket_name'],
+        },
+    }, {
+        type: 'Gauge',
         name: 'bucket_capacity',
         configuration: {
             help: 'Bucket Capacity Precent',
@@ -283,6 +305,10 @@ class NooBaaCoreReport extends BasePrometheusReport {
         if (this.enabled) {
             this._metrics = {};
             for (const m of NOOBAA_CORE_METRICS) {
+                if (!m.type && !this.prom_client[m.type]) {
+                    dbg.warn(`noobaa_core_report - Metric ${m.name} has an unknow type`);
+                    continue;
+                }
                 this._metrics[m.name] = new this.prom_client[m.type]({
                     name: this.get_prefixed_name(m.name),
                     registers: [this.registry],
@@ -421,6 +447,14 @@ class NooBaaCoreReport extends BasePrometheusReport {
             this._metrics.bucket_status.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
             this._metrics.bucket_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
+        });
+    }
+
+    set_namespace_bucket_status(buckets_info) {
+        if (!this._metrics) return;
+        this._metrics.namespace_bucket_status.reset();
+        buckets_info.forEach(bucket_info => {
+            this._metrics.namespace_bucket_status.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
         });
     }
 

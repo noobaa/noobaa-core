@@ -317,17 +317,20 @@ async function authorize_request_policy(req) {
         const method = _get_method_from_req(req);
         const auth_token = req.object_sdk.get_auth_token();
         let account;
+        let is_owner = false;
         if (auth_token && auth_token.access_key) {
             account = await req.object_sdk.rpc_client.account.read_account({});
+            is_owner = (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) ||
+                account.email.unwrap() === bucket_owner.unwrap();
             // system owner by design can always change bucket policy
             // bucket owner and bucket claim owner has FC ACL by design - so no need to check bucket policy
-            if (((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) ||
-                (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) ||
-                account.email.unwrap() === bucket_owner.unwrap()) return;
+            if ((account.email.unwrap() === system_owner.unwrap()) && req.op_name.endsWith('bucket_policy')) return;
         }
-        if (!s3_utils.has_bucket_policy_permission(s3_policy, account ? account.email.unwrap() : undefined, method, arn_path)) {
+        const permission = s3_utils.has_bucket_policy_permission(s3_policy, account ? account.email.unwrap() : undefined, method, arn_path);
+        if (permission === 'DENY') {
             throw new S3Error(S3Error.AccessDenied);
-        }
+        } // TODO handle down the permission lane that bp_allow will allow access to bucket
+        if (permission === 'ALLOW' || is_owner) req.bucket_policy_allowed = true;
     }
 }
 

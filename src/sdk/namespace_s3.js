@@ -173,6 +173,11 @@ class NamespaceS3 {
         } catch (err) {
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: err.code,
+                time: Date.now(),
+            });
             throw err;
         }
     }
@@ -277,8 +282,16 @@ class NamespaceS3 {
             };
 
             this._assign_encryption_to_request(params, request);
-
-            res = await this.s3.putObject(request).promise();
+            try {
+                res = await this.s3.putObject(request).promise();
+            } catch (err) {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code,
+                    time: Date.now(),
+                });
+                throw err;
+            }
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
@@ -363,8 +376,16 @@ class NamespaceS3 {
             };
 
             this._assign_encryption_to_request(params, request);
-
-            res = await this.s3.uploadPart(request).promise();
+            try {
+                res = await this.s3.uploadPart(request).promise();
+            } catch (err) {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code,
+                    time: Date.now(),
+                });
+                throw err;
+            }
         }
         dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);

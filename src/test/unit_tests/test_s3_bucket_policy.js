@@ -3,7 +3,8 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: coretest.POOL_LIST });
+const { rpc_client, EMAIL, POOL_LIST } = coretest;
+coretest.setup({ pools_to_create: POOL_LIST });
 
 const AWS = require('aws-sdk');
 const http = require('http');
@@ -20,57 +21,71 @@ async function assert_throws_async(promise, expected_message = 'Access Denied') 
         }
     }
 }
+const BKT = 'test2-bucket-policy-ops';
+const BKT_B = 'test2-bucket-policy-ops-1';
+const KEY = 'file1.txt';
+const user_a = 'alice';
+const user_b = 'bob';
+let s3_a;
+let s3_b;
+let s3_owner;
+
+const anon_access_policy = {
+    Version: '2012-10-17',
+    Statement: [{
+        Effect: 'Allow',
+        Principal: { AWS: "*" },
+        Action: ['s3:GetObject'],
+        Resource: [`arn:aws:s3:::*`]
+    }]
+};
+
+async function setup() {
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(60000);
+    const s3_creds = {
+        endpoint: coretest.get_http_address(),
+        s3ForcePathStyle: true,
+        signatureVersion: 'v4',
+        computeChecksums: true,
+        s3DisableBodySigning: false,
+        region: 'us-east-1',
+        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+    };
+    const account = {
+        has_login: false,
+        s3_access: true,
+        allowed_buckets: {
+            full_permission: true,
+        },
+        default_pool: POOL_LIST[0].name
+    };
+    const admin_keys = (await rpc_client.account.read_account({
+        email: EMAIL,
+    })).access_keys;
+    account.name = user_a;
+    account.email = user_a;
+    const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
+    account.name = user_b;
+    account.email = user_b;
+    const user_b_keys = (await rpc_client.account.create_account(account)).access_keys;
+    s3_creds.accessKeyId = user_a_keys[0].access_key.unwrap();
+    s3_creds.secretAccessKey = user_a_keys[0].secret_key.unwrap();
+    s3_a = new AWS.S3(s3_creds);
+    s3_creds.accessKeyId = user_b_keys[0].access_key.unwrap();
+    s3_creds.secretAccessKey = user_b_keys[0].secret_key.unwrap();
+    s3_b = new AWS.S3(s3_creds);
+    s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
+    s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+    await s3_b.createBucket({ Bucket: BKT_B }).promise();
+    s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
+    s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+    s3_owner = new AWS.S3(s3_creds);
+    await s3_owner.createBucket({ Bucket: BKT }).promise();
+}
 
 mocha.describe('s3_bucket_policy', function() {
-    const { rpc_client, EMAIL } = coretest;
-    const BKT = 'test2-bucket-policy-ops';
-    const KEY = 'file1.txt';
-    const user_a = 'alice';
-    const user_b = 'bob';
-    let s3_a;
-    let s3_b;
-    let s3_owner;
-
-    mocha.before(async function() {
-        const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
-        const s3_creds = {
-            endpoint: coretest.get_http_address(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-        };
-        const account = {
-            has_login: false,
-            s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            }
-        };
-        const admin_keys = (await rpc_client.account.read_account({
-            email: EMAIL,
-        })).access_keys;
-        account.name = user_a;
-        account.email = user_a;
-        const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
-        account.name = user_b;
-        account.email = user_b;
-        const user_b_keys = (await rpc_client.account.create_account(account)).access_keys;
-        s3_creds.accessKeyId = user_a_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = user_a_keys[0].secret_key.unwrap();
-        s3_a = new AWS.S3(s3_creds);
-        s3_creds.accessKeyId = user_b_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = user_b_keys[0].secret_key.unwrap();
-        s3_b = new AWS.S3(s3_creds);
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
-        s3_owner = new AWS.S3(s3_creds);
-        await s3_owner.createBucket({ Bucket: BKT }).promise();
-    });
-
+    mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
         const made_up_user = 'no_way_such_user_exist@no.way';
         const policy = {
@@ -132,9 +147,15 @@ mocha.describe('s3_bucket_policy', function() {
                 Principal: { AWS: user_a },
                 Action: ['s3:GetBucketPolicy'],
                 Resource: [`arn:aws:s3:::${BKT}`]
+            }, {
+                Sid: 'id-2',
+                Effect: 'Deny',
+                Principal: { AWS: user_b },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}`]
             }]
         };
-        await s3_a.putBucketPolicy({
+        await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         }).promise();
@@ -161,7 +182,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.deleteBucketPolicy({ // should work - owner can always delete the buckets policy
             Bucket: BKT,
         }).promise();
-        await s3_a.putBucketPolicy({
+        await s3_a.putBucketPolicy({ // user a have FC to bucket
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         }).promise();
@@ -171,7 +192,6 @@ mocha.describe('s3_bucket_policy', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const policy = {
-            Version: '2012-10-17',
             Statement: [{
                 Sid: 'id-1',
                 Effect: 'Allow',
@@ -184,6 +204,18 @@ mocha.describe('s3_bucket_policy', function() {
                 Principal: { AWS: user_b },
                 Action: ['s3:PutObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
+            }, {
+                Sid: 'id-4',
+                Effect: 'Deny',
+                Principal: { AWS: user_a },
+                Action: ['s3:PutObject'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
+            }, {
+                Sid: 'id-5',
+                Effect: 'Deny',
+                Principal: { AWS: user_b },
+                Action: ['s3:ListBucket'],
+                Resource: [`arn:aws:s3:::${BKT}`]
             }]
         };
 
@@ -206,10 +238,10 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Key: KEY
         }).promise();
-        await s3_a.listObjects({ // should fail - user b has no permissions
+        await s3_a.listObjects({ // should succeed - user a has can list
             Bucket: BKT,
         }).promise();
-        await assert_throws_async(s3_b.listObjects({ // should fail - user b has no permissions
+        await assert_throws_async(s3_b.listObjects({ // should fail - user b can't
             Bucket: BKT,
         }).promise());
     });
@@ -339,6 +371,12 @@ mocha.describe('s3_bucket_policy', function() {
                 Principal: { AWS: user_b },
                 Action: ['s3:PutBucketVersioning'],
                 Resource: [`arn:aws:s3:::${BKT}`]
+            }, {
+                Sid: 'id-3',
+                Effect: 'Deny',
+                Principal: { AWS: user_a },
+                Action: ['s3:deleteObject'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
             }]
         };
         await s3_owner.putBucketPolicy({
@@ -373,6 +411,35 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
     });
 
+    mocha.it('should deny bucket owner access', async function() {
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-1',
+                Effect: 'Deny',
+                Principal: { AWS: user_b },
+                Action: ['s3:ListBucket'],
+                Resource: [`arn:aws:s3:::${BKT_B}`]
+            }]
+        };
+        await s3_owner.putBucketPolicy({ // should work - system owner can always update the buckets policy
+            Bucket: BKT_B,
+            Policy: JSON.stringify(policy)
+        }).promise();
+        await assert_throws_async(s3_b.listObjects({ // should fail - bucket owner cwas explicitly denied
+            Bucket: BKT_B,
+        }).promise());
+    });
+
+    mocha.it('should allow acces after adding anonymous access', async function() {
+        await s3_owner.putBucketPolicy({ // should work - system owner can always update the buckets policy
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_access_policy)
+        }).promise();
+        await s3_a.listObjects({
+            Bucket: BKT,
+        }).promise();
+    });
 
     mocha.it('should set and delete bucket policy when system owner', async function() {
         const policy = {

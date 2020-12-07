@@ -50,7 +50,7 @@ function decode_json(schema, val) {
     if (schema.type === 'object') {
         const obj = {};
         for (const key of Object.keys(val)) {
-            obj[key] = decode_json(schema.properties[key], val[key]);
+            obj[key] = decode_json(schema.properties && schema.properties[key], val[key]);
         }
         return obj;
     }
@@ -85,7 +85,7 @@ function encode_json(schema, val) {
     if (schema.type === 'object') {
         const obj = {};
         for (const key of Object.keys(val)) {
-            obj[key] = encode_json(schema.properties[key], val[key]);
+            obj[key] = encode_json(schema.properties && schema.properties[key], val[key]);
         }
         return obj;
     }
@@ -374,6 +374,7 @@ class PostgresTable {
                     } catch (err) {
                         // TODO: Handle conflicts and re-declaration
                         // if (err.codeName !== 'IndexOptionsConflict') throw err;
+                        if (err.code === '42P07') return;
                         // await db.collection(col.name).dropIndex(index.fields);
                         // const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
                         // dbg.log0('_init_collection: re-created index with new options', col.name, res);
@@ -735,7 +736,17 @@ class PostgresTable {
         const P_GROUP = this._prepare_aggregate_group_query(group);
         try {
             const res = await this.single_query(`SELECT ${P_GROUP.SELECT} FROM ${this.name} WHERE ${WHERE} GROUP BY ${P_GROUP.GROUP_BY}`);
-            return res.rows;
+            return res.rows.map(row => { // this is temp fix as all the keys suppose to be ints except _id
+                const new_row = {};
+                for (const key of Object.keys(row)) {
+                    if (key === '_id') {
+                        new_row._id = new mongodb.ObjectID(row[key]);
+                    } else {
+                        new_row[key] = parseInt(row[key], 10);
+                    }
+                }
+                return new_row;
+            });
         } catch (err) {
             dbg.error('groupBy failed', match, group, WHERE, P_GROUP, err);
             throw err;

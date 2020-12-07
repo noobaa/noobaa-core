@@ -6,6 +6,7 @@ const _ = require('lodash');
 
 const assert = require('assert');
 const Ajv = require('ajv');
+const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client } = require('pg');
@@ -316,6 +317,13 @@ class PostgresTable {
         this.db_indexes = db_indexes;
         this.schema = schema;
         this.client = client;
+        // calculate an advisory_lock_key from this collection by taking the first 32 bit 
+        // of the sha256 of the table name
+        const advisory_lock_key_string = crypto.createHash('sha256')
+            .update(name)
+            .digest('hex')
+            .slice(0, 8);
+        this.advisory_lock_key = parseInt(advisory_lock_key_string, 16);
 
         if (schema) {
             schema_utils.strictify(schema, {
@@ -327,7 +335,7 @@ class PostgresTable {
         if (!process.env.CORETEST) {
             // Run once a day
             // TODO: Configure from PostgreSQL
-            setInterval(this.vacuumAndAnalyze, 86400000, this);
+            setInterval(this.vacuumAndAnalyze, 86400000, this).unref();
         }
     }
 
@@ -389,10 +397,10 @@ class PostgresTable {
         }
     }
 
-    async single_query(text, values, pool) {
+    // for simple queries pass client to use client.query
+    async single_query(text, values, client) {
         const q = { text, values };
-        // for simple queries pass pool to use pool.query
-        return _do_query(pool || this.client.pool, q, 0);
+        return _do_query(client || this.client.pool, q, 0);
     }
 
     get_id(data) {
@@ -444,10 +452,10 @@ class PostgresTable {
         return {};
     }
 
-    async _insertOneTransactional(transaction, data) {
+    async _insertOneWithClient(client, data) {
 
         const _id = this.get_id(data);
-        await transaction.query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), encode_json(this.schema, data)]);
+        await this.single_query(`INSERT INTO ${this.name} (_id, data) VALUES ($1, $2)`, [String(_id), encode_json(this.schema, data)], client);
         // TODO: Implement type
         return {};
     }
@@ -482,17 +490,17 @@ class PostgresTable {
         }
     }
 
-    async _updateOneTransactional(transaction, selector, update, options = {}) {
+    async _updateOneWithClient(client, selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
         const pg_update = mongo_to_pg.convertUpdate('data', update);
         const pg_selector = mongo_to_pg('data', selector);
         let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         try {
-            const res = await transaction.query(query);
+            const res = await this.single_query(query, null, client);
             assert(res.rowCount <= 1, `_id must be unique. found ${res.rowCount} rows with _id=${selector._id} in table ${this.name}`);
             return res;
         } catch (err) {
-            dbg.error(`updateOneTransactional failed`, selector, update, query, err);
+            dbg.error(`updateOneWithClient failed`, selector, update, query, err);
             throw err;
         }
     }
@@ -754,26 +762,80 @@ class PostgresTable {
     }
 
     async findOneAndUpdate(query, update, options) {
+        if (options.returnOriginal !== false) {
+            throw new Error('returnOriginal=true is not supported by the DB client API. must be set to false explicitly');
+        }
         const { upsert } = options;
-        const transaction = new PgTransaction(this.client);
-        try {
-            let response = null;
-            const update_res = await this._updateOneTransactional(transaction, query, update, options);
+        if (upsert) {
+            return this._upsert(query, update, options);
+        } else {
+            const update_res = await this.updateOne(query, update, options);
             if (update_res.rowCount > 0) {
-                response = { value: update_res.rows.map(row => decode_json(this.schema, row.data))[0] };
-            } else if (upsert) {
-                const data = { _id: this.client.generate_id() };
-                await this._insertOneTransactional(transaction, data);
-                // TODO: This will $inc two times, since findOneAndUpdate will be called due to null response
-                // Relevant to other ops besides $inc as well
-                await this._updateOneTransactional(transaction, data, update, options);
+                return { value: update_res.rows.map(row => decode_json(this.schema, row.data))[0] };
+            } else {
+                return null;
             }
-            await transaction.commit();
-            return response;
-        } catch (err) {
-            await transaction.rollback();
-            dbg.error(`findOneAndUpdate failed`, query, update, options, err);
-            throw err;
+        }
+    }
+
+
+    async try_lock_table(client) {
+        // the advisory_xact_lock is a transaction level lock that is auto released when the transaction ends
+        const res = await client.query('SELECT pg_try_advisory_lock($1)', [this.advisory_lock_key]);
+        if (!res.rows || !res.rows.length || _.isUndefined(res.rows[0].pg_try_advisory_lock)) {
+            throw new Error('unexpected response for pg_try_advisory_lock');
+        }
+        return res.rows[0].pg_try_advisory_lock;
+
+    }
+
+    async unlock_table(client) {
+        // the advisory_xact_lock is a transaction level lock that is auto released when the transaction ends
+        const res = await client.query('SELECT pg_advisory_unlock($1)', [this.advisory_lock_key]);
+        if (!res.rows || !res.rows.length || _.isUndefined(res.rows[0].pg_advisory_unlock)) {
+            throw new Error('unexpected response for pg_advisory_unlock');
+        }
+        return res.rows[0].pg_advisory_unlock;
+    }
+
+    async _upsert(query, update, options) {
+        const MAX_RETRIES = 5;
+        let retries = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            let pg_client = await this.client.pool.connect();
+            try {
+                let update_res = await this._updateOneWithClient(pg_client, query, update, options);
+                if (update_res.rowCount === 0) {
+                    // try to lock the advisory_lock_key for this table and insert the first doc
+                    let locked = await this.try_lock_table(pg_client);
+                    if (locked) {
+                        const data = { _id: this.client.generate_id() };
+                        await this.insertOne(data);
+                        update_res = await this.updateOne(data, update, options);
+                        await this.unlock_table(pg_client);
+                    } else {
+                        // lock was already taken which means that another call to findOneAndUpdate should have inserted.
+                        // throw and retry
+                        dbg.log0(`advisory lock is taken. throwing and retrying`);
+                        let err = new Error(`retry update after advisory lock release ${this.name}`);
+                        err.retry = true;
+                        throw err;
+                    }
+                }
+                pg_client.release();
+                return { value: update_res.rows.map(row => decode_json(this.schema, row.data))[0] };
+            } catch (err) {
+                pg_client.release();
+                if (err.retry && retries < MAX_RETRIES) {
+                    retries += 1;
+                    // TODO: should we add a delay here?
+                    dbg.log0(`${err.message} - will retry. retries=${retries}`);
+                } else {
+                    dbg.error(`findOneAndUpdate failed`, query, update, options, err);
+                    throw err;
+                }
+            }
         }
     }
 
@@ -909,6 +971,10 @@ class PostgresClient extends EventEmitter {
 
         // TODO: This need to move to another function
         this.new_pool_params = {
+
+            // TODO: check the effect of max clients. default is 10
+            // max: 50,
+
             host: process.env.POSTGRES_HOST || '127.0.0.1',
             user: process.env.POSTGRES_USER || 'postgres',
             password: process.env.POSTGRES_PASSWORD || 'noobaa',

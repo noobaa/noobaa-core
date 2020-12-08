@@ -10,8 +10,7 @@ const js_utils = require('../../../util/js_utils');
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
 
-const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
-    {
+const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
         type: 'Counter',
         name: 'hub_read_bytes',
         configuration: {
@@ -61,6 +60,14 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
     },
     {
         type: 'Counter',
+        name: 'cache_object_read_hit_count',
+        configuration: {
+            help: 'Counter on entire object read hit in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
         name: 'cache_range_read_count',
         configuration: {
             help: 'Counter on range reads in namespace cache bucket',
@@ -72,6 +79,14 @@ const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([
         name: 'cache_range_read_miss_count',
         configuration: {
             help: 'Counter on range read miss in namespace cache bucket',
+            labelNames: ['bucket_name']
+        }
+    },
+    {
+        type: 'Counter',
+        name: 'cache_range_read_hit_count',
+        configuration: {
+            help: 'Counter on range read hit in namespace cache bucket',
             labelNames: ['bucket_name']
         }
     },

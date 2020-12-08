@@ -366,6 +366,11 @@ class NamespaceCache {
                     bucket_name: params.bucket,
                     cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                 });
+                this.stats_collector.update_cache_stats({
+                    bucket_name: params.bucket,
+                    hit_count: 1,
+                    range_op: (params.start || params.end)
+                });
             });
 
             // update bytes stats on 'data' events but with a tap stream
@@ -571,6 +576,11 @@ class NamespaceCache {
                     this.stats_collector.update_cache_latency_stats({
                         bucket_name: params.bucket,
                         cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
+                    });
+                    this.stats_collector.update_cache_stats({
+                        bucket_name: params.bucket,
+                        hit_count: 1,
+                        range_op
                     });
                 });
 

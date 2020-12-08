@@ -115,7 +115,7 @@ class EndpointStatsCollector {
         this._trigger_send_stats();
     }
 
-    update_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, range_op = false }) {
+    update_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, hit_count = 0, range_op = false }) {
         if (read_bytes) {
             this.prom_metrics_report.inc('cache_read_bytes', { bucket_name }, read_bytes);
         }
@@ -124,6 +124,9 @@ class EndpointStatsCollector {
         }
         if (miss_count) {
             this.prom_metrics_report.inc(range_op ? 'cache_range_read_miss_count' : 'cache_object_read_miss_count', { bucket_name }, miss_count);
+        }
+        if (hit_count) {
+            this.prom_metrics_report.inc(range_op ? 'cache_range_read_hit_count' : 'cache_object_read_hit_count', { bucket_name }, hit_count);
         }
         if (write_bytes) {
             this.prom_metrics_report.inc('cache_write_bytes', { bucket_name }, write_bytes);

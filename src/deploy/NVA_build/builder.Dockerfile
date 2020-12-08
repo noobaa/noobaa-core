@@ -1,4 +1,4 @@
-FROM centos:8 
+FROM registry.centos.org/centos:8 
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################
@@ -8,10 +8,11 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
+RUN dnf --enablerepo=PowerTools install -y -q nasm && \
+    dnf clean all
 RUN dnf update -y -q && \
     dnf clean all
 RUN dnf install -y -q wget unzip which vim python2 python3 && \
-    dnf --enablerepo=PowerTools install -y -q nasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3

@@ -95,12 +95,12 @@ function run_master_workers() {
         delay: config.central_stats.partial_send_time_cycle,
         run_immediate: true
     }, stats_aggregator.background_worker);
-
-    register_bg_worker({
-        name: 'md_aggregator',
-        delay: config.MD_AGGREGATOR_INTERVAL
-    }, md_aggregator.background_worker);
-
+    if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
+        register_bg_worker({
+            name: 'md_aggregator',
+            delay: config.MD_AGGREGATOR_INTERVAL
+        }, md_aggregator.background_worker);
+    }
     register_bg_worker({
         name: 'usage_aggregator',
         delay: config.USAGE_AGGREGATOR_INTERVAL

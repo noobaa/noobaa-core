@@ -355,7 +355,7 @@ class PostgresTable {
         const { init_function } = this;
         try {
             dbg.log0(`creating table ${this.name}`);
-            await this.single_query(`CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`, undefined, pool);
+            await this.single_query(`CREATE TABLE IF NOT EXISTS ${this.name} (_id char(24) PRIMARY KEY, data jsonb)`, undefined, pool, true);
             if (init_function) await init_function(this);
         } catch (err) {
             dbg.error('got error on _init_table:', err);
@@ -377,7 +377,7 @@ class PostgresTable {
                         const uniq = options.unique ? 'UNIQUE' : '';
                         const partial = options.partialFilterExpression ? `WHERE ${mongo_to_pg('data', options.partialFilterExpression)}` : '';
                         const idx_str = `CREATE ${uniq} INDEX idx_btree_${this.name}_${index_name} ON ${this.name} USING BTREE ${col_idx} ${partial}`;
-                        await this.single_query(idx_str, undefined, pool);
+                        await this.single_query(idx_str, undefined, pool, true);
                         dbg.log0('db_indexes: created index', idx_str);
                     } catch (err) {
                         // TODO: Handle conflicts and re-declaration
@@ -398,7 +398,8 @@ class PostgresTable {
     }
 
     // for simple queries pass client to use client.query
-    async single_query(text, values, client) {
+    async single_query(text, values, client, skip_init) {
+        if (!skip_init) await this.init_promise;
         const q = { text, values };
         return _do_query(client || this.client.pool, q, 0);
     }
@@ -1288,12 +1289,7 @@ class PostgresClient extends EventEmitter {
 
     // TODO: Figure out error codes
     is_err_duplicate_key(err) {
-        return err && err.code === 11000;
-    }
-
-    // TODO: Figure out error codes
-    is_err_namespace_exists(err) {
-        return err && err.code === 48;
+        return err && err.code === '23505';
     }
 
     check_duplicate_key_conflict(err, entity) {

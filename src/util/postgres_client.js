@@ -599,13 +599,16 @@ class PostgresTable {
             query_string += ` LIMIT ${sql_query.limit}`;
         }
         try {
-            mr_q = `SELECT _id, SUM(value) FROM map_common_prefixes('${options.scope.prefix || ''}', '${options.scope.delimiter || ''}', $$${query_string}$$) GROUP BY _id`;
+            mr_q = `SELECT _id, json_agg(value) FROM map_common_prefixes('${options.scope.prefix || ''}', '${options.scope.delimiter || ''}', $$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows.map(row => {
-                if (row.value) {
-                    return _.defaults({ value: decode_json(this.schema, row.value) }, row);
+                const r_row = { _id: row._id };
+                if (row.json_agg[0] === null) {
+                    // TODO: I know that the isn't beautiful and we have array of nulls
+                    return _.defaults(r_row, { value: row.json_agg.length });
                 } else {
-                    return row;
+                    // _id is unique per object
+                    return _.defaults(r_row, { value: decode_json(this.schema, row.json_agg[0]) });
                 }
             });
         } catch (err) {
@@ -620,7 +623,7 @@ class PostgresTable {
         let query_string;
         try {
             query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', options.query)}`;
-            mr_q = `SELECT _id, SUM(value) FROM ${func}($$${query_string}$$) GROUP BY _id`;
+            mr_q = `SELECT _id, value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
         } catch (err) {

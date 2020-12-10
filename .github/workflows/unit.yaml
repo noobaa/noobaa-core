@@ -13,7 +13,3 @@ jobs:
       - name: Run Test
         id: run-test
         run: make test || exit 1
-
-      - name: Run Frontend Library Build Test
-        id: run-fe-test
-        run: make verify-fe-lib || exit 1

@@ -2,13 +2,13 @@
 
 import { mapErrorObject } from 'utils/state-utils';
 import { noop } from 'utils/core-utils';
-import restoreSessionEpic  from 'epics/restore-session';
+import restoreSessionEpic from 'epics/restore-session';
 import { restoreSession, completeRestoreSession, failRestoreSession } from 'action-creators';
 import { FAIL_RESTORE_SESSION } from 'action-types';
 import { of } from 'rxjs';
 import { toPromise } from 'rx-extensions';
 import assert from 'assert';
-import { describe, it } from 'mocha';
+import 'mocha';
 import { readAuthRetryCount, readAuthRetryDelay, sessionTokenKey } from 'config';
 
 function mockServices(
@@ -22,12 +22,14 @@ function mockServices(
                 auth_token: undefined
             },
             auth: { read_auth },
-            account: { read_account: params => ({
-                preferences: {
-                    email: params.email,
-                    ui_theme: 'theme'
-                }
-            }) }
+            account: {
+                read_account: params => ({
+                    preferences: {
+                        email: params.email,
+                        ui_theme: 'theme'
+                    }
+                })
+            }
         },
         sessionStorage: {
             getItem: sessionStorageGetItem
@@ -237,7 +239,7 @@ describe('Restore session', () => {
     });
 
     describe('when read_auth fails initial request (with RPC_CONNECT_TIMEOUT) but succeed on a retry', () => {
-        it('should return COMPLETE_RESTORE_SESSION with the information in the payload', function() {
+        it('should return COMPLETE_RESTORE_SESSION with the information in the payload', () => {
             const token = 'token';
             const sessionInfo = {
                 account: {
@@ -250,6 +252,7 @@ describe('Restore session', () => {
             };
 
             let firstTime = true;
+
             function read_auth() {
                 if (firstTime) {
                     firstTime = false;

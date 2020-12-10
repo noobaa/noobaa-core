@@ -86,6 +86,11 @@ verify-fe-lib: builder
 	@echo "\033[1;32mFrontend Library build verified.\033[0m"
 .PHONY: verify-fe-lib
 
+fe-test: base
+	@echo "\033[1;34mRunning frontend tests.\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) noobaa-base npm run test --prefix ./frontend
+.PHONY: fe-test
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

@@ -1,0 +1,19 @@
+name: FE Unit Tests
+
+# Run on each new PR and each new push to existing PR
+on: [push, pull_request]
+
+jobs:
+  run-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Run Frontend Test
+        id: run-fe-test
+        run: make fe-test || exit 1
+
+      - name: Run Frontend Library Build Test
+        id: run-build-fe
+        run: make verify-fe-lib || exit 1

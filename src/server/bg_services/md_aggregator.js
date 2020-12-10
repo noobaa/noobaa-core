@@ -10,6 +10,8 @@ const MDStore = require('../object_services/md_store').MDStore;
 const size_utils = require('../../util/size_utils');
 const SystemStore = require('../system_services/system_store');
 const system_utils = require('../utils/system_utils');
+const db_client = require('../../util/mongo_client').instance();
+let topology_destroyed_err_count = 0;
 
 // TODO: This method is based on a single system
 async function background_worker() {
@@ -64,7 +66,8 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
             md_store,
             system_store: md_local_store,
             range,
-            global_last_update
+            global_last_update,
+            real_system_store: system_store
         });
         if (changes) {
             const update = _.omit(changes, 'more_updates');
@@ -236,10 +239,11 @@ function find_next_range({
     return { from_time, till_time };
 }
 
-function range_md_aggregator({
+async function range_md_aggregator({
     md_store,
     system_store,
     range,
+    real_system_store
 }) {
     const from_time = range.from_time;
     const till_time = range.till_time;
@@ -254,79 +258,118 @@ function range_md_aggregator({
     const buckets = filtered_buckets.slice(0, config.MD_AGGREGATOR_BATCH);
     const pools = filtered_pools.slice(0, config.MD_AGGREGATOR_BATCH);
 
-    return P.join(
-            md_store.aggregate_chunks_by_create_dates(from_time, till_time),
-            md_store.aggregate_chunks_by_delete_dates(from_time, till_time),
-            md_store.aggregate_objects_by_create_dates(from_time, till_time),
-            md_store.aggregate_objects_by_delete_dates(from_time, till_time),
-            md_store.aggregate_blocks_by_create_dates(from_time, till_time),
-            md_store.aggregate_blocks_by_delete_dates(from_time, till_time)
-        )
-        .spread((
-            existing_chunks_aggregate,
-            deleted_chunks_aggregate,
-            existing_objects_aggregate,
-            deleted_objects_aggregate,
-            existing_blocks_aggregate,
-            deleted_blocks_aggregate) => {
+    try {
+        const existing_chunks_aggregate = await md_store.aggregate_chunks_by_create_dates(from_time, till_time);
+        const deleted_chunks_aggregate = await md_store.aggregate_chunks_by_delete_dates(from_time, till_time);
+        const existing_objects_aggregate = await md_store.aggregate_objects_by_create_dates(from_time, till_time);
+        const deleted_objects_aggregate = await md_store.aggregate_objects_by_delete_dates(from_time, till_time);
+        const existing_blocks_aggregate = await md_store.aggregate_blocks_by_create_dates(from_time, till_time);
+        const deleted_blocks_aggregate = await md_store.aggregate_blocks_by_delete_dates(from_time, till_time);
 
-            dbg.log3('range_md_aggregator:',
-                'from_time', from_time,
-                'till_time', till_time,
-                'existing_objects_aggregate', util.inspect(existing_objects_aggregate, true, null, true),
-                'deleted_objects_aggregate', util.inspect(deleted_objects_aggregate, true, null, true),
-                'existing_blocks_aggregate', util.inspect(existing_blocks_aggregate, true, null, true),
-                'deleted_blocks_aggregate', util.inspect(deleted_blocks_aggregate, true, null, true)
-            );
+        topology_destroyed_err_count = 0;
+        dbg.log0('range_md_aggregator:',
+            'from_time', from_time,
+            'till_time', till_time,
+            'existing_objects_aggregate', util.inspect(existing_objects_aggregate, true, null, true),
+            'deleted_objects_aggregate', util.inspect(deleted_objects_aggregate, true, null, true),
+            'existing_blocks_aggregate', util.inspect(existing_blocks_aggregate, true, null, true),
+            'deleted_blocks_aggregate', util.inspect(deleted_blocks_aggregate, true, null, true)
+        );
 
-            const buckets_updates = _.map(buckets, bucket => {
-                let dont_change_last_update = false;
-                const new_storage_stats = calculate_new_bucket({
-                    bucket,
-                    existing_chunks_aggregate,
-                    deleted_chunks_aggregate,
-                    existing_objects_aggregate,
-                    deleted_objects_aggregate,
-                    existing_blocks_aggregate,
-                    deleted_blocks_aggregate
-                });
-                if (_.isEqual(_.omit(bucket.storage_stats, 'last_update'), new_storage_stats)) {
-                    dont_change_last_update = true;
-                }
-                new_storage_stats.last_update = till_time;
-                bucket.storage_stats = new_storage_stats;
-                return {
-                    _id: bucket._id,
-                    storage_stats: new_storage_stats,
-                    dont_change_last_update
-                };
+        const buckets_updates = _.map(buckets, bucket => {
+            let dont_change_last_update = false;
+            const new_storage_stats = calculate_new_bucket({
+                bucket,
+                existing_chunks_aggregate,
+                deleted_chunks_aggregate,
+                existing_objects_aggregate,
+                deleted_objects_aggregate,
+                existing_blocks_aggregate,
+                deleted_blocks_aggregate
             });
-
-            const pools_updates = _.map(pools, pool => {
-                let dont_change_last_update = false;
-                const new_storage_stats = calculate_new_pool({
-                    pool,
-                    existing_blocks_aggregate,
-                    deleted_blocks_aggregate
-                });
-                if (_.isEqual(_.omit(pool.storage_stats, 'last_update'), new_storage_stats)) {
-                    dont_change_last_update = true;
-                }
-                new_storage_stats.last_update = till_time;
-                pool.storage_stats = new_storage_stats;
-                return {
-                    _id: pool._id,
-                    storage_stats: new_storage_stats,
-                    dont_change_last_update,
-                };
-            });
-
+            if (_.isEqual(_.omit(bucket.storage_stats, 'last_update'), new_storage_stats)) {
+                dont_change_last_update = true;
+            }
+            new_storage_stats.last_update = till_time;
+            bucket.storage_stats = new_storage_stats;
             return {
-                buckets: buckets_updates,
-                pools: pools_updates,
-                more_updates,
+                _id: bucket._id,
+                storage_stats: new_storage_stats,
+                dont_change_last_update
             };
         });
+
+        const pools_updates = _.map(pools, pool => {
+            let dont_change_last_update = false;
+            const new_storage_stats = calculate_new_pool({
+                pool,
+                existing_blocks_aggregate,
+                deleted_blocks_aggregate
+            });
+            if (_.isEqual(_.omit(pool.storage_stats, 'last_update'), new_storage_stats)) {
+                dont_change_last_update = true;
+            }
+            new_storage_stats.last_update = till_time;
+            pool.storage_stats = new_storage_stats;
+            return {
+                _id: pool._id,
+                storage_stats: new_storage_stats,
+                dont_change_last_update,
+            };
+        });
+
+        return {
+            buckets: buckets_updates,
+            pools: pools_updates,
+            more_updates,
+        };
+
+    } catch (err) {
+        dbg.log0('range_md_aggregator failed with error: ', err, ' topology destroyed error count: ', topology_destroyed_err_count);
+        if (err.name === 'MongoError' && err.message === 'topology was destroyed') {
+            dbg.log0('range_md_aggregator start handling err... ', till_time);
+            db_client.reconnect();
+            db_client.on('reconnect', async () => {
+                console.log('reconnect emitted..');
+                const upd = handle_topology_destroyed_err(buckets, pools, till_time, more_updates, real_system_store);
+                return upd;
+            });
+        }
+        throw err;
+    }
+}
+
+async function handle_topology_destroyed_err(buckets, pools, till_time, more_updates, system_store) {
+    topology_destroyed_err_count += 1;
+    if (topology_destroyed_err_count > 1) {
+        const buckets_updates = _.map(buckets, bucket => {
+            bucket.storage_stats.last_update = till_time;
+            return {
+                _id: bucket._id,
+                $set: {'storage_stats.last_update': till_time},
+                dont_change_last_update: false
+            };
+        });
+        const pools_updates = _.map(pools, pool => {
+            pool.storage_stats.last_update = till_time;
+            return {
+                _id: pool._id,
+                $set: {'storage_stats.last_update': till_time},
+                dont_change_last_update: false,
+            };
+        });
+        dbg.log0('range_md_aggregator with topology was destroyed, error count: ', topology_destroyed_err_count, {
+            buckets: buckets_updates,
+            pools: pools_updates,
+        });
+        topology_destroyed_err_count = 0;
+        const update = {
+            buckets: buckets_updates,
+            pools: pools_updates,
+        };
+        await system_store.make_changes({ update });
+        return update;
+    }
 }
 
 function calculate_new_pool({
@@ -579,3 +622,4 @@ exports.run_md_aggregator = run_md_aggregator;
 exports.calculate_new_bucket = calculate_new_bucket;
 exports.calculate_new_pool = calculate_new_pool;
 exports.find_minimal_range = find_minimal_range;
+

@@ -8,14 +8,24 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN dnf --enablerepo=PowerTools install -y -q nasm && \
-    dnf clean all
+# RUN dnf --enablerepo=PowerTools install -y -q nasm && \
+#     dnf clean all
 RUN dnf update -y -q && \
     dnf clean all
 RUN dnf install -y -q wget unzip which vim python2 python3 && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3
+RUN version="2.15.05" && \
+    wget -q -O nasm-${version}.tar.gz https://github.com/netwide-assembler/nasm/archive/nasm-${version}.tar.gz && \
+    tar -xf nasm-${version}.tar.gz && \
+    pushd nasm-nasm-${version} && \
+    ./autogen.sh && \
+    ./configure && \
+    make && \
+    make install || true && \
+    popd && \
+    rm -rf nasm-${version} nasm-${version}.tar.gz
 
 ##############################################################
 # Layers:

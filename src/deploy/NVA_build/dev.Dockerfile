@@ -11,7 +11,7 @@ RUN dnf update -y -q && \
         python3 python3-setuptools \
         gdb strace lsof \
         openssl && \
-    dnf --enablerepo=PowerTools install -y -q yasm && \
+    dnf --enablerepo='?ower?ools' install -y -q yasm && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 

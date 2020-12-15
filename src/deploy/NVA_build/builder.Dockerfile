@@ -8,7 +8,7 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 ENV container docker
-RUN dnf --enablerepo=PowerTools install -y -q yasm && \
+RUN dnf --enablerepo='?ower?ools' install -y -q yasm && \
     dnf clean all
 RUN dnf update -y -q && \
     dnf clean all

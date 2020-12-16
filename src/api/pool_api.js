@@ -98,7 +98,19 @@ module.exports = {
                     },
                     target_bucket: {
                         type: 'string',
-                    }
+                    },
+                    namespace_store: {
+                        type: 'object',
+                        required: ['name', 'namespace'],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                            namespace: {
+                                type: 'string',
+                            },
+                        }
+                    },
                 }
             },
             auth: {
@@ -427,7 +439,54 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        }
+        },
+
+        get_namespace_resource_operator_info: {
+            doc: 'Return namespace resource operator related info',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    access_key: { $ref: 'common_api#/definitions/access_key' },
+                    secret_key: { $ref: 'common_api#/definitions/secret_key' },
+                    need_k8s_sync: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        set_namespace_store_info: {
+            doc: 'Sets namespace store info to namespace resource',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'namespace'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    namespace: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
 
     definitions: {

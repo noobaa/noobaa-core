@@ -66,5 +66,19 @@ module.exports = {
                 }
             }
         },
+        namespace_store: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                namespace: {
+                    type: 'string'
+                },
+                need_k8s_sync: {
+                    type: 'boolean'
+                }
+            }
+        }
     }
 };

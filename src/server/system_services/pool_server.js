@@ -269,6 +269,9 @@ function create_namespace_resource(req) {
         dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
         throw new RpcError('IN_USE', 'Target already in use');
     }
+    if (req.rpc_params.namespace_store) {
+        namespace_resource.namespace_store = req.rpc_params.namespace_store;
+    }
 
     dbg.log0('creating namespace_resource:', namespace_resource);
     return system_store.make_changes({
@@ -1010,6 +1013,49 @@ function get_namespace_resource_info(namespace_resource) {
     return info;
 }
 
+function get_namespace_resource_operator_info(req) {
+    if (req.auth.role !== 'operator') {
+        throw new RpcError('UNAUTHORIZED', 'Must be operator');
+    }
+    const namespace_resource = find_namespace_resource_by_name(req);
+    if (!namespace_resource.namespace_store ||
+        !namespace_resource.namespace_store.need_k8s_sync) return {};
+
+    const info = _.omitBy({
+        access_key: namespace_resource.connection.access_key,
+        secret_key: namespace_resource.connection.secret_key,
+        need_k8s_sync: namespace_resource.namespace_store.need_k8s_sync
+    }, _.isUndefined);
+
+    return info;
+}
+
+function set_namespace_store_info(req) {
+    if (req.auth.role !== 'operator') {
+        throw new RpcError('UNAUTHORIZED', 'Must be operator');
+    }
+    const namespace_resource = find_namespace_resource_by_name(req);
+    if (!namespace_resource.namespace_store ||
+        !namespace_resource.namespace_store.need_k8s_sync) {
+        dbg.log0(`no need to sync namespace resource.`);
+        return;
+    }
+    return system_store.make_changes({
+        update: {
+            namespace_resources: [{
+                    _id: namespace_resource._id,
+                    $set: {
+                        namespace_store: {
+                            name: req.rpc_params.name,
+                            namespace: req.rpc_params.namespace,
+                            need_k8s_sync: false
+                        }
+                    }
+                }]
+        }
+    });
+}
+
 function get_namespace_resource_extended_info(namespace_resource) {
     const info = _.omitBy({
         id: namespace_resource._id,
@@ -1283,6 +1329,8 @@ exports.get_associated_buckets = get_associated_buckets;
 exports.get_pool_history = get_pool_history;
 exports.get_cloud_services_stats = get_cloud_services_stats;
 exports.get_namespace_resource_extended_info = get_namespace_resource_extended_info;
+exports.get_namespace_resource_operator_info = get_namespace_resource_operator_info;
+exports.set_namespace_store_info = set_namespace_store_info;
 exports.assign_pool_to_region = assign_pool_to_region;
 exports.scale_hosts_pool = scale_hosts_pool;
 exports.update_hosts_pool = update_hosts_pool;

@@ -55,7 +55,7 @@ async function get_bucket(req) {
                 'NextContinuationToken': key_marker_to_cont_tok(reply.next_marker, reply.objects, reply.is_truncated),
             } : { // list_type v1
                 'Marker': req.query.marker || '',
-                'NextMarker': reply.next_marker,
+                'NextMarker': req.query.delimiter ? reply.next_marker : undefined,
             },
             _.map(reply.objects, obj => ({
                 Contents: {

@@ -623,7 +623,7 @@ class PostgresTable {
         let query_string;
         try {
             query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', options.query)}`;
-            mr_q = `SELECT _id, SUM(value) FROM ${func}($$${query_string}$$) GROUP BY _id`;
+            mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
         } catch (err) {

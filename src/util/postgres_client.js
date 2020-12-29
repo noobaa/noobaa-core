@@ -112,9 +112,9 @@ async function _do_query(pg_client, q, transaction_counter) {
     query_counter += 1;
     const tag = `T${_.padStart(transaction_counter, 8, '0')}|Q${_.padStart(query_counter.toString(), 8, '0')}`;
     try {
-        dbg.log0(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
+        dbg.log1(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
         const res = await pg_client.query(q);
-        dbg.log0(`postgres_client: ${tag}: got result:`, util.inspect(res, { depth: 6 }));
+        dbg.log1(`postgres_client: ${tag}: got result:`, util.inspect(res, { depth: 6 }));
         return res;
     } catch (err) {
         dbg.error(`postgres_client: ${tag}: failed with error:`, err);
@@ -623,7 +623,7 @@ class PostgresTable {
         let query_string;
         try {
             query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', options.query)}`;
-            mr_q = `SELECT _id, SUM(value) FROM ${func}($$${query_string}$$) GROUP BY _id`;
+            mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
         } catch (err) {

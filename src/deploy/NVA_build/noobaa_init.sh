@@ -151,14 +151,38 @@ prepare_server_pvs() {
 }
 
 prepare_mongo_pv() {
-  local dir="/mongo_data/mongo/cluster/shard1"
+  local main_dir="/mongo_data"
+  local shard_dir="/mongo_data/mongo/cluster/shard1"
+  local recursive_file="/mongo_data/recursive_file"
+  local dir_id=$(stat -c '%u' ${main_dir})
+  local current_id=$(id -u)
 
   # change ownership and permissions of mongo db path
-  ${KUBE_PV_CHOWN} mongo
+  if [ "${dir_id}" != "${current_id}" ] || [ ! -f ${recursive_file} ]; then
+    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
+    time ${KUBE_PV_CHOWN} mongo ${current_id}
+    touch ${recursive_file}
+  fi
 
-  mkdir -p ${dir}
-  chgrp 0 ${dir}
-  chmod g=u ${dir}
+  if [ ! -d ${shard_dir} ]; then
+    echo "creating shard directory: ${shard_dir}" 
+    mkdir -p ${shard_dir}
+    chgrp 0 ${shard_dir}
+    chmod g=u ${shard_dir}
+  fi
+}
+
+prepare_postgres_pv() {
+  local dir="/var/lib/pgsql"
+  local dir_id=$(stat -c '%u' ${dir})    
+  local current_id=$(id -u)
+
+  # change ownership and permissions of mongo db path
+  if [ "${dir_id}" != "${current_id}" ]
+  then
+    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
+    time ${KUBE_PV_CHOWN} postgres ${current_id}
+  fi
 }
 
 init_endpoint() {
@@ -197,18 +221,15 @@ migrate_dbs() {
   /usr/local/bin/node src/upgrade/migration_to_postgres.js
 }
 
-
-# init phase
-init_pod() {
-  prepare_mongo_pv
-}
-
 if [ "${RUN_INIT}" == "agent" ]
 then
   init_noobaa_agent
 elif [ "${RUN_INIT}" == "init_mongo" ]
 then
-  init_pod
+  prepare_mongo_pv
+elif [ "${RUN_INIT}" == "init_postgres" ]
+then
+  prepare_postgres_pv
 elif [ "${RUN_INIT}" == "db_migrate" ]
 then
   migrate_dbs

@@ -514,6 +514,7 @@ config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 ///////////////////////
 // NAMESPACE CACHING //
 ///////////////////////
+
 config.NAMESPACE_CACHING = {
     DEFAULT_CACHE_TTL_MS: 60000,
     DEFAULT_BLOCK_SIZE: 64 * 1024,
@@ -533,6 +534,21 @@ assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.NAMESPACE_CACHING.D
 assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE <= config.MAX_OBJECT_PART_SIZE);
 assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
 
+//////////////////
+// NAMESPACE FS //
+//////////////////
+
+config.NSFS_BUF_SIZE = 8 * 1024 * 1024;
+config.NSFS_BUF_POOL_MEM_LIMIT = config.BUFFERS_MEM_LIMIT;
+
+// the temporary path for uploads and other internal files
+config.NSFS_TEMP_DIR_NAME = '.noobaa-nsfs';
+
+config.NSFS_FOLDER_OBJECT_NAME = '.folder';
+
+config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 32 * 1024 * 1024;
+config.NSFS_DIR_CACHE_MIN_DIR_SIZE = 64;
+config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE = 24 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE;
 
 /////////////////////
 //                 //
@@ -547,6 +563,7 @@ function load_config_local() {
     try {
         // eslint-disable-next-line global-require
         const local_config = require('./config-local');
+        if (!local_config) return;
         console.log('load_config_local: LOADED', local_config);
         if (typeof local_config === 'function') {
             const local_config_func = /** @type {function} */ (local_config);

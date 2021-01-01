@@ -21,7 +21,7 @@ async function get_bucket(req) {
     const cont_tok = req.query['continuation-token'];
     const start_after = req.query['start-after'];
 
-    let params = {
+    const params = {
         bucket: req.params.bucket,
         prefix: req.query.prefix,
         delimiter: req.query.delimiter,
@@ -35,32 +35,31 @@ async function get_bucket(req) {
     }
     const reply = await req.object_sdk.list_objects(params);
 
-    let res_params = {
-        'Name': req.params.bucket,
-        'Prefix': req.query.prefix,
-        'MaxKeys': max_keys_received,
-        'IsTruncated': reply.is_truncated,
-        'Encoding-Type': req.query['encoding-type'],
-    };
-    if (req.query.delimiter !== '') {
-        res_params.Delimiter = req.query.delimiter;
-    }
-    // Always have last_modified_time take precedence. This time is set only for cached objects.
-    // Non cached objects will always default to obj.create_time
     return {
-        ListBucketResult: [res_params, list_type === '2' ? {
-                'ContinuationToken': cont_tok,
-                'StartAfter': start_after,
-                'KeyCount': reply.objects.length,
-                'NextContinuationToken': key_marker_to_cont_tok(reply.next_marker, reply.objects, reply.is_truncated),
-            } : { // list_type v1
-                'Marker': req.query.marker || '',
-                'NextMarker': req.query.delimiter ? reply.next_marker : undefined,
+        ListBucketResult: [{
+                Name: req.params.bucket,
+                Prefix: req.query.prefix || undefined,
+                Delimiter: req.query.delimiter || undefined,
+                MaxKeys: max_keys_received,
+                IsTruncated: reply.is_truncated,
+                'Encoding-Type': req.query['encoding-type'],
+                ...(list_type === '2' ? {
+                    ContinuationToken: cont_tok,
+                    StartAfter: start_after,
+                    KeyCount: reply.objects.length,
+                    NextContinuationToken: key_marker_to_cont_tok(
+                        reply.next_marker, reply.objects, reply.is_truncated),
+                } : { // list_type v1
+                    Marker: req.query.marker,
+                    NextMarker: req.query.delimiter ? reply.next_marker : undefined,
+                }),
             },
             _.map(reply.objects, obj => ({
                 Contents: {
                     Key: obj.key,
                     // if the object specifies last_modified_time we use it, otherwise take create_time.
+                    // last_modified_time is set only for cached objects.
+                    // Non cached objects will use obj.create_time
                     LastModified: s3_utils.format_s3_xml_date(obj.last_modified_time || obj.create_time),
                     ETag: `"${obj.etag}"`,
                     Size: obj.size,
@@ -81,7 +80,7 @@ function cont_tok_to_key_marker(cont_tok) {
     if (!cont_tok) return;
     try {
         const b = Buffer.from(cont_tok, 'base64');
-        const j = JSON.parse(b);
+        const j = JSON.parse(b.toString());
         return j.key;
     } catch (err) {
         throw new S3Error(S3Error.InvalidArgument);

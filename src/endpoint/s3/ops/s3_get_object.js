@@ -99,22 +99,27 @@ async function get_object(req, res) {
             return;
         }
     }
-    const read_stream = await req.object_sdk.read_object_stream(params);
+
+    let read_stream;
 
     // on http disconnection close the read stream to stop from buffering more data
     req.on('aborted', () => {
         dbg.log0('request aborted:', req.path);
-        if (read_stream.close) read_stream.close();
+        if (read_stream && read_stream.close) read_stream.close();
     });
     res.on('error', err => {
         dbg.log0('response error:', err, req.path);
-        if (read_stream.close) read_stream.close();
+        if (read_stream && read_stream.close) read_stream.close();
     });
-    read_stream.on('error', err => {
-        dbg.log0('read stream error:', err, req.path);
-        res.destroy(err);
-    });
-    read_stream.pipe(res);
+
+    read_stream = await req.object_sdk.read_object_stream(params, res);
+    if (read_stream) {
+        read_stream.on('error', err => {
+            dbg.log0('read stream error:', err, req.path);
+            res.destroy(err);
+        });
+        read_stream.pipe(res);
+    }
 
 }
 

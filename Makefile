@@ -91,6 +91,14 @@ fe-test: base
 	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) noobaa-base npm run test --prefix ./frontend
 .PHONY: fe-test
 
+# This rule builds a container image that includes developer tools
+# which allows to build and debug the project.
+nbdev:
+	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	@echo "\033[1;32mImage 'nbdev' is ready.\033[0m"
+	@echo "Usage: docker run -it nbdev"
+.PHONY: nbdev
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

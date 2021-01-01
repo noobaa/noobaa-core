@@ -1,7 +1,7 @@
 export as namespace nb;
 
 import * as mongodb from 'mongodb';
-import { Readable } from 'stream';
+import { Readable, Writable } from 'stream';
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -410,6 +410,10 @@ interface ObjectInfo {
     tag_count: number;
     s3_signed_url?: string;
     capacity_size?: number;
+    num_multiparts?: number;
+    first_range_data?: Buffer;
+    content_length?: number;
+    content_range?: string;
 }
 
 
@@ -729,7 +733,7 @@ interface Namespace {
     list_object_versions(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     read_object_md(params: object, object_sdk: ObjectSDK): Promise<ObjectInfo>;
-    read_object_stream(params: object, object_sdk: ObjectSDK): Promise<Readable>;
+    read_object_stream(params: object, object_sdk: ObjectSDK, res?: Writable): Promise<Readable>;
 
     upload_object(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_object(params: object, object_sdk: ObjectSDK): Promise<any>;
@@ -757,4 +761,37 @@ interface Namespace {
     commit_blob_block_list(params: object, object_sdk: ObjectSDK): Promise<any>;
     get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
 
+}
+
+interface BucketSpace {
+
+    list_buckets(): Promise<any>;
+    read_bucket(params: object): Promise<any>;
+    create_bucket(params: object): Promise<any>;
+    delete_bucket(params: object): Promise<any>;
+
+    get_bucket_lifecycle_configuration_rules(params: object): Promise<any>;
+    set_bucket_lifecycle_configuration_rules(params: object): Promise<any>;
+    delete_bucket_lifecycle(params: object): Promise<any>;
+
+    set_bucket_versioning(params: object): Promise<any>;
+
+    put_bucket_tagging(params: object): Promise<any>;
+    delete_bucket_tagging(params: object): Promise<any>;
+    get_bucket_tagging(params: object): Promise<any>;
+
+    put_bucket_encryption(params: object): Promise<any>;
+    get_bucket_encryption(params: object): Promise<any>;
+    delete_bucket_encryption(params: object): Promise<any>;
+
+    put_bucket_website(params: object): Promise<any>;
+    delete_bucket_website(params: object): Promise<any>;
+    get_bucket_website(params: object): Promise<any>;
+
+    put_bucket_policy(params: object): Promise<any>;
+    delete_bucket_policy(params: object): Promise<any>;
+    get_bucket_policy(params: object): Promise<any>;
+
+    get_object_lock_configuration(params: object): Promise<any>;
+    put_object_lock_configuration(params: object): Promise<any>;
 }

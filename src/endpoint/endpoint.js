@@ -20,21 +20,21 @@ const config = require('../../config');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const lambda_rest = require('./lambda/lambda_rest');
+const endpoint_utils = require('./endpoint_utils');
 const FuncSDK = require('../sdk/func_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
 const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
-const http_utils = require('../util/http_utils');
 const addr_utils = require('../util/addr_utils');
-const system_store = require('../server/system_services/system_store');
 const md_server = require('../server/md_server');
-const auth_server = require('../server/common_services/auth_server');
 const server_rpc = require('../server/server_rpc');
-const { ENDPOINT_MONITOR_INTERVAL } = require('../../config');
+const auth_server = require('../server/common_services/auth_server');
+const system_store = require('../server/system_services/system_store');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 
+const endpoint_env = process_env(process.env);
 const {
     ENDPOINT_BLOB_ENABLED,
     ENDPOINT_PORT,
@@ -45,7 +45,7 @@ const {
     ENDPOINT_GROUP_ID,
     LOCAL_MD_SERVER,
     LOCAL_N2N_AGENT
-} = process_env(process.env);
+} = endpoint_env;
 
 function process_env(env) {
     const virtual_hosts = (env.VIRTUAL_HOSTS || '')
@@ -118,7 +118,14 @@ async function run_server(options) {
         const auth_token = await get_auth_token(process.env);
         const internal_rpc_client = server_rpc.rpc.new_client({ auth_token });
 
-        const endpoint_request_handler = create_endpoint_handler(rpc, internal_rpc_client, options);
+        if (options.n2n_agent) {
+            const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
+            const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
+            n2n_agent.set_any_rpc_address();
+        }
+
+        const object_io = new ObjectIO(LOCATION_INFO);
+        const endpoint_request_handler = create_endpoint_handler(object_io, rpc, internal_rpc_client, options);
 
         const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
@@ -166,7 +173,7 @@ async function start_monitor(internal_rpc_client) {
     dbg.log0('Endpoint monitor started');
     for (;;) {
         try {
-            await P.delay_unblocking(ENDPOINT_MONITOR_INTERVAL);
+            await P.delay_unblocking(config.ENDPOINT_MONITOR_INTERVAL);
             const end_time = process.hrtime.bigint() / 1000n;
             const cpu_time = process.cpuUsage();
             const elap_cpu_time = (cpu_time.system + cpu_time.user) - (base_cpu_time.system + base_cpu_time.user);
@@ -213,30 +220,13 @@ function handle_server_error(err) {
     process.exit(1);
 }
 
-function create_endpoint_handler(rpc, internal_rpc_client, options) {
+function create_endpoint_handler(object_io, rpc, internal_rpc_client, options) {
     const s3_rest_handler = options.s3 ? s3_rest.handler : unavailable_handler;
     const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
     const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
 
-    if (options.n2n_agent) {
-        const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-        const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
-        n2n_agent.set_any_rpc_address();
-    }
-
-    const object_io = new ObjectIO(LOCATION_INFO);
-    return endpoint_request_handler;
-
-    function endpoint_request_handler(req, res) {
-        // generate request id, this is lighter than uuid
-        req.request_id = `${
-            Date.now().toString(36)
-        }-${
-            process.hrtime()[1].toString(36)
-        }-${
-            Math.trunc(Math.random() * 65536).toString(36)
-        }`;
-        http_utils.parse_url_query(req);
+    return function endpoint_request_handler(req, res) {
+        endpoint_utils.prepare_rest_request(req);
 
         if (req.url.startsWith('/2015-03-31/functions')) {
             req.func_sdk = new FuncSDK(rpc.new_client());
@@ -251,7 +241,7 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
         req.virtual_hosts = VIRTUAL_HOSTS;
         req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
         return s3_rest_handler(req, res);
-    }
+    };
 }
 
 function unavailable_handler(req, res) {

@@ -27,6 +27,10 @@ class NamespaceS3 {
         this.rpc_client = rpc_client;
     }
 
+    get_write_resource() {
+        return this;
+    }
+
     // check if copy can be done server side on AWS.
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
@@ -227,6 +231,7 @@ class NamespaceS3 {
             req.send();
         });
     }
+
 
     ///////////////////
     // OBJECT UPLOAD //
@@ -619,6 +624,36 @@ class NamespaceS3 {
         });
     }
 
+
+    ///////////////////
+    //  OBJECT LOCK  //
+    ///////////////////
+
+    async get_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async put_object_legal_hold() {
+        throw new Error('TODO');
+    }
+    async get_object_retention() {
+        throw new Error('TODO');
+    }
+    async put_object_retention() {
+        throw new Error('TODO');
+    }
+
+
+    ///////////////
+    // INTERNALS //
+    ///////////////
+
+    /**
+     * 
+     * @param {AWS.S3.HeadObjectOutput | AWS.S3.GetObjectOutput} res 
+     * @param {string} bucket 
+     * @param {number} [part_number]
+     * @returns {nb.ObjectInfo}
+     */
     _get_s3_object_info(res, bucket, part_number) {
         const etag = s3_utils.parse_etag(res.ETag);
         const xattr = _.extend(res.Metadata, {
@@ -626,13 +661,15 @@ class NamespaceS3 {
         });
         const ranges = res.ContentRange ? Number(res.ContentRange.split('/')[1]) : 0;
         const size = ranges || res.ContentLength || res.Size || 0;
+        const last_modified_time = res.LastModified ? res.LastModified.getTime() : Date.now();
         return {
             obj_id: res.UploadId || etag,
             bucket: bucket,
             key: res.Key,
             size,
             etag,
-            create_time: new Date(res.LastModified),
+            create_time: last_modified_time,
+            last_modified_time,
             version_id: res.VersionId,
             is_latest: res.IsLatest,
             delete_marker: res.DeleteMarker,
@@ -640,9 +677,16 @@ class NamespaceS3 {
             xattr,
             tag_count: res.TagCount,
             first_range_data: res.Body,
-            multipart_count: res.PartsCount,
+            num_multiparts: res.PartsCount,
             content_range: res.ContentRange,
             content_length: part_number ? res.ContentLength : size,
+            encryption: undefined,
+            lock_settings: undefined,
+            md5_b64: undefined,
+            num_parts: undefined,
+            sha256_b64: undefined,
+            stats: undefined,
+            tagging: undefined,
         };
     }
 

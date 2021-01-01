@@ -21,7 +21,10 @@ class NodeJsReport extends BasePrometheusReport {
     }
 
     get metric_prefix() {
-        return `${super.metric_prefix}${dbg.get_process_name()}_`;
+        // replacing dashes to underscores because dash is illegal as metric name
+        // but is common as a process name
+        const process_name = dbg.get_process_name().replace(/-/g, '_');
+        return `${super.metric_prefix}${process_name}_`;
     }
 }
 

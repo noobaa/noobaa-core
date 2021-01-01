@@ -110,7 +110,7 @@ async function read_stream_join(readable) {
 function buffer_to_read_stream(buf) {
     return new stream.Readable({
         read(size) {
-            this.push(buf);
+            if (buf) this.push(buf);
             this.push(null);
         }
     });
@@ -125,12 +125,23 @@ class WritableBuffers extends stream.Writable {
         this.total_length = 0;
     }
 
+    /**
+     * @param {Buffer} data 
+     * @param {string|null} encoding 
+     * @param {()=>void} callback 
+     */
     _write(data, encoding, callback) {
-        this.buffers.push(data);
+        // copy the buffer because the caller can reuse it after we call the callback
+        this.buffers.push(Buffer.from(data));
         this.total_length += data.length;
         callback();
     }
+
+    join() {
+        return join(this.buffers, this.total_length);
+    }
 }
+
 /**
  * @returns {WritableBuffers}
  */
@@ -162,6 +173,53 @@ function write_to_stream(writable, buf) {
     });
 }
 
+class BuffersPool {
+
+    constructor(buf_size, sem) {
+        this.buf_size = buf_size;
+        this.buffers = [];
+        this.sem = sem;
+    }
+
+    /**
+     * @param {number} len
+     * @returns {Promise<{
+     *  buffer: Buffer,
+     *  callback: () => void,
+     * }>}
+     */
+    async get_buffer(len) {
+        let buffer = null;
+        let should_release = 0;
+        let should_pool = false;
+        if (len < this.buf_size / 4) {
+            await this.sem.wait(len);
+            should_release = len;
+            buffer = Buffer.allocUnsafe(len);
+        } else if (this.buffers.length) {
+            buffer = this.buffers.shift();
+            should_pool = true;
+        } else {
+            await this.sem.wait(this.buf_size);
+            should_release = this.buf_size;
+            should_pool = true;
+            buffer = Buffer.allocUnsafeSlow(this.buf_size);
+        }
+        const callback = () => {
+            if (should_release) {
+                this.sem.release(should_release);
+                should_release = 0;
+            }
+            if (should_pool) {
+                this.buffers.push(buffer);
+                should_pool = false;
+            }
+        };
+        return { buffer, callback };
+    }
+}
+
+
 exports.eq = eq;
 exports.neq = neq;
 exports.join = join;
@@ -173,3 +231,4 @@ exports.write_stream = write_stream;
 exports.count_length = count_length;
 exports.buffer_to_read_stream = buffer_to_read_stream;
 exports.write_to_stream = write_to_stream;
+exports.BuffersPool = BuffersPool;

@@ -24,11 +24,11 @@ class LRUCache {
     /**
      * @param {{
      *  name: string,
-     *  load: (T) => Promise<V>,
-     *  validate?: (V, T) => Promise<boolean>,
-     *  make_key?: (T) => K,
-     *  make_val?: (T) => V,
-     *  item_usage?: (V, T) => number,
+     *  load: (t: T) => Promise<V>,
+     *  validate?: (v: V, t: T) => Promise<boolean>,
+     *  make_key?: (t: T) => K,
+     *  make_val?: (t: T) => V,
+     *  item_usage?: (v: V, t: T) => number,
      *  use_negative_cache?: boolean,
      *  max_usage?: number, // lru max length
      *  expiry_ms?: number, // time after which the item is considered expired
@@ -38,7 +38,7 @@ class LRUCache {
         this.name = options.name;
         this.load = options.load;
         this.validate = options.validate || ((data, params) => true);
-        this.make_key = options.make_key || (params => params);
+        this.make_key = options.make_key || /** @type {(p:any)=>any} */ (params => params);
         this.make_val = options.make_val || ((data, params) => data);
         this.item_usage = options.item_usage;
         this.use_negative_cache = options.use_negative_cache;

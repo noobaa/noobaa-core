@@ -7,7 +7,6 @@ const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const os_utils = require('../../util/os_utils');
-const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
@@ -51,31 +50,19 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                     this.cpu_info = os_info.cpu_info;
                 }))
             .then(() => Promise.all([
-                P.resolve()
-                .then(() => {
-                    if (current_clustering.is_clusterized) {
-                        return MongoCtrl.get_hb_rs_status();
-                    } else {
-                        dbg.log2('server is not part of a cluster. skipping rs status');
-                    }
-                }),
                 os_utils.read_drives(),
                 os_utils.get_raw_storage()
             ]))
-            .then(([mongo_status, drives, raw_storage]) => {
+            .then(([drives, raw_storage]) => {
                 let root = drives.find(drive => drive.mount === '/');
                 if (root) {
                     root.storage.total = raw_storage;
                 }
                 return {
-                    mongo_status: mongo_status,
                     storage: root && root.storage
                 };
             })
             .then(info => {
-                if (info.mongo_status) {
-                    heartbeat.health.mongo_rs_status = info.mongo_status;
-                }
                 if (info.storage) {
                     heartbeat.health.storage = info.storage;
                 }

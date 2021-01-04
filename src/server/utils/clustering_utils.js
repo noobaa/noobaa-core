@@ -125,7 +125,7 @@ function find_shard_index(shardname) {
     return shard_idx;
 }
 
-function get_cluster_info(rs_status) {
+function get_cluster_info() {
     const get_hb = true;
     let local_info = system_store.get_local_cluster_info(get_hb);
     let shards = local_info.shards.map(shard => ({
@@ -134,9 +134,7 @@ function get_cluster_info(rs_status) {
     }));
     // list online members accoring to local mongo rs status
     let online_members = [local_info.owner_address];
-    if (local_info.is_clusterized && local_info.heartbeat) {
-        online_members = _get_online_members(rs_status || local_info.heartbeat.health.mongo_rs_status);
-    }
+
     _.each(system_store.data.clusters, cinfo => {
         let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
         const memory = {
@@ -234,44 +232,16 @@ function get_cluster_info(rs_status) {
     // This is a fix for the buffer of 1GB that we take in config.js
     min_requirements.ram += size_utils.GIGABYTE;
     let cluster_info = {
-        master_secret: _get_master_secret(rs_status),
+        master_secret: _get_master_secret(),
         shards: shards,
         min_requirements
     };
     return cluster_info;
 }
 
-function _get_online_members(rs_status) {
-    let online_members = [];
-    if (rs_status && rs_status.members) {
-        _.each(rs_status.members, member => {
-            // STARTUP state is used when a server was just added, and we want to show it as online.
-            if (member.stateStr === 'PRIMARY' || member.stateStr === 'SECONDARY' || member.stateStr.indexOf('STARTUP') > -1) {
-                let res_address = member.name.substring(0, member.name.indexOf(':'));
-                online_members.push(res_address);
-            }
-        });
-    }
-    return online_members;
-}
-
-function _get_master_secret(rs_status) {
-    let local_info = system_store.get_local_cluster_info(true);
-    let master_secret = local_info.owner_secret;
-    if (!local_info.is_clusterized) {
-        return master_secret;
-    }
-    if (_.isUndefined(rs_status) && local_info.heartbeat) {
-        rs_status = local_info.heartbeat.health.mongo_rs_status;
-    }
-
-    if (rs_status && rs_status.members) {
-        const master_member = rs_status.members.find(member => member.stateStr === 'PRIMARY');
-        const master_address = master_member.name.substring(0, master_member.name.indexOf(':'));
-        master_secret = (system_store.data.clusters.find(server => server.owner_address === master_address)).owner_secret;
-    }
-
-    return master_secret;
+function _get_master_secret() {
+    const local_info = system_store.get_local_cluster_info(true);
+    return local_info.owner_secret;
 }
 
 function get_potential_masters() {
@@ -325,17 +295,6 @@ function get_min_requirements() {
     };
 }
 
-function check_if_clusterized() {
-    const current_clustering = get_topology();
-    return current_clustering &&
-        current_clustering.is_clusterized;
-}
-
-function check_if_master() {
-    return !check_if_clusterized() || // not clusterized => treat as master
-        system_store.is_cluster_master; // clusterized and is master
-}
-
 
 //Exports
 exports.get_topology = get_topology;
@@ -351,5 +310,3 @@ exports.get_cluster_info = get_cluster_info;
 exports.get_potential_masters = get_potential_masters;
 exports.send_master_update = send_master_update;
 exports.get_min_requirements = get_min_requirements;
-exports.check_if_clusterized = check_if_clusterized;
-exports.check_if_master = check_if_master;

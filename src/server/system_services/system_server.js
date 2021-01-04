@@ -24,7 +24,6 @@ const os_utils = require('../../util/os_utils');
 const { RpcError } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
 const net_utils = require('../../util/net_utils');
-const MongoCtrl = require('../utils/mongo_ctrl');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -82,18 +81,7 @@ async function _init() {
                 server_rpc.rpc.register_routing_authority(_resolve_routing);
 
                 await _initialize_debug_level();
-
-                // Must ask Mongo directly and not use the indication on the system_store,
-                // using clustering_utils.check_if_master(), because waiting for system
-                // store inital load does not guarantee that the bg updated and published
-                // the indication on the system store.
-                const is_master = !cutil.check_if_clusterized() ||
-                    (await MongoCtrl.is_master()).ismaster;
-
-                if (is_master) {
-                    // Only the muster should update the system address.
-                    await _configure_system_address(system._id, system.owner.id);
-                }
+                await _configure_system_address(system._id, system.owner.id);
 
                 update_done = true;
             }
@@ -487,7 +475,6 @@ async function read_system(req) {
         hosts_aggregate_pool,
         accounts,
         undeletable_buckets,
-        rs_status,
         funcs,
         buckets_stats,
         endpoint_groups
@@ -516,12 +503,6 @@ async function read_system(req) {
 
         undeletable_buckets: bucket_server.list_undeletable_buckets(),
 
-        rs_status: system_store.get_local_cluster_info().is_clusterized ?
-            MongoCtrl.get_hb_rs_status()
-            .catch(err => {
-                dbg.error('failed getting updated rs_status on read_system', err);
-            }) : undefined,
-
         funcs: P.resolve()
             // using default domain - will serve the list_funcs from web_server so if
             // endpoint is down it will not fail the read_system
@@ -536,7 +517,7 @@ async function read_system(req) {
 
     });
 
-    const cluster_info = cutil.get_cluster_info(rs_status);
+    const cluster_info = cutil.get_cluster_info();
     const objects_sys = {
         count: size_utils.BigInteger.zero,
         size: size_utils.BigInteger.zero,
@@ -966,6 +947,8 @@ async function _ensure_internal_structure(system_id) {
 
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
     if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
+    // Skip creation of agent on PostgreSQL
+    if (config.DB_TYPE === 'postgres') return;
     try {
         server_rpc.client.hosted_agents.create_pool_agent({
             pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`

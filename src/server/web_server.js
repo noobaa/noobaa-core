@@ -32,7 +32,6 @@ const license_info = require('./license_info');
 const db_client = require('../util/db_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reporting = require('./analytic_services/prometheus_reporting');
-const cutil = require('./utils/clustering_utils');
 const account_server = require('./system_services/account_server');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
@@ -131,21 +130,7 @@ app.use(function(req, res, next) {
     return next();
 });
 app.use(function(req, res, next) {
-    if (cutil.check_if_clusterized() &&
-        !system_store.is_cluster_master &&
-        req.originalUrl !== '/upload_package' && req.originalUrl !== '/version'
-    ) {
-        P.fcall(() => server_rpc.client.cluster_internal.redirect_to_cluster_master())
-            .then(host => {
-                res.status(307);
-                return res.redirect(`http://${host}:8080` + req.originalUrl);
-            })
-            .catch(() => {
-                res.status(500);
-            });
-    } else {
         return next();
-    }
 });
 app.use(express_compress());
 

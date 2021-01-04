@@ -128,11 +128,18 @@ const placementTypeToDisplayName = deepFreeze({
 });
 
 const namespaceBucketToStateIcon = deepFreeze({
-    OPTIMAL: {
-        name: 'healthy',
-        css: 'success',
-        tooltip: 'Healthy'
-    }
+    OPTIMAL: (_, align) => healthyIcon({
+        text: 'Healthy',
+        align
+    }),
+    NO_RESOURCES: (_, align) => errorIcon({
+        text: 'No storage resources',
+        align
+    }),
+    NOT_ENOUGH_HEALTHY_RESOURCES: (_, align) => errorIcon({
+        text:'Not enough healthy storage resources',
+        align
+    })
 });
 
 const resiliencyModeToIcon = deepFreeze({
@@ -241,9 +248,9 @@ export function getPlacementStateIcon(tier) {
     return placementModeToIcon[tier.mode](tier);
 }
 
-export function getNamespaceBucketStateIcon(bucket) {
+export function getNamespaceBucketStateIcon(bucket, align = 'center') {
     const { mode } = bucket;
-    return namespaceBucketToStateIcon[mode];
+    return namespaceBucketToStateIcon[mode](bucket, align);
 }
 
 export function getQuotaStateIcon(quota) {

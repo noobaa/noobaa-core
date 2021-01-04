@@ -37,6 +37,7 @@ const prom_reporting = require('../server/analytic_services/prometheus_reporting
 const endpoint_env = process_env(process.env);
 const {
     ENDPOINT_BLOB_ENABLED,
+    ENDPOINT_LAMBDA_ENABLED,
     ENDPOINT_PORT,
     ENDPOINT_SSL_PORT,
     LOCATION_INFO,
@@ -55,6 +56,7 @@ function process_env(env) {
 
     return {
         ENDPOINT_BLOB_ENABLE: env.ENDPOINT_BLOB_ENABLED === 'true',
+        ENDPOINT_LAMBDA_ENABLED: config.DB_TYPE === 'mongodb',
         ENDPOINT_PORT: env.ENDPOINT_PORT || 6001,
         ENDPOINT_SSL_PORT: env.ENDPOINT_SSL_PORT || 6443,
         LOCATION_INFO: { region: env.REGION || '' },
@@ -88,7 +90,7 @@ async function start_all() {
         // Start the endpoint server
         run_server({
             s3: true,
-            lambda: true,
+            lambda: ENDPOINT_LAMBDA_ENABLED,
             blob: ENDPOINT_BLOB_ENABLED,
             md_server: LOCAL_MD_SERVER,
             n2n_agent: LOCAL_N2N_AGENT

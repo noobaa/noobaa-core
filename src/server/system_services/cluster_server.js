@@ -23,7 +23,6 @@ const cluster_hb = require('../bg_services/cluster_hb');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('./system_store').get_instance();
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
-const cutils = require('../utils/clustering_utils');
 
 let add_member_in_process = false;
 
@@ -40,8 +39,9 @@ const VERIFY_RESPONSE = [
     'CONNECTION_TIMEOUT_NEW'
 ];
 
-function _init() {
-    return P.resolve(MongoCtrl.init());
+async function _init() {
+    if (config.DB_TYPE === 'postgres') return;
+    return MongoCtrl.init();
 }
 
 //
@@ -848,30 +848,22 @@ function _set_debug_level_internal(req, level) {
                         }
                     }];
                 }
+            } else if (level > 0) {
+                update_object.systems = [{
+                    _id: req.system._id,
+                    debug_level: level,
+                    debug_mode: debug_mode
+                }];
             } else {
-                // Only master can update the whole system debug mode level
-                // TODO: If master falls in the process and we already passed him
-                // It means that nobody will update the system in the DB, yet it will be in debug
-                if (cutils.check_if_clusterized() && !system_store.is_cluster_master) {
-                    return;
-                }
-                if (level > 0) {
-                    update_object.systems = [{
-                        _id: req.system._id,
-                        debug_level: level,
-                        debug_mode: debug_mode
-                    }];
-                } else {
-                    update_object.systems = [{
-                        _id: req.system._id,
-                        $set: {
-                            debug_level: level
-                        },
-                        $unset: {
-                            debug_mode: true
-                        }
-                    }];
-                }
+                update_object.systems = [{
+                    _id: req.system._id,
+                    $set: {
+                        debug_level: level
+                    },
+                    $unset: {
+                        debug_mode: true
+                    }
+                }];
             }
 
             return system_store.make_changes({
@@ -1391,15 +1383,13 @@ function _publish_to_cluster(apiname, req_params) {
 function _update_rs_if_needed(IPs, name, is_config) {
     var config_changes = cutil.rs_array_changes(IPs, name, is_config);
     if (config_changes) {
-        return MongoCtrl.is_master(is_config)
-            .then(is_master => {
-                if (is_master.ismaster) {
-                    dbg.log0('Current server is master for config RS, Updating to', IPs);
-                    return MongoCtrl.add_member_to_replica_set(
-                        name,
-                        IPs,
-                        is_config);
-                }
+        return P.resolve()
+            .then(() => {
+                dbg.log0('Current server is master for config RS, Updating to', IPs);
+                return MongoCtrl.add_member_to_replica_set(
+                    name,
+                    IPs,
+                    is_config);
             })
             .then(() => {
                 // for all members update the connection string with the new member

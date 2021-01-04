@@ -66,7 +66,7 @@ function decode_json(schema, val) {
     }
 
     if (schema.wrapper && schema.wrapper === SensitiveString) {
-        return new SensitiveString(val);
+        return new SensitiveString(val).unwrap();
     }
 
     return val;
@@ -546,11 +546,14 @@ class PostgresTable {
 
         const sql_query = {};
         sql_query.select = options.projection ? mongo_to_pg.convertSelect('data', options.projection) : '*';
-        sql_query.where = mongo_to_pg('data', query);
+        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', query);
         sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
         sql_query.limit = options.limit;
         sql_query.offset = options.skip;
-        let query_string = `SELECT ${sql_query.select} FROM ${this.name} WHERE ${sql_query.where}`;
+        let query_string = `SELECT ${sql_query.select} FROM ${this.name}`;
+        if (sql_query.where) {
+            query_string += ` WHERE ${sql_query.where}`;
+        }
         if (sql_query.order_by) {
             query_string += ` ORDER BY ${sql_query.order_by}`;
         }

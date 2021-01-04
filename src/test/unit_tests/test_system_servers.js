@@ -322,6 +322,7 @@ mocha.describe('system_servers', function() {
     });
 
     mocha.it('lambda triggers works', async function() {
+        if (config.DB_TYPE !== 'mongodb') return;
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const zipfile = await zip_utils.zip_from_files([{
             path: 'main.js',

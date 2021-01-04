@@ -506,6 +506,11 @@ config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 
 config.DB_TYPE = 'mongodb';
 
+////////////////////////////////
+//      NAMESPACE MONITOR     //
+////////////////////////////////
+config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
+
 ///////////////////////
 // NAMESPACE CACHING //
 ///////////////////////

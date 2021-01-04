@@ -30,6 +30,7 @@ const cluster_master = require('./bg_services/cluster_master');
 const AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 const AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
 const stats_aggregator = require('./system_services/stats_aggregator');
+const { NamespaceMonitor } = require('./bg_services/namespace_monitor');
 const aws_usage_metering = require('./system_services/aws_usage_metering');
 const usage_aggregator = require('./bg_services/usage_aggregator');
 const md_aggregator = require('./bg_services/md_aggregator');
@@ -97,6 +98,11 @@ function run_master_workers() {
         delay: config.central_stats.partial_send_time_cycle,
         run_immediate: true
     }, stats_aggregator.background_worker);
+
+    register_bg_worker(new NamespaceMonitor({
+        name: 'namespace_monitor',
+        client: server_rpc.client
+    }));
     if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
         register_bg_worker({
             name: 'md_aggregator',

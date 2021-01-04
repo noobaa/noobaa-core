@@ -9,7 +9,6 @@ const os_utils = require('../../util/os_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
-const clustering_utils = require('../utils/clustering_utils');
 const ssl_utils = require('../../util/ssl_utils');
 const db_client = require('../../util/db_client');
 
@@ -52,17 +51,12 @@ async function run() {
 
 async function run_monitors() {
     const { CONTAINER_PLATFORM } = process.env;
-    const is_master = clustering_utils.check_if_master();
 
     _check_dns_and_phonehome();
     await _check_internal_ips();
     await _verify_ssl_certs();
     await _check_db_disk_usage();
-
-    // Address auto detection should only run on master machine.
-    if (is_master) {
-        await _check_address_changes(CONTAINER_PLATFORM);
-    }
+    await _check_address_changes(CONTAINER_PLATFORM);
 }
 
 function _check_dns_and_phonehome() {

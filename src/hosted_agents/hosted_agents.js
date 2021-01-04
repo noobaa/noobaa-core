@@ -103,6 +103,7 @@ class HostedAgents {
     async _start_pool_agent(pool) {
         if (!this._started) return;
         if (!pool) throw new Error(`Internal error: received pool ${pool}`);
+        if (config.DB_TYPE === 'postgres' && pool.resource_type === 'INTERNAL') return;
         dbg.log0(`_start_pool_agent for pool ${pool.name}`);
         const pool_id = String(pool._id);
         const node_name = 'noobaa-internal-agent-' + pool_id;

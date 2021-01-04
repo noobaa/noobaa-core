@@ -13,7 +13,6 @@ dbg.set_process_name('Endpoint');
 
 const http = require('http');
 const https = require('https');
-const FtpSrv = require('ftp-srv');
 const os = require('os');
 
 const P = require('../util/promise');
@@ -29,7 +28,6 @@ const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const http_utils = require('../util/http_utils');
 const addr_utils = require('../util/addr_utils');
-const { FtpFileSystemNB } = require('./ftp/ftp_filesystem');
 const system_store = require('../server/system_services/system_store');
 const md_server = require('../server/md_server');
 const auth_server = require('../server/common_services/auth_server');
@@ -39,10 +37,8 @@ const prom_reporting = require('../server/analytic_services/prometheus_reporting
 
 const {
     ENDPOINT_BLOB_ENABLED,
-    ENDPOINT_FTP_ENABLED,
     ENDPOINT_PORT,
     ENDPOINT_SSL_PORT,
-    FTP_PORT,
     LOCATION_INFO,
     VIRTUAL_HOSTS,
     RPC_ROUTER,
@@ -59,10 +55,8 @@ function process_env(env) {
 
     return {
         ENDPOINT_BLOB_ENABLE: env.ENDPOINT_BLOB_ENABLED === 'true',
-        ENDPOINT_FTP_ENABLED: env.ENDPOINT_FTP_ENABLED === 'true',
         ENDPOINT_PORT: env.ENDPOINT_PORT || 6001,
         ENDPOINT_SSL_PORT: env.ENDPOINT_SSL_PORT || 6443,
-        FTP_PORT: env.FTP_PORT || 21,
         LOCATION_INFO: { region: env.REGION || '' },
         VIRTUAL_HOSTS: Object.freeze(virtual_hosts),
         RPC_ROUTER: get_rpc_router(env),
@@ -96,7 +90,6 @@ async function start_all() {
             s3: true,
             lambda: true,
             blob: ENDPOINT_BLOB_ENABLED,
-            ftp: ENDPOINT_FTP_ENABLED,
             md_server: LOCAL_MD_SERVER,
             n2n_agent: LOCAL_N2N_AGENT
         }),
@@ -126,7 +119,6 @@ async function run_server(options) {
         const internal_rpc_client = server_rpc.rpc.new_client({ auth_token });
 
         const endpoint_request_handler = create_endpoint_handler(rpc, internal_rpc_client, options);
-        if (options.ftp) start_ftp_endpoint(rpc, internal_rpc_client);
 
         const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
         const http_server = http.createServer(endpoint_request_handler);
@@ -259,33 +251,6 @@ function create_endpoint_handler(rpc, internal_rpc_client, options) {
         req.virtual_hosts = VIRTUAL_HOSTS;
         req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
         return s3_rest_handler(req, res);
-    }
-}
-
-async function start_ftp_endpoint(rpc, internal_rpc_client) {
-    try {
-        // ftp-srv calls log.debug in some cases. set it to dbg.trace
-        dbg.debug = dbg.trace;
-        dbg.child = () => dbg;
-        const ftp_srv = new FtpSrv(`ftp://0.0.0.0:${FTP_PORT}`, {
-            pasv_range: process.env.FTP_PASV_RANGE || "8000-9000",
-            anonymous: true,
-            log: dbg
-        });
-        const obj_io = new ObjectIO(LOCATION_INFO);
-        ftp_srv.on('login', (creds, resolve, reject) => {
-            dbg.log0(`got a login request from user ${creds.username}`);
-            // TODO: create FS and return in resolve. move this to a new file to abstract the use of this package.
-            resolve({
-                fs: new FtpFileSystemNB({
-                    object_sdk: new ObjectSDK(rpc.new_client(), internal_rpc_client, obj_io)
-                })
-            });
-        });
-
-        await ftp_srv.listen();
-    } catch (err) {
-        console.log(`got error from ftp_srv.listen`, err);
     }
 }
 

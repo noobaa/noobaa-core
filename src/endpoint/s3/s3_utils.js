@@ -195,7 +195,8 @@ function parse_sse(req) {
 
 function parse_content_length(req) {
     const size = Number(req.headers['x-amz-decoded-content-length'] || req.headers['content-length']);
-    if (!Number.isInteger(size) || size < 0) {
+    const copy = req.headers['x-amz-copy-source'];
+    if (!copy && (!Number.isInteger(size) || size < 0)) {
         dbg.warn('Missing content-length', req.headers['content-length']);
         throw new S3Error(S3Error.MissingContentLength);
     }

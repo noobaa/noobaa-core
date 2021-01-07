@@ -173,8 +173,8 @@ async function _create_resources_and_buckets() {
 
     //Create namespace resources
     console.info('Creating NS Resources');
-    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v2.name, 'NSv2', 'first-bucket');
-    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v4.name, 'NSv4', 'first-bucket');
+    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v2.name, 'NSv2', 'first.bucket');
+    await TEST_CTX.cloudfunc.createNamespaceResource(TEST_CTX.compatible_v4.name, 'NSv4', 'first.bucket');
 
     //Create namespace bucket
     console.info('Creating NS Buckets');

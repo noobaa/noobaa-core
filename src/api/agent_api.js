@@ -31,6 +31,9 @@ module.exports = {
                             },
                         },
                     },
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
+                    }
                 },
             },
             reply: {
@@ -125,6 +128,14 @@ module.exports = {
 
         get_agent_storage_info: {
             method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
+                    }
+                }
+            },
             reply: {
                 type: 'object',
                 properties: {

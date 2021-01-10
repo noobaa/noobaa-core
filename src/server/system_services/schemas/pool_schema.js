@@ -109,6 +109,9 @@ module.exports = {
                         }
                     }
                 },
+                available_capacity: {
+                    $ref: 'common_api#/definitions/bigint'
+                },
                 storage_limit: {
                     $ref: 'common_api#/definitions/bigint'
                 },

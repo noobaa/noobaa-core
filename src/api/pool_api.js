@@ -73,6 +73,9 @@ module.exports = {
                     backingstore: {
                         $ref: '#/definitions/backingstore_definition'
                     },
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
+                    },
                     storage_limit: {
                         $ref: 'common_api#/definitions/bigint'
                     }
@@ -384,8 +387,8 @@ module.exports = {
             }
         },
 
-        update_cloud_pool_limit: {
-            doc: 'Change the cloud pool\'s storage limit',
+        update_cloud_pool: {
+            doc: 'Update the cloud pool\'s properties',
             method: 'POST',
             params: {
                 type: 'object',
@@ -393,6 +396,9 @@ module.exports = {
                 properties: {
                     name: {
                         type: 'string',
+                    },
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
                     },
                     storage_limit: {
                         $ref: 'common_api#/definitions/bigint'

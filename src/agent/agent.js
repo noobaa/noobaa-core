@@ -811,7 +811,8 @@ class Agent {
             })
             .then(() => {
                 if (this.block_store) {
-                    return this.block_store.get_storage_info();
+                    const free = req.rpc_params.available_capacity;
+                    return this.block_store.get_storage_info({ free });
                 }
             })
             .then(storage_info => {
@@ -865,7 +866,8 @@ class Agent {
         const dbg = this.dbg;
         const info = {};
         if (this.block_store) {
-            const storage_info = await this.block_store.get_storage_info();
+            const free = req.rpc_params.available_capacity;
+            const storage_info = await this.block_store.get_storage_info({ free });
             const MIN_USED_STORAGE = 200 * 1024;
             if (storage_info.used < MIN_USED_STORAGE) {
                 dbg.log0(`used storage is under 200 KB (${storage_info.used}), treat as 0`);

@@ -5,6 +5,7 @@
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
+const size_utils = require('../../util/size_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
@@ -27,14 +28,14 @@ class BlockStoreAzure extends BlockStoreBase {
         return this._read_usage();
     }
 
-    get_storage_info() {
-        const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-        return P.resolve(this._get_usage())
-            .then(usage => ({
-                total: PETABYTE + usage.size,
-                free: PETABYTE,
-                used: usage.size
-            }));
+    async get_storage_info(external_info = {}) {
+        const { free = size_utils.PETABYTE } = external_info;
+        const usage = await this._get_usage();
+        return {
+            total: size_utils.sum_bigint_json(free, usage.size),
+            free: free,
+            used: usage.size
+        };
     }
 
     _get_shared_access_signature(block_key, permission) {

@@ -66,6 +66,9 @@ module.exports = {
                 }
             }
         },
+        last_monitoring: {
+            idate: true
+        },
         namespace_store: {
             type: 'object',
             properties: {

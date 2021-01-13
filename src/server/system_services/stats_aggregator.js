@@ -32,7 +32,6 @@ const { google } = require('googleapis');
 const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
 const system_utils = require('../utils/system_utils');
-const moment = require('moment');
 
 
 const ops_aggregation = {};
@@ -463,12 +462,8 @@ async function _partial_buckets_info(req) {
             ];
 
             if (bucket_info.namespace) {
-                const now = moment().valueOf();
-                const five_min_ago = moment().subtract(5, 'minutes').valueOf();
-
                 namespace_buckets_stats.namespace_buckets_num += 1;
-                const ns_bucket_mode_optimal = calc_ns_bucket_health(bucket_info.namespace, bucket,
-                    {start_date: five_min_ago, end_date: now});
+                const ns_bucket_mode_optimal = bucket_info.mode === 'OPTIMAL';
                 namespace_buckets_stats.namespace_buckets.push({
                     bucket_name: bucket_info.name.unwrap(),
                     is_healthy: ns_bucket_mode_optimal,
@@ -569,6 +564,12 @@ const CLOUD_POOL_STATS_DEFAULTS = {
     resources: []
 };
 
+const NAMESPACE_RESOURCE_STATS_DEFAULTS = {
+    namespace_resource_count: 0,
+    unhealthy_namespace_resource_count: 0,
+    namespace_resources: []
+};
+
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
@@ -649,21 +650,6 @@ function get_bucket_sizes_stats(req) {
         }
     }
     return ret;
-}
-
-function calc_ns_bucket_health(namespace_info, bucket, {start_date, end_date}) {
-    const errors_in_last_5_min = issues_report => _.reduce(
-        issues_report, (sum, issue) => sum + ((issue.time <= end_date && issue.time >= start_date && 1) || 0), 0);
-
-    let num_err_in_last_5_min = 0;
-
-    // calc num of errors in read resources  (write resource is always one of the read resources)
-    _.map(namespace_info.read_resources, read_resource => {
-        const read_namespace_resource_stats = bucket.system.namespace_resources_by_name[read_resource].issues_report;
-        if (!read_namespace_resource_stats) return;
-        num_err_in_last_5_min += errors_in_last_5_min(read_namespace_resource_stats) || 0;
-    });
-    return num_err_in_last_5_min <= 3;
 }
 
 function get_pool_stats(req) {
@@ -768,6 +754,27 @@ async function get_cloud_pool_stats(req) {
     return cloud_pool_stats;
 }
 
+async function get_namespace_resource_stats(req) {
+    const namespace_resource_stats = _.cloneDeep(NAMESPACE_RESOURCE_STATS_DEFAULTS);
+
+    await P.all(_.map(system_store.data.namespace_resources, async nsr => {
+        const nsr_info = await server_rpc.client.pool.read_namespace_resource({ name: nsr.name }, {
+            auth_token: req.auth_token
+        });
+        const is_healthy = nsr_info.mode === 'OPTIMAL';
+        namespace_resource_stats.namespace_resource_count += 1;
+
+        if (!is_healthy) {
+            namespace_resource_stats.unhealthy_namespace_resource_count += 1;
+        }
+        namespace_resource_stats.namespace_resources.push({
+            namespace_resource_name: nsr_info.name,
+            is_healthy: is_healthy,
+        });
+    }));
+    return namespace_resource_stats;
+}
+
 function get_tier_stats(req) {
     return P.resolve()
         .then(() => _.map(system_store.data.tiers, tier => {
@@ -809,6 +816,13 @@ async function get_all_stats(req) {
         stats_payload.cloud_pool_stats = await get_cloud_pool_stats(req);
     } catch (error) {
         dbg.warn('Error in collecting cloud pool stats, skipping', error.stack, error);
+    }
+
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Namespace Resource');
+        stats_payload.namespace_resource_stats = await get_namespace_resource_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting namespace resource stats, skipping', error.stack, error);
     }
 
     try {
@@ -890,7 +904,12 @@ async function get_partial_stats(req) {
     } catch (error) {
         dbg.warn('Error in collecting cloud pool stats, skipping', error.stack, error);
     }
-
+    try {
+        dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Namespace Resource');
+        stats_payload.namespace_resource_stats = await get_namespace_resource_stats(req);
+    } catch (error) {
+        dbg.warn('Error in collecting namespace resource stats, skipping', error.stack, error);
+    }
     try {
         dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Partial Account I/O Stats');
         stats_payload.accounts_stats = await get_partial_accounts_stats(req);
@@ -915,7 +934,7 @@ async function get_partial_stats(req) {
  * Prometheus Metrics Parsing, POC grade
  */
 function partial_cycle_parse_prometheus_metrics(payload) {
-    const { cloud_pool_stats, systems_stats, accounts_stats, providers_stats } = payload;
+    const { cloud_pool_stats, systems_stats, accounts_stats, providers_stats, namespace_resource_stats } = payload;
     const { accounts_num } = accounts_stats;
     // TODO: Support multiple systems
     const {
@@ -946,6 +965,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
         unhealthy_namespace_buckets
     } = namespace_buckets_stats;
     const { unhealthy_pool_count, pool_count, resources } = cloud_pool_stats;
+    const { unhealthy_namespace_resource_count, namespace_resource_count, namespace_resources } = namespace_resource_stats;
     const { logical_size, physical_size } = savings;
 
     let percentage_of_unhealthy_buckets = unhealthy_buckets / buckets_num;
@@ -958,7 +978,9 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     core_report.set_providers_physical_logical(providers_stats);
     core_report.set_cloud_types(cloud_pool_stats);
     core_report.set_num_unhealthy_pools(unhealthy_pool_count);
+    core_report.set_num_unhealthy_namespace_resources(unhealthy_namespace_resource_count);
     core_report.set_num_pools(pool_count);
+    core_report.set_num_namespace_resources(namespace_resource_count);
     core_report.set_unhealthy_cloud_types(cloud_pool_stats);
     core_report.set_system_info({ name, address });
     core_report.set_system_links(links);
@@ -967,6 +989,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     core_report.set_bucket_status(buckets);
     core_report.set_namespace_bucket_status(namespace_buckets);
     core_report.set_resource_status(resources);
+    core_report.set_namespace_resource_status(namespace_resources);
     core_report.set_num_objects(objects_in_buckets);
     core_report.set_num_unhealthy_buckets(unhealthy_buckets);
     core_report.set_num_unhealthy_namespace_buckets(unhealthy_namespace_buckets);
@@ -1263,6 +1286,7 @@ exports.get_nodes_stats = get_nodes_stats;
 exports.get_ops_stats = get_ops_stats;
 exports.get_pool_stats = get_pool_stats;
 exports.get_cloud_pool_stats = get_cloud_pool_stats;
+exports.get_namespace_resource_stats = get_namespace_resource_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
 exports.get_partial_systems_stats = get_partial_systems_stats;

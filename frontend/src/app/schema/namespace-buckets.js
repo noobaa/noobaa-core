@@ -17,7 +17,9 @@ export default {
             mode: {
                 type: 'string',
                 enum: [
-                    'OPTIMAL'
+                    'OPTIMAL',
+                    'NOT_ENOUGH_HEALTHY_RESOURCES',
+                    'NO_RESOURCES'
                 ]
             },
             placement: {

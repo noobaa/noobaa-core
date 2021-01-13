@@ -6,6 +6,7 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
+const size_utils = require('../../util/size_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 const Storage = require('../../util/google_storage_wrap');
@@ -54,12 +55,12 @@ class BlockStoreGoogle extends BlockStoreBase {
         }
     }
 
-    async get_storage_info() {
-        const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
+    async get_storage_info(external_info = {}) {
+        const { free = size_utils.PETABYTE } = external_info;
         const usage = await this._get_usage();
         return {
-            total: PETABYTE + usage.size,
-            free: PETABYTE,
+            total: size_utils.sum_bigint_json(free, usage.size),
+            free: free,
             used: usage.size
         };
     }

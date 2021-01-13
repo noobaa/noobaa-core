@@ -183,10 +183,24 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         }
     }, {
         type: 'Gauge',
+        name: 'num_unhealthy_namespace_resources',
+        generate_default_set: true,
+        configuration: {
+            help: 'Unhealthy Namespace Resources'
+        }
+    }, {
+        type: 'Gauge',
         name: 'num_pools',
         generate_default_set: true,
         configuration: {
             help: 'Resource Pools'
+        }
+    }, {
+        type: 'Gauge',
+        name: 'num_namespace_resources',
+        generate_default_set: true,
+        configuration: {
+            help: 'Namespace Resources'
         }
     }, {
         type: 'Gauge',
@@ -278,6 +292,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'Resource Health',
             labelNames: ['resource_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'namespace_resource_status',
+        configuration: {
+            help: 'Namespace Resource Health',
+            labelNames: ['namespace_resource_name']
         }
     }, {
         type: 'Gauge',
@@ -464,6 +485,16 @@ class NooBaaCoreReport extends BasePrometheusReport {
         this._metrics.resource_status.reset();
         resources_info.forEach(resource_info => {
             this._metrics.resource_status.set({ resource_name: resource_info.resource_name }, Number(resource_info.is_healthy));
+        });
+    }
+
+    set_namespace_resource_status(namespace_resources_info) {
+        if (!this._metrics) return;
+
+        this._metrics.namespace_resource_status.reset();
+        namespace_resources_info.forEach(namespace_resource_info => {
+            this._metrics.namespace_resource_status.set({ namespace_resource_name: namespace_resource_info.namespace_resource_name },
+                Number(namespace_resource_info.is_healthy));
         });
     }
 

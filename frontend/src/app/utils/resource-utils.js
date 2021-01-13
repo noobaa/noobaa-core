@@ -169,6 +169,27 @@ const namespaceResourceModeToStateIcon = deepFreeze({
         name: 'healthy',
         css: 'success',
         tooltip: 'Healthy'
+    },
+    IO_ERRORS: {
+        tooltip: 'Resource has Read/Write problems',
+        css: 'error',
+        name: 'problem'
+    },
+    STORAGE_NOT_EXIST: resource => {
+        const tooltip = resource.type === 'AZURE' ?
+            'Target Azure container does not exist' :
+            'Target S3 bucket does not exist';
+
+        return {
+            tooltip,
+            css: 'error',
+            name: 'problem'
+        };
+    },
+    AUTH_FAILED: {
+        tooltip: 'Authentication failure',
+        css: 'error',
+        name: 'problem'
     }
 });
 
@@ -259,7 +280,8 @@ export function getCloudResourceTypeIcon(resource) {
 
 export function getNamespaceResourceStateIcon(resource) {
     const { mode } = resource;
-    return namespaceResourceModeToStateIcon[mode];
+    const state = namespaceResourceModeToStateIcon[mode];
+    return isFunction(state) ? state(resource) : state;
 }
 
 export function getNamespaceResourceTypeIcon(resource) {

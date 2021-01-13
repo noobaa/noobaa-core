@@ -1475,9 +1475,7 @@ function get_bucket_info({
     }
     // calc_bucket_aggregated_mode(metrics);
     let ignore_quota = false;
-    info.mode = bucket.namespace ?
-        calc_namespace_mode() :
-        calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
+    info.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota, bucket.namespace);
 
     ignore_quota = true;
     info.tiering.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
@@ -1674,11 +1672,31 @@ function get_bucket_func_configs(req, bucket) {
         .then(func_info => func_info.config));
 }
 
-function calc_namespace_mode() {
-    return 'OPTIMAL';
+function calc_namespace_bucket_mode(namespace_dict) {
+
+        const rr = namespace_dict.read_resources;
+        const rr_modes = _.reduce(rr, (acc, resource) => {
+            const resource_mode = pool_server.calc_namespace_resource_mode(resource);
+            acc[resource_mode.toLowerCase()] += 1;
+            return acc;
+        }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
+
+        const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
+            ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
+            'OPTIMAL';
+        return mode;
 }
 
-function calc_bucket_mode(tiers, metrics, ignore_quota) {
+function calc_bucket_mode(tiers, metrics, ignore_quota, bucket_namespace) {
+    // for now we decided for cache buckets to return the mode with priority for the hub resource mode
+    // if hub resource mode is optimal we will calculate the cache mode
+    // in the future add cache bucket specific modes
+    if (bucket_namespace) {
+        const bucket_mode = calc_namespace_bucket_mode(bucket_namespace);
+        if (!bucket_namespace.caching || (bucket_namespace.caching && bucket_mode !== 'OPTIMAL')) {
+            return bucket_mode;
+        }
+    }
     const {
         NO_RESOURCES = 0,
             NOT_ENOUGH_RESOURCES = 0,

@@ -17,7 +17,10 @@ export default {
             mode: {
                 type: 'string',
                 enum: [
-                    'OPTIMAL'
+                    'OPTIMAL',
+                    'STORAGE_NOT_EXIST',
+                    'AUTH_FAILED',
+                    'IO_ERRORS'
                 ]
             },
             service: {

@@ -73,6 +73,9 @@ module.exports = {
                     backingstore: {
                         $ref: '#/definitions/backingstore_definition'
                     },
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
+                    },
                     storage_limit: {
                         $ref: 'common_api#/definitions/bigint'
                     }
@@ -356,6 +359,9 @@ module.exports = {
                     },
                     namespace_resource_id: {
                         objectid: true
+                    },
+                    monitoring: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -384,8 +390,8 @@ module.exports = {
             }
         },
 
-        update_cloud_pool_limit: {
-            doc: 'Change the cloud pool\'s storage limit',
+        update_cloud_pool: {
+            doc: 'Update the cloud pool\'s properties',
             method: 'POST',
             params: {
                 type: 'object',
@@ -393,6 +399,9 @@ module.exports = {
                 properties: {
                     name: {
                         type: 'string',
+                    },
+                    available_capacity: {
+                        $ref: 'common_api#/definitions/bigint'
                     },
                     storage_limit: {
                         $ref: 'common_api#/definitions/bigint'
@@ -545,7 +554,7 @@ module.exports = {
                 },
                 mode: {
                     type: 'string',
-                    enum: ['OPTIMAL']
+                    enum: ['OPTIMAL', 'STORAGE_NOT_EXIST', 'AUTH_FAILED', 'IO_ERRORS']
                 },
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'

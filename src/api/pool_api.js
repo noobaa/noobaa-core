@@ -359,6 +359,9 @@ module.exports = {
                     },
                     namespace_resource_id: {
                         objectid: true
+                    },
+                    monitoring: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -551,7 +554,7 @@ module.exports = {
                 },
                 mode: {
                     type: 'string',
-                    enum: ['OPTIMAL']
+                    enum: ['OPTIMAL', 'STORAGE_NOT_EXIST', 'AUTH_FAILED', 'IO_ERRORS']
                 },
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'

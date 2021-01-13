@@ -1038,11 +1038,37 @@ function get_namespace_resource_info(namespace_resource) {
         cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         identity: namespace_resource.connection.access_key,
-        mode: 'OPTIMAL',
+        mode: calc_namespace_resource_mode(namespace_resource),
         undeletable: check_namespace_resource_deletion(namespace_resource)
     }, _.isUndefined);
 
     return info;
+}
+
+function calc_namespace_resource_mode(namespace_resource) {
+    const map_err_to_type_count = {
+        ContainerNotFound: 'storage_not_exist',
+        NoSuchBucket: 'storage_not_exist',
+        AccessDenied: 'auth_failed',
+        AuthenticationFailed: 'auth_failed'
+    };
+
+    const errors_count = _.reduce(namespace_resource.issues_report, (acc, issue) => {
+        // skip if error timestamp is before of the latest monitoring
+        if (issue.time < namespace_resource.last_monitoring) {
+            return acc;
+        }
+        const err_type = map_err_to_type_count[issue.error_code] || 'io_errors';
+        acc[err_type] += 1;
+        return acc;
+    }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
+
+    const mode = (errors_count.storage_not_exist && 'STORAGE_NOT_EXIST') ||
+        (errors_count.auth_failed && 'AUTH_FAILED') ||
+        (errors_count.io_errors > config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS && 'IO_ERRORS') ||
+        'OPTIMAL';
+
+    return mode;
 }
 
 function get_namespace_resource_operator_info(req) {
@@ -1310,13 +1336,7 @@ async function update_account_default_resource() {
 
 function update_issues_report(req) {
 
-    const { namespace_resource_id, error_code, time} = req.rpc_params;
-    const invalid_bucket_errors = ['ContainerNotFound', 'NotSignedUp', 'NoSuchBucket', 'InvalidSecurity',
-    'InvalidBucketState', 'InternalError', 'AccessDenied', 'InvalidAccessKeyId', 'AccountProblem'];
-
-    if (!_.includes(invalid_bucket_errors, error_code)) {
-        return;
-    }
+    const { namespace_resource_id, error_code, time, monitoring } = req.rpc_params;
 
     const ns_resource = system_store.data.namespace_resources.find(
         ns => ns._id.toString() === namespace_resource_id);
@@ -1332,11 +1352,13 @@ function update_issues_report(req) {
         cur_issues_report.shift();
     }
     cur_issues_report.push({error_code, time});
+    const updates = { issues_report: cur_issues_report };
+    if (monitoring) updates.last_monitoring = time;
 
     return system_store.make_changes({
         update: { namespace_resources: [{
                     _id: ns_resource._id,
-                    $set: { issues_report: cur_issues_report }
+                    $set: updates
                 }]
         }
     });
@@ -1370,3 +1392,4 @@ exports.update_cloud_pool = update_cloud_pool;
 exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;
 exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;
 exports.update_issues_report = update_issues_report;
+exports.calc_namespace_resource_mode = calc_namespace_resource_mode;

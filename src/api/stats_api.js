@@ -93,6 +93,16 @@ module.exports = {
             }
         },
 
+        get_namespace_resource_stats: {
+            method: 'GET',
+            reply: {
+                $ref: '#/definitions/namespace_resource_stats'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_tier_stats: {
             method: 'GET',
             reply: {
@@ -414,6 +424,34 @@ module.exports = {
             }
         },
 
+        namespace_resource_stats: {
+            type: 'object',
+            required: ['namespace_resource_count', 'unhealthy_namespace_resource_count', 'namespace_resources'],
+            properties: {
+                namespace_resource_count: {
+                    type: 'integer'
+                },
+                unhealthy_namespace_resource_count: {
+                    type: 'integer'
+                },
+                namespace_resources: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['namespace_resource_name', 'is_healthy'],
+                        properties: {
+                            namespace_resource_name: {
+                                type: 'string'
+                            },
+                            is_healthy: {
+                                type: 'boolean'
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
         bucket_sizes_stats: {
             type: 'array',
             items: {
@@ -483,7 +521,7 @@ module.exports = {
             type: 'object',
             required: ['systems_stats', 'nodes_stats',
                 'ops_stats', 'pools_stats', 'tier_stats', 'cloud_pool_stats',
-                'bucket_sizes_stats', 'object_usage_stats'
+                'bucket_sizes_stats', 'object_usage_stats', 'namespace_resource_stats'
             ],
             properties: {
                 systems_stats: {
@@ -504,6 +542,9 @@ module.exports = {
                 cloud_pool_stats: {
                     $ref: '#/definitions/cloud_pool_stats'
                 },
+                namespace_resource_stats: {
+                    $ref: '#/definitions/namespace_resource_stats'
+                },
                 bucket_sizes_stats: {
                     $ref: '#/definitions/bucket_sizes_stats'
                 },
@@ -515,13 +556,16 @@ module.exports = {
 
         partial_stats: {
             type: 'object',
-            required: ['systems_stats', 'cloud_pool_stats', 'accounts_stats'],
+            required: ['systems_stats', 'cloud_pool_stats', 'accounts_stats', 'namespace_resource_stats'],
             properties: {
                 systems_stats: {
                     $ref: '#/definitions/partial_systems_stats'
                 },
                 cloud_pool_stats: {
                     $ref: '#/definitions/cloud_pool_stats'
+                },
+                namespace_resource_stats: {
+                    $ref: '#/definitions/namespace_resource_stats'
                 },
                 accounts_stats: {
                     $ref: '#/definitions/partial_accounts_stats'

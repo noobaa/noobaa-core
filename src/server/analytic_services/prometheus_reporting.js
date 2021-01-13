@@ -32,11 +32,13 @@ function get_endpoint_report(peek = false) {
     return reports.endpoint;
 }
 
-function export_all_metrics() {
-    return Object.values(reports)
-        .filter(Boolean)
-        .map(report => report.export_metrics())
-        .join('\n\n');
+async function export_all_metrics() {
+    const all_metrics = await Promise.all(
+        Object.values(reports)
+            .filter(Boolean)
+            .map(report => report.export_metrics())
+    );
+    return all_metrics.join('\n\n');
 }
 
 async function start_server(
@@ -48,11 +50,11 @@ async function start_server(
         return;
     }
 
-    const server = http.createServer((req, res) => {
+    const server = http.createServer(async (req, res) => {
         // Serve all metrics on the root path.
         if (req.url === '' || req.url === '/') {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(export_all_metrics());
+            res.end(await export_all_metrics());
             return;
         }
 
@@ -61,7 +63,7 @@ async function start_server(
         const report = reports[report_name];
         if (report) {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(report.export_metrics(report_name));
+            res.end(await report.export_metrics(report_name));
             return;
         }
 

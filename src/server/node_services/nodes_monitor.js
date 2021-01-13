@@ -263,8 +263,16 @@ class NodesMonitor extends EventEmitter {
             if (item.node.deleted) continue;
             if (!item.connection) continue;
             if (!item.node_from_store) continue;
+
+            const pool = system_store.data.get_by_id(item.node.pool);
+            const available_capacity =
+                pool &&
+                pool.cloud_pool_info &&
+                pool.cloud_pool_info.available_capacity;
             const info = await P.timeout(AGENT_RESPONSE_TIMEOUT,
-                this.client.agent.get_agent_storage_info(undefined, {
+                this.client.agent.get_agent_storage_info({
+                    available_capacity
+                }, {
                     connection: item.connection
                 })
             );
@@ -1055,9 +1063,17 @@ class NodesMonitor extends EventEmitter {
             })
         }));
 
+
+        const pool = system_store.data.get_by_id(item.node.pool);
+        const available_capacity =
+            pool &&
+            pool.cloud_pool_info &&
+            pool.cloud_pool_info.available_capacity;
+
         return P.timeout(AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.get_agent_info_and_update_masters({
-                    addresses: potential_masters
+                    addresses: potential_masters,
+                    available_capacity
                 }, {
                     connection: item.connection
                 })

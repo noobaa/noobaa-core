@@ -17,6 +17,7 @@ const config = require('../../../config.js');
 const MDStore = require('../object_services/md_store').MDStore;
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const net_utils = require('../../util/net_utils');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const server_rpc = require('../server_rpc');
 const cluster_hb = require('../bg_services/cluster_hb');
@@ -135,7 +136,7 @@ function pre_add_member_to_cluster(req) {
                 dbg.log0('updating adding server ip in db');
                 let shard_idx = cutil.find_shard_index(req.rpc_params.shard);
                 let server_idx = _.findIndex(topology.shards[shard_idx].servers,
-                    server => server.address === '127.0.0.1');
+                    server => net_utils.is_localhost(server.address));
                 if (server_idx === -1) {
                     dbg.warn("db does not contain internal ip of master server");
                 } else {
@@ -895,7 +896,7 @@ function diagnose_system(req) {
     //In cases of a single server, address might not be publicly available and so using it might fail
     //This case does not happen when clusterized, but as a WA for a single server, use localhost (see #2803)
     if (!system_store.get_local_cluster_info().is_clusterized) {
-        target_servers[0].owner_address = '127.0.0.1';
+        target_servers[0].owner_address = 'localhost';
     }
 
     Dispatcher.instance().activity({

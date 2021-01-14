@@ -68,7 +68,7 @@ class RpcN2NAgent extends EventEmitter {
 
             // ip options
             offer_ipv4: true,
-            offer_ipv6: false,
+            offer_ipv6: true,
             accept_ipv4: true,
             accept_ipv6: true,
             offer_internal: config.N2N_OFFER_INTERNAL,

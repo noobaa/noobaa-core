@@ -20,9 +20,9 @@ dotenv.load();
 let suffix = uuid().split('-')[0];
 
 const {
-    mgmt_ip = '127.0.0.1',
+    mgmt_ip = 'localhost',
         mgmt_port = '8080',
-        s3_ip = '127.0.0.1',
+        s3_ip = 'localhost',
 } = argv;
 
 

@@ -13,7 +13,7 @@ const zip_utils = require('../../util/zip_utils');
 
 const LAMBDA_CONF = {
     region: argv.region || 'us-east-1',
-    endpoint: argv.aws ? undefined : (argv.endpoint || 'http://127.0.0.1:6001'),
+    endpoint: argv.aws ? undefined : (argv.endpoint || 'http://localhost:6001'),
     accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
     secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
     sslEnabled: argv.ssl || false,
@@ -74,7 +74,7 @@ const SP_EVENT = {
 const WC_EVENT = {
     text: 'a',
     // random: 20,
-    // url: argv.url || 'http://127.0.0.1:5001',
+    // url: argv.url || 'http://localhost:5001',
     // return_text: argv.return_text,
 };
 

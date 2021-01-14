@@ -12,7 +12,7 @@ function usage() {
     echo "  $SCRIPT"
     echo "      - show this usage"
     echo "  $SCRIPT /mnt/noobaa"
-    echo "      - url will fill with defaults: http://123:abc@127.0.0.1/files)"
+    echo "      - url will fill with defaults: http://123:abc@localhost/files)"
     echo "  $SCRIPT /mnt/noobaa https://my-noobaa-server/movies"
     echo "      - url will fill with defaults: https://123:abc@my-noobaa-server/movies)"
     echo "  "
@@ -41,7 +41,7 @@ S3FS_FLAGS="$*"
 
 # use url defaults
 [ -z "$S3FS_PROTO" ] && S3FS_PROTO=http
-[ -z "$S3FS_HOST" ] && S3FS_HOST=127.0.0.1
+[ -z "$S3FS_HOST" ] && S3FS_HOST=localhost
 [ -z "$S3FS_ACCESS_KEY" ] && S3FS_ACCESS_KEY=123
 [ -z "$S3FS_SECRET_KEY" ] && S3FS_SECRET_KEY=abc
 [ -z "$S3FS_BUCKET" ] && S3FS_BUCKET=files

@@ -220,7 +220,7 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
         ' --sslClusterFile ' + config.MONGO_DEFAULTS.SERVER_CERT_PATH +
         ' --syslog' +
         ' --syslogFacility local0' +
-        ' --bind_ip_all'; // in mongodb 3.6 bind_ip is by default 127.0.0.1 - bind to all interfaces
+        ' --bind_ip_all'; // in mongodb 3.6 bind_ip is by default localhost - bind to all interfaces
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.stopsignal = 'INT';

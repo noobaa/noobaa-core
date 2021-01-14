@@ -217,7 +217,7 @@ spec:
             [
               "/bin/bash",
               "-c",
-              "/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip 127.0.0.1 --dbpath /data/mongo/cluster/shard1",
+              "/opt/rh/rh-mongodb36/root/usr/bin/mongod --port 27017 --bind_ip localhost --dbpath /data/mongo/cluster/shard1",
             ]
           resources:
             # https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/

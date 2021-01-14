@@ -50,7 +50,7 @@ argv.nconn = argv.nconn || 1;
 argv.closeconn = Number(argv.closeconn) || 0;
 argv.addr = url.parse(argv.addr || '');
 argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
-argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
+argv.addr.hostname = argv.host || argv.addr.hostname || 'localhost';
 argv.addr.port = Number(argv.port) || argv.addr.port || 5656;
 argv.novalidation = argv.novalidation || false;
 

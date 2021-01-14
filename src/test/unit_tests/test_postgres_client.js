@@ -43,7 +43,7 @@ const test_schema = {
 
 
 const POSTGRES_PARAMS = {
-    host: '127.0.0.1',
+    host: 'localhost',
     port: 5432,
     user: 'postgres',
     password: 'noobaa',

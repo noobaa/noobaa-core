@@ -317,7 +317,7 @@ function get_signature_from_auth_token(auth_token, secret_key) {
 
 function authorize_client_request(req) {
     req.port = req.port || 80;
-    req.host = req.host || '127.0.0.1';
+    req.host = req.host || 'localhost';
     req.body = req.body || '';
     req.key = req.key || 'first.key';
     req.bucket = req.bucket || 'first.bucket';

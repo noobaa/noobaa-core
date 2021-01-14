@@ -98,9 +98,9 @@ class MongoClient extends EventEmitter {
             process.env.MONGODB_URL ||
             process.env.MONGOHQ_URL ||
             process.env.MONGOLAB_URI ||
-            'mongodb://127.0.0.1/nbcore';
+            'mongodb://localhost/nbcore';
         this.cfg_url =
-            'mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
+            'mongodb://localhost:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
         this.config = {
             // promoteBuffers makes the driver directly expose node.js Buffer's for bson binary fields
             // instead of mongodb.Binary, which is just a skinny buffer wrapper class.

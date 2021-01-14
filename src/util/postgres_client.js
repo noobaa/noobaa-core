@@ -1188,7 +1188,7 @@ class PostgresClient extends EventEmitter {
             // TODO: check the effect of max clients. default is 10
             // max: 50,
 
-            host: process.env.POSTGRES_HOST || '127.0.0.1',
+            host: process.env.POSTGRES_HOST || 'localhost',
             user: process.env.POSTGRES_USER || 'postgres',
             password: process.env.POSTGRES_PASSWORD || 'noobaa',
             database: process.env.POSTGRES_DBNAME || 'nbcore',

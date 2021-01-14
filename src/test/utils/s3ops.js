@@ -18,7 +18,7 @@ const verify_md5_map = new Map();
 class S3OPS {
 
     constructor({
-        ip = '127.0.0.1',
+        ip = 'localhost',
         port = '80',
         ssl_port = '443',
         access_key = '123',

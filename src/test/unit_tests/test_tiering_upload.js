@@ -61,7 +61,7 @@ mocha.describe('tiering upload', function() {
         await node_server.sync_monitor_storage_info();
 
         // await first_agent.get_agent_info_and_update_masters({
-        //     addresses: '127.0.0.1'
+        //     addresses: 'localhost'
         // });
         await rpc_client.tier.create_tier({
             name: TIER0,

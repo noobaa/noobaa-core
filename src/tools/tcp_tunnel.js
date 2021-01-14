@@ -49,7 +49,7 @@ Recording HTTP:
 `);
         return;
     }
-    const hostname = argv.host || '127.0.0.1';
+    const hostname = argv.host || 'localhost';
     const record_http = argv.record_http;
     const tunnels = argv._ || [];
     if (!tunnels.length) {

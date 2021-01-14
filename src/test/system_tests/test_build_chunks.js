@@ -25,15 +25,15 @@ const test_utils = require('./test_utils');
 dotenv.load();
 
 const {
-    mgmt_ip = '127.0.0.1',
+    mgmt_ip = 'localhost',
         mgmt_port = '8080',
-        s3_ip = '127.0.0.1',
+        s3_ip = 'localhost',
         s3_port = '80',
 } = argv;
 
 
 let TEST_CTX = {
-    ip: '127.0.0.1',
+    ip: 'localhost',
     s3_endpoint: `http://${s3_ip}:${s3_port}/`,
     default_bucket: 'first.bucket',
     object_key: '',

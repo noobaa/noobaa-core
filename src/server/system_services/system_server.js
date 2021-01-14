@@ -392,7 +392,7 @@ async function create_system(req) {
 }
 
 async function _get_cluster_info() {
-    const cluster_info = await cluster_server.new_cluster_info({ address: "127.0.0.1" });
+    const cluster_info = await cluster_server.new_cluster_info({ address: "localhost" });
     if (cluster_info) {
         const dns_config = await os_utils.get_dns_config();
         if (dns_config.dns_servers.length) {

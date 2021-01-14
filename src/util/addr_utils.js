@@ -8,7 +8,7 @@ const { construct_url } = require('./url_utils');
 const default_base_port = parseInt(process.env.SSL_PORT, 10) || 5443;
 const api_default_ports = Object.freeze(get_default_ports());
 
-function format_base_address(hostname = '127.0.0.1', port = default_base_port) {
+function format_base_address(hostname = 'localhost', port = default_base_port) {
     return url.format(`wss://${hostname}:${port}`);
 }
 
@@ -67,7 +67,7 @@ function get_base_address(address_list, options = {}) {
     }
 
     if (hint === 'LOOPBACK') {
-        const hostname = '127.0.0.1';
+        const hostname = 'localhost';
         const port = default_port;
         return construct_url({ protocol, hostname, port });
     }

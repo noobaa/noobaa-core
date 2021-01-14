@@ -13,7 +13,7 @@ const test_name = 'dataset';
 dbg.set_process_name(test_name);
 
 const TEST_CFG_DEFAULTS = {
-    mgmt_ip: '127.0.0.1',
+    mgmt_ip: 'localhost',
     mgmt_port_https: 8443,
     s3_ip: '',
     s3_port_https: 443,

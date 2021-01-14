@@ -1,5 +1,5 @@
 NAME="test_lambda"
-ENDPOINT="http://127.0.0.1:6001"
+ENDPOINT="http://localhost:6001"
 PROFILE="noobaa"
 AWS="aws --endpoint-url ${ENDPOINT} --profile ${PROFILE} --debug"
 

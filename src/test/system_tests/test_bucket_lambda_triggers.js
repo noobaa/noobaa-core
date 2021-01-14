@@ -24,9 +24,9 @@ const test_utils = require('./test_utils');
 dotenv.load();
 
 const {
-    mgmt_ip = '127.0.0.1',
+    mgmt_ip = 'localhost',
         mgmt_port = '8080',
-        s3_ip = '127.0.0.1',
+        s3_ip = 'localhost',
         s3_port = '80',
 } = argv;
 

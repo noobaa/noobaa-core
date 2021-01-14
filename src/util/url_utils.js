@@ -59,7 +59,7 @@ function construct_url(def) {
 }
 
 function benchmark() {
-    var testing_url = process.argv[2] || "http://127.0.0.1:4545/";
+    var testing_url = process.argv[2] || "http://localhost:4545/";
     var url_parse_res = url.parse(testing_url, true);
     var quick_parse_res = quick_parse(testing_url, true);
     console.log('\nurl.parse("' + testing_url + '") = ', url_parse_res);

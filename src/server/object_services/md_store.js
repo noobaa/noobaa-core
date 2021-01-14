@@ -1254,12 +1254,14 @@ class MDStore {
      * @returns {Promise<nb.ChunkSchemaDB[]>}
      */
     async find_chunks_by_dedup_key(bucket, dedup_keys) {
+        // TODO: This is temporary patch because of binary representation in MongoDB and PostgreSQL
+        const DB_TYPE = process.env.DB_TYPE || config.DB_TYPE;
         /** @type {nb.ChunkSchemaDB[]} */
         const chunks = await this._chunks.find({
             system: bucket.system._id,
             bucket: bucket._id,
             dedup_key: {
-                $in: dedup_keys
+                $in: DB_TYPE === 'postgres' ? _.map(dedup_keys, k => k.toString('base64')) : dedup_keys
             },
             deleted: null,
         }, {
@@ -1792,8 +1794,8 @@ function sort_list_uploads_with_delimiter(a, b) {
     if (a.key < b.key) return -1;
     if (a.key > b.key) return 1;
     // upload_started is sorted in ascending order
-    const a_upload = a.upload_started ? a.upload_started.getTimestamp().getTime() : 0;
-    const b_upload = b.upload_started ? b.upload_started.getTimestamp().getTime() : 0;
+    const a_upload = a.upload_started ? a.upload_started : 0;
+    const b_upload = b.upload_started ? b.upload_started : 0;
     if (a_upload < b_upload) return -1;
     if (a_upload > b_upload) return 1;
     return 0;

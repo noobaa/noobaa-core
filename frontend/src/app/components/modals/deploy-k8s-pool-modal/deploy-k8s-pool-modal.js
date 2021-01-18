@@ -82,7 +82,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
             ...Object.keys(hostPools),
             ...Object.keys(cloudResources)
         ];
-        const nameRestrictionList = validateName(poolName, existingNames, { disallowPeriods : true, maxLength : 47})
+        const nameRestrictionList = validateName(poolName, existingNames, { disallowPeriods : true, maxLength : 43})
             .map(record => ({
                 label: record.message,
                 css: isPoolNameTouched ? (record.valid ? 'success' : 'error') : ''
@@ -123,7 +123,7 @@ class DeployK8SPoolModalViewModel extends ConnectableViewModel {
         const errors = {};
 
         if (step === 0) {
-            const hasNameErrors = validateName(poolName, this.existingNames, { maxLength : 47})
+            const hasNameErrors = validateName(poolName, this.existingNames, { maxLength : 43})
                 .some(({ valid }) => !valid);
 
             if (hasNameErrors) {

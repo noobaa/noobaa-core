@@ -147,6 +147,9 @@ class PgTransaction {
 
     async _begin() {
         this.pg_client = await this.client.pool.connect();
+        this.pg_client.once('error', err => {
+            dbg.error('got error on pg_transaction', err, this.transaction_id);
+        });
         await _do_query(this.pg_client, { text: 'BEGIN TRANSACTION' }, this.transaction_id);
         this._init = null;
     }
@@ -1134,16 +1137,9 @@ class PostgresClient extends EventEmitter {
             dbg.log0('_connect: connected', this.new_pool_params);
             // this._reset_connect_timeout();
             this.pool = pool;
-            // this.pool.on('reconnect', () => {
-            //     dbg.log('got reconnect', this.url);
-            //     this.emit('reconnect');
-            //     this._reset_connect_timeout();
-            // });
-            // this.mongo_client.db().on('close', () => {
-            //     dbg.warn('got close', this.url);
-            //     this.emit('close');
-            //     this._set_connect_timeout();
-            // });
+            this.pool.on('error', err => {
+                dbg.error('got error on postgres pool', err);
+            });
             this.emit('reconnect');
             dbg.log0(`connected`);
             // return this.mongo_client.db();

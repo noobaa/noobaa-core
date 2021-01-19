@@ -2,7 +2,19 @@
 'use strict';
 
 const querystring = require('querystring');
+const http_utils = require('../util/http_utils');
 
+function prepare_rest_request(req) {
+    // generate request id, this is lighter than uuid
+    req.request_id = `${
+        Date.now().toString(36)
+    }-${
+        process.hrtime()[1].toString(36)
+    }-${
+        Math.trunc(Math.random() * 65536).toString(36)
+    }`;
+    http_utils.parse_url_query(req);
+}
 
 function parse_source_url(source_url) {
     let slash_index = source_url.indexOf('/');
@@ -24,4 +36,5 @@ function parse_source_url(source_url) {
 }
 
 
+exports.prepare_rest_request = prepare_rest_request;
 exports.parse_source_url = parse_source_url;

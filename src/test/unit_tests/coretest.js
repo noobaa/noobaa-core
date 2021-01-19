@@ -32,6 +32,7 @@ const dbg_level =
 dbg.set_level(dbg_level, 'core');
 
 const P = require('../../util/promise');
+const ObjectIO = require('../../sdk/object_io');
 const endpoint = require('../../endpoint/endpoint');
 const db_client = require('../../util/db_client');
 const server_rpc = require('../../server/server_rpc');
@@ -123,12 +124,17 @@ function setup(options = {}) {
     _.each(server_rpc.rpc._services,
         (service, srv) => api_coverage.add(srv));
 
-    const endpoint_request_handler = endpoint.create_endpoint_handler(server_rpc.rpc, rpc_client, {
-        s3: true,
-        blob: true,
-        lambda: true,
-        n2n_agent: false, // we use n2n_proxy
-    });
+    const object_io = new ObjectIO();
+    const endpoint_request_handler = endpoint.create_endpoint_handler(
+        object_io,
+        server_rpc.rpc,
+        rpc_client, {
+            s3: true,
+            blob: true,
+            lambda: true,
+            n2n_agent: false, // we use n2n_proxy
+        }
+    );
 
     async function announce(msg) {
         if (process.env.SUPPRESS_LOGS) return;

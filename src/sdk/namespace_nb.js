@@ -13,6 +13,10 @@ const EXCEPT_REASONS = [
 ];
 
 /**
+ * NamespaceNB maps objects using the noobaa bucket_api and object_api
+ * and calls object_io to perform dedup, compression, encryption,
+ * and placement of blocks in sotorage resources (backing stores / pools).
+ * 
  * @implements {nb.Namespace}
  */
 class NamespaceNB {

@@ -23,7 +23,7 @@ require('./test_fs_utils');
 require('./test_signature_utils');
 require('./test_http_utils');
 require('./test_v8_optimizations');
-// require('./test_ssl_utils');
+require('./test_ssl_utils');
 require('./test_zip_utils');
 require('./test_wait_queue');
 require('./test_kmeans');
@@ -52,6 +52,8 @@ require('./test_s3_list_objects');
 require('./test_nb_native_b64');
 require('./test_bucket_chunks_builder');
 require('./test_mirror_writer');
+require('./test_namespace_fs');
+require('./test_ns_list_objects');
 
 // // SERVERS
 require('./test_agent');

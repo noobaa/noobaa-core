@@ -8,6 +8,7 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
+const config = require('./../../../config');
 
 // const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
@@ -257,12 +258,15 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_chunks_by_ids()', async function() {
             const res = await md_store.find_chunks_by_ids(_.map(chunks, '_id'));
-            res.forEach(chunk => {
-                if (chunk.digest) chunk.digest = chunk.digest.buffer;
-                if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
-                if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
-                if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
-            });
+            const DB_TYPE = process.env.DB_TYPE || config.DB_TYPE;
+            if (DB_TYPE === 'mongodb') {
+                res.forEach(chunk => {
+                    if (chunk.digest) chunk.digest = chunk.digest.buffer;
+                    if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
+                    if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
+                    if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
+                });
+            }
             assert_equal_docs_list(res, chunks);
         });
 
@@ -319,7 +323,7 @@ function assert_equal(a, b) {
 }
 
 function assert_equal_docs_list(a, b) {
-    const a_sorted = _.sortBy(a, x => x._id.getTimestamp());
-    const b_sorted = _.sortBy(b, x => x._id.getTimestamp());
+    const a_sorted = _.sortBy(a, x => x._id);
+    const b_sorted = _.sortBy(b, x => x._id);
     assert_equal(a_sorted, b_sorted);
 }

@@ -155,38 +155,6 @@ module.exports = {
                                 }
                             }
                         },
-                        mongo_rs_status: {
-                            type: 'object',
-                            properties: {
-                                set: {
-                                    type: 'string'
-                                },
-                                members: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'object',
-                                        properties: {
-                                            name: {
-                                                type: 'string'
-                                            },
-                                            health: {
-                                                type: 'integer'
-                                            },
-                                            uptime: {
-                                                type: 'integer'
-                                            },
-                                            stateStr: {
-                                                type: 'string'
-                                            },
-                                            syncingTo: {
-                                                type: 'string'
-                                            },
-
-                                        }
-                                    }
-                                }
-                            }
-                        },
                         storage: {
                             $ref: 'common_api#/definitions/storage_info'
                         }

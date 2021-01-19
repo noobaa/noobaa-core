@@ -743,12 +743,6 @@ class MongoClient extends EventEmitter {
         dbg.log0(`Recieved ${res} from setParameter/logLevel command (${level})`);
     }
 
-    async is_master(ip) {
-        const is_master_res = await this.mongo_client.db().command({ isMaster: 1 });
-        return is_master_res.primary.startsWith(ip);
-    }
-
-
     async wait_for_all_members(timeout) {
         timeout = timeout || 2 * 60000; // default timeout 2 minutes
         let waiting_exhausted = false;

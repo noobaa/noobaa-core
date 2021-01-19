@@ -88,32 +88,6 @@ MongoCtrl.prototype.add_member_shard = function(name, ip) {
     return mongo_client.instance().add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
-MongoCtrl.prototype.is_master = function(is_config_set) {
-    var mongo_res;
-    return mongo_client.instance().get_mongo_rs_status({
-            is_config_set: is_config_set,
-        })
-        .then(res => {
-            mongo_res = res;
-            let topo = cutil.get_topology();
-            let res_master = false;
-            let master_address = '127.0.0.1';
-            _.forEach(mongo_res.members, member => {
-                if (member.stateStr === 'PRIMARY') {
-                    master_address = member.name.substring(0, member.name.indexOf(':'));
-                    if (topo.owner_address === master_address) {
-                        res_master = true;
-                    }
-                }
-            });
-            return {
-                ismaster: res_master,
-                rs_status: mongo_res,
-                master_address: master_address
-            };
-        });
-};
-
 MongoCtrl.prototype.redirect_to_cluster_master = function() {
     return mongo_client.instance().get_mongo_rs_status()
         .then(mongo_res => {

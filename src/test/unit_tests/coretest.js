@@ -131,7 +131,7 @@ function setup(options = {}) {
         rpc_client, {
             s3: true,
             blob: true,
-            lambda: true,
+            lambda: config.DB_TYPE === 'mongodb',
             n2n_agent: false, // we use n2n_proxy
         }
     );

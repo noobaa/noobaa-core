@@ -27,7 +27,6 @@ const prom_reporting = require('../analytic_services/prometheus_reporting');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
-const cluster_server = require('../system_services/cluster_server');
 const clustering_utils = require('../utils/clustering_utils');
 const system_utils = require('../utils/system_utils');
 const net_utils = require('../../util/net_utils');
@@ -311,21 +310,6 @@ class NodesMonitor extends EventEmitter {
             return reply;
         }
 
-        //If this server is not the master, redirect the agent to the master
-        if (!this._is_master()) {
-            dbg.log0('this is not the master node - redirecting to master');
-            return P.resolve(cluster_server.redirect_to_cluster_master())
-                .then(addr => {
-                    reply.redirect = url.format({
-                        protocol: 'wss',
-                        slashes: true,
-                        hostname: addr,
-                        port: process.env.SSL_PORT || 8443
-                    });
-                    dbg.log0('return redirect respose to address', reply.redirect);
-                    return reply;
-                });
-        }
 
         if (req.connection.item_name) {
             dbg.error(`connection is already used to connect an agent. name=${req.connection.item_name}`);
@@ -1764,10 +1748,6 @@ class NodesMonitor extends EventEmitter {
             .catch(err => {
                 dbg.warn('_update_deleted_nodes: ERROR', err.stack || err);
             });
-    }
-
-    _is_master() {
-        return clustering_utils.check_if_master();
     }
 
     _should_enable_agent(info, agent_config) {

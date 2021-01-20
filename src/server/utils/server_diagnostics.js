@@ -10,7 +10,6 @@ const base_diagnostics = require('../../util/base_diagnostics');
 const stats_aggregator = require('../system_services/stats_aggregator');
 const system_store = require('../system_services/system_store').get_instance();
 const server_rpc = require('../server_rpc');
-const cutil = require('../utils/clustering_utils');
 
 const TMP_WORK_DIR = '/tmp/diag';
 const DIAG_LOG_FILE = TMP_WORK_DIR + '/diagnostics_collection.log';
@@ -209,7 +208,7 @@ function collect_supervisor_logs() {
 
 function collect_statistics(req) {
     return P.resolve().then(function() {
-            if (stats_aggregator && cutil.check_if_master()) {
+            if (stats_aggregator) {
                 return stats_aggregator.get_all_stats(req);
             }
         })

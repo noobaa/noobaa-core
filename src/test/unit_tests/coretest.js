@@ -126,7 +126,7 @@ function setup(options = {}) {
     const endpoint_request_handler = endpoint.create_endpoint_handler(server_rpc.rpc, rpc_client, {
         s3: true,
         blob: true,
-        lambda: true,
+        lambda: config.DB_TYPE === 'mongodb',
         n2n_agent: false, // we use n2n_proxy
     });
 

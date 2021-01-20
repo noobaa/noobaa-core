@@ -52,7 +52,7 @@ const object_md_cache = new LRUCache({
  *
  */
 async function create_object_upload(req) {
-    dbg.log0('create_object_upload:', req.rpc_params);
+    dbg.log1('create_object_upload:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
     check_quota(req.bucket);
@@ -133,7 +133,7 @@ function _get_encryption_for_object(req) {
  *
  */
 async function put_object_tagging(req) {
-    dbg.log0('put_object_tagging:', req.rpc_params);
+    dbg.log1('put_object_tagging:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
@@ -154,7 +154,7 @@ async function put_object_tagging(req) {
  *
  */
 async function get_object_tagging(req) {
-    dbg.log0('get_object_tagging:', req.rpc_params);
+    dbg.log1('get_object_tagging:', req.rpc_params);
     load_bucket(req);
 
     const obj = await find_object_md(req);
@@ -173,7 +173,7 @@ async function get_object_tagging(req) {
  *
  */
 async function delete_object_tagging(req) {
-    dbg.log0('delete_object_tagging:', req.rpc_params);
+    dbg.log1('delete_object_tagging:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
 
@@ -190,7 +190,7 @@ async function delete_object_tagging(req) {
 }
 
 function calc_retention(req) {
-    dbg.log0('calc_retention:', req.rpc_params);
+    dbg.log1('calc_retention:', req.rpc_params);
     let obj_settings = req.rpc_params.lock_settings;
 
     if (!obj_settings) {
@@ -210,7 +210,7 @@ function calc_retention(req) {
 }
 
 function get_default_lock_config(bucket) {
-    dbg.log0('get_default_lock_config:', bucket.object_lock_configuration);
+    dbg.log1('get_default_lock_config:', bucket.object_lock_configuration);
     const bucket_info = bucket.object_lock_configuration;
     if (bucket_info.object_lock_enabled !== 'Enabled') {
         return;
@@ -224,7 +224,7 @@ function get_default_lock_config(bucket) {
  */
 
 async function get_object_legal_hold(req) {
-    dbg.log0('get_object_legal_hold:', req.rpc_params);
+    dbg.log1('get_object_legal_hold:', req.rpc_params);
     load_bucket(req);
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
@@ -245,7 +245,7 @@ async function get_object_legal_hold(req) {
  *
  */
 async function put_object_legal_hold(req) {
-    dbg.log0('put_object_legal_hold:', req.rpc_params);
+    dbg.log1('put_object_legal_hold:', req.rpc_params);
     throw_if_maintenance(req);
     load_bucket(req);
     const obj = await find_object_md(req);
@@ -283,7 +283,7 @@ async function put_object_legal_hold(req) {
  *
  */
 async function get_object_retention(req) {
-    dbg.log0('get_object_retention:', req.rpc_params);
+    dbg.log1('get_object_retention:', req.rpc_params);
     load_bucket(req);
     const obj = await find_object_md(req);
     const info = get_object_info(obj, { role: req.role });
@@ -307,7 +307,7 @@ async function get_object_retention(req) {
  *
  */
 async function put_object_retention(req) {
-    dbg.log0('put_object_retention:', req.rpc_params);
+    dbg.log1('put_object_retention:', req.rpc_params);
 
     throw_if_maintenance(req);
     load_bucket(req);
@@ -763,7 +763,7 @@ async function read_node_mapping(req) {
  *
  */
 async function read_object_md(req) {
-    dbg.log0('object_server.read_object_md:', req.rpc_params);
+    dbg.log1('object_server.read_object_md:', req.rpc_params);
     const { bucket, key, md_conditions, adminfo, encryption } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
@@ -830,7 +830,7 @@ function _check_encryption_permissions(src_enc, req_enc) {
  *
  */
 async function update_object_md(req) {
-    dbg.log0('object_server.update object md', req.rpc_params);
+    dbg.log1('object_server.update object md', req.rpc_params);
     throw_if_maintenance(req);
     const set_updates = _.pick(req.rpc_params, 'content_type', 'xattr', 'cache_last_valid_time', 'last_modified_time');
     if (set_updates.xattr) {
@@ -882,7 +882,7 @@ async function delete_object(req) {
  *
  */
 async function delete_multiple_objects(req) {
-    dbg.log0('delete_multiple_objects: keys =', req.rpc_params.objects);
+    dbg.log1('delete_multiple_objects: keys =', req.rpc_params.objects);
     throw_if_maintenance(req);
     load_bucket(req, { include_deleting: true });
     // group objects by key to run different keys concurrently but same keys sequentially.
@@ -935,7 +935,7 @@ async function delete_multiple_objects(req) {
  */
 async function delete_multiple_objects_by_prefix(req) {
     load_bucket(req, { include_deleting: true });
-    dbg.log0(`delete_multiple_objects_by_prefix: bucket=${req.bucket.name} prefix=${req.params.prefix}`);
+    dbg.log1(`delete_multiple_objects_by_prefix: bucket=${req.bucket.name} prefix=${req.params.prefix}`);
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     const bucket_id = req.bucket._id;
     // TODO: change it to perform changes in batch. Won't scale.
@@ -960,13 +960,13 @@ async function delete_multiple_objects_by_prefix(req) {
 
 
 // async function delete_all_objects(req) {
-//     dbg.log0('delete_all_objects. limit =', req.params.limit);
+//     dbg.log1('delete_all_objects. limit =', req.params.limit);
 //     load_bucket(req);
 //     const { objects } = await MDStore.instance().find_objects({
 //         bucket_id: req.bucket._id,
 //         limit: req.rpc_params.limit,
 //     });
-//     dbg.log0('delete_all_objects:', _.map(objects, 'key'));
+//     dbg.log1('delete_all_objects:', _.map(objects, 'key'));
 //     await delete_multiple_objects(_.assign(req, {
 //         rpc_params: {
 //             bucket: req.bucket.name,
@@ -993,7 +993,7 @@ async function delete_multiple_objects_by_prefix(req) {
 // In this case we just upload the objects and write the folder hierarchy in it's key
 // So to we just upload a file with key /tmp/object.mp4 and the list_objects will resolve it
 async function list_objects(req) {
-    dbg.log0('object_server.list_objects', req.rpc_params);
+    dbg.log1('object_server.list_objects', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -1026,7 +1026,7 @@ async function list_objects(req) {
 }
 
 async function list_object_versions(req) {
-    dbg.log0('list_object_versions', req.rpc_params);
+    dbg.log1('list_object_versions', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -1081,7 +1081,7 @@ async function list_object_versions(req) {
 }
 
 async function list_uploads(req) {
-    dbg.log0('list_uploads', req.rpc_params);
+    dbg.log1('list_uploads', req.rpc_params);
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -1166,7 +1166,7 @@ function _list_add_results(state, results) {
 }
 
 async function list_objects_admin(req) {
-    dbg.log0('list_objects_admin', req.rpc_params);
+    dbg.log1('list_objects_admin', req.rpc_params);
     load_bucket(req);
 
     /** @type {RegExp} */
@@ -1432,7 +1432,7 @@ async function find_object_upload(req) {
  * @param {Object} req
  */
 async function get_upload_object_range_info(req) {
-    dbg.log0('object_server.get_upload_object_range_info:', req.rpc_params);
+    dbg.log1('object_server.get_upload_object_range_info:', req.rpc_params);
     throw_if_maintenance(req);
 
     const obj = await find_cached_partial_object_upload(req);
@@ -1944,11 +1944,11 @@ async function _complete_object_multiparts(obj, multipart_req) {
     const chunks_to_dereference = unused_parts.map(part => part.chunk);
     const used_multiparts_ids = used_multiparts.map(mp => mp._id);
 
-    dbg.log0('_complete_object_multiparts:', obj, 'size', context.pos,
+    dbg.log1('_complete_object_multiparts:', obj, 'size', context.pos,
         'num_parts', context.num_parts, 'multipart_etag', multipart_etag);
 
-    // for (const mp of unused_multiparts) dbg.log0('TODO GGG DELETE UNUSED MULTIPART', JSON.stringify(mp));
-    // for (const part of unused_parts) dbg.log0('TODO GGG DELETE UNUSED PART', JSON.stringify(part));
+    // for (const mp of unused_multiparts) dbg.log1('TODO GGG DELETE UNUSED MULTIPART', JSON.stringify(mp));
+    // for (const part of unused_parts) dbg.log1('TODO GGG DELETE UNUSED PART', JSON.stringify(part));
 
     await Promise.all([
         context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),

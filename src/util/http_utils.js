@@ -294,7 +294,7 @@ async function parse_request_body(req, options) {
 function send_reply(req, res, reply, options) {
     if (options.reply.type === 'raw') {
         // in this case the handler already replied
-        dbg.log0('HTTP REPLY RAW', req.method, req.originalUrl);
+        dbg.log1('HTTP REPLY RAW', req.method, req.originalUrl);
         return;
     }
     if (!reply || options.reply.type === 'empty') {
@@ -302,7 +302,7 @@ function send_reply(req, res, reply, options) {
             (!res.statusCode || res.statusCode < 300)) {
             res.statusCode = 204;
         }
-        dbg.log0('HTTP REPLY EMPTY', req.method, req.originalUrl,
+        dbg.log1('HTTP REPLY EMPTY', req.method, req.originalUrl,
             JSON.stringify(req.headers), res.statusCode);
         res.end();
         return;
@@ -322,7 +322,7 @@ function send_reply(req, res, reply, options) {
             }) :
             reply;
         const xml_reply = xml_utils.encode_xml(xml_root);
-        dbg.log0('HTTP REPLY XML', req.method, req.originalUrl,
+        dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
             xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
@@ -333,7 +333,7 @@ function send_reply(req, res, reply, options) {
     }
     if (options.reply.type === 'json') {
         const json_reply = JSON.stringify(reply);
-        dbg.log0('HTTP REPLY JSON', req.method, req.originalUrl,
+        dbg.log1('HTTP REPLY JSON', req.method, req.originalUrl,
             JSON.stringify(req.headers), json_reply);
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Length', Buffer.byteLength(json_reply));

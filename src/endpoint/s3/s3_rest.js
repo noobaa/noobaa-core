@@ -128,7 +128,7 @@ async function handle_request(req, res) {
 
 
     if (req.method === 'OPTIONS') {
-        dbg.log0('OPTIONS!');
+        dbg.log1('OPTIONS!');
         res.statusCode = 200;
         res.end();
         return;
@@ -149,7 +149,7 @@ async function handle_request(req, res) {
     authenticate_request(req);
     await authorize_request(req);
 
-    dbg.log0('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
+    dbg.log1('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
 

@@ -16,6 +16,7 @@ const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
 const config = require('../../config');
 const stats_collector = require('./endpoint_stats_collector');
+const size_utils = require('../util/size_utils');
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
@@ -79,7 +80,8 @@ class NamespaceCache {
 
         try {
             const bucket_usage = await object_sdk.read_bucket_usage_info(params.bucket);
-            const bucket_free_space_bytes = Math.floor((bucket_usage.free / 100) * cache_config.CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD);
+            const bucket_free_space_bytes = Math.floor(size_utils.bigint_to_bytes(bucket_usage.free) *
+                cache_config.CACHE_USAGE_PERCENTAGE_HIGH_THRESHOLD / 100);
             dbg.log0('NamespaceCache: bucket usage', { bucket_free_space_bytes, bucket_usage });
             return bucket_free_space_bytes;
         } catch (err) {

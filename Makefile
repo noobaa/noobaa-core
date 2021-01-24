@@ -14,8 +14,15 @@ NO_CACHE?=""
 USE_HOSTNETWORK?=""
 UNAME_S?=$(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-    CPUS?=$(shell nproc --ignore=1)
-    CPUSET?=--cpuset-cpus=0-${CPUS}
+    ifeq ($(UID),0)
+        HAVE_CPUSET ?= $(shell grep -c -w cpuset /sys/fs/cgroup/cgroup.controllers 2>/dev/null)
+    else
+        HAVE_CPUSET ?= $(shell grep -c -w cpuset /sys/fs/cgroup/user.slice/user-$(UID).slice/cgroup.controllers 2>/dev/null)
+    endif
+    ifeq ($(HAVE_CPUSET),1)
+        CPUS?=$(shell nproc --ignore=1)
+        CPUSET?=--cpuset-cpus=0-${CPUS}
+    endif
 endif
 REDIRECT_STDOUT=
 ifeq ($(SUPPRESS_LOGS), true)

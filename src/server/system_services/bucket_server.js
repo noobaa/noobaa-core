@@ -109,12 +109,16 @@ async function create_bucket(req) {
             _id: system_store.new_system_store_id(),
             spread_pools: [default_pool._id]
         }];
+
+        tier_server.check_tier_exists(req, bucket_with_suffix);
         const tier = tier_server.new_tier_defaults(
             bucket_with_suffix,
             req.system._id,
             chunk_config._id,
             mirrors
         );
+
+        tier_server.check_tiering_policy_exists(req, bucket_with_suffix);
         tiering_policy = tier_server.new_policy_defaults(
             bucket_with_suffix,
             req.system._id,

@@ -16,6 +16,7 @@ const nodes_client = require('../node_services/nodes_client');
 const node_allocator = require('../node_services/node_allocator');
 const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
+const SensitiveString = require('../../util/sensitive_string');
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors) {
     return {
@@ -65,6 +66,7 @@ function create_tier(req) {
 
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
 
+    check_tier_exists(req, req.rpc_params.name);
     const tier = new_tier_defaults(
         req.rpc_params.name,
         req.system._id,
@@ -271,6 +273,7 @@ function delete_tier(req) {
 
 function create_policy(req) {
     const policy = policy_defaults_from_req(req);
+    check_tiering_policy_exists(req, policy.name);
     dbg.log0('Creating tiering policy', policy);
     return system_store.make_changes({ insert: { tieringpolicies: [policy] } })
         .then(() => {
@@ -365,6 +368,7 @@ async function update_bucket_class(req) {
                     changes.insert.chunk_configs.push(chunk_config);
                     update_db = true;
                 }
+                check_tier_exists(req, new_name);
                 const new_tier = new_tier_defaults(
                     new_name,
                     req.system._id,
@@ -492,6 +496,7 @@ function add_tier_to_bucket(req) {
         req.rpc_params.chunk_coder_config || tier0_ccc, req.account, req.system);
 
     const new_tier_name = bucket.name + '#' + Date.now().toString(36);
+    check_tier_exists(req, new_tier_name);
     const tier = new_tier_defaults(
         new_tier_name,
         req.system._id,
@@ -848,6 +853,17 @@ function throw_on_invalid_pools_for_tier(pools) {
     }
 }
 
+function check_tiering_policy_exists(req, policy_name) {
+    const name = policy_name instanceof SensitiveString ? policy_name.unwrap() : policy_name;
+    if (req.system.tiering_policies_by_name[name]) throw new RpcError(`Policy ${policy_name} already exists`);
+}
+
+function check_tier_exists(req, tier_name) {
+    const name = tier_name instanceof SensitiveString ? tier_name.unwrap() : tier_name;
+    if (req.system.tiers_by_name[name]) throw new RpcError(`Tier ${tier_name} already exists`);
+}
+
+
 // EXPORTS
 exports.get_associated_tiering_policies = get_associated_tiering_policies;
 exports.get_associated_buckets = get_associated_buckets;
@@ -870,3 +886,7 @@ exports.get_policy_pools = get_policy_pools;
 exports.read_policy = read_policy;
 exports.delete_policy = delete_policy;
 exports.update_bucket_class = update_bucket_class;
+
+// Utils
+exports.check_tier_exists = check_tier_exists;
+exports.check_tiering_policy_exists = check_tiering_policy_exists;

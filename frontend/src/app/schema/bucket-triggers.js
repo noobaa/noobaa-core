@@ -9,7 +9,8 @@ export default {
             'bucket',
             'func',
             'prefix',
-            'suffix'
+            'suffix',
+            'attempts'
         ],
         properties: {
             id: {
@@ -24,7 +25,7 @@ export default {
                 ]
             },
             event: {
-                type:' string',
+                type: 'string',
                 enum: [
                     'ObjectCreated',
                     'ObjectRemoved',
@@ -72,7 +73,10 @@ export default {
                 type: 'string'
             },
             lastRun: {
-                type:' integer'
+                type: 'integer'
+            },
+            attempts: {
+                type: 'integer'
             }
         }
     }

@@ -13,6 +13,8 @@ import {
     closeModal
 } from 'action-creators';
 
+const retriesTooltip = 'Number of retries Noobaa will make if the trigger fails';
+
 function _getDataBucketOption(bucket) {
     return {
         value: bucket.name,
@@ -28,6 +30,7 @@ function _getNamespaceBucketOptions(bucket) {
 }
 
 class EditBucketTriggerModalViewModel extends ConnectableViewModel {
+    retriesTooltip = retriesTooltip;
     formName = this.constructor.name;
     updateDisplayName = '';
     originalBucketName = '';
@@ -80,16 +83,15 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
         const bucketOptions = inFuncMode ? [
             ...Object.values(buckets).map(_getDataBucketOption),
             ...Object.values(namespaceBuckets).map(_getNamespaceBucketOptions)
-        ]: null;
-        const funcOptions = inBucketMode  ?
+        ] : null;
+        const funcOptions = inBucketMode ?
             Object.values(funcs).map(func =>
                 getFunctionOption(func, accounts, trigger.bucket.name)
             ) : null;
 
         ko.assignToProps(this, {
             updateDisplayName: inBucketMode ?
-                `funciton ${trigger.func.name}` :
-                `bucket ${trigger.bucket.name}`,
+                `function ${trigger.func.name}` : `bucket ${trigger.bucket.name}`,
             originalBucketName: trigger.bucket.name,
             triggerId,
             funcsUrl,
@@ -102,6 +104,7 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
                 event: trigger.event,
                 prefix: trigger.prefix,
                 suffix: trigger.suffix,
+                attempts: trigger.attempts,
                 active: trigger.mode !== 'DISABLED'
             } : undefined
         });
@@ -113,7 +116,7 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
 
     async onValidateSubmit(values, existingTriggers) {
         const errors = {};
-        const { event, func, prefix, suffix, bucket } = values;
+        const { event, func, prefix, suffix, bucket, attempts } = values;
         const [funcName, funcVersion] = func.split(':');
 
         const unique = existingTriggers
@@ -123,12 +126,17 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
                 (trigger.func.name !== funcName) ||
                 (trigger.func.version !== funcVersion) ||
                 (trigger.prefix !== prefix) ||
-                (trigger.suffix !== suffix)
+                (trigger.suffix !== suffix) ||
+                (trigger.attempts !== attempts)
             );
 
         if (!unique) {
-            errors.event = errors.func = errors.bucket = errors.prefix = errors.suffix = ' ';
+            errors.event = errors.func = errors.bucket = errors.prefix = errors.suffix = errors.attempts = ' ';
             errors.global = 'A trigger with the same setting already exists';
+        }
+
+        if (!Number.isInteger(attempts) || attempts < 0 || attempts > 99) {
+            errors.attempts = 'Please Select retries number as a whole positive number between 0 to 99';
         }
 
         return errors;
@@ -145,6 +153,7 @@ class EditBucketTriggerModalViewModel extends ConnectableViewModel {
             event: values.event,
             prefix: values.prefix,
             suffix: values.suffix,
+            attempts: values.attempts + 1,
             enabled: values.active
         };
 

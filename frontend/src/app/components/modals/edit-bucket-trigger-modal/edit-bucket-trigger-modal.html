@@ -67,6 +67,18 @@
             <p class="hint">optional</p>
         </editor>
 
+        <editor params=
+            "label: 'Retries',
+            tooltip: retriesTooltip
+        ">
+            <input type="number"
+                min="0"
+                max="99"
+                ko.value="$form.attempts"
+                ko.validationCss="$form.attempts"
+            />
+        </editor>
+
         <editor params="label: 'Trigger Active'">
             <toggle-switch params="value: $form.active"></toggle-switch>
         </editor>

@@ -25,6 +25,7 @@ export default function(action$, { api }) {
                         func_version: config.funcVersion,
                         object_prefix: config.prefix,
                         object_suffix: config.suffix,
+                        attempts: config.attempts,
                         enabled: config.enabled
                     });
                 } else {
@@ -36,10 +37,11 @@ export default function(action$, { api }) {
                         func_version: config.funcVersion,
                         object_prefix: config.prefix,
                         object_suffix: config.suffix,
+                        attempts: config.attempts,
                         enabled: config.enabled
                     });
                 }
-                
+
                 return completeUpdateBucketTrigger(displayEntity);
 
             } catch (error) {

@@ -8,7 +8,7 @@ const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 
 const TRIGGER_ATTEMPTS = 2;
-const DELAY_BETWEEEN_TRIGGER_ATTEMPTS = 5000; // ?
+const DELAY_BETWEEN_TRIGGER_ATTEMPTS = 5000; // ?
 
 function get_triggers_for_event(bucket, obj, event_name) {
     return _.filter(bucket.lambda_triggers, trigger =>
@@ -18,7 +18,7 @@ function get_triggers_for_event(bucket, obj, event_name) {
     );
 }
 
-function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
+async function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
     if (!triggers_to_run || !triggers_to_run.length) return;
     const now = Date.now();
     const updates = [];
@@ -28,42 +28,40 @@ function run_bucket_triggers(triggers_to_run, bucket, obj, actor, token) {
             $set: { 'lambda_triggers.$.last_run': now },
         });
     }
-    return P.resolve()
-        .then(() => system_store.make_changes_in_background({
-            update: {
-                buckets: updates
-            }
-        }))
-        .then(() => P.map(triggers_to_run, trigger => {
-            const event = create_object_event({
-                bucket: bucket.name,
-                time: obj.create_time,
-                object: obj,
-                actor: actor,
-                event_name: trigger.event_name,
-                id: trigger._id
-            });
-            return P.retry({
-                attempts: TRIGGER_ATTEMPTS,
-                delay_ms: DELAY_BETWEEEN_TRIGGER_ATTEMPTS,
-                func: () => run_trigger(trigger, event, bucket.system, token),
-            });
-        }));
+    system_store.make_changes_in_background({
+        update: {
+            buckets: updates
+        }
+    });
+    await P.map(triggers_to_run, trigger => {
+        const event = create_object_event({
+            bucket: bucket.name,
+            time: obj.create_time,
+            object: obj,
+            actor: actor,
+            event_name: trigger.event_name,
+            id: trigger._id
+        });
+        return P.retry({
+            attempts: trigger.attempts ? trigger.attempts : TRIGGER_ATTEMPTS,
+            delay_ms: DELAY_BETWEEN_TRIGGER_ATTEMPTS,
+            func: () => run_trigger(trigger, event, bucket.system, token),
+        });
+    });
 }
 
-function run_trigger(trigger, event, system, token) {
-    return server_rpc.client.func.invoke_func({
-            name: trigger.func_name,
-            version: trigger.func_version,
-            event: event,
-        }, {
-            auth_token: token
-        })
-        .then(result => {
-            if (result.error) {
-                dbg.error('Got following error in run_trigger:', result.error, ';trigger:', trigger, ';event:', event);
-            }
-        });
+// run_trigger invoke a lambda function on an event of a trigger (put/get/list object)
+async function run_trigger(trigger, event, system, token) {
+    const result = await server_rpc.client.func.invoke_func({
+        name: trigger.func_name,
+        version: trigger.func_version,
+        event: event,
+    }, {
+        auth_token: token
+    });
+    if (result.error) {
+        dbg.error('Got following error in run_trigger:', result.error, ';trigger:', trigger, ';event:', event);
+    }
 }
 
 function create_object_event({ bucket, object, time, actor, event_name, id }) {

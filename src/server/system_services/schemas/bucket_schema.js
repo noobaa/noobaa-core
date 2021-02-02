@@ -319,6 +319,9 @@ module.exports = {
                     object_suffix: {
                         type: 'string'
                     },
+                    attempts: {
+                        type: 'integer'
+                    },
                 }
             }
         },

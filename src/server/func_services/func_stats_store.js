@@ -6,7 +6,6 @@ const mongodb = require('mongodb');
 
 // const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
-const P = require('../../util/promise');
 
 const func_stats_schema = require('./func_stats_schema');
 const func_stats_indexes = require('./func_stats_indexes');
@@ -35,19 +34,17 @@ class FuncStatsStore {
         return new mongodb.ObjectId(id_str);
     }
 
-    create_func_stat(stat) {
-        return P.resolve().then(async () => {
-            if (!stat._id) {
-                stat._id = this.make_func_stat_id();
-            }
-            try {
-                this._func_stats.validate(stat);
-                await this._func_stats.insertOne(stat);
-            } catch (err) {
-                db_client.instance().check_duplicate_key_conflict(err, 'func stat');
-            }
-            return stat;
-        });
+    async create_func_stat(stat) {
+        if (!stat._id) {
+            stat._id = this.make_func_stat_id();
+        }
+        try {
+            this._func_stats.validate(stat);
+            await this._func_stats.insertOne(stat);
+        } catch (err) {
+            db_client.instance().check_duplicate_key_conflict(err, 'func stat');
+        }
+        return stat;
     }
 
     async query_func_stats(params) {

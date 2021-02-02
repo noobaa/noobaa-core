@@ -45,8 +45,7 @@ function _mapTrigger(bucket, trigger) {
         event: trigger.event_name,
         bucket: {
             kind: bucket.bucket_type === 'REGULAR' ?
-                'DATA_BUCKET' :
-                'NAMESPACE_BUCKET',
+                'DATA_BUCKET' : 'NAMESPACE_BUCKET',
             name: bucket.name
         },
         func: {
@@ -55,6 +54,7 @@ function _mapTrigger(bucket, trigger) {
         },
         prefix: trigger.object_prefix || '',
         suffix: trigger.object_suffix || '',
+        attempts: trigger.attempts - 1 || 0,
         lastRun: trigger.last_run
     };
 }

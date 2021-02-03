@@ -258,8 +258,7 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_chunks_by_ids()', async function() {
             const res = await md_store.find_chunks_by_ids(_.map(chunks, '_id'));
-            const DB_TYPE = process.env.DB_TYPE || config.DB_TYPE;
-            if (DB_TYPE === 'mongodb') {
+            if (config.DB_TYPE === 'mongodb') {
                 res.forEach(chunk => {
                     if (chunk.digest) chunk.digest = chunk.digest.buffer;
                     if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;

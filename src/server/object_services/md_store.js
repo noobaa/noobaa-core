@@ -1255,13 +1255,12 @@ class MDStore {
      */
     async find_chunks_by_dedup_key(bucket, dedup_keys) {
         // TODO: This is temporary patch because of binary representation in MongoDB and PostgreSQL
-        const DB_TYPE = process.env.DB_TYPE || config.DB_TYPE;
         /** @type {nb.ChunkSchemaDB[]} */
         const chunks = await this._chunks.find({
             system: bucket.system._id,
             bucket: bucket._id,
             dedup_key: {
-                $in: DB_TYPE === 'postgres' ? _.map(dedup_keys, k => k.toString('base64')) : dedup_keys
+                $in: config.DB_TYPE === 'postgres' ? _.map(dedup_keys, k => k.toString('base64')) : dedup_keys
             },
             deleted: null,
         }, {

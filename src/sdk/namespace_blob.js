@@ -48,7 +48,14 @@ class NamespaceBlob {
     // OBJECT LIST //
     /////////////////
 
-    async list_objects(params, object_sdk) {
+    async list_objects(param, object_sdk) {
+        const params = { ...param };
+        const regex = '^\\d{1,9}!\\d{1,9}!';
+        if (!(_.isUndefined(params.key_marker)) && params.key_marker.match(regex) === null) {
+            dbg.log0(`Got an invalid marker: ${params.key_marker}, changing the marker into null`);
+            params.key_marker = null;
+        }
+
         dbg.log0('NamespaceBlob.list_objects:',
             this.container,
             inspect(params)

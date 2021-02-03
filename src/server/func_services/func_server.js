@@ -291,6 +291,7 @@ async function invoke_func(req) {
         time: time,
         took: Date.now() - time.getTime(),
         error: res.error ? true : undefined,
+        error_msg: res.error ? res.error.message : undefined,
     });
     if (!_.isUndefined(res.error)) {
         throw res.error;

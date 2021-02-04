@@ -142,33 +142,34 @@ class PgTransaction {
         this.transaction_id = trans_counter;
         trans_counter += 1;
         this.client = client;
-        this._init = this._begin();
     }
 
-    async _begin() {
+    async begin() {
         this.pg_client = await this.client.pool.connect();
         this.pg_client.once('error', err => {
             dbg.error('got error on pg_transaction', err, this.transaction_id);
         });
         await _do_query(this.pg_client, { text: 'BEGIN TRANSACTION' }, this.transaction_id);
-        this._init = null;
     }
 
     async query(text, values) {
-        if (this._init) {
-            await this._init;
+        if (!this.pg_client) {
+            throw new Error('this.begin() must be called before sending queries on this transaction');
         }
         return _do_query(this.pg_client, { text, values }, this.transaction_id);
     }
 
     async commit() {
         await this.query('COMMIT TRANSACTION');
-        this.pg_client.release();
     }
 
     async rollback() {
         await this.query('ROLLBACK TRANSACTION');
+    }
+
+    release() {
         this.pg_client.release();
+        this.pg_client = null;
     }
 
 }
@@ -208,6 +209,7 @@ class BulkOp {
         let nModified = 0;
         let nRemoved = 0;
         try {
+            await this.transaction.begin();
             const batch_query = this.queries.join('; ');
             let results = await this.transaction.query(batch_query);
             if (!Array.isArray(results)) {
@@ -229,6 +231,8 @@ class BulkOp {
             errmsg = err;
             dbg.error('PgTransaction execute error', err);
             await this.transaction.rollback();
+        } finally {
+            this.transaction.release();
         }
 
         return {
@@ -813,8 +817,9 @@ class PostgresTable {
         let retries = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            let pg_client = await this.client.pool.connect();
+            let pg_client;
             try {
+                pg_client = await this.client.pool.connect();
                 let update_res = await this._updateOneWithClient(pg_client, query, update, options);
                 if (update_res.rowCount === 0) {
                     // try to lock the advisory_lock_key for this table and insert the first doc
@@ -833,10 +838,8 @@ class PostgresTable {
                         throw err;
                     }
                 }
-                pg_client.release();
                 return { value: update_res.rows.map(row => decode_json(this.schema, row.data))[0] };
             } catch (err) {
-                pg_client.release();
                 if (err.retry && retries < MAX_RETRIES) {
                     retries += 1;
                     // TODO: should we add a delay here?
@@ -845,6 +848,8 @@ class PostgresTable {
                     dbg.error(`findOneAndUpdate failed`, query, update, options, err);
                     throw err;
                 }
+            } finally {
+                pg_client.release();
             }
         }
     }
@@ -1052,7 +1057,7 @@ class PostgresClient extends EventEmitter {
             dbg.error('apply_sql_functions execute error', err);
             throw err;
         } finally {
-            if (pg_client) pg_client.end();
+            if (pg_client) pg_client.release();
         }
     }
 

@@ -2,6 +2,8 @@
 /*eslint max-lines: ["error", 2200]*/
 'use strict';
 
+require('../../util/fips');
+
 const _ = require('lodash');
 const os = require('os');
 const util = require('util');

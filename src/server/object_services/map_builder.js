@@ -255,7 +255,7 @@ class MapBuilder {
 
         // check if bucket master_key is enabled and chunk master keys disabled
         } else if (!chunk_master_key_id && bucket_m_key && bucket_m_key.disabled === false) {
-            const encrypted_cipher = mkm.encrypt_buffer_with_master_key_id(chunk.cipher_key.buffer, bucket_m_key._id);
+            const encrypted_cipher = mkm.encrypt_buffer_with_master_key_id(chunk.cipher_key.buffer.toString('base64'), bucket_m_key._id);
             await MDStore.instance().update_chunk_by_id(chunk._id,
                 { cipher_key: encrypted_cipher, master_key_id: bucket_m_key._id });
             chunk.cipher_key = encrypted_cipher;

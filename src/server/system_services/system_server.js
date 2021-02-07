@@ -1062,16 +1062,19 @@ async function update_endpoint_group(req) {
         // this check fixes a bug where make_changes sends a load_system_store notification
         // to the operator, which in its own reconcile sends back update_endpoint_group, and so forth
         if (group.region !== region || !_.isEqual(group.endpoint_range, endpoint_range)) {
+            dbg.log0('updating endpoint group. old values: ', group, ' new values:', { name: group_name, is_remote, region, endpoint_range });
+
+            // updating array in memory and then updating entire array with make_changes
+            // changed the query from using $find and $ operator to update array element. 
+            // this is not translated correctly to a postgres query
+            group.region = region;
+            group.endpoint_range = endpoint_range;
             await system_store.make_changes({
                 update: {
                     clusters: [{
-                        $find: {
-                            _id: cluster._id,
-                            'endpoint_groups.name': group_name
-                        },
+                        _id: cluster._id,
                         $set: {
-                            'endpoint_groups.$.region': region,
-                            'endpoint_groups.$.endpoint_range': endpoint_range
+                            'endpoint_groups': cluster.endpoint_groups
                         }
                     }]
                 }
@@ -1079,6 +1082,7 @@ async function update_endpoint_group(req) {
         }
 
     } else {
+        dbg.log0('adding new endpoint group:', { name: group_name, is_remote, region, endpoint_range });
         await system_store.make_changes({
             update: {
                 clusters: [{
@@ -1095,7 +1099,6 @@ async function update_endpoint_group(req) {
             }
         });
     }
-
     // Update the noobaa CRD if request was not originated from the operator
     const account_roles = req.account.roles_by_system[req.system._id];
     if (!account_roles.includes('operator') && !is_remote) {
@@ -1114,6 +1117,7 @@ async function update_endpoint_group(req) {
         }
     }
 }
+
 
 const _get_group_accumulator = (group_map, group_name) =>
     js_utils.map_get_or_create(group_map, group_name, () => ({

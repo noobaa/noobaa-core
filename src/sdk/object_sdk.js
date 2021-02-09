@@ -118,12 +118,14 @@ class ObjectSDK {
         return this._setup_bucket_namespace(bucket);
     }
 
-    async authorize_request_account({ bucket, op_name }) {
-        const ns = bucket && await this.read_bucket_sdk_namespace_info(bucket);
+    async authorize_request_account(req) {
+        const { bucket } = req.params;
+        if (!bucket || req.op_name === 'put_bucket') return;
         const token = this.get_auth_token();
         if (!token) {
+            const ns = await this.read_bucket_sdk_namespace_info(bucket);
             // TODO: Anonymous access to namespace buckets not supported
-            if (ns) throw new RpcError('NOT_IMPLEMENTED', `Anonymous access to namespace buckets not supported`);
+            if (ns) throw new RpcError('UNAUTHORIZED', `Anonymous access to namespace buckets not supported`);
             // TODO: Handle bucketspace operations / RPC auth (i.e system, account, anonymous) and anonymous access
             else return;
         }
@@ -139,14 +141,12 @@ class ObjectSDK {
         }
         const signature = signature_utils.get_signature_from_auth_token(token, account.access_keys[0].secret_key.unwrap());
         if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
-        if (bucket) {
-            const bucket_allowed = _.get(account, 'allowed_buckets.full_permission', false) ||
-                _.find(
-                    _.get(account, 'allowed_buckets.permission_list') || [],
-                    name => name.unwrap() === bucket
-                );
-            if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
-        }
+        const bucket_allowed = _.get(account, 'allowed_buckets.full_permission', false) ||
+            _.find(
+                _.get(account, 'allowed_buckets.permission_list') || [],
+                name => name.unwrap() === bucket
+            );
+        if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
     }
 
     async _validate_bucket_namespace(data, params) {

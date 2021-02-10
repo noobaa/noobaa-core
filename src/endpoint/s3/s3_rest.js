@@ -299,7 +299,7 @@ function authenticate_request(req) {
 
 async function authorize_request(req) {
     await Promise.all([
-        req.object_sdk.authorize_request_account(req.params.bucket),
+        req.object_sdk.authorize_request_account(req),
         authorize_request_policy(req)
     ]);
 }

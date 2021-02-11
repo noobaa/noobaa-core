@@ -68,6 +68,8 @@
             'util/snappy.cpp',
             'util/zlib.h',
             'util/zlib.cpp',
+            # fs
+            'fs/fs_napi.cpp',
         ],
     }, {
         'target_name': 'nb_native_nan',

@@ -9,6 +9,7 @@ void ssl_napi(Napi::Env env, Napi::Object exports);
 void syslog_napi(Napi::Env env, Napi::Object exports);
 void splitter_napi(Napi::Env env, Napi::Object exports);
 void chunk_coder_napi(napi_env env, napi_value exports);
+void fs_napi(Napi::Env env, Napi::Object exports);
 
 Napi::Object
 nb_native_napi(Napi::Env env, Napi::Object exports)
@@ -18,6 +19,7 @@ nb_native_napi(Napi::Env env, Napi::Object exports)
     syslog_napi(env, exports);
     splitter_napi(env, exports);
     chunk_coder_napi(env, exports);
+    fs_napi(env, exports);
     return exports;
 }
 

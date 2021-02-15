@@ -17,7 +17,7 @@ module.exports = {
         'last_modifier',
         'code_size',
         'code_sha256',
-        'code_gridfs_id',
+        'code',
     ],
     properties: {
         _id: {
@@ -77,8 +77,8 @@ module.exports = {
         code_sha256: {
             type: 'string'
         },
-        code_gridfs_id: {
-            objectid: true
-        },
+        code: {
+            type: 'string'
+        }
     }
 };

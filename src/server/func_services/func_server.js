@@ -50,6 +50,7 @@ const FUNC_STATS_DEFAULTS = {
 };
 
 async function create_func(req) {
+    dbg.log0('create_func::', req.params.config);
     const { config: func_config, code: func_code } = req.params;
     const { _id: system, pools_by_name } = req.system;
     const { _id: exec_account } = req.account;
@@ -158,10 +159,11 @@ async function update_func(req) {
     return _get_func_info(func);
 }
 
-function delete_func(req) {
-    return _load_func(req)
-        .then(() => func_store.instance().delete_code_gridfs(req.func.code_gridfs_id))
-        .then(() => func_store.instance().delete_func(req.func._id));
+async function delete_func(req) {
+    dbg.log0('delete_func::', req.params.name);
+    await _load_func(req);
+    await func_store.instance().delete_code_gridfs(req.func.code_gridfs_id);
+    await func_store.instance().delete_func(req.func._id);
 }
 
 async function read_func(req) {
@@ -234,23 +236,21 @@ async function read_func_stats(req) {
     };
 }
 
-function list_funcs(req) {
-    return P.resolve()
-        .then(() => func_store.instance().list_funcs(req.system._id))
-        .then(funcs => ({
-            functions: _.map(funcs, _get_func_info)
-        }));
+async function list_funcs(req) {
+    const funcs = await func_store.instance().list_funcs(req.system._id);
+    return {
+        functions: _.map(funcs, _get_func_info)
+    };
 }
 
-function list_func_versions(req) {
-    return P.resolve()
-        .then(() => func_store.instance().list_func_versions(
-            req.system._id,
-            req.params.name
-        ))
-        .then(funcs => ({
-            versions: _.map(funcs, _get_func_info)
-        }));
+async function list_func_versions(req) {
+    const funcs = await func_store.instance().list_func_versions(
+        req.system._id,
+        req.params.name
+    );
+    return {
+        versions: _.map(funcs, _get_func_info)
+    };
 }
 
 const server_func_node = new FuncNode({
@@ -258,41 +258,45 @@ const server_func_node = new FuncNode({
     storage_path: '/tmp/',
 });
 
-function invoke_func(req) {
+async function invoke_func(req) {
+    let res;
+    dbg.log0('invoke_func::', req.params.name);
     const time = new Date();
-    return _load_func(req)
-        .then(() => check_event_permission(req))
-        .then(() => P.map(req.func.pools,
-            pool => node_allocator.refresh_pool_alloc(pool)))
-        .then(() => {
-            const func = req.func;
-            const node = node_allocator.allocate_node({ pools: func.pools });
-            const params = {
-                config: _get_func_info(func).config,
-                event: req.params.event,
-                aws_config: _make_aws_config(req),
-                rpc_options: _make_rpc_options(req),
-            };
-            if (!node) {
-                dbg.log0('invoking on server', func.name, req.params.event);
-                return server_func_node.invoke_func({ params });
-            }
-            dbg.log0('invoking on node',
-                func.name, req.params.event,
-                node.name, node.pool);
-            return server_rpc.client.func_node.invoke_func(params, {
-                address: node.rpc_address
-            });
-        })
-        .then(res => func_stats_store.instance().create_func_stat({
-                system: req.func.system,
-                func: req.func._id,
-                time: time,
-                took: Date.now() - time.getTime(),
-                error: res.error ? true : undefined,
-            })
-            .then(() => res)
-        );
+    await _load_func(req);
+    check_event_permission(req);
+    await P.map(req.func.pools, pool => node_allocator.refresh_pool_alloc(pool));
+
+    const func = req.func;
+    const node = node_allocator.allocate_node({ pools: func.pools });
+    const params = {
+        config: _get_func_info(func).config,
+        event: req.params.event,
+        aws_config: _make_aws_config(req),
+        rpc_options: _make_rpc_options(req),
+    };
+    if (node) {
+        dbg.log0('invoking on node',
+            func.name, req.params.event,
+            node.name, node.pool);
+        res = await server_rpc.client.func_node.invoke_func(params, {
+            address: node.rpc_address
+        });
+    } else {
+        dbg.log0('invoking on server', func.name, req.params.event);
+        res = await server_func_node.invoke_func({ params });
+    }
+    await func_stats_store.instance().create_func_stat({
+        system: req.func.system,
+        func: req.func._id,
+        time: time,
+        took: Date.now() - time.getTime(),
+        error: res.error ? true : undefined,
+        error_msg: res.error ? res.error.message : undefined,
+    });
+    if (!_.isUndefined(res.error)) {
+        throw res.error;
+    }
+    return res;
 }
 
 function check_event_permission(req) {
@@ -365,17 +369,14 @@ function _get_func_code_stream(req, func_code) {
     }
 }
 
-function _load_func(req) {
+async function _load_func(req) {
     const system = req.system._id;
     const name = req.params.name || _.get(req, 'params.config.name');
     const version = req.params.version || _.get(req, 'params.config.version');
-    return P.resolve()
-        .then(() => func_store.instance().read_func(system, name, version))
-        .then(func => {
-            req.func = func;
-            func.pools = _.map(func.pools, pool_id => system_store.data.get_by_id(pool_id));
-            return func;
-        });
+    const func = await func_store.instance().read_func(system, name, version);
+    req.func = func;
+    func.pools = _.map(func.pools, pool_id => system_store.data.get_by_id(pool_id));
+    return func;
 }
 
 function _get_func_info(func) {

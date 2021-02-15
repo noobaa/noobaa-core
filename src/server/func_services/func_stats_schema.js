@@ -30,5 +30,8 @@ module.exports = {
         error: {
             type: 'boolean'
         },
+        error_msg: {
+            type: 'string'
+        },
     }
 };

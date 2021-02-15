@@ -17,6 +17,7 @@ export default function(action$, { api }) {
                 event,
                 prefix,
                 suffix,
+                attempts,
                 enabled
             } = action.payload;
 
@@ -28,6 +29,7 @@ export default function(action$, { api }) {
                     event_name: event,
                     object_prefix: prefix,
                     object_suffix: suffix,
+                    attempts: attempts,
                     enabled: enabled
                 });
 

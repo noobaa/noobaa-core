@@ -1130,35 +1130,30 @@ function get_cloud_buckets(req) {
  * ADD_BUCKET_LAMBDA_TRIGGER
  *
  */
-function add_bucket_lambda_trigger(req) {
+async function add_bucket_lambda_trigger(req) {
     dbg.log0('add new bucket lambda trigger', req.rpc_params);
     const new_trigger = req.rpc_params;
     new_trigger.func_version = new_trigger.func_version || '$LATEST';
     const bucket = find_bucket(req, req.rpc_params.bucket_name);
-    return P.resolve()
-        .then(() => validate_trigger_update(bucket, new_trigger))
-        .then(() => {
-            const trigger = _.omitBy({
-                _id: system_store.new_system_store_id(),
-                event_name: new_trigger.event_name,
-                func_name: new_trigger.func_name,
-                func_version: new_trigger.func_version,
-                enabled: new_trigger.enabled !== false,
-                object_prefix: new_trigger.object_prefix || undefined,
-                object_suffix: new_trigger.object_suffix || undefined
-            }, _.isUndefined);
-            return system_store.make_changes({
-                update: {
-                    buckets: [{
-                        _id: bucket._id,
-                        $push: { lambda_triggers: trigger },
-                    }]
-                }
-            });
-        })
-        .then(() => {
-            // do nothing. 
-        });
+    await validate_trigger_update(bucket, new_trigger);
+    const trigger = _.omitBy({
+        _id: system_store.new_system_store_id(),
+        event_name: new_trigger.event_name,
+        func_name: new_trigger.func_name,
+        func_version: new_trigger.func_version,
+        enabled: new_trigger.enabled !== false,
+        object_prefix: new_trigger.object_prefix || undefined,
+        object_suffix: new_trigger.object_suffix || undefined,
+        attempts: new_trigger.attempts || undefined,
+    }, _.isUndefined);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $push: { lambda_triggers: trigger },
+            }]
+        }
+    });
 }
 
 /**
@@ -1166,7 +1161,7 @@ function add_bucket_lambda_trigger(req) {
  * DELETE_BUCKET_LAMBDA_TRIGGER
  *
  */
-function delete_bucket_lambda_trigger(req) {
+async function delete_bucket_lambda_trigger(req) {
     dbg.log0('delete bucket lambda trigger', req.rpc_params);
     const trigger_id = req.rpc_params.id;
     var bucket = find_bucket(req, req.rpc_params.bucket_name);
@@ -1174,26 +1169,23 @@ function delete_bucket_lambda_trigger(req) {
     if (!trigger) {
         throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + trigger_id);
     }
-    return P.resolve()
-        .then(() => system_store.make_changes({
-            update: {
-                buckets: [{
-                    _id: bucket._id,
-                    $pull: {
-                        lambda_triggers: {
-                            _id: trigger._id
-                        }
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $pull: {
+                    lambda_triggers: {
+                        _id: trigger._id
                     }
-                }]
-            }
-        })).then(() => {
-            // do nothing. 
-        });
+                }
+            }]
+        }
+    });
 }
 
-function update_bucket_lambda_trigger(req) {
+async function update_bucket_lambda_trigger(req) {
     dbg.log0('update bucket lambda trigger', req.rpc_params);
-    const updates = _.pick(req.rpc_params, 'event_name', 'func_name', 'func_version', 'enabled', 'object_prefix', 'object_suffix');
+    const updates = _.pick(req.rpc_params, 'event_name', 'func_name', 'func_version', 'enabled', 'object_prefix', 'object_suffix', 'attempts');
     if (_.isEmpty(updates)) return;
     updates.func_version = updates.func_version || '$LATEST';
     var bucket = find_bucket(req, req.rpc_params.bucket_name);
@@ -1202,19 +1194,15 @@ function update_bucket_lambda_trigger(req) {
         throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + req.rpc_params._id);
     }
     const validate_trigger = { ...trigger, ...updates };
-    return P.resolve()
-        .then(() => validate_trigger_update(bucket, validate_trigger))
-        .then(() => system_store.make_changes({
-            update: {
-                buckets: [{
-                    $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
-                    $set: _.mapKeys(updates, (value, key) => `lambda_triggers.$.${key}`)
-                }]
-            }
-        }))
-        .then(() => {
-            // do nothing. 
-        });
+    await validate_trigger_update(bucket, validate_trigger);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                $find: { _id: bucket._id, 'lambda_triggers._id': trigger._id },
+                $set: _.mapKeys(updates, (value, key) => `lambda_triggers.$.${key}`)
+            }]
+        }
+    });
 }
 
 
@@ -1349,7 +1337,7 @@ function validate_bucket_creation(req) {
 }
 
 function validate_trigger_update(bucket, validated_trigger) {
-    dbg.log0('validate_trigger_update: Chekcing new trigger is legal:', validated_trigger);
+    dbg.log0('validate_trigger_update: Checking new trigger is legal:', validated_trigger);
     let validate_function = true;
     _.forEach(bucket.lambda_triggers, trigger => {
         const is_same_trigger = String(trigger._id) === String(validated_trigger._id);
@@ -1361,7 +1349,8 @@ function validate_trigger_update(bucket, validated_trigger) {
             is_same_func &&
             trigger.event_name === validated_trigger.event_name &&
             trigger.object_prefix === validated_trigger.object_prefix &&
-            trigger.object_suffix === validated_trigger.object_suffix) {
+            trigger.object_suffix === validated_trigger.object_suffix &&
+            trigger.attempts === validated_trigger.attempts) {
             throw new RpcError('TRIGGER_DUPLICATE', 'This trigger is the same as an existing one');
         }
     });
@@ -1678,17 +1667,17 @@ function get_bucket_func_configs(req, bucket) {
 
 function calc_namespace_bucket_mode(namespace_dict) {
 
-        const rr = namespace_dict.read_resources;
-        const rr_modes = _.reduce(rr, (acc, resource) => {
-            const resource_mode = pool_server.calc_namespace_resource_mode(resource);
-            acc[resource_mode.toLowerCase()] += 1;
-            return acc;
-        }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
+    const rr = namespace_dict.read_resources;
+    const rr_modes = _.reduce(rr, (acc, resource) => {
+        const resource_mode = pool_server.calc_namespace_resource_mode(resource);
+        acc[resource_mode.toLowerCase()] += 1;
+        return acc;
+    }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
 
-        const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
-            ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
-            'OPTIMAL';
-        return mode;
+    const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
+        ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
+        'OPTIMAL';
+    return mode;
 }
 
 function calc_bucket_mode(tiers, metrics, ignore_quota, bucket_namespace) {

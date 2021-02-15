@@ -11,6 +11,8 @@ import {
     closeModal
 } from 'action-creators';
 
+const retriesTooltip = 'Number of retries Noobaa will make if the trigger fails';
+
 function _mapDataBucketOption(bucket) {
     return {
         value: bucket.name,
@@ -26,6 +28,7 @@ function _mapNamespaceBucketOption(bucket) {
 }
 
 class AddBucketTriggerModalViewModel extends ConnectableViewModel {
+    retriesTooltip = retriesTooltip;
     formName = this.constructor.name;
     bucketName = '';
     existingTriggers = null;
@@ -81,6 +84,7 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
                 event: '',
                 prefix: '',
                 suffix: '',
+                attempts: 0,
                 active: true
             } : undefined
         });
@@ -88,7 +92,7 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
 
     onValidate(values) {
         const errors = {};
-        const { event, func } = values;
+        const { event, func, attempts } = values;
 
         if (!func) {
             errors.func = 'Please select a function';
@@ -98,12 +102,16 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
             errors.event = 'Please select an event type';
         }
 
+        if (!Number.isInteger(attempts) || attempts < 0 || attempts > 99) {
+            errors.attempts = 'Please Select retries number as a whole positive number between 0 to 99';
+        }
+
         return errors;
     }
 
     async onValidateSubmit(values, existingTriggers) {
         const errors = {};
-        const { event, func, prefix, suffix, bucket } = values;
+        const { event, func, prefix, suffix, bucket, attempts } = values;
         const [funcName, funcVersion] = func.split(':');
 
         const unique = existingTriggers
@@ -113,11 +121,12 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
                 (trigger.func.version !== funcVersion) ||
                 (trigger.event !== event) ||
                 (trigger.prefix !== prefix) ||
-                (trigger.suffix !== suffix)
+                (trigger.suffix !== suffix) ||
+                (trigger.attempts !== attempts)
             );
 
         if (!unique) {
-            errors.bucket = errors.event = errors.func = errors.prefix = errors.suffix = '';
+            errors.bucket = errors.event = errors.func = errors.prefix = errors.suffix = errors.attempts = '';
             errors.global = 'A trigger with the same setting already exists';
         }
 
@@ -133,6 +142,7 @@ class AddBucketTriggerModalViewModel extends ConnectableViewModel {
             event: values.event,
             prefix: values.prefix,
             suffix: values.suffix,
+            attempts: values.attempts + 1,
             enabled: values.active
         };
 

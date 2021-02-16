@@ -134,7 +134,7 @@ class MasterKeysManager {
         const m_of_mkey = this.get_master_key_by_id(m_of_mkey_id || ROOT_KEY);
         if (!m_of_mkey) throw new Error('NO_SUCH_KEY');
 
-        const iv = m_of_mkey.cipher_iv || Buffer.alloc(1);
+        const iv = m_of_mkey.cipher_iv || Buffer.alloc(16);
         const decipher = crypto.createDecipheriv(m_of_mkey.cipher_type, m_of_mkey.cipher_key, iv);
         // cipher_key is Buffer and after load system - cipher_key is binary.
         const data = Buffer.isBuffer(m_key.cipher_key) ? m_key.cipher_key : Buffer.from(m_key.cipher_key.buffer, 'base64');
@@ -173,7 +173,7 @@ class MasterKeysManager {
         if (!_id) return value;
         const m_key = this.get_master_key_by_id(_id);
         if (!m_key) throw new Error('NO_SUCH_KEY');
-        const iv = m_key.cipher_iv || Buffer.alloc(1);
+        const iv = m_key.cipher_iv || Buffer.alloc(16);
         const cipher = crypto.createCipheriv(m_key.cipher_type, m_key.cipher_key, iv);
         let ciphered_value = cipher.update(value);
         if (m_key.cipher_type !== 'aes-256-gcm') ciphered_value = Buffer.concat([ciphered_value, cipher.final()]);

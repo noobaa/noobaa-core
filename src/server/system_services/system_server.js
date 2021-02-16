@@ -1318,7 +1318,7 @@ async function rotate_master_key(req) {
     // create the new master key and update in db
     const ROOT_KEY = system_store.master_key_manager.get_root_key_id();
     const master_key_base_props = {
-        'master_key_id': old_master_key.master_key_id === ROOT_KEY ? ROOT_KEY :
+        'master_key_id': system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ? ROOT_KEY :
             old_master_key.master_key_id._id,
         'description': old_master_key.description,
         'cipher_type': old_master_key.cipher_type
@@ -1395,7 +1395,7 @@ async function _disable_master_key(entity, entity_type) {
         throw new Error(`_disable_master_key: can not disable master key, current master key is: ${util.inspect(entity_info)}`);
     }
 
-    await upsert_master_key({ _id: entity_info.master_key_id._id, update: {disabled: true}});
+    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: true }});
     system_store.master_key_manager.set_m_key_disabled_val(entity_info.master_key_id._id, true);
 
     await system_store.load();

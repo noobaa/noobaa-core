@@ -1260,7 +1260,7 @@ class MDStore {
             system: bucket.system._id,
             bucket: bucket._id,
             dedup_key: {
-                $in: config.DB_TYPE === 'postgres' ? _.map(dedup_keys, k => k.toString('base64')) : dedup_keys
+                $in: dedup_keys
             },
             deleted: null,
         }, {

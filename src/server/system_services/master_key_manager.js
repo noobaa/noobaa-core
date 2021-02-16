@@ -10,7 +10,8 @@ const dbg = require('../../util/debug_module')(__filename);
 const SensitiveString = require('../../util/sensitive_string');
 const LRUCache = require('../../util/lru_cache');
 
-const ROOT_KEY = 'noobaa-root-master-key';
+// dummy object id of root key
+const ROOT_KEY = '00000000aaaabbbbccccdddd';
 
 class MasterKeysManager {
     constructor() {
@@ -40,12 +41,13 @@ class MasterKeysManager {
         return MasterKeysManager._instance;
     }
 
-    /**
-     * 
-     * @returns {String} 
-     */
+
     get_root_key_id() {
         return ROOT_KEY;
+    }
+
+    is_root_key(root_key_id) {
+        return root_key_id && root_key_id.toString() === ROOT_KEY.toString();
     }
 
     /**
@@ -94,8 +96,7 @@ class MasterKeysManager {
         const m_key = _.omitBy({
             _id,
             description,
-            master_key_id: master_key_id === ROOT_KEY ? ROOT_KEY :
-                (master_key_id && db_client.parse_object_id(master_key_id)) || undefined,
+            master_key_id: (master_key_id && db_client.parse_object_id(master_key_id)) || undefined,
             cipher_type: cipher_type || config.CHUNK_CODER_CIPHER_TYPE,
             cipher_key: crypto.randomBytes(32),
             cipher_iv: crypto.randomBytes(16),
@@ -115,7 +116,7 @@ class MasterKeysManager {
      * @returns {Object}  
      */
     get_master_key_by_id(_id) {
-        if (_id === ROOT_KEY) return this.get_root_key();
+        if (this.is_root_key(_id)) return this.get_root_key();
         const mkey = this.master_keys_by_id[_id.toString()];
         if (!mkey) throw new Error('NO_SUCH_KEY');
         return this.resolved_master_keys_by_id[_id.toString()] || this._resolve_master_key(mkey);
@@ -221,7 +222,7 @@ class MasterKeysManager {
     }
 
     is_m_key_disabled(id) {
-        const db_m_key = id === ROOT_KEY ? this.get_root_key() : this.master_keys_by_id[id.toString()];
+        const db_m_key = this.is_root_key(id) ? this.get_root_key() : this.master_keys_by_id[id.toString()];
         if (!db_m_key) throw new Error(`is_m_key_disabled: master key id ${id} was not found`);
         return db_m_key.disabled === true;
     }

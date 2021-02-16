@@ -28,7 +28,6 @@ mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary()
 };
 
 
-
 // temporary solution for encode\decode
 // perfrom encode\decode json for every query to\from the DB
 // TODO: eventually we want to perform this using the ajv process
@@ -77,6 +76,9 @@ function encode_json(schema, val) {
     if (!val || !schema) {
         return val;
     }
+    // eslint-disable-next-line no-use-before-define
+    const ops = handle_ops_encoding(schema, val);
+    if (ops) return ops;
 
     if (schema.binary === true) {
         // assuming val is of type Buffer. convert to base64 string
@@ -93,6 +95,11 @@ function encode_json(schema, val) {
 
     if (schema.type === 'array') {
         const item_schema = schema.items;
+        // specific case for handling find in array with no $find op
+        if (!Array.isArray(val)) {
+            return encode_json(item_schema, val);
+        }
+
         const arr = [];
         for (const item of val) {
             arr.push(encode_json(item_schema, item));
@@ -103,8 +110,41 @@ function encode_json(schema, val) {
     return val;
 }
 
+function handle_ops_encoding(schema, val) {
+    let obj;
+    let op;
 
+    // handle $in
+    if (val && val.$in) {
+        op = '$in';
+        obj = { '$in': [] };
+        for (const item of val.$in) {
+            obj.$in.push(encode_json(schema, item));
+        }
+    }
 
+    // handle $push
+    if (val && val.$push) {
+        op = '$push';
+        obj = { '$push': {} };
+        for (const key of Object.keys(val.$push)) {
+            obj.$push[key] = encode_json(schema.items, val.$push[key]);
+        }
+    }
+    // handle $set
+    if (val && val.$set) {
+        op = '$set';
+        obj = { '$set': {} };
+        for (const key of Object.keys(val.$set)) {
+            obj.$set[key] = encode_json(schema.properties && schema.properties[key], val.$set[key]);
+        }
+    }
+
+    if (obj) {
+        const keys_no_val = encode_json(schema, _.omit(val, op));
+        return _.extend(obj, keys_no_val);
+    }
+}
 
 let query_counter = 0;
 
@@ -268,14 +308,63 @@ class BulkOp {
     }
 
     findAndUpdateOne(find, update) {
-        const pg_update = mongo_to_pg.convertUpdate('data', update);
-        const pg_selector = mongo_to_pg('data', find);
-        const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
+        let encoded_update = encode_json(this.schema, update);
+        const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
+
+        let encoded_find = encode_json(this.schema, find);
+        const pg_selector = mongo_to_pg('data', encoded_find);
+
+        let query;
+        // translation of '.$.' is currently supported for findAndUpdateOne and more specifcally to $set operations. 
+        const update_keys = encoded_update.$set && Object.keys(encoded_update.$set).filter(key => key.includes('.$.'));
+        if (update_keys && update_keys.length) {
+            query = this.buildPostgresArrayQuery(encoded_update.$set, encoded_find);
+        } else {
+            query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
+        }
+
         this.add_query(query);
         return this;
     }
 
+    // builds postgres query for special case of $set with .$.
+    // other cases are not yet supported
+    buildPostgresArrayQuery(update, find) {
+        let arr_to_update;
+        let latest_set;
+        _.map(Object.keys(update), to_set => {
+
+            let arr_and_property = to_set.split('.$.');
+            if (arr_and_property.length > 1) {
+                arr_to_update = arr_and_property[0];
+                latest_set = `jsonb_set(${latest_set || 'data'}, array['${arr_to_update}', elem_index::text,` +
+                    ` '${arr_and_property[1]}'], '${JSON.stringify(update[to_set])}'::jsonb, true)`;
+            } else {
+                latest_set = `jsonb_set(${latest_set || 'data'}, '{${to_set}}', '${JSON.stringify(update[to_set])}'::jsonb)`;
+            }
+        });
+
+        let [array_where, column_where] = ['', ''];
+        _.map(Object.keys(find), key => {
+            const find_in_array = arr_to_update && key.includes(arr_to_update);
+            const prefix = find_in_array ? 'elem->>\'' + key.split('.')[1] + '\'' : key;
+            const suffix = prefix + '=\'' + find[key].toString() + '\' and ';
+            array_where += suffix;
+            column_where += find_in_array ? '' : suffix;
+
+        });
+        array_where = array_where.substr(0, array_where.length - 4);
+        column_where = column_where.substr(0, column_where.length - 4);
+
+        // find index of item to set in array
+        const from = (arr_to_update && `FROM (SELECT pos- 1 as elem_index FROM ${this.name}, jsonb_array_elements(data->'${arr_to_update}')` +
+                ` with ordinality arr(elem, pos) WHERE ${array_where} ) SUB`) || '';
+
+        const query = `UPDATE ${this.name} SET data = ${latest_set} ${from} WHERE ${column_where}`;
+        return query;
+    }
 }
+
 class UnorderedBulkOp extends BulkOp {
 
     find(selector) {
@@ -292,7 +381,7 @@ class UnorderedBulkOp extends BulkOp {
     }
 
     findAndRemoveOne(find) {
-        const pg_selector = mongo_to_pg('data', find);
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, find));
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         this.add_query(query);
         return this;
@@ -417,7 +506,7 @@ class PostgresTable {
 
     async countDocuments(query) {
         let query_string = `SELECT COUNT(*) FROM ${this.name}`;
-        if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', query)}`;
+        if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', encode_json(this.schema, query))}`;
         try {
             const res = await this.single_query(query_string);
             return Number(res.rows[0].count);
@@ -483,8 +572,8 @@ class PostgresTable {
 
     async updateOne(selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
-        const pg_update = mongo_to_pg.convertUpdate('data', update);
-        const pg_selector = mongo_to_pg('data', selector);
+        const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
         let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         // console.warn('JENIA updateOne query', query);
         try {
@@ -500,8 +589,8 @@ class PostgresTable {
 
     async _updateOneWithClient(client, selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
-        const pg_update = mongo_to_pg.convertUpdate('data', update);
-        const pg_selector = mongo_to_pg('data', selector);
+        const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
         let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         try {
             const res = await this.single_query(query, null, client);
@@ -515,8 +604,8 @@ class PostgresTable {
 
     async updateMany(selector, update) {
 
-        const pg_update = mongo_to_pg.convertUpdate('data', update);
-        const pg_selector = mongo_to_pg('data', selector);
+        const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
         const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);
@@ -530,7 +619,7 @@ class PostgresTable {
 
     async deleteMany(selector) {
 
-        const pg_selector = mongo_to_pg('data', selector);
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);
@@ -550,7 +639,9 @@ class PostgresTable {
 
         const sql_query = {};
         sql_query.select = options.projection ? mongo_to_pg.convertSelect('data', options.projection) : '*';
-        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', query);
+        const encoded_query = encode_json(this.schema, query);
+        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', encoded_query);
+
         sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
         sql_query.limit = options.limit;
         sql_query.offset = options.skip;
@@ -579,7 +670,7 @@ class PostgresTable {
 
     async findOne(query, options = {}) {
 
-        let query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', query)}`;
+        let query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, query))}`;
         if (options.sort) {
             query_string += ` ORDER BY ${mongo_to_pg.convertSort('data', options.sort)}`;
         }
@@ -598,7 +689,7 @@ class PostgresTable {
 
         const sql_query = {};
         let mr_q;
-        sql_query.where = mongo_to_pg('data', options.query);
+        sql_query.where = mongo_to_pg('data', encode_json(this.schema, options.query));
         sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
         sql_query.limit = options.limit;
         let query_string = `SELECT * FROM ${this.name} WHERE ${sql_query.where}`;
@@ -632,7 +723,7 @@ class PostgresTable {
         let mr_q;
         let query_string;
         try {
-            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', options.query)}`;
+            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query))}`;
             mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
@@ -663,7 +754,7 @@ class PostgresTable {
         const select = {};
         select[property] = 1;
         sql_query.select = mongo_to_pg.convertSelect('data', select);
-        sql_query.where = mongo_to_pg('data', query);
+        sql_query.where = mongo_to_pg('data', encode_json(this.schema, query));
         sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
         sql_query.limit = options.limit;
         sql_query.offset = options.skip;
@@ -754,7 +845,7 @@ class PostgresTable {
     }
 
     async groupBy(match, group) {
-        const WHERE = mongo_to_pg('data', match);
+        const WHERE = mongo_to_pg('data', encode_json(this.schema, match));
         const P_GROUP = this._prepare_aggregate_group_query(group);
         try {
             const res = await this.single_query(`SELECT ${P_GROUP.SELECT} FROM ${this.name} WHERE ${WHERE} GROUP BY ${P_GROUP.GROUP_BY}`);
@@ -880,7 +971,7 @@ class PostgresTable {
 
     async deleteOne(selector) {
 
-        const pg_selector = mongo_to_pg('data', selector);
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);

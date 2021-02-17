@@ -7,6 +7,7 @@ GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
 NAME_POSTFIX?="$(shell ${CONTAINER_ENGINE} ps -a | wc -l | xargs)"
 BUILDER_TAG?="noobaa-builder"
 TESTER_TAG?="noobaa-tester"
+POSTGRES_IMAGE?="centos/postgresql-12-centos7"
 NOOBAA_TAG?="noobaa"
 NOOBAA_BASE_TAG?="noobaa-base"
 SUPPRESS_LOGS?=""
@@ -76,6 +77,17 @@ test: tester
 	@echo "\033[1;34mRunning tests.\033[0m"
 	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" $(TESTER_TAG) 
 .PHONY: test
+
+test-postgres: tester
+	@echo "\033[1;34mRunning tests with Postgres.\033[0m"
+	@echo "\033[1;34mCreating docker network\033[0m"
+	$(CONTAINER_ENGINE) network create noobaa-net || true
+	@echo "\033[1;34mRunning Postgres container\033[0m"
+	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" $(POSTGRES_IMAGE)
+	@echo "\033[1;34mRunning tests\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" $(TESTER_TAG)
+
+.PHONY: test-postgres
 
 tests: test #alias for test
 .PHONY: tests

@@ -91,7 +91,7 @@
     "minimist": "1.2.5",
     "moment": "2.29.1",
     "moment-timezone": "0.5.32",
-    "mongo-query-to-postgres-jsonb": "0.2.10",
+    "mongo-query-to-postgres-jsonb": "0.2.11",
     "mongodb": "3.6.3",
     "morgan": "1.10.0",
     "nan": "2.14.2",

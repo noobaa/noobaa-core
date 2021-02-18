@@ -728,7 +728,7 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'quota_precent', 'capacity_precent', 'is_healthy'],
+                        required: ['bucket_name', 'quota_precent', 'capacity_precent', 'is_healthy', 'tagging'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
@@ -741,6 +741,9 @@ module.exports = {
                             },
                             is_healthy: {
                                 type: 'boolean'
+                            },
+                            tagging: {
+                                $ref: 'common_api#/definitions/tagging',
                             },
                         }
                     }
@@ -762,13 +765,16 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'is_healthy'],
+                        required: ['bucket_name', 'is_healthy', 'tagging'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
                             },
                             is_healthy: {
                                 type: 'boolean'
+                            },
+                            tagging: {
+                                $ref: 'common_api#/definitions/tagging',
                             },
                         }
                     }

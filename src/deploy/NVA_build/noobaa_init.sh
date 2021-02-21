@@ -59,16 +59,6 @@ fix_non_root_user() {
   fi
 }
 
-extract_noobaa_in_docker() {
-  local tar="noobaa-NVA.tar.gz"
-  local noobaa_core_path="/root/node_modules/noobaa-core/"
-  if [ ! -d ${noobaa_core_path} ] ; then
-    cd /root/node_modules
-    tar -xzf /tmp/noobaa-NVA.tar.gz
-    cd ~
-  fi
-}
-
 # run_internal_process runs a process and handles NOOBAA_INIT_MODE.
 #
 # NOOBAA_INIT_MODE allows devs to set how the container behaves when the process exits.
@@ -187,7 +177,6 @@ prepare_postgres_pv() {
 
 init_endpoint() {
   fix_non_root_user
-  extract_noobaa_in_docker
 
   cd /root/node_modules/noobaa-core/
   run_internal_process node ./src/s3/s3rver_starter.js
@@ -195,7 +184,6 @@ init_endpoint() {
 
 init_noobaa_server() {
   fix_non_root_user
-  extract_noobaa_in_docker
   prepare_server_pvs
 
   handle_server_upgrade
@@ -203,7 +191,6 @@ init_noobaa_server() {
 
 init_noobaa_agent() {
   fix_non_root_user
-  extract_noobaa_in_docker
 
   mkdir -p /noobaa_storage
   ${KUBE_PV_CHOWN} agent
@@ -215,7 +202,6 @@ init_noobaa_agent() {
 
 migrate_dbs() {
   fix_non_root_user
-  extract_noobaa_in_docker
   
   cd /root/node_modules/noobaa-core/
   /usr/local/bin/node src/upgrade/migration_to_postgres.js

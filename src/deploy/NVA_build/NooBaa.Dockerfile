@@ -126,6 +126,9 @@ RUN mkdir -m 777 /root/node_modules && \
 #   Cache: Rebuild when there is a new tar file.
 ##############################################################
 COPY --from=server_builder /noobaa/noobaa-NVA.tar.gz /tmp/
+RUN cd /root/node_modules && \
+    tar -xzf /tmp/noobaa-NVA.tar.gz
+
 
 ###############
 # PORTS SETUP #

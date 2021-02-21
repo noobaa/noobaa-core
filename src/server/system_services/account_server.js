@@ -1119,10 +1119,8 @@ function delete_external_connection(req) {
             update: {
                 accounts: [{
                     _id: account._id,
-                    sync_credentials_cache: _.filter(account.sync_credentials_cache,
-                        connection => (connection.name !== params.connection_name))
-                }]
-            }
+                    $pull: { sync_credentials_cache: { name: params.connection_name } }
+            }]}
         })
         .then(
             val => {

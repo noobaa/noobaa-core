@@ -689,6 +689,7 @@ async function get_cloud_pool_stats(req) {
     ];
     //Per each system fill out the needed info
     for (const pool of system_store.data.pools) {
+        if (pool.mongo_pool_info) continue;
         const pool_info = await server_rpc.client.pool.read_pool({ name: pool.name }, {
             auth_token: req.auth_token
         });
@@ -738,7 +739,7 @@ async function get_cloud_pool_stats(req) {
                     }
                     break;
             }
-        } else if (!pool.mongo_pool_info) {
+        } else {
             cloud_pool_stats.pool_target.kubernetes += 1;
             if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                 cloud_pool_stats.unhealthy_pool_target.kubernetes_unhealthy += 1;

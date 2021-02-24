@@ -414,6 +414,10 @@ mocha.describe('Encryption tests', function() {
                 await rpc_client.account.delete_account({ email: cur_account.email});
             }));
         });
+        mocha.it('create and delete external connections succefully', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
+            await create_delete_external_connections(rpc_client);
+        });
     });
 });
 
@@ -1044,6 +1048,63 @@ async function populate_system(rpc_client) {
     // upload to second.bucket too
     await put_object('second.bucket', 'key-second.bucket', s3);
     return {accounts, buckets};
+}
+async function create_delete_external_connections(rpc_client) {
+
+    let new_account_params = {
+        has_login: false,
+        s3_access: true,
+        allowed_buckets: {
+            full_permission: true
+        }
+    };
+    const external_connection = {
+        auth_method: 'AWS_V2',
+        endpoint: coretest.get_http_address(),
+        endpoint_type: 'S3_COMPATIBLE',
+        name: 'conn1_delete',
+        identity: coretest_access_key || '123',
+        secret: coretest_secret_key || 'abc',
+    };
+
+    // create accounts
+    const response_account1 = await rpc_client.account.create_account({...new_account_params, email: `delete_email`, name: `delete_name`});
+    assert.ok(response_account1 && response_account1.token &&
+        response_account1.access_keys && response_account1.access_keys.length === 1);
+    for (let i = 0; i < 5; i++) {
+        const response_account2 = await rpc_client.account.create_account({...new_account_params, email: `delete_email${i}`, name: `delete_name${i}`});
+        assert.ok(response_account2 && response_account2.token &&
+            response_account2.access_keys && response_account2.access_keys.length === 1);
+        // add external connections
+        await rpc_client.account.add_external_connection({ ...external_connection, identity: response_account2.access_keys[0].access_key,
+            secret: response_account2.access_keys[0].secret_key,
+            name: `conn${i}_delete`}, { auth_token: response_account1.token });
+    }
+    const db_account1 = await db_client.collection('accounts').findOne({email: `delete_email`});
+    assert.ok(db_account1.sync_credentials_cache.length === 5);
+    const system_store_account = account_by_name(system_store.data.accounts, `delete_email`);
+    // check secret key in db is encrypted by the account master key id
+    for (let i = 0; i < 5; i++) {
+        const secrets1 = {
+            db_secret: db_account1.sync_credentials_cache[i].secret_key,
+            system_store_secret: system_store_account.sync_credentials_cache[i].secret_key,
+        };
+        compare_secrets(secrets1, system_store_account.master_key_id._id);
+    }
+
+    // delete the last external connection
+    await rpc_client.account.delete_external_connection({connection_name: external_connection.name}, { auth_token:
+        response_account1.token });
+    // compare secrets after deletion
+    const db_account2 = await db_client.collection('accounts').findOne({email: `delete_email`});
+    assert.ok(db_account2.sync_credentials_cache.length === 4);
+    for (let i = 0; i < 4; i++) {
+        const secrets3 = {
+            db_secret: db_account2.sync_credentials_cache[0].secret_key,
+            system_store_secret: system_store_account.sync_credentials_cache[0].secret_key,
+        };
+        compare_secrets(secrets3, system_store_account.master_key_id._id);
+    }
 }
 
 async function compare_chunks_disabled(rpc_client, bucket_name, key, db_chunks_before_dis) {

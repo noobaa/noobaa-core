@@ -58,6 +58,16 @@ function create_hash_md5_mb() {
 }
 
 /**
+ * @returns {crypto.Hash}
+ */
+function create_hash_sha1_mb() {
+    const { SHA1_MB } = nb_native();
+    const wrap = new HashWrap(new SHA1_MB());
+    // @ts-ignore
+    return wrap;
+}
+
+/**
  * @param {string} algorithm 
  * @param {object} options 
  * @returns {crypto.Hash}
@@ -66,6 +76,8 @@ function create_hash_fips(algorithm, options) {
     switch (algorithm) {
         case 'md5':
             return create_hash_md5_mb();
+        case 'sha1':
+            return create_hash_sha1_mb();
         default:
             return original_crypto.createHash(algorithm, options);
     }

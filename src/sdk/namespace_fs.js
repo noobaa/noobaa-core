@@ -76,7 +76,7 @@ const dir_cache = new LRUCache({
     },
     validate: async ({ stat }, dir_path) => {
         const new_stat = await fs.promises.stat(dir_path);
-        return (new_stat.ino === stat.ino && new_stat.mtime === stat.mtime);
+        return (new_stat.ino === stat.ino && new_stat.mtime.getTime() === stat.mtime.getTime());
     },
     item_usage: ({ usage }, dir_path) => usage,
     max_usage: config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE,

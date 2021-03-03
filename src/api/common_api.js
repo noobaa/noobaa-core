@@ -789,5 +789,27 @@ module.exports = {
                 }
             }
         },
+
+        fs_path: {
+            type: 'string'
+        },
+
+        fs_backend: {
+            type: 'string',
+            enum: ['CEPH_FS', 'GPFS', 'NFSv4']
+        },
+
+        nsfs_config: {
+            type: 'object',
+            required: ['fs_path'],
+            properties: {
+                fs_path: {
+                    $ref: '#/definitions/fs_path'
+                },
+                fs_backend: {
+                    $ref: '#/definitions/fs_backend'
+                }
+            }
+        }
     }
 };

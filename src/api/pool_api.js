@@ -91,7 +91,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'connection', 'target_bucket'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -101,6 +101,9 @@ module.exports = {
                     },
                     target_bucket: {
                         type: 'string',
+                    },
+                    nsfs_config: {
+                        $ref: 'common_api#/definitions/nsfs_config'
                     },
                     namespace_store: {
                         type: 'object',
@@ -529,7 +532,7 @@ module.exports = {
 
         namespace_resource_info: {
             type: 'object',
-            required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
+            required: ['name'],
             properties: {
                 name: {
                     type: 'string'
@@ -552,6 +555,12 @@ module.exports = {
                 identity: {
                     $ref: 'common_api#/definitions/access_key'
                 },
+                fs_path: {
+                    $ref: 'common_api#/definitions/fs_path'
+                },
+                fs_backend: {
+                    $ref: 'common_api#/definitions/fs_backend'
+                },
                 mode: {
                     type: 'string',
                     enum: ['OPTIMAL', 'STORAGE_NOT_EXIST', 'AUTH_FAILED', 'IO_ERRORS']
@@ -565,7 +574,7 @@ module.exports = {
         // Currently the extended info has an addition of secret_key
         namespace_resource_extended_info: {
             type: 'object',
-            required: ['name', 'endpoint_type', 'endpoint', 'target_bucket'],
+            required: ['name'],
             properties: {
                 id: {
                     objectid: true
@@ -590,6 +599,12 @@ module.exports = {
                     type: 'string'
                 },
                 secret_key: { $ref: 'common_api#/definitions/secret_key' },
+                fs_path: {
+                    $ref: 'common_api#/definitions/fs_path'
+                },
+                fs_backend: {
+                    $ref: 'common_api#/definitions/fs_backend'
+                },
             }
         },
 
@@ -794,6 +809,6 @@ module.exports = {
                 'AUTH_FAILED',
                 'OPTIMAL'
             ]
-        }
+        },
     }
 };

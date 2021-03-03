@@ -90,11 +90,13 @@ class NamespaceFS {
 
     /**
      * @param {{
-     *  fs_root: string;
+     *  fs_path: string;
+     *  fs_backend?: string;
      * }} params
      */
-    constructor({ fs_root }) {
-        this.fs_root = fs_root;
+    constructor({ fs_path, fs_backend }) {
+        this.fs_path = fs_path;
+        this.fs_backend = fs_backend;
     }
 
     get_write_resource() {
@@ -107,7 +109,7 @@ class NamespaceFS {
 
     is_same_namespace(other) {
         // in noobaa namespace case just check that other is also same fs
-        return other instanceof NamespaceFS && other.fs_root === this.fs_root;
+        return other instanceof NamespaceFS && other.fs_path === this.fs_path;
     }
 
     /////////////////
@@ -607,7 +609,7 @@ class NamespaceFS {
         try {
             await this._load_bucket(params);
             for (const { key } of params.objects) {
-                const file_path = this._get_file_path({ bucket: params.bucket, key });
+                const file_path = this._get_file_path({ key });
                 console.log('NamespaceFS: delete_multiple_objects', file_path);
                 await fs.promises.unlink(file_path);
             }
@@ -683,8 +685,8 @@ class NamespaceFS {
     // INTERNALS //
     ///////////////
 
-    _get_file_path({ bucket, key }) {
-        const p = path.join(this.fs_root, bucket, key);
+    _get_file_path({ key }) {
+        const p = path.join(this.fs_path, key);
         return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
     }
 
@@ -754,7 +756,7 @@ class NamespaceFS {
 
     async _load_bucket(params) {
         try {
-            params.bucket_path = path.join(this.fs_root, params.bucket);
+            params.bucket_path = this.fs_path;
             await fs.promises.stat(params.bucket_path);
         } catch (err) {
             if (err.code === 'ENOENT') {

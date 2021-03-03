@@ -812,6 +812,7 @@ async function update_external_connection(req) {
 
     const ns_resources_updates = system_store.data.namespace_resources
         .filter(ns_resource =>
+            ns_resource.connection &&
             ns_resource.connection.endpoint_type === connection.endpoint_type &&
             ns_resource.connection.endpoint === connection.endpoint &&
             ns_resource.account._id === req.account._id &&
@@ -1389,6 +1390,7 @@ function _list_connection_usage(account, credentials) {
         }));
     let namespace_resource_usage = _.map(
         _.filter(system_store.data.namespace_resources, ns => (
+            ns.connection &&
             ns.connection.endpoint_type === credentials.endpoint_type &&
             ns.connection.endpoint === credentials.endpoint &&
             ns.account._id === account._id &&

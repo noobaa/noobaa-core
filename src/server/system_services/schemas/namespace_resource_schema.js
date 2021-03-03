@@ -9,7 +9,6 @@ module.exports = {
         'system',
         'account',
         'name',
-        'connection'
     ],
     properties: {
         _id: {
@@ -51,6 +50,9 @@ module.exports = {
                     type: 'string'
                 }
             }
+        },
+        nsfs_config: {
+            $ref: 'common_api#/definitions/nsfs_config'
         },
         issues_report: {
             type: 'array',

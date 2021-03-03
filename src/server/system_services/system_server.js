@@ -1513,7 +1513,9 @@ function get_pools_and_ns_resources_changes(sync_creds, account_id) {
         pools_updates.push(...pool_update);
 
         const ns_resource_update = system_store.data.namespace_resources
-            .filter(ns_resource => ns_resource.connection.endpoint_type === creds.endpoint_type &&
+            .filter(ns_resource =>
+                ns_resource.connection &&
+                ns_resource.connection.endpoint_type === creds.endpoint_type &&
                 ns_resource.connection.endpoint === creds.endpoint &&
                 ns_resource.account._id.toString() === account_id.toString() &&
                 ns_resource.connection.access_key.unwrap() === creds.access_key.unwrap()

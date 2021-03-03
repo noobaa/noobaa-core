@@ -80,6 +80,9 @@ class NamespaceMonitor {
     init_nsr_connection_to_target(nsr) {
         const {endpoint, access_key, secret_key} = nsr.connection;
         let conn;
+        if (nsr.nsfs_config) {
+            return;
+        }
         switch (nsr.connection.endpoint_type) {
             case 'AWS' || 'S3_COMPATIBLE' || 'IBM_COS': {
                 conn = new AWS.S3({
@@ -127,6 +130,8 @@ class NamespaceMonitor {
                     block_key,
                     callback)
             );
+        } else if (nsr_info.nsfs_config) {
+            dbg.log1('namespace_monitor: namespace resource of type FS, skipping validity test...');
         } else {
                 dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
         }

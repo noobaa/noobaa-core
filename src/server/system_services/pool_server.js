@@ -98,13 +98,14 @@ function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     };
 }
 
-function new_namespace_resource_defaults(name, system_id, account_id, connection) {
+function new_namespace_resource_defaults(name, system_id, account_id, connection, nsfs_config) {
     return {
         _id: system_store.new_system_store_id(),
         system: system_id,
         account: account_id,
         name,
-        connection
+        connection,
+        nsfs_config
     };
 }
 
@@ -247,36 +248,47 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
 
 async function create_namespace_resource(req) {
     const name = req.rpc_params.name;
-    const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
-    const secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
-        connection.secret_key, req.account.master_key_id._id);
+    let namespace_resource;
+    if (req.rpc_params.nsfs_config) {
+        namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config);
+        const already_used_by = system_store.data.namespace_resources.find(cur_nsr => cur_nsr.nsfs_config &&
+                (cur_nsr.nsfs_config.fs_path === namespace_resource.nsfs_config.fs_path));
+        if (already_used_by) {
+            dbg.error(`fs path ${already_used_by.nsfs_config.fs_path} already exported by ${already_used_by.name}`);
+            throw new RpcError('IN_USE', 'Target already in use');
+        }
+    } else {
+        const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+        const secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+            connection.secret_key, req.account.master_key_id._id);
 
-    const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
-        endpoint: connection.endpoint,
-        target_bucket: req.rpc_params.target_bucket,
-        access_key: connection.access_key,
-        auth_method: connection.auth_method,
-        cp_code: connection.cp_code || undefined,
-        secret_key,
-        endpoint_type: connection.endpoint_type || 'AWS'
-    }, _.isUndefined));
+        namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
+            endpoint: connection.endpoint,
+            target_bucket: req.rpc_params.target_bucket,
+            access_key: connection.access_key,
+            auth_method: connection.auth_method,
+            cp_code: connection.cp_code || undefined,
+            secret_key,
+            endpoint_type: connection.endpoint_type || 'AWS'
+        }, _.isUndefined));
 
-    const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
-        connection: connection.name,
-    }, {
-        auth_token: req.auth_token
-    });
-    if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === req.rpc_params.target_bucket)) {
-        dbg.error('This endpoint target bucket does not exist');
-        throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
-    }
-    const already_used_by = cloud_utils.get_used_cloud_targets([namespace_resource.connection.endpoint_type],
-            system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
-        .find(candidate_target => (candidate_target.endpoint === namespace_resource.connection.endpoint &&
-            candidate_target.target_name === namespace_resource.connection.target_bucket));
-    if (already_used_by) {
-        dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
-        throw new RpcError('IN_USE', 'Target already in use');
+        const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
+            connection: connection.name,
+        }, {
+            auth_token: req.auth_token
+        });
+        if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === req.rpc_params.target_bucket)) {
+            dbg.error('This endpoint target bucket does not exist');
+            throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
+        }
+        const already_used_by = cloud_utils.get_used_cloud_targets([namespace_resource.connection.endpoint_type],
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
+            .find(candidate_target => (candidate_target.endpoint === namespace_resource.connection.endpoint &&
+                candidate_target.target_name === namespace_resource.connection.target_bucket));
+        if (already_used_by) {
+            dbg.error(`This endpoint is already being used by a ${already_used_by.usage_type}: ${already_used_by.source_name}`);
+            throw new RpcError('IN_USE', 'Target already in use');
+        }
     }
     if (req.rpc_params.namespace_store) {
         namespace_resource.namespace_store = req.rpc_params.namespace_store;
@@ -1035,18 +1047,25 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 }
 
 function get_namespace_resource_info(namespace_resource) {
+    const connection_info = namespace_resource.connection && {
+            endpoint_type: namespace_resource.connection.endpoint_type,
+            endpoint: namespace_resource.connection.endpoint,
+            auth_method: namespace_resource.connection.auth_method,
+            cp_code: namespace_resource.connection.cp_code || undefined,
+            target_bucket: namespace_resource.connection.target_bucket,
+            identity: namespace_resource.connection.access_key,
+    };
+    const nsfs_info = namespace_resource.nsfs_config && {
+        fs_path: namespace_resource.nsfs_config.fs_path,
+        fs_backend: namespace_resource.nsfs_config.fs_backend
+    };
     const info = _.omitBy({
-        name: namespace_resource.name,
-        endpoint_type: namespace_resource.connection.endpoint_type,
-        endpoint: namespace_resource.connection.endpoint,
-        auth_method: namespace_resource.connection.auth_method,
-        cp_code: namespace_resource.connection.cp_code || undefined,
-        target_bucket: namespace_resource.connection.target_bucket,
-        identity: namespace_resource.connection.access_key,
-        mode: calc_namespace_resource_mode(namespace_resource),
-        undeletable: check_namespace_resource_deletion(namespace_resource)
-    }, _.isUndefined);
-
+            ...connection_info,
+            ...nsfs_info,
+            name: namespace_resource.name,
+            mode: calc_namespace_resource_mode(namespace_resource),
+            undeletable: check_namespace_resource_deletion(namespace_resource)
+        }, _.isUndefined);
     return info;
 }
 
@@ -1120,16 +1139,24 @@ function set_namespace_store_info(req) {
 }
 
 function get_namespace_resource_extended_info(namespace_resource) {
-    const info = _.omitBy({
-        id: namespace_resource._id,
-        name: namespace_resource.name,
+    const connection_info = namespace_resource.connection && {
         endpoint_type: namespace_resource.connection.endpoint_type,
         endpoint: namespace_resource.connection.endpoint,
         auth_method: namespace_resource.connection.auth_method,
         cp_code: namespace_resource.connection.cp_code || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
-        secret_key: namespace_resource.connection.secret_key
+        secret_key: namespace_resource.connection.secret_key,
+    };
+    const nsfs_info = namespace_resource.nsfs_config && {
+        fs_path: namespace_resource.nsfs_config.fs_path,
+        fs_backend: namespace_resource.nsfs_config.fs_backend
+    };
+    const info = _.omitBy({
+        ...connection_info,
+        ...nsfs_info,
+        id: namespace_resource._id,
+        name: namespace_resource.name
     }, _.isUndefined);
 
     return info;

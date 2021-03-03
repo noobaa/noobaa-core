@@ -5,7 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, mapValues, throttle } from 'utils/core-utils';
 import { validateName } from 'utils/validation-utils';
-import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
+import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon, isNotNSFSResource } from 'utils/resource-utils';
 import { getFieldValue, isFieldTouched, isFormValid } from 'utils/form-utils';
 import { inputThrottle } from 'config';
 import {
@@ -136,7 +136,8 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
                 };
             });
 
-        const resourceList = Object.values(resources);
+        const resourceList = Object.values(resources)
+            .filter(resource => isNotNSFSResource(resource));
         const readPolicyRows = resourceList.map(resource => ({
             state: getNamespaceResourceStateIcon(resource),
             type: getNamespaceResourceTypeIcon(resource),

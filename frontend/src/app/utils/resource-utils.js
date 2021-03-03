@@ -331,3 +331,7 @@ export function getUsageDistribution(resourceType, resourceName, buckets) {
 export function getResourceTypeDisplayName(resourceType) {
     return resourceTypeToDisplayName[resourceType];
 }
+
+export function isNotNSFSResource(resource) {
+    return resource.target;
+}

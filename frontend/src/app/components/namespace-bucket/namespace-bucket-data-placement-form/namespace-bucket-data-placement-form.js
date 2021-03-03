@@ -4,7 +4,7 @@ import template from './namespace-bucket-data-placement-form.html';
 import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, pick } from 'utils/core-utils';
 import ko from 'knockout';
-import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
+import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon, isNotNSFSResource } from 'utils/resource-utils';
 import { openEditNamespaceBucketDataPlacementModal } from 'action-creators';
 
 const columns = deepFreeze([
@@ -57,7 +57,8 @@ class NamespaceBucketDataPlacementFormViewModel extends ConnectableViewModel {
 
         } else {
             const { readFrom, writeTo } = bucket.placement;
-            const resourceList = Object.values(pick(resources, readFrom));
+            const resourceList = Object.values(pick(resources, readFrom))
+                .filter(resource => isNotNSFSResource(resource));
 
             ko.assignToProps(this, {
                 dataReady: true,

@@ -467,6 +467,7 @@ async function _partial_buckets_info(req) {
                 namespace_buckets_stats.namespace_buckets.push({
                     bucket_name: bucket_info.name.unwrap(),
                     is_healthy: ns_bucket_mode_optimal,
+                    tagging: bucket_info.tagging || []
                 });
                 if (!ns_bucket_mode_optimal) namespace_buckets_stats.unhealthy_namespace_buckets += 1;
                 continue;
@@ -510,6 +511,7 @@ async function _partial_buckets_info(req) {
                 capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
+                tagging: bucket_info.tagging || []
             });
         }
 

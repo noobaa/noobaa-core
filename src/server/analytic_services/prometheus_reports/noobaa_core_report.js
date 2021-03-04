@@ -265,13 +265,29 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
             help: 'Bucket Health',
             labelNames: ['bucket_name']
         }
-    }, {
+    },
+    {
         type: 'Gauge',
         name: 'namespace_bucket_status',
         configuration: {
             help: 'Namespace Bucket Health',
             labelNames: ['bucket_name'],
         },
+    }, {
+        type: 'Gauge',
+        name: 'bucket_tagging',
+        configuration: {
+            help: 'Bucket Tagging',
+            labelNames: ['bucket_name', 'tagging']
+        }
+    },
+    {
+        type: 'Gauge',
+        name: 'namespace_bucket_tagging',
+        configuration: {
+            help: 'Namespace Bucket Tagging',
+            labelNames: ['bucket_name', 'tagging']
+        }
     }, {
         type: 'Gauge',
         name: 'bucket_capacity',
@@ -464,18 +480,31 @@ class NooBaaCoreReport extends BasePrometheusReport {
         this._metrics.bucket_status.reset();
         this._metrics.bucket_quota.reset();
         this._metrics.bucket_capacity.reset();
+        this._metrics.bucket_tagging.reset();
         buckets_info.forEach(bucket_info => {
-            this._metrics.bucket_status.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
+            const bucket_labels = { bucket_name: bucket_info.bucket_name };
+            if (bucket_info.tagging && bucket_info.tagging.length) {
+                const tagging = bucket_info.tagging.map(tag => `{ ${tag.key} : ${tag.value} }`);
+                this._metrics.bucket_tagging.set({...bucket_labels, tagging}, Date.now());
+            }
+            this._metrics.bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
             this._metrics.bucket_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
+
         });
     }
 
     set_namespace_bucket_status(buckets_info) {
         if (!this._metrics) return;
         this._metrics.namespace_bucket_status.reset();
+        this._metrics.namespace_bucket_tagging.reset();
         buckets_info.forEach(bucket_info => {
-            this._metrics.namespace_bucket_status.set({ bucket_name: bucket_info.bucket_name }, Number(bucket_info.is_healthy));
+            const bucket_labels = { bucket_name: bucket_info.bucket_name };
+            if (bucket_info.tagging && bucket_info.tagging.length) {
+                const tagging = bucket_info.tagging.map(tag => `{ ${tag.key} : ${tag.value} }`);
+                this._metrics.namespace_bucket_tagging.set({...bucket_labels, tagging}, Date.now());
+            }
+            this._metrics.namespace_bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
         });
     }
 

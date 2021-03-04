@@ -31,7 +31,11 @@
 %include "reg_sizes.asm"
 
 %ifdef HAVE_AS_KNOWS_AVX512
+
+[bits 64]
 default rel
+section .text
+
 ;; code to compute quad SHA512 using AVX512
 ;; use ZMMs to tackle the larger digest size
 ;; outer calling routine takes care of save and restore of XMM registers
@@ -62,7 +66,7 @@ default rel
    %define arg2 rsi	; arg1
    %define var2 rdx	; arg2
    %define var1 rcx	; arg3 usable
-   %define local_func_decl(func_name) global func_name:function internal
+   %define local_func_decl(func_name) mk_global func_name, function, internal
 %endif
 
 %define state    arg1
@@ -339,6 +343,7 @@ align 64
 ; arg 2 : size (in blocks) ;; assumed to be >= 1
 local_func_decl(sha512_mb_x8_avx512)
 sha512_mb_x8_avx512:
+	endbranch
         mov	rax, rsp
         sub     rsp, STACK_SPACE
         and	rsp, ~63	; align stack to multiple of 64

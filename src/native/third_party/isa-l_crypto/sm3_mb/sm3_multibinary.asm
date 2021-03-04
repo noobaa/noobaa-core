@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
+;  Copyright(c) 2011-2020 Intel Corporation All rights reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions
@@ -36,6 +36,12 @@ extern sm3_ctx_mgr_init_base
 extern sm3_ctx_mgr_submit_base
 extern sm3_ctx_mgr_flush_base
 
+%ifdef HAVE_AS_KNOWS_AVX512
+ extern sm3_ctx_mgr_init_avx512
+ extern sm3_ctx_mgr_submit_avx512
+ extern sm3_ctx_mgr_flush_avx512
+%endif
+
 ;;; *_mbinit are initial values for *_dispatched; is updated on first call.
 ;;; Therefore, *_dispatch_init is only executed on first call.
 
@@ -44,9 +50,25 @@ mbin_interface sm3_ctx_mgr_init
 mbin_interface sm3_ctx_mgr_submit
 mbin_interface sm3_ctx_mgr_flush
 
-mbin_dispatch_init2 sm3_ctx_mgr_init, sm3_ctx_mgr_init_base
-mbin_dispatch_init2 sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base
-mbin_dispatch_init2 sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base
+
+;;; don't have imlement see/avx/avx2 yet
+%ifdef HAVE_AS_KNOWS_AVX512
+  mbin_dispatch_init6 sm3_ctx_mgr_init, sm3_ctx_mgr_init_base, \
+	sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_base, \
+	sm3_ctx_mgr_init_avx512
+  mbin_dispatch_init6 sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base, \
+	sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_base, \
+	sm3_ctx_mgr_submit_avx512
+  mbin_dispatch_init6 sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base, \
+	sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_base, \
+	sm3_ctx_mgr_flush_avx512
+%else
+  mbin_dispatch_init2 sm3_ctx_mgr_init, sm3_ctx_mgr_init_base
+  mbin_dispatch_init2 sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base
+  mbin_dispatch_init2 sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base
+%endif
+
+
 
 ;;;       func  			core, ver, snum
 slversion sm3_ctx_mgr_init,  	00,   00, 2300

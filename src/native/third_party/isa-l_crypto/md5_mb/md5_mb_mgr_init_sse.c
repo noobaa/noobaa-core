@@ -33,6 +33,7 @@ void md5_mb_mgr_init_sse(MD5_MB_JOB_MGR * state)
 {
 	unsigned int j;
 	state->unused_lanes[0] = 0xF76543210;
+	state->num_lanes_inuse = 0;
 	for (j = 0; j < 8; j++) {
 		state->lens[j] = 0xFFFFFFFF;
 		state->ldata[j].job_in_lane = 0;

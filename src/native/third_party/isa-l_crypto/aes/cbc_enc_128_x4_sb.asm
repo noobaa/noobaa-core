@@ -117,8 +117,9 @@
 %include "cbc_common.asm"
 
 
-global aes_cbc_enc_128_x4:function
+mk_global aes_cbc_enc_128_x4, function
 func(aes_cbc_enc_128_x4)
+	endbranch
 	FUNC_SAVE
 
 	mov	IDX, 0

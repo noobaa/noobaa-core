@@ -91,7 +91,11 @@ int main(void)
 		ctxpool[i].user_data = (void *)((uint64_t) i);
 	}
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA512_HASH_CTX_MGR));
+	int ret = posix_memalign((void *)&mgr, 16, sizeof(SHA512_HASH_CTX_MGR));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	sha512_ctx_mgr_init(mgr);
 
 	// Start OpenSSL tests

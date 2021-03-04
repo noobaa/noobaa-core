@@ -70,16 +70,19 @@ MD5_HASH_CTX *md5_ctx_mgr_submit_base(MD5_HASH_CTX_MGR * mgr, MD5_HASH_CTX * ctx
 	if (flags & (~HASH_ENTIRE)) {
 		// User should not pass anything other than FIRST, UPDATE, or LAST
 		ctx->error = HASH_CTX_ERROR_INVALID_FLAGS;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_PROCESSING) && (flags == HASH_ENTIRE)) {
 		// Cannot submit a new entire job to a currently processing job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_PROCESSING;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_COMPLETE) && !(flags & HASH_FIRST)) {
 		// Cannot update a finished job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_COMPLETED;
+		return ctx;
 	}
 
 	if (flags == HASH_FIRST) {
@@ -140,6 +143,7 @@ static uint32_t md5_update(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len)
 		ctx->total_length += 64;
 	}
 
+	ctx->status = HASH_CTX_STS_IDLE;
 	ctx->incoming_buffer = buffer;
 	return remain_len;
 }

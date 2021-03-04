@@ -44,6 +44,12 @@ extern XTS_AES_128_dec_avx
 extern XTS_AES_128_dec_expanded_key_sse
 extern XTS_AES_128_dec_expanded_key_avx
 
+%if (AS_FEATURE_LEVEL) >= 10
+extern XTS_AES_128_enc_vaes
+extern XTS_AES_128_enc_expanded_key_vaes
+extern XTS_AES_128_dec_vaes
+extern XTS_AES_128_dec_expanded_key_vaes
+%endif
 
 section .text
 
@@ -53,16 +59,16 @@ section .text
 ; instantiate XTS_AES_128_enc, XTS_AES_128_enc_expanded_key, XTS_AES_128_dec, and XTS_AES_128_dec_expanded_key
 ;;;;
 mbin_interface     XTS_AES_128_enc
-mbin_dispatch_init XTS_AES_128_enc, XTS_AES_128_enc_sse, XTS_AES_128_enc_avx, XTS_AES_128_enc_avx
+mbin_dispatch_init7 XTS_AES_128_enc, XTS_AES_128_enc_sse, XTS_AES_128_enc_sse, XTS_AES_128_enc_avx, XTS_AES_128_enc_avx, XTS_AES_128_enc_avx, XTS_AES_128_enc_vaes
 
 mbin_interface     XTS_AES_128_enc_expanded_key
-mbin_dispatch_init XTS_AES_128_enc_expanded_key, XTS_AES_128_enc_expanded_key_sse, XTS_AES_128_enc_expanded_key_avx, XTS_AES_128_enc_expanded_key_avx
+mbin_dispatch_init7 XTS_AES_128_enc_expanded_key, XTS_AES_128_enc_expanded_key_sse, XTS_AES_128_enc_expanded_key_sse, XTS_AES_128_enc_expanded_key_avx, XTS_AES_128_enc_expanded_key_avx, XTS_AES_128_enc_expanded_key_avx, XTS_AES_128_enc_expanded_key_vaes
 
 mbin_interface     XTS_AES_128_dec
-mbin_dispatch_init XTS_AES_128_dec, XTS_AES_128_dec_sse, XTS_AES_128_dec_avx, XTS_AES_128_dec_avx
+mbin_dispatch_init7 XTS_AES_128_dec, XTS_AES_128_dec_sse, XTS_AES_128_dec_sse, XTS_AES_128_dec_avx, XTS_AES_128_dec_avx, XTS_AES_128_dec_avx, XTS_AES_128_dec_vaes
 
 mbin_interface     XTS_AES_128_dec_expanded_key
-mbin_dispatch_init XTS_AES_128_dec_expanded_key, XTS_AES_128_dec_expanded_key_sse, XTS_AES_128_dec_expanded_key_avx, XTS_AES_128_dec_expanded_key_avx
+mbin_dispatch_init7 XTS_AES_128_dec_expanded_key, XTS_AES_128_dec_expanded_key_sse, XTS_AES_128_dec_expanded_key_sse, XTS_AES_128_dec_expanded_key_avx, XTS_AES_128_dec_expanded_key_avx, XTS_AES_128_dec_expanded_key_avx, XTS_AES_128_dec_expanded_key_vaes
 
 
 ;;;       func            		core, ver, snum

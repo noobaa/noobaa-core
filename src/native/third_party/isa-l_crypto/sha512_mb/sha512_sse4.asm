@@ -28,8 +28,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %include "reg_sizes.asm"
+
+[bits 64]
 default rel
-BITS 64
 section .text
 
 ; Virtual Registers
@@ -244,8 +245,9 @@ endstruc
 ; The size of the message pointed to by M must be an integer multiple of SHA512
 ;   message blocks.
 ; L is the message length in SHA512 blocks.
-global sha512_sse4:function
+mk_global sha512_sse4, function
 sha512_sse4:
+	endbranch
 	cmp msglen, 0
 	je .nowork
 

@@ -30,7 +30,9 @@
 %include "sha1_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
 
+[bits 64]
 default rel
+section .text
 
 ;; code to compute quad SHA1 using SSE
 ;; derived from ...\sha1_multiple\sha1_quad4.asm
@@ -274,8 +276,9 @@ align 32
 ;
 ; Clobbers registers: ARG2, rax, r8-r11, xmm0-xmm15
 ;
-global sha1_mb_x4_sse:function internal
+mk_global sha1_mb_x4_sse, function, internal
 sha1_mb_x4_sse:
+	endbranch
 
 	sub     rsp, FRAMESZ    ;; FRAMESZ + pushes must be odd multiple of 8
 

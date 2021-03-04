@@ -90,8 +90,8 @@ int check_data(uint8_t * test, uint8_t * expected, uint64_t len, int vect, char 
 
 void aes_gcm_perf(void)
 {
-	struct gcm_data gdata;
-	struct gcm_data gdata256;
+	struct gcm_key_data gkey, gkey256;
+	struct gcm_context_data gctx;
 	int i;
 
 	printf
@@ -102,19 +102,19 @@ void aes_gcm_perf(void)
 	mk_rand_data(key256, sizeof(key256));
 
 	// This is only required once for a given key
-	aesni_gcm128_pre(key128, &gdata);
-	aesni_gcm256_pre(key256, &gdata256);
+	aes_gcm_pre_128(key128, &gkey);
+	aes_gcm_pre_256(key256, &gkey256);
 
 	// Preload code cache
-	aesni_gcm128_enc(&gdata, cyphertext, plaintext, TEST_LEN, IV, AAD, AAD_LENGTH,
-			 gcm_tag, MAX_TAG_LEN);
+	aes_gcm_enc_128(&gkey, &gctx, cyphertext, plaintext, TEST_LEN, IV, AAD, AAD_LENGTH,
+			gcm_tag, MAX_TAG_LEN);
 	openssl_aes_gcm_enc(key128, IV, iv_len, AAD, AAD_LENGTH, ossl_tag, MAX_TAG_LEN,
 			    plaintext, TEST_LEN, ossl_cyphertext);
 	check_data(cyphertext, ossl_cyphertext, TEST_LEN, 0,
 		   "ISA-L vs OpenSSL 128 key cypher text (C)");
 	check_data(gcm_tag, ossl_tag, MAX_TAG_LEN, 0, "ISA-L vs OpenSSL 128 tag (T)");
-	aesni_gcm256_enc(&gdata256, cyphertext, plaintext, TEST_LEN, IV, AAD, AAD_LENGTH,
-			 gcm_tag, MAX_TAG_LEN);
+	aes_gcm_enc_256(&gkey256, &gctx, cyphertext, plaintext, TEST_LEN, IV, AAD, AAD_LENGTH,
+			gcm_tag, MAX_TAG_LEN);
 	openssl_aes_256_gcm_enc(key256, IV, iv_len, AAD, AAD_LENGTH, ossl_tag, MAX_TAG_LEN,
 				plaintext, TEST_LEN, ossl_cyphertext);
 	check_data(cyphertext, ossl_cyphertext, TEST_LEN, 0,
@@ -126,8 +126,8 @@ void aes_gcm_perf(void)
 
 		perf_start(&start);
 		for (i = 0; i < TEST_LOOPS; i++) {
-			aesni_gcm128_enc(&gdata, cyphertext, plaintext, TEST_LEN, IV, AAD,
-					 AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
+			aes_gcm_enc_128(&gkey, &gctx, cyphertext, plaintext, TEST_LEN, IV, AAD,
+					AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
 		}
 
 		perf_stop(&stop);
@@ -153,8 +153,8 @@ void aes_gcm_perf(void)
 
 		perf_start(&start);
 		for (i = 0; i < TEST_LOOPS; i++) {
-			aesni_gcm128_dec(&gdata, plaintext, cyphertext, TEST_LEN, IV,
-					 AAD, AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
+			aes_gcm_dec_128(&gkey, &gctx, plaintext, cyphertext, TEST_LEN, IV,
+					AAD, AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
 			check_data(gcm_tag, gcm_tag, MAX_TAG_LEN, 0, "ISA-L check of tag (T)");
 		}
 
@@ -173,7 +173,7 @@ void aes_gcm_perf(void)
 		}
 
 		perf_stop(&stop);
-		printf("openssl_aes_gcm_enc" TEST_TYPE_STR ":\t");
+		printf("openssl_aes_gcm_dec" TEST_TYPE_STR ":\t");
 		perf_print(stop, start, (long long)TEST_LEN * i);
 	}
 
@@ -183,8 +183,8 @@ void aes_gcm_perf(void)
 
 		perf_start(&start);
 		for (i = 0; i < TEST_LOOPS; i++) {
-			aesni_gcm256_enc(&gdata256, cyphertext, plaintext, TEST_LEN, IV, AAD,
-					 AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
+			aes_gcm_enc_256(&gkey256, &gctx, cyphertext, plaintext, TEST_LEN, IV,
+					AAD, AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
 		}
 
 		perf_stop(&stop);
@@ -212,8 +212,8 @@ void aes_gcm_perf(void)
 
 		perf_start(&start);
 		for (i = 0; i < TEST_LOOPS; i++) {
-			aesni_gcm256_dec(&gdata256, plaintext, cyphertext, TEST_LEN, IV,
-					 AAD, AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
+			aes_gcm_dec_256(&gkey256, &gctx, plaintext, cyphertext, TEST_LEN, IV,
+					AAD, AAD_LENGTH, gcm_tag, MAX_TAG_LEN);
 			check_data(gcm_tag, gcm_tag, MAX_TAG_LEN, 0,
 				   "ISA-L check of 256 tag (T)");
 		}
@@ -233,7 +233,7 @@ void aes_gcm_perf(void)
 		}
 
 		perf_stop(&stop);
-		printf("openssl_aes_256_gcm_enc" TEST_TYPE_STR ":\t");
+		printf("openssl_aes_256_gcm_dec" TEST_TYPE_STR ":\t");
 		perf_print(stop, start, (long long)TEST_LEN * i);
 	}
 }

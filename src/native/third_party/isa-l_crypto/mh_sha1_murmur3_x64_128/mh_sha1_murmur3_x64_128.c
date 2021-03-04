@@ -74,6 +74,8 @@ void mh_sha1_murmur3_x64_128_block_base(const uint8_t * input_data,
 	return;
 }
 
+#if (!defined(NOARCH)) && (defined(__i386__) || defined(__x86_64__) \
+	|| defined( _M_X64) || defined(_M_IX86))
 /***************mh_sha1_murmur3_x64_128_update***********/
 // mh_sha1_murmur3_x64_128_update_sse.c
 #define UPDATE_FUNCTION mh_sha1_murmur3_x64_128_update_sse
@@ -149,3 +151,4 @@ struct slver mh_sha1_murmur3_x64_128_finalize_avx_slver = { 0x0257, 0x00, 0x02 }
 
 struct slver mh_sha1_murmur3_x64_128_finalize_avx2_slver_04000259;
 struct slver mh_sha1_murmur3_x64_128_finalize_avx2_slver = { 0x0259, 0x00, 0x04 };
+#endif

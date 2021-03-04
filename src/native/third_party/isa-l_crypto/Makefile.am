@@ -34,20 +34,25 @@ perf_tests32=
 # Include units
 include sha1_mb/Makefile.am
 include mh_sha1/Makefile.am
-if !CPU_AARCH64
 include md5_mb/Makefile.am
 include sha256_mb/Makefile.am
 include sha512_mb/Makefile.am
 include mh_sha1_murmur3_x64_128/Makefile.am
 include mh_sha256/Makefile.am
-include aes/Makefile.am
 include rolling_hash/Makefile.am
 include sm3_mb/Makefile.am
+
+if CPU_X86_64
+include aes/Makefile.am
+endif
+
+if CPU_X86_32
+include aes/Makefile.am
 endif
 
 # LIB version info not necessarily the same as package version
 LIBISAL_CURRENT=2
-LIBISAL_REVISION=22
+LIBISAL_REVISION=23
 LIBISAL_AGE=0
 
 lib_LTLIBRARIES = libisal_crypto.la
@@ -103,14 +108,25 @@ test: $(addsuffix .run,$(unit_tests))
 	@echo Completed run: $<
 
 # Support for yasm/nasm
+if INTEL_CET_ENABLED
+  export CET_LD=$(LD)
+endif
 if USE_YASM
+if INTEL_CET_ENABLED
+  as_filter = ${srcdir}/tools/yasm-cet-filter.sh
+else
   as_filter = ${srcdir}/tools/yasm-filter.sh
 endif
+endif
 if USE_NASM
+if INTEL_CET_ENABLED
+  as_filter = ${srcdir}/tools/nasm-cet-filter.sh
+else
   as_filter = ${srcdir}/tools/nasm-filter.sh
 endif
+endif
 if CPU_AARCH64
-  as_filter = gcc -D__ASSEMBLY__
+  as_filter = $(CC) -D__ASSEMBLY__
 endif
 CCAS = $(as_filter)
 EXTRA_DIST += tools/yasm-filter.sh tools/nasm-filter.sh
@@ -127,6 +143,11 @@ BUILT_SOURCES = isa-l_crypto.h
 CLEANFILES += isa-l_crypto.h
 isa-l_crypto.h:
 	@echo 'Building $@'
+	@echo ''			>> $@
+	@echo '/**'			>> $@
+	@echo ' *  @file isa-l_crypto.h'>> $@
+	@echo ' *  @brief Include for ISA-L_crypto library'	>> $@
+	@echo ' */'			>> $@
 	@echo ''			>> $@
 	@echo '#ifndef _ISAL_CRYPTO_H_'	>> $@
 	@echo '#define _ISAL_CRYPTO_H_'	>> $@

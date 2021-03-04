@@ -54,8 +54,17 @@ lsrc_x86_64 += 	md5_mb/md5_mb_mgr_submit_avx512.asm \
 
 lsrc_x86_32 += $(lsrc_x86_64)
 
-lsrc_aarch64 += md5_mb/md5_ctx_base.c
+lsrc_aarch64 += md5_mb/md5_ctx_base.c \
+		md5_mb/aarch64/md5_ctx_aarch64_asimd.c  \
+		md5_mb/aarch64/md5_mb_aarch64_dispatcher.c  \
+		md5_mb/aarch64/md5_mb_mgr_aarch64_asimd.c  \
+		md5_mb/aarch64/md5_mb_asimd_x4.S  \
+		md5_mb/aarch64/md5_mb_asimd_x1.S  \
+		md5_mb/aarch64/md5_mb_multibinary.S
 
+
+lsrc_base_aliases += md5_mb/md5_ctx_base.c \
+		md5_mb/md5_ctx_base_aliases.c
 src_include  += -I $(srcdir)/md5_mb
 extern_hdrs  += include/md5_mb.h \
 		include/multi_buffer.h

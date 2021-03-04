@@ -101,6 +101,15 @@ msg+=$'Other tests build: Pass\n'
 
 $MAKE -f Makefile.unx clean
 
+# noarch makefile run tests
+test_start "extended_makefile_tests"
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S" \
+	arch=noarch
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S" \
+	arch=noarch $test_level
+test_end "extended_makefile_tests" $?
+msg+=$'noarch makefile tests: Pass\n'
+
 set +x
 echo
 echo "Summary test $0:"

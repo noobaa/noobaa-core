@@ -56,6 +56,7 @@ static uint8_t digest_ssl[TEST_BUFS][4 * MD5_DIGEST_NWORDS];
 
 int main(void)
 {
+	int ret;
 	MD5_HASH_CTX_MGR *mgr = NULL;
 	MD5_HASH_CTX ctxpool[TEST_BUFS];
 	unsigned char *bufs[TEST_BUFS];
@@ -73,7 +74,11 @@ int main(void)
 		ctxpool[i].user_data = (void *)((uint64_t) i);
 	}
 
-	posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	md5_ctx_mgr_init(mgr);
 
 	// Start OpenSSL tests

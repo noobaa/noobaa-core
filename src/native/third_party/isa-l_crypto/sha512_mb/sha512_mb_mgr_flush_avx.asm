@@ -33,7 +33,10 @@
 %include "reg_sizes.asm"
 
 extern sha512_mb_x2_avx
+
+[bits 64]
 default rel
+section .text
 
 %ifidn __OUTPUT_FORMAT__, elf64
 ; LINUX register definitions
@@ -91,8 +94,9 @@ STACK_SPACE     equ _GPR_SAVE + _GPR_SAVE_SIZE + _ALIGN_SIZE
 
 ; SHA512_JOB* sha512_mb_mgr_flush_avx(SHA512_MB_JOB_MGR *state)
 ; arg 1 : rcx : state
-global sha512_mb_mgr_flush_avx:function
+mk_global sha512_mb_mgr_flush_avx, function
 sha512_mb_mgr_flush_avx:
+	endbranch
 
 	sub     rsp, STACK_SPACE
 	mov     [rsp + _GPR_SAVE + 8*0], rbx
@@ -169,6 +173,8 @@ len_is_0:
 	shl     unused_lanes, 8
 	or      unused_lanes, idx
 	mov     [state + _unused_lanes], unused_lanes
+
+	sub     dword [state + _num_lanes_inuse], 1
 
 	vmovq    xmm0, [state + _args_digest + 8*idx + 0*32]
 	vpinsrq  xmm0, [state + _args_digest + 8*idx + 1*32], 1

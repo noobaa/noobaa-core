@@ -45,6 +45,18 @@ lsrc_x86_64  += $(lsrc_murmur) \
 
 lsrc_x86_32  += $(lsrc_x86_64)
 
+lsrc_aarch64 += $(lsrc_murmur)	\
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_finalize_base.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_update_base.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_base_aliases.c
+
+lsrc_base_aliases += $(lsrc_murmur)	\
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_finalize_base.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_update_base.c \
+		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_base_aliases.c
+
 other_src += 	include/reg_sizes.asm \
 		include/multibinary.asm \
 		include/test.h \

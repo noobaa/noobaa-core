@@ -30,7 +30,9 @@
 %include "sha1_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
 
+[bits 64]
 default rel
+section .text
 
 ;; code to compute oct SHA1 using SSE-256
 ;; outer calling routine takes care of save and restore of XMM registers
@@ -339,8 +341,9 @@ align 32
 ; void sha1_x8_avx2(SHA1_MB_ARGS_X8, uint32_t size)
 ; arg 1 : pointer to input data
 ; arg 2 : size (in blocks) ;; assumed to be >= 1
-global sha1_mb_x8_avx2:function internal
+mk_global sha1_mb_x8_avx2, function, internal
 sha1_mb_x8_avx2:
+	endbranch
 
 	push	RSP_SAVE
 

@@ -35,7 +35,9 @@
 extern sha256_mb_x4_avx
 extern sha256_opt_x1
 
+[bits 64]
 default rel
+section .text
 
 %ifidn __OUTPUT_FORMAT__, elf64
 ; LINUX register definitions
@@ -94,8 +96,9 @@ STACK_SPACE     equ _GPR_SAVE + _GPR_SAVE_SIZE + _ALIGN_SIZE
 
 ; SHA256_JOB* sha256_mb_mgr_flush_avx(SHA256_MB_JOB_MGR *state)
 ; arg 1 : rcx : state
-global sha256_mb_mgr_flush_avx:function
+mk_global sha256_mb_mgr_flush_avx, function
 sha256_mb_mgr_flush_avx:
+	endbranch
 
 	sub     rsp, STACK_SPACE
 	mov     [rsp + _GPR_SAVE + 8*0], rbx

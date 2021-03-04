@@ -61,7 +61,16 @@ lsrc_x86_64 += 	sha512_mb/sha512_ctx_avx512.c \
 
 lsrc_x86_32 += 	$(lsrc_x86_64)
 
-lsrc_aarch64 += sha512_mb/sha512_ctx_base.c
+lsrc_aarch64 += sha512_mb/sha512_ctx_base.c			\
+		sha512_mb/aarch64/sha512_mb_multibinary.S 	\
+		sha512_mb/aarch64/sha512_mb_aarch64_dispatcher.c  \
+		sha512_mb/aarch64/sha512_ctx_ce.c			\
+		sha512_mb/aarch64/sha512_mb_mgr_ce.c	\
+		sha512_mb/aarch64/sha512_mb_x1_ce.S	\
+		sha512_mb/aarch64/sha512_mb_x2_ce.S
+
+lsrc_base_aliases += sha512_mb/sha512_ctx_base.c	\
+		sha512_mb/sha512_ctx_base_aliases.c
 
 src_include += -I $(srcdir)/sha512_mb
 

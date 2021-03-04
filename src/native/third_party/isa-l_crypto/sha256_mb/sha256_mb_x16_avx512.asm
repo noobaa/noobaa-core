@@ -32,7 +32,9 @@
 
 %ifdef HAVE_AS_KNOWS_AVX512
 
+[bits 64]
 default rel
+section .text
 
 ;; code to compute oct SHA256 using SSE-256 / AVX512
 ;; outer calling routine takes care of save and restore of XMM registers
@@ -69,7 +71,7 @@ FIELD	_rsp,		8,	8
    %define arg2 rsi	; arg1
    %define var1 rdx	; arg2
    %define var2 rcx	; arg3
-   %define local_func_decl(func_name) global func_name:function internal
+   %define local_func_decl(func_name) mk_global func_name, function, internal
 %endif
 
 %define state    arg1
@@ -455,6 +457,7 @@ align 64
 ; arg 2 : size (in blocks) ;; assumed to be >= 1
 local_func_decl(sha256_mb_x16_avx512)
 sha256_mb_x16_avx512:
+	endbranch
 	mov	rax, rsp
         sub     rsp, STACK_SPACE
 	and	rsp, ~63	; align stack to multiple of 64

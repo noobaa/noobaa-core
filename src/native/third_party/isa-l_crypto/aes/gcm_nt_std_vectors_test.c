@@ -76,9 +76,9 @@ int test_gcm128_std_vectors_nt(gcm_vector const *vector)
 	uint64_t IV_alloc_len = 0;
 
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&ct_test, 16, vector->Plen);
+	posix_memalign((void **)&ct_test, 32, vector->Plen);
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&pt_test, 16, vector->Plen);
+	posix_memalign((void **)&pt_test, 32, vector->Plen);
 	if ((ct_test == NULL) || (pt_test == NULL)) {
 		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
 		return 1;
@@ -179,9 +179,9 @@ int test_gcm256_std_vectors_nt(gcm_vector const *vector)
 	uint64_t IV_alloc_len = 0;
 
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&ct_test, 16, vector->Plen);
+	posix_memalign((void **)&ct_test, 32, vector->Plen);
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&pt_test, 16, vector->Plen);
+	posix_memalign((void **)&pt_test, 32, vector->Plen);
 	if ((ct_test == NULL) || (pt_test == NULL)) {
 		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
 		return 1;

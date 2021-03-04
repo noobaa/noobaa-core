@@ -1901,6 +1901,7 @@ movdqu  %%T_key, [%%GDATA_KEY+16*j]				; encrypt with last (14th) key round (12 
 %ifnidn FUNCT_EXTENSION, _nt
 global FN_NAME(precomp,_)
 FN_NAME(precomp,_):
+	endbranch
 
         push    r12
         push    r13
@@ -1966,6 +1967,7 @@ ret
 %ifnidn FUNCT_EXTENSION, _nt
 global FN_NAME(init,_)
 FN_NAME(init,_):
+	endbranch
 
 	push	r12
 	push	r13
@@ -2000,6 +2002,7 @@ FN_NAME(init,_):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 global FN_NAME(enc,_update_)
 FN_NAME(enc,_update_):
+	endbranch
 
 	FUNC_SAVE
 
@@ -2020,6 +2023,7 @@ FN_NAME(enc,_update_):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 global FN_NAME(dec,_update_)
 FN_NAME(dec,_update_):
+	endbranch
 
 	FUNC_SAVE
 
@@ -2040,6 +2044,7 @@ FN_NAME(dec,_update_):
 %ifnidn FUNCT_EXTENSION, _nt
 global FN_NAME(enc,_finalize_)
 FN_NAME(enc,_finalize_):
+	endbranch
 
 	push r12
 
@@ -2078,6 +2083,7 @@ FN_NAME(enc,_finalize_):
 %ifnidn FUNCT_EXTENSION, _nt
 global FN_NAME(dec,_finalize_)
 FN_NAME(dec,_finalize_):
+	endbranch
 
 	push r12
 
@@ -2121,6 +2127,7 @@ FN_NAME(dec,_finalize_):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 global FN_NAME(enc,_)
 FN_NAME(enc,_):
+	endbranch
 
 	FUNC_SAVE
 
@@ -2149,6 +2156,7 @@ FN_NAME(enc,_):
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 global FN_NAME(dec,_)
 FN_NAME(dec,_):
+	endbranch
 
 	FUNC_SAVE
 

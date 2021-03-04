@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const util = require('util');
-const stream = require('stream');
 const crypto = require('crypto');
 
 const P = require('../util/promise');
@@ -160,12 +159,11 @@ class NamespaceBlob {
                 // clear count for next updates
                 count = 0;
             });
-            const read_stream = new stream.PassThrough();
             // we prefer not to resolve the promise until we know the stream really starts
             // so that NotFound errors or any error that is not related to streaming
             // will be returned as promise rejection instead of stream error.
             // once data is ready this is our trigger for resolving the promise and starting to stream
-            read_stream.on('error', err => {
+            count_stream.on('error', err => {
                 dbg.warn('NamespaceBlob.read_object_stream:',
                     this.container,
                     inspect(_.omit(params, 'object_md.ns')),
@@ -174,15 +172,15 @@ class NamespaceBlob {
                 reject(err);
             });
             const on_readable = () => {
-                read_stream.removeListener('readable', on_readable);
+                count_stream.removeListener('readable', on_readable);
                 dbg.log0('NamespaceBlob.read_object_stream:',
                     this.container,
                     inspect(_.omit(params, 'object_md.ns')),
                     'read_stream is readable'
                 );
-                resolve(read_stream.pipe(count_stream));
+                resolve(count_stream);
             };
-            read_stream.on('readable', on_readable);
+            count_stream.on('readable', on_readable);
             const options = {
                 skipSizeCheck: true,
             };
@@ -193,7 +191,7 @@ class NamespaceBlob {
             this.blob.getBlobToStream(
                 this.container,
                 params.key,
-                read_stream,
+                count_stream,
                 options,
                 (err, res) => {
                     if (err) {
@@ -204,7 +202,7 @@ class NamespaceBlob {
                             'callback err', inspect(err)
                         );
                         try {
-                            read_stream.emit('error', err);
+                            count_stream.emit('error', err);
                         } catch (err2) {
                             // ignore, only needed if there is no error listeners
                         }
@@ -215,7 +213,7 @@ class NamespaceBlob {
                         inspect(_.omit(params, 'object_md.ns')),
                         'callback res', inspect(res)
                     );
-                    return resolve(read_stream.pipe(count_stream));
+                    return resolve(count_stream);
                 }
             );
         });

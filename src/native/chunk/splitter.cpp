@@ -2,6 +2,7 @@
 #include "splitter.h"
 
 #include "../util/common.h"
+#include "../util/endian.h"
 
 namespace noobaa
 {
@@ -86,7 +87,10 @@ Splitter::finish(uint8_t* md5, uint8_t* sha256)
     if (md5) {
         if (_md5_mb_ctx) {
             md5_mb_submit_and_flush(0, 0, HASH_LAST);
-            memcpy(md5, hash_ctx_digest(_md5_mb_ctx), MD5_DIGEST_NWORDS * 4);
+            uint32_t *digest = reinterpret_cast<uint32_t*>(md5);
+            for (int i = 0; i < MD5_DIGEST_NWORDS; i++) {
+                digest[i] = le32toh(hash_ctx_digest(_md5_mb_ctx)[i]);
+            }
         } else if (_md5_ctx) {
             EVP_DigestFinal_ex(_md5_ctx, md5, 0);
         } else {

@@ -2,10 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
-const stream = require('stream');
 const request = require('request');
 
+const crypto = require('crypto');
 const P = require('../../util/promise');
+const stream = require('stream');
+const buffer_utils = require('../../util/buffer_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
@@ -63,14 +65,7 @@ async function create_func(req) {
         }
     }
     const resource_name = `arn:noobaa:lambda:region:${system}:function:${name}:${version}`;
-    const code_stream = await _get_func_code_stream(req, func_code);
-
-    const {
-        id: code_gridfs_id,
-        sha256: code_sha256,
-        size: code_size
-    } = await func_store.instance()
-        .create_code_gridfs({ system, name, version, code_stream });
+    const { code, code_sha256, code_size } = await _get_func_code_b64(req, func_code);
 
     const func_id = func_store.instance().make_func_id();
     await func_store.instance().create_func({
@@ -85,7 +80,7 @@ async function create_func(req) {
         last_modifier: exec_account,
         resource_name,
         pools: pools.map(pool => pool._id),
-        code_gridfs_id,
+        code,
         code_sha256,
         code_size
     });
@@ -120,18 +115,11 @@ async function update_func(req) {
 
     const func_code = params.code;
     if (func_code) {
-        await func_store.instance().delete_code_gridfs(func.code_gridfs_id);
-        const code_stream = await _get_func_code_stream(req, func_code);
-        const res = await func_store.instance().create_code_gridfs({
-            system: func.system,
-            name: func.name,
-            version: func.version,
-            code_stream,
-        });
+        const { code, code_sha256, code_size } = await _get_func_code_b64(req, func_code);
 
-        config_updates.code_gridfs_id = res.id;
-        config_updates.code_sha256 = res.sha256;
-        config_updates.code_size = res.size;
+        config_updates.code = code;
+        config_updates.code_sha256 = code_sha256;
+        config_updates.code_size = code_size;
 
         code_updated = true;
     }
@@ -162,15 +150,27 @@ async function update_func(req) {
 async function delete_func(req) {
     dbg.log0('delete_func::', req.params.name);
     await _load_func(req);
-    await func_store.instance().delete_code_gridfs(req.func.code_gridfs_id);
+    //TODO: We might not deleting the record, need to check if we have bg for that.
+    // If not we might want to change the code field to an empty one. (or maybe not).
     await func_store.instance().delete_func(req.func._id);
 }
 
 async function read_func(req) {
     await _load_func(req);
-    const reply = await _get_func_info(req.func);
+    const reply = _get_func_info(req.func);
     if (req.params.read_code) {
-        const zipfile = await func_store.instance().read_code_gridfs(req.func.code_gridfs_id);
+        const system = req.system._id;
+        const { name, version } = req.params;
+        const func = await func_store.instance().read_func(system, name, version);
+        const zipfile_b64 = func.code;
+        //Converting the base64 string into a zipfile again (stream then buffer).
+        const zipfile_stream = new stream.Readable({
+            read(size) {
+                this.push(Buffer.from(zipfile_b64, 'base64'));
+                this.push(null);
+            }
+        });
+        const zipfile = await buffer_utils.read_stream_join(zipfile_stream);
         reply[RPC_BUFFERS] = { zipfile };
     }
     return reply;
@@ -274,16 +274,21 @@ async function invoke_func(req) {
         aws_config: _make_aws_config(req),
         rpc_options: _make_rpc_options(req),
     };
-    if (node) {
-        dbg.log0('invoking on node',
-            func.name, req.params.event,
-            node.name, node.pool);
-        res = await server_rpc.client.func_node.invoke_func(params, {
-            address: node.rpc_address
-        });
-    } else {
-        dbg.log0('invoking on server', func.name, req.params.event);
-        res = await server_func_node.invoke_func({ params });
+    try {
+        if (node) {
+            dbg.log0('invoking on node',
+                func.name, req.params.event,
+                node.name, node.pool);
+            res = await server_rpc.client.func_node.invoke_func(params, {
+                address: node.rpc_address
+            });
+        } else {
+            dbg.log0('invoking on server', func.name, req.params.event);
+            res = await server_func_node.invoke_func({ params });
+        }
+    } catch (e) {
+        dbg.error('invoke returned with error:', e);
+        throw e;
     }
     await func_stats_store.instance().create_func_stat({
         system: req.func.system,
@@ -316,23 +321,19 @@ function check_event_permission(req) {
     }
 }
 
-function _get_func_code_stream(req, func_code) {
+// _get_func_code will return the code in base64, the code size and it's sha256
+async function _get_func_code_b64(req, func_code) {
+    let code;
+    let code_size;
+    const sha256 = crypto.createHash('sha256');
     if (func_code.zipfile_b64) {
         // zipfile is given as base64 string
-        return new stream.Readable({
-            read(size) {
-                this.push(Buffer.from(func_code.zipfile_b64, 'base64'));
-                this.push(null);
-            }
-        });
+        code = func_code.zipfile_b64;
+        code_size = Buffer.from(func_code.zipfile_b64, 'base64').length;
     } else if (req.rpc_params[RPC_BUFFERS] && req.rpc_params[RPC_BUFFERS].zipfile) {
         // zipfile is given as buffer
-        return new stream.Readable({
-            read(size) {
-                this.push(req.rpc_params[RPC_BUFFERS].zipfile);
-                this.push(null);
-            }
-        });
+        code = req.rpc_params[RPC_BUFFERS].zipfile.toString('base64');
+        code_size = req.rpc_params[RPC_BUFFERS].zipfile.length;
     } else if (func_code.s3_bucket && func_code.s3_key) {
         console.log(`reading function code from bucket ${func_code.s3_bucket} and key ${func_code.s3_key}`);
         const account_keys = req.account.access_keys[0];
@@ -342,13 +343,14 @@ function _get_func_code_stream(req, func_code) {
             secretAccessKey: account_keys.secret_key,
         });
 
-        const get_object_req = s3_endpoint.getObject({
+        const get_object_req = await s3_endpoint.getObject({
             Bucket: func_code.s3_bucket,
             Key: func_code.s3_key,
-        });
-        return get_object_req.createReadStream();
+        }).promise();
+        code = get_object_req.Body.toString('base64');
+        code_size = get_object_req.ContentLength;
     } else if (func_code.url) {
-        return new Promise((resolve, reject) => {
+        const code_buffer = await new Promise((resolve, reject) => {
             console.log(`reading function code from ${func_code.url}`);
             request({
                     url: func_code.url,
@@ -364,9 +366,16 @@ function _get_func_code_stream(req, func_code) {
                 })
                 .once('error', err => reject(err));
         });
+        code = code_buffer.toString('base64');
+        code_size = code_buffer.length;
     } else {
         throw new Error('Unsupported code');
     }
+    return {
+        code,
+        code_sha256: sha256.update(code).digest('base64'),
+        code_size,
+    };
 }
 
 async function _load_func(req) {

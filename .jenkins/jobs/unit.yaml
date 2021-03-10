@@ -28,6 +28,7 @@
       - github-pull-request:
           status-context: ci/centos/unit
           trigger-phrase: "/(re)?test ((all)|(ci/centos/unit))"
+          only-trigger-phrase: true
           status-url: $RUN_DISPLAY_URL
           permit-all: true
           github-hooks: true

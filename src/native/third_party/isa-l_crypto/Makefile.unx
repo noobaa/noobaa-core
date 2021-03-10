@@ -26,20 +26,28 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
-
-units_x86_64     = sha1_mb sha256_mb sha512_mb md5_mb mh_sha1 mh_sha1_murmur3_x64_128 mh_sha256 aes rolling_hash sm3_mb
-units_x86_32     = $(units_x86_64)
-units_aarch64    = sha1_mb mh_sha1
 host_cpu ?= $(shell uname -m | sed -e 's/amd/x86_/')
-units ?= $(units_$(host_cpu))
+arch ?= $(shell uname | grep -v -e Linux -e BSD )
 
+
+
+units ?=sha1_mb sha256_mb sha512_mb md5_mb mh_sha1 mh_sha1_murmur3_x64_128 \
+	mh_sha256 rolling_hash sm3_mb
+ifneq ($(filter x86_%,$(host_cpu)),)
+ifneq ($(arch),noarch)
+units +=aes
+endif
+endif
+ifeq ($(host_cpu)_$(arch),aarch64_)
+  arch = aarch64
+endif
 default: lib
-
 include $(foreach unit,$(units), $(unit)/Makefile.am)
 
 # Override individual lib names to make one inclusive library.
 lib_name := bin/isa-l_crypto.a
 
 include make.inc
+include tools/gen_nmake.mk
 
-VPATH = . $(units) include $(units:%=%/$(host_cpu))
+VPATH = . $(units) include

@@ -31,7 +31,10 @@
 %include "reg_sizes.asm"
 
 %ifdef HAVE_AS_KNOWS_SHANI
+
+[bits 64]
 default rel
+section .text
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -80,8 +83,9 @@ align 32
 ;
 ; Clobbers registers: rax, r9~r11, xmm0-xmm7
 ;
-global sha1_ni_x1:function internal
+mk_global sha1_ni_x1, function, internal
 sha1_ni_x1:
+	endbranch
 	mov	RSPSAVE, rsp
 	sub     rsp, FRAMESZ
 	and	rsp, ~0xF	; Align 16Bytes downward

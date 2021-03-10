@@ -37,7 +37,9 @@
 extern sha1_mb_x16_avx512
 extern sha1_ni_x1
 
+[bits 64]
 default rel
+section .text
 
 %ifidn __OUTPUT_FORMAT__, elf64
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -83,8 +85,9 @@ STACK_SPACE     equ _GPR_SAVE + _GPR_SAVE_SIZE + _ALIGN_SIZE
 
 ; SHA1_JOB* sha1_mb_mgr_flush_avx512(SHA1_MB_JOB_MGR *state)
 ; arg 1 : rcx : state
-global sha1_mb_mgr_flush_avx512_ni:function
+mk_global sha1_mb_mgr_flush_avx512_ni, function
 sha1_mb_mgr_flush_avx512_ni:
+	endbranch
 	sub     rsp, STACK_SPACE
 	mov     [rsp + _GPR_SAVE + 8*0], rbx
 	mov     [rsp + _GPR_SAVE + 8*3], rbp

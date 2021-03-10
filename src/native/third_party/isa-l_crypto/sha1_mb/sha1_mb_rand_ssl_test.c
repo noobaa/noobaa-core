@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <openssl/sha.h>
 #include "sha1_mb.h"
+#include "endian_helper.h"
 
 #define TEST_LEN  (1024*1024)
 #define TEST_BUFS 200
@@ -50,11 +51,6 @@ void rand_buffer(unsigned char *buf, const long buffer_size)
 	long i;
 	for (i = 0; i < buffer_size; i++)
 		buf[i] = rand();
-}
-
-unsigned int byteswap(unsigned int x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
 }
 
 int main(void)
@@ -98,11 +94,11 @@ int main(void)
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SHA1_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    byteswap(((uint32_t *) digest_ssl[i])[j])) {
+			    to_be32(((uint32_t *) digest_ssl[i])[j])) {
 				fail++;
 				printf("Test%d, digest%d fail %08X <=> %08X\n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       byteswap(((uint32_t *) digest_ssl[i])[j]));
+				       to_be32(((uint32_t *) digest_ssl[i])[j]));
 			}
 		}
 	}
@@ -131,11 +127,11 @@ int main(void)
 		for (i = 0; i < jobs; i++) {
 			for (j = 0; j < SHA1_DIGEST_NWORDS; j++) {
 				if (ctxpool[i].job.result_digest[j] !=
-				    byteswap(((uint32_t *) digest_ssl[i])[j])) {
+				    to_be32(((uint32_t *) digest_ssl[i])[j])) {
 					fail++;
 					printf("Test%d, digest%d fail %08X <=> %08X\n",
 					       i, j, ctxpool[i].job.result_digest[j],
-					       byteswap(((uint32_t *) digest_ssl[i])[j]));
+					       to_be32(((uint32_t *) digest_ssl[i])[j]));
 				}
 			}
 		}

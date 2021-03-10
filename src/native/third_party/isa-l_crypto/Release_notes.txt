@@ -1,5 +1,5 @@
 ================================================================================
-v2.22 Intel Intelligent Storage Acceleration Library Crypto Release Notes
+v2.23 Intel Intelligent Storage Acceleration Library Crypto Release Notes
 ================================================================================
 
 ================================================================================
@@ -55,6 +55,13 @@ v2.7
 ================================================================================
 3. CHANGE LOG & FEATURES ADDED
 ================================================================================
+v2.23
+
+* New optimized versions of block ciphers AES-GCM and AES-XTS.
+
+* New optimized versions of multi-buffer SM3 hashing.  Removed experimental
+  status.
+
 v2.22
 
 * New multi-buffer SM3 functions. Experimental base functions only.

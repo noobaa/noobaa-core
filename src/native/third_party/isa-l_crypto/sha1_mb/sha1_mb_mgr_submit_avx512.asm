@@ -36,6 +36,10 @@
 
 extern sha1_mb_x16_avx512
 
+[bits 64]
+default rel
+section .text
+
 %ifidn __OUTPUT_FORMAT__, elf64
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; LINUX register definitions
@@ -78,8 +82,9 @@ extern sha1_mb_x16_avx512
 ; JOB* sha1_mb_mgr_submit_avx512(MB_MGR *state, JOB_SHA1 *job)
 ; arg 1 : rcx : state
 ; arg 2 : rdx : job
-global sha1_mb_mgr_submit_avx512:function
+mk_global sha1_mb_mgr_submit_avx512, function
 sha1_mb_mgr_submit_avx512:
+	endbranch
 
 	sub     rsp, STACK_SPACE
 	mov     [rsp + 8*0], rbx

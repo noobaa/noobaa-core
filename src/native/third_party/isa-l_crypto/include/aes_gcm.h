@@ -35,10 +35,10 @@
  * selected by defining the compile time option NT_LDST. The use of this option
  * places the following restriction on the gcm encryption functions:
  *
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
  *
  * - When using the streaming API, all partial input buffers must be a multiple
- *   of 16 bytes long except for the last input buffer.
+ *   of 64 bytes long except for the last input buffer.
  *
  * - In-place encryption/decryption is not recommended.
  *
@@ -153,14 +153,19 @@ struct gcm_key_data {
         uint8_t shifted_hkey_6[GCM_ENC_KEY_LEN];  // store HashKey^6 <<1 mod poly here
         uint8_t shifted_hkey_7[GCM_ENC_KEY_LEN];  // store HashKey^7 <<1 mod poly here
         uint8_t shifted_hkey_8[GCM_ENC_KEY_LEN];  // store HashKey^8 <<1 mod poly here
-        uint8_t shifted_hkey_1_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_2_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^2 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_3_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^3 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_4_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^4 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_5_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^5 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_6_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^6 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_7_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^7 <<1 mod poly here (for Karatsuba purposes)
-        uint8_t shifted_hkey_8_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits and Low 64 bits of  HashKey^8 <<1 mod poly here (for Karatsuba purposes)
+        uint8_t shifted_hkey_1_k[GCM_ENC_KEY_LEN];  // store XOR of High 64 bits
+        uint8_t shifted_hkey_2_k[GCM_ENC_KEY_LEN];  // and Low 64b of HashKey^n <<1 mod poly
+        uint8_t shifted_hkey_3_k[GCM_ENC_KEY_LEN];  // here (for Karatsuba purposes)
+        uint8_t shifted_hkey_4_k[GCM_ENC_KEY_LEN];
+        uint8_t shifted_hkey_5_k[GCM_ENC_KEY_LEN];
+        uint8_t shifted_hkey_6_k[GCM_ENC_KEY_LEN];
+        uint8_t shifted_hkey_7_k[GCM_ENC_KEY_LEN];
+        uint8_t shifted_hkey_8_k[GCM_ENC_KEY_LEN];
+#ifdef GCM_BIG_DATA
+        uint8_t shifted_hkey_n_k[GCM_ENC_KEY_LEN * (128 - 16)]; // Big data version needs 128
+#else
+        uint8_t shifted_hkey_n_k[GCM_ENC_KEY_LEN * (48 - 16)]; // Others vaes version needs 48
+#endif
 }
 #if defined (__unix__) || (__APPLE__) || (__MINGW32__)
         __attribute__ ((aligned (16)));
@@ -431,7 +436,7 @@ void aes_gcm_pre_256(
  * @brief GCM-AES Encryption using 128 bit keys, Non-temporal data
  *
  * Non-temporal version of encrypt has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
  * @requires SSE4.1 and AESNI
@@ -455,7 +460,7 @@ void aes_gcm_enc_128_nt(
  * @brief GCM-AES Encryption using 256 bit keys, Non-temporal data
  *
  * Non-temporal version of encrypt has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
  * @requires SSE4.1 and AESNI
@@ -480,7 +485,7 @@ void aes_gcm_enc_256_nt(
  * @brief GCM-AES Decryption using 128 bit keys, Non-temporal data
  *
  * Non-temporal version of decrypt has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
  * @requires SSE4.1 and AESNI
@@ -504,7 +509,7 @@ void aes_gcm_dec_128_nt(
  * @brief GCM-AES Decryption using 128 bit keys, Non-temporal data
  *
  * Non-temporal version of decrypt has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
  * @requires SSE4.1 and AESNI
@@ -529,8 +534,8 @@ void aes_gcm_dec_256_nt(
  * @brief Encrypt a block of a AES-128-GCM Encryption message, Non-temporal data
  *
  * Non-temporal version of encrypt update has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
- * - All partial input buffers must be a multiple of 16 bytes long except for
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
+ * - All partial input buffers must be a multiple of 64 bytes long except for
  *   the last input buffer.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
@@ -548,8 +553,8 @@ void aes_gcm_enc_128_update_nt(
  * @brief Encrypt a block of a AES-256-GCM Encryption message, Non-temporal data
  *
  * Non-temporal version of encrypt update has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
- * - All partial input buffers must be a multiple of 16 bytes long except for
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
+ * - All partial input buffers must be a multiple of 64 bytes long except for
  *   the last input buffer.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
@@ -567,8 +572,8 @@ void aes_gcm_enc_256_update_nt(
  * @brief Decrypt a block of a AES-128-GCM Encryption message, Non-temporal data
  *
  * Non-temporal version of decrypt update has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
- * - All partial input buffers must be a multiple of 16 bytes long except for
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
+ * - All partial input buffers must be a multiple of 64 bytes long except for
  *   the last input buffer.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
@@ -586,8 +591,8 @@ void aes_gcm_dec_128_update_nt(
  * @brief Decrypt a block of a AES-256-GCM Encryption message, Non-temporal data
  *
  * Non-temporal version of decrypt update has additional restrictions:
- * - The plaintext and cyphertext buffers must be aligned on a 16 byte boundary.
- * - All partial input buffers must be a multiple of 16 bytes long except for
+ * - The plaintext and cyphertext buffers must be aligned on a 64 byte boundary.
+ * - All partial input buffers must be a multiple of 64 bytes long except for
  *   the last input buffer.
  * - In-place encryption/decryption is not recommended. Performance can be slow.
  *
@@ -601,209 +606,6 @@ void aes_gcm_dec_256_update_nt(
 	uint64_t len        //!< Length of data in Bytes for decryption
 	);
 
-
-/* ------------------ Old interface for backward compatability ------------ */
-
-/**
- * @brief GCM-AES Encryption using 128 bit keys - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_enc(struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * out,	//!< Ciphertext output. Encrypt in-place is allowed.
-		   uint8_t const *in,	//!< Plaintext input
-		   uint64_t plaintext_len,	//!< Length of data in Bytes for encryption.
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialization Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len,	//!< Length of AAD.
-		   uint8_t * auth_tag,	//!< Authenticated Tag output.
-		   uint64_t auth_tag_len	//!< Authenticated Tag Length in bytes (must be a multiple of 4 bytes). Valid values are 16 (most likely), 12 or 8.
-    );
-
-
-/**
- * @brief GCM-AES Decryption  using 128 bit keys - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_dec(struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * out,	//!< Plaintext output. Decrypt in-place is allowed.
-		   uint8_t const *in,	//!< Ciphertext input
-		   uint64_t plaintext_len,	//!< Length of data in Bytes for encryption.
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialisation Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len,	//!< Length of AAD.
-		   uint8_t * auth_tag,	//!< Authenticated Tag output.
-		   uint64_t auth_tag_len	//!< Authenticated Tag Length in bytes (must be a multiple of 4 bytes). Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief start a AES-128-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_init( struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialization Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len	//!< Length of AAD.
-    );
-
-/**
- * @brief encrypt a block of a AES-128-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_enc_update( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t		*out, 			//!< Ciphertext output. Encrypt in-place is allowed.
-		const uint8_t   *in, 	//!< Plaintext input
-		uint64_t	plaintext_len //!< Length of data in Bytes for encryption.
-    );
-
-/**
- * @brief decrypt a block of a AES-128-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_dec_update( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t		*out, 			//!< Ciphertext output. Encrypt in-place is allowed.
-	        const uint8_t   *in, 	//!< Plaintext input
-		uint64_t	plaintext_len //!< Length of data in Bytes for encryption.
-    );
-
-/**
- * @brief End encryption of a AES-128-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_enc_finalize( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t			*auth_tag, //!< Authenticated Tag output.
-		uint64_t		auth_tag_len //!< Authenticated Tag Length in bytes. Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief End decryption of a AES-128-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm128_dec_finalize( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t			*auth_tag, //!< Authenticated Tag output.
-		uint64_t		auth_tag_len //!< Authenticated Tag Length in bytes. Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief pre-processes key data - older interface
- *
- * Prefills the gcm data with key values for each round and the initial sub hash key for tag encoding
- */
-void aesni_gcm128_pre(uint8_t * key, struct gcm_data *gdata
-	);
-
-/**
- * @brief GCM-AES Encryption using 256 bit keys
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_enc(struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * out,	//!< Ciphertext output. Encrypt in-place is allowed.
-		   uint8_t const *in,	//!< Plaintext input
-		   uint64_t plaintext_len,	//!< Length of data in Bytes for encryption.
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialization Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len,	//!< Length of AAD.
-		   uint8_t * auth_tag,	//!< Authenticated Tag output.
-		   uint64_t auth_tag_len	//!< Authenticated Tag Length in bytes (must be a multiple of 4 bytes). Valid values are 16 (most likely), 12 or 8.
-    );
-
-
-/**
- * @brief GCM-AES Decryption using 256 bit keys - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_dec(struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * out,	//!< Plaintext output. Decrypt in-place is allowed.
-		   uint8_t const *in,	//!< Ciphertext input
-		   uint64_t plaintext_len,	//!< Length of data in Bytes for encryption.
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialisation Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len,	//!< Length of AAD.
-		   uint8_t * auth_tag,	//!< Authenticated Tag output.
-		   uint64_t auth_tag_len	//!< Authenticated Tag Length in bytes (must be a multiple of 4 bytes). Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief start a AES-256-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_init( struct gcm_data *my_ctx_data, //!< GCM context
-		   uint8_t * iv,	//!< Pre-counter block j0: 4 byte salt (from Security Association) concatenated with 8 byte Initialization Vector (from IPSec ESP Payload) concatenated with 0x00000001. 16-byte pointer.
-		   uint8_t const *aad,	//!< Additional Authentication Data (AAD).
-		   uint64_t aad_len	//!< Length of AAD.
-    );
-
-/**
- * @brief encrypt a block of a AES-256-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_enc_update( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t		*out, 			//!< Ciphertext output. Encrypt in-place is allowed.
-		const		uint8_t *in, 	//!< Plaintext input
-		uint64_t	plaintext_len //!< Length of data in Bytes for encryption.
-    );
-
-/**
- * @brief decrypt a block of a AES-256-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_dec_update( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t		*out, 			//!< Ciphertext output. Encrypt in-place is allowed.
-		const		uint8_t *in, 	//!< Plaintext input
-		uint64_t	plaintext_len //!< Length of data in Bytes for encryption.
-    );
-
-/**
- * @brief End encryption of a AES-256-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_enc_finalize( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t			*auth_tag, //!< Authenticated Tag output.
-		uint64_t		auth_tag_len //!< Authenticated Tag Length in bytes. Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief End decryption of a AES-256-GCM Encryption message - older interface
- *
- * @requires SSE4.1 and AESNI
- *
- */
-void aesni_gcm256_dec_finalize( struct gcm_data *my_ctx_data, //!< GCM context
-		uint8_t			*auth_tag, //!< Authenticated Tag output.
-		uint64_t		auth_tag_len //!< Authenticated Tag Length in bytes. Valid values are 16 (most likely), 12 or 8.
-    );
-
-/**
- * @brief pre-processes key data - older interface
- *
- * Prefills the gcm data with key values for each round and the initial sub hash key for tag encoding
- */
-void aesni_gcm256_pre(uint8_t * key, struct gcm_data *gdata);
 
 #ifdef __cplusplus
 }

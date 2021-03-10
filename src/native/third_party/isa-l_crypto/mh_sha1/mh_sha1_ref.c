@@ -45,7 +45,7 @@
 
 #define step00_19(i,a,b,c,d,e) \
 	if (i>15) W(i) = rol32(W(i-3)^W(i-8)^W(i-14)^W(i-16), 1); \
-	else W(i) = bswap(ww[i]); \
+	else W(i) = to_be32(ww[i]); \
 	e += rol32(a,5) + F1(b,c,d) + 0x5A827999 + W(i); \
 	b = rol32(b,30)
 
@@ -171,11 +171,6 @@ void sha1_for_mh_sha1_ref(const uint8_t * input_data, uint32_t * digest, const u
 {
 	uint32_t i, j;
 	uint8_t buf[2 * SHA1_BLOCK_SIZE];
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	digest[0] = MH_SHA1_H0;
 	digest[1] = MH_SHA1_H1;
@@ -200,16 +195,7 @@ void sha1_for_mh_sha1_ref(const uint8_t * input_data, uint32_t * digest, const u
 	else
 		i = SHA1_BLOCK_SIZE;
 
-	convert.uint = 8 * len;
-	p = buf + i - 8;
-	p[0] = convert.uchar[7];
-	p[1] = convert.uchar[6];
-	p[2] = convert.uchar[5];
-	p[3] = convert.uchar[4];
-	p[4] = convert.uchar[3];
-	p[5] = convert.uchar[2];
-	p[6] = convert.uchar[1];
-	p[7] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) len * 8);
 
 	sha1_single_for_mh_sha1_ref(buf, digest);
 	if (i == (2 * SHA1_BLOCK_SIZE))
@@ -375,7 +361,7 @@ void mh_sha1_tail_ref(uint8_t * partial_buffer, uint32_t total_len,
 		memset(partial_buffer, 0, MH_SHA1_BLOCK_SIZE);
 	}
 	//Padding the block
-	len_in_bit = bswap64((uint64_t) total_len * 8);
+	len_in_bit = to_be64((uint64_t) total_len * 8);
 	*(uint64_t *) (partial_buffer + MH_SHA1_BLOCK_SIZE - 8) = len_in_bit;
 	mh_sha1_block_ref(partial_buffer, mh_sha1_segs_digests, frame_buffer, 1);
 

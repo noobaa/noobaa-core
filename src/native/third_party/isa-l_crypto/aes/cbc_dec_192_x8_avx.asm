@@ -112,8 +112,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; aes_cbc_dec_192_avx(void *in, void *IV, void *keys, void *out, UINT64 num_bytes)
-global aes_cbc_dec_192_avx:function
+mk_global aes_cbc_dec_192_avx, function
 func(aes_cbc_dec_192_avx)
+	endbranch
 	FUNC_SAVE
 
         FILL_KEY_CACHE CKEY_CNT, FIRST_CKEY, KEYS, MOVDQ

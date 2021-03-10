@@ -40,6 +40,10 @@
 
 %include "reg_sizes.asm"
 
+[bits 64]
+default rel
+section .text
+
 ;
 ; the following instructions set specific macros must be defined in the user file
 ; to make use of the AES macros below

@@ -30,7 +30,9 @@
 %include "sha1_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
 
+[bits 64]
 default rel
+section .text
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -316,8 +318,10 @@ STACK_SPACE	equ _GPR_SAVE + _GPR_SAVE_SIZE
 ; Clobbers registers: all general regs (except r15), xmm0-xmm10
 ;	{rbx, rdx, rbp, (rdi, rsi), r12~r15 are saved on stack}
 ;
-global sha1_opt_x1:function internal
+mk_global sha1_opt_x1, function, internal
 sha1_opt_x1:
+	endbranch
+
 	sub     rsp, STACK_SPACE
 	mov     [rsp + _GPR_SAVE + 8*0], rbx
 	mov     [rsp + _GPR_SAVE + 8*1], rbp
@@ -464,7 +468,7 @@ sha1_opt_x1:
 
 
 ;;----------------------
-section .data align=128
+section .data align=64
 
 align 128
 K_XMM_AR:

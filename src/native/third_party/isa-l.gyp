@@ -129,7 +129,7 @@
             ],
             # compile asm only for x64 until we have support for ppc
             # see https://github.com/intel/isa-l/issues/7
-            'conditions': [['node_arch=="x64"', {'sources': [
+            'conditions': [['node_arch=="x64" or node_arch=="x32"', {'sources': [
                 'isa-l_crypto/md5_mb/md5_ctx_sse.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx.c',
                 'isa-l_crypto/md5_mb/md5_ctx_avx2.c',
@@ -150,7 +150,18 @@
                 'isa-l_crypto/md5_mb/md5_mb_mgr_flush_avx512.asm',
                 'isa-l_crypto/md5_mb/md5_mb_x16x2_avx512.asm',
                 'isa-l_crypto/md5_mb/md5_ctx_avx512.c',
-            ]}]],
+            ]}, 'node_arch=="arm64"', {'sources': [
+                'isa-l_crypto/md5_mb/aarch64/md5_ctx_aarch64_asimd.c',
+                'isa-l_crypto/md5_mb/aarch64/md5_mb_aarch64_dispatcher.c',
+                'isa-l_crypto/md5_mb/aarch64/md5_mb_mgr_aarch64_asimd.c',
+                'isa-l_crypto/md5_mb/aarch64/md5_mb_asimd_x4.S',
+                'isa-l_crypto/md5_mb/aarch64/md5_mb_asimd_x1.S',
+                'isa-l_crypto/md5_mb/aarch64/md5_mb_multibinary.S',
+            ]}, {
+                'sources': [
+                    'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
+                ]
+            }]],
         },
 
         {
@@ -166,7 +177,7 @@
             ],
             # compile asm only for x64 until we have support for ppc
             # see https://github.com/intel/isa-l/issues/7
-            'conditions': [['node_arch=="x64"', {'sources': [
+            'conditions': [['node_arch=="x64" or node_arch=="x32"', {'sources': [
                 'isa-l_crypto/sha1_mb/sha1_ctx_sse.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx2.c',
@@ -195,9 +206,18 @@
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_submit_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_avx512_ni.asm',
+            ]}, 'node_arch=="arm64"', {'sources': [
+                'isa-l_crypto/sha1_mb/sha1_ref.c',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_mb_multibinary.S',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_ctx_ce.c',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_mb_x1_ce.S',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_mb_x2_ce.S',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_mb_mgr_ce.c',
+                'isa-l_crypto/sha1_mb/aarch64/sha1_mb_aarch64_dispatcher.c',
             ]}, {
                 'sources': [
                     'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
+                    'isa-l_crypto/sha1_mb/sha1_ref.c',
                 ]
             }]],
         },

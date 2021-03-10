@@ -31,11 +31,15 @@
 #include <stdlib.h>
 #include <openssl/evp.h>
 
-#define TEST_LEN  (1024*1024)
-#define TEST_LOOPS 100
-#ifndef RANDOMS
-# define RANDOMS  100
+#ifndef TEST_SEED
+# define TEST_SEED 0x1234
 #endif
+#ifndef RANDOMS
+# define RANDOMS  128
+#endif
+#define TEST_LOOPS  128
+#define TEST_LEN    (1024*1024)
+#define LENGTH_SCAN (2*1024)
 
 /* Generates random data for keys, tweak and plaintext */
 void xts256_mk_rand_data(unsigned char *k1, unsigned char *k2, unsigned char *t,
@@ -60,13 +64,12 @@ static inline
 				int len, unsigned char *pt, unsigned char *ct)
 {
 	int outlen, tmplen;
-	if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv))
-		printf("\n ERROR!! \n");
-	if (!EVP_EncryptUpdate(ctx, ct, &outlen, (const unsigned char *)pt, len))
-		printf("\n ERROR!! \n");
-	if (!EVP_EncryptFinal_ex(ctx, ct + outlen, &tmplen))
-		printf("\n ERROR!! \n");
-
+	if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv)
+	    || (!EVP_EncryptUpdate(ctx, ct, &outlen, (const unsigned char *)pt, len))
+	    || (!EVP_EncryptFinal_ex(ctx, ct + outlen, &tmplen))) {
+		printf("\n Error in openssl encoding of %d bytes\n", len);
+		return 1;
+	}
 	return 0;
 }
 
@@ -76,23 +79,31 @@ static inline
 				int len, unsigned char *ct, unsigned char *dt)
 {
 	int outlen, tmplen;
-	if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv))
-		printf("\n ERROR!! \n");
-	if (!EVP_DecryptUpdate(ctx, dt, &outlen, (const unsigned char *)ct, len))
-		printf("\n ERROR!! \n");
-	if (!EVP_DecryptFinal_ex(ctx, dt + outlen, &tmplen))
-		printf("\n ERROR!! \n");
-
+	if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv)
+	    || (!EVP_DecryptUpdate(ctx, dt, &outlen, (const unsigned char *)ct, len))
+	    || (!EVP_DecryptFinal_ex(ctx, dt + outlen, &tmplen))) {
+		printf("\n Error in openssl decoding of %d bytes\n", len);
+		return 1;
+	}
 	return 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
 
 	unsigned char key1[32], key2[32], tinit[16];
 	unsigned char *pt, *ct, *dt, *refct, *refdt;
 	unsigned char keyssl[64];	/* SSL takes both keys together */
-	int i, j, k;
+	int i, j, k, ret;
+	int seed;
+
+	if (argc == 1)
+		seed = TEST_SEED;
+	else
+		seed = atoi(argv[1]);
+
+	srand(seed);
+	printf("SEED: %d\n", seed);
 
 	/* Initialise our cipher context, which can use same input vectors */
 	EVP_CIPHER_CTX *ctx;
@@ -111,6 +122,49 @@ int main(void)
 		return -1;
 	}
 
+	/**************************** LENGTH SCAN TEST *************************/
+	printf("aes_xts_256_rand_ossl test, %d sets of various length: ", 2 * 1024);
+
+	xts256_mk_rand_data(key1, key2, tinit, pt, TEST_LEN);
+
+	/* Set up key for the SSL engine */
+	for (k = 0; k < 32; k++) {
+		keyssl[k] = key1[k];
+		keyssl[k + 32] = key2[k];
+	}
+
+	for (ret = 0, i = 16; ret == 0 && i < LENGTH_SCAN; i++) {
+
+		/* Encrypt using each method */
+		XTS_AES_256_enc(key2, key1, tinit, i, pt, ct);
+		ret |= openssl_aes_256_xts_enc(ctx, keyssl, tinit, i, pt, refct);
+
+		// Compare
+		for (ret = 0, j = 0; j < i && ret == 0; j++) {
+			if (ct[j] != refct[j])
+				ret = 1;
+		}
+		if (ret)
+			printf(" XTS_AES_256_enc size=%d failed at byte %d!\n", i, j);
+
+		/* Decrypt using each method */
+		XTS_AES_256_dec(key2, key1, tinit, i, ct, dt);
+		ret |= openssl_aes_256_xts_dec(ctx, keyssl, tinit, i, refct, refdt);
+
+		for (k = 0, j = 0; j < TEST_LEN && ret == 0; j++) {
+			if (dt[j] != refdt[j])
+				ret = 1;
+		}
+		if (ret)
+			printf(" XTS_AES_256_dec size=%d failed at byte %d!\n", i, j);
+		if (0 == i % (LENGTH_SCAN / 16))
+			printf(".");
+		fflush(0);
+	}
+	if (ret)
+		return -1;
+	printf("Pass\n");
+
 	/**************************** FIXED LENGTH TEST *************************/
 	printf("aes_xts_256_rand_ossl test, %d sets of length %d: ", TEST_LOOPS, TEST_LEN);
 
@@ -127,7 +181,8 @@ int main(void)
 
 		/* Encrypt using each method */
 		XTS_AES_256_enc(key2, key1, tinit, TEST_LEN, pt, ct);
-		openssl_aes_256_xts_enc(ctx, keyssl, tinit, TEST_LEN, pt, refct);
+		if (openssl_aes_256_xts_enc(ctx, keyssl, tinit, TEST_LEN, pt, refct))
+			return -1;
 
 		// Carry out comparison of the calculated ciphertext with
 		// the reference
@@ -141,7 +196,8 @@ int main(void)
 
 		/* Decrypt using each method */
 		XTS_AES_256_dec(key2, key1, tinit, TEST_LEN, ct, dt);
-		openssl_aes_256_xts_dec(ctx, keyssl, tinit, TEST_LEN, refct, refdt);
+		if (openssl_aes_256_xts_dec(ctx, keyssl, tinit, TEST_LEN, refct, refdt))
+			return -1;
 
 		for (j = 0; j < TEST_LEN; j++) {
 
@@ -150,7 +206,8 @@ int main(void)
 				return -1;
 			}
 		}
-		printf(".");
+		if (0 == i % (TEST_LOOPS / 16))
+			printf(".");
 		fflush(0);
 	}
 	printf("Pass\n");
@@ -165,6 +222,7 @@ int main(void)
 	for (t = 0; t < RANDOMS; t++) {
 
 		rand_len = rand() % (TEST_LEN);
+		rand_len = rand_len < 16 ? 16 : rand_len;
 		xts256_mk_rand_data(key1, key2, tinit, pt, rand_len);
 
 		/* Set up key for the SSL engine */
@@ -175,7 +233,8 @@ int main(void)
 
 		/* Encrypt using each method */
 		XTS_AES_256_enc(key2, key1, tinit, rand_len, pt, ct);
-		openssl_aes_256_xts_enc(ctx, keyssl, tinit, rand_len, pt, refct);
+		if (openssl_aes_256_xts_enc(ctx, keyssl, tinit, rand_len, pt, refct))
+			return -1;
 
 		/* Carry out comparison of the calculated ciphertext with
 		 * the reference
@@ -190,7 +249,8 @@ int main(void)
 
 		/* Decrypt using each method */
 		XTS_AES_256_dec(key2, key1, tinit, rand_len, ct, dt);
-		openssl_aes_256_xts_dec(ctx, keyssl, tinit, rand_len, refct, refdt);
+		if (openssl_aes_256_xts_dec(ctx, keyssl, tinit, rand_len, refct, refdt))
+			return -1;
 
 		for (j = 0; j < rand_len; j++) {
 
@@ -199,7 +259,8 @@ int main(void)
 				return -1;
 			}
 		}
-		printf(".");
+		if (0 == t % (RANDOMS / 16))
+			printf(".");
 		fflush(0);
 	}
 

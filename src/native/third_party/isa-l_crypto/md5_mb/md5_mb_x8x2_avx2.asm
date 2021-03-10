@@ -29,7 +29,10 @@
 
 %include "md5_mb_mgr_datastruct.asm"
 %include "reg_sizes.asm"
+
+[bits 64]
 default rel
+section .text
 
 ;; code to compute double octal MD5 using AVX2
 
@@ -326,8 +329,9 @@ align 32
 ; arg 1 : pointer to MD5_ARGS structure
 ; arg 2 : number of blocks (>=1)
 
-global md5_mb_x8x2_avx2:function internal
+mk_global md5_mb_x8x2_avx2, function, internal
 md5_mb_x8x2_avx2:
+	endbranch
 	mov	rax, rsp
 	sub	rsp, STACK_size
 	and	rsp, -32

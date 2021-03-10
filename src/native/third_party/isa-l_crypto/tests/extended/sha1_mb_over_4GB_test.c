@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sha1_mb.h"
+#include "endian_helper.h"
 #include <openssl/sha.h>
 #define TEST_LEN  		(1024*1024ull)	//1M
 #define TEST_BUFS 		SHA1_MIN_LANES
@@ -39,11 +40,6 @@
 
 /* Reference digest global to reduce stack usage */
 static uint8_t digest_ref_upd[4 * SHA1_DIGEST_NWORDS];
-
-inline static unsigned int byteswap32(unsigned int x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
 
 struct user_data {
 	int idx;
@@ -134,13 +130,13 @@ int main(void)
 
 	printf("openssl SHA1 update digest: \n");
 	for (i = 0; i < SHA1_DIGEST_NWORDS; i++)
-		printf("%08X - ", byteswap32(((uint32_t *) digest_ref_upd)[i]));
+		printf("%08X - ", to_be32(((uint32_t *) digest_ref_upd)[i]));
 	printf("\n");
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SHA1_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    byteswap32(((uint32_t *) digest_ref_upd)[j])) {
+			    to_be32(((uint32_t *) digest_ref_upd)[j])) {
 				fail++;
 			}
 		}

@@ -39,6 +39,7 @@
  */
 #include <stdint.h>
 #include "mh_sha1.h"
+#include "endian_helper.h"
 
 #ifdef __cplusplus
  extern "C" {
@@ -73,13 +74,6 @@
 #define F4(b,c,d) (b ^ c ^ d)
 
 #define rol32(x, r) (((x)<<(r)) ^ ((x)>>(32-(r))))
-
-#define bswap(x) (((x)<<24) | (((x)&0xff00)<<8) | (((x)&0xff0000)>>8) | ((x)>>24))
-#define bswap64(x) (((x)<<56) | (((x)&0xff00)<<40) | (((x)&0xff0000)<<24) | \
-		     (((x)&0xff000000)<<8) | (((x)&0xff00000000ull)>>8) | \
-		     (((x)&0xff0000000000ull)<<24) | \
-		     (((x)&0xff000000000000ull)<<40) | \
-		     (((x)&0xff00000000000000ull)<<56))
 
  /*******************************************************************
   * SHA1 API internal function prototypes

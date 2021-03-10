@@ -39,16 +39,12 @@
 #	trace - get simulator trace
 #	clean - remove object files
 
-version ?= 2.22.0
-host_cpu ?= $(shell uname -m | sed -e 's/amd/x86_/')
-arch ?= $(shell uname | grep -v -e Linux -e BSD )
-ifeq ($(host_cpu)_$(arch),aarch64_)
-arch = aarch64
-endif
+version ?= 2.23.0
+
 
 
 CC  = gcc
-AS  = yasm
+AS  = nasm
 SIM = sde $(SIMFLAGS) --
 AWK = awk
 
@@ -77,15 +73,12 @@ ASFLAGS_mingw = -f win64
 ARFLAGS_mingw = cr $@
 LDFLAGS_mingw = -Wl,--force-exe-suffix
 
-# arch=aarch64 build options
-ASFLAGS_aarch64 = -D__ASSEMBLY__ -c
-ARFLAGS_aarch64 = cr $@
-
 LDFLAGS_so = -Wl,-soname,$(soname)
 
 ifeq ($(arch),mingw)
   CC=x86_64-w64-mingw32-gcc
   AR=x86_64-w64-mingw32-ar
+  AS=yasm
 endif
 
 ASFLAGS_Darwin = -f macho64 --prefix=_
@@ -95,17 +88,33 @@ ifeq ($(shell uname),Darwin)
    STRIP_gcc  =
 endif
 
-ifeq ($(arch),aarch64)
-  AS=gcc
-  SIM=
+# arch=aarch64 build options
+ifeq ($(lib_debug),1)
+  ASFLAGS_aarch64 = -g -c
+else
+  ASFLAGS_aarch64 = -c
 endif
 
+ARFLAGS_aarch64 = cr $@
+ifeq ($(arch),aarch64)
+  AS=$(CC) -D__ASSEMBLY__
+  SIM=
+endif
+# arch=noarch build options
+ARFLAGS_noarch = cr $@
+CFLAGS_noarch= -DNOARCH
+ifeq ($(arch),noarch)
+  host_cpu=base_aliases
+endif
 INCLUDE   = $(patsubst %,-I%/,$(subst :, ,$(VPATH)))
 CFLAGS   = $(CFLAGS_$(arch)) $(CFLAGS_$(CC)) $(DEBUG) -O2 $(DEFINES) $(INCLUDE)
 ASFLAGS  = $(ASFLAGS_$(arch)) $(ASFLAGS_$(CC)) $(DEBUG_$(AS)) $(DEFINES) $(INCLUDE)
 ARFLAGS  = $(ARFLAGS_$(arch))
 DEFINES += $(addprefix -D , $D)
 
+ifeq ($(filter aarch64 x86_%,$(host_cpu)),)
+  host_cpu=base_aliases
+endif
 lsrc += $(lsrc_$(host_cpu))
 O = bin
 lobj  += $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.asm,%.o,$(lsrc) $(lsrc_intrinsic))))
@@ -128,6 +137,7 @@ unit_testswin64 = $(unit_tests)
 exampleswin64 = $(examples)
 perf_testswin64 = $(perf_tests)
 
+
 # Build and run unit tests, performance tests, etc.
 all_tests = $(notdir $(sort $(perf_tests) $(check_tests) $(unit_tests) $(examples) $(other_tests)))
 all_unit_tests = $(notdir $(sort $(check_tests) $(unit_tests)))
@@ -138,6 +148,25 @@ $(all_unit_tests): % : %.c $(lib_name)
 $(all_perf_tests): % : %.c $(lib_name)
 $(sort $(notdir $(examples))): % : %.c $(lib_name)
 $(sort $(notdir $(other_tests))): % : %.c $(lib_name)
+
+# Check for modern as
+test-as = $(shell hash printf && printf $(3) > $(2) && $(AS) $(ASFLAGS) ${tmpf} -o /dev/null 2> /dev/null && echo $(1) || echo $(4))
+as_4  := "pblendvb xmm2, xmm1;"
+as_6  := "vinserti32x8 zmm0, ymm1, 1;"
+as_10 := "vpcompressb zmm0 {k1}, zmm1;"
+
+tmpf := $(shell mktemp)
+as_feature_level := $(call test-as, 4,  $(tmpf), $(as_4),  $(as_feature_level))
+as_feature_level := $(call test-as, 6,  $(tmpf), $(as_6),  $(as_feature_level))
+as_feature_level := $(call test-as, 10, $(tmpf), $(as_10), $(as_feature_level))
+tmpf := $(shell rm ${tmpf})
+
+ifneq ($(findstring $(as_feature_level),6 10),)
+  D_HAVE_AS_KNOWS_AVX512_y := -DHAVE_AS_KNOWS_AVX512
+endif
+
+CFLAGS  += -DAS_FEATURE_LEVEL=$(as_feature_level) $(D_HAVE_AS_KNOWS_AVX512_y)
+ASFLAGS += -DAS_FEATURE_LEVEL=$(as_feature_level) $(D_HAVE_AS_KNOWS_AVX512_y)
 
 sim test trace: $(addsuffix .run,$(all_unit_tests))
 perf: $(addsuffix .run,$(all_perf_tests))
@@ -165,9 +194,13 @@ $(addsuffix .run,$(all_tests)): %.run : %
 msg = $(if $(DEBUG),DEBUG) $(patsubst 32,32-bit,$(host_cpu)) $D
 
 # gcc assembly files
-$(O)/%.o: %.S
+$(O)/%.o: $(host_cpu)/%.S
 	@echo "  ---> Building $< $(msg)"
 	@$(AS) $(ASFLAGS) -o $@ $<
+
+$(O)/%.o   : $(host_cpu)/%.c
+	@echo "  ---> Building $< $(msg)"
+	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 # yasm/nasm assembly files
 $(O)/%.o: %.asm
 	@echo "  ---> Building $< $(msg)"
@@ -198,7 +231,9 @@ endif
 $(lib_name): $(objs)
 	@echo "  ---> Creating Lib $@"
 	@$(AR) $(ARFLAGS) $^
+ifneq ($(lib_debug),1)
 	@$(STRIP_$(CC))
+endif
 
 
 # Target for shared lib
@@ -216,6 +251,9 @@ $(O)/shared_ver_%.o: %.c
 	@echo "  ---> Building shared $< $(msg)"
 	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 
+$(O)/shared_ver_%.o: $(host_cpu)/%.c
+	@echo "  ---> Building shared $< $(msg)"
+	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 ifneq ($(lib_debug),1)
  $(so_lib_name): DEBUG_$(AS)=
  $(so_lib_name): DEBUG=
@@ -232,6 +270,11 @@ $(so_lib_name): $(shared_objs) $(aobjs)
 
 isa-l_crypto.h:
 	@echo 'Building $@'
+	@echo ''			>> $@
+	@echo '/**'			>> $@
+	@echo ' *  @file isa-l_crypto.h'>> $@
+	@echo ' *  @brief Include for ISA-L_crypto library'	>> $@
+	@echo ' */'			>> $@
 	@echo ''			>> $@
 	@echo '#ifndef _ISAL_CRYPTO_H_'	>> $@
 	@echo '#define _ISAL_CRYPTO_H_'	>> $@
@@ -255,6 +298,7 @@ install: $(sort $(extern_hdrs)) | $(install_dirs) $(lib_name) $(so_lib_name) isa
 	install -m 644 $^ $(prefix)/include/isa-l_crypto/.
 	install -m 664 isa-l_crypto.h $(prefix)/include/.
 	install -m 664 include/types.h $(prefix)/include/isa-l_crypto/.
+	install -m 664 include/endian_helper.h $(prefix)/include/isa-l_crypto/.
 	install -m 664 $(so_lib_name) $(prefix)/lib/$(so_lib_ver)
 	(cd $(prefix)/lib && ln -f -s $(so_lib_ver) $(soname) && ln -f -s $(so_lib_ver) $(so_lib_inst))
 ifeq ($(shell uname),Darwin)

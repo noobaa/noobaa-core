@@ -31,6 +31,7 @@
 #include <string.h>
 #include "sha1_mb.h"
 #include "memcpy_inline.h"
+#include "endian_helper.h"
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -43,13 +44,12 @@
 #define F4(b,c,d) (b ^ c ^ d)
 
 #define rol32(x, r) (((x)<<(r)) ^ ((x)>>(32-(r))))
-#define bswap(x) (((x)<<24) | (((x)&0xff00)<<8) | (((x)&0xff0000)>>8) | ((x)>>24))
 
 #define W(x) w[(x) & 15]
 
 #define step00_19(i,a,b,c,d,e) \
 	if (i>15) W(i) = rol32(W(i-3)^W(i-8)^W(i-14)^W(i-16), 1); \
-	else W(i) = bswap(ww[i]); \
+	else W(i) = to_be32(ww[i]); \
 	e += rol32(a,5) + F1(b,c,d) + 0x5A827999 + W(i); \
 	b = rol32(b,30)
 
@@ -86,16 +86,19 @@ SHA1_HASH_CTX *sha1_ctx_mgr_submit_base(SHA1_HASH_CTX_MGR * mgr, SHA1_HASH_CTX *
 	if (flags & (~HASH_ENTIRE)) {
 		// User should not pass anything other than FIRST, UPDATE, or LAST
 		ctx->error = HASH_CTX_ERROR_INVALID_FLAGS;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_PROCESSING) && (flags == HASH_ENTIRE)) {
 		// Cannot submit a new entire job to a currently processing job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_PROCESSING;
+		return ctx;
 	}
 
 	if ((ctx->status & HASH_CTX_STS_COMPLETE) && !(flags & HASH_FIRST)) {
 		// Cannot update a finished job.
 		ctx->error = HASH_CTX_ERROR_ALREADY_COMPLETED;
+		return ctx;
 	}
 
 	if (flags == HASH_FIRST) {
@@ -157,6 +160,7 @@ static uint32_t sha1_update(SHA1_HASH_CTX * ctx, const void *buffer, uint32_t le
 		ctx->total_length += SHA1_BLOCK_SIZE;
 	}
 
+	ctx->status = HASH_CTX_STS_IDLE;
 	ctx->incoming_buffer = buffer;
 	return remain_len;
 }
@@ -167,11 +171,6 @@ static void sha1_final(SHA1_HASH_CTX * ctx, uint32_t remain_len)
 	uint32_t i = remain_len, j;
 	uint8_t buf[2 * SHA1_BLOCK_SIZE];
 	uint32_t *digest = ctx->job.result_digest;
-	union {
-		uint64_t uint;
-		uint8_t uchar[8];
-	} convert;
-	uint8_t *p;
 
 	ctx->total_length += i;
 	memcpy(buf, buffer, i);
@@ -184,16 +183,7 @@ static void sha1_final(SHA1_HASH_CTX * ctx, uint32_t remain_len)
 	else
 		i = SHA1_BLOCK_SIZE;
 
-	convert.uint = 8 * ctx->total_length;
-	p = buf + i - 8;
-	p[0] = convert.uchar[7];
-	p[1] = convert.uchar[6];
-	p[2] = convert.uchar[5];
-	p[3] = convert.uchar[4];
-	p[4] = convert.uchar[3];
-	p[5] = convert.uchar[2];
-	p[6] = convert.uchar[1];
-	p[7] = convert.uchar[0];
+	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) ctx->total_length * 8);
 
 	sha1_single(buf, digest);
 	if (i == 2 * SHA1_BLOCK_SIZE) {

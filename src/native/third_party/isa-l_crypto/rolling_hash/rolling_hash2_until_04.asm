@@ -148,8 +148,9 @@ default rel
 section .text
 
 align 16
-global rolling_hash2_run_until_04:function
+mk_global rolling_hash2_run_until_04, function
 func(rolling_hash2_run_until_04)
+	endbranch
 	FUNC_SAVE
 	mov	pos.w, dword [idx]
 	pext	trigger, trigger, mask

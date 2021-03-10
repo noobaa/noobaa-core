@@ -33,7 +33,10 @@
 %include "reg_sizes.asm"
 
 extern md5_mb_x4x2_avx
+
+[bits 64]
 default rel
+section .text
 
 %if 1
 %ifidn __OUTPUT_FORMAT__, elf64
@@ -84,8 +87,9 @@ STACK_SPACE     equ _GPR_SAVE + _GPR_SAVE_SIZE + _ALIGN_SIZE
 
 ; JOB* md5_mb_mgr_flush_avx(MB_MGR_HMAC_OOO *state)
 ; arg 1 : rcx : state
-global md5_mb_mgr_flush_avx:function
+mk_global md5_mb_mgr_flush_avx, function
 md5_mb_mgr_flush_avx:
+	endbranch
         sub     rsp, STACK_SPACE
         mov     [rsp + _GPR_SAVE + 8*0], rbx
         mov     [rsp + _GPR_SAVE + 8*3], rbp
@@ -189,6 +193,7 @@ len_is_0:
 	mov	[state + _unused_lanes], unused_lanes
 
 	mov	dword [state + _lens + 4*idx], 0xFFFFFFFF
+	sub     dword [state + _num_lanes_inuse], 1
 
 	vmovd	xmm0, [state + _args_digest + 4*idx + 0*32]
 	vpinsrd	xmm0, [state + _args_digest + 4*idx + 1*32], 1

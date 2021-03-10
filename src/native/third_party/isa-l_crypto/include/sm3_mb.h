@@ -1,5 +1,5 @@
 /**********************************************************************
-  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
+  Copyright(c) 2011-2020 Intel Corporation All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -54,6 +54,7 @@ extern "C" {
 #define SM3_DIGEST_NWORDS		8	/* Word in SM3 is 32-bit */
 #define SM3_MAX_LANES			16
 #define SM3_BLOCK_SIZE			64
+#define SM3_LOG2_BLOCK_SIZE			6
 #define SM3_PADLENGTHFIELD_SIZE		8
 #define SM3_INITIAL_DIGEST		\
 	0x7380166f, 0x4914b2b9, 0x172442d7, 0xda8a0600, \
@@ -123,7 +124,6 @@ typedef struct {
 * @param mgr	Structure holding context level state info
 * @returns void
 */
-ISAL_EXPERIMENTAL("SM3 multi-buffer base functions only available")
 void sm3_ctx_mgr_init(SM3_HASH_CTX_MGR * mgr);
 
 /**
@@ -136,7 +136,6 @@ void sm3_ctx_mgr_init(SM3_HASH_CTX_MGR * mgr);
 * @param  flags Input flag specifying job type (first, update, last or entire)
 * @returns NULL if no jobs complete or pointer to jobs structure.
 */
-ISAL_EXPERIMENTAL("SM3 multi-buffer base functions only available")
 SM3_HASH_CTX *sm3_ctx_mgr_submit(SM3_HASH_CTX_MGR * mgr, SM3_HASH_CTX * ctx,
 				 const void *buffer, uint32_t len,
 				 HASH_CTX_FLAG flags);
@@ -147,13 +146,7 @@ SM3_HASH_CTX *sm3_ctx_mgr_submit(SM3_HASH_CTX_MGR * mgr, SM3_HASH_CTX * ctx,
 * @param mgr	Structure holding context level state info
 * @returns NULL if no jobs to complete or pointer to jobs structure.
 */
-ISAL_EXPERIMENTAL("SM3 multi-buffer base functions only available")
 SM3_HASH_CTX *sm3_ctx_mgr_flush(SM3_HASH_CTX_MGR * mgr);
-
-/*******************************************************************
-* CTX level API function prototypes
-* TO DO *
-******************************************************************/
 
 #ifdef __cplusplus
 }

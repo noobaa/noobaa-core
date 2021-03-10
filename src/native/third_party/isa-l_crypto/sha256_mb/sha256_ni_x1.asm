@@ -31,7 +31,10 @@
 %include "reg_sizes.asm"
 
 %ifdef HAVE_AS_KNOWS_SHANI
+
+[bits 64]
 default rel
+section .text
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -81,8 +84,9 @@ align 32
 ;
 ; Clobbers registers: rax, r9~r11, xmm0-xmm10
 ;
-global sha256_ni_x1:function internal
+mk_global sha256_ni_x1, function, internal
 sha256_ni_x1:
+	endbranch
 	shl     NBLK, 6 	; transform blk amount into bytes
 	jz      backto_mgr
 

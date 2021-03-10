@@ -52,9 +52,10 @@
 # define PAGE_LEN  (4*1024)
 #endif
 
-// NT versions require 16B alignment
-# define ALIGNMENT_MASK (~15)
-# define OFFSET_BASE_VALUE 16
+// NT versions require 64B alignment
+# define NT_ALIGNMENT (64)
+# define ALIGNMENT_MASK (~(NT_ALIGNMENT - 1))
+# define OFFSET_BASE_VALUE (NT_ALIGNMENT)
 #ifndef MAX_UNALIGNED
 # define MAX_UNALIGNED  (1)
 #endif
@@ -153,9 +154,9 @@ int check_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx, gcm_v
 #endif
 	// Allocate space for the calculated ciphertext
 	if (vector->Plen != 0) {
-		posix_memalign((void **)&pt_test, 16, vector->Plen);
-		posix_memalign((void **)&ct_test, 16, vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&pt_test, 64, vector->Plen);
+		posix_memalign((void **)&ct_test, 64, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -256,9 +257,9 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 #endif
 	// Allocate space for the calculated ciphertext
 	if (vector->Plen != 0) {
-		posix_memalign((void **)&pt_test, 16, vector->Plen);
-		posix_memalign((void **)&ct_test, 16, vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&pt_test, 64, vector->Plen);
+		posix_memalign((void **)&ct_test, 64, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -288,10 +289,10 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	aes_gcm_init_128(gkey, gctx, IV_c, vector->A, vector->Alen);
 
 	last_break = 0;
-	i = (rand() % test_len / 32) & ALIGNMENT_MASK;
+	i = (rand() % test_len / 8) & ALIGNMENT_MASK;
 	while (i < (vector->Plen)) {
 		if (i - last_break != 0) {
-			posix_memalign((void **)&stream, 16, (i - last_break));
+			posix_memalign((void **)&stream, 64, (i - last_break));
 			memcpy(stream, vector->P + last_break, i - last_break);
 		}
 		aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break, stream,
@@ -305,7 +306,7 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 			SHA1(rand_data, length, rand_data);
 		}
 		last_break = i;
-		i = (rand() % test_len / 32) & ALIGNMENT_MASK;
+		i = (rand() % test_len / 8) & ALIGNMENT_MASK;
 
 	}
 	aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break, vector->P + last_break,
@@ -337,7 +338,7 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	while (i < (vector->Plen)) {
 		if (rand() % (test_len / 64) == 0) {
 			if (i - last_break != 0) {
-				posix_memalign((void **)&stream, 16, i - last_break);
+				posix_memalign((void **)&stream, 64, i - last_break);
 				memcpy(stream, vector->C + last_break, i - last_break);
 			}
 			aes_gcm_dec_128_update_nt(gkey, gctx, vector->P + last_break, stream,
@@ -418,7 +419,7 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	if (vector->Plen != 0) {
 		pt_test = malloc(vector->Plen);
 		ct_test = malloc(vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -450,7 +451,7 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	aes_gcm_init_128(gkey, gctx, IV_c, vector->A, vector->Alen);
 	while (i < (vector->Plen)) {
 		if (i - last_break != 0) {
-			posix_memalign((void **)&stream, 16, i - last_break);
+			posix_memalign((void **)&stream, 64, i - last_break);
 			memcpy(stream, vector->P + last_break, i - last_break);
 		}
 		aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break, stream,
@@ -488,7 +489,7 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	aes_gcm_init_128(gkey, gctx, IV_c, vector->A, vector->Alen);
 	while (i < (vector->Plen)) {
 		if (i - last_break != 0) {
-			posix_memalign((void **)&stream, 16, i - last_break);
+			posix_memalign((void **)&stream, 64, i - last_break);
 			memcpy(stream, vector->C + last_break, i - last_break);
 		}
 		aes_gcm_dec_128_update_nt(gkey, gctx, vector->P + last_break, stream,
@@ -551,9 +552,9 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 #endif
 	// Allocate space for the calculated ciphertext
 	if (vector->Plen != 0) {
-		posix_memalign((void **)&pt_test, 16, vector->Plen);
-		posix_memalign((void **)&ct_test, 16, vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&pt_test, 64, vector->Plen);
+		posix_memalign((void **)&ct_test, 64, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -583,7 +584,7 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 	aes_gcm_init_128(gkey, gctx, IV_c, vector->A, vector->Alen);
 	while (i < vector->Plen) {
 		if (rand() % 2000 == 0 || i - last_break > PAGE_LEN / 2) {
-			posix_memalign((void **)&stream, 16, PAGE_LEN);
+			posix_memalign((void **)&stream, 64, PAGE_LEN);
 			i = i & ALIGNMENT_MASK;
 			memcpy(stream + PAGE_LEN - (i - last_break), vector->P + last_break,
 			       i - last_break);
@@ -629,7 +630,7 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 	aes_gcm_init_128(gkey, gctx, IV_c, vector->A, vector->Alen);
 	while (i < vector->Plen) {
 		if (rand() % 2000 == 0 || i - last_break > PAGE_LEN / 2) {
-			posix_memalign((void **)&stream, 16, PAGE_LEN);
+			posix_memalign((void **)&stream, 64, PAGE_LEN);
 			i = i & ALIGNMENT_MASK;
 			memcpy(stream + PAGE_LEN - (i - last_break), vector->C + last_break,
 			       i - last_break);
@@ -703,9 +704,9 @@ int check_256_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 #endif
 	// Allocate space for the calculated ciphertext
 	if (vector->Plen != 0) {
-		posix_memalign((void **)&pt_test, 16, vector->Plen);
-		posix_memalign((void **)&ct_test, 16, vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&pt_test, 64, vector->Plen);
+		posix_memalign((void **)&ct_test, 64, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -811,9 +812,9 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 #endif
 	// Allocate space for the calculated ciphertext
 	if (vector->Plen != 0) {
-		posix_memalign((void **)&pt_test, 16, vector->Plen);
-		posix_memalign((void **)&ct_test, 16, vector->Plen);
-		posix_memalign((void **)&o_ct_test, 16, vector->Plen);
+		posix_memalign((void **)&pt_test, 64, vector->Plen);
+		posix_memalign((void **)&ct_test, 64, vector->Plen);
+		posix_memalign((void **)&o_ct_test, 64, vector->Plen);
 		if ((pt_test == NULL) || (ct_test == NULL) || (o_ct_test == NULL)) {
 			fprintf(stderr, "Can't allocate ciphertext memory\n");
 			return 1;
@@ -843,10 +844,10 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 	aes_gcm_init_256(gkey, gctx, IV_c, vector->A, vector->Alen);
 
 	last_break = 0;
-	i = (rand() % test_len / 32) & ALIGNMENT_MASK;
+	i = (rand() % test_len / 8) & ALIGNMENT_MASK;
 	while (i < (vector->Plen)) {
 		if (i - last_break != 0) {
-			posix_memalign((void **)&stream, 16, i - last_break);
+			posix_memalign((void **)&stream, 64, i - last_break);
 			memcpy(stream, vector->P + last_break, i - last_break);
 		}
 
@@ -861,7 +862,7 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 			SHA1(rand_data, length, rand_data);
 		}
 		last_break = i;
-		i += (rand() % test_len / 32) & ALIGNMENT_MASK;
+		i += (rand() % test_len / 8) & ALIGNMENT_MASK;
 
 	}
 	aes_gcm_enc_256_update_nt(gkey, gctx, vector->C + last_break, vector->P + last_break,
@@ -889,11 +890,11 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 	////
 
 	last_break = 0;
-	i += (rand() % test_len / 32) & ALIGNMENT_MASK;
+	i += (rand() % test_len / 8) & ALIGNMENT_MASK;
 	aes_gcm_init_256(gkey, gctx, IV_c, vector->A, vector->Alen);
 	while (i < (vector->Plen)) {
 		if (i - last_break != 0) {
-			posix_memalign((void **)&stream, 16, i - last_break);
+			posix_memalign((void **)&stream, 64, i - last_break);
 			memcpy(stream, vector->C + last_break, i - last_break);
 		}
 
@@ -910,7 +911,7 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 		}
 
 		last_break = i;
-		i += (rand() % test_len / 32) & ALIGNMENT_MASK;
+		i += (rand() % test_len / 8) & ALIGNMENT_MASK;
 
 	}
 	aes_gcm_dec_256_update_nt(gkey, gctx, vector->P + last_break, vector->C + last_break,
@@ -978,11 +979,11 @@ int test_gcm_strm_efence(void)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_128_KEY_LEN + offset);
 		test.Klen = GCM_128_KEY_LEN;
@@ -1047,9 +1048,9 @@ int test_gcm_strm_combinations(int test_len)
 	struct gcm_key_data *gkey = NULL;
 	struct gcm_context_data *gctx = NULL;
 
-	gkeytemp = malloc(sizeof(struct gcm_key_data) + 16);
+	gkeytemp = malloc(sizeof(struct gcm_key_data) + 64);
 	gctx = malloc(sizeof(struct gcm_context_data));
-	gkey = (struct gcm_key_data *)(gkeytemp + rand() % 16);
+	gkey = (struct gcm_key_data *)(gkeytemp + rand() % 64);
 	if (NULL == gkey || NULL == gctx)
 		return 1;
 
@@ -1073,11 +1074,11 @@ int test_gcm_strm_combinations(int test_len)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_128_KEY_LEN + offset);
 		test.Klen = GCM_128_KEY_LEN;
@@ -1166,11 +1167,11 @@ int test_gcm_combinations(void)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_128_KEY_LEN + offset);
 		test.Klen = GCM_128_KEY_LEN;
@@ -1259,11 +1260,11 @@ int test_gcm256_combinations(void)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_256_KEY_LEN + offset);
 		test.Klen = GCM_256_KEY_LEN;
@@ -1329,9 +1330,9 @@ int test_gcm256_strm_combinations(int test_len)
 	struct gcm_key_data *gkey = NULL;
 	struct gcm_context_data *gctx = NULL;
 
-	gkeytemp = malloc(sizeof(struct gcm_key_data) + 16);
+	gkeytemp = malloc(sizeof(struct gcm_key_data) + 64);
 	gctx = malloc(sizeof(struct gcm_context_data));
-	gkey = (struct gcm_key_data *)(gkeytemp + rand() % 16);
+	gkey = (struct gcm_key_data *)(gkeytemp + rand() % 64);
 	if (NULL == gkey || NULL == gctx)
 		return 1;
 
@@ -1355,11 +1356,11 @@ int test_gcm256_strm_combinations(int test_len)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_256_KEY_LEN + offset);
 		test.Klen = GCM_256_KEY_LEN;
@@ -1430,8 +1431,8 @@ int test_gcm_efence(void)
 
 	gkey = malloc(sizeof(struct gcm_key_data));
 	gctx = malloc(sizeof(struct gcm_context_data));
-	posix_memalign((void **)&P, 16, PAGE_LEN);
-	posix_memalign((void **)&C, 16, PAGE_LEN);
+	posix_memalign((void **)&P, 64, PAGE_LEN);
+	posix_memalign((void **)&C, 64, PAGE_LEN);
 	K = malloc(PAGE_LEN);
 	IV = malloc(PAGE_LEN);
 	A = malloc(PAGE_LEN);
@@ -1511,13 +1512,13 @@ int test_gcm128_std_vectors(gcm_vector const *vector)
 #endif
 
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&ct_test, 16, vector->Plen);
+	posix_memalign((void **)&ct_test, 64, vector->Plen);
 	if (ct_test == NULL) {
 		fprintf(stderr, "Can't allocate ciphertext memory\n");
 		return 1;
 	}
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&pt_test, 16, vector->Plen);
+	posix_memalign((void **)&pt_test, 64, vector->Plen);
 	if (pt_test == NULL) {
 		fprintf(stderr, "Can't allocate plaintext memory\n");
 		return 1;
@@ -1658,9 +1659,9 @@ int test_gcm256_std_vectors(gcm_vector const *vector)
 #endif
 
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&ct_test, 16, vector->Plen);
+	posix_memalign((void **)&ct_test, 64, vector->Plen);
 	// Allocate space for the calculated ciphertext
-	posix_memalign((void **)&pt_test, 16, vector->Plen);
+	posix_memalign((void **)&pt_test, 64, vector->Plen);
 	if ((ct_test == NULL) || (pt_test == NULL)) {
 		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
 		return 1;
@@ -1849,11 +1850,11 @@ int test_gcm_strm_combinations2(int length, int start, int breaks)
 		test.T = NULL;
 		test.Plen = Plen;
 		if (test.Plen + offset != 0) {
-			posix_memalign((void **)&test.P, 16, test.Plen + offset);
-			posix_memalign((void **)&test.C, 16, test.Plen + offset);
+			posix_memalign((void **)&test.P, 64, test.Plen + offset);
+			posix_memalign((void **)&test.C, 64, test.Plen + offset);
 		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
-			posix_memalign((void **)&test.P, 16, 16);
-			posix_memalign((void **)&test.C, 16, 16);
+			posix_memalign((void **)&test.P, 64, 16);
+			posix_memalign((void **)&test.C, 64, 16);
 		}
 		test.K = malloc(GCM_128_KEY_LEN + offset);
 		test.Klen = GCM_128_KEY_LEN;

@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "sm3_mb.h"
+#include "endian_helper.h"
 
 #define TEST_LEN  (1024*1024)
 #define TEST_BUFS (SM3_MAX_LANES - 1)
@@ -118,12 +119,13 @@ int main(void)
 
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SM3_DIGEST_NWORDS; j++) {
-			if (ctxpool[i].job.result_digest[j] != ((uint32_t *) digest_ref[i])[j]) {
+			if (ctxpool[i].job.result_digest[j] !=
+			    to_le32(((uint32_t *) digest_ref[i])[j])) {
 				fail++;
 				printf("Test%d fixed size, digest%d "
 				       "fail 0x%08X <=> 0x%08X \n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       ((uint32_t *) digest_ref[i])[j]);
+				       to_le32(((uint32_t *) digest_ref[i])[j]));
 			}
 		}
 	}

@@ -54,11 +54,6 @@
 /* Reference digest global to reduce stack usage */
 static uint8_t digest_ssl[TEST_BUFS][4 * SHA256_DIGEST_NWORDS];
 
-inline unsigned int byteswap32(unsigned int x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
-
 int main(void)
 {
 	SHA256_HASH_CTX_MGR *mgr = NULL;
@@ -78,7 +73,11 @@ int main(void)
 		ctxpool[i].user_data = (void *)((uint64_t) i);
 	}
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	int ret = posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	sha256_ctx_mgr_init(mgr);
 
 	// Start OpenSSL tests
@@ -109,11 +108,11 @@ int main(void)
 	for (i = 0; i < TEST_BUFS; i++) {
 		for (j = 0; j < SHA256_DIGEST_NWORDS; j++) {
 			if (ctxpool[i].job.result_digest[j] !=
-			    byteswap32(((uint32_t *) digest_ssl[i])[j])) {
+			    to_be32(((uint32_t *) digest_ssl[i])[j])) {
 				fail++;
 				printf("Test%d, digest%d fail %08X <=> %08X\n",
 				       i, j, ctxpool[i].job.result_digest[j],
-				       byteswap32(((uint32_t *) digest_ssl[i])[j]));
+				       to_be32(((uint32_t *) digest_ssl[i])[j]));
 			}
 		}
 	}

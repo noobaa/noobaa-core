@@ -70,14 +70,22 @@ void mk_rand_data(uint8_t * data, uint32_t size)
 
 int aes_128_perf(uint8_t * key)
 {
-	int i;
+	int i, ret;
 
 	/* Initialize our cipher context, which can use same input vectors */
 	uint8_t *iv = NULL;
 	struct cbc_key_data *key_data = NULL;
 
-	posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
-	posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	ret = posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
+	ret = posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	if ((NULL == iv) || (NULL == key_data))
 		return 1;
 
@@ -145,12 +153,20 @@ int aes_128_perf(uint8_t * key)
 
 int aes_192_perf(uint8_t * key)
 {
-	int i;
+	int i, ret;
 	uint8_t *iv = NULL;
 	struct cbc_key_data *key_data = NULL;
 
-	posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
-	posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	ret = posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
+	ret = posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	if ((NULL == iv) || (NULL == key_data))
 		return 1;
 
@@ -217,12 +233,20 @@ int aes_192_perf(uint8_t * key)
 
 int aes_256_perf(uint8_t * key)
 {
-	int i;
+	int i, ret;
 	uint8_t *iv = NULL;
 	struct cbc_key_data *key_data = NULL;
 
-	posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
-	posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	ret = posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
+	ret = posix_memalign((void **)&key_data, 16, (sizeof(*key_data)));
+	if (ret) {
+		printf("alloc error: Fail");
+		return -1;
+	}
 	if ((NULL == iv) || (NULL == key_data))
 		return 1;
 
@@ -241,7 +265,7 @@ int aes_256_perf(uint8_t * key)
 		}
 
 		perf_stop(&stop);
-		printf("ISA-L__aes_cbc_256 encode" TEST_TYPE_STR ":  ");
+		printf("ISA-L__aes_cbc_256_encode" TEST_TYPE_STR ":  ");
 		perf_print(stop, start, (long long)TEST_LEN * i);
 	}
 	{
@@ -267,7 +291,7 @@ int aes_256_perf(uint8_t * key)
 		}
 
 		perf_stop(&stop);
-		printf("ISA-L__aes_cbc_256 decode" TEST_TYPE_STR ":  ");
+		printf("ISA-L__aes_cbc_256_decode" TEST_TYPE_STR ":  ");
 		perf_print(stop, start, (long long)TEST_LEN * i);
 	}
 	{

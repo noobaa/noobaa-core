@@ -40,21 +40,6 @@
 extern "C" {
 #endif
 
-#ifdef __FreeBSD__
-#include <sys/types.h>
-#include <sys/endian.h>
-# define _byteswap_uint64(x) bswap64(x)
-# define _byteswap_ulong(x) bswap32(x)
-#elif defined (__APPLE__)
-#include <libkern/OSByteOrder.h>
-# define _byteswap_uint64(x) OSSwapInt64(x)
-# define _byteswap_ulong(x) OSSwapInt32(x)
-#elif defined (__GNUC__) && !defined (__MINGW32__)
-# include <byteswap.h>
-# define _byteswap_uint64(x) bswap_64(x)
-# define _byteswap_ulong(x) bswap_32(x)
-#endif
-
 /**
  *  @enum JOB_STS
  *  @brief Job return codes

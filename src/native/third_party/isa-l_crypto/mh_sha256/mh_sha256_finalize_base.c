@@ -67,7 +67,7 @@ void MH_SHA256_TAIL_FUNCTION(uint8_t * partial_buffer, uint32_t total_len,
 		memset(partial_buffer, 0, MH_SHA256_BLOCK_SIZE);
 	}
 	//Padding the block
-	len_in_bit = bswap64((uint64_t) total_len * 8);
+	len_in_bit = to_be64((uint64_t) total_len * 8);
 	*(uint64_t *) (partial_buffer + MH_SHA256_BLOCK_SIZE - 8) = len_in_bit;
 	MH_SHA256_BLOCK_FUNCTION(partial_buffer, mh_sha256_segs_digests, frame_buffer, 1);
 

@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sha1_mb.h"
+#include "endian_helper.h"
 
 typedef uint32_t DigestSHA1[SHA1_DIGEST_NWORDS];
 

@@ -156,8 +156,8 @@
 		and	edi, FLAG_XGETBV_EAX_ZMM_OPM
 		cmp	edi, FLAG_XGETBV_EAX_ZMM_OPM
 		jne	_%1_init_done	  ; No AVX512 possible
-		and	ebx, FLAGS_CPUID7_ECX_AVX512_G1
-		cmp	ebx, FLAGS_CPUID7_ECX_AVX512_G1
+		and	ebx, FLAGS_CPUID7_EBX_AVX512_G1
+		cmp	ebx, FLAGS_CPUID7_EBX_AVX512_G1
 		lea	mbin_rbx, [%6 WRT_OPT] ; AVX512/06 opt
 		cmove	mbin_rsi, mbin_rbx
 

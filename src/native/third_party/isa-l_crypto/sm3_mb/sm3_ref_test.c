@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sm3_mb.h"
+#include "endian_helper.h"
 
 typedef uint32_t digest_sm3[SM3_DIGEST_NWORDS];
 
@@ -57,11 +58,6 @@ static uint8_t *msgs[MSGS] = { msg1, msg2 };
 static uint32_t *exp_result_digest[MSGS] = {
 	exp_result_digest1, exp_result_digest2
 };
-
-static inline uint32_t byteswap32(uint32_t x)
-{
-	return (x >> 24) | (x >> 8 & 0xff00) | (x << 8 & 0xff0000) | (x << 24);
-}
 
 int main(void)
 {

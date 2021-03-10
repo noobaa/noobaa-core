@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;  Copyright(c) 2011-2016 Intel Corporation All rights reserved.
+;  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions
@@ -341,6 +341,275 @@
 %if (%%USERET != 0)
 	ret
 %endif
+%endm
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Utility macro to assist with SIMD shifting
+%macro _PSRLDQ 3
+%define %%VEC   %1
+%define %%REG   %2
+%define %%IMM   %3
+
+%ifidn %%VEC, SSE
+        psrldq  %%REG, %%IMM
+%else
+        vpsrldq %%REG, %%REG, %%IMM
+%endif
+%endm
+
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; This section defines a series of macros to store small to medium amounts
+; of data from SIMD registers to memory, where the size is variable but limited.
+;
+; The macros are all called as:
+; memcpy DST, SRC, SIZE, TMP, IDX
+; with the parameters defined as:
+;    DST     : register: pointer to dst (not modified)
+;    SRC     : register: src data (clobbered)
+;    SIZE    : register: length in bytes (not modified)
+;    TMP     : 64-bit temp GPR (clobbered)
+;    IDX     : 64-bit GPR to store dst index/offset (clobbered)
+;
+; The name indicates the options. The name is of the form:
+; simd_store_<VEC>
+; where <VEC> is the SIMD instruction type e.g. "sse" or "avx"
+
+
+%macro simd_store_sse 5
+        __simd_store %1,%2,%3,%4,%5,SSE
+%endm
+
+%macro simd_store_avx 5
+        __simd_store %1,%2,%3,%4,%5,AVX
+%endm
+
+%macro simd_store_sse_15 5
+        __simd_store %1,%2,%3,%4,%5,SSE,15
+%endm
+
+%macro simd_store_avx_15 5
+        __simd_store %1,%2,%3,%4,%5,AVX,15
+%endm
+
+%macro __simd_store 6-7
+%define %%DST      %1    ; register: pointer to dst (not modified)
+%define %%SRC      %2    ; register: src data (clobbered)
+%define %%SIZE     %3    ; register: length in bytes (not modified)
+%define %%TMP      %4    ; 64-bit temp GPR (clobbered)
+%define %%IDX      %5    ; 64-bit temp GPR to store dst idx (clobbered)
+%define %%SIMDTYPE %6    ; "SSE" or "AVX"
+%define %%MAX_LEN  %7    ; [optional] maximum length to be stored, default 16
+
+%define %%PSRLDQ _PSRLDQ %%SIMDTYPE,
+
+%ifidn %%SIMDTYPE, SSE
+ %define %%MOVDQU movdqu
+ %define %%MOVQ movq
+%else
+ %define %%MOVDQU vmovdqu
+ %define %%MOVQ vmovq
+%endif
+
+;; determine max byte size for store operation
+%if %0 > 6
+%assign max_length_to_store %%MAX_LEN
+%else
+%assign max_length_to_store 16
+%endif
+
+%if max_length_to_store > 16
+%error "__simd_store macro invoked with MAX_LEN bigger than 16!"
+%endif
+
+        xor %%IDX, %%IDX        ; zero idx
+
+%if max_length_to_store == 16
+        test    %%SIZE, 16
+        jz      %%lt16
+        %%MOVDQU [%%DST], %%SRC
+        jmp     %%end
+%%lt16:
+%endif
+
+%if max_length_to_store >= 8
+        test    %%SIZE, 8
+        jz      %%lt8
+        %%MOVQ  [%%DST + %%IDX], %%SRC
+        %%PSRLDQ %%SRC, 8
+        add     %%IDX, 8
+%%lt8:
+%endif
+
+        %%MOVQ %%TMP, %%SRC     ; use GPR from now on
+
+%if max_length_to_store >= 4
+        test    %%SIZE, 4
+        jz      %%lt4
+        mov     [%%DST + %%IDX], DWORD(%%TMP)
+        shr     %%TMP, 32
+        add     %%IDX, 4
+%%lt4:
+%endif
+
+        test    %%SIZE, 2
+        jz      %%lt2
+        mov     [%%DST + %%IDX], WORD(%%TMP)
+        shr     %%TMP, 16
+        add     %%IDX, 2
+%%lt2:
+        test    %%SIZE, 1
+        jz      %%end
+        mov     [%%DST + %%IDX], BYTE(%%TMP)
+%%end:
+%endm
+
+; This section defines a series of macros to load small to medium amounts
+; (from 0 to 16 bytes) of data from memory to SIMD registers,
+; where the size is variable but limited.
+;
+; The macros are all called as:
+; simd_load DST, SRC, SIZE
+; with the parameters defined as:
+;    DST     : register: destination XMM register
+;    SRC     : register: pointer to src data (not modified)
+;    SIZE    : register: length in bytes (not modified)
+;
+; The name indicates the options. The name is of the form:
+; simd_load_<VEC>_<SZ><ZERO>
+; where:
+; <VEC> is either "sse" or "avx"
+; <SZ> is either "15" or "16" and defines largest value of SIZE
+; <ZERO> is blank or "_1". If "_1" then the min SIZE is 1 (otherwise 0)
+;
+; For example:
+; simd_load_sse_16		: SSE, 0 <= size <= 16
+; simd_load_avx_15_1	        : AVX, 1 <= size <= 15
+
+%macro simd_load_sse_15_1 3
+        __simd_load %1,%2,%3,0,0,SSE
+%endm
+%macro simd_load_sse_15 3
+        __simd_load %1,%2,%3,1,0,SSE
+%endm
+%macro simd_load_sse_16_1 3
+        __simd_load %1,%2,%3,0,1,SSE
+%endm
+%macro simd_load_sse_16 3
+        __simd_load %1,%2,%3,1,1,SSE
+%endm
+
+%macro simd_load_avx_15_1 3
+        __simd_load %1,%2,%3,0,0,AVX
+%endm
+%macro simd_load_avx_15 3
+        __simd_load %1,%2,%3,1,0,AVX
+%endm
+%macro simd_load_avx_16_1 3
+        __simd_load %1,%2,%3,0,1,AVX
+%endm
+%macro simd_load_avx_16 3
+        __simd_load %1,%2,%3,1,1,AVX
+%endm
+
+%macro __simd_load 6
+%define %%DST       %1    ; [out] destination XMM register
+%define %%SRC       %2    ; [in] pointer to src data
+%define %%SIZE      %3    ; [in] length in bytes (0-16 bytes)
+%define %%ACCEPT_0  %4    ; 0 = min length = 1, 1 = min length = 0
+%define %%ACCEPT_16 %5    ; 0 = max length = 15 , 1 = max length = 16
+%define %%SIMDTYPE  %6    ; "SSE" or "AVX"
+
+%ifidn %%SIMDTYPE, SSE
+ %define %%MOVDQU movdqu
+ %define %%PINSRB pinsrb
+ %define %%PINSRQ pinsrq
+ %define %%PXOR   pxor
+%else
+ %define %%MOVDQU vmovdqu
+ %define %%PINSRB vpinsrb
+ %define %%PINSRQ vpinsrq
+ %define %%PXOR   vpxor
+%endif
+
+%if (%%ACCEPT_16 != 0)
+        test    %%SIZE, 16
+        jz      %%_skip_16
+        %%MOVDQU %%DST, [%%SRC]
+        jmp     %%end_load
+
+%%_skip_16:
+%endif
+        %%PXOR  %%DST, %%DST ; clear XMM register
+%if (%%ACCEPT_0 != 0)
+        or      %%SIZE, %%SIZE
+        je      %%end_load
+%endif
+        cmp     %%SIZE, 1
+        je      %%_size_1
+        cmp     %%SIZE, 2
+        je      %%_size_2
+        cmp     %%SIZE, 3
+        je      %%_size_3
+        cmp     %%SIZE, 4
+        je      %%_size_4
+        cmp     %%SIZE, 5
+        je      %%_size_5
+        cmp     %%SIZE, 6
+        je      %%_size_6
+        cmp     %%SIZE, 7
+        je      %%_size_7
+        cmp     %%SIZE, 8
+        je      %%_size_8
+        cmp     %%SIZE, 9
+        je      %%_size_9
+        cmp     %%SIZE, 10
+        je      %%_size_10
+        cmp     %%SIZE, 11
+        je      %%_size_11
+        cmp     %%SIZE, 12
+        je      %%_size_12
+        cmp     %%SIZE, 13
+        je      %%_size_13
+        cmp     %%SIZE, 14
+        je      %%_size_14
+
+%%_size_15:
+        %%PINSRB %%DST, [%%SRC + 14], 14
+%%_size_14:
+        %%PINSRB %%DST, [%%SRC + 13], 13
+%%_size_13:
+        %%PINSRB %%DST, [%%SRC + 12], 12
+%%_size_12:
+        %%PINSRB %%DST, [%%SRC + 11], 11
+%%_size_11:
+        %%PINSRB %%DST, [%%SRC + 10], 10
+%%_size_10:
+        %%PINSRB %%DST, [%%SRC + 9], 9
+%%_size_9:
+        %%PINSRB %%DST, [%%SRC + 8], 8
+%%_size_8:
+        %%PINSRQ %%DST, [%%SRC], 0
+        jmp    %%end_load
+%%_size_7:
+        %%PINSRB %%DST, [%%SRC + 6], 6
+%%_size_6:
+        %%PINSRB %%DST, [%%SRC + 5], 5
+%%_size_5:
+        %%PINSRB %%DST, [%%SRC + 4], 4
+%%_size_4:
+        %%PINSRB %%DST, [%%SRC + 3], 3
+%%_size_3:
+        %%PINSRB %%DST, [%%SRC + 2], 2
+%%_size_2:
+        %%PINSRB %%DST, [%%SRC + 1], 1
+%%_size_1:
+        %%PINSRB %%DST, [%%SRC + 0], 0
+%%end_load:
 %endm
 
 %endif ; ifndef __MEMCPY_ASM__

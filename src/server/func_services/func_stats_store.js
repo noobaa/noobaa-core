@@ -9,12 +9,7 @@ const db_client = require('../../util/db_client');
 
 const func_stats_schema = require('./func_stats_schema');
 const func_stats_indexes = require('./func_stats_indexes');
-const {
-    map_func_stats,
-    reduce_func_stats,
-    finalize_func_stats
-} = require('../../util/mongo_functions');
-
+const mongo_functions = require('../../util/mongo_functions');
 class FuncStatsStore {
 
     constructor() {
@@ -48,11 +43,12 @@ class FuncStatsStore {
     }
 
     async query_func_stats(params) {
+
         const records = await this._func_stats
             .mapReduce(
-                map_func_stats,
-                reduce_func_stats, {
-                    finalize: finalize_func_stats,
+                mongo_functions.map_func_stats,
+                mongo_functions.reduce_func_stats, {
+                    finalize: mongo_functions.finalize_func_stats,
                     query: {
                         system: params.system,
                         func: params.func,

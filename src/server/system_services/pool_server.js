@@ -242,7 +242,7 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
     return Buffer.from(install_string).toString('base64');
 }
 
-function create_namespace_resource(req) {
+async function create_namespace_resource(req) {
     const name = req.rpc_params.name;
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     const namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
@@ -255,6 +255,15 @@ function create_namespace_resource(req) {
         endpoint_type: connection.endpoint_type || 'AWS'
     }, _.isUndefined));
 
+    const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
+        connection: connection.name,
+    }, {
+        auth_token: req.auth_token
+    });
+    if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === req.rpc_params.target_bucket)) {
+        dbg.error('This endpoint target bucket does not exist');
+        throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
+    }
     const already_used_by = cloud_utils.get_used_cloud_targets([namespace_resource.connection.endpoint_type],
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === namespace_resource.connection.endpoint &&
@@ -299,7 +308,15 @@ async function create_cloud_pool(req) {
         storage_limit: req.rpc_params.storage_limit,
     }, _.isUndefined);
 
-
+    const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
+        connection: connection.name,
+    }, {
+        auth_token: req.auth_token
+    });
+    if (!cloud_buckets.find(bucket_name => bucket_name.name.unwrap() === cloud_info.target_bucket)) {
+        dbg.error('This endpoint target bucket does not exist');
+        throw new RpcError('INVALID_TARGET', 'Target bucket doesn\'t exist');
+    }
     const already_used_by = cloud_utils.get_used_cloud_targets([cloud_info.endpoint_type],
             system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources)
         .find(candidate_target => (candidate_target.endpoint === cloud_info.endpoint &&

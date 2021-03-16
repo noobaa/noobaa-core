@@ -6,7 +6,7 @@ import ko from 'knockout';
 import { deepFreeze, createCompareFunc, throttle } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { includesIgnoreCase, stringifyAmount } from 'utils/string-utils';
-import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon } from 'utils/resource-utils';
+import { getNamespaceResourceStateIcon, getNamespaceResourceTypeIcon, isNotNSFSResource } from 'utils/resource-utils';
 import { inputThrottle, paginationPageSize } from 'config';
 import * as routes from 'routes';
 import {
@@ -166,7 +166,8 @@ class NamespaceResourceTableViewModel extends ConnectableViewModel {
                 }, {});
 
             const filteredRows = Object.values(resources)
-                .filter(resource => includesIgnoreCase(resource.name, filter));
+                .filter(resource => includesIgnoreCase(resource.name, filter))
+                .filter(resource => isNotNSFSResource(resource));
 
             const rows = filteredRows
                 .sort(createCompareFunc(compareKey, order, connectedBucketsMap))

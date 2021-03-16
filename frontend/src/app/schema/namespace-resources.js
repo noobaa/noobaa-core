@@ -6,9 +6,7 @@ export default {
         type: 'object',
         required: [
             'name',
-            'mode',
-            'service',
-            'target'
+            'mode'
         ],
         properties: {
             name: {

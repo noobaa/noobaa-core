@@ -4,7 +4,7 @@ import template from './edit-namespace-bucket-data-placement-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import ko from 'knockout';
 import { deepFreeze, mapValues } from 'utils/core-utils';
-import { getNamespaceResourceTypeIcon, getNamespaceResourceStateIcon } from 'utils/resource-utils';
+import { getNamespaceResourceTypeIcon, getNamespaceResourceStateIcon, isNotNSFSResource } from 'utils/resource-utils';
 import { getFieldValue } from 'utils/form-utils';
 import {
     updateForm,
@@ -88,7 +88,8 @@ class EditNamespaceBucketDataPlacementModalViewModel extends ConnectableViewMode
 
         const { readFrom, writeTo } = bucket.placement;
         const readPolicy = form ? getFieldValue(form, 'readPolicy') : readFrom;
-        const resourceList = Object.values(resources);
+        const resourceList = Object.values(resources)
+            .filter(resource => isNotNSFSResource(resource));
         const readPolicyRows = resourceList.map(resource => ({
             state: getNamespaceResourceStateIcon(resource),
             type: getNamespaceResourceTypeIcon(resource),

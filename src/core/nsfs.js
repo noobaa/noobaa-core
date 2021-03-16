@@ -93,10 +93,14 @@ async function main(argv = minimist(process.argv.slice(2))) {
         // };
 
         const bs = new BucketSpaceFS({ fs_root });
-        const ns = new NamespaceFS({ fs_root });
         const object_sdk = new ObjectSDK(null, null, null);
+        const fs_namespaces = {};
         object_sdk._get_bucketspace = () => bs;
-        object_sdk._get_bucket_namespace = async name => ns;
+        object_sdk._get_bucket_namespace = async bucket_name => {
+            const ns = fs_namespaces[bucket_name] || new NamespaceFS({ fs_path: fs_root + '/' + bucket_name });
+            fs_namespaces[bucket_name] = ns;
+            return ns;
+        };
         object_sdk.get_auth_token = noop;
         object_sdk.set_auth_token = noop;
         object_sdk.authorize_request_account = noop;

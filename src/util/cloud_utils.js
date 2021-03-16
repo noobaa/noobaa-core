@@ -98,7 +98,7 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
             usage_type: 'CLOUD_RESOURCE'
         })) : [];
     const namespace_resource_targets = namespace_resources ?
-        namespace_resources.filter(ns => _.includes(endpoint_type, ns.connection.endpoint_type))
+        namespace_resources.filter(ns => ns.connection && _.includes(endpoint_type, ns.connection.endpoint_type))
         .map(ns_rec => (_.omitBy({
             endpoint: ns_rec.connection.endpoint,
             endpoint_type: ns_rec.connection.endpoint_type,

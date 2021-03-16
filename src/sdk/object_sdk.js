@@ -58,9 +58,6 @@ class ObjectSDK {
         this.object_io = object_io;
         this.namespace_nb = new NamespaceNB();
         this.bucketspace_nb = new BucketSpaceNB({ rpc_client });
-        if (process.env.NAMESPACE_FS) {
-            this.namespace_fs = new NamespaceFS({ fs_root: process.env.NAMESPACE_FS });
-        }
         if (process.env.BUCKETSPACE_FS) {
             this.bucketspace_fs = new BucketSpaceFS({ fs_root: process.env.BUCKETSPACE_FS });
         }
@@ -169,15 +166,14 @@ class ObjectSDK {
         const time = Date.now();
         dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
         try {
-
-            if (this.namespace_fs) {
+            // NAMESPACE_FS HACK
+            if (process.env.NAMESPACE_FS) {
                 return {
-                    ns: this.namespace_fs,
+                    ns: new NamespaceFS({ fs_path: process.env.NAMESPACE_FS + '/' + bucket.name }),
                     bucket,
-                    valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
+                    valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
                 };
             }
-
             if (bucket.namespace) {
 
                 if (bucket.namespace.caching) {
@@ -193,6 +189,13 @@ class ObjectSDK {
                     };
                 }
 
+                if (bucket.namespace.write_resource && bucket.namespace.write_resource.nsfs_config) {
+                    return {
+                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
+                        bucket,
+                        valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
+                    };
+                }
                 // MERGE NAMESPACE
                 return {
                     ns: this._setup_merge_namespace(bucket),
@@ -280,6 +283,12 @@ class ObjectSDK {
                 connection_string: cloud_utils.get_azure_connection_string(ns_info),
                 // Azure storage account name is stored as the access key.
                 account_name: ns_info.access_key.unwrap()
+            });
+        }
+        if (ns_info.fs_path) {
+            return new NamespaceFS({
+                fs_backend: ns_info.fs_backend,
+                fs_path: ns_info.fs_path
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

@@ -14,15 +14,15 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 
 mocha.describe('namespace_fs', function() {
 
-    const src_bkt = 'src';
+    const src_bkt = 'src_bucket';
     const src_key = 'test/unit_tests/test_namespace_fs.js';
-    const tmp_fs_root = '/tmp/test_namespace_fs';
+    const tmp_fs_path = '/tmp/test_namespace_fs';
 
-    const ns_src = new NamespaceFS({ fs_root: '.' });
-    const ns_tmp = new NamespaceFS({ fs_root: tmp_fs_root });
+    const ns_src = new NamespaceFS({fs_path: 'src'});
+    const ns_tmp = new NamespaceFS({ fs_path: tmp_fs_path});
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root));
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));
+    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_path));
+    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
 
     mocha.describe('list_objects', function() {
 

@@ -39,6 +39,11 @@ NETWORK_FLAG=
 ifeq ($(USE_HOSTNETWORK), true)
 	NETWORK_FLAG="--network=host"
 endif
+#passing DOCKER_BUILDKIT="DOCKER_BUILDKIT=0" will disable buildkit (and 1 will enable it). It will not work with podman
+DOCKER_BUILDKIT?=DOCKER_BUILDKIT=1
+ifeq ($(CONTAINER_ENGINE), podman)
+	DOCKER_BUILDKIT=
+endif
 
 export
 
@@ -54,21 +59,21 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\033[1;34mStarting Builder $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "\033[1;32mBuilder done.\033[0m"
 .PHONY: builder
 
 base: builder
 	@echo "\033[1;34mStarting Base $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "\033[1;32mBase done.\033[0m"
 .PHONY: base
 
 tester: noobaa
 	@echo "\033[1;34mStarting Tester $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Tests.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-tester . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-tester $(TESTER_TAG)
 	@echo "\033[1;32mTester done.\033[0m"
 .PHONY: tester
@@ -94,14 +99,14 @@ tests: test #alias for test
 
 noobaa: base
 	@echo "\033[1;34mStarting NooBaa $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
 
 verify-fe-lib: builder
 	@echo "\033[1;Verifying Frontend Library $(CONTAINER_ENGINE) build.\033[0m"
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/FrontendLib.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t frontend-lib . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/FrontendLib.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t frontend-lib . $(REDIRECT_STDOUT)
 	@echo "\033[1;32mFrontend Library build verified.\033[0m"
 .PHONY: verify-fe-lib
 
@@ -113,7 +118,7 @@ fe-test: base
 # This rule builds a container image that includes developer tools
 # which allows to build and debug the project.
 nbdev:
-	$(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	@echo "\033[1;32mImage 'nbdev' is ready.\033[0m"
 	@echo "Usage: docker run -it nbdev"
 .PHONY: nbdev

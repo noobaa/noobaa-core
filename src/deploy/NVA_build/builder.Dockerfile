@@ -1,4 +1,4 @@
-FROM registry.centos.org/centos:8 
+FROM centos:8 
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################

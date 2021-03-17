@@ -10,7 +10,7 @@ spec:
       - name: noobaa-test
         image: TESTER_IMAGE_PLACEHOLDER
         imagePullPolicy: Never
-        workingDir: /noobaa-core
+        # workingDir: /root/node_modules/noobaa-core/
         args:
           # - /bin/bash
           #  - -c
@@ -23,7 +23,7 @@ spec:
           - --namespace_prefix
           - "NAMESPACE_PREFIX_PLACEHOLDER"
           - --tests_list
-          - /noobaa-core/src/test/framework/sanity_tests_list.js
+          - /root/node_modules/noobaa-core/src/test/framework/sanity_tests_list.js
         env:
           - name: CONTAINER_PLATFORM
             value: KUBERNETES

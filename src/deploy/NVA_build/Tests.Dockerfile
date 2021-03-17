@@ -29,15 +29,7 @@ RUN dnf group install -y -q "Development Tools" && \
     git && \
     dnf clean all
 
-##############################################################
-# Layers:
-#   Title: extract noobaa code 
-#   Size: ~ 239 MB
-#
-##############################################################
-
-RUN tar -xzf /tmp/noobaa-NVA.tar.gz
-WORKDIR /noobaa-core/
+WORKDIR /root/node_modules/noobaa-core/
 
 ##############################################################
 # Layers:
@@ -46,8 +38,8 @@ WORKDIR /noobaa-core/
 #
 ##############################################################
 
-RUN /noobaa-core/src/test/system_tests/ceph_s3_tests_deploy.sh
-RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
+RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
+RUN cd ./src/test/system_tests/s3-tests/ && \
     ./bootstrap
 
 ##############################################################
@@ -58,21 +50,11 @@ RUN cd /noobaa-core/src/test/system_tests/s3-tests/ && \
 ##############################################################
 RUN npm install
 
-RUN chmod 777 /noobaa-core/
-RUN mkdir -p /noobaa-core/.nyc_output && \
-    chmod 777 /noobaa-core/.nyc_output
-# create dirs and fix permissions required by tests
-RUN mkdir -p /noobaa-core/node_modules/.cache/nyc && \
-    chmod 777 /noobaa-core/node_modules/.cache/nyc
-RUN mkdir -p /noobaa-core/coverage && \
-    chmod 777 /noobaa-core/coverage
-RUN chmod -R 777 /noobaa-core/src/test
-
-COPY .eslintrc.js /noobaa-core
-COPY .eslintignore /noobaa-core
+COPY .eslintrc.js /root/node_modules/noobaa-core
+COPY .eslintignore /root/node_modules/noobaa-core
 
 # Making mocha accessible 
-RUN ln -s /noobaa-core/node_modules/mocha/bin/mocha /usr/local/bin
+RUN ln -s /root/node_modules/noobaa-core/node_modules/mocha/bin/mocha /usr/local/bin
 
 ENV SPAWN_WRAP_SHIM_ROOT /data
 RUN mkdir -p /data && \

@@ -127,8 +127,9 @@ RUN mkdir -m 777 /root/node_modules && \
 ##############################################################
 COPY --from=server_builder /noobaa/noobaa-NVA.tar.gz /tmp/
 RUN cd /root/node_modules && \
-    tar -xzf /tmp/noobaa-NVA.tar.gz
-
+    tar -xzf /tmp/noobaa-NVA.tar.gz && \
+    chgrp -R 0 /root/node_modules && \
+    chmod -R 775 /root/node_modules 
 
 ###############
 # PORTS SETUP #
@@ -147,6 +148,7 @@ EXPOSE 26050
 ###############
 # Run as non root user that belongs to root 
 USER 10001:0
+
 # We are using CMD and not ENDPOINT so 
 # we can override it when we use this image as agent. 
 CMD ["/usr/bin/supervisord", "start"]

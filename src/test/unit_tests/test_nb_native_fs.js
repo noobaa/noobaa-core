@@ -7,12 +7,18 @@ const mocha = require('mocha');
 const assert = require('assert');
 const nb_native = require('../../util/nb_native');
 
+const DEFAULT_FS_CONFIG = {
+    uid: process.getuid(),
+    gid: process.getgid(),
+    backend: ''
+};
+
 mocha.describe('nb_native fs', function() {
 
     mocha.describe('stat', function() {
         mocha.it('works', async function() {
             const path = 'package.json';
-            const res = await nb_native().stat(path);
+            const res = await nb_native().stat(DEFAULT_FS_CONFIG, path);
             const res2 = await fs.promises.stat(path);
             assert.deepStrictEqual(
                 res,
@@ -54,15 +60,15 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('open', function() {
         mocha.it.skip('open + close', async function() {
             const path = 'package.json';
-            const fh = await nb_native().open(path);
+            const fh = await nb_native().open(DEFAULT_FS_CONFIG, path);
             console.log(fh);
-            await nb_native().close(fh);
+            await nb_native().close(DEFAULT_FS_CONFIG, fh);
         });
 
         mocha.it.skip('close bad fd', async function() {
             const fh = { fd: 666666 };
             try {
-                await nb_native().close(fh);
+                await nb_native().close(DEFAULT_FS_CONFIG, fh);
                 throw new Error('Should have failed');
             } catch (err) {
                 assert.strictEqual(err.message, 'Bad file descriptor');
@@ -119,7 +125,7 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('Readdir', function() {
         mocha.it('works', async function() {
             const { readdir } = nb_native();
-            const r = await readdir('.');
+            const r = await readdir(DEFAULT_FS_CONFIG, '.');
             console.log('JEINA THIS IS DIR', r, r.length);
         });
         mocha.it('works FS', async function() {
@@ -133,13 +139,13 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('Readdir DIRWRAP', function() {
         mocha.it('works', async function() {
             const { opendir } = nb_native();
-            const r = await opendir('.');
-            let dir = await r.read();
+            const r = await opendir(DEFAULT_FS_CONFIG, '.');
+            let dir = await r.read(DEFAULT_FS_CONFIG);
             while (dir) {
                 console.log('JEINA THIS IS DIR', dir);
-                dir = await r.read();
+                dir = await r.read(DEFAULT_FS_CONFIG);
             }
-            await r.close();
+            await r.close(DEFAULT_FS_CONFIG);
         });
 
         mocha.it('works FS', async function() {
@@ -164,4 +170,20 @@ mocha.describe('nb_native fs', function() {
     //         }
     //     });
     // });
+
+    mocha.describe('ACL', function() {
+        mocha.it('stat', async function() {
+            const path = 'package.json';
+            try {
+                await nb_native().stat({ uid: 26041992 }, path);
+                throw new Error('Expected to get EPERM');
+            } catch (error) {
+                assert.strictEqual(error.message, 'Operation not permitted');
+                assert.strictEqual(error.code, 'EPERM');
+            }
+            const response = await nb_native().stat(DEFAULT_FS_CONFIG, path);
+            console.log('ACL Stat response', response);
+        });
+    });
+
 });

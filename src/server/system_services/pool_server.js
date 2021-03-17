@@ -1320,8 +1320,9 @@ async function get_optimal_non_mongo_pool_id() {
             continue;
         }
 
-        const aggr = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
-        const { mode = '' } = get_pool_info(pool, aggr);
+        const aggr_nodes = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
+        const aggr_hosts = await nodes_client.instance().aggregate_hosts_by_pool([pool.name], pool.system._id);
+        const { mode = '' } = get_pool_info(pool, aggr_nodes, aggr_hosts);
         if (mode === 'OPTIMAL') {
             return pool._id;
         }

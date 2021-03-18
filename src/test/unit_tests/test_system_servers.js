@@ -86,6 +86,7 @@ mocha.describe('system_servers', function() {
         await coretest.setup_pools(coretest.POOL_LIST);
     });
     mocha.it('account works', async function() {
+        if (config.DB_TYPE === 'postgres') this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const accounts_status = await rpc_client.account.accounts_status();
         await assert(accounts_status.has_accounts, 'has_accounts');
@@ -322,7 +323,7 @@ mocha.describe('system_servers', function() {
     });
 
     mocha.it('lambda triggers works', async function() {
-        if (config.DB_TYPE !== 'mongodb') return;
+        if (config.DB_TYPE === 'postgres') this.skip(); // eslint-disable-line no-invalid-this
         this.timeout(90000); // eslint-disable-line no-invalid-this
         const zipfile = await zip_utils.zip_from_files([{
             path: 'main.js',

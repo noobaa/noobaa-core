@@ -188,8 +188,7 @@ class ObjectSDK {
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
                 }
-
-                if (bucket.namespace.write_resource && bucket.namespace.write_resource.nsfs_config) {
+                if (bucket.namespace.write_resource && bucket.namespace.write_resource.fs_path) {
                     return {
                         ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                         bucket,

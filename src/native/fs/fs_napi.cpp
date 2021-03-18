@@ -7,12 +7,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <dirent.h>
 #include <vector>
 #include <math.h>
-// #include <errno.h>
-// #include <sys/fsuid.h>
+#include <unistd.h>
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#else
+    #include <sys/fsuid.h>
+#endif
 
 namespace noobaa
 {
@@ -22,6 +24,69 @@ struct Entry {
     ino_t ino;
     uint8_t type;
 };
+
+int fs_setuid(uid_t uid) {
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+        int r = setuid(uid);
+    #else
+        //  No error indications of any kind are returned to the caller, and
+        //  the fact that both successful and unsuccessful calls return the
+        //  same value makes it impossible to directly determine whether the
+        //  call succeeded or failed.  Instead, the caller must resort to
+        //  looking at the return value from a further call such as
+        //  setfsuid(-1) (which will always fail), in order to determine if a
+        //  preceding call to setfsuid() changed the filesystem user ID.
+        int current = setfsuid(-1);
+        int r = setfsuid(uid);
+        if (current == r) {
+            r = -1;
+        }
+    #endif
+    return r;
+}
+
+int fs_setgid(gid_t gid) {
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+        int r = setgid(gid);
+    #else
+        //  No error indications of any kind are returned to the caller, and
+        //  the fact that both successful and unsuccessful calls return the
+        //  same value makes it impossible to directly determine whether the
+        //  call succeeded or failed.  Instead, the caller must resort to
+        //  looking at the return value from a further call such as
+        //  setfsgid(-1) (which will always fail), in order to determine if a
+        //  preceding call to setfsgid() changed the filesystem user ID.
+        int current = setfsgid(-1);
+        int r = setfsgid(gid);
+        if (current == r) {
+            r = -1;
+        }
+    #endif
+    return r;
+}
+
+uid_t fs_getuid() {
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+        int r = getuid();
+    #else
+        // There is no getfsuid, using set without value allows us to get the current id
+        int r = setfsuid(-1);
+    #endif
+    return r;
+}
+
+gid_t fs_getgid() {
+    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+        int r = getgid();
+    #else
+        // There is no getfsgid, using set without value allows us to get the current id
+        int r = setfsgid(-1);
+    #endif
+    return r;
+}
+
+static uid_t orig_uid = fs_getuid();
+static gid_t orig_gid = fs_getgid();
 
 template <typename T>
 static Napi::Value api(const Napi::CallbackInfo& info)
@@ -38,6 +103,9 @@ static Napi::Value api(const Napi::CallbackInfo& info)
 struct FSWorker : public Napi::AsyncWorker
 {
     Napi::Promise::Deferred _deferred;
+    gid_t _req_uid;
+    uid_t _req_gid;
+    std::string _backend;
     int _errno;
     std::string _desc;
 
@@ -46,11 +114,55 @@ struct FSWorker : public Napi::AsyncWorker
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
         , _errno(0)
     {
+        Napi::Object config = info[0].As<Napi::Object>();        
+        _req_uid = config.Has("uid") ? config.Get("uid").ToNumber() : orig_uid;
+        _req_gid = config.Has("gid") ? config.Get("gid").ToNumber() : orig_gid;
+        // TODO: Fill the relevant type
+        _backend = config.Has("backend") ? config.Get("backend").ToString() : Napi::String::New(info.Env(), "");
     }
     void Begin(std::string desc)
     {
         _desc = desc;
         LOG("FS::FSWorker::Begin: " << _desc);
+    }
+    virtual void Work() = 0;
+    void Execute() {
+        LOG("FS::FSWorker::Start Execute: " << _desc << 
+            " req_uid:" << _req_uid << 
+            " req_gid:" << _req_gid << 
+            " backend:" << _backend
+        );
+        bool change_uid = orig_uid != _req_uid;
+        bool change_gid = orig_gid != _req_gid;
+        if (change_uid) {
+            int r = fs_setuid(_req_uid);
+            if (r == -1) {
+                SetSyscallError();
+                return;
+            }
+        }
+        if (change_gid) {
+            int r = fs_setgid(_req_gid);
+            if (r == -1) {
+                SetSyscallError();
+                return;
+            }
+        }
+        Work();
+        if (change_uid) {
+            int r = fs_setuid(orig_uid);
+            if (r == -1) {
+                SetSyscallError();
+                return;
+            }
+        }
+        if (change_gid) {
+            int r = fs_setgid(orig_gid);
+            if (r == -1) {
+                SetSyscallError();
+                return;
+            }
+        }
     }
     void SetSyscallError()
     {
@@ -90,10 +202,10 @@ struct Stat : public FSWorker
 
     Stat(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int r = stat(_path.c_str(), &_stat_res);
         if (r) SetSyscallError();
@@ -148,10 +260,10 @@ struct Unlink : public FSWorker
     std::string _path;
     Unlink(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int r = unlink(_path.c_str());
         if (r == -1) SetSyscallError();
@@ -167,10 +279,10 @@ struct Mkdir : public FSWorker
     std::string _path;
     Mkdir(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int r = mkdir(_path.c_str(), S_IRWXU);
         if (r == -1) SetSyscallError();
@@ -186,10 +298,10 @@ struct Rmdir : public FSWorker
     std::string _path;
     Rmdir(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int r = rmdir(_path.c_str());
         if (r == -1) SetSyscallError();
@@ -206,11 +318,11 @@ struct Rename : public FSWorker
     std::string _new_path;
     Rename(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _old_path = info[0].As<Napi::String>();
-        _new_path = info[1].As<Napi::String>();
+        _old_path = info[1].As<Napi::String>();
+        _new_path = info[2].As<Napi::String>();
         Begin(XSTR() << DVAL(_old_path) << DVAL(_new_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int r = rename(_old_path.c_str(), _new_path.c_str());
         if (r == -1) SetSyscallError();
@@ -227,13 +339,13 @@ struct Writefile : public FSWorker
     size_t _len;
     Writefile(const Napi::CallbackInfo& info) : FSWorker(info)
     {
-        _path = info[0].As<Napi::String>();
-        auto buf = info[1].As<Napi::Buffer<uint8_t>>();
+        _path = info[1].As<Napi::String>();
+        auto buf = info[2].As<Napi::Buffer<uint8_t>>();
         _data = buf.Data();
         _len = buf.Length();
         Begin(XSTR() << DVAL(_path) << DVAL(_len));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int fd = open(_path.c_str(), O_WRONLY | O_CREAT);
         if (fd < 0) {
@@ -266,7 +378,7 @@ struct Readfile : public FSWorker
         , _data(0)
         , _len(0)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
     virtual ~Readfile()
@@ -276,7 +388,7 @@ struct Readfile : public FSWorker
             _data = 0;
         }
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int fd = open(_path.c_str(), O_RDONLY);
         if (fd < 0) {
@@ -331,11 +443,11 @@ struct Readdir : public FSWorker
         : FSWorker(info)
         , _entries(0)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         // _withFileTypes = info[1].As<Napi::Boolean>();
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         DIR *dir;
         dir = opendir(_path.c_str());
@@ -431,11 +543,11 @@ struct FileOpen : public FSWorker
     int _fd;
     FileOpen(const Napi::CallbackInfo& info) : FSWorker(info), _fd(0)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         // TODO - info[1] { mode, readonly }
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         _fd = open(_path.c_str(), O_RDONLY); // TODO mode
         if (!_fd) SetSyscallError();
@@ -458,7 +570,7 @@ struct FileClose : public FSWorker
     {
         _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
@@ -485,13 +597,13 @@ struct FileRead : public FSWorker
         , _pos(0)
     {
         _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
-        auto buf = info[0].As<Napi::Buffer<uint8_t>>();
+        auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
-        _offset = info[1].As<Napi::Number>();
-        _len = info[2].As<Napi::Number>();
-        _pos = info[3].As<Napi::Number>();
+        _offset = info[2].As<Napi::Number>();
+        _len = info[3].As<Napi::Number>();
+        _pos = info[4].As<Napi::Number>();
     }
-    virtual void Execute()
+    virtual void Work()
     {
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
@@ -524,7 +636,7 @@ struct FileRead : public FSWorker
 //         _buf = info[1].As<Napi::Value<size_t>>();
 //         // TODO get buffer from info[0]
 //     }
-//     virtual void Execute()
+//     virtual void Work()
 //     {
 //         int fd = _wrap->_fd;
 //         std::string path = _wrap->_path;
@@ -595,11 +707,11 @@ struct DirOpen : public FSWorker
     DIR *_dir;
     DirOpen(const Napi::CallbackInfo& info) : FSWorker(info), _dir(0)
     {
-        _path = info[0].As<Napi::String>();
+        _path = info[1].As<Napi::String>();
         // TODO - info[1] = { bufferSize: 128 }
         Begin(XSTR() << DVAL(_path));
     }
-    virtual void Execute()
+    virtual void Work()
     {
         _dir = opendir(_path.c_str());
         if (_dir == NULL) SetSyscallError();
@@ -622,7 +734,7 @@ struct DirClose : public FSWorker
     {
         _wrap = DirWrap::Unwrap(info.This().As<Napi::Object>());
     }
-    virtual void Execute()
+    virtual void Work()
     {
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
@@ -642,7 +754,7 @@ struct DirReadEntry : public FSWorker
     {
         _wrap = DirWrap::Unwrap(info.This().As<Napi::Object>());
     }
-    virtual void Execute()
+    virtual void Work()
     {
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
@@ -702,6 +814,7 @@ Napi::Value DirWrap::read(const Napi::CallbackInfo& info)
 void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
+    LOG("FS::fs_napi:" << " orig_uid:" << orig_uid << " orig_gid:" << orig_gid);
     exports["stat"] = Napi::Function::New(env, api<Stat>);
     exports["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports["rename"] = Napi::Function::New(env, api<Rename>); 

@@ -67,6 +67,7 @@ mocha.describe('s3_list_objects', function() {
     }
 
     mocha.it('general use case', function() {
+        if (process.env.DB_TYPE === 'postgres') this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(10 * 60 * 1000);
 
@@ -277,6 +278,7 @@ mocha.describe('s3_list_objects', function() {
     });
 
     mocha.it('max keys test', function() {
+        if (process.env.DB_TYPE === 'postgres') this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(10 * 60 * 1000);
 

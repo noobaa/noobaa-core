@@ -95,11 +95,25 @@ module.exports = {
                 read_resources: {
                     type: 'array',
                     items: {
-                        objectid: true // namespace resource id
+                        type: 'object',
+                        required: ['resource'],
+                        properties: {
+                            resource: {
+                                objectid: true // namespace resource id
+                            },
+                            path: { type: 'string' },
+                        }
                     }
                 },
                 write_resource: {
-                    objectid: true // namespace resource id
+                    type: 'object',
+                    required: ['resource'],
+                    properties: {
+                        resource: {
+                            objectid: true // namespace resource id
+                        },
+                        path: { type: 'string' },
+                    }
                 },
                 caching: {
                     $ref: 'common_api#/definitions/bucket_cache_config'

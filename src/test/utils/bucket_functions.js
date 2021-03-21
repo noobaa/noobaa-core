@@ -154,9 +154,10 @@ class BucketFunctions {
     async createNamespaceBucket(name, namespace, caching) {
         console.log(`Creating namespace bucket ${name} with namespace ${namespace}`);
         try {
+            const nsr = { resource: namespace };
             const namespaceConfig = {
-                read_resources: [namespace],
-                write_resource: namespace,
+                read_resources: [nsr],
+                write_resource: nsr,
                 caching
             };
             await this._client.bucket.create_bucket({
@@ -175,8 +176,8 @@ class BucketFunctions {
             await this._client.bucket.update_bucket({
                 name,
                 namespace: {
-                    read_resources,
-                    write_resource
+                    read_resources: read_resources.map(rr => ({ resource: rr })),
+                    write_resource: { resource: write_resource }
                 }
             });
         } catch (e) {

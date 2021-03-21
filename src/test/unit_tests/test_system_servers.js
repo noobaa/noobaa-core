@@ -387,11 +387,12 @@ mocha.describe('system_servers', function() {
             connection: NAMESPACE_RESOURCE_CONNECTION,
             target_bucket: BUCKET
         });
+        const nsr = { resource: NAMESPACE_RESOURCE_NAME };
         await rpc_client.bucket.create_bucket({
             name: NAMESPACE_BUCKET,
             namespace: {
-                read_resources: [NAMESPACE_RESOURCE_NAME],
-                write_resource: NAMESPACE_RESOURCE_NAME
+                read_resources: [nsr],
+                write_resource: nsr
             },
         });
         await rpc_client.bucket.delete_bucket({ name: NAMESPACE_BUCKET });

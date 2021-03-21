@@ -33,8 +33,8 @@ function _mapBucket(bucket) {
 
 function _mapPlacement(namespace){
     return {
-        readFrom: namespace.read_resources,
-        writeTo: namespace.write_resource
+        readFrom: namespace.read_resources.map(read_target => read_target.resource),
+        writeTo: namespace.write_resource.resource
     };
 }
 

@@ -790,9 +790,7 @@ module.exports = {
             }
         },
 
-        fs_path: {
-            type: 'string'
-        },
+        // nsfs 
 
         fs_backend: {
             type: 'string',
@@ -801,15 +799,23 @@ module.exports = {
 
         nsfs_config: {
             type: 'object',
-            required: ['fs_path'],
+            required: ['fs_root_path'],
             properties: {
-                fs_path: {
-                    $ref: '#/definitions/fs_path'
+                fs_root_path: {
+                    type: 'string'
                 },
                 fs_backend: {
                     $ref: '#/definitions/fs_backend'
                 }
             }
-        }
+        },
+        nsfs_account_config: {
+            type: 'object',
+            properties: {
+                uid: { type: 'number' },
+                gid: { type: 'number' },
+                new_buckets_path: { type: 'string' },
+            }
+        },
     }
 };

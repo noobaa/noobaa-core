@@ -70,6 +70,9 @@ module.exports = {
                             },
                         },
                     },
+                    nsfs_account_config: {
+                        $ref: 'common_api#/definitions/nsfs_account_config'
+                    },
                 },
             },
             reply: {
@@ -182,6 +185,9 @@ module.exports = {
                                 $ref: 'common_api#/definitions/ip_range'
                             }
                         }]
+                    },
+                    nsfs_account_config: {
+                        $ref: 'common_api#/definitions/nsfs_account_config'
                     },
                     preferences: {
                         type: 'object',
@@ -647,6 +653,9 @@ module.exports = {
                             enum: ['DARK', 'LIGHT']
                         }
                     }
+                },
+                nsfs_account_config: {
+                    $ref: 'common_api#/definitions/nsfs_account_config'
                 }
             },
         },

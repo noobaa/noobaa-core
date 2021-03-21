@@ -19,11 +19,11 @@ const nb_native = require('../util/nb_native');
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
-const DEFAULT_FS_CONFIG = {
+/*const DEFAULT_FS_CONFIG = {
     uid: Number(process.env.NSFS_UID) || process.getuid(),
     gid: Number(process.env.NSFS_GID) || process.getgid(),
     backend: ''
-};
+};*/
 
 /**
  * @param {fs.Dirent} a 
@@ -73,17 +73,17 @@ function make_named_dirent(name) {
  *  usage: number,
  *  sorted_entries?: fs.Dirent[],
  * }} ReaddirCacheItem
- * @type {LRUCache<string, string, ReaddirCacheItem>}
+ * @type {LRUCache<object, string, ReaddirCacheItem>}
  */
 const dir_cache = new LRUCache({
     name: 'nsfs-dir-cache',
-    load: async dir_path => {
+    load: async ({dir_path, fs_account_config}) => {
         const time = Date.now();
-        const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, dir_path);
+        const stat = await nb_native().fs.stat(fs_account_config, dir_path);
         let sorted_entries;
         let usage = config.NSFS_DIR_CACHE_MIN_DIR_SIZE;
         if (stat.size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
-            sorted_entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, dir_path);
+            sorted_entries = await nb_native().fs.readdir(fs_account_config, dir_path);
             sorted_entries.sort(sort_entries_by_name);
             for (const ent of sorted_entries) {
                 usage += ent.name.length + 4;
@@ -91,8 +91,14 @@ const dir_cache = new LRUCache({
         }
         return { time, stat, sorted_entries, usage };
     },
-    validate: async ({ stat }, dir_path) => {
-        const new_stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, dir_path);
+    validate: async ({ stat }, { dir_path, fs_account_config}) => {
+        let new_stat;
+        try {
+            new_stat = await nb_native().fs.stat(fs_account_config, dir_path);
+        } catch (err) {
+            // temporary solution: invalidating - should be more efficient  
+            return false;
+        }
         return (new_stat.ino === stat.ino && new_stat.mtimeMs === stat.mtimeMs);
     },
     item_usage: ({ usage }, dir_path) => usage,
@@ -107,13 +113,20 @@ class NamespaceFS {
 
     /**
      * @param {{
-     *  fs_path: string;
+     *  bucket_path: string;
      *  fs_backend?: string;
      * }} params
      */
-    constructor({ fs_path, fs_backend }) {
-        this.fs_path = fs_path;
+    constructor({ bucket_path, fs_backend }) {
+        this.bucket_path = bucket_path;
         this.fs_backend = fs_backend;
+    }
+
+    set_cur_fs_account_config(object_sdk) {
+        const fs_config_param = object_sdk &&
+            object_sdk.requesting_account && object_sdk.requesting_account.nsfs_account_config;
+        if (!fs_config_param) throw new Error('Invalid Request');
+        return fs_config_param;
     }
 
     get_write_resource() {
@@ -126,7 +139,7 @@ class NamespaceFS {
 
     is_same_namespace(other) {
         // in noobaa namespace case just check that other is also same fs
-        return other instanceof NamespaceFS && other.fs_path === this.fs_path;
+        return other instanceof NamespaceFS && other.bucket_path === this.bucket_path;
     }
 
     /////////////////
@@ -140,7 +153,6 @@ class NamespaceFS {
      *  delimiter?: string,
      *  key_marker?: string,
      *  limit?: number,
-     *  bucket_path?: string, // see _load_bucket()
      * }} ListParams
      */
 
@@ -149,11 +161,11 @@ class NamespaceFS {
      */
     async list_objects(params, object_sdk) {
 
-        await this._load_bucket(params);
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        await this._load_bucket(params, fs_account_config);
 
         const {
             bucket,
-            bucket_path,
             delimiter = '',
             prefix = '',
             key_marker = '',
@@ -194,7 +206,7 @@ class NamespaceFS {
             /** @type {ReaddirCacheItem} */
             let cached_dir;
 
-            const dir_path = path.join(bucket_path, dir_key);
+            const dir_path = path.join(this.bucket_path, dir_key);
 
             const prefix_dir = prefix.slice(0, dir_key.length);
             const prefix_ent = prefix.slice(dir_key.length);
@@ -262,7 +274,7 @@ class NamespaceFS {
             };
 
             try {
-                cached_dir = await dir_cache.get_with_cache(dir_path);
+                cached_dir = await dir_cache.get_with_cache({dir_path, fs_account_config});
             } catch (err) {
                 if (err.code === 'ENOENT') {
                     console.log('NamespaceFS: no keys for non existing dir', dir_path);
@@ -292,7 +304,7 @@ class NamespaceFS {
             // so we have to stream the entries one by one while filtering only the needed ones.
             try {
                 console.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
-                dir_handle = await nb_native().fs.opendir(DEFAULT_FS_CONFIG, dir_path); //, { bufferSize: 128 });
+                dir_handle = await nb_native().fs.opendir(fs_account_config, dir_path); //, { bufferSize: 128 });
                 for await (const ent of dir_handle) {
                     await process_entry(ent);
                     // since we dir entries streaming order is not sorted,
@@ -302,7 +314,7 @@ class NamespaceFS {
                 if (dir_handle) {
                     try {
                         console.warn('NamespaceFS: close dir streaming', dir_path, 'size', cached_dir.stat.size);
-                        await dir_handle.close(DEFAULT_FS_CONFIG);
+                        await dir_handle.close(fs_account_config);
                     } catch (err) {
                         console.error('NamespaceFS: close dir failed', err);
                     }
@@ -315,8 +327,8 @@ class NamespaceFS {
         await process_dir(prefix_dir_key);
         await Promise.all(results.map(async r => {
             if (r.common_prefix) return;
-            const entry_path = path.join(bucket_path, r.key);
-            r.stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, entry_path);
+            const entry_path = path.join(this.bucket_path, r.key);
+            r.stat = await nb_native().fs.stat(fs_account_config, entry_path);
         }));
         const res = {
             objects: [],
@@ -348,9 +360,10 @@ class NamespaceFS {
 
     async read_object_md(params, object_sdk) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, file_path);
+            const stat = await nb_native().fs.stat(fs_account_config, file_path);
             console.log(file_path, stat);
             if (isDirectory(stat)) {
                 const err = new Error('NoSuchKey');
@@ -366,7 +379,8 @@ class NamespaceFS {
     /*
     async read_object_stream_SLOW(params, object_sdk, res) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
             return fs.createReadStream(file_path, {
                 highWaterMark: config.NSFS_BUF_SIZE,
@@ -383,10 +397,11 @@ class NamespaceFS {
     async read_object_stream(params, object_sdk, res) {
         let file;
         let buffer_pool_cleanup = null;
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         try {
-            await this._load_bucket(params);
+            await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            file = await nb_native().fs.open(DEFAULT_FS_CONFIG, file_path);
+            file = await nb_native().fs.open(fs_account_config, file_path);
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
@@ -407,7 +422,7 @@ class NamespaceFS {
 
                 // read from file
                 const read_size = Math.min(buffer.length, remain_size);
-                const bytesRead = await file.read(DEFAULT_FS_CONFIG, buffer, 0, read_size, pos);
+                const bytesRead = await file.read(fs_account_config, buffer, 0, read_size, pos);
                 if (!bytesRead) break;
                 const data = buffer.slice(0, bytesRead);
 
@@ -458,7 +473,7 @@ class NamespaceFS {
 
         } finally {
             try {
-                if (file) await file.close(DEFAULT_FS_CONFIG);
+                if (file) await file.close(fs_account_config);
             } catch (err) {
                 console.warn('NamespaceFS: read_object_stream file close error', err);
             }
@@ -478,31 +493,34 @@ class NamespaceFS {
 
     async upload_object(params, object_sdk) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
+
             const file_path = this._get_file_path(params);
             const upload_id = uuidv4();
-            const upload_path = path.join(params.bucket_path, config.NSFS_TEMP_DIR_NAME, 'uploads', upload_id);
+            const upload_path = path.join(this.bucket_path, config.NSFS_TEMP_DIR_NAME, 'uploads', upload_id);
             // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
-            await Promise.all([this._make_path_dirs(file_path), this._make_path_dirs(upload_path)]);
-            await this._upload_stream(params.source_stream, upload_path);
+
+            await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
+            await this._upload_stream(params.source_stream, upload_path, fs_account_config);
             // TODO use file xattr to store md5_b64 xattr, etc.
-            const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, upload_path);
-            await nb_native().fs.rename(DEFAULT_FS_CONFIG, upload_path, file_path);
+            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
+            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
     }
 
-    async _upload_stream(source_stream, upload_path) {
+    async _upload_stream(source_stream, upload_path, fs_account_config) {
         let target_file;
         try {
             let q_buffers = [];
             let q_size = 0;
-            target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, upload_path, 'w');
+            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
             const flush = async () => {
                 if (q_buffers.length) {
-                    await target_file.writev(DEFAULT_FS_CONFIG, q_buffers);
+                    await target_file.writev(fs_account_config, q_buffers);
                     q_buffers = [];
                     q_size = 0;
                 }
@@ -523,7 +541,7 @@ class NamespaceFS {
             throw error;
         } finally {
             try {
-                if (target_file) await target_file.close(DEFAULT_FS_CONFIG);
+                if (target_file) await target_file.close(fs_account_config);
             } catch (err) {
                 console.warn('NamespaceFS: _upload_stream file close error', err);
             }
@@ -547,12 +565,13 @@ class NamespaceFS {
 
     async create_object_upload(params, object_sdk) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
             params.obj_id = uuidv4();
             params.mpu_path = this._mpu_path(params);
-            await this._create_path(params.mpu_path);
+            await this._create_path(params.mpu_path, fs_account_config);
             const create_params = JSON.stringify({ ...params, source_stream: null });
-            await nb_native().fs.writeFile(DEFAULT_FS_CONFIG, path.join(params.mpu_path, 'create_object_upload'), Buffer.from(create_params));
+            await nb_native().fs.writeFile(fs_account_config, path.join(params.mpu_path, 'create_object_upload'), Buffer.from(create_params));
             return { obj_id: params.obj_id };
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -561,10 +580,11 @@ class NamespaceFS {
 
     async upload_multipart(params, object_sdk) {
         try {
-            await this._load_multipart(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
-            await this._upload_stream(params.source_stream, upload_path);
-            const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, upload_path);
+            await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -572,15 +592,16 @@ class NamespaceFS {
     }
 
     async list_multiparts(params, object_sdk) {
-        await this._load_multipart(params);
-        const entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, params.mpu_path);
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        await this._load_multipart(params, fs_account_config);
+        const entries = await nb_native().fs.readdir(fs_account_config, params.mpu_path);
         const multiparts = await Promise.all(
             entries
             .filter(e => e.name.startsWith('part-'))
             .map(async e => {
                 const num = Number(e.name.slice('part-'.length));
                 const part_path = path.join(params.mpu_path, e.name);
-                const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, part_path);
+                const stat = await nb_native().fs.stat(fs_account_config, part_path);
                 return {
                     num,
                     size: stat.size,
@@ -599,46 +620,47 @@ class NamespaceFS {
     async complete_object_upload(params, object_sdk) {
         let read_file;
         let write_file;
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         try {
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
-            await this._load_multipart(params);
+            await this._load_multipart(params, fs_account_config);
             const file_path = this._get_file_path(params);
             const upload_path = path.join(params.mpu_path, 'final');
-            write_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, upload_path, 'w');
+            write_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
-                const part_stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, part_path);
+                const part_stat = await nb_native().fs.stat(fs_account_config, part_path);
                 if (etag !== this._get_etag(part_stat)) {
                     throw new Error('mismatch part etag: ' +
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
-                read_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, part_path);
+                read_file = await nb_native().fs.open(fs_account_config, part_path);
                 const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                 let read_pos = 0;
                 for (;;) {
-                    const bytesRead = await read_file.read(DEFAULT_FS_CONFIG, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
+                    const bytesRead = await read_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                     if (!bytesRead) break;
                     read_pos += bytesRead;
                     const data = buffer.slice(0, bytesRead);
-                    await write_file.write(DEFAULT_FS_CONFIG, data);
+                    await write_file.write(fs_account_config, data);
                 }
-                await read_file.close(DEFAULT_FS_CONFIG);
+                await read_file.close(fs_account_config);
                 read_file = null;
             }
-            await write_file.close(DEFAULT_FS_CONFIG);
+            await write_file.close(fs_account_config);
             write_file = null;
-            const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, upload_path);
-            await nb_native().fs.rename(DEFAULT_FS_CONFIG, upload_path, file_path);
-            await this._folder_delete(params.mpu_path);
+            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
+            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
+            await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat) };
         } catch (err) {
             console.error(err);
             throw this._translate_object_error_codes(err);
         } finally {
             try {
-                if (read_file) await read_file.close(DEFAULT_FS_CONFIG);
-                if (write_file) await write_file.close(DEFAULT_FS_CONFIG);
+                if (read_file) await read_file.close(fs_account_config);
+                if (write_file) await write_file.close(fs_account_config);
             } catch (err) {
                 console.warn('NamespaceFS: complete_object_upload file close error', err);
             }
@@ -646,9 +668,10 @@ class NamespaceFS {
     }
 
     async abort_object_upload(params, object_sdk) {
-        await this._load_multipart(params);
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        await this._load_multipart(params, fs_account_config);
         console.log('NamespaceFS: abort_object_upload', params.mpu_path);
-        await this._folder_delete(params.mpu_path);
+        await this._folder_delete(params.mpu_path, fs_account_config);
     }
 
     ///////////////////
@@ -657,10 +680,11 @@ class NamespaceFS {
 
     async delete_object(params, object_sdk) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
             console.log('NamespaceFS: delete_object', file_path);
-            await nb_native().fs.unlink(DEFAULT_FS_CONFIG, file_path);
+            await nb_native().fs.unlink(fs_account_config, file_path);
             return {};
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -669,11 +693,12 @@ class NamespaceFS {
 
     async delete_multiple_objects(params, object_sdk) {
         try {
-            await this._load_bucket(params);
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
             for (const { key } of params.objects) {
                 const file_path = this._get_file_path({ key });
                 console.log('NamespaceFS: delete_multiple_objects', file_path);
-                await nb_native().fs.unlink(DEFAULT_FS_CONFIG, file_path);
+                await nb_native().fs.unlink(fs_account_config, file_path);
             }
             // TODO return deletion reponse per key
             return params.objects.map(() => ({}));
@@ -748,7 +773,7 @@ class NamespaceFS {
     ///////////////
 
     _get_file_path({ key }) {
-        const p = path.join(this.fs_path, key);
+        const p = path.join(this.bucket_path, key);
         return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
     }
 
@@ -762,9 +787,9 @@ class NamespaceFS {
         return dir_key + ent.name + (isDirectory(ent) ? '/' : '');
     }
 
-    async _make_path_dirs(file_path) {
+    async _make_path_dirs(file_path, fs_account_config) {
         const last_dir_pos = file_path.lastIndexOf('/');
-        if (last_dir_pos > 0) return this._create_path(file_path.slice(0, last_dir_pos));
+        if (last_dir_pos > 0) return this._create_path(file_path.slice(0, last_dir_pos), fs_account_config);
     }
 
     /**
@@ -815,17 +840,16 @@ class NamespaceFS {
         return err;
     }
 
-    async _load_bucket(params) {
+    async _load_bucket(params, fs_account_config) {
         try {
-            params.bucket_path = this.fs_path;
-            await nb_native().fs.stat(DEFAULT_FS_CONFIG, params.bucket_path);
+            await nb_native().fs.stat(fs_account_config, this.bucket_path);
         } catch (err) {
             if (err.code === 'ENOENT') {
                 // err.rpc_code = 'NO_SUCH_BUCKET';
                 // Instead of returning NO_SUCH_BUCKET we create the bucket dir.
                 // TODO should verify bucket exists in the system?
                 // or was it verified already for the request?
-                await this._create_path(params.bucket_path);
+                await this._create_path(this.bucket_path, fs_account_config);
                 return;
             }
             throw err;
@@ -834,17 +858,17 @@ class NamespaceFS {
 
     _mpu_path(params) {
         return path.join(
-            params.bucket_path,
+            this.bucket_path,
             config.NSFS_TEMP_DIR_NAME,
             'multipart-uploads',
             params.obj_id
         );
     }
-    async _load_multipart(params) {
-        await this._load_bucket(params);
+    async _load_multipart(params, fs_account_config) {
+        await this._load_bucket(params, fs_account_config);
         params.mpu_path = this._mpu_path(params);
         try {
-            await nb_native().fs.stat(DEFAULT_FS_CONFIG, params.mpu_path);
+            await nb_native().fs.stat(fs_account_config, params.mpu_path);
         } catch (err) {
             // TOOD: Error handling
             if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_UPLOAD';
@@ -852,12 +876,12 @@ class NamespaceFS {
         }
     }
 
-    async _create_path(dir) {
+    async _create_path(dir, fs_account_config) {
         let dir_path = path.isAbsolute(dir) ? path.sep : '';
         for (const item of dir.split(path.sep)) {
             dir_path = path.join(dir_path, item);
             try {
-                await nb_native().fs.mkdir(DEFAULT_FS_CONFIG, dir_path, 0o777);
+                await nb_native().fs.mkdir(fs_account_config, dir_path, 0o777);
             } catch (err) {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;
@@ -865,18 +889,19 @@ class NamespaceFS {
         }
     }
 
-    async _folder_delete(dir) {
-        let entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, dir);
+    async _folder_delete(dir, fs_account_config) {
+        let entries = await nb_native().fs.readdir(fs_account_config, dir);
         let results = await Promise.all(entries.map(entry => {
           let fullPath = path.join(dir, entry.name);
-          let task = isDirectory(entry) ? this._folder_delete(fullPath) : nb_native().fs.unlink(DEFAULT_FS_CONFIG, fullPath);
+          let task = isDirectory(entry) ? this._folder_delete(fullPath, fs_account_config) :
+            nb_native().fs.unlink(fs_account_config, fullPath);
           return task.catch(error => ({ error }));
         }));
         results.forEach(result => {
           // Ignore missing files/directories; bail on other errors
           if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
         });
-        await nb_native().fs.rmdir(DEFAULT_FS_CONFIG, dir);
+        await nb_native().fs.rmdir(fs_account_config, dir);
     }
 
 }

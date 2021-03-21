@@ -555,8 +555,8 @@ module.exports = {
                 identity: {
                     $ref: 'common_api#/definitions/access_key'
                 },
-                fs_path: {
-                    $ref: 'common_api#/definitions/fs_path'
+                fs_root_path: {
+                    type: 'string'
                 },
                 fs_backend: {
                     $ref: 'common_api#/definitions/fs_backend'
@@ -599,8 +599,8 @@ module.exports = {
                     type: 'string'
                 },
                 secret_key: { $ref: 'common_api#/definitions/secret_key' },
-                fs_path: {
-                    $ref: 'common_api#/definitions/fs_path'
+                fs_root_path: {
+                    type: 'string'
                 },
                 fs_backend: {
                     $ref: 'common_api#/definitions/fs_backend'

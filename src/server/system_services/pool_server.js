@@ -252,9 +252,9 @@ async function create_namespace_resource(req) {
     if (req.rpc_params.nsfs_config) {
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config);
         const already_used_by = system_store.data.namespace_resources.find(cur_nsr => cur_nsr.nsfs_config &&
-                (cur_nsr.nsfs_config.fs_path === namespace_resource.nsfs_config.fs_path));
+                (cur_nsr.nsfs_config.fs_root_path === namespace_resource.nsfs_config.fs_root_path));
         if (already_used_by) {
-            dbg.error(`fs path ${already_used_by.nsfs_config.fs_path} already exported by ${already_used_by.name}`);
+            dbg.error(`fs root path ${already_used_by.nsfs_config.fs_root_path} already exported by ${already_used_by.name}`);
             throw new RpcError('IN_USE', 'Target already in use');
         }
     } else {
@@ -1056,7 +1056,7 @@ function get_namespace_resource_info(namespace_resource) {
             identity: namespace_resource.connection.access_key,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
-        fs_path: namespace_resource.nsfs_config.fs_path,
+        fs_root_path: namespace_resource.nsfs_config.fs_root_path,
         fs_backend: namespace_resource.nsfs_config.fs_backend
     };
     const info = _.omitBy({
@@ -1149,7 +1149,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         secret_key: namespace_resource.connection.secret_key,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
-        fs_path: namespace_resource.nsfs_config.fs_path,
+        fs_root_path: namespace_resource.nsfs_config.fs_root_path,
         fs_backend: namespace_resource.nsfs_config.fs_backend
     };
     const info = _.omitBy({
@@ -1294,8 +1294,8 @@ function check_namespace_resource_deletion(ns) {
 function get_associated_buckets_ns(ns) {
     const associated_buckets = _.filter(ns.system.buckets_by_name, bucket => {
         if (!bucket.namespace) return;
-        return (_.find(bucket.namespace.read_resources, read_resource => String(ns._id) === String(read_resource._id)) ||
-            (String(ns._id) === String(bucket.namespace.write_resource._id)));
+        return (_.find(bucket.namespace.read_resources, read_resource => String(ns._id) === String(read_resource.resource._id)) ||
+            (String(ns._id) === String(bucket.namespace.write_resource.resource._id)));
     });
 
     return _.map(associated_buckets, 'name');

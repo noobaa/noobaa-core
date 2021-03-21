@@ -221,12 +221,13 @@ async function setup() {
             name: 'ns.rsc.on.buck2',
             target_bucket: 'ns.internal.bucket2'
         });
-
+        const nsr1 = { resource: 'ns.rsc.on.buck1' };
+        const nsr2 = { resource: 'ns.rsc.on.buck2' };
         await client.bucket.create_bucket({
             name: 'ns.external.bucket1',
             namespace: {
-                read_resources: ['ns.rsc.on.buck1'],
-                write_resource: 'ns.rsc.on.buck2'
+                read_resources: [ nsr1 ],
+                write_resource: nsr2
             }
         });
 

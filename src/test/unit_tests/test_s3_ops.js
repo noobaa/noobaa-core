@@ -147,20 +147,21 @@ mocha.describe('s3_ops', function() {
                     connection: CONNECTION_NAME,
                     target_bucket: source_namespace_bucket
                 });
-
+                const trgt_nsr = { resource: NAMESPACE_RESOURCE_TARGET };
                 await rpc_client.bucket.create_bucket({
                     name: source_bucket,
                     namespace: {
-                        read_resources: [NAMESPACE_RESOURCE_TARGET],
-                        write_resource: NAMESPACE_RESOURCE_TARGET,
+                        read_resources: [trgt_nsr],
+                        write_resource: trgt_nsr,
                         caching: caching
                     }
                 });
+                const src_nsr = { resource: NAMESPACE_RESOURCE_SOURCE };
                 await rpc_client.bucket.create_bucket({
                     name: bucket_name,
                     namespace: {
-                        read_resources: [NAMESPACE_RESOURCE_SOURCE],
-                        write_resource: NAMESPACE_RESOURCE_SOURCE,
+                        read_resources: [src_nsr],
+                        write_resource: src_nsr,
                         caching
                     }
                 });

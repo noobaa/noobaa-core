@@ -18,7 +18,7 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('stat', function() {
         mocha.it('works', async function() {
             const path = 'package.json';
-            const res = await nb_native().stat(DEFAULT_FS_CONFIG, path);
+            const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path);
             const res2 = await fs.promises.stat(path);
             assert.deepStrictEqual(
                 res,
@@ -60,15 +60,15 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('open', function() {
         mocha.it.skip('open + close', async function() {
             const path = 'package.json';
-            const fh = await nb_native().open(DEFAULT_FS_CONFIG, path);
+            const fh = await nb_native().fs.open(DEFAULT_FS_CONFIG, path);
             console.log(fh);
-            await nb_native().close(DEFAULT_FS_CONFIG, fh);
+            await nb_native().fs.close(DEFAULT_FS_CONFIG, fh);
         });
 
         mocha.it.skip('close bad fd', async function() {
             const fh = { fd: 666666 };
             try {
-                await nb_native().close(DEFAULT_FS_CONFIG, fh);
+                await nb_native().fs.close(DEFAULT_FS_CONFIG, fh);
                 throw new Error('Should have failed');
             } catch (err) {
                 assert.strictEqual(err.message, 'Bad file descriptor');
@@ -79,7 +79,7 @@ mocha.describe('nb_native fs', function() {
 
     // mocha.describe('Dir', function() {
     //     mocha.it('works', async function() {
-    //         const { opendir } = nb_native();
+    //         const { opendir } = nb_native().fs;
     //         const d = await opendir('.');
     //         try {
     //             for (let e = await d.read(); e; e = await d.read()) {
@@ -93,7 +93,7 @@ mocha.describe('nb_native fs', function() {
 
     // mocha.describe('File', function() {
     //     mocha.it('works', async function() {
-    //         const { open } = nb_native();
+    //         const { open } = nb_native().fs;
     //         const f = await open('./jenia.txt');
     //         try {
     //             let buf = Buffer.from('QQQQQQQQQQQQ');
@@ -124,7 +124,7 @@ mocha.describe('nb_native fs', function() {
 
     mocha.describe('Readdir', function() {
         mocha.it('works', async function() {
-            const { readdir } = nb_native();
+            const { readdir } = nb_native().fs;
             const r = await readdir(DEFAULT_FS_CONFIG, '.');
             console.log('JEINA THIS IS DIR', r, r.length);
         });
@@ -138,7 +138,7 @@ mocha.describe('nb_native fs', function() {
 
     mocha.describe('Readdir DIRWRAP', function() {
         mocha.it('works', async function() {
-            const { opendir } = nb_native();
+            const { opendir } = nb_native().fs;
             const r = await opendir(DEFAULT_FS_CONFIG, '.');
             let dir = await r.read(DEFAULT_FS_CONFIG);
             while (dir) {
@@ -162,7 +162,7 @@ mocha.describe('nb_native fs', function() {
 
     // mocha.describe('Errors', function() {
     //     mocha.it('works', async function() {
-    //         const { stat } = nb_native();
+    //         const { stat } = nb_native().fs;
     //         try {
     //             const r = await stat('./jenia.txt');
     //         } catch (error) {
@@ -175,13 +175,13 @@ mocha.describe('nb_native fs', function() {
         mocha.it('stat', async function() {
             const path = 'package.json';
             try {
-                await nb_native().stat({ uid: 26041992 }, path);
+                await nb_native().fs.stat({ uid: 26041992 }, path);
                 throw new Error('Expected to get EPERM');
             } catch (error) {
                 assert.strictEqual(error.message, 'Operation not permitted');
                 assert.strictEqual(error.code, 'EPERM');
             }
-            const response = await nb_native().stat(DEFAULT_FS_CONFIG, path);
+            const response = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path);
             console.log('ACL Stat response', response);
         });
     });

@@ -19,6 +19,8 @@
 namespace noobaa
 {
 
+DBG_INIT(0);
+
 struct Entry {
     std::string name;
     ino_t ino;
@@ -123,11 +125,11 @@ struct FSWorker : public Napi::AsyncWorker
     void Begin(std::string desc)
     {
         _desc = desc;
-        LOG("FS::FSWorker::Begin: " << _desc);
+        DBG1("FS::FSWorker::Begin: " << _desc);
     }
     virtual void Work() = 0;
     void Execute() {
-        LOG("FS::FSWorker::Start Execute: " << _desc << 
+        DBG1("FS::FSWorker::Start Execute: " << _desc << 
             " req_uid:" << _req_uid << 
             " req_gid:" << _req_gid << 
             " backend:" << _backend
@@ -168,7 +170,7 @@ struct FSWorker : public Napi::AsyncWorker
     {
         if (_errno) {
             int current_errno = errno;
-            LOG("FS::FSWorker::SetSyscallError: errno already exists " << _desc << DVAL(_errno) << DVAL(current_errno));
+            DBG1("FS::FSWorker::SetSyscallError: errno already exists " << _desc << DVAL(_errno) << DVAL(current_errno));
         } else {
             _errno = errno;
             std::string errmsg = strerror(errno);
@@ -177,13 +179,13 @@ struct FSWorker : public Napi::AsyncWorker
     }
     virtual void OnOK()
     {
-        LOG("FS::FSWorker::OnOK: undefined " << _desc);
+        DBG1("FS::FSWorker::OnOK: undefined " << _desc);
         _deferred.Resolve(Env().Undefined());
     }
     virtual void OnError(Napi::Error const &error)
     {
         Napi::Env env = Env();
-        LOG("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
+        DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
         auto obj = error.Value();
         if (_errno) {
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
@@ -212,7 +214,7 @@ struct Stat : public FSWorker
     }
     virtual void OnOK()
     {
-        LOG("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
+        DBG1("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         res["dev"] = Napi::Number::New(env, _stat_res.st_dev);
@@ -554,7 +556,7 @@ struct FileOpen : public FSWorker
     }
     virtual void OnOK()
     {
-        LOG("FS::DirOpen::OnOK: " << DVAL(_path));
+        DBG1("FS::DirOpen::OnOK: " << DVAL(_path));
         Napi::Object res = FileWrap::constructor.New({});
         FileWrap *w = FileWrap::Unwrap(res);
         w->_path = _path;
@@ -718,7 +720,7 @@ struct DirOpen : public FSWorker
     }
     virtual void OnOK()
     {
-        LOG("FS::DirOpen::OnOK: " << DVAL(_path));
+        DBG1("FS::DirOpen::OnOK: " << DVAL(_path));
         Napi::Object res = DirWrap::constructor.New({});
         DirWrap *w = DirWrap::Unwrap(res);
         w->_path = _path;
@@ -810,25 +812,42 @@ Napi::Value DirWrap::read(const Napi::CallbackInfo& info)
     return api<DirReadEntry>(info);
 }
 
+Napi::Value
+set_debug_level(const Napi::CallbackInfo& info)
+{
+    auto level = info[0].As<Napi::Number>();
+    DBG_SET_LEVEL(level);
+    return info.Env().Undefined();
+}
 
 void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
-    LOG("FS::fs_napi:" << " orig_uid:" << orig_uid << " orig_gid:" << orig_gid);
-    exports["stat"] = Napi::Function::New(env, api<Stat>);
-    exports["unlink"] = Napi::Function::New(env, api<Unlink>);
-    exports["rename"] = Napi::Function::New(env, api<Rename>); 
-    exports["mkdir"] = Napi::Function::New(env, api<Mkdir>); 
-    exports["rmdir"] = Napi::Function::New(env, api<Rmdir>); 
-    exports["writeFile"] = Napi::Function::New(env, api<Writefile>);
-    exports["readFile"] = Napi::Function::New(env, api<Readfile>);
-    exports["readdir"] = Napi::Function::New(env, api<Readdir>);
+    DBG1("FS::fs_napi:" << " orig_uid:" << orig_uid << " orig_gid:" << orig_gid);
+    auto exports_fs = Napi::Object::New(env);
+    
+    exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
+    exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
+    exports_fs["rename"] = Napi::Function::New(env, api<Rename>); 
+    exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>); 
+    exports_fs["rmdir"] = Napi::Function::New(env, api<Rmdir>); 
+    exports_fs["writeFile"] = Napi::Function::New(env, api<Writefile>);
+    exports_fs["readFile"] = Napi::Function::New(env, api<Readfile>);
+    exports_fs["readdir"] = Napi::Function::New(env, api<Readdir>);
 
     FileWrap::init(env);
-    exports["open"] = Napi::Function::New(env, api<FileOpen>);
+    exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);
 
     DirWrap::init(env);
-    exports["opendir"] = Napi::Function::New(env, api<DirOpen>);
+    exports_fs["opendir"] = Napi::Function::New(env, api<DirOpen>);
+
+    exports_fs["S_IFMT"] = Napi::Number::New(env, S_IFMT);
+    exports_fs["S_IFDIR"] = Napi::Number::New(env, S_IFDIR);
+    exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
+
+    exports_fs["set_debug_level"] = Napi::Function::New(env, set_debug_level);
+
+    exports["fs"] = exports_fs;
 }
 
 }

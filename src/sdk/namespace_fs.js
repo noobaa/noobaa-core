@@ -353,6 +353,11 @@ class NamespaceFS {
             const file_path = this._get_file_path(params);
             const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, file_path);
             console.log(file_path, stat);
+            if (isDirectory(stat)) {
+                const err = new Error('NoSuchKey');
+                err.code = 'ENOENT';
+                throw this._translate_object_error_codes(err);
+            }
             return this._get_object_info(params.bucket, params.key, stat);
         } catch (err) {
             throw this._translate_object_error_codes(err);

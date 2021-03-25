@@ -13,7 +13,7 @@ NooBaa simplifies data administration by connecting to any of the storage silos 
 
 ## Deploy to Kubernetes
 
-To deploy NooBaa, we recommend using NooBaa CLI. 
+To deploy NooBaa, we recommend using NooBaa CLI.
 Follow the instructions in https://github.com/noobaa/noobaa-operator#noobaa-operator 
 
 Once NooBaa CLI installed, simply Install the operator and noobaa with: 
@@ -41,8 +41,8 @@ Remove NooBaa deployment can be done with:
 ## Help
 
 - [Website](https://www.noobaa.io)
-- [Knowledge Base](https://noobaa.desk.com) - articles for specific user tasks
 - [Wiki](https://github.com/noobaa/noobaa-core/wiki) - articles for hackers
+- [Docs](https://noobaa.github.io) - the new docs site is almost ready...
 
 ## Communicate
 

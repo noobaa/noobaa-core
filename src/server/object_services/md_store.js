@@ -185,6 +185,19 @@ class MDStore {
         });
     }
 
+    async find_object_or_upload_null_version(bucket_id, key) {
+        return this._objects.findOne({
+                // index fields:
+                bucket: bucket_id,
+                key,
+                version_enabled: null,
+                // partialFilterExpression:
+                deleted: null,
+            }, {
+                sort: { bucket: 1, key: 1, version_enabled: 1 },
+        });
+    }
+
     async find_object_by_version(bucket_id, key, version_seq) {
         return this._objects.findOne({
             // index fields:

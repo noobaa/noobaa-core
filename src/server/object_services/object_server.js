@@ -1720,7 +1720,8 @@ async function _delete_object_version(req) {
     }
 
     if (bucket_versioning === 'DISABLED') {
-        const obj = version_id === 'null' && await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
+        const obj = version_id === 'null' && await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key);
+
         if (!obj) return { reply: {} };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         check_md_conditions(req.rpc_params.md_conditions, obj);
@@ -1731,7 +1732,7 @@ async function _delete_object_version(req) {
 
     if (bucket_versioning === 'ENABLED' || bucket_versioning === 'SUSPENDED') {
         const obj = version_id === 'null' ?
-            await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key) :
+            await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key) :
             await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, version_seq);
         if (!obj) return { reply: {} };
 

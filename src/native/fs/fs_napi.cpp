@@ -11,10 +11,6 @@
 #include <vector>
 #include <math.h>
 #include <unistd.h>
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#else
-    #include <sys/fsuid.h>
-#endif
 
 namespace noobaa
 {
@@ -27,68 +23,9 @@ struct Entry {
     uint8_t type;
 };
 
-int fs_setuid(uid_t uid) {
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-        int r = setuid(uid);
-    #else
-        //  No error indications of any kind are returned to the caller, and
-        //  the fact that both successful and unsuccessful calls return the
-        //  same value makes it impossible to directly determine whether the
-        //  call succeeded or failed.  Instead, the caller must resort to
-        //  looking at the return value from a further call such as
-        //  setfsuid(-1) (which will always fail), in order to determine if a
-        //  preceding call to setfsuid() changed the filesystem user ID.
-        int current = setfsuid(-1);
-        int r = setfsuid(uid);
-        if (current == r) {
-            r = -1;
-        }
-    #endif
-    return r;
-}
 
-int fs_setgid(gid_t gid) {
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-        int r = setgid(gid);
-    #else
-        //  No error indications of any kind are returned to the caller, and
-        //  the fact that both successful and unsuccessful calls return the
-        //  same value makes it impossible to directly determine whether the
-        //  call succeeded or failed.  Instead, the caller must resort to
-        //  looking at the return value from a further call such as
-        //  setfsgid(-1) (which will always fail), in order to determine if a
-        //  preceding call to setfsgid() changed the filesystem user ID.
-        int current = setfsgid(-1);
-        int r = setfsgid(gid);
-        if (current == r) {
-            r = -1;
-        }
-    #endif
-    return r;
-}
-
-uid_t fs_getuid() {
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-        int r = getuid();
-    #else
-        // There is no getfsuid, using set without value allows us to get the current id
-        int r = setfsuid(-1);
-    #endif
-    return r;
-}
-
-gid_t fs_getgid() {
-    #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-        int r = getgid();
-    #else
-        // There is no getfsgid, using set without value allows us to get the current id
-        int r = setfsgid(-1);
-    #endif
-    return r;
-}
-
-static uid_t orig_uid = fs_getuid();
-static gid_t orig_gid = fs_getgid();
+static uid_t orig_uid = geteuid();
+static gid_t orig_gid = getegid();
 
 template <typename T>
 static Napi::Value api(const Napi::CallbackInfo& info)
@@ -136,30 +73,30 @@ struct FSWorker : public Napi::AsyncWorker
         );
         bool change_uid = orig_uid != _req_uid;
         bool change_gid = orig_gid != _req_gid;
-        if (change_uid) {
-            int r = fs_setuid(_req_uid);
+        if (change_gid) {
+            int r = setegid(_req_gid);
             if (r == -1) {
                 SetSyscallError();
                 return;
             }
         }
-        if (change_gid) {
-            int r = fs_setgid(_req_gid);
+        if (change_uid) {
+            int r = seteuid(_req_uid);
             if (r == -1) {
                 SetSyscallError();
                 return;
             }
         }
         Work();
-        if (change_uid) {
-            int r = fs_setuid(orig_uid);
+        if (change_gid) {
+            int r = setegid(orig_gid);
             if (r == -1) {
                 SetSyscallError();
                 return;
             }
         }
-        if (change_gid) {
-            int r = fs_setgid(orig_gid);
+        if (change_uid) {
+            int r = seteuid(orig_uid);
             if (r == -1) {
                 SetSyscallError();
                 return;

@@ -215,6 +215,7 @@ async function read_func_stats(req) {
     });
 
     return {
+        //stats is counting the `-1` key that is used for "Request and Error Count Over Time"
         stats: {
             ...FUNC_STATS_DEFAULTS,
             since: normalized_since,
@@ -222,6 +223,7 @@ async function read_func_stats(req) {
             response_percentiles: emptyPercentilesArray,
             ...by_key[-1]
         },
+        //slices is per since time key for the candles charts
         slices: _.range(
             normalized_since,
             normalized_till,
@@ -229,7 +231,7 @@ async function read_func_stats(req) {
         ).map(since_time => ({
             ...FUNC_STATS_DEFAULTS,
             since: since_time,
-            till: since + step,
+            till: since_time + step,
             response_percentiles: emptyPercentilesArray,
             ...by_key[since_time]
         }))

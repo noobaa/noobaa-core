@@ -11,11 +11,39 @@
 #include <vector>
 #include <math.h>
 #include <unistd.h>
+#include <map>
+#include <thread>
 
 namespace noobaa
 {
 
 DBG_INIT(0);
+
+const static std::map<std::string,int> flags_to_case = {
+    {"r",O_RDONLY},
+    {"rs",O_RDONLY | O_SYNC},
+    {"sr",O_RDONLY | O_SYNC}, 
+    {"r+",O_RDWR},
+    {"rs+",O_RDWR | O_SYNC},
+    {"sr+",O_RDWR | O_SYNC},
+    {"w",O_TRUNC | O_CREAT | O_WRONLY},
+    {"wx",O_TRUNC | O_CREAT | O_WRONLY | O_EXCL},
+    {"xw",O_TRUNC | O_CREAT | O_WRONLY | O_EXCL},
+    {"w+",O_TRUNC | O_CREAT | O_RDWR},
+    {"wx+",O_TRUNC | O_CREAT | O_RDWR | O_EXCL},
+    {"xw+",O_TRUNC | O_CREAT | O_RDWR | O_EXCL},
+    {"a",O_APPEND | O_CREAT | O_WRONLY},
+    {"ax",O_APPEND | O_CREAT | O_WRONLY | O_EXCL},
+    {"xa",O_APPEND | O_CREAT | O_WRONLY | O_EXCL},
+    {"as",O_APPEND | O_CREAT | O_WRONLY | O_SYNC},
+    {"sa",O_APPEND | O_CREAT | O_WRONLY | O_SYNC},
+    {"a+",O_APPEND | O_CREAT | O_RDWR},
+    {"ax+",O_APPEND | O_CREAT | O_RDWR | O_EXCL},
+    {"xa+",O_APPEND | O_CREAT | O_RDWR | O_EXCL},
+    {"as+",O_APPEND | O_CREAT | O_RDWR | O_SYNC},
+    {"sa+",O_APPEND | O_CREAT | O_RDWR | O_SYNC}
+};
+
 
 struct Entry {
     std::string name;
@@ -66,10 +94,17 @@ struct FSWorker : public Napi::AsyncWorker
     }
     virtual void Work() = 0;
     void Execute() {
+        #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+            pid_t tid = int(pthread_mach_thread_np(pthread_self()));
+        #else
+            // pid_t tid = syscall(__NR_gettid);
+            auto tid = std::this_thread::get_id();
+        #endif
         DBG1("FS::FSWorker::Start Execute: " << _desc << 
             " req_uid:" << _req_uid << 
             " req_gid:" << _req_gid << 
-            " backend:" << _backend
+            " backend:" << _backend <<
+            " thread_id:" << tid
         );
         bool change_uid = orig_uid != _req_uid;
         bool change_gid = orig_gid != _req_gid;
@@ -454,7 +489,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
         Napi::Function func = DefineClass(env, "File", { 
           InstanceMethod("close", &FileWrap::close),
           InstanceMethod("read", &FileWrap::read),
-        //   InstanceMethod("write", &FileWrap::write),
+          InstanceMethod("write", &FileWrap::write),
         });
         constructor = Napi::Persistent(func);
         constructor.SuppressDestruct();
@@ -471,7 +506,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     }
     Napi::Value close(const Napi::CallbackInfo& info);
     Napi::Value read(const Napi::CallbackInfo& info);
-    // Napi::Value write(const Napi::CallbackInfo& info);
+    Napi::Value write(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -480,20 +515,31 @@ struct FileOpen : public FSWorker
 {
     std::string _path;
     int _fd;
-    FileOpen(const Napi::CallbackInfo& info) : FSWorker(info), _fd(0)
+    int _flags;
+    mode_t _mode;
+    FileOpen(const Napi::CallbackInfo& info) 
+        : FSWorker(info)
+        , _fd(0)
+        , _flags(0)
+        , _mode(0666)
     {
         _path = info[1].As<Napi::String>();
-        // TODO - info[1] { mode, readonly }
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _flags = flags_to_case.at(info[2].As<Napi::String>());
+        }
+        if (info.Length() > 3 && !info[3].IsUndefined()) {
+            _mode = info[3].As<Napi::Number>().Uint32Value();
+        }
         Begin(XSTR() << DVAL(_path));
     }
     virtual void Work()
     {
-        _fd = open(_path.c_str(), O_RDONLY); // TODO mode
-        if (!_fd) SetSyscallError();
+        _fd = open(_path.c_str(), _flags, _mode);
+        if (_fd < 0) SetSyscallError();
     }
     virtual void OnOK()
     {
-        DBG1("FS::DirOpen::OnOK: " << DVAL(_path));
+        DBG1("FS::FileOpen::OnOK: " << DVAL(_path));
         Napi::Object res = FileWrap::constructor.New({});
         FileWrap *w = FileWrap::Unwrap(res);
         w->_path = _path;
@@ -534,6 +580,7 @@ struct FileRead : public FSWorker
         , _offset(0)
         , _len(0)
         , _pos(0)
+        , _br(0)
     {
         _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
@@ -563,30 +610,40 @@ struct FileRead : public FSWorker
     }
 };
 
-// struct FileWrite : public FSWorker
-// {
-//     FileWrap *_wrap;
-//     const uint8_t* _buf;
-//     size_t _len;
-//     FileWrite(const Napi::CallbackInfo& info) : FSWorker(info)
-//     {
-//         _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
-//         _buf = info[0].As<Napi::Buffer<uint8_t>>();
-//         _buf = info[1].As<Napi::Value<size_t>>();
-//         // TODO get buffer from info[0]
-//     }
-//     virtual void Work()
-//     {
-//         int fd = _wrap->_fd;
-//         std::string path = _wrap->_path;
-//         if (fd < 0) {
-//             SetError(XSTR() << "FS::FileWrite::Execute: ERROR not opened " << path);
-//             return;
-//         }
 
-//         // TODO - read(fd, buf...)
-//     }
-// };
+struct FileWrite : public FSWorker
+{
+    FileWrap *_wrap;
+    const uint8_t* _buf;
+    size_t _len;
+    ssize_t _bw;
+    FileWrite(const Napi::CallbackInfo& info) 
+        : FSWorker(info)
+        , _buf(0)
+        , _len(0)
+    {
+        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
+        auto buf = info[1].As<Napi::Buffer<uint8_t>>();
+        _buf = buf.Data();
+        _len = buf.Length();
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        std::string path = _wrap->_path;
+        if (fd < 0) {
+            SetError(XSTR() << "FS::FileWrite::Execute: ERROR not opened " << path);
+            return;
+        }
+        // TODO: Switch to pwrite when needed
+        _bw = write(fd, _buf, _len);
+        if (_bw < 0) {
+            SetSyscallError();
+        } else if ((size_t)_bw != _len) {
+            SetError(XSTR() << "FS::FileWrite::Execute: partial write error " << DVAL(_bw) << DVAL(_len));
+        }
+    }
+};
 
 
 Napi::Value FileWrap::close(const Napi::CallbackInfo& info)
@@ -599,10 +656,10 @@ Napi::Value FileWrap::read(const Napi::CallbackInfo& info)
     return api<FileRead>(info);
 }
 
-// Napi::Value FileWrap::write(const Napi::CallbackInfo& info)
-// {
-//     return api<FileWrite>(info);
-// }
+Napi::Value FileWrap::write(const Napi::CallbackInfo& info)
+{
+    return api<FileWrite>(info);
+}
 
 
 

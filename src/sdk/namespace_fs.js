@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const mime = require('mime');
-const events = require('events');
 const { v4: uuidv4 } = require('uuid');
 
 const config = require('../../config');
@@ -387,7 +386,7 @@ class NamespaceFS {
         try {
             await this._load_bucket(params);
             const file_path = this._get_file_path(params);
-            file = await nb_native().fs.open(DEFAULT_FS_CONFIG, file_path); //, fs.constants.O_RDONLY);
+            file = await nb_native().fs.open(DEFAULT_FS_CONFIG, file_path);
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
@@ -496,15 +495,22 @@ class NamespaceFS {
     }
 
     async _upload_stream(source_stream, upload_path, write_options) {
-        return new Promise((resolve, reject) =>
-            source_stream
-            .once('error', reject)
-            .pipe(
-                fs.createWriteStream(upload_path, write_options)
-                .once('error', reject)
-                .once('finish', resolve)
-            )
-        );
+        let target_file;
+        try {
+            target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, upload_path, 'w');
+            for await (const data of source_stream) {
+                await target_file.write(DEFAULT_FS_CONFIG, data);
+            }
+        } catch (error) {
+            console.error('_upload_stream had error: ', error);
+            throw error;
+        } finally {
+            try {
+                if (target_file) await target_file.close(DEFAULT_FS_CONFIG);
+            } catch (err) {
+                console.warn('NamespaceFS: _upload_stream file close error', err);
+            }
+        }
     }
 
     //////////////////////
@@ -574,13 +580,15 @@ class NamespaceFS {
     }
 
     async complete_object_upload(params, object_sdk) {
+        let read_file;
+        let write_file;
         try {
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params);
             const file_path = this._get_file_path(params);
             const upload_path = path.join(params.mpu_path, 'final');
-            const upload_stream = fs.createWriteStream(upload_path);
+            write_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, upload_path, 'w');
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, part_path);
@@ -588,21 +596,35 @@ class NamespaceFS {
                     throw new Error('mismatch part etag: ' +
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
-                for await (const data of fs.createReadStream(part_path, {
-                    highWaterMark: config.NSFS_BUF_SIZE,
-                })) {
-                    if (!upload_stream.write(data)) {
-                        await events.once(upload_stream, 'drain');
-                    }
+                read_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, part_path);
+                const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+                let read_pos = 0;
+                for (;;) {
+                    const bytesRead = await read_file.read(DEFAULT_FS_CONFIG, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
+                    if (!bytesRead) break;
+                    read_pos += bytesRead;
+                    const data = buffer.slice(0, bytesRead);
+                    await write_file.write(DEFAULT_FS_CONFIG, data);
                 }
+                await read_file.close(DEFAULT_FS_CONFIG);
+                read_file = null;
             }
-            upload_stream.end();
+            await write_file.close(DEFAULT_FS_CONFIG);
+            write_file = null;
             const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, upload_path);
             await nb_native().fs.rename(DEFAULT_FS_CONFIG, upload_path, file_path);
             await this._folder_delete(params.mpu_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
+            console.error(err);
             throw this._translate_object_error_codes(err);
+        } finally {
+            try {
+                if (read_file) await read_file.close(DEFAULT_FS_CONFIG);
+                if (write_file) await write_file.close(DEFAULT_FS_CONFIG);
+            } catch (err) {
+                console.warn('NamespaceFS: complete_object_upload file close error', err);
+            }
         }
     }
 

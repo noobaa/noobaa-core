@@ -494,13 +494,30 @@ class NamespaceFS {
         }
     }
 
-    async _upload_stream(source_stream, upload_path, write_options) {
+    async _upload_stream(source_stream, upload_path) {
         let target_file;
         try {
+            let q_buffers = [];
+            let q_size = 0;
             target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, upload_path, 'w');
-            for await (const data of source_stream) {
-                await target_file.write(DEFAULT_FS_CONFIG, data);
+            const flush = async () => {
+                if (q_buffers.length) {
+                    await target_file.writev(DEFAULT_FS_CONFIG, q_buffers);
+                    q_buffers = [];
+                    q_size = 0;
+                }
+            };
+            for await (let data of source_stream) {
+                while (data && data.length) {
+                    const available_size = config.NSFS_BUF_SIZE - q_size;
+                    const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
+                    q_buffers.push(buf);
+                    q_size += buf.length;
+                    if (q_size === config.NSFS_BUF_SIZE) await flush();
+                    data = (available_size < data.length) ? data.slice(available_size) : null;
+                }
             }
+            await flush();
         } catch (error) {
             console.error('_upload_stream had error: ', error);
             throw error;
@@ -840,7 +857,7 @@ class NamespaceFS {
         for (const item of dir.split(path.sep)) {
             dir_path = path.join(dir_path, item);
             try {
-                await nb_native().fs.mkdir(DEFAULT_FS_CONFIG, dir_path);
+                await nb_native().fs.mkdir(DEFAULT_FS_CONFIG, dir_path, 0o777);
             } catch (err) {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;

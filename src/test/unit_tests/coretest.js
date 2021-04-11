@@ -126,15 +126,7 @@ function setup(options = {}) {
 
     const object_io = new ObjectIO();
     const endpoint_request_handler = endpoint.create_endpoint_handler(
-        object_io,
-        server_rpc.rpc,
-        rpc_client, {
-            s3: true,
-            blob: true,
-            lambda: config.DB_TYPE === 'mongodb',
-            n2n_agent: false, // we use n2n_proxy
-        }
-    );
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), []);
 
     async function announce(msg) {
         if (process.env.SUPPRESS_LOGS) return;
@@ -184,8 +176,10 @@ function setup(options = {}) {
         });
 
         // the http/ws port is used by the agents
-        const http_port = http_server.address().port;
-        const https_port = https_server.address().port;
+        const http_net_address = /** @type {import('net').AddressInfo} */ (http_server.address());
+        const https_net_address = /** @type {import('net').AddressInfo} */ (https_server.address());
+        const http_port = http_net_address.port;
+        const https_port = https_net_address.port;
 
         base_address = `wss://127.0.0.1:${https_port}`;
         http_address = `http://127.0.0.1:${http_port}`;

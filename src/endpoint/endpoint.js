@@ -11,6 +11,7 @@ require('../util/fips');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('Endpoint');
 
+const util = require('util');
 const http = require('http');
 const https = require('https');
 const os = require('os');
@@ -34,38 +35,149 @@ const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 
-const endpoint_env = process_env(process.env);
-const {
-    ENDPOINT_BLOB_ENABLED,
-    ENDPOINT_LAMBDA_ENABLED,
-    ENDPOINT_PORT,
-    ENDPOINT_SSL_PORT,
-    LOCATION_INFO,
-    VIRTUAL_HOSTS,
-    RPC_ROUTER,
-    ENDPOINT_GROUP_ID,
-    LOCAL_MD_SERVER,
-    LOCAL_N2N_AGENT
-} = endpoint_env;
+/**
+ * @typedef {http.IncomingMessage & {
+ *  object_sdk?: ObjectSDK;
+ *  func_sdk?: FuncSDK;
+ *  virtual_hosts?: readonly string[];
+ * }} EndpointRequest
+ */
 
-function process_env(env) {
-    const virtual_hosts = (env.VIRTUAL_HOSTS || '')
-        .split(' ')
-        .filter(suffix => net_utils.is_fqdn(suffix))
-        .sort();
+/**
+ * @typedef {(
+ *  req: EndpointRequest,
+ *  res: http.ServerResponse
+ * ) => void | Promise<void>} EndpointHandler 
+ */
 
-    return {
-        ENDPOINT_BLOB_ENABLE: env.ENDPOINT_BLOB_ENABLED === 'true',
-        ENDPOINT_LAMBDA_ENABLED: config.DB_TYPE === 'mongodb',
-        ENDPOINT_PORT: env.ENDPOINT_PORT || 6001,
-        ENDPOINT_SSL_PORT: env.ENDPOINT_SSL_PORT || 6443,
-        LOCATION_INFO: { region: env.REGION || '' },
-        VIRTUAL_HOSTS: Object.freeze(virtual_hosts),
-        RPC_ROUTER: get_rpc_router(env),
-        ENDPOINT_GROUP_ID: env.ENDPOINT_GROUP_ID || 'default-endpoint-group',
-        LOCAL_MD_SERVER: env.LOCAL_MD_SERVER === "true",
-        LOCAL_N2N_AGENT: env.LOCAL_N2N_AGENT === "true"
+/**
+ * @typedef {{
+ *  http_port?: number;
+ *  https_port?: number;
+ *  init_request_sdk?: EndpointHandler;
+ * }} EndpointOptions
+ */
+
+/**
+ * @param {EndpointOptions} options
+ */
+async function start_endpoint(options = {}) {
+    try {
+        const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
+        const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
+        const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
+
+        const virtual_hosts = Object.freeze(
+            (process.env.VIRTUAL_HOSTS || '')
+            .split(' ')
+            .filter(suffix => net_utils.is_fqdn(suffix))
+            .sort()
+        );
+        const location_info = Object.freeze({
+            region: process.env.REGION || '',
+        });
+
+        dbg.log0('Configured Virtual Hosts:', virtual_hosts);
+        dbg.log0('Configured Location Info:', location_info);
+
+        let internal_rpc_client;
+
+        let init_request_sdk = options.init_request_sdk;
+        if (!init_request_sdk) {
+
+            const rpc = server_rpc.rpc;
+            rpc.router = get_rpc_router(process.env);
+
+            // Register the process as an md_server if needed.
+            if (process.env.LOCAL_MD_SERVER === 'true') {
+                dbg.log0('Starting local MD server');
+                // Load a system store instance for the current process and register for changes.
+                // We do not wait for it in becasue the result or errors are not relevent at
+                // this point (and should not kill the process);
+                system_store.get_instance().load();
+                // Register the process as an md_server.
+                await md_server.register_rpc();
+            }
+
+            if (process.env.LOCAL_N2N_AGENT === 'true') {
+                dbg.log0('Starting local N2N agent');
+                const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
+                const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
+                n2n_agent.set_any_rpc_address();
+            }
+
+            const object_io = new ObjectIO(location_info);
+
+            internal_rpc_client = rpc.new_client({
+                auth_token: await get_auth_token(process.env)
+            });
+
+            init_request_sdk = create_init_request_sdk(rpc, internal_rpc_client, object_io);
+        }
+
+        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts);
+
+        const ssl_cert = await ssl_utils.get_ssl_certificate('S3');
+        const ssl_options = { ...ssl_cert, honorCipherOrder: true };
+        const http_server = http.createServer(endpoint_request_handler);
+        const https_server = https.createServer(ssl_options, endpoint_request_handler);
+
+        dbg.log0('Starting HTTP', http_port);
+        await listen_http(http_port, http_server);
+        dbg.log0('Starting HTTPS', https_port);
+        await listen_http(https_port, https_server);
+        dbg.log0('S3 server started successfully');
+
+        await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
+
+        // Start a monitor to send periodic endpoint reports about endpoint usage.
+        start_monitor(internal_rpc_client, endpoint_group_id);
+
+    } catch (err) {
+        handle_server_error(err);
+    }
+}
+
+/**
+ * @param {EndpointHandler} init_request_sdk
+ * @param {readonly string[]} virtual_hosts
+ * @returns {EndpointHandler}
+ */
+function create_endpoint_handler(init_request_sdk, virtual_hosts) {
+    const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
+    const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
+
+    /** @type {EndpointHandler} */
+    const endpoint_request_handler = (req, res) => {
+        endpoint_utils.prepare_rest_request(req);
+        req.virtual_hosts = virtual_hosts;
+        init_request_sdk(req, res);
+
+        if (req.url.startsWith('/2015-03-31/functions')) {
+            return lambda_rest_handler(req, res);
+        } else if (req.headers['x-ms-version']) {
+            return blob_rest_handler(req, res);
+        } else {
+            return s3_rest.handler(req, res);
+        }
     };
+
+    return endpoint_request_handler;
+}
+
+/**
+ * @param {typeof server_rpc.rpc} rpc 
+ * @param {nb.APIClient} internal_rpc_client 
+ * @param {ObjectIO} object_io 
+ * @returns {EndpointHandler}
+ */
+function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
+    const init_request_sdk = (req, res) => {
+        const rpc_client = rpc.new_client();
+        req.func_sdk = new FuncSDK(rpc_client);
+        req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
+    };
+    return init_request_sdk;
 }
 
 function get_rpc_router(env) {
@@ -85,73 +197,10 @@ function get_rpc_router(env) {
     };
 }
 
-async function start_all() {
-    await Promise.all([
-        // Start the endpoint server
-        run_server({
-            s3: true,
-            lambda: ENDPOINT_LAMBDA_ENABLED,
-            blob: ENDPOINT_BLOB_ENABLED,
-            md_server: LOCAL_MD_SERVER,
-            n2n_agent: LOCAL_N2N_AGENT
-        }),
-
-        // Try to start the endpoint metrics server
-        prom_reporting.start_server(config.EP_METRICS_SERVER_PORT)
-    ]);
-}
-
-async function run_server(options) {
-    try {
-        const rpc = server_rpc.rpc;
-        rpc.router = RPC_ROUTER;
-
-        // Register the process as an md_server if needed.
-        if (options.md_server) {
-            // Load a system store instance for the current process and register for changes.
-            // We do not wait for it in becasue the result or errors are not relevent at
-            // this point (and should not kill the process);
-            system_store.get_instance().load();
-
-            // Register the process as an md_server.
-            await md_server.register_rpc();
-        }
-
-        const auth_token = await get_auth_token(process.env);
-        const internal_rpc_client = server_rpc.rpc.new_client({ auth_token });
-
-        if (options.n2n_agent) {
-            const signal_client = rpc.new_client({ auth_token: server_rpc.client.options.auth_token });
-            const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
-            n2n_agent.set_any_rpc_address();
-        }
-
-        const object_io = new ObjectIO(LOCATION_INFO);
-        const endpoint_request_handler = create_endpoint_handler(object_io, rpc, internal_rpc_client, options);
-
-        const ssl_cert = options.certs || await ssl_utils.get_ssl_certificate('S3');
-        const http_server = http.createServer(endpoint_request_handler);
-        const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, endpoint_request_handler);
-        dbg.log0('Starting HTTP', ENDPOINT_PORT);
-        await listen_http(ENDPOINT_PORT, http_server);
-        dbg.log0('Starting HTTPS', ENDPOINT_SSL_PORT);
-        await listen_http(ENDPOINT_SSL_PORT, https_server);
-        dbg.log0('S3 server started successfully');
-        dbg.log0('Configured Virtual Hosts:', VIRTUAL_HOSTS);
-
-        // Start a monitor to send periodic endpoint reports about endpoint usage.
-        start_monitor(internal_rpc_client);
-
-    } catch (err) {
-        handle_server_error(err);
-    }
-}
-
 async function get_auth_token(env) {
-    if (env.NOOBAA_AUTH_TOKEN) {
-        return env.NOOBAA_AUTH_TOKEN;
+    if (env.NOOBAA_AUTH_TOKEN) return env.NOOBAA_AUTH_TOKEN;
 
-    } else if (env.JWT_SECRET && LOCAL_MD_SERVER) {
+    if (env.JWT_SECRET && env.LOCAL_MD_SERVER === 'true') {
         const system_store_inst = system_store.get_instance();
         await P.wait_until(() =>
             system_store_inst.is_finished_initial_load
@@ -162,13 +211,17 @@ async function get_auth_token(env) {
             account_id: system.owner._id,
             role: 'admin'
         });
-
-    } else {
-        throw new Error('NooBaa auth token is unavailable');
     }
+
+    throw new Error('NooBaa auth token is unavailable');
 }
 
-async function start_monitor(internal_rpc_client) {
+
+/**
+ * @param {nb.APIClient} internal_rpc_client
+ * @param {string} endpoint_group_id
+ */
+async function start_monitor(internal_rpc_client, endpoint_group_id) {
     let start_time = process.hrtime.bigint() / 1000n;
     let base_cpu_time = process.cpuUsage();
 
@@ -181,11 +234,11 @@ async function start_monitor(internal_rpc_client) {
             const elap_cpu_time = (cpu_time.system + cpu_time.user) - (base_cpu_time.system + base_cpu_time.user);
             const cpu_usage = elap_cpu_time / Number((end_time - start_time));
             const rest_usage = s3_rest.consume_usage_report();
-            const group_name = ENDPOINT_GROUP_ID;
+            const group_name = endpoint_group_id;
             const hostname = os.hostname();
 
             dbg.log0('Sending endpoint report:', { group_name, hostname });
-            await internal_rpc_client.object.add_endpoint_report({
+            const report = {
                 timestamp: Date.now(),
                 group_name,
                 hostname,
@@ -206,7 +259,13 @@ async function start_monitor(internal_rpc_client) {
                 bandwidth: [
                     ...rest_usage.bandwidth_usage_info.values()
                 ]
-            });
+            };
+
+            if (internal_rpc_client) {
+                await internal_rpc_client.object.add_endpoint_report(report);
+            } else {
+                console.log(util.inspect(report, { depth: 10, colors: true }));
+            }
 
             // save the current values as base for next iteration.
             start_time = end_time;
@@ -222,29 +281,6 @@ function handle_server_error(err) {
     process.exit(1);
 }
 
-function create_endpoint_handler(object_io, rpc, internal_rpc_client, options) {
-    const s3_rest_handler = options.s3 ? s3_rest.handler : unavailable_handler;
-    const blob_rest_handler = options.blob ? blob_rest : unavailable_handler;
-    const lambda_rest_handler = options.lambda ? lambda_rest : unavailable_handler;
-
-    return function endpoint_request_handler(req, res) {
-        endpoint_utils.prepare_rest_request(req);
-
-        if (req.url.startsWith('/2015-03-31/functions')) {
-            req.func_sdk = new FuncSDK(rpc.new_client());
-            return lambda_rest_handler(req, res);
-        }
-
-        if (req.headers['x-ms-version']) {
-            req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
-            return blob_rest_handler(req, res);
-        }
-
-        req.virtual_hosts = VIRTUAL_HOSTS;
-        req.object_sdk = new ObjectSDK(rpc.new_client(), internal_rpc_client, object_io);
-        return s3_rest_handler(req, res);
-    };
-}
 
 function unavailable_handler(req, res) {
     res.statusCode = 500; // Service Unavailable
@@ -318,5 +354,6 @@ function setup_http_server(server) {
     // });
 }
 
-exports.start_all = start_all;
+exports.start_endpoint = start_endpoint;
 exports.create_endpoint_handler = create_endpoint_handler;
+exports.create_init_request_sdk = create_init_request_sdk;

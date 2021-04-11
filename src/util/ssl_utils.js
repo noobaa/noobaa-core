@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const fs = require('fs');
 const tls = require('tls');
 const path = require('path');
@@ -10,16 +9,18 @@ const Semaphore = require('../util/semaphore');
 const dbg = require('./debug_module')(__filename);
 const nb_native = require('./nb_native');
 
-const certs = _.mapValues({
-    MGMT: '/etc/mgmt-secret',
-    S3: '/etc/s3-secret',
-}, dir => ({
+const init_cert_info = dir => ({
     dir,
     cert: null,
     is_loaded: false,
     is_generated: false,
     sem: new Semaphore(1)
-}));
+});
+
+const certs = {
+    MGMT: init_cert_info('/etc/mgmt-secret'),
+    S3: init_cert_info('/etc/s3-secret'),
+};
 
 function generate_ssl_certificate() {
     const ssl_cert = nb_native().x509();
@@ -53,15 +54,15 @@ function get_ssl_certificate(service) {
         try {
             cert_info.cert = await _read_ssl_certificate(cert_info.dir);
             cert_info.is_generated = false;
-            dbg.log0('Using mounted certificates');
+            dbg.log0(`SSL certificate loaded from dir ${cert_info.dir}`);
 
         } catch (err) {
-            if (err.code !== 'ENOENT') {
-                dbg.error(`SSL certificate at ${cert_info.dir} failed to load`, err.message);
-                dbg.warn(`Fallback to generating self-signed for ${service}`);
+            if (err.code === 'ENOENT') {
+                dbg.log0(`SSL certificate not found in dir ${cert_info.dir}`);
+            } else {
+                dbg.error(`SSL certificate failed to load from dir ${cert_info.dir}:`, err.message);
             }
-
-            dbg.warn(`Generating self-signed certificates for ${service}`);
+            dbg.warn(`Generating self-signed SSL certificate for ${service}`);
             cert_info.cert = generate_ssl_certificate();
             cert_info.is_generated = true;
         }
@@ -92,7 +93,7 @@ async function update_certs_from_disk() {
 
             } catch (err) {
                 if (err.code !== 'ENOENT') {
-                    dbg.warn(`SSL certificates at ${cert_info.dir} failed to load`, err.message);
+                    dbg.warn(`SSL certificate failed to update from dir ${cert_info.dir}:`, err.message);
                 }
                 return false;
             }
@@ -114,7 +115,7 @@ async function _read_ssl_certificate(dir) {
 
     const certificate = { key, cert };
     verify_ssl_certificate(certificate);
-    dbg.log2(`Certificate read successfuly from ${dir}`);
+    dbg.log2(`SSL certificate read successfuly from ${dir}`);
     return certificate;
 }
 

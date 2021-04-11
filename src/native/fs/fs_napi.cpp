@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <map>
 #include <thread>
+#include <sys/uio.h>
 
 namespace noobaa
 {
@@ -251,14 +252,18 @@ struct Unlink : public FSWorker
 struct Mkdir : public FSWorker
 {
     std::string _path;
-    Mkdir(const Napi::CallbackInfo& info) : FSWorker(info)
+    int _mode;
+    Mkdir(const Napi::CallbackInfo& info) 
+        : FSWorker(info)
+        , _mode(0777)
     {
         _path = info[1].As<Napi::String>();
+        _mode = info[2].As<Napi::Number>();
         Begin(XSTR() << DVAL(_path));
     }
     virtual void Work()
     {
-        int r = mkdir(_path.c_str(), S_IRWXU);
+        int r = mkdir(_path.c_str(), _mode);
         if (r == -1) SetSyscallError();
     }
 };
@@ -490,6 +495,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
           InstanceMethod("close", &FileWrap::close),
           InstanceMethod("read", &FileWrap::read),
           InstanceMethod("write", &FileWrap::write),
+          InstanceMethod("writev", &FileWrap::writev),
         });
         constructor = Napi::Persistent(func);
         constructor.SuppressDestruct();
@@ -507,6 +513,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value close(const Napi::CallbackInfo& info);
     Napi::Value read(const Napi::CallbackInfo& info);
     Napi::Value write(const Napi::CallbackInfo& info);
+    Napi::Value writev(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -616,7 +623,6 @@ struct FileWrite : public FSWorker
     FileWrap *_wrap;
     const uint8_t* _buf;
     size_t _len;
-    ssize_t _bw;
     FileWrite(const Napi::CallbackInfo& info) 
         : FSWorker(info)
         , _buf(0)
@@ -636,11 +642,46 @@ struct FileWrite : public FSWorker
             return;
         }
         // TODO: Switch to pwrite when needed
-        _bw = write(fd, _buf, _len);
-        if (_bw < 0) {
+        ssize_t bw = write(fd, _buf, _len);
+        if (bw < 0) {
             SetSyscallError();
-        } else if ((size_t)_bw != _len) {
-            SetError(XSTR() << "FS::FileWrite::Execute: partial write error " << DVAL(_bw) << DVAL(_len));
+        } else if ((size_t)bw != _len) {
+            SetError(XSTR() << "FS::FileWrite::Execute: partial write error " << DVAL(bw) << DVAL(_len));
+        }
+    }
+};
+
+
+struct FileWritev : public FSWorker
+{
+    FileWrap *_wrap;
+    std::vector<struct iovec> iov_vec;
+    FileWritev(const Napi::CallbackInfo& info) : FSWorker(info)
+    {
+        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
+        auto buffers = info[1].As<Napi::Array>();
+        const int buffers_len = buffers.Length();
+        iov_vec.resize(buffers_len);
+        struct iovec iov;
+        for (int i = 0; i < buffers_len; ++i) {
+            Napi::Value buf_val = buffers[i];
+            auto buf = buf_val.As<Napi::Buffer<uint8_t>>();
+            iov.iov_base = buf.Data(); 
+            iov.iov_len = buf.Length();
+            iov_vec[i] = iov;
+        }
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        std::string path = _wrap->_path;
+        if (fd < 0) {
+            SetError(XSTR() << "FS::FileWritev::Execute: ERROR not opened " << path);
+            return;
+        }
+        ssize_t bw = writev(fd, iov_vec.data(), iov_vec.size());
+        if (bw < 0) {
+            SetSyscallError();
         }
     }
 };
@@ -661,6 +702,10 @@ Napi::Value FileWrap::write(const Napi::CallbackInfo& info)
     return api<FileWrite>(info);
 }
 
+Napi::Value FileWrap::writev(const Napi::CallbackInfo& info)
+{
+    return api<FileWritev>(info);
+}
 
 
 /**

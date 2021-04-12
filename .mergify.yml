@@ -3,6 +3,7 @@ pull_request_rules:
     conditions:
       - "#approved-reviews-by>=1"
       - label!="WIP PR"
+      - -title~=\[WIP\]
     actions:
       merge:
         method: merge

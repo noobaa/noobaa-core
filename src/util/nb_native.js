@@ -26,7 +26,9 @@ function nb_native() {
     inherits(nb_native_nan.Ntcp, events.EventEmitter);
     _.defaults(nb_native_napi, nb_native_nan);
 
-    init_rand_seed();
+    if (process.env.DISABLE_INIT_RANDOM_SEED !== 'true') {
+        init_rand_seed();
+    }
 
     return nb_native_napi;
 }

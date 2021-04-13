@@ -72,6 +72,7 @@ async function start_server(
     });
 
     // Try to open the port for listening, will retry then exist.
+    dbg.log0('Starting prometheus metrics server on HTTP port', port);
     while (retry_count) {
         try {
             await new Promise((resolve, reject) => {

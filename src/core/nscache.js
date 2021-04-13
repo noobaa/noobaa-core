@@ -1,16 +1,13 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
-const http = require('http');
-const events = require('events');
+const util = require('util');
 const minimist = require('minimist');
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nscache');
 dbg.original_console();
 
-const s3_rest = require('../endpoint/s3/s3_rest');
-const endpoint_utils = require('../endpoint/endpoint_utils');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceCache = require('../sdk/namespace_cache');
 const NamespaceS3 = require('../sdk/namespace_s3');
@@ -42,7 +39,8 @@ Options:
 
     --access_key <key>
     --secret_key <key>
-    --port <port>        (default 6001)   Set the S3 endpoint listening port to serve.
+    --http_port <port>     (default 6001)   Set the S3 endpoint listening HTTP port to serve.
+    --https_port <port>    (default 6443)   Set the S3 endpoint listening HTTPS port to serve.
 `;
 
 const WARNINGS = `
@@ -68,9 +66,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
     try {
         if (argv.help || argv.h) return print_usage();
 
-        const port = Number(argv.port) || 6001;
-        const endpoint = argv._[0];
-        if (!endpoint) return print_usage();
+        const http_port = Number(argv.http_port) || 6001;
+        const https_port = Number(argv.https_port) || 6443;
+        const hub_endpoint = argv._[0];
+        if (!hub_endpoint) return print_usage();
 
         console.warn(WARNINGS);
         console.log('nscache: setting up ...', argv);
@@ -80,26 +79,35 @@ async function main(argv = minimist(process.argv.slice(2))) {
         };
         const s3_params = {
             // TODO
-            endpoint,
+            endpoint: hub_endpoint,
             accessKeyId: argv.access_key,
             secretAccessKey: argv.secret_key,
         };
         const bs = new BucketSpaceS3({ s3_params });
-        const ns = new NamespaceS3({
-            s3_params,
-            namespace_resource_id: '998877',
-            rpc_client: null,
-        });
         const ns_nb = new NamespaceNB(); // TODO need to setup rpc_client
-        const ns_cache = new NamespaceCache({
-            namespace_hub: ns,
-            namespace_nb: ns_nb,
-            caching: { ttl_ms: 3600000 },
-            active_triggers: null,
-        });
         const object_sdk = new ObjectSDK(null, null, null);
+
+        // resolve namespace and bucketspace
+        const namespaces = {};
         object_sdk._get_bucketspace = () => bs;
-        object_sdk._get_bucket_namespace = async name => ns_cache;
+        object_sdk._get_bucket_namespace = async bucket_name => {
+            const existing_ns = namespaces[bucket_name];
+            if (existing_ns) return existing_ns;
+            const ns_hub = new NamespaceS3({
+                s3_params,
+                namespace_resource_id: '998877',
+                rpc_client: null,
+            });
+            const ns_cache = new NamespaceCache({
+                namespace_hub: ns_hub,
+                namespace_nb: ns_nb,
+                caching: { ttl_ms: 3600000 },
+                active_triggers: null,
+            });
+            namespaces[bucket_name] = ns_cache;
+            return ns_cache;
+        };
+
         object_sdk.get_auth_token = noop;
         object_sdk.set_auth_token = noop;
         object_sdk.authorize_request_account = noop;
@@ -109,15 +117,15 @@ async function main(argv = minimist(process.argv.slice(2))) {
         object_sdk.read_bucket_sdk_policy_info = noop;
         object_sdk.read_bucket_usage_info = noop;
 
-        const http_server = http.createServer((req, res) => {
-            endpoint_utils.prepare_rest_request(req);
-            Object.assign(req, { object_sdk, virtual_hosts: [] });
-            return s3_rest.handler(req, res);
+        const endpoint = require('../endpoint/endpoint');
+        await endpoint.start_endpoint({
+            http_port,
+            https_port,
+            init_request_sdk: (req, res) => { req.object_sdk = object_sdk; },
         });
 
-        http_server.listen(port);
-        await events.once(http_server, 'listening');
-        console.log(`nscache: listening on http://localhost:${port}`);
+        console.log('nscache: listening on', util.inspect(`http://localhost:${http_port}`));
+        console.log('nscache: listening on', util.inspect(`https://localhost:${https_port}`));
 
     } catch (err) {
         console.error('nscache: exit on error', err.stack || err);

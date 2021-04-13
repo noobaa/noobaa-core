@@ -14,7 +14,7 @@
     "---": "------------------------------------------------------------------",
     "build:native": "node-gyp rebuild",
     "build:fe": "cd frontend && npm install && npm run build",
-    "build:core": "npx pkg . --public --out-path build",
+    "build:core": "pkg . --public",
     "build": "npm run build:native && npm run build:fe",
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src --quiet",
@@ -59,13 +59,16 @@
     "./src/util/nb_native": false,
     "./config-local": false
   },
+  "pkg": {
+    "outputPath": "build",
+    "targets": ["macos", "linux"],
+    "assets": [
+      "node_modules/**/*.node",
+      "build/**/*.node"
+    ]
+  },
   "dependencies": {
     "@google-cloud/storage": "5.8.3",
-    "@types/lodash": "4.14.168",
-    "@types/mongodb": "3.6.12",
-    "@types/node": "14.14.37",
-    "@types/pg": "7.14.11",
-    "@types/request": "2.48.5",
     "ajv": "6.12.6",
     "aws-sdk": "2.884.0",
     "azure-storage": "2.10.3",
@@ -127,6 +130,11 @@
     "@babel/core": "7.13.15",
     "@babel/plugin-transform-runtime": "7.13.15",
     "@babel/preset-env": "7.13.15",
+    "@types/lodash": "4.14.168",
+    "@types/mongodb": "3.6.12",
+    "@types/node": "14.14.37",
+    "@types/pg": "7.14.11",
+    "@types/request": "2.48.5",
     "eslint": "7.24.0",
     "eslint-plugin-header": "3.1.1",
     "istanbul-lib-coverage": "3.0.0",
@@ -136,6 +144,7 @@
     "istanbul-reports": "3.0.2",
     "mocha": "8.3.2",
     "nyc": "15.1.0",
+    "pkg": "4.5.1",
     "sinon": "10.0.0",
     "wtfnode": "0.8.4"
   }

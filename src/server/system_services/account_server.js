@@ -54,6 +54,10 @@ async function create_account(req) {
         has_login: req.rpc_params.has_login,
         is_external: req.rpc_params.is_external,
         access_keys: undefined,
+        nsfs_account_config: req.rpc_params.nsfs_account_config && {
+            uid: req.rpc_params.nsfs_account_config.uid,
+            gid: req.rpc_params.nsfs_account_config.gid
+        }
     };
 
     const { roles: account_roles = ['admin'] } = req.rpc_params;
@@ -471,7 +475,11 @@ function update_account(req) {
         email: params.new_email,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
-        preferences: _.isUndefined(params.preferences) ? undefined : params.preferences
+        preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
+        nsfs_account_config: req.rpc_params.nsfs_account_config && {
+            uid: req.rpc_params.nsfs_account_config.uid,
+            gid: req.rpc_params.nsfs_account_config.gid
+        }
     };
 
     let removals = {
@@ -1185,6 +1193,7 @@ function get_account_info(account, include_connection_cache) {
         }
     }
 
+    info.nsfs_account_config = account.nsfs_account_config;
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
         if (!system) {

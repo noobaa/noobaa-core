@@ -27,24 +27,7 @@ module.exports = {
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     tag: { type: 'string' },
                     object_lock_configuration: { $ref: '#/definitions/object_lock_configuration' },
-                    namespace: {
-                        type: 'object',
-                        required: ['write_resource', 'read_resources'],
-                        properties: {
-                            write_resource: {
-                                type: 'string'
-                            },
-                            read_resources: {
-                                type: 'array',
-                                items: {
-                                    type: 'string'
-                                },
-                            },
-                            caching: {
-                                $ref: 'common_api#/definitions/bucket_cache_config'
-                            }
-                        }
-                    },
+                    namespace: { $ref: '#/definitions/namespace_bucket_config' },
                     lock_enabled: {
                         type: 'boolean'
                     },
@@ -919,7 +902,6 @@ module.exports = {
                 system: 'admin'
             },
         },
-
     },
 
     definitions: {
@@ -942,9 +924,7 @@ module.exports = {
                     }
                 },
                 versioning: { $ref: '#/definitions/versioning' },
-                namespace: {
-                    $ref: '#/definitions/bucket_namespace'
-                },
+                namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
@@ -1130,28 +1110,6 @@ module.exports = {
             }
         },
 
-        bucket_namespace: {
-            type: 'object',
-            required: [
-                'read_resources',
-                'write_resource',
-            ],
-            properties: {
-                read_resources: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    }
-                },
-                write_resource: {
-                    type: 'string'
-                },
-                caching: {
-                    $ref: 'common_api#/definitions/bucket_cache_config'
-                }
-            }
-        },
-
         bucket_claim: {
             type: 'object',
             required: ['bucket_class', 'namespace'],
@@ -1194,11 +1152,25 @@ module.exports = {
                         read_resources: {
                             type: 'array',
                             items: {
-                                $ref: 'pool_api#/definitions/namespace_resource_extended_info'
+                                type: 'object',
+                                required: [
+                                    'resource',
+                                ],
+                                properties: {
+                                    resource: { $ref: 'pool_api#/definitions/namespace_resource_extended_info' },
+                                    path: { type: 'string' }
+                                }
                             }
                         },
                         write_resource: {
-                            $ref: 'pool_api#/definitions/namespace_resource_extended_info'
+                            type: 'object',
+                            required: [
+                                'resource',
+                            ],
+                            properties: {
+                                resource: { $ref: 'pool_api#/definitions/namespace_resource_extended_info' },
+                                path: { type: 'string' }
+                            }
                         },
                         caching: {
                             $ref: 'common_api#/definitions/bucket_cache_config'
@@ -1269,21 +1241,7 @@ module.exports = {
                 //         type: 'null'
                 //     }]
                 // },
-                namespace: {
-                    type: 'object',
-                    required: ['write_resource', 'read_resources'],
-                    properties: {
-                        write_resource: {
-                            type: 'string'
-                        },
-                        read_resources: {
-                            type: 'array',
-                            items: {
-                                type: 'string'
-                            },
-                        }
-                    }
-                },
+                namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 versioning: { $ref: '#/definitions/versioning' },
             }
         },
@@ -1451,6 +1409,36 @@ module.exports = {
                             ]
                         }
                     }
+                }
+            }
+        },
+
+        // namespace bucket configuration
+
+        namespace_resource_config: {
+            type: 'object',
+            required: ['resource'],
+            properties: {
+                resource: { type: 'string' },
+                path: { type: 'string' }
+            }
+        },
+
+        namespace_bucket_config: {
+            type: 'object',
+            required: ['write_resource', 'read_resources'],
+            properties: {
+                write_resource: {
+                    $ref: '#/definitions/namespace_resource_config'
+                },
+                read_resources: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/namespace_resource_config'
+                    },
+                },
+                caching: {
+                    $ref: 'common_api#/definitions/bucket_cache_config'
                 }
             }
         },

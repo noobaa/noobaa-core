@@ -103,6 +103,10 @@ module.exports = {
                     enum: ['DARK', 'LIGHT']
                 }
             }
-        }
+        },
+        // nsfs properties for account
+        nsfs_account_config: {
+            $ref: 'common_api#/definitions/nsfs_account_config'
+        },
     }
 };

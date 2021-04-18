@@ -197,6 +197,7 @@ interface NamespaceResource {
     system: System;
     account: Account;
     connection: object;
+    path: string;
 }
 
 interface ChunkConfig extends Base {
@@ -765,7 +766,7 @@ interface Namespace {
 
 interface BucketSpace {
 
-    list_buckets(): Promise<any>;
+    list_buckets(object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
     create_bucket(params: object): Promise<any>;
     delete_bucket(params: object): Promise<any>;

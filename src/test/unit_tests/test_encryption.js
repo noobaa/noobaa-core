@@ -483,7 +483,7 @@ mocha.describe('Rotation tests', function() {
             }
         }));
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_connection_is_account_s3_creds(
                 ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
@@ -512,7 +512,7 @@ mocha.describe('Rotation tests', function() {
             }
         }));
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_connection_is_account_s3_creds(
                 ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
@@ -556,7 +556,7 @@ mocha.describe('Rotation tests', function() {
         const secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
         await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_pool_of_account(ns_resource, 'ns', system_store_account._id)) {
                 await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
@@ -596,7 +596,7 @@ mocha.describe('Rotation tests', function() {
         }));
 
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
         }));
@@ -947,11 +947,12 @@ async function namespace_cache_tests(rpc_client, namespace_resources, sys_name, 
     let i = 0;
     for (i = 0; i < 1; i++) {
         const bucket_name = `namespace-bucket${i}`;
+        const nsr = { resource: namespace_resources[0].name };
         await rpc_client.bucket.create_bucket({
             name: bucket_name,
             namespace: {
-                read_resources: [namespace_resources[0].name],
-                write_resource: namespace_resources[0].name,
+                read_resources: [nsr],
+                write_resource: nsr,
                 caching: {
                     ttl_ms: 60000
                 }

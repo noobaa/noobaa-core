@@ -25,6 +25,7 @@ const BucketSpaceFS = require('./bucketspace_fs');
 const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
 const config = require('../../config');
+const path = require('path');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -61,6 +62,7 @@ class ObjectSDK {
         if (process.env.BUCKETSPACE_FS) {
             this.bucketspace_fs = new BucketSpaceFS({ fs_root: process.env.BUCKETSPACE_FS });
         }
+        this.requesting_account = undefined;
     }
 
     /**
@@ -117,33 +119,42 @@ class ObjectSDK {
 
     async authorize_request_account(req) {
         const { bucket } = req.params;
-        if (!bucket || req.op_name === 'put_bucket') return;
         const token = this.get_auth_token();
-        if (!token) {
-            const ns = await this.read_bucket_sdk_namespace_info(bucket);
-            // TODO: Anonymous access to namespace buckets not supported
-            if (ns) throw new RpcError('UNAUTHORIZED', `Anonymous access to namespace buckets not supported`);
-            // TODO: Handle bucketspace operations / RPC auth (i.e system, account, anonymous) and anonymous access
-            else return;
+        // If the request is signed (authenticated)
+        if (token) {
+            try {
+                this.requesting_account = await account_cache.get_with_cache({
+                    rpc_client: this.internal_rpc_client,
+                    access_key: token.access_key
+                });
+            } catch (error) {
+                dbg.error('authorize_request_account error:', error);
+                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            }
+            const signature = signature_utils.get_signature_from_auth_token(
+                token, this.requesting_account.access_keys[0].secret_key.unwrap());
+            if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
         }
-        let account;
-        try {
-            account = await account_cache.get_with_cache({
-                rpc_client: this.internal_rpc_client,
-                access_key: token.access_key
-            });
-        } catch (error) {
-            dbg.error('authorize_request_account error:', error);
-            throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+        // check for a specific bucket
+        if (bucket && req.op_name !== 'put_bucket') {
+            // ANONYMOUS: cannot work without bucket, cannot work on namespace bucket (?)
+            if (!token) {
+                const ns = await this.read_bucket_sdk_namespace_info(bucket);
+                // TODO: Anonymous access to namespace buckets not supported
+                if (ns) {
+                    throw new RpcError('UNAUTHORIZED', `Anonymous access to namespace buckets not supported`);
+                } else {
+                    // TODO: Handle bucketspace operations / RPC auth (i.e system, account, anonymous) and anonymous access
+                    return;
+                }
+            }
+            const bucket_allowed = _.get(this.requesting_account, 'allowed_buckets.full_permission', false) ||
+                _.find(
+                    _.get(this.requesting_account, 'allowed_buckets.permission_list') || [],
+                    name => name.unwrap() === bucket
+                );
+            if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
         }
-        const signature = signature_utils.get_signature_from_auth_token(token, account.access_keys[0].secret_key.unwrap());
-        if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
-        const bucket_allowed = _.get(account, 'allowed_buckets.full_permission', false) ||
-            _.find(
-                _.get(account, 'allowed_buckets.permission_list') || [],
-                name => name.unwrap() === bucket
-            );
-        if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
     }
 
     async _validate_bucket_namespace(data, params) {
@@ -169,7 +180,7 @@ class ObjectSDK {
             // NAMESPACE_FS HACK
             if (process.env.NAMESPACE_FS) {
                 return {
-                    ns: new NamespaceFS({ fs_path: process.env.NAMESPACE_FS + '/' + bucket.name }),
+                    ns: new NamespaceFS({ bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name }),
                     bucket,
                     valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
                 };
@@ -188,7 +199,7 @@ class ObjectSDK {
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
                 }
-                if (bucket.namespace.write_resource && bucket.namespace.write_resource.fs_path) {
+                if (bucket.namespace.write_resource && _.isEqual(bucket.namespace.read_resources, [bucket.namespace.write_resource])) {
                     return {
                         ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                         bucket,
@@ -218,8 +229,8 @@ class ObjectSDK {
     _setup_merge_namespace(bucket) {
         let rr = _.cloneDeep(bucket.namespace.read_resources);
         let wr = this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
-        if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.endpoint_type)) {
-            const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource));
+        if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.resource.endpoint_type)) {
+            const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource.resource));
             wr = new NamespaceMultipart(
                 this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
                 this.namespace_nb);
@@ -241,7 +252,8 @@ class ObjectSDK {
         });
     }
 
-    _setup_single_namespace(ns_info) {
+    _setup_single_namespace(namespace_resource_config) {
+        const ns_info = namespace_resource_config.resource;
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
                 return new NamespaceNB(ns_info.target_bucket);
@@ -284,10 +296,10 @@ class ObjectSDK {
                 account_name: ns_info.access_key.unwrap()
             });
         }
-        if (ns_info.fs_path) {
+        if (ns_info.fs_root_path) {
             return new NamespaceFS({
                 fs_backend: ns_info.fs_backend,
-                fs_path: ns_info.fs_path
+                bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path)
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside
@@ -549,7 +561,7 @@ class ObjectSDK {
 
     async list_buckets() {
         const bs = this._get_bucketspace();
-        return bs.list_buckets();
+        return bs.list_buckets(this);
     }
 
     async read_bucket(params) {

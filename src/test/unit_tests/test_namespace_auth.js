@@ -38,9 +38,9 @@ mocha.describe('Namespace Auth', function() {
             httpOptions: { agent: http_utils.get_unsecured_agent(coretest.get_http_address()) },
         });
         coretest.log('S3 CONFIG', s3.config);
-
-        const read_resources = [NAMESPACE_RESOURCE_NAME];
-        const write_resource = NAMESPACE_RESOURCE_NAME;
+        const nsr = { resource: NAMESPACE_RESOURCE_NAME };
+        const read_resources = [nsr];
+        const write_resource = nsr;
         await rpc_client.account.add_external_connection({
             name: CONNECTION_NAME,
             endpoint: coretest.get_http_address(),

@@ -78,11 +78,11 @@ class NamespaceMonitor {
     }
 
     init_nsr_connection_to_target(nsr) {
-        const {endpoint, access_key, secret_key} = nsr.connection;
-        let conn;
         if (nsr.nsfs_config) {
             return;
         }
+        const {endpoint, access_key, secret_key} = nsr.connection;
+        let conn;
         switch (nsr.connection.endpoint_type) {
             case 'AWS' || 'S3_COMPATIBLE' || 'IBM_COS': {
                 conn = new AWS.S3({
@@ -114,6 +114,10 @@ class NamespaceMonitor {
     }
 
     async test_single_namespace_resource_validity(nsr_info) {
+        if (nsr_info.nsfs_config) {
+            dbg.log1('namespace_monitor: namespace resource of type FS, skipping validity test...');
+            return;
+        }
         const { endpoint_type, target_bucket} = nsr_info.connection;
         const block_key = `test-delete-non-existing-key-${Date.now()}`;
         const conn = this.nsr_connections_obj[nsr_info._id];
@@ -130,10 +134,8 @@ class NamespaceMonitor {
                     block_key,
                     callback)
             );
-        } else if (nsr_info.nsfs_config) {
-            dbg.log1('namespace_monitor: namespace resource of type FS, skipping validity test...');
         } else {
-                dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
+            dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
         }
     }
 }

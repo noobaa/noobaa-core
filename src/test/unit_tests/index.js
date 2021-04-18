@@ -54,6 +54,7 @@ require('./test_bucket_chunks_builder');
 require('./test_mirror_writer');
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
+require('./test_bucketspace');
 
 // // SERVERS
 require('./test_agent');

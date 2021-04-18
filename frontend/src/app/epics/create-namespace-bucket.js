@@ -13,8 +13,8 @@ export default function(action$, { api }) {
             const { name, readFrom, writeTo, caching } = action.payload;
             try {
                 const namespace = {
-                    read_resources: readFrom,
-                    write_resource: writeTo,
+                    read_resources: readFrom.map(read_target => ({ resource: read_target })),
+                    write_resource: { resource: writeTo },
                     caching: caching
                 };
 

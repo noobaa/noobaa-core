@@ -152,8 +152,9 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
         [aws_s3, local_s3] = Object.values(await get_s3_instances());
-        const read_resources = [RESOURCE_NAME];
-        const write_resource = RESOURCE_NAME;
+        const nsr = { resource: RESOURCE_NAME };
+        const read_resources = [nsr];
+        const write_resource = nsr;
         await aws_s3.createBucket({ Bucket: AWS_TARGET_BUCKET }).promise();
         await rpc_client.account.add_external_connection({
             name: CONNECTION_NAME,

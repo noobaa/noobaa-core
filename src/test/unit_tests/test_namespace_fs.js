@@ -1,6 +1,7 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+
 const mocha = require('mocha');
 const util = require('util');
 const crypto = require('crypto');
@@ -14,12 +15,13 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 
 mocha.describe('namespace_fs', function() {
 
-    const src_bkt = 'src_bucket';
+    const src_bkt = 'src';
     const src_key = 'test/unit_tests/test_namespace_fs.js';
     const tmp_fs_path = '/tmp/test_namespace_fs';
+    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } }};
 
-    const ns_src = new NamespaceFS({fs_path: 'src'});
-    const ns_tmp = new NamespaceFS({ fs_path: tmp_fs_path});
+    const ns_src = new NamespaceFS({ bucket_path: `./${src_bkt}`});
+    const ns_tmp = new NamespaceFS({ bucket_path: `${tmp_fs_path}/${src_bkt}`});
 
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_path));
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
@@ -30,7 +32,7 @@ mocha.describe('namespace_fs', function() {
             const res = await ns_src.list_objects({
                 bucket: src_bkt,
                 delimiter: '/',
-            });
+            }, dummy_object_sdk);
             console.log(inspect(res, res.length));
             assert_sorted_list(res);
         });
@@ -38,7 +40,7 @@ mocha.describe('namespace_fs', function() {
         mocha.it('list src dir without delimiter', async function() {
             const res = await ns_src.list_objects({
                 bucket: src_bkt,
-            });
+            }, dummy_object_sdk);
             console.log(inspect(res, res.length));
             assert.deepStrictEqual(res.common_prefixes, []);
             assert_sorted_list(res);
@@ -48,13 +50,13 @@ mocha.describe('namespace_fs', function() {
             const res = await ns_src.list_object_versions({
                 bucket: src_bkt,
                 delimiter: '/',
-            });
+            }, dummy_object_sdk);
             console.log(inspect(res, res.length));
             assert_sorted_list(res);
         });
 
         // include all the generic list tests
-        test_ns_list_objects(ns_tmp, null, 'test_ns_list_objects');
+        test_ns_list_objects(ns_tmp, dummy_object_sdk, 'test_ns_list_objects');
 
         function assert_sorted_list(res) {
             let prev_key = '';
@@ -80,7 +82,7 @@ mocha.describe('namespace_fs', function() {
         const res = await ns_src.read_object_md({
             bucket: src_bkt,
             key: src_key,
-        });
+        }, dummy_object_sdk);
         console.log(inspect(res));
     });
 
@@ -91,7 +93,7 @@ mocha.describe('namespace_fs', function() {
             await ns_src.read_object_stream({
                 bucket: src_bkt,
                 key: src_key,
-            }, null, out);
+            }, dummy_object_sdk, out);
             const res = out.join().toString();
             assert.strict.equal(res.slice(13, 28), '(C) 2020 NooBaa');
             assert.strict.equal(res.slice(37, 43), 'strict');
@@ -104,7 +106,7 @@ mocha.describe('namespace_fs', function() {
                 key: src_key,
                 start: 13,
                 end: 28,
-            }, null, out);
+            }, dummy_object_sdk, out);
             const res = out.join().toString();
             assert.strict.equal(res, '(C) 2020 NooBaa');
         });
@@ -117,7 +119,7 @@ mocha.describe('namespace_fs', function() {
                 key: src_key,
                 start: too_high,
                 end: too_high + 10,
-            }, null, out);
+            }, dummy_object_sdk, out);
             const res = out.join().toString();
             assert.strict.equal(res, '');
         });
@@ -134,14 +136,14 @@ mocha.describe('namespace_fs', function() {
                 bucket: upload_bkt,
                 key: upload_key,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
-            });
+            }, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
 
             const read_res = buffer_utils.write_stream();
             await ns_tmp.read_object_stream({
                 bucket: upload_bkt,
                 key: upload_key,
-            }, null, read_res);
+            }, dummy_object_sdk, read_res);
             console.log('read_object_stream response', inspect(read_res));
             const read_data = read_res.join();
             assert.strictEqual(Buffer.compare(read_data, data), 0);
@@ -149,7 +151,7 @@ mocha.describe('namespace_fs', function() {
             const delete_res = await ns_tmp.delete_object({
                 bucket: upload_bkt,
                 key: upload_key,
-            });
+            }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
         });
     });
@@ -166,7 +168,7 @@ mocha.describe('namespace_fs', function() {
             const create_res = await ns_tmp.create_object_upload({
                 bucket: mpu_bkt,
                 key: mpu_key,
-            });
+            }, dummy_object_sdk);
             console.log('create_object_upload response', inspect(create_res));
 
             const obj_id = create_res.obj_id;
@@ -182,7 +184,7 @@ mocha.describe('namespace_fs', function() {
                     key: mpu_key,
                     num: i + 1,
                     source_stream: buffer_utils.buffer_to_read_stream(data_part),
-                });
+                }, dummy_object_sdk);
                 console.log('upload_multipart response', inspect(part_res));
                 multiparts.push({ num: i + 1, etag: part_res.etag });
 
@@ -190,13 +192,13 @@ mocha.describe('namespace_fs', function() {
                     obj_id,
                     bucket: mpu_bkt,
                     key: mpu_key,
-                });
+                }, dummy_object_sdk);
                 console.log('list_multiparts response', inspect(list_parts_res));
             }
 
             const list1_res = await ns_src.list_uploads({
                 bucket: mpu_bkt,
-            });
+            }, dummy_object_sdk);
             console.log('list_uploads response', inspect(list1_res));
             // TODO list_uploads is not implemented
             assert.deepStrictEqual(list1_res.objects, []);
@@ -208,12 +210,12 @@ mocha.describe('namespace_fs', function() {
                 bucket: mpu_bkt,
                 key: mpu_key,
                 multiparts,
-            });
+            }, dummy_object_sdk);
             console.log('complete_object_upload response', inspect(complete_res));
 
             const list2_res = await ns_src.list_uploads({
                 bucket: mpu_bkt,
-            });
+            }, dummy_object_sdk);
             console.log('list_uploads response', inspect(list2_res));
             assert.deepStrictEqual(list2_res.objects, []);
 
@@ -221,7 +223,7 @@ mocha.describe('namespace_fs', function() {
             await ns_tmp.read_object_stream({
                 bucket: mpu_bkt,
                 key: mpu_key,
-            }, null, read_res);
+            }, dummy_object_sdk, read_res);
             console.log('read_object_stream response', inspect(read_res));
             const read_data = read_res.join();
             // for (let i = 0; i < data.length; ++i) {
@@ -233,7 +235,7 @@ mocha.describe('namespace_fs', function() {
             const delete_res = await ns_tmp.delete_object({
                 bucket: mpu_bkt,
                 key: mpu_key,
-            });
+            }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
         });
     });

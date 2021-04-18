@@ -146,11 +146,14 @@ async function create_bucket(req) {
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
-            .map(ns_name => req.system.namespace_resources_by_name[ns_name] &&
-                req.system.namespace_resources_by_name[ns_name]._id)
+            .map(nsr => {
+                const res = req.system.namespace_resources_by_name[nsr.resource];
+                return res && { resource: res._id, path: nsr.path };
+            })
         );
-        const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
-        const write_resource = wr_obj && wr_obj._id;
+        const wr_obj = req.rpc_params.namespace.write_resource &&
+            req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
+        const write_resource = wr_obj && { resource: wr_obj._id, path: req.rpc_params.namespace.write_resource.path };
         if (req.rpc_params.namespace.read_resources &&
             (!read_resources.length ||
                 (read_resources.length !== req.rpc_params.namespace.read_resources.length)
@@ -167,7 +170,7 @@ async function create_bucket(req) {
         };
 
         // reorder read resources so that the write resource is the first in the list
-        const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
+        const ordered_read_resources = [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource));
 
         bucket.namespace = {
             read_resources: ordered_read_resources,
@@ -478,10 +481,14 @@ async function read_bucket_sdk_info(req) {
 
     if (bucket.namespace) {
         reply.namespace = {
-            write_resource: pool_server.get_namespace_resource_extended_info(
-                system.namespace_resources_by_name[bucket.namespace.write_resource.name]
+            write_resource: {
+                resource: pool_server.get_namespace_resource_extended_info(
+                    system.namespace_resources_by_name[bucket.namespace.write_resource.resource.name]),
+                path: bucket.namespace.write_resource.path,
+            },
+            read_resources: _.map(bucket.namespace.read_resources, rs =>
+                ({ resource: pool_server.get_namespace_resource_extended_info(rs.resource), path: rs.path})
             ),
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_extended_info(rs)),
             caching: bucket.namespace.caching,
         };
     }
@@ -575,21 +582,25 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
     if (!update_request.namespace.read_resources.length) throw new RpcError('INVALID_READ_RESOURCES');
 
     const read_resources = _.compact(update_request.namespace.read_resources
-        .map(ns_name => req.system.namespace_resources_by_name[ns_name] && req.system.namespace_resources_by_name[ns_name]._id));
+        .map(nsr => {
+                const res = req.system.namespace_resources_by_name[nsr.resource];
+                return res && { resource: res._id, path: nsr.path };
+        }));
     if (!read_resources.length || (read_resources.length !== update_request.namespace.read_resources.length)) {
         throw new RpcError('INVALID_READ_RESOURCES');
     }
     _.set(single_bucket_update, 'namespace.read_resources', read_resources);
-    const wr_obj = req.system.namespace_resources_by_name[update_request.namespace.write_resource];
-    const write_resource = wr_obj && wr_obj._id;
+    const wr_obj = req.system.namespace_resources_by_name[update_request.namespace.write_resource.resource];
+    const write_resource = wr_obj && { resource: wr_obj._id, path: update_request.namespace.write_resource.path };
     if (!write_resource) throw new RpcError('INVALID_WRITE_RESOURCES');
     _.set(single_bucket_update, 'namespace.write_resource', write_resource);
-    if (!_.includes(update_request.namespace.read_resources, update_request.namespace.write_resource)) {
+    // _.find in opposed to _.includes does a correct search for objects in array
+    if (!_.find(update_request.namespace.read_resources, update_request.namespace.write_resource)) {
         throw new RpcError('INVALID_NAMESPACE_CONFIGURATION');
     }
 
     // reorder read resources so that the write resource is the first in the list
-    const ordered_read_resources = [write_resource].concat(read_resources.filter(resource => resource !== write_resource));
+    const ordered_read_resources = [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource));
 
     _.set(single_bucket_update, 'namespace.read_resources', ordered_read_resources);
     _.set(single_bucket_update, 'namespace.write_resource', write_resource);
@@ -893,7 +904,7 @@ function delete_bucket_lifecycle(req) {
  * LIST_BUCKETS
  *
  */
-function list_buckets(req) {
+async function list_buckets(req) {
     var buckets_by_name = _.filter(
         req.system.buckets_by_name,
         bucket => req.has_s3_bucket_permission(bucket) && !bucket.deleting
@@ -1414,10 +1425,13 @@ function get_bucket_info({
             id: bucket.owner_account._id,
         },
         namespace: bucket.namespace ? {
-            write_resource: pool_server.get_namespace_resource_info(
-                bucket.namespace.write_resource).name,
-            read_resources: _.map(bucket.namespace.read_resources, rs => pool_server.get_namespace_resource_info(rs).name),
-            caching: bucket.namespace.caching
+            write_resource: {
+                resource: pool_server.get_namespace_resource_info(bucket.namespace.write_resource.resource).name,
+                path: bucket.namespace.write_resource.path
+            },
+            read_resources: _.map(bucket.namespace.read_resources, rs =>
+                ({ resource: pool_server.get_namespace_resource_info(rs.resource).name, path: rs.path })
+            )
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',

@@ -14,7 +14,7 @@ export default function(action$, { api }) {
 
             try {
                 const namespace = {
-                    read_resources: readFrom,
+                    read_resources: readFrom.map(read_target => ({ resource: read_target })),
                     write_resource: writeTo
                 };
 

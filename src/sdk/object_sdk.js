@@ -299,7 +299,7 @@ class ObjectSDK {
         if (ns_info.fs_root_path) {
             return new NamespaceFS({
                 fs_backend: ns_info.fs_backend,
-                bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path)
+                bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || '')
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

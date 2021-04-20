@@ -192,8 +192,17 @@ init_noobaa_server() {
 init_noobaa_agent() {
   fix_non_root_user
 
-  mkdir -p /noobaa_storage
-  ${KUBE_PV_CHOWN} agent
+  local dir="/noobaa_storage"
+  mkdir -p ${dir}
+  local dir_id=$(stat -c '%u' ${dir})    
+  local current_id=$(id -u)
+
+  # change ownership and permissions of noobaa_storage path
+  if [ "${dir_id}" != "${current_id}" ]
+  then
+    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
+    time ${KUBE_PV_CHOWN} agent ${current_id}
+  fi
 
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf

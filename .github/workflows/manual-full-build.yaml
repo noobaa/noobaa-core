@@ -46,7 +46,7 @@ jobs:
         with:
           workflow: manual-build
           repo: noobaa/noobaa-operator
-          token: ${{ secrets.PERSONAL_TOKEN }}
+          token: ${{ secrets.GHACCESSTOKEN }}
           inputs: '{ "branch": "${{ github.event.inputs.branch }}", "tag": "${{ github.event.inputs.tag }}" }'
 
       - name: Build & Push Docker Images

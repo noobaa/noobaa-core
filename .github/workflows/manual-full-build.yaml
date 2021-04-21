@@ -10,7 +10,7 @@ on:
         default: ''
 
 jobs:
-  publish-image:
+  manual-build-and-publish-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,6 +41,14 @@ jobs:
       - name: Login to DockerHub Registry
         run: echo ${{ secrets.GHACTIONSDOCKERHUB }} | docker login -u ${{ secrets.GHACTIONSDOCKERHUBNAME }} --password-stdin
 
+      - name: Invoke Build on Operator Repo
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: manual-build
+          repo: noobaa/noobaa-operator
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          inputs: '{ "branch": "${{ github.event.inputs.branch }}", "tag": "${{ github.event.inputs.tag }}" }'
+
       - name: Build & Push Docker Images
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
@@ -53,11 +61,5 @@ jobs:
             docker tag noobaa ${{ steps.prep.outputs.coretags }}
             docker push ${{ steps.prep.outputs.coretags }}
       
-      - name: Invoke Build on Operator Repo
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: manual-build
-          repo: noobaa/noobaa-operator
-          token: ${{ secrets.PERSONAL_TOKEN }}
-          inputs: '{ "branch": ${{ github.event.inputs.branch }}, "tag": ${{ github.event.inputs.tag }} }'
+
             

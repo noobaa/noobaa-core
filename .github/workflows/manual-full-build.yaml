@@ -44,7 +44,7 @@ jobs:
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1
         with:
-          workflow: manual-build
+          workflow: Manual Operator Build Dispatch
           repo: noobaa/noobaa-operator
           token: ${{ secrets.GHACCESSTOKEN }}
           inputs: '{ "branch": "${{ github.event.inputs.branch }}", "tag": "${{ github.event.inputs.tag }}" }'

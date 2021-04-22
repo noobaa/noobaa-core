@@ -36,7 +36,7 @@ module.exports = {
                     allowed_buckets: {
                         $ref: '#/definitions/allowed_buckets'
                     },
-                    default_pool: {
+                    default_resource: {
                         type: 'string',
                     },
                     allow_bucket_creation: {
@@ -65,7 +65,7 @@ module.exports = {
                             allowed_buckets: {
                                 $ref: '#/definitions/allowed_buckets'
                             },
-                            default_pool: {
+                            default_resource: {
                                 type: 'string',
                             },
                         },
@@ -272,7 +272,7 @@ module.exports = {
                     allowed_buckets: {
                         $ref: '#/definitions/allowed_buckets'
                     },
-                    default_pool: {
+                    default_resource: {
                         type: 'string'
                     },
                     allow_bucket_creation: {
@@ -307,7 +307,14 @@ module.exports = {
                 type: 'object',
                 required: ['nsfs_account_config'],
                 properties: {
-                    nsfs_account_config: { $ref: 'common_api#/definitions/nsfs_account_config' },
+                    nsfs_account_config: {
+                        type: 'object',
+                        required: ['uid', 'gid'],
+                        properties: {
+                            uid: { type: 'number' },
+                            gid: { type: 'number' },
+                        }
+                    }
                 }
             },
             auth: {
@@ -601,7 +608,7 @@ module.exports = {
                         $ref: 'common_api#/definitions/ip_range'
                     }
                 },
-                default_pool: {
+                default_resource: {
                     type: 'string',
                 },
                 bucket_claim_owner: {

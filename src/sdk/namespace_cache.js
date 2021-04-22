@@ -967,6 +967,16 @@ class NamespaceCache {
         throw new Error('TODO');
     }
 
+    ///////////////////
+    //      ULS      //
+    ///////////////////
+
+    async create_uls() {
+        throw new Error('TODO');
+    }
+    async delete_uls() {
+        throw new Error('TODO');
+    }
 }
 
 

@@ -34,7 +34,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         is_external,
         access_keys,
         has_s3_access,
-        default_pool,
+        default_resource,
         allowed_buckets,
         can_create_buckets,
         allowed_ips,
@@ -76,8 +76,8 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         hasAccessToAllBuckets,
         allowedBuckets,
         canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
-        defaultResource: default_pool !== internalResource.name  ?
-            default_pool :
+        defaultResource: default_resource !== internalResource.name  ?
+            default_resource:
             'INTERNAL_STORAGE',
         accessKeys: { accessKey, secretKey },
         allowedIps: allowed_ips,

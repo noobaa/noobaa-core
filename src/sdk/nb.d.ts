@@ -768,8 +768,8 @@ interface BucketSpace {
 
     list_buckets(object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
-    create_bucket(params: object): Promise<any>;
-    delete_bucket(params: object): Promise<any>;
+    create_bucket(params: object, object_sdk: ObjectSDK): Promise<any>;
+    delete_bucket(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     get_bucket_lifecycle_configuration_rules(params: object): Promise<any>;
     set_bucket_lifecycle_configuration_rules(params: object): Promise<any>;

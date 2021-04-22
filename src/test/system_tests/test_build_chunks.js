@@ -41,7 +41,7 @@ let TEST_CTX = {
     default_tier_name: 'test_tier',
     default_tier_policy_name: 'tiering1',
     cloud_pool_name: 'cloud-pool-aws',
-    accounts_default_pool: 'accounts_default_pool'
+    accounts_default_resource: 'accounts_default_resource'
 };
 
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');

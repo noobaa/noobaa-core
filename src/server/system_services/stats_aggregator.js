@@ -165,17 +165,19 @@ function _aggregate_buckets_config(system) {
         current_config.versioning = cbucket.versioning;
         current_config.quota = Boolean(cbucket.quota);
         current_config.tiers = [];
-        for (const ctier of cbucket.tiering.tiers) {
-            let current_tier = _.find(system.tiers, t => ctier.tier === t.name);
-            if (current_tier) {
-                current_config.tiers.push({
-                    placement_type: current_tier.data_placement,
-                    mirrors: current_tier.mirror_groups.length,
-                    // spillover_enabled: Boolean(ctier.spillover && !ctier.disabled),
-                    replicas: current_tier.chunk_coder_config.replicas,
-                    data_frags: current_tier.chunk_coder_config.data_frags,
-                    parity_frags: current_tier.chunk_coder_config.parity_frags,
-                });
+        if (cbucket.tiering) {
+            for (const ctier of cbucket.tiering.tiers) {
+                let current_tier = _.find(system.tiers, t => ctier.tier === t.name);
+                if (current_tier) {
+                    current_config.tiers.push({
+                        placement_type: current_tier.data_placement,
+                        mirrors: current_tier.mirror_groups.length,
+                        // spillover_enabled: Boolean(ctier.spillover && !ctier.disabled),
+                        replicas: current_tier.chunk_coder_config.replicas,
+                        data_frags: current_tier.chunk_coder_config.data_frags,
+                        parity_frags: current_tier.chunk_coder_config.parity_frags,
+                    });
+                }
             }
         }
         bucket_config.push(current_config);

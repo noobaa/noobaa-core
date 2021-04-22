@@ -60,7 +60,7 @@ const dos_func = {
 const SP_EVENT = {
     "email": "new@aaa.com",
     "s3_access": true,
-    "default_pool": "london",
+    "default_resource": "london",
     "allowed_buckets": ['logs']
 };
 

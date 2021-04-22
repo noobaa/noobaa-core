@@ -476,7 +476,7 @@ function set_pool_as_default_resource(pool_name) {
         update: {
             accounts: _.map(system_store.data.accounts, account => ({
                 _id: account._id,
-                default_pool: pool_id,
+                default_resource: pool_id,
             }))
         }
     });

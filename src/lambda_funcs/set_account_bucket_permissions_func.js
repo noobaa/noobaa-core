@@ -5,7 +5,7 @@
     {
         "email": "email@email.com",
         "s3_access": true,
-        "default_pool": "london",
+        "default_resource": "london",
         "allowed_buckets": ["mybucket"]
     }
 */

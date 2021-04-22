@@ -51,7 +51,7 @@ let full_access_user = {
         full_permission: false,
         permission_list: ['bucket1', 'bucket2', 'ns.external.bucket1']
     },
-    default_pool: POOL_NAME,
+    default_resource: POOL_NAME,
 };
 
 let bucket1_user = {
@@ -64,7 +64,7 @@ let bucket1_user = {
         full_permission: false,
         permission_list: ['bucket1', 'ns.external.bucket1']
     },
-    default_pool: POOL_NAME,
+    default_resource: POOL_NAME,
 };
 
 const external_connection = {

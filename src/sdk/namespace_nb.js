@@ -346,6 +346,17 @@ class NamespaceNB {
             version_id: params.versionId
         }, object_sdk);
     }
+
+    ///////////////////
+    //      ULS      //
+    ///////////////////
+
+    async create_uls() {
+        throw new Error('TODO');
+    }
+    async delete_uls() {
+        throw new Error('TODO');
+    }
 }
 
 module.exports = NamespaceNB;

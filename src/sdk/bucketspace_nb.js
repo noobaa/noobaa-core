@@ -38,11 +38,35 @@ class BucketSpaceNB {
         return this.rpc_client.bucket.read_bucket(params);
     }
 
-    async create_bucket(params) {
-        return this.rpc_client.bucket.create_bucket(params);
+    async create_bucket(params, object_sdk) {
+        const resp = await this.rpc_client.bucket.create_bucket(params);
+        try {
+            if (resp.namespace && resp.namespace.should_create_underlying_storage) {
+                const ns = await object_sdk._get_bucket_namespace(params.name.unwrap());
+                const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name.unwrap());
+                await ns.create_uls({
+                    name: params.name, fs_root_path:
+                    namespace_bucket_config.write_resource.resource.fs_root_path
+                }, object_sdk);
+            }
+        } catch (err) {
+            dbg.log0('could not create underlying directory - nsfs, deleting bucket', err);
+            await this.rpc_client.bucket.delete_bucket({name: params.name.unwrap()});
+            throw err;
+        }
+        return resp;
     }
 
-    async delete_bucket(params) {
+    async delete_bucket(params, object_sdk) {
+        const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
+
+        if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
+            const ns = await object_sdk._get_bucket_namespace(params.name);
+            await ns.delete_uls({
+                    name: params.name,
+                    fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
+            }, object_sdk);
+        }
         return this.rpc_client.bucket.delete_bucket(params);
     }
 

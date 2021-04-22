@@ -901,7 +901,7 @@ function get_associated_buckets_int(pool) {
 function has_associated_buckets_int(pool, { exclude_deleting_buckets } = {}) {
     const associated_bucket = _.find(pool.system.buckets_by_name, function(bucket) {
         if (bucket.deleting && exclude_deleting_buckets) return false;
-        return _.find(bucket.tiering.tiers, function(tier_and_order) {
+        return _.find(bucket.tiering && bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.mirrors, function(mirror) {
                 return _.find(mirror.spread_pools, function(spread_pool) {
                     return String(pool._id) === String(spread_pool._id);
@@ -915,8 +915,8 @@ function has_associated_buckets_int(pool, { exclude_deleting_buckets } = {}) {
 function get_associated_accounts(pool) {
     return system_store.data.accounts
         .filter(account => (!account.is_support &&
-            account.default_pool &&
-            account.default_pool._id === pool._id
+            account.default_resource &&
+            account.default_resource._id === pool._id
         ))
         .map(associated_account => associated_account.email);
 }
@@ -1340,13 +1340,13 @@ async function update_account_default_resource() {
                     const updates = system_store.data.accounts
                         .filter(account =>
                             account.email.unwrap() !== config.OPERATOR_ACCOUNT_EMAIL &&
-                            account.default_pool &&
-                            _is_mongo_pool(account.default_pool)
+                            account.default_resource &&
+                            _is_mongo_pool(account.default_resource)
                         )
                         .map(account => ({
                             _id: account._id,
                             $set: {
-                                'default_pool': optimal_pool_id
+                                'default_resource': optimal_pool_id
                             }
                         }));
 

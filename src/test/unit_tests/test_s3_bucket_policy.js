@@ -58,7 +58,7 @@ async function setup() {
         allowed_buckets: {
             full_permission: true,
         },
-        default_pool: POOL_LIST[0].name
+        default_resource: POOL_LIST[0].name
     };
     const admin_keys = (await rpc_client.account.read_account({
         email: EMAIL,

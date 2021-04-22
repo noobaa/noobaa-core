@@ -581,12 +581,12 @@ class ObjectSDK {
 
     async create_bucket(params) {
         const bs = this._get_bucketspace();
-        return bs.create_bucket(params);
+        return bs.create_bucket(params, this);
     }
 
     async delete_bucket(params) {
         const bs = this._get_bucketspace();
-        return bs.delete_bucket(params);
+        return bs.delete_bucket(params, this);
     }
 
     //////////////////////

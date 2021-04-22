@@ -113,7 +113,7 @@ mocha.describe('system_servers', function() {
                 full_permission: false,
                 permission_list: []
             },
-            default_pool: DEFAULT_POOL_NAME
+            default_resource: DEFAULT_POOL_NAME
         });
         await rpc_client.system.read_system();
         await rpc_client.system.add_role({
@@ -147,7 +147,7 @@ mocha.describe('system_servers', function() {
                 full_permission: false,
                 permission_list: []
             },
-            default_pool: DEFAULT_POOL_NAME,
+            default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID,
                 gid: GID,
@@ -163,7 +163,7 @@ mocha.describe('system_servers', function() {
                 full_permission: false,
                 permission_list: []
             },
-            default_pool: DEFAULT_POOL_NAME,
+            default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID + 1,
                 gid: GID + 1,
@@ -179,7 +179,7 @@ mocha.describe('system_servers', function() {
                 full_permission: false,
                 permission_list: []
             },
-            default_pool: DEFAULT_POOL_NAME,
+            default_resource: DEFAULT_POOL_NAME,
         });
         await rpc_client.system.read_system();
         const accountlistnofilter = await rpc_client.account.list_accounts({});

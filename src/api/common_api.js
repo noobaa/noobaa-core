@@ -811,6 +811,7 @@ module.exports = {
         },
         nsfs_account_config: {
             type: 'object',
+            required: ['uid', 'gid', 'new_buckets_path'],
             properties: {
                 uid: { type: 'number' },
                 gid: { type: 'number' },

@@ -16,15 +16,10 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
 
-      - name: Deploy gh CLI
-        run: |
-          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
-          sudo apt-add-repository https://cli.github.com/packages
-          sudo apt update
-          sudo apt install gh
-
       - name: Check NSFS Content
         id: check_nsfs_content
+        env:
+          GITHUB_TOKEN: ${{secrets.GHACCESSTOKEN}}
         run: |
           NEW_CONTENT_EXISTS=$(gh pr list -s merged -l "ns fs" --json mergedAt | grep $(date +'%Y-%m-%d') | wc -l)
           echo ::set-output name=shouldbuild::${NEW_CONTENT_EXISTS}

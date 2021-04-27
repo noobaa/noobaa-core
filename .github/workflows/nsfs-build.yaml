@@ -2,11 +2,8 @@ name: NSFS Build
 
 # Run Nightly and check if NS FS code was merged
 on: 
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'test'
-        default: ''
+  schedule:
+    - cron: "0 0 * * *"
 
 jobs:
   build-nsfs:
@@ -30,11 +27,11 @@ jobs:
           echo "::warning shouldbuild ${NEW_CONTENT_EXISTS}"
           echo ::set-output name=shouldbuild::${NEW_CONTENT_EXISTS}
 
-      - name: Invoke Build on Operator Repo
+      - name: Invoke Build if needed
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: Manual Build Dispatch
-          if: ${{ steps.check_nsfs_content.outputs.shouldbuild }} != 0
+          if: ${{ steps.check_nsfs_content.outputs.shouldbuild  != 0 }}
           repo: noobaa/noobaa-core
           token: ${{ secrets.GHACCESSTOKEN }}
           inputs: '{ "branch": "master", "tag": "nsfs" }' 

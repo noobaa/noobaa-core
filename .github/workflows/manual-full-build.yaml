@@ -24,7 +24,7 @@ jobs:
       
       - name: Prepare Suffix
         id: suffix
-        if: ${{ github.event.inputs.tag }} != ''
+        if: ${{ github.event.inputs.tag != '' }}
         run: echo ::set-output name=suffix::"-${{ github.event.inputs.tag }}"
 
       - name: Prepare Tags

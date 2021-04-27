@@ -12,6 +12,11 @@ jobs:
   build-nsfs:
     runs-on: "ubuntu-latest"
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: master
+
       - name: Get Current Date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
@@ -22,6 +27,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GHACCESSTOKEN}}
         run: |
           NEW_CONTENT_EXISTS=$(gh pr list -s merged -l "ns fs" --json mergedAt | grep $(date +'%Y-%m-%d') | wc -l)
+          echo "::warning shouldbuild ${NEW_CONTENT_EXISTS}"
           echo ::set-output name=shouldbuild::${NEW_CONTENT_EXISTS}
 
       - name: Invoke Build on Operator Repo

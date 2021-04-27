@@ -21,6 +21,12 @@ jobs:
       - name: Get Current Date
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
+      
+      - name: Prepare Suffix
+        id: suffix
+        if: ${{ github.event.inputs.tag }} != ''
+        run:
+          echo ::set-output name=suffix::"-${{ github.event.inputs.tag }}"
 
       - name: Prepare Tags
         id: prep
@@ -30,9 +36,9 @@ jobs:
           DOCKER_CORE_IMAGE=noobaa/noobaa-core
           VERSION="${{ steps.date.outputs.date }}"
           echo "::warning ${VERSION}"
-          BASE_TAGS="${DOCKER_BASE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}-${{ github.event.inputs.tag }}"
-          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}-${{ github.event.inputs.tag }}"
-          CORE_TAGS="${DOCKER_CORE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}-${{ github.event.inputs.tag }}"
+          BASE_TAGS="${DOCKER_BASE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix"
+          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix"
+          CORE_TAGS="${DOCKER_CORE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix"
           echo "::warning ${CORE_TAGS}"
           echo ::set-output name=basetags::${BASE_TAGS}
           echo ::set-output name=buildertags::${BUILDER_TAGS}

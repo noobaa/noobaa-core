@@ -35,7 +35,7 @@ class NamespaceBlob {
         this.account_name = account_name;
     }
 
-    is_same_namespace(other) {
+    is_server_side_copy(other) {
         return other instanceof NamespaceBlob && this.connection_string === other.connection_string;
     }
 

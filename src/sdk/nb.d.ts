@@ -725,7 +725,7 @@ interface ObjectSDK {
 
 interface Namespace {
 
-    is_same_namespace(other: Namespace): boolean;
+    is_server_side_copy(other: Namespace): boolean;
     get_write_resource(): Namespace;
     get_bucket(): string;
 

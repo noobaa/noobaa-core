@@ -35,7 +35,7 @@ class NamespaceNB {
         return this.active_triggers_map_by_bucket.get(bucket);
     }
 
-    is_same_namespace(other) {
+    is_server_side_copy(other) {
         // in noobaa namespace case just check that other is also local (noobaa)
         return other instanceof NamespaceNB;
     }

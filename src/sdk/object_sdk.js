@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const util = require('util');
+const stream = require('stream');
 require('../util/dotenv').load();
 
 // const P = require('../util/promise');
@@ -410,7 +411,7 @@ class ObjectSDK {
         const actual_source_ns = source_md.ns || source_ns;
         const actual_target_ns = target_ns.get_write_resource();
 
-        if (actual_target_ns.is_same_namespace(actual_source_ns)) {
+        if (actual_target_ns.is_server_side_copy(actual_source_ns)) {
             // fix copy_source in params to point to the correct cloud bucket
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
             params.copy_source.obj_id = source_md.obj_id;
@@ -432,7 +433,16 @@ class ObjectSDK {
                 // Update the param size with the ranges to be written
                 params.size = source_params.end - source_params.start;
             }
-            params.source_stream = await source_ns.read_object_stream(source_params, this);
+
+            // if the source namespace is NSFS then we need to pass the read_object_stream the read_stream
+            if (source_ns instanceof NamespaceFS) {
+                const read_stream = new stream.PassThrough();
+                source_ns.read_object_stream(source_params, this, read_stream)
+                    .catch(err => read_stream.emit('error', err));
+                params.source_stream = read_stream;
+            } else {
+                params.source_stream = await source_ns.read_object_stream(source_params, this);
+            }
             if (params.size > (100 * size_utils.MEGABYTE)) {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
                 so it can take some time and cause client timeouts`);

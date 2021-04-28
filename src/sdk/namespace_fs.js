@@ -77,7 +77,7 @@ function make_named_dirent(name) {
  */
 const dir_cache = new LRUCache({
     name: 'nsfs-dir-cache',
-    load: async ({dir_path, fs_account_config}) => {
+    load: async ({ dir_path, fs_account_config }) => {
         const time = Date.now();
         const stat = await nb_native().fs.stat(fs_account_config, dir_path);
         let sorted_entries;
@@ -91,7 +91,7 @@ const dir_cache = new LRUCache({
         }
         return { time, stat, sorted_entries, usage };
     },
-    validate: async ({ stat }, { dir_path, fs_account_config}) => {
+    validate: async ({ stat }, { dir_path, fs_account_config }) => {
         let new_stat;
         try {
             new_stat = await nb_native().fs.stat(fs_account_config, dir_path);
@@ -137,7 +137,7 @@ class NamespaceFS {
         return bucket;
     }
 
-    is_same_namespace(other) {
+    is_server_side_copy(other) {
         // in noobaa namespace case just check that other is also same fs
         return other instanceof NamespaceFS && other.bucket_path === this.bucket_path;
     }
@@ -274,7 +274,7 @@ class NamespaceFS {
             };
 
             try {
-                cached_dir = await dir_cache.get_with_cache({dir_path, fs_account_config});
+                cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
             } catch (err) {
                 if (err.code === 'ENOENT') {
                     console.log('NamespaceFS: no keys for non existing dir', dir_path);
@@ -892,14 +892,14 @@ class NamespaceFS {
     async _folder_delete(dir, fs_account_config) {
         let entries = await nb_native().fs.readdir(fs_account_config, dir);
         let results = await Promise.all(entries.map(entry => {
-          let fullPath = path.join(dir, entry.name);
-          let task = isDirectory(entry) ? this._folder_delete(fullPath, fs_account_config) :
-            nb_native().fs.unlink(fs_account_config, fullPath);
-          return task.catch(error => ({ error }));
+            let fullPath = path.join(dir, entry.name);
+            let task = isDirectory(entry) ? this._folder_delete(fullPath, fs_account_config) :
+                nb_native().fs.unlink(fs_account_config, fullPath);
+            return task.catch(error => ({ error }));
         }));
         results.forEach(result => {
-          // Ignore missing files/directories; bail on other errors
-          if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
+            // Ignore missing files/directories; bail on other errors
+            if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
         });
         await nb_native().fs.rmdir(fs_account_config, dir);
     }

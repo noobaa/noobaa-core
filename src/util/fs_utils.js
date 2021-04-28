@@ -159,10 +159,10 @@ function create_path(dir, mode) {
     return fs.promises.mkdir(dir, { mode, recursive: true });
 }
 
-function create_fresh_path(dir) {
+function create_fresh_path(dir, mode) {
     return P.resolve()
         .then(() => folder_delete(dir))
-        .then(() => create_path(dir));
+        .then(() => create_path(dir, mode));
 }
 
 function file_copy(src, dst) {

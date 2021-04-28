@@ -42,8 +42,14 @@ mocha.describe('bucket operations - namespace_fs', function() {
         region: 'us-east-1',
         httpOptions: { agent: new http.Agent({ keepAlive: false }) },
     };
-
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root));
+    mocha.before(function() {
+        if (process.getgid() !== 0 || process.getuid() !== 0) {
+            coretest.log('No Root permissions found in env. Skipping test');
+            this.skip(); // eslint-disable-line no-invalid-this
+        }
+    });
+    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root, 0o777));
+    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770));
     mocha.it('export dir as bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -79,7 +85,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         assert.ok(first_bucket);
     });
 
-    mocha.it('create account 1 with uid, gid', async function() {
+    mocha.it('create account 1 with uid, gid - wrong uid', async function() {
         account_wrong_uid = await rpc_client.account.create_account({...new_account_params,
                 email: 'account_wrong_uid@noobaa.com',
                 name: 'account_wrong_uid',

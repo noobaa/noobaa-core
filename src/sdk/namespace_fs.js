@@ -48,6 +48,10 @@ function isDirectory(ent) {
     }
 }
 
+function get_umasked_mode(mode) {
+     // eslint-disable-next-line no-bitwise
+    return mode & ~config.NSFS_UMASK;
+}
 /**
  * @param {fs.Dirent} e
  * @returns {string}
@@ -65,6 +69,7 @@ function make_named_dirent(name) {
     entry.name = name;
     return entry;
 }
+
 
 /**
  * @typedef {{
@@ -401,7 +406,7 @@ class NamespaceFS {
         try {
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            file = await nb_native().fs.open(fs_account_config, file_path);
+            file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(0o666));
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
@@ -517,7 +522,7 @@ class NamespaceFS {
         try {
             let q_buffers = [];
             let q_size = 0;
-            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
+            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(0o666));
             const flush = async () => {
                 if (q_buffers.length) {
                     await target_file.writev(fs_account_config, q_buffers);
@@ -627,7 +632,7 @@ class NamespaceFS {
             await this._load_multipart(params, fs_account_config);
             const file_path = this._get_file_path(params);
             const upload_path = path.join(params.mpu_path, 'final');
-            write_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
+            write_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(0o666));
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(fs_account_config, part_path);
@@ -635,7 +640,7 @@ class NamespaceFS {
                     throw new Error('mismatch part etag: ' +
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
-                read_file = await nb_native().fs.open(fs_account_config, part_path);
+                read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(0o666));
                 const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                 let read_pos = 0;
                 for (;;) {
@@ -843,19 +848,7 @@ class NamespaceFS {
     }
 
     async _load_bucket(params, fs_account_config) {
-        try {
-            await nb_native().fs.stat(fs_account_config, this.bucket_path);
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                // err.rpc_code = 'NO_SUCH_BUCKET';
-                // Instead of returning NO_SUCH_BUCKET we create the bucket dir.
-                // TODO should verify bucket exists in the system?
-                // or was it verified already for the request?
-                await this._create_path(this.bucket_path, fs_account_config);
-                return;
-            }
-            throw err;
-        }
+         await nb_native().fs.stat(fs_account_config, this.bucket_path);
     }
 
     _mpu_path(params) {
@@ -866,6 +859,7 @@ class NamespaceFS {
             params.obj_id
         );
     }
+
     async _load_multipart(params, fs_account_config) {
         await this._load_bucket(params, fs_account_config);
         params.mpu_path = this._mpu_path(params);
@@ -883,7 +877,7 @@ class NamespaceFS {
         for (const item of dir.split(path.sep)) {
             dir_path = path.join(dir_path, item);
             try {
-                await nb_native().fs.mkdir(fs_account_config, dir_path, 0o777);
+                await nb_native().fs.mkdir(fs_account_config, dir_path, get_umasked_mode(0o777));
             } catch (err) {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;

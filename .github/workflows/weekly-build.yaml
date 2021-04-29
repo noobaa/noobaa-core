@@ -1,9 +1,9 @@
 name: Weekly Build
 
-# Run the Weekly on Monday 8 AM UTC
+# Run every day at 23:00 UTC
 on: 
   schedule:
-    - cron: "0 8 * * 1"
+    - cron: "0 23 * * *"
 
 jobs:
   publish-image:

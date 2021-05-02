@@ -226,7 +226,7 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
                 limit: 7,
             });
             assert.deepStrictEqual(r.is_truncated, false);
-            assert.deepStrictEqual(r.common_prefixes, folders_to_upload);
+            assert.deepStrictEqual(r.common_prefixes, []);
             assert.deepStrictEqual(r.objects.map(it => it.key), max_keys_objects);
         });
 

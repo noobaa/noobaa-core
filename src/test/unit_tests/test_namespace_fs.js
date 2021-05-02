@@ -7,21 +7,31 @@ const util = require('util');
 const crypto = require('crypto');
 const assert = require('assert');
 const fs_utils = require('../../util/fs_utils');
+const nb_native = require('../../util/nb_native');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const buffer_utils = require('../../util/buffer_utils');
 const test_ns_list_objects = require('./test_ns_list_objects');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
+const DEFAULT_FS_CONFIG = {
+    uid: process.getuid(),
+    gid: process.getgid(),
+    backend: ''
+};
+
 mocha.describe('namespace_fs', function() {
 
     const src_bkt = 'src';
     const src_key = 'test/unit_tests/test_namespace_fs.js';
     const tmp_fs_path = '/tmp/test_namespace_fs';
-    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } }};
+    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
 
-    const ns_src = new NamespaceFS({ bucket_path: `./${src_bkt}`});
-    const ns_tmp = new NamespaceFS({ bucket_path: `${tmp_fs_path}/${src_bkt}`});
+    const ns_src_bucket_path = `./${src_bkt}`;
+    const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
+
+    const ns_src = new NamespaceFS({ bucket_path: ns_src_bucket_path });
+    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path });
 
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_path));
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
@@ -237,6 +247,94 @@ mocha.describe('namespace_fs', function() {
                 key: mpu_key,
             }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
+        });
+    });
+
+    mocha.describe('delete_object', function() {
+        const upload_bkt = 'test_ns_uploads_object';
+        const dir_1 = '/a/b/c/';
+        const dir_2 = '/a/b/';
+        const upload_key_1 = dir_1 + 'upload_key_1';
+        const upload_key_2 = dir_1 + 'upload_key_2';
+        const upload_key_3 = dir_2 + 'upload_key_3';
+        const data = crypto.randomBytes(100);
+
+        mocha.before(async function() {
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+            console.log('upload_object with path (before) response', inspect(upload_res));
+        });
+
+        mocha.it('do not delete the path', async function() {
+            const copy_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+            console.log('upload_object with path response', inspect(copy_res));
+
+            const delete_copy_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk);
+            console.log('delete_object do not delete the path response', inspect(delete_copy_res));
+
+            let entries;
+            try {
+                entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path + dir_1);
+            } catch (e) {
+                assert.ifError(e);
+            }
+            console.log('do not delete the path - entries', entries);
+            assert.strictEqual(entries.length, 1);
+        });
+
+
+        mocha.it('delete the path - stop when not empty', async function() {
+            const copy_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_3,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+            console.log('upload_object with path response', inspect(copy_res));
+
+            const delete_copy_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_1,
+            }, dummy_object_sdk);
+            console.log('delete_object - stop when not empty response', inspect(delete_copy_res));
+
+            let entries;
+            try {
+                entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path + dir_2);
+            } catch (e) {
+                assert.ifError(e);
+            }
+            console.log('stop when not empty - entries', entries);
+            assert.strictEqual(entries.length, 1);
+
+        });
+
+        mocha.after(async function() {
+            let entries_before;
+            let entries_after;
+            try {
+                entries_before = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path);
+
+                const delete_res = await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: upload_key_3,
+                }, dummy_object_sdk);
+                console.log('delete_object response', inspect(delete_res));
+
+                entries_after = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path);
+            } catch (e) {
+                assert.ifError(e);
+            }
+            assert.strictEqual(entries_after.length, entries_before.length - 1);
         });
     });
 

@@ -3,6 +3,7 @@
 'use strict';
 
 const _ = require('lodash');
+require('../util/fips');
 
 const assert = require('assert');
 const Ajv = require('ajv');

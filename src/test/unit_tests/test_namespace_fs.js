@@ -11,6 +11,8 @@ const nb_native = require('../../util/nb_native');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const buffer_utils = require('../../util/buffer_utils');
 const test_ns_list_objects = require('./test_ns_list_objects');
+const _ = require('lodash');
+const P = require('../../util/promise');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -23,6 +25,9 @@ const DEFAULT_FS_CONFIG = {
 mocha.describe('namespace_fs', function() {
 
     const src_bkt = 'src';
+    const upload_bkt = 'test_ns_uploads_object';
+    const mpu_bkt = 'test_ns_multipart_upload';
+
     const src_key = 'test/unit_tests/test_namespace_fs.js';
     const tmp_fs_path = '/tmp/test_namespace_fs';
     const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
@@ -33,7 +38,14 @@ mocha.describe('namespace_fs', function() {
     const ns_src = new NamespaceFS({ bucket_path: ns_src_bucket_path });
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path });
 
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_path));
+    mocha.before(async () => {
+        await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
+            fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
+    });
+    mocha.after(async () => {
+        await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
+            fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
+    });
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
 
     mocha.describe('list_objects', function() {
@@ -137,7 +149,6 @@ mocha.describe('namespace_fs', function() {
 
     mocha.describe('upload_object', function() {
 
-        const upload_bkt = 'test_ns_uploads_object';
         const upload_key = 'upload_key_1';
 
         mocha.it('upload, read, delete of a small object', async function() {
@@ -169,7 +180,6 @@ mocha.describe('namespace_fs', function() {
 
     mocha.describe('multipart upload', function() {
 
-        const mpu_bkt = 'test_ns_multipart_upload';
         const mpu_key = 'mpu_upload';
 
         mocha.it('upload, read, delete a small multipart object', async function() {
@@ -251,7 +261,7 @@ mocha.describe('namespace_fs', function() {
     });
 
     mocha.describe('delete_object', function() {
-        const upload_bkt = 'test_ns_uploads_object';
+
         const dir_1 = '/a/b/c/';
         const dir_2 = '/a/b/';
         const upload_key_1 = dir_1 + 'upload_key_1';

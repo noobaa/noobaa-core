@@ -171,19 +171,4 @@ mocha.describe('nb_native fs', function() {
     //     });
     // });
 
-    mocha.describe('ACL', function() {
-        mocha.it('stat', async function() {
-            const path = 'package.json';
-            try {
-                await nb_native().fs.stat({ uid: 26041992 }, path);
-                throw new Error('Expected to get EPERM');
-            } catch (error) {
-                assert.strictEqual(error.message, 'Operation not permitted');
-                assert.strictEqual(error.code, 'EPERM');
-            }
-            const response = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path);
-            console.log('ACL Stat response', response);
-        });
-    });
-
 });

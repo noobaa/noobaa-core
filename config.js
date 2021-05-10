@@ -550,6 +550,9 @@ config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 64 * 1024 * 1024;
 config.NSFS_DIR_CACHE_MIN_DIR_SIZE = 64;
 config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE = 24 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE;
 
+// umask that will be used for creation of directories and files with no permissions for 'others'
+config.NSFS_UMASK = 0o007;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

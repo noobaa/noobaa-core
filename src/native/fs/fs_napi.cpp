@@ -227,6 +227,32 @@ struct Stat : public FSWorker
     }
 };
 
+
+/**
+ * EffectiveAccess is an fs op
+ */
+struct EffectiveAccess : public FSWorker
+{
+    std::string _path;
+    struct stat _stat_res;
+
+    EffectiveAccess(const Napi::CallbackInfo& info) : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int fd = open(_path.c_str(), O_RDONLY);
+        if (fd < 0) {
+            SetSyscallError();
+            return;
+        }
+        int r = close(fd);
+        if (r) SetSyscallError();
+    }
+};
+
 /**
  * Unlink is an fs op
  */
@@ -258,7 +284,9 @@ struct Mkdir : public FSWorker
         , _mode(0777)
     {
         _path = info[1].As<Napi::String>();
-        _mode = info[2].As<Napi::Number>();
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _mode = info[2].As<Napi::Number>().Uint32Value();
+        }
         Begin(XSTR() << DVAL(_path));
     }
     virtual void Work()
@@ -866,6 +894,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     auto exports_fs = Napi::Object::New(env);
     
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
+    exports_fs["effectiveAccess"] = Napi::Function::New(env, api<EffectiveAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports_fs["rename"] = Napi::Function::New(env, api<Rename>); 
     exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>); 

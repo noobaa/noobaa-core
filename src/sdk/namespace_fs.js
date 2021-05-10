@@ -685,6 +685,7 @@ class NamespaceFS {
             const file_path = this._get_file_path(params);
             console.log('NamespaceFS: delete_object', file_path);
             await nb_native().fs.unlink(fs_account_config, file_path);
+            await this._delete_object_empty_path(file_path, fs_account_config);
             return {};
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -699,6 +700,7 @@ class NamespaceFS {
                 const file_path = this._get_file_path({ key });
                 console.log('NamespaceFS: delete_multiple_objects', file_path);
                 await nb_native().fs.unlink(fs_account_config, file_path);
+                await this._delete_object_empty_path(file_path, fs_account_config);
             }
             // TODO return deletion reponse per key
             return params.objects.map(() => ({}));
@@ -886,6 +888,23 @@ class NamespaceFS {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;
             }
+        }
+    }
+
+    async _delete_object_empty_path(obj, fs_account_config) {
+        try {
+            let dir = path.dirname(obj);
+            while (dir !== this.bucket_path) {
+                const entries = await nb_native().fs.readdir(fs_account_config, dir);
+                if (entries.length === 0) {
+                    await nb_native().fs.rmdir(fs_account_config, dir);
+                } else {
+                    break;
+                }
+                dir = path.dirname(dir);
+            }
+        } catch (e) {
+            console.warn('NamespaceFS: _delete_object_empty_path failed with:', e);
         }
     }
 

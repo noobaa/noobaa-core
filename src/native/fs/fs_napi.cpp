@@ -96,7 +96,8 @@ struct FSWorker : public Napi::AsyncWorker
         DBG1("FS::FSWorker::Begin: " << _desc);
     }
     virtual void Work() = 0;
-    void Execute() {
+    void Execute() override
+    {
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
         pid_t tid = int(pthread_mach_thread_np(pthread_self()));
 #else
@@ -154,12 +155,12 @@ struct FSWorker : public Napi::AsyncWorker
             SetError(errmsg);
         }
     }
-    virtual void OnOK()
+    virtual void OnOK() override
     {
         DBG1("FS::FSWorker::OnOK: undefined " << _desc);
         _deferred.Resolve(Env().Undefined());
     }
-    virtual void OnError(Napi::Error const &error)
+    virtual void OnError(Napi::Error const &error) override
     {
         Napi::Env env = Env();
         DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
@@ -168,6 +169,25 @@ struct FSWorker : public Napi::AsyncWorker
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
         }
         _deferred.Reject(obj);
+    }
+};
+
+/**
+ * FSWrapWorker is meant to simplify adding async FSWorker instance methods to ObjectWrap types
+ * like FileWrap and DirWrap, while keeping the object referenced during that action.
+ */
+template <typename Wrapper>
+struct FSWrapWorker : public FSWorker
+{
+    Wrapper *_wrap;
+    FSWrapWorker(const Napi::CallbackInfo& info) : FSWorker(info)
+    {
+        _wrap = Wrapper::Unwrap(info.This().As<Napi::Object>());
+        _wrap->Ref();
+    }
+    ~FSWrapWorker()
+    {
+        _wrap->Unref();
     }
 };
 
@@ -532,14 +552,12 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     static Napi::FunctionReference constructor;
     static void init(Napi::Env env)
     {
-        Napi::HandleScope scope(env);
-        Napi::Function func = DefineClass(env, "File", { 
-          InstanceMethod("close", &FileWrap::close),
-          InstanceMethod("read", &FileWrap::read),
-          InstanceMethod("write", &FileWrap::write),
-          InstanceMethod("writev", &FileWrap::writev),
-        });
-        constructor = Napi::Persistent(func);
+        constructor = Napi::Persistent(DefineClass(env, "File", { 
+          InstanceMethod<&FileWrap::close>("close"),
+          InstanceMethod<&FileWrap::read>("read"),
+          InstanceMethod<&FileWrap::write>("write"),
+          InstanceMethod<&FileWrap::writev>("writev"),
+        }));
         constructor.SuppressDestruct();
     }
     FileWrap(const Napi::CallbackInfo& info)
@@ -598,12 +616,11 @@ struct FileOpen : public FSWorker
     }
 };
 
-struct FileClose : public FSWorker
+struct FileClose : public FSWrapWorker<FileWrap>
 {
-    FileWrap *_wrap;
-    FileClose(const Napi::CallbackInfo& info) : FSWorker(info)
+    FileClose(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
     {
-        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
     }
     virtual void Work()
     {
@@ -617,23 +634,21 @@ struct FileClose : public FSWorker
 };
 
 
-struct FileRead : public FSWorker
+struct FileRead : public FSWrapWorker<FileWrap>
 {
-    FileWrap *_wrap;
     uint8_t* _buf;
     off_t _offset;
     int _len;
     int _pos;
     ssize_t _br;
     FileRead(const Napi::CallbackInfo& info) 
-        : FSWorker(info) 
+        : FSWrapWorker<FileWrap>(info) 
         , _buf(0)
         , _offset(0)
         , _len(0)
         , _pos(0)
         , _br(0)
     {
-        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
         _offset = info[2].As<Napi::Number>();
@@ -664,17 +679,15 @@ struct FileRead : public FSWorker
 };
 
 
-struct FileWrite : public FSWorker
+struct FileWrite : public FSWrapWorker<FileWrap>
 {
-    FileWrap *_wrap;
     const uint8_t* _buf;
     size_t _len;
     FileWrite(const Napi::CallbackInfo& info) 
-        : FSWorker(info)
+        : FSWrapWorker<FileWrap>(info)
         , _buf(0)
         , _len(0)
     {
-        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
         _len = buf.Length();
@@ -699,13 +712,12 @@ struct FileWrite : public FSWorker
 };
 
 
-struct FileWritev : public FSWorker
+struct FileWritev : public FSWrapWorker<FileWrap>
 {
-    FileWrap *_wrap;
     std::vector<struct iovec> iov_vec;
-    FileWritev(const Napi::CallbackInfo& info) : FSWorker(info)
+    FileWritev(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
     {
-        _wrap = FileWrap::Unwrap(info.This().As<Napi::Object>());
         auto buffers = info[1].As<Napi::Array>();
         const int buffers_len = buffers.Length();
         iov_vec.resize(buffers_len);
@@ -766,12 +778,10 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
     static Napi::FunctionReference constructor;
     static void init(Napi::Env env)
     {
-        Napi::HandleScope scope(env);
-        Napi::Function func = DefineClass(env, "Dir", { 
+        constructor = Napi::Persistent(DefineClass(env, "Dir", { 
           InstanceMethod("close", &DirWrap::close),
           InstanceMethod("read", &DirWrap::read),
-        });
-        constructor = Napi::Persistent(func);
+        }));
         constructor.SuppressDestruct();
     }
     DirWrap(const Napi::CallbackInfo& info)
@@ -817,12 +827,11 @@ struct DirOpen : public FSWorker
     }
 };
 
-struct DirClose : public FSWorker
+struct DirClose : public FSWrapWorker<DirWrap>
 {
-    DirWrap *_wrap;
-    DirClose(const Napi::CallbackInfo& info) : FSWorker(info)
+    DirClose(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
     {
-        _wrap = DirWrap::Unwrap(info.This().As<Napi::Object>());
     }
     virtual void Work()
     {
@@ -836,14 +845,14 @@ struct DirClose : public FSWorker
 };
 
 
-struct DirReadEntry : public FSWorker
+struct DirReadEntry : public FSWrapWorker<DirWrap>
 {
-    DirWrap *_wrap;
     Entry _entry;
     bool _eof;
-    DirReadEntry(const Napi::CallbackInfo& info) : FSWorker(info), _eof(false)
+    DirReadEntry(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
+        , _eof(false)
     {
-        _wrap = DirWrap::Unwrap(info.This().As<Napi::Object>());
     }
     virtual void Work()
     {

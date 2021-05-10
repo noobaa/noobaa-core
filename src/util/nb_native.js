@@ -63,7 +63,8 @@ async function read_rand_seed(seed_bytes) {
     if (process.platform === 'win32') return;
     let fh;
     const clean_fh = async () => {
-        if (!fh) return;
+        // Ignore seed in standalone due to pkg issue: https://github.com/noobaa/noobaa-core/issues/6476
+        if (!fh || Number.isInteger(fh)) return;
         console.log('read_rand_seed: closing fd ...');
         try {
             await fh.close();
@@ -81,6 +82,8 @@ async function read_rand_seed(seed_bytes) {
             if (!fh) {
                 console.log(`read_rand_seed: opening ${random_dev} ...`);
                 fh = await fs.promises.open(random_dev, 'r');
+                // Ignore seed in standalone due to pkg issue: https://github.com/noobaa/noobaa-core/issues/6476
+                if (Number.isInteger(fh)) break;
             }
             console.log(`read_rand_seed: reading ${count} bytes from ${random_dev} ...`);
             const { bytesRead } = await fh.read(buf, offset, count, null);

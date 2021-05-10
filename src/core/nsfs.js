@@ -37,8 +37,10 @@ Arguments:
 const OPTIONS = `
 Options:
 
-    --http_port <port>     (default 6001)   Set the S3 endpoint listening HTTP port to serve.
-    --https_port <port>    (default 6443)   Set the S3 endpoint listening HTTPS port to serve.
+    --http_port <port>     (default 6001)           Set the S3 endpoint listening HTTP port to serve.
+    --https_port <port>    (default 6443)           Set the S3 endpoint listening HTTPS port to serve.
+    --uid <uid>            (default process uid)    Send requests to the Filesystem with uid.
+    --gid <gid>            (default process gid)    Send requests to the Filesystem with gid.
 `;
 
 const WARNINGS = `
@@ -67,6 +69,12 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const https_port = Number(argv.https_port) || 6443;
         const fs_root = argv._[0];
         if (!fs_root) return print_usage();
+
+        let fs_config = {
+            uid: Number(argv.uid) || process.getuid(),
+            gid: Number(argv.gid) || process.getgid(),
+            backend: ''
+        };
 
         if (!fs.existsSync(fs_root)) {
             console.error('Error: Root path not found', fs_root);
@@ -102,6 +110,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
         object_sdk.read_bucket_sdk_caching_info = noop;
         object_sdk.read_bucket_sdk_policy_info = noop;
         object_sdk.read_bucket_usage_info = noop;
+        object_sdk.requesting_account = {
+            nsfs_account_config: fs_config
+        };
 
         const endpoint = require('../endpoint/endpoint');
         await endpoint.start_endpoint({

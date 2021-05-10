@@ -3,17 +3,19 @@
 #include "../util/common.h"
 #include "../util/napi.h"
 
-#include <uv.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <map>
+#include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <vector>
-#include <math.h>
-#include <unistd.h>
-#include <map>
-#include <thread>
 #include <sys/uio.h>
+#include <sys/syscall.h>
+#include <thread>
+#include <typeinfo>
+#include <unistd.h>
+#include <uv.h>
+#include <vector>
 
 namespace noobaa
 {
@@ -95,47 +97,49 @@ struct FSWorker : public Napi::AsyncWorker
     }
     virtual void Work() = 0;
     void Execute() {
-        #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-            pid_t tid = int(pthread_mach_thread_np(pthread_self()));
-        #else
-            // pid_t tid = syscall(__NR_gettid);
-            auto tid = std::this_thread::get_id();
-        #endif
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+        pid_t tid = int(pthread_mach_thread_np(pthread_self()));
+#else
+        // pid_t tid = syscall(__NR_gettid);
+        auto tid = std::this_thread::get_id();
+#endif
         DBG1("FS::FSWorker::Start Execute: " << _desc << 
+            " orig_uid:" << orig_uid << 
+            " orig_gid:" << orig_gid << 
             " req_uid:" << _req_uid << 
             " req_gid:" << _req_gid << 
-            " backend:" << _backend <<
+            " backend:" << _backend << 
             " thread_id:" << tid
         );
         bool change_uid = orig_uid != _req_uid;
         bool change_gid = orig_gid != _req_gid;
         if (change_gid) {
-            int r = setegid(_req_gid);
+            int r = syscall(SYS_setresgid, -1, _req_gid, -1);
             if (r == -1) {
-                SetSyscallError();
-                return;
+                PANIC("FS::FSWorker::Execute setgid before work failed"
+                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
         if (change_uid) {
-            int r = seteuid(_req_uid);
+            int r = syscall(SYS_setresuid, -1, _req_uid, -1);
             if (r == -1) {
-                SetSyscallError();
-                return;
+                PANIC("FS::FSWorker::Execute setgid before work failed"
+                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
         Work();
-        if (change_gid) {
-            int r = setegid(orig_gid);
+        if (change_uid) {
+            int r = syscall(SYS_setresuid, -1, orig_uid, -1);
             if (r == -1) {
-                SetSyscallError();
-                return;
+                PANIC("FS::FSWorker::Execute setuid after work failed"
+                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
-        if (change_uid) {
-            int r = seteuid(orig_uid);
+        if (change_gid) {
+            int r = syscall(SYS_setresgid, -1, orig_gid, -1);
             if (r == -1) {
-                SetSyscallError();
-                return;
+                PANIC("FS::FSWorker::Execute setgid after work failed"
+                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
     }
@@ -182,6 +186,7 @@ struct Stat : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Stat::Work: " << DVAL(_path));
         int r = stat(_path.c_str(), &_stat_res);
         if (r) SetSyscallError();
     }
@@ -266,6 +271,7 @@ struct Unlink : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Unlink::Work: " << DVAL(_path));
         int r = unlink(_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -291,6 +297,7 @@ struct Mkdir : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Mkdir::Work: " << DVAL(_path));
         int r = mkdir(_path.c_str(), _mode);
         if (r == -1) SetSyscallError();
     }
@@ -310,6 +317,7 @@ struct Rmdir : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Rmdir::Work: " << DVAL(_path));
         int r = rmdir(_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -331,6 +339,7 @@ struct Rename : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Rename::Work: " << DVAL(_old_path) << DVAL(_new_path));
         int r = rename(_old_path.c_str(), _new_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -354,6 +363,7 @@ struct Writefile : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Writefile::Work: " << DVAL(_path));
         int fd = open(_path.c_str(), O_WRONLY | O_CREAT);
         if (fd < 0) {
             SetSyscallError();
@@ -397,6 +407,7 @@ struct Readfile : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Readfile::Work: " << DVAL(_path));
         int fd = open(_path.c_str(), O_RDONLY);
         if (fd < 0) {
             SetSyscallError();
@@ -432,6 +443,7 @@ struct Readfile : public FSWorker
     }
     virtual void OnOK()
     {
+        DBG1("FS::FSWorker::OnOK: Readfile " << DVAL(_path));
         auto buf = Napi::Buffer<uint8_t>::Copy(Env(), _data, _len);
         _deferred.Resolve(buf);
     }
@@ -456,6 +468,7 @@ struct Readdir : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::Readdir::Work: " << DVAL(_path));
         DIR *dir;
         dir = opendir(_path.c_str());
         if (dir == NULL) {
@@ -488,6 +501,7 @@ struct Readdir : public FSWorker
     }
     virtual void OnOK()
     {
+        DBG1("FS::FSWorker::OnOK: Readdir " << DVAL(_path));
         Napi::Env env = Env();
         Napi::Array res = Napi::Array::New(env, _entries.size());
         int index = 0;
@@ -569,6 +583,7 @@ struct FileOpen : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::FileOpen::Work: " << DVAL(_path));
         _fd = open(_path.c_str(), _flags, _mode);
         if (_fd < 0) SetSyscallError();
     }
@@ -592,6 +607,7 @@ struct FileClose : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::FileClose::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         int r = close(fd);
@@ -626,6 +642,7 @@ struct FileRead : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::FileRead::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -640,6 +657,7 @@ struct FileRead : public FSWorker
     }
     virtual void OnOK()
     {
+        DBG1("FS::FSWorker::OnOK: FileRead " << DVAL(_wrap->_path));
         Napi::Env env = Env();
         _deferred.Resolve(Napi::Number::New(env, _br));
     }
@@ -663,6 +681,7 @@ struct FileWrite : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::FileWrite::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -701,6 +720,7 @@ struct FileWritev : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::FileWritev::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -782,6 +802,7 @@ struct DirOpen : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::DirOpen::Work: " << DVAL(_path));
         _dir = opendir(_path.c_str());
         if (_dir == NULL) SetSyscallError();
     }
@@ -805,6 +826,7 @@ struct DirClose : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::DirClose::Work: " << DVAL(_wrap->_path));
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
         int r = closedir(dir);
@@ -825,6 +847,7 @@ struct DirReadEntry : public FSWorker
     }
     virtual void Work()
     {
+        DBG1("FS::DirReadEntry::Work: " << DVAL(_wrap->_path));
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
         if (!dir) {

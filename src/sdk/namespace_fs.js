@@ -49,7 +49,7 @@ function isDirectory(ent) {
 }
 
 function get_umasked_mode(mode) {
-     // eslint-disable-next-line no-bitwise
+    // eslint-disable-next-line no-bitwise
     return mode & ~config.NSFS_UMASK;
 }
 /**
@@ -123,7 +123,7 @@ class NamespaceFS {
      * }} params
      */
     constructor({ bucket_path, fs_backend }) {
-        this.bucket_path = bucket_path;
+        this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
     }
 
@@ -690,7 +690,7 @@ class NamespaceFS {
             const file_path = this._get_file_path(params);
             console.log('NamespaceFS: delete_object', file_path);
             await nb_native().fs.unlink(fs_account_config, file_path);
-            await this._delete_object_empty_path(file_path, fs_account_config);
+            await this._delete_path_dirs(file_path, fs_account_config);
             return {};
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -705,7 +705,7 @@ class NamespaceFS {
                 const file_path = this._get_file_path({ key });
                 console.log('NamespaceFS: delete_multiple_objects', file_path);
                 await nb_native().fs.unlink(fs_account_config, file_path);
-                await this._delete_object_empty_path(file_path, fs_account_config);
+                await this._delete_path_dirs(file_path, fs_account_config);
             }
             // TODO return deletion reponse per key
             return params.objects.map(() => ({}));
@@ -780,7 +780,15 @@ class NamespaceFS {
     ///////////////
 
     _get_file_path({ key }) {
-        const p = path.join(this.bucket_path, key);
+        // not allowing keys with dots follow by slash which can be treated as relative paths and "leave" the bucket_path
+        // We are not using `path.isAbsolute` as path like '/../..' will return true and we can still "leave" the bucket_path
+        if (key.includes('./')) throw new Error('Bad relative path key ' + key);
+
+        // using normalize to get rid of multiple slashes in the middle of the path (but allows single trailing /)
+        const p = path.normalize(path.join(this.bucket_path, key));
+
+        // when the key refers to a directory (trailing /) we append a unique entry name
+        // so that we can upload/download the object content to that dir entry.
         return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
     }
 
@@ -848,7 +856,7 @@ class NamespaceFS {
     }
 
     async _load_bucket(params, fs_account_config) {
-         await nb_native().fs.stat(fs_account_config, this.bucket_path);
+        await nb_native().fs.stat(fs_account_config, this.bucket_path);
     }
 
     _mpu_path(params) {
@@ -885,20 +893,21 @@ class NamespaceFS {
         }
     }
 
-    async _delete_object_empty_path(obj, fs_account_config) {
+    async _delete_path_dirs(file_path, fs_account_config) {
         try {
-            let dir = path.dirname(obj);
+            let dir = path.dirname(file_path);
             while (dir !== this.bucket_path) {
-                const entries = await nb_native().fs.readdir(fs_account_config, dir);
-                if (entries.length === 0) {
-                    await nb_native().fs.rmdir(fs_account_config, dir);
-                } else {
-                    break;
-                }
+                await nb_native().fs.rmdir(fs_account_config, dir);
                 dir = path.dirname(dir);
             }
-        } catch (e) {
-            console.warn('NamespaceFS: _delete_object_empty_path failed with:', e);
+        } catch (err) {
+            if (err.code !== 'ENOTEMPTY' &&
+                err.code !== 'ENOENT' &&
+                err.code !== 'ENOTDIR' &&
+                err.code !== 'EACCES'
+            ) {
+                console.log('NamespaceFS: _delete_object_empty_path skip on unexpected error', err);
+            }
         }
     }
 

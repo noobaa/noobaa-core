@@ -348,4 +348,45 @@ mocha.describe('namespace_fs', function() {
         });
     });
 
+    mocha.describe('key with trailing /', function() {
+
+        const dir_1 = '/a/b/c/';
+        const dir_2 = '/a/b/';
+        const upload_key_1 = dir_1 + 'upload_key_1/';
+        const upload_key_2 = dir_2 + 'upload_key_2/';
+        const data = crypto.randomBytes(100);
+
+        mocha.before(async function() {
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+            console.log('upload_object with trailing / response', inspect(upload_res));
+        });
+
+        mocha.it(`delete the path - stop when not empty and key with trailing /`, async function() {
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+            console.log('upload_object with trailing / (key 2) response', inspect(upload_res));
+
+            const delete_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_1,
+            }, dummy_object_sdk);
+            console.log('delete_object with trailing / response', inspect(delete_res));
+        });
+
+        mocha.after(async function() {
+            const delete_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk);
+            console.log('delete_object with trailing / (key 2) response', inspect(delete_res));
+        });
+    });
+
 });

@@ -104,12 +104,12 @@ struct FSWorker : public Napi::AsyncWorker
         // pid_t tid = syscall(__NR_gettid);
         auto tid = std::this_thread::get_id();
 #endif
-        DBG1("FS::FSWorker::Start Execute: " << _desc << 
-            " orig_uid:" << orig_uid << 
-            " orig_gid:" << orig_gid << 
-            " req_uid:" << _req_uid << 
-            " req_gid:" << _req_gid << 
-            " backend:" << _backend << 
+        DBG1("FS::FSWorker::Execute: " << _desc <<
+            " orig_uid:" << orig_uid <<
+            " orig_gid:" << orig_gid <<
+            " req_uid:" << _req_uid <<
+            " req_gid:" << _req_gid <<
+            " backend:" << _backend <<
             " thread_id:" << tid
         );
         bool change_uid = orig_uid != _req_uid;
@@ -202,11 +202,10 @@ struct Stat : public FSWorker
     Stat(const Napi::CallbackInfo& info) : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Stat " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Stat::Work: " << DVAL(_path));
         int r = stat(_path.c_str(), &_stat_res);
         if (r) SetSyscallError();
     }
@@ -264,7 +263,7 @@ struct EffectiveAccess : public FSWorker
     EffectiveAccess(const Napi::CallbackInfo& info) : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "EffectiveAccess " << DVAL(_path));
     }
     virtual void Work()
     {
@@ -287,11 +286,10 @@ struct Unlink : public FSWorker
     Unlink(const Napi::CallbackInfo& info) : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Unlink " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Unlink::Work: " << DVAL(_path));
         int r = unlink(_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -313,11 +311,10 @@ struct Mkdir : public FSWorker
         if (info.Length() > 2 && !info[2].IsUndefined()) {
             _mode = info[2].As<Napi::Number>().Uint32Value();
         }
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Mkdir " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Mkdir::Work: " << DVAL(_path));
         int r = mkdir(_path.c_str(), _mode);
         if (r == -1) SetSyscallError();
     }
@@ -333,11 +330,10 @@ struct Rmdir : public FSWorker
     Rmdir(const Napi::CallbackInfo& info) : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Rmdir " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Rmdir::Work: " << DVAL(_path));
         int r = rmdir(_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -355,11 +351,10 @@ struct Rename : public FSWorker
     {
         _old_path = info[1].As<Napi::String>();
         _new_path = info[2].As<Napi::String>();
-        Begin(XSTR() << DVAL(_old_path) << DVAL(_new_path));
+        Begin(XSTR() << "Rename " << DVAL(_old_path) << DVAL(_new_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Rename::Work: " << DVAL(_old_path) << DVAL(_new_path));
         int r = rename(_old_path.c_str(), _new_path.c_str());
         if (r == -1) SetSyscallError();
     }
@@ -379,11 +374,10 @@ struct Writefile : public FSWorker
         auto buf = info[2].As<Napi::Buffer<uint8_t>>();
         _data = buf.Data();
         _len = buf.Length();
-        Begin(XSTR() << DVAL(_path) << DVAL(_len));
+        Begin(XSTR() << "Writefile " << DVAL(_path) << DVAL(_len));
     }
     virtual void Work()
     {
-        DBG1("FS::Writefile::Work: " << DVAL(_path));
         int fd = open(_path.c_str(), O_WRONLY | O_CREAT);
         if (fd < 0) {
             SetSyscallError();
@@ -416,7 +410,7 @@ struct Readfile : public FSWorker
         , _len(0)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Readfile " << DVAL(_path));
     }
     virtual ~Readfile()
     {
@@ -427,7 +421,6 @@ struct Readfile : public FSWorker
     }
     virtual void Work()
     {
-        DBG1("FS::Readfile::Work: " << DVAL(_path));
         int fd = open(_path.c_str(), O_RDONLY);
         if (fd < 0) {
             SetSyscallError();
@@ -484,11 +477,10 @@ struct Readdir : public FSWorker
     {
         _path = info[1].As<Napi::String>();
         // _withFileTypes = info[1].As<Napi::Boolean>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "Readdir " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::Readdir::Work: " << DVAL(_path));
         DIR *dir;
         dir = opendir(_path.c_str());
         if (dir == NULL) {
@@ -597,11 +589,10 @@ struct FileOpen : public FSWorker
         if (info.Length() > 3 && !info[3].IsUndefined()) {
             _mode = info[3].As<Napi::Number>().Uint32Value();
         }
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "FileOpen " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::FileOpen::Work: " << DVAL(_path));
         _fd = open(_path.c_str(), _flags, _mode);
         if (_fd < 0) SetSyscallError();
     }
@@ -621,10 +612,10 @@ struct FileClose : public FSWrapWorker<FileWrap>
     FileClose(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
     {
+        Begin(XSTR() << "FileClose " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::FileClose::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         int r = close(fd);
@@ -654,10 +645,10 @@ struct FileRead : public FSWrapWorker<FileWrap>
         _offset = info[2].As<Napi::Number>();
         _len = info[3].As<Napi::Number>();
         _pos = info[4].As<Napi::Number>();
+        Begin(XSTR() << "FileRead " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::FileRead::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -691,10 +682,10 @@ struct FileWrite : public FSWrapWorker<FileWrap>
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
         _len = buf.Length();
+        Begin(XSTR() << "FileWrite " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::FileWrite::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -729,10 +720,10 @@ struct FileWritev : public FSWrapWorker<FileWrap>
             iov.iov_len = buf.Length();
             iov_vec[i] = iov;
         }
+        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::FileWritev::Work: " << DVAL(_wrap->_path));
         int fd = _wrap->_fd;
         std::string path = _wrap->_path;
         if (fd < 0) {
@@ -808,11 +799,10 @@ struct DirOpen : public FSWorker
     {
         _path = info[1].As<Napi::String>();
         // TODO - info[1] = { bufferSize: 128 }
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "DirOpen " << DVAL(_path));
     }
     virtual void Work()
     {
-        DBG1("FS::DirOpen::Work: " << DVAL(_path));
         _dir = opendir(_path.c_str());
         if (_dir == NULL) SetSyscallError();
     }
@@ -832,10 +822,10 @@ struct DirClose : public FSWrapWorker<DirWrap>
     DirClose(const Napi::CallbackInfo& info)
         : FSWrapWorker<DirWrap>(info)
     {
+        Begin(XSTR() << "DirClose " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::DirClose::Work: " << DVAL(_wrap->_path));
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
         int r = closedir(dir);
@@ -853,10 +843,10 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
         : FSWrapWorker<DirWrap>(info)
         , _eof(false)
     {
+        Begin(XSTR() << "DirReadEntry " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
-        DBG1("FS::DirReadEntry::Work: " << DVAL(_wrap->_path));
         DIR *dir = _wrap->_dir;
         std::string path = _wrap->_path;
         if (!dir) {

@@ -142,9 +142,11 @@ class NamespaceFS {
         return bucket;
     }
 
-    is_server_side_copy(other) {
-        // in noobaa namespace case just check that other is also same fs
-        return other instanceof NamespaceFS && other.bucket_path === this.bucket_path;
+    is_server_side_copy(other, params) {
+        return other instanceof NamespaceFS &&
+            other.bucket_path === this.bucket_path &&
+            other.fs_backend === this.fs_backend && //Check that the same backend type
+            params.xattr_copy; // TODO, DO we need to hard link at TaggingDirective 'REPLACE'?
     }
 
     /////////////////
@@ -497,23 +499,90 @@ class NamespaceFS {
     ///////////////////
 
     async upload_object(params, object_sdk) {
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        await this._load_bucket(params, fs_account_config);
+
+        const file_path = this._get_file_path(params);
+        // Uploading to a temp file then we will rename it. 
+        const upload_id = uuidv4();
+        const upload_path = path.join(this.bucket_path, config.NSFS_TEMP_DIR_NAME, 'uploads', upload_id);
+        // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
+        await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
         try {
-            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
-            await this._load_bucket(params, fs_account_config);
-
-            const file_path = this._get_file_path(params);
-            const upload_id = uuidv4();
-            const upload_path = path.join(this.bucket_path, config.NSFS_TEMP_DIR_NAME, 'uploads', upload_id);
-            // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
-
-            await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
-            await this._upload_stream(params.source_stream, upload_path, fs_account_config);
-            // TODO use file xattr to store md5_b64 xattr, etc.
-            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
-            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-            return { etag: this._get_etag(stat) };
+            if (params.copy_source) {
+                const source_file_path = path.join(this.bucket_path, params.copy_source.key);
+                try {
+                    const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path);
+                    if (same_inode) return same_inode;
+                    // Doing a hard link.
+                    await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
+                } catch (e) {
+                    console.warn('NamespaceFS: COPY using link failed with:', e);
+                    await this._copy_stream(source_file_path, upload_path, fs_account_config);
+                }
+            } else {
+                await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+            }
         } catch (err) {
             throw this._translate_object_error_codes(err);
+        }
+        // TODO use file xattr to store md5_b64 xattr, etc.
+        const stat = await nb_native().fs.stat(fs_account_config, upload_path);
+        await nb_native().fs.rename(fs_account_config, upload_path, file_path);
+        return { etag: this._get_etag(stat) };
+    }
+
+    // Comparing both device and inode number (st_dev and st_ino returned by stat) 
+    // will tell you whether two different file names refer to the same thing.
+    // If so, we will return the etag of the file_path
+    async _is_same_inode(fs_account_config, source_file_path, file_path) {
+        try {
+            const file_path_stat = await nb_native().fs.stat(fs_account_config, file_path);
+            const file_path_inode = file_path_stat.ino.toString();
+            const file_path_device = file_path_stat.dev.toString();
+            const source_file_stat = await nb_native().fs.stat(fs_account_config, source_file_path);
+            const source_file_inode = source_file_stat.ino.toString();
+            const source_file_device = source_file_stat.dev.toString();
+            if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
+                return { etag: this._get_etag(file_path_stat) };
+            }
+        } catch (e) {
+            // If we fail for any reason, we want to return undefined. so doing nothing in this catch.
+        }
+    }
+
+    async _copy_stream(source_file_path, upload_path, fs_account_config) {
+        let target_file;
+        let source_file;
+        try {
+            //Opening the source and target files
+            source_file = await nb_native().fs.open(fs_account_config, source_file_path);
+            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
+            //Reading the source_file and writing into the target_file
+            const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+            let read_pos = 0;
+            for (;;) {
+                const bytesRead = await source_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
+                if (!bytesRead) break;
+                read_pos += bytesRead;
+                const data = buffer.slice(0, bytesRead);
+                await target_file.write(fs_account_config, data);
+            }
+            //Closing the source_file and target files
+            await source_file.close(fs_account_config);
+            source_file = null;
+            await target_file.close(fs_account_config);
+            target_file = null;
+        } catch (e) {
+            console.error('Failed to copy object', e);
+            throw e;
+        } finally {
+            try {
+                if (source_file) await source_file.close(fs_account_config);
+                if (target_file) await target_file.close(fs_account_config);
+            } catch (err) {
+                console.warn('NamespaceFS: upload_object - copy_source file close error', err);
+            }
         }
     }
 

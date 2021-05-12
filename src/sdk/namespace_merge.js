@@ -24,7 +24,7 @@ class NamespaceMerge {
         return this.namespaces.write_resource;
     }
 
-    is_server_side_copy(other) {
+    is_server_side_copy(other, params) {
         // we do not allow server side copy for merge
         return false;
     }

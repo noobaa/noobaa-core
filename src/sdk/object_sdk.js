@@ -411,7 +411,7 @@ class ObjectSDK {
         const actual_source_ns = source_md.ns || source_ns;
         const actual_target_ns = target_ns.get_write_resource();
 
-        if (actual_target_ns.is_server_side_copy(actual_source_ns)) {
+        if (actual_target_ns.is_server_side_copy(actual_source_ns, params)) {
             // fix copy_source in params to point to the correct cloud bucket
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
             params.copy_source.obj_id = source_md.obj_id;

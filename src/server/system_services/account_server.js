@@ -715,9 +715,16 @@ function list_accounts(req) {
         throw new RpcError('UNAUTHORIZED', 'Must be system admin or operator');
     }
 
-    // for support account - list all accounts
     const accounts = system_store.data.accounts
+        // for support account - list all accounts
         .filter(account => is_support || !account.is_support)
+        // filter list, UID and GID together
+        .filter(account => !req.rpc_params.filter ||
+            (req.rpc_params.filter &&
+            req.rpc_params.filter.fs_identity &&
+            req.rpc_params.filter.fs_identity.uid === (account.nsfs_account_config && account.nsfs_account_config.uid) &&
+            req.rpc_params.filter.fs_identity.gid === (account.nsfs_account_config && account.nsfs_account_config.gid))
+        )
         .map(account => get_account_info(account, req.account === account));
 
     return { accounts };

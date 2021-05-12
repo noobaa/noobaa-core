@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 490]*/
+/*eslint max-lines-per-function: ["error", 700]*/
 'use strict';
 
 // setup coretest first to prepare the env
@@ -26,6 +26,8 @@ mocha.describe('system_servers', function() {
     const NAMESPACE_BUCKET = `${PREFIX}-namespace-bucket`;
     const SYS1 = `${PREFIX}-${SYSTEM}-1`;
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
+    const EMAIL2 = `${PREFIX}-${EMAIL}2`;
+    const EMAIL3 = `${PREFIX}-${EMAIL}3`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
     ///////////////
@@ -91,7 +93,7 @@ mocha.describe('system_servers', function() {
         const accounts_status = await rpc_client.account.accounts_status();
         await assert(accounts_status.has_accounts, 'has_accounts');
         await rpc_client.account.read_account({ email: EMAIL });
-        await rpc_client.account.list_accounts();
+        await rpc_client.account.list_accounts({});
         await rpc_client.system.read_system();
         await rpc_client.account.update_account({
             email: EMAIL,
@@ -129,7 +131,73 @@ mocha.describe('system_servers', function() {
         await rpc_client.system.list_systems();
         await rpc_client.events.read_activity_log({ limit: 2016 });
     });
-
+    mocha.it('account list with filters works', async function() {
+        if (config.DB_TYPE === 'postgres') this.skip(); // eslint-disable-line no-invalid-this
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        const UID = 70;
+        const GID = 80;
+        const accounts_status = await rpc_client.account.accounts_status();
+        await assert(accounts_status.has_accounts, 'has_accounts');
+        await rpc_client.account.create_account({
+            name: EMAIL1,
+            email: EMAIL1,
+            has_login: false,
+            s3_access: true,
+            allowed_buckets: {
+                full_permission: false,
+                permission_list: []
+            },
+            default_pool: DEFAULT_POOL_NAME,
+            nsfs_account_config: {
+                uid: UID,
+                gid: GID,
+                new_buckets_path: '/test'
+            }
+        });
+        await rpc_client.account.create_account({
+            name: EMAIL2,
+            email: EMAIL2,
+            has_login: false,
+            s3_access: true,
+            allowed_buckets: {
+                full_permission: false,
+                permission_list: []
+            },
+            default_pool: DEFAULT_POOL_NAME,
+            nsfs_account_config: {
+                uid: UID + 1,
+                gid: GID + 1,
+                new_buckets_path: '/test1'
+            }
+        });
+        await rpc_client.account.create_account({
+            name: EMAIL3,
+            email: EMAIL3,
+            has_login: false,
+            s3_access: true,
+            allowed_buckets: {
+                full_permission: false,
+                permission_list: []
+            },
+            default_pool: DEFAULT_POOL_NAME,
+        });
+        await rpc_client.system.read_system();
+        const accountlistnofilter = await rpc_client.account.list_accounts({});
+        await assert(accountlistnofilter.accounts.length === 5, 'should return 5 accounts');
+        const accountlistfilter = await rpc_client.account.list_accounts({
+            filter: {
+                fs_identity: {
+                    uid: UID,
+                    gid: GID
+                }
+            }
+        });
+        await assert(accountlistfilter.accounts.length === 1, 'should return 1 account');
+        await rpc_client.account.delete_account({ email: EMAIL1 });
+        await rpc_client.account.delete_account({ email: EMAIL2 });
+        await rpc_client.account.delete_account({ email: EMAIL3 });
+        await rpc_client.events.read_activity_log({ limit: 2016 });
+    });
 
     ////////////
     //  AUTH  //

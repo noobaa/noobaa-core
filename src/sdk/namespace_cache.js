@@ -44,7 +44,7 @@ class NamespaceCache {
         return this.namespace_hub.get_bucket();
     }
 
-    is_server_side_copy(other) {
+    is_server_side_copy(other, params) {
         return other instanceof NamespaceCache &&
             this.namespace_hub === other.namespace_hub &&
             this.namespace_nb === other.namespace_nb;

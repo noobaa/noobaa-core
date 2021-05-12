@@ -295,6 +295,80 @@ struct Unlink : public FSWorker
     }
 };
 
+/**
+ * Unlinkat is an fs op
+ */
+struct Unlinkat : public FSWorker
+{
+    int _dirfd;
+    std::string _path;
+    int _flags;
+    Unlinkat(const Napi::CallbackInfo& info) 
+        : FSWorker(info)
+        , _dirfd(0)
+        , _flags(0)
+    {
+        _dirfd = info[1].As<Napi::Number>();
+        _path = info[2].As<Napi::String>();
+        _flags = info[3].As<Napi::Number>();
+        Begin(XSTR() << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int r = unlinkat(_dirfd, _path.c_str(), _flags);
+        if (r == -1) SetSyscallError();
+    }
+};
+
+/**
+ * Link is an fs op
+ */
+struct Link : public FSWorker
+{
+    std::string _oldpath;
+    std::string _newpath;
+    Link(const Napi::CallbackInfo& info) : FSWorker(info)
+    {
+        _oldpath = info[1].As<Napi::String>();
+        _newpath = info[2].As<Napi::String>();
+        Begin(XSTR() << DVAL(_oldpath) << DVAL(_newpath));
+    }
+    virtual void Work()
+    {
+        int r = link(_oldpath.c_str(), _newpath.c_str());
+        if (r == -1) SetSyscallError();
+    }
+};
+
+/**
+ * Linkat is an fs op
+ */
+struct Linkat : public FSWorker
+{
+    int _olddirfd;
+    std::string _oldpath;
+    int _newdirfd;
+    std::string _newpath;
+    int _flags;
+    Linkat(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+        , _olddirfd(0)
+        , _newdirfd(0)
+        , _flags(0)
+    {
+        _olddirfd = info[1].As<Napi::Number>();
+        _oldpath = info[2].As<Napi::String>();
+        _newdirfd = info[3].As<Napi::Number>();
+        _newpath = info[4].As<Napi::String>();
+        _flags = info[5].As<Napi::Number>();
+        Begin(XSTR() << DVAL(_oldpath) << DVAL(_newpath));
+    }
+    virtual void Work()
+    {
+        int r = linkat(_olddirfd, _oldpath.c_str(), _newdirfd, _newpath.c_str(), _flags);
+        if (r == -1) SetSyscallError();
+    }
+};
 
 /**
  * Mkdir is an fs op
@@ -918,12 +992,15 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
     exports_fs["effectiveAccess"] = Napi::Function::New(env, api<EffectiveAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
+    exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);
     exports_fs["rename"] = Napi::Function::New(env, api<Rename>); 
     exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>); 
     exports_fs["rmdir"] = Napi::Function::New(env, api<Rmdir>); 
     exports_fs["writeFile"] = Napi::Function::New(env, api<Writefile>);
     exports_fs["readFile"] = Napi::Function::New(env, api<Readfile>);
     exports_fs["readdir"] = Napi::Function::New(env, api<Readdir>);
+    exports_fs["link"] = Napi::Function::New(env, api<Link>);
+    exports_fs["linkat"] = Napi::Function::New(env, api<Linkat>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

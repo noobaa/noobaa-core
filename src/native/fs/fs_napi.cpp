@@ -20,6 +20,29 @@
 namespace noobaa
 {
 
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+    #define CARRY_FLAG_BIT 1
+    #define RETURN_SYSCALL_RESULT(result, flags) return (flags & CARRY_FLAG_BIT) ? -result : result;
+
+    // syscall for macos from here: https://github.com/streamich/libsys/blob/master/syscall/darwin.c
+    static inline int64_t
+    syscall_2(int64_t num, int64_t arg1, int64_t arg2)
+    {
+        int64_t result;
+        int64_t flags;
+
+        __asm__ __volatile__(
+            "syscall;\n"
+            "movq %%r11, %1;\n"
+            : "=a"(result), "=r"(flags)
+            : "a"(num), "D"(arg1), "S"(arg2)
+            : "%rcx", "%r11");
+
+        RETURN_SYSCALL_RESULT(result, flags);
+    }
+    pthread_mutex_t thread_lock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
 DBG_INIT(0);
 
 const static std::map<std::string,int> flags_to_case = {
@@ -115,14 +138,24 @@ struct FSWorker : public Napi::AsyncWorker
         bool change_uid = orig_uid != _req_uid;
         bool change_gid = orig_gid != _req_gid;
         if (change_gid) {
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+            pthread_mutex_lock(&thread_lock);
+            int r = syscall_2(0x2000000 + SYS_setregid, -1, _req_gid);
+#else
             int r = syscall(SYS_setresgid, -1, _req_gid, -1);
+#endif
+
             if (r == -1) {
                 PANIC("FS::FSWorker::Execute setgid before work failed"
                     << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
         if (change_uid) {
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+            int r = syscall_2(0x2000000 + SYS_setreuid, -1, _req_uid);
+#else
             int r = syscall(SYS_setresuid, -1, _req_uid, -1);
+#endif
             if (r == -1) {
                 PANIC("FS::FSWorker::Execute setgid before work failed"
                     << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
@@ -130,14 +163,23 @@ struct FSWorker : public Napi::AsyncWorker
         }
         Work();
         if (change_uid) {
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+            int r = syscall_2(0x2000000 + SYS_setreuid, -1, orig_uid);
+#else
             int r = syscall(SYS_setresuid, -1, orig_uid, -1);
+#endif
             if (r == -1) {
                 PANIC("FS::FSWorker::Execute setuid after work failed"
                     << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
             }
         }
         if (change_gid) {
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+            int r = syscall_2(0x2000000 + SYS_setregid, -1, orig_gid);
+            pthread_mutex_unlock(&thread_lock);
+#else
             int r = syscall(SYS_setresgid, -1, orig_gid, -1);
+#endif
             if (r == -1) {
                 PANIC("FS::FSWorker::Execute setgid after work failed"
                     << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);

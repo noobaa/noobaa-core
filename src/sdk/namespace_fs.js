@@ -408,7 +408,7 @@ class NamespaceFS {
         try {
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(0o666));
+            file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
@@ -591,7 +591,7 @@ class NamespaceFS {
         try {
             let q_buffers = [];
             let q_size = 0;
-            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(0o666));
+            target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             const flush = async () => {
                 if (q_buffers.length) {
                     await target_file.writev(fs_account_config, q_buffers);
@@ -701,7 +701,7 @@ class NamespaceFS {
             await this._load_multipart(params, fs_account_config);
             const file_path = this._get_file_path(params);
             const upload_path = path.join(params.mpu_path, 'final');
-            write_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(0o666));
+            write_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(fs_account_config, part_path);
@@ -709,7 +709,7 @@ class NamespaceFS {
                     throw new Error('mismatch part etag: ' +
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
-                read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(0o666));
+                read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
                 const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                 let read_pos = 0;
                 for (;;) {
@@ -954,7 +954,7 @@ class NamespaceFS {
         for (const item of dir.split(path.sep)) {
             dir_path = path.join(dir_path, item);
             try {
-                await nb_native().fs.mkdir(fs_account_config, dir_path, get_umasked_mode(0o777));
+                await nb_native().fs.mkdir(fs_account_config, dir_path, get_umasked_mode(config.BASE_MODE_DIR));
             } catch (err) {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;

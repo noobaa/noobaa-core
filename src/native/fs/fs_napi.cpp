@@ -253,17 +253,17 @@ struct Stat : public FSWorker
 
 
 /**
- * EffectiveAccess is an fs op
+ * CheckAccess is an fs op
  */
-struct EffectiveAccess : public FSWorker
+struct CheckAccess : public FSWorker
 {
     std::string _path;
     struct stat _stat_res;
 
-    EffectiveAccess(const Napi::CallbackInfo& info) : FSWorker(info)
+    CheckAccess(const Napi::CallbackInfo& info) : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << "EffectiveAccess " << DVAL(_path));
+        Begin(XSTR() << "CheckAccess " << DVAL(_path));
     }
     virtual void Work()
     {
@@ -990,7 +990,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     auto exports_fs = Napi::Object::New(env);
     
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
-    exports_fs["effectiveAccess"] = Napi::Function::New(env, api<EffectiveAccess>);
+    exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);
     exports_fs["rename"] = Napi::Function::New(env, api<Rename>); 

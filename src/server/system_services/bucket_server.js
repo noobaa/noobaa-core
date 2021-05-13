@@ -35,6 +35,7 @@ const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
+const path = require('path');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -133,6 +134,7 @@ async function create_bucket(req) {
         changes.insert.tiers = [tier];
     }
 
+    validate_nsfs_bucket(req);
 
     let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
         tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
@@ -509,6 +511,7 @@ async function update_bucket(req) {
     }
 
     const new_req = { ...req, rpc_params: [req.rpc_params] };
+    validate_nsfs_bucket(req);
     return update_buckets(new_req);
 }
 
@@ -1344,6 +1347,26 @@ function validate_bucket_creation(req) {
 
     if (req.account.allow_bucket_creation === false) {
         throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+    }
+}
+
+function validate_nsfs_bucket(req) {
+    // do not allow creation of 2 nsfs buckets on the same path - RPC 
+    if (req.rpc_params.namespace) {
+        const write_resource = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
+        const bucket_nsfs_config = write_resource && write_resource.nsfs_config;
+        if (bucket_nsfs_config) {
+
+            const bucket_path = path.join(bucket_nsfs_config.fs_root_path, req.rpc_params.namespace.write_resource.path || '');
+
+            const same_nsfs_path = req.system.buckets_by_name && Object.values(req.system.buckets_by_name).filter(buck =>
+                buck.namespace && buck.namespace.write_resource.resource.nsfs_config &&
+                path.join(buck.namespace.write_resource.resource.nsfs_config.fs_root_path, buck.namespace.write_resource.path || '') === bucket_path);
+
+                if (same_nsfs_path && same_nsfs_path.length > 0) {
+                    throw new RpcError('BUCKET_ALREADY_EXISTS');
+            }
+        }
     }
 }
 

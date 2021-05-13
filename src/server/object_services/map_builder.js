@@ -6,7 +6,7 @@ const assert = require('assert');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-// const config = require('../../../config.js');
+const config = require('../../../config.js');
 // const mapper = require('./mapper');
 const MDStore = require('./md_store').MDStore;
 const KeysLock = require('../../util/keys_lock');
@@ -255,7 +255,9 @@ class MapBuilder {
 
         // check if bucket master_key is enabled and chunk master keys disabled
         } else if (!chunk_master_key_id && bucket_m_key && bucket_m_key.disabled === false) {
-            const encrypted_cipher = mkm.encrypt_buffer_with_master_key_id(chunk.cipher_key.buffer.toString('base64'), bucket_m_key._id);
+            // TODO: Or we can check if chunk.cipher_key instanceof mongodb.Binary
+            const cipher_key_buffer = config.DB_TYPE === 'postgres' ? chunk.cipher_key : chunk.cipher_key.buffer;
+            const encrypted_cipher = mkm.encrypt_buffer_with_master_key_id(cipher_key_buffer, bucket_m_key._id);
             await MDStore.instance().update_chunk_by_id(chunk._id,
                 { cipher_key: encrypted_cipher, master_key_id: bucket_m_key._id });
             chunk.cipher_key = encrypted_cipher;

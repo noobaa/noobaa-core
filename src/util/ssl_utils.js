@@ -30,8 +30,8 @@ function generate_ssl_certificate() {
 }
 
 function verify_ssl_certificate(certificate) {
-    // check that these key and certificate are valid, matching and can be loaded before using them
-    // throws if invalid
+    // createSecureContext checks that the certificate is valid and can be used,
+    // or throws error if invalid
     tls.createSecureContext(certificate);
 }
 
@@ -132,7 +132,7 @@ function run_https_test_server() {
         res.end(JSON.stringify(req.headers, null, 4));
     });
     server.on('listening', () => {
-        const { port } = server.address();
+        const { port } = /** @type {import('net').AddressInfo} */ (server.address());
         console.log('');
         console.log('');
         console.log(`     --->  https://localhost:${port}  <----`);

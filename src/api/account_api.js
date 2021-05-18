@@ -300,6 +300,21 @@ module.exports = {
             }
         },
 
+        delete_account_by_property: {
+            doc: 'Delete a given account by property',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['nsfs_account_config'],
+                properties: {
+                    nsfs_account_config: { $ref: 'common_api#/definitions/nsfs_account_config' },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_accounts: {
             doc: 'List accounts',
             method: 'GET',

@@ -87,8 +87,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('create account 1 with uid, gid - wrong uid', async function() {
         account_wrong_uid = await rpc_client.account.create_account({...new_account_params,
-                email: 'account_wrong_uid@noobaa.com',
-                name: 'account_wrong_uid',
+                email: 'account_wrong_uid0@noobaa.com',
+                name: 'account_wrong_uid0',
                 nsfs_account_config: {
                     uid: 26041992,
                     gid: 26041992,
@@ -166,6 +166,59 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.ok('could not find namespace resource - as it should');
         }
         assert.ok(fs_utils.file_must_not_exist(tmp_fs_root));
+    });
+
+    mocha.it('delete account by uid, gid', async function() {
+        let read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_uid0@noobaa.com' });
+        assert.ok(read_account_resp1);
+
+        // create another account with the same uid gid
+        let account_wrong_uid1 = await rpc_client.account.create_account({...new_account_params,
+                email: 'account_wrong_uid1@noobaa.com',
+                name: 'account_wrong_uid1',
+                nsfs_account_config: {
+                    uid: 26041992,
+                    gid: 26041992,
+                }
+            }
+        );
+        console.log(inspect(account_wrong_uid1));
+        assert.ok(account_wrong_uid1);
+        await rpc_client.account.delete_account_by_property({
+                nsfs_account_config: {
+                    uid: 26041992,
+                    gid: 26041992,
+                }
+            }
+        );
+        // check that both accounts deleted
+        for (let i = 0; i < 2; i++) {
+            try {
+                let deleted_account_exist = await rpc_client.account.read_account({ email: `account_wrong_uid${i}@noobaa.com` });
+                assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
+            } catch (err) {
+                assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
+            }
+        }
+        let list_account_resp2 = (await rpc_client.account.list_accounts()).accounts;
+        assert.ok(list_account_resp2.length > 0);
+    });
+
+    mocha.it('delete account by uid, gid - no such account', async function() {
+
+        let list_account_resp1 = (await rpc_client.account.list_accounts()).accounts;
+        assert.ok(list_account_resp1.length > 0);
+        await rpc_client.account.delete_account_by_property({
+                nsfs_account_config: {
+                    uid: 26041993,
+                    gid: 26041993,
+                }
+            }
+        );
+        let list_account_resp2 = (await rpc_client.account.list_accounts()).accounts;
+        assert.deepStrictEqual(list_account_resp1, list_account_resp2);
+        assert.ok(list_account_resp2.length > 0);
+
     });
 });
 

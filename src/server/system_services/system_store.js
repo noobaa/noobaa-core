@@ -806,6 +806,14 @@ class SystemStore extends EventEmitter {
         }
     }
 
+    get_accounts_by_nsfs_account_config(nsfs_account_config) {
+        if (this.data && !_.isEmpty(this.data.accounts)) {
+            return this.data.accounts.filter(account => account.nsfs_account_config &&
+                account.nsfs_account_config.uid === nsfs_account_config.uid &&
+                account.nsfs_account_config.gid === nsfs_account_config.gid);
+        }
+    }
+
     async find_deleted_docs(name, max_delete_time, limit) {
         const collection = db_client.instance().collection(name);
         const query = {

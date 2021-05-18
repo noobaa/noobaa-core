@@ -658,6 +658,50 @@ function delete_account(req) {
         );
 }
 
+
+/**
+ *
+ * DELETE_ACCOUNT BY PROPERTY
+ *
+ */
+ function delete_account_by_property(req) {
+    let roles_to_delete = [];
+    let accounts_to_delete = system_store.get_accounts_by_nsfs_account_config(req.rpc_params.nsfs_account_config)
+        .map(account_to_delete => {
+            if (!account_to_delete) {
+                throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+            }
+            if (account_to_delete.is_support) {
+                throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
+            }
+            if (String(account_to_delete._id) === String(req.system.owner._id)) {
+                throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
+            }
+            if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
+                throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
+            }
+            if (system_store.data.buckets.find(b => String(b.owner_account) === String(account_to_delete._id))) {
+                throw new RpcError('UNAUTHORIZED', 'Cannot delete account that is owner of buckets');
+            }
+
+            roles_to_delete = roles_to_delete.concat(system_store.data.roles
+                .filter(
+                    role => String(role.account._id) === String(account_to_delete._id)
+                )
+                .map(
+                    role => role._id
+            ));
+            return account_to_delete._id;
+        });
+
+    return system_store.make_changes({
+            remove: {
+                accounts: accounts_to_delete,
+                roles: roles_to_delete
+            }
+    });
+}
+
 /**
  *
  * LIST_ACCOUNTS
@@ -1420,6 +1464,7 @@ exports.read_account = read_account;
 exports.update_account = update_account;
 exports.reset_password = reset_password;
 exports.delete_account = delete_account;
+exports.delete_account_by_property = delete_account_by_property;
 exports.generate_account_keys = generate_account_keys;
 exports.update_account_s3_access = update_account_s3_access;
 exports.list_accounts = list_accounts;

@@ -318,6 +318,24 @@ module.exports = {
         list_accounts: {
             doc: 'List accounts',
             method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    filter: {
+                        type: 'object',
+                        properties: {
+                            fs_identity: {
+                                type: 'object',
+                                required: ['uid', 'gid'],
+                                properties: {
+                                    uid: { type: 'number' },
+                                    gid: { type: 'number' },
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             reply: {
                 type: 'object',
                 required: ['accounts'],
@@ -327,7 +345,7 @@ module.exports = {
                         items: {
                             $ref: '#/definitions/account_info'
                         }
-                    }
+                    },
                 }
             },
             auth: {

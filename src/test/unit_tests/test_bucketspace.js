@@ -246,13 +246,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
             }
         }
-        let list_account_resp2 = (await rpc_client.account.list_accounts()).accounts;
+        let list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp2.length > 0);
     });
 
     mocha.it('delete account by uid, gid - no such account', async function() {
 
-        let list_account_resp1 = (await rpc_client.account.list_accounts()).accounts;
+        let list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp1.length > 0);
         await rpc_client.account.delete_account_by_property({
                 nsfs_account_config: {
@@ -261,7 +261,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 }
             }
         );
-        let list_account_resp2 = (await rpc_client.account.list_accounts()).accounts;
+        let list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.deepStrictEqual(list_account_resp1, list_account_resp2);
         assert.ok(list_account_resp2.length > 0);
 

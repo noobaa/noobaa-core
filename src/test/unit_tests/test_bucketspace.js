@@ -28,6 +28,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     const bucket_name = 'src-bucket';
     const tmp_fs_root = '/tmp/test_bucket_namespace_fs';
     const bucket_path = '/src';
+    const other_bucket_path = '/src1';
     let account_wrong_uid;
     let account_correct_uid;
     let s3_owner;
@@ -50,6 +51,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root, 0o777));
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770));
+    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + other_bucket_path, 0o770));
+
     mocha.it('export dir as bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -67,6 +70,49 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
     });
+
+    mocha.it('export same dir as bucket - should fail', async function() {
+        const obj_nsr = { resource: nsr, path: bucket_path };
+        try {
+            await rpc_client.bucket.create_bucket({
+                name: bucket_name + '-should-fail',
+                namespace: {
+                    read_resources: [obj_nsr],
+                    write_resource: obj_nsr
+                }
+            });
+            assert.fail(`created 2 buckets on the same dir:`);
+        } catch (err) {
+            assert.ok(err.rpc_code === 'BUCKET_ALREADY_EXISTS');
+        }
+    });
+
+    mocha.it('export other dir as bucket - and update bucket path to original bucket path', async function() {
+        const obj_nsr = { resource: nsr, path: bucket_path };
+        const other_obj_nsr = { resource: nsr, path: other_bucket_path };
+        await rpc_client.bucket.create_bucket({
+            name: bucket_name + '-other1',
+            namespace: {
+                read_resources: [other_obj_nsr],
+                write_resource: other_obj_nsr
+            }
+        });
+
+
+        try {
+            await rpc_client.bucket.update_bucket({
+                name: bucket_name + '-other1',
+                namespace: {
+                    read_resources: [obj_nsr],
+                    write_resource: obj_nsr
+                }
+            });
+            assert.fail(`can not update nsfs bucket for using path of existing exported bucket:`);
+        } catch (err) {
+            assert.ok(err.rpc_code === 'BUCKET_ALREADY_EXISTS');
+        }
+    });
+
     mocha.it('Init S3 owner connection', async function() {
 
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;

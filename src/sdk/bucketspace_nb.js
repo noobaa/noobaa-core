@@ -190,10 +190,8 @@ class BucketSpaceNB {
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
             dbg.log0('_has_access_to_nsfs_dir', namespace_bucket_config.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
-            // always allow root access
-            if (account.nsfs_account_config.uid === 0 && account.nsfs_account_config.gid === 0) return true;
 
-            await nb_native().fs.effectiveAccess({
+            await nb_native().fs.checkAccess({
                     uid: account.nsfs_account_config.uid,
                     gid: account.nsfs_account_config.gid,
                     backend: namespace_bucket_config.write_resource.resource.fs_backend

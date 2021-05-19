@@ -45,7 +45,7 @@ function main() {
         return run_server();
     }
     if (argv.client) {
-        argv.client = (typeof(argv.client) === 'string' && argv.client) || '127.0.0.1';
+        argv.client = (typeof(argv.client) === 'string' && argv.client) || 'localhost';
         return run_client();
     }
     return usage();

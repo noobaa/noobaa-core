@@ -75,7 +75,7 @@ function create_object_event({ bucket, object, time, actor, event_name, id }) {
                 principalId: String(actor.id)
             },
             requestParameters: {
-                sourceIPAddress: '127.0.0.1'
+                sourceIPAddress: 'localhost'
             },
             s3: {
                 s3SchemaVersion: 1.0,

@@ -77,6 +77,18 @@ function is_fqdn(target) {
     return false;
 }
 
+/**
+ * @param {string} address
+ * @returns {boolean}
+ */
+function is_localhost(address) {
+    return (
+        address === '127.0.0.1' ||
+        address === '::1' ||
+        address.toLowerCase() === 'localhost'
+    );
+}
+
 function unwrap_ipv6(ip) {
     if (net.isIPv6(ip)) {
         if (ip.startsWith('::ffff:')) return ip.slice('::ffff:'.length);
@@ -116,6 +128,7 @@ exports.dns_resolve = dns_resolve;
 exports.is_hostname = is_hostname;
 exports.is_ip = is_ip;
 exports.is_fqdn = is_fqdn;
+exports.is_localhost = is_localhost;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_to_long = ip_to_long;
 exports.retrieve_public_ip = retrieve_public_ip;

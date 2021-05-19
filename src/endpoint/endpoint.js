@@ -181,7 +181,7 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
 }
 
 function get_rpc_router(env) {
-    const hostname = '127.0.0.1';
+    const hostname = 'localhost';
     const ports = addr_utils.get_default_ports();
 
     // for dev (when env.MD_ADDR is not set) we increment md port to

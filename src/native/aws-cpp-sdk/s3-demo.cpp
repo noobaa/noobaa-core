@@ -312,7 +312,7 @@ DemoOptions::DemoOptions(int ac, char** av) {
     if (content_type.empty()) content_type = "application/octet-stream";
 
     endpoint = flags["endpoint"];
-    if (endpoint.empty()) endpoint = "127.0.0.1";
+    if (endpoint.empty()) endpoint = "localhost";
 
     bucket = flags["bucket"];
     if (bucket.empty()) bucket = "first.bucket";

@@ -72,7 +72,7 @@ func runSender() {
 	var speedometer Speedometer
 
 	if *ssl {
-		addr = "https://127.0.0.1:" + strconv.Itoa(*port)
+		addr = "https://localhost:" + strconv.Itoa(*port)
 		client = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -81,7 +81,7 @@ func runSender() {
 			},
 		}
 	} else {
-		addr = "http://127.0.0.1:" + strconv.Itoa(*port)
+		addr = "http://localhost:" + strconv.Itoa(*port)
 		client = &http.Client{}
 	}
 

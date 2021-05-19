@@ -24,7 +24,7 @@ argv.port = Number(argv.port) || 50505;
 argv.ssl = Boolean(argv.ssl);
 argv.forks = argv.forks || 1;
 // client
-argv.client = argv.client === true ? '127.0.0.1' : argv.client;
+argv.client = argv.client === true ? 'localhost' : argv.client;
 argv.size = argv.size || 100;
 argv.size_units = argv.size_units || 'MB';
 const size_bytes = argv.size * (size_units_mult[argv.size_units] || 1);

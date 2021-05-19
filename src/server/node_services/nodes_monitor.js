@@ -3625,7 +3625,7 @@ function progress_by_time(time, now) {
 
 function is_localhost(address) {
     let addr_url = url.parse(address);
-    return addr_url.hostname === '127.0.0.1' || addr_url.hostname.toLowerCase() === 'localhost';
+    return net_utils.is_localhost(addr_url.hostname);
 }
 
 // EXPORTS

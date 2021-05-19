@@ -10,7 +10,7 @@ dotenv.load();
 
 const azure_storage = require('azure-storage');
 
-const blob_service = azure_storage.createBlobService('account', '1234', 'http://127.0.0.1:80');
+const blob_service = azure_storage.createBlobService('account', '1234', 'http://localhost:80');
 // const blob_service = azure_storage.createBlobService();
 
 

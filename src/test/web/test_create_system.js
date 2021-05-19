@@ -14,7 +14,7 @@ mocha.describe('create_system', function() {
     const d = self.driver;
 
     mocha.it('should fill signup form and create system', function() {
-        const URL = 'http://127.0.0.1:5001';
+        const URL = 'http://localhost:5001';
         console.log('Loading URL:', URL);
         return d.get(URL)
             .then(() => console.log('Wait for page title ...'))

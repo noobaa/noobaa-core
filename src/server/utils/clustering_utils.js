@@ -12,8 +12,9 @@ const moment = require('moment');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
+const net_utils = require('../../util/net_utils');
+const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
@@ -181,7 +182,8 @@ function get_cluster_info() {
             version: version,
             hostname: hostname,
             secret: cinfo.owner_secret,
-            addresses: cinfo.owner_address === '127.0.0.1' ? os_utils.get_local_ipv4_ips() : [cinfo.owner_address].concat(os_utils.get_local_ipv4_ips()),
+            addresses: net_utils.is_localhost(cinfo.owner_address) ?
+                os_utils.get_local_ipv4_ips() : [cinfo.owner_address].concat(os_utils.get_local_ipv4_ips()),
             status: is_connected,
             memory: memory,
             storage: storage,
@@ -280,7 +282,7 @@ function send_master_update(is_master, master_address) {
             }).catch(err => dbg.error('got error on set_webserver_master_state.', err)),
             hosted_agents_promise.catch(err => dbg.error('got error on hosted_agents_promise.', err)),
             update_master_promise.catch(err => dbg.error('got error on update_master_promise.', err))
-    ])
+        ])
         .then(() => {
             // do nothing. 
         });

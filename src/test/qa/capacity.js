@@ -15,7 +15,7 @@ http.globalAgent.keepAlive = true;
 https.globalAgent.keepAlive = true;
 
 if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://127.0.0.1';
+    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
 }

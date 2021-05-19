@@ -66,7 +66,7 @@ if (argv.help) {
 }
 
 if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://127.0.0.1';
+    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
     argv.bucket = argv.bucket || 'first.bucket';
@@ -277,7 +277,7 @@ Upload Flags:
   --part_size <MB>       multipart size
   --part_concur <num>    multipart concurrency
 General S3 Flags:
-  --endpoint <host>      (default is 127.0.0.1)
+  --endpoint <host>      (default is localhost)
   --access_key <key>     (default is env.AWS_ACCESS_KEY_ID || 123)
   --secret_key <key>     (default is env.AWS_SECRET_ACCESS_KEY || abc)
   --bucket <name>        (default is "first.bucket")

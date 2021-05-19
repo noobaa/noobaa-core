@@ -340,7 +340,7 @@ async function _get_func_code_b64(req, func_code) {
         console.log(`reading function code from bucket ${func_code.s3_bucket} and key ${func_code.s3_key}`);
         const account_keys = req.account.access_keys[0];
         const s3_endpoint = new AWS.S3({
-            endpoint: 'http://127.0.0.1',
+            endpoint: 'http://localhost',
             accessKeyId: account_keys.access_key,
             secretAccessKey: account_keys.secret_key,
         });

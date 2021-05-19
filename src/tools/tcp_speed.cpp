@@ -69,7 +69,7 @@ public:
         _fd = fd;
     }
 
-    void connect(int port, const char* ip = "127.0.0.1")
+    void connect(int port, const char* ip = "localhost")
     {
         struct sockaddr_in sin;
         sin.sin_family = AF_INET;
@@ -78,7 +78,7 @@ public:
         SYSCALL(::connect(_fd, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin)));
     }
 
-    void bind(int port, const char* ip = "127.0.0.1")
+    void bind(int port, const char* ip = "localhost")
     {
         struct sockaddr_in sin;
         sin.sin_family = AF_INET;

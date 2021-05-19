@@ -408,10 +408,10 @@ mocha.describe('RPC', function() {
             .then(http_server_arg => {
                 http_server = http_server_arg;
                 http_client = rpc.new_client({
-                    address: 'http://127.0.0.1:' + http_server.address().port
+                    address: 'http://localhost:' + http_server.address().port
                 });
                 ws_client = rpc.new_client({
-                    address: 'ws://127.0.0.1:' + http_server.address().port
+                    address: 'ws://localhost:' + http_server.address().port
                 });
             })
             .then(() => http_client.test.get(_.cloneDeep(PARAMS)))
@@ -432,10 +432,10 @@ mocha.describe('RPC', function() {
             .then(https_server_arg => {
                 https_server = https_server_arg;
                 https_client = rpc.new_client({
-                    address: 'https://127.0.0.1:' + https_server.address().port
+                    address: 'https://localhost:' + https_server.address().port
                 });
                 wss_client = rpc.new_client({
-                    address: 'wss://127.0.0.1:' + https_server.address().port
+                    address: 'wss://localhost:' + https_server.address().port
                 });
             })
             .then(() => https_client.test.get(_.cloneDeep(PARAMS)))
@@ -450,7 +450,7 @@ mocha.describe('RPC', function() {
             .then(tcp_server_arg => {
                 tcp_server = tcp_server_arg;
                 var tcp_client = rpc.new_client({
-                    address: 'tcp://127.0.0.1:' + tcp_server.port
+                    address: 'tcp://localhost:' + tcp_server.port
                 });
                 return tcp_client.test.get(_.cloneDeep(PARAMS));
             })
@@ -467,7 +467,7 @@ mocha.describe('RPC', function() {
             .then(tls_server_arg => {
                 tls_server = tls_server_arg;
                 var tls_client = rpc.new_client({
-                    address: 'tls://127.0.0.1:' + tls_server.port
+                    address: 'tls://localhost:' + tls_server.port
                 });
                 return tls_client.test.get(_.cloneDeep(PARAMS));
             })

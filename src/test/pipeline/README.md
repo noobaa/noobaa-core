@@ -19,4 +19,4 @@
 - Run
 
         cd src/test/pipeline
-        node run_namespace_cache_tests.js --mgmt_ip <mgmt_ip> --mgmt_port_https 8443 --s3_ip 127.0.0.1 --s3_port 6001 --skip_clean_con
+        node run_namespace_cache_tests.js --mgmt_ip <mgmt_ip> --mgmt_port_https 8443 --s3_ip localhost --s3_port 6001 --skip_clean_con

@@ -18,7 +18,7 @@ const SERVICES_WAIT_IN_SECONDS = 30;
 //This was implemented to work on local servers only
 // The reason is that there is no component to control the services remotely
 // If there will be a component in the future just change the method control_services
-argv.ip = argv.ip || '127.0.0.1';
+argv.ip = argv.ip || 'localhost';
 argv.access_key = argv.access_key || '123';
 argv.secret_key = argv.secret_key || 'abc';
 var rpc = api.new_rpc();
@@ -274,7 +274,7 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
             },
             function() {
                 return P.ninvoke(request, 'get', {
-                        url: 'http://127.0.0.1:' + port,
+                        url: 'http://localhost:' + port,
                         rejectUnauthorized: false,
                     })
                     .then(function() {

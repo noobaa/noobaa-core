@@ -19,9 +19,9 @@ require('../../util/dotenv').load();
 const {
     pass = 'DeMo1',
         protocol = 'ws',
-        mgmt_ip = '127.0.0.1',
+        mgmt_ip = 'localhost',
         mgmt_port = '8080',
-        s3_ip = '127.0.0.1',
+        s3_ip = 'localhost',
         s3_acc_key = 123,
         s3_sec_key = 'abc',
 } = argv;

@@ -43,7 +43,7 @@ class Reporter {
         this._passed = 0;
         this._failed = 0;
         this._paused = false;
-        this.host = '127.0.0.1';
+        this.host = 'localhost';
         this.port = '38000';
         this._passed_cases = [];
         this._failed_cases = [];

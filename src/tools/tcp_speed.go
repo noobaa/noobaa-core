@@ -52,9 +52,9 @@ func runSender() {
 	var err error
 	if *ssl {
 		config := &tls.Config{InsecureSkipVerify: true}
-		conn, err = tls.Dial("tcp", "127.0.0.1:"+strconv.Itoa(*port), config)
+		conn, err = tls.Dial("tcp", "localhost:"+strconv.Itoa(*port), config)
 	} else {
-		conn, err = net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(*port))
+		conn, err = net.Dial("tcp", "localhost:"+strconv.Itoa(*port))
 	}
 	fatal(err)
 	buf := make([]byte, *bufsize)

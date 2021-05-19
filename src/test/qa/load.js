@@ -9,7 +9,7 @@ const os_utils = require('../util/os_utils');
 
 const basic_size = 5;
 const basic_name = 'file_' + Math.floor(Date.now() / 1000);
-const end_point = '127.0.0.1';
+const end_point = 'localhost';
 
 mocha.describe('UPLOAD TESTS:', function() {
 

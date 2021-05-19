@@ -15,7 +15,7 @@ var http = require('http');
 dotenv.load();
 
 let TEST_PARAMS = {
-    ip: argv.ip || '127.0.0.1',
+    ip: argv.ip || 'localhost',
     bucket: argv.bucket || 'first.bucket',
     port: argv.target_port || process.env.PORT,
     access_key: argv.access_key || '123',
@@ -23,7 +23,7 @@ let TEST_PARAMS = {
 };
 
 var client = rpc.new_client({
-    address: 'ws://127.0.0.1:' + process.env.PORT
+    address: 'ws://localhost:' + process.env.PORT
 });
 
 module.exports = {

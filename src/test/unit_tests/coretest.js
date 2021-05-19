@@ -181,9 +181,9 @@ function setup(options = {}) {
         const http_port = http_net_address.port;
         const https_port = https_net_address.port;
 
-        base_address = `wss://127.0.0.1:${https_port}`;
-        http_address = `http://127.0.0.1:${http_port}`;
-        https_address = `https://127.0.0.1:${https_port}`;
+        base_address = `wss://localhost:${https_port}`;
+        http_address = `http://localhost:${http_port}`;
+        https_address = `https://localhost:${https_port}`;
 
         // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
         await node_server.start_monitor();

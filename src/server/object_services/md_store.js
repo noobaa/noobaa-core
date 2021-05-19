@@ -908,6 +908,23 @@ class MDStore {
 
     /**
      * @param {nb.ID} obj_id
+     * @returns {Promise<nb.ObjectMultipart[]>}
+     */
+    async find_commited_multiparts_of_object(obj_id) {
+        return this._multiparts.find({ obj: obj_id, deleted: null, uncommitted: null });
+    }
+
+    /**
+     * @param {nb.ID} obj_id
+     * @param part_number integer in 1..10000 range (S3 part number)
+     * @returns {Promise<nb.ObjectMultipart[]>}
+     */
+    async find_multiparts_of_object_lte_number(obj_id, part_number) {
+        return this._multiparts.find({ obj: obj_id, deleted: null, num: { $lte: part_number } });
+    }
+
+    /**
+     * @param {nb.ID} obj_id
      * @param {number} [num_gt]
      * @param {number} [limit]
      * @returns {Promise<nb.ObjectMultipart[]>}

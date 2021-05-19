@@ -274,6 +274,40 @@ function set_encryption_response_headers(req, res, encryption = {}) {
     if (kms_key_id) res.setHeader('x-amz-server-side-encryption-aws-kms-key-id', kms_key_id);
 }
 
+function set_range_response_headers(req, res, range, obj_size) {
+    // reply with HTTP 206 Partial Content
+    res.statusCode = 206;
+    const content_range = `bytes ${range.start}-${range.end - 1}/${obj_size}`;
+    dbg.log1('reading object range', req.path, content_range, range);
+    res.setHeader('Content-Range', content_range);
+    res.setHeader('Content-Length', range.end - range.start);
+}
+
+/**
+ * A 'ranged' GET/HEAD is performed if a  "part number" is specified in the S3
+ * query or alternatively, ranges could be specified in HTTP header
+ *
+ * @param req HTTP request
+ * @param {nb.ObjectInfo} object_md
+ * @returns an range object { start: XXX, end: YYY }
+ */
+function get_object_range(req, object_md) {
+    // S3 part number
+    if (req.query.partNumber && object_md.multipart_start !== undefined && object_md.multipart_end !== undefined) {
+        return { start: object_md.multipart_start, end: object_md.multipart_end };
+    // HTTP headers ranges
+    } else {
+        const ranges = http_utils.normalize_http_ranges(
+            http_utils.parse_http_ranges(req.headers.range),
+            object_md.size
+        );
+        if (ranges) {
+            // normalize_http_ranges() returns an array with length eq 1
+            return ranges[0];
+        }
+    }
+}
+
 function parse_copy_source(req) {
     const source_url = req.headers['x-amz-copy-source'];
     if (!source_url) return;
@@ -666,6 +700,8 @@ exports.parse_tagging_header = parse_tagging_header;
 exports.is_copy_tagging_directive = is_copy_tagging_directive;
 exports.parse_body_encryption_xml = parse_body_encryption_xml;
 exports.set_encryption_response_headers = set_encryption_response_headers;
+exports.set_range_response_headers = set_range_response_headers;
+exports.get_object_range = get_object_range;
 exports.parse_body_website_xml = parse_body_website_xml;
 exports.parse_website_to_body = parse_website_to_body;
 exports.parse_lock_header = parse_lock_header;

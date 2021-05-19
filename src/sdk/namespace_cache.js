@@ -212,10 +212,10 @@ class NamespaceCache {
         let object_info_cache = null;
         let cache_etag = '';
         const get_from_cache = params.get_from_cache;
-        // part_number is set to the query parameter partNumber in s3 request. If set,
+        // multipart_number is set to the query parameter partNumber in s3 request. If set,
         // it should be a positive integer between 1 and 10,000. We will bypass cache
         // and proxy request to hub.
-        if (!params.part_number) {
+        if (!params.multipart_number) {
             // partNumber is not set
             try {
                 // Remove get_from_cache if exists for maching RPC schema
@@ -544,10 +544,10 @@ class NamespaceCache {
 
 
     async read_object_stream(params, object_sdk) {
-        // part_number is set to the query parameter partNumber in request. If set,
+        // multipart_number is set to the query parameter partNumber in request. If set,
         // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
         // GET request for the part specified.
-        if (params.part_number) {
+        if (params.multipart_number) {
             // If the query parameter partNumber is set, the object was most likely
             // created by the multipart upload. Since we don't support MP in cache,
             // we proxy the read to hub.

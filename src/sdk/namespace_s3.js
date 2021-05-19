@@ -148,13 +148,13 @@ class NamespaceS3 {
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
-                PartNumber: params.part_number,
+                PartNumber: params.multipart_number,
             };
-            // If set, part_number is positive integer from 1 to 10000.
+            // If set, multipart_number is positive integer from 1 to 10000.
             // Usually part number is not provided and then we read a small "inline" range
             // to reduce the double latency for small objects.
             // can_use_get_inline - we shouldn't use inline get when part number exist or when heading a directory
-            const can_use_get_inline = !params.part_number && !request.Key.endsWith('/');
+            const can_use_get_inline = !params.multipart_number && !request.Key.endsWith('/');
             if (can_use_get_inline) {
                 request.Range = `bytes=0-${config.INLINE_MAX_SIZE - 1}`;
             }
@@ -173,7 +173,7 @@ class NamespaceS3 {
                 res = await this.s3.headObject({ ...request, Range: undefined }).promise();
             }
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
-            return this._get_s3_object_info(res, params.bucket, params.part_number);
+            return this._get_s3_object_info(res, params.bucket, params.multipart_number);
         } catch (err) {
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
@@ -193,7 +193,7 @@ class NamespaceS3 {
                 Bucket: this.bucket,
                 Key: params.key,
                 Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
-                PartNumber: params.part_number,
+                PartNumber: params.multipart_number,
             };
             this._set_md_conditions(params, request);
             this._assign_encryption_to_request(params, request);
@@ -661,10 +661,10 @@ class NamespaceS3 {
      * 
      * @param {AWS.S3.HeadObjectOutput | AWS.S3.GetObjectOutput} res 
      * @param {string} bucket 
-     * @param {number} [part_number]
+     * @param {number} [multipart_number]
      * @returns {nb.ObjectInfo}
      */
-    _get_s3_object_info(res, bucket, part_number) {
+    _get_s3_object_info(res, bucket, multipart_number) {
         const etag = s3_utils.parse_etag(res.ETag);
         const xattr = _.extend(res.Metadata, {
             'noobaa-namespace-s3-bucket': this.bucket,
@@ -689,7 +689,7 @@ class NamespaceS3 {
             first_range_data: res.Body,
             num_multiparts: res.PartsCount,
             content_range: res.ContentRange,
-            content_length: part_number ? res.ContentLength : size,
+            content_length: multipart_number ? res.ContentLength : size,
             encryption: undefined,
             lock_settings: undefined,
             md5_b64: undefined,

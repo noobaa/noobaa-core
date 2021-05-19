@@ -68,6 +68,10 @@ module.exports = {
         // NOTE: only updated once upload ends
         num_parts: { type: 'integer' },
 
+        // number of objects S3 multiparts for the object created by multipart upload
+        // NOTE: only updated once the upload of all parts is completed
+        num_multiparts: { type: 'integer' },
+
         // MIME
         content_type: { type: 'string' },
 

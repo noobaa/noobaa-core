@@ -152,7 +152,9 @@ module.exports = {
                             required: ['num', 'etag'],
                             properties: {
                                 num: {
-                                    type: 'integer'
+                                    type: 'integer',
+                                    minimum: 1,
+                                    maximum: 10000
                                 },
                                 etag: {
                                     type: 'string'
@@ -222,6 +224,8 @@ module.exports = {
                     },
                     num: {
                         type: 'integer',
+                        minimum: 1,
+                        maximum: 10000
                     },
                     size: {
                         type: 'integer',
@@ -275,6 +279,8 @@ module.exports = {
                     },
                     num: {
                         type: 'integer',
+                        minimum: 1,
+                        maximum: 10000
                     },
                     multipart_id: {
                         objectid: true
@@ -362,7 +368,9 @@ module.exports = {
                             ],
                             properties: {
                                 num: {
-                                    type: 'integer'
+                                    type: 'integer',
+                                    minimum: 1,
+                                    maximum: 10000
                                 },
                                 size: {
                                     type: 'integer'
@@ -569,6 +577,11 @@ module.exports = {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
+                    multipart_number: {
+                        type: 'integer',
+                        minimum: 1,
+                        maximum: 10000
+                    },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     adminfo: {
                         type: 'object',
@@ -1378,6 +1391,13 @@ module.exports = {
                 is_latest: { type: 'boolean' },
                 delete_marker: { type: 'boolean' },
                 num_parts: { type: 'integer' },
+                num_multiparts: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: 10000
+                },
+                multipart_start: { type: 'integer' },
+                multipart_end: { type: 'integer' },
                 content_type: { type: 'string' },
                 content_encoding: { type: 'string' },
                 create_time: { idate: true },

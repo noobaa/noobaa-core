@@ -59,6 +59,7 @@ async function create_account(req) {
 
     const { roles: account_roles = ['admin'] } = req.rpc_params;
 
+    validate_create_account_permissions(req);
     validate_create_account_params(req);
 
     if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
@@ -1339,6 +1340,21 @@ function is_support_or_admin_or_me(system, account, target_account) {
                 role => role === 'admin' || role === 'operator'
             )
         );
+}
+
+function validate_create_account_permissions(req) {
+    const account = req.account;
+    //For new system creation, nothing to be checked
+    if (req.rpc_params.new_system_parameters) return;
+
+    //Only allow support, admin/operator roles and UI login enabled accounts to create new accounts
+    if (!account.is_support &&
+        !account.has_login &&
+        !(account.roles_by_system[req.system._id].some(
+            role => role === 'admin' || role === 'operator'
+        ))) {
+            throw new RpcError('UNAUTHORIZED', 'Cannot create new account');
+        }
 }
 
 function validate_create_account_params(req) {

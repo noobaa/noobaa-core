@@ -369,6 +369,9 @@ interface ObjectMD {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
+    num_multiparts: number;
+    multipart_start?: number;
+    multipart_end?: number;
     content_type: string;
     upload_size?: number;
     upload_started?: ID;
@@ -395,6 +398,8 @@ interface ObjectInfo {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
+    multipart_start?: number;
+    multipart_end?: number;
     content_type: string;
     upload_size?: number;
     upload_started?: number;

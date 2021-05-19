@@ -565,6 +565,7 @@ module.exports = {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
+                    multipart_number: { type: 'integer' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     adminfo: {
                         type: 'object',
@@ -1373,6 +1374,9 @@ module.exports = {
                 is_latest: { type: 'boolean' },
                 delete_marker: { type: 'boolean' },
                 num_parts: { type: 'integer' },
+                num_multiparts: { type: 'integer' },
+                multipart_start: { type: 'integer' },
+                multipart_end: { type: 'integer' },
                 content_type: { type: 'string' },
                 create_time: { idate: true },
                 cache_last_valid_time: { idate: true },

@@ -14,10 +14,10 @@ async function get_object(req, res) {
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
-    let part_number;
-    // If set, part_number should be positive integer from 1 to 10000
+    let multipart_number;
+    // If set, S3 part number should be positive integer from 1 to 10000
     if (req.query.partNumber) {
-        part_number = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
+        multipart_number = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);
     }
     const md_conditions = http_utils.get_md_conditions(req);
 
@@ -31,8 +31,8 @@ async function get_object(req, res) {
     if (req.query.get_from_cache !== undefined) {
         md_params.get_from_cache = true;
     }
-    if (part_number) {
-        md_params.part_number = part_number;
+    if (multipart_number) {
+        md_params.multipart_number = multipart_number;
     }
     const object_md = await req.object_sdk.read_object_md(md_params);
 
@@ -52,24 +52,20 @@ async function get_object(req, res) {
     if (md_params.get_from_cache) {
         params.get_from_cache = true;
     }
-    if (part_number) {
-        params.part_number = part_number;
+    if (multipart_number) {
+        params.multipart_number = multipart_number;
     }
     try {
-        const ranges = http_utils.normalize_http_ranges(
-            http_utils.parse_http_ranges(req.headers.range),
-            obj_size
-        );
-        if (ranges) {
-            // reply with HTTP 206 Partial Content
-            res.statusCode = 206;
-            params.start = ranges[0].start;
-            params.end = ranges[0].end;
-            const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
-            dbg.log1('reading object range', req.path, content_range, ranges);
-            res.setHeader('Content-Range', content_range);
-            res.setHeader('Content-Length', params.end - params.start);
-            // res.header('Cache-Control', 'max-age=0' || 'no-cache');
+        // A 'ranged' GET is performed if a  "part number"
+        // is specified in the S3 ObjectGET query or alternatively,
+        // ranges could be specified in HTTP header
+        const range = s3_utils.get_object_range(req, object_md);
+
+        // If range is specified, set it in HTTP response headers
+        if (range) {
+            params.start = range.start;
+            params.end = range.end;
+            s3_utils.set_range_response_headers(req, res, range, obj_size);
         } else {
             dbg.log1('reading object', req.path, obj_size);
         }

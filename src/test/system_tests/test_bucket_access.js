@@ -46,7 +46,7 @@ const full_access_user = {
         full_permission: false,
         permission_list: ['bucket1', 'bucket2']
     },
-    default_pool: POOL_NAME
+    default_resource: POOL_NAME
 };
 
 const bucket1_user = {
@@ -58,7 +58,7 @@ const bucket1_user = {
         full_permission: false,
         permission_list: ['bucket1']
     },
-    default_pool: POOL_NAME
+    default_resource: POOL_NAME
 };
 
 const no_access_user = {

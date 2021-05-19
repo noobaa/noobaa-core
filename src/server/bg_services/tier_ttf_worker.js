@@ -54,7 +54,7 @@ class TieringTTFWorker {
         return system_store.data.buckets.filter(bucket =>
             !bucket.deleting && (
                 // including buckets that have 2 or more tiers
-                bucket.tiering.tiers.length > 1 ||
+                (bucket.tiering && bucket.tiering.tiers.length > 1) ||
                 // including cache buckets to handle chunk eviction
                 (bucket.namespace && bucket.namespace.caching)
             ));

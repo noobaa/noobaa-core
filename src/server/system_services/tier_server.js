@@ -583,7 +583,7 @@ function find_bucket_by_tier(req) {
     }
 
     const bucket = _.find(system_store.data.buckets,
-        bkt => String(bkt.tiering._id) === String(policy._id)
+        bkt => bkt.tiering && String(bkt.tiering._id) === String(policy._id)
     );
 
     if (!bucket || bucket.deleting) {
@@ -837,8 +837,9 @@ function get_associated_tiering_policies(tier) {
 }
 
 function get_associated_buckets(policy) {
+    if (!policy) return [];
     const associated_buckets = _.filter(policy.system.buckets_by_name,
-        bucket => String(bucket.tiering._id) === String(policy._id));
+        bucket => bucket.tiering && String(bucket.tiering._id) === String(policy._id));
 
     return _.map(associated_buckets, bucket => bucket._id);
 }

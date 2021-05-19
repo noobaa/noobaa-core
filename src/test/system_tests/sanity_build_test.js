@@ -191,7 +191,7 @@ async function _create_accounts() {
         email: 'ac_nologin_hasaccess',
         has_login: false,
         s3_access: true,
-        default_pool: 'COMP-S3-V2-Resource',
+        default_resource: 'COMP-S3-V2-Resource',
         allowed_buckets: {
             full_permission: false,
             permission_list: [
@@ -207,7 +207,7 @@ async function _create_accounts() {
         has_login: false,
         must_change_password: true,
         s3_access: true,
-        default_pool: 'COMP-S3-V2-Resource',
+        default_resource: 'COMP-S3-V2-Resource',
         allowed_buckets: {
             full_permission: false,
             permission_list: ['first.bucket', 'ec.no.quota', 'replica.with.quota']
@@ -221,7 +221,7 @@ async function _create_accounts() {
         has_login: false,
         must_change_password: false,
         s3_access: true,
-        default_pool: 'COMP-S3-V2-Resource',
+        default_resource: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
@@ -233,7 +233,7 @@ async function _create_accounts() {
         password: "c1QiGkl2",
         must_change_password: false,
         s3_access: true,
-        default_pool: 'COMP-S3-V2-Resource',
+        default_resource: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
@@ -244,7 +244,7 @@ async function _create_accounts() {
         has_login: false,
         must_change_password: false,
         s3_access: true,
-        default_pool: 'COMP-S3-V2-Resource',
+        default_resource: 'COMP-S3-V2-Resource',
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };

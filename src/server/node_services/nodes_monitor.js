@@ -621,7 +621,7 @@ class NodesMonitor extends EventEmitter {
             agent_config.pool ||
             system.pools_by_name[pool_name] ||
             _.filter(system.pools_by_name, p => (!_.get(p, 'mongo_pool_info') && (!_.get(p, 'cloud_pool_info'))))[0]; // default - the 1st host pool in the system
-        // system_store.get_account_by_email(system.owner.email).default_pool; //This should not happen, but if it does, use owner's default
+        // system_store.get_account_by_email(system.owner.email).default_resource; //This should not happen, but if it does, use owner's default
 
         if (!pool) {
             throw new Error('Cannot find eligible pool');
@@ -2674,7 +2674,7 @@ class NodesMonitor extends EventEmitter {
     //     const classifier = new dclassify.Classifier({
     //         applyInverse: true
     //     });
-    //     const pools_to_classify = ['default_pool', config.NEW_SYSTEM_POOL_NAME];
+    //     const pools_to_classify = ['default_resource', config.NEW_SYSTEM_POOL_NAME];
     //     let num_trained_pools = 0;
     //     for (const pool_data of pools_data_map.values()) {
     //         // don't train by the nodes that we need to classify
@@ -2698,7 +2698,7 @@ class NodesMonitor extends EventEmitter {
     //     dbg.log3('_suggest_pool_assign: Trained:', classifier,
     //         'probabilities', JSON.stringify(classifier.probabilities));
 
-    //     // for nodes in the default_pool use the classifier to suggest a pool
+    //     // for nodes in the default_resource use the classifier to suggest a pool
     //     const system = system_store.data.systems[0];
     //     const target_pool = system.pools_by_name[config.NEW_SYSTEM_POOL_NAME];
     //     const target_pool_data = pools_data_map.get(String(target_pool._id));

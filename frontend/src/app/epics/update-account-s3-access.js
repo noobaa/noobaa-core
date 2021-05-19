@@ -22,7 +22,7 @@ export default function(action$, { api }) {
                 await api.account.update_account_s3_access({
                     email: accountName,
                     s3_access: true,
-                    default_pool: defaultResource,
+                    default_resource: defaultResource,
                     allowed_buckets: {
                         full_permission: hasAccessToAllBuckets,
                         permission_list: hasAccessToAllBuckets ? undefined : allowedBuckets

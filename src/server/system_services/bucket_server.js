@@ -83,6 +83,7 @@ async function create_bucket(req) {
     validate_bucket_creation(req);
 
     let tiering_policy;
+    let should_create_underlying_storage = false;
     const changes = {
         insert: {},
         update: {}
@@ -90,13 +91,27 @@ async function create_bucket(req) {
 
     const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
     if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
-
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
+    } else if (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.account.default_resource.name]) {
+        dbg.log0('creating bucket on default namespace resource');
+        if (!req.account.nsfs_account_config || !req.account.nsfs_account_config.new_buckets_path) {
+            throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+        }
+        const nsr = {
+            resource: req.account.default_resource.name,
+            path: path.join(req.account.nsfs_account_config.new_buckets_path, req.rpc_params.name.unwrap())
+        };
+        req.rpc_params.namespace = {
+            read_resources: [nsr],
+            write_resource: nsr
+        };
+        should_create_underlying_storage = true;
+
     } else {
         // we create dedicated tier and tiering policy for the new bucket
-        // that uses the default_pool of that account
-        const default_pool = req.account.default_pool;
+        // that uses the default_resource of that account
+        const default_pool = req.account.default_resource;
         // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
         validate_pool_constraints({ mongo_pool, default_pool });
         const chunk_config = chunk_config_utils.resolve_chunk_config(
@@ -137,7 +152,7 @@ async function create_bucket(req) {
     validate_nsfs_bucket(req);
 
     let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
-        tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
+        tiering_policy && tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
 
     const bucket_m_key = system_store.master_key_manager.new_master_key({
         description: `master key of ${bucket._id} bucket`,
@@ -177,7 +192,8 @@ async function create_bucket(req) {
         bucket.namespace = {
             read_resources: ordered_read_resources,
             write_resource,
-            caching
+            caching,
+            should_create_underlying_storage
         };
     }
     if (req.rpc_params.bucket_claim) {
@@ -450,7 +466,7 @@ async function read_bucket_sdk_info(req) {
     const bucket = find_bucket(req);
     var pools = [];
 
-    _.forEach(bucket.tiering.tiers, tier_and_order => {
+    _.forEach(bucket.tiering && bucket.tiering.tiers, tier_and_order => {
         _.forEach(tier_and_order.tier.mirrors, mirror_object => {
             pools = _.concat(pools, mirror_object.spread_pools);
         });
@@ -492,6 +508,7 @@ async function read_bucket_sdk_info(req) {
                 ({ resource: pool_server.get_namespace_resource_extended_info(rs.resource), path: rs.path})
             ),
             caching: bucket.namespace.caching,
+            should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
         };
     }
 
@@ -827,7 +844,7 @@ async function delete_bucket(req) {
         .filter(bucket_id => String(bucket_id) !== String(bucket._id));
     const tieringpolicies = [];
     const tiers = [];
-    if (_.isEmpty(associated_buckets)) {
+    if (tiering_policy && _.isEmpty(associated_buckets)) {
         tieringpolicies.push(tiering_policy._id);
         tiers.push(..._.compact(_.map(tiering_policy.tiers, tier_and_order => {
             const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
@@ -1278,7 +1295,7 @@ async function claim_bucket(req) {
         const response = await server_rpc.client.account.create_account({
             name: req.rpc_params.email,
             email: req.rpc_params.email,
-            default_pool: internal_pool.name,
+            default_resource: internal_pool.name,
             has_login: false,
             s3_access: true,
             allow_bucket_creation: false,
@@ -1432,7 +1449,7 @@ function get_bucket_info({
     unused_refresh_tiering_alloc = undefined,
 }) {
     const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
-    const tiering = tier_server.get_tiering_policy_info(
+    const tiering = bucket.tiering && tier_server.get_tiering_policy_info(
         bucket.tiering,
         tiering_pools_status,
         nodes_aggregate_pool,
@@ -1454,7 +1471,8 @@ function get_bucket_info({
             },
             read_resources: _.map(bucket.namespace.read_resources, rs =>
                 ({ resource: pool_server.get_namespace_resource_info(rs.resource).name, path: rs.path })
-            )
+            ),
+            should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
         } : undefined,
         tiering: tiering,
         tag: bucket.tag ? bucket.tag : '',
@@ -1505,10 +1523,12 @@ function get_bucket_info({
     }
     // calc_bucket_aggregated_mode(metrics);
     let ignore_quota = false;
-    info.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota, bucket.namespace);
+    info.mode = calc_bucket_mode(tiering && tiering.tiers, metrics, ignore_quota, bucket.namespace);
 
     ignore_quota = true;
-    info.tiering.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
+    if (info.tiering) {
+        info.tiering.mode = calc_bucket_mode(tiering.tiers, metrics, ignore_quota);
+    }
 
     info.triggers = _.map(bucket.lambda_triggers, trigger => {
         const ret_trigger = _.omit(trigger, '_id');
@@ -1552,8 +1572,8 @@ function get_bucket_info({
 }
 
 function is_using_internal_storage(bucket, internal_pool) {
-    const tiers = bucket.tiering.tiers;
-    if (tiers.length !== 1) return false;
+    const tiers = bucket.tiering && bucket.tiering.tiers;
+    if (!tiers || tiers.length !== 1) return false;
 
     const mirrors = tiers[0].tier.mirrors;
     if (mirrors.length !== 1) return false;
@@ -1596,7 +1616,7 @@ function _calc_metrics({
     }
     let risky_tolerance = false;
 
-    _.each(bucket.tiering.tiers, tier_and_order => {
+    _.each(bucket.tiering && bucket.tiering.tiers, tier_and_order => {
         const tier = tier_and_order.tier;
         const tier_extra_info = tier_server.get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool);
         has_any_pool_configured = has_any_pool_configured || tier_extra_info.has_any_pool_configured;
@@ -1665,7 +1685,7 @@ function _calc_metrics({
         }
     }
 
-    const tier_with_issues = _.filter(info.tiering.tiers, tier => tier.mode !== 'OPTIMAL').length;
+    const tier_with_issues = _.filter(info.tiering && info.tiering.tiers, tier => tier.mode !== 'OPTIMAL').length;
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,

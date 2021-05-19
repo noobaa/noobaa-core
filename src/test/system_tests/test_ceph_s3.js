@@ -485,12 +485,12 @@ async function ceph_test_setup() {
     const internal_pool = system.pools.filter(p => p.resource_type === 'INTERNAL');
     await client.account.create_account({
         ...CEPH_TEST.new_account_params,
-        default_pool: internal_pool.name
+        default_resource: internal_pool.name
     });
 
     await client.account.create_account({
         ...CEPH_TEST.new_account_params_tenant,
-        default_pool: internal_pool.name
+        default_resource: internal_pool.name
     });
     system = await client.system.read_system();
     const ceph_account = system.accounts.find(account =>

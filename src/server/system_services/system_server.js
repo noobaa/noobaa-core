@@ -178,7 +178,7 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account_id) {
-    // const default_pool_name = config.NEW_SYSTEM_POOL_NAME;
+    // const default_resource_name = config.NEW_SYSTEM_POOL_NAME;
     const default_bucket_name = 'first.bucket';
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
 
@@ -192,7 +192,7 @@ function new_system_changes(name, owner_account_id) {
     });
     system.master_key_id = m_key._id;
 
-    // const pool = pool_server.new_pool_defaults(default_pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    // const pool = pool_server.new_pool_defaults(default_resource_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
     const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
     const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
     mongo_pool.mongo_pool_info = {};
@@ -410,7 +410,7 @@ async function _create_owner_account(
     must_change_password,
     account_id,
     system_id,
-    default_pool
+    default_resource
 ) {
     dbg.log0(`create_system: creating account for ${name}, ${email}`);
     const { token: auth_token } = await server_rpc.client.account.create_account({
@@ -423,7 +423,7 @@ async function _create_owner_account(
         new_system_parameters: {
             account_id: account_id.toString(),
             new_system_id: system_id.toString(),
-            default_pool: default_pool.toString(),
+            default_resource: default_resource.toString(),
             allowed_buckets: { full_permission: true },
         },
     });

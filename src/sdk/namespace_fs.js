@@ -130,7 +130,13 @@ class NamespaceFS {
     set_cur_fs_account_config(object_sdk) {
         const fs_config_param = object_sdk &&
             object_sdk.requesting_account && object_sdk.requesting_account.nsfs_account_config;
-        if (!fs_config_param) throw new Error('Invalid Request');
+        if (!fs_config_param) {
+            const err = new Error('nsfs_account_config is missing');
+            err.rpc_code = 'UNAUTHORIZED';
+            throw err;
+        }
+
+        fs_config_param.backend = this.fs_backend || '';
         return fs_config_param;
     }
 
@@ -921,6 +927,8 @@ class NamespaceFS {
 
     _translate_object_error_codes(err) {
         if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
+        if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
         return err;
     }
 
@@ -995,6 +1003,37 @@ class NamespaceFS {
         await nb_native().fs.rmdir(fs_account_config, dir);
     }
 
+    async create_uls(params, object_sdk) {
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        const new_dir_path = path.join(params.fs_root_path,
+            fs_account_config.new_buckets_path, params.name.unwrap());
+
+        try {
+            await nb_native().fs.mkdir(fs_account_config, new_dir_path, get_umasked_mode(0o777));
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
+    }
+
+    async delete_uls(params, object_sdk) {
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        const to_delete_dir_path = path.join(params.fs_root_path,
+            fs_account_config.new_buckets_path, params.name);
+
+        try {
+            const list = await this.list_objects({...params, limit: 1 }, object_sdk);
+
+            if (list && list.objects && list.objects.length > 0) {
+                const err = new Error('underlying directory has files in it');
+                err.rpc_code = 'NOT_EMPTY';
+                throw err;
+            }
+
+            await this._folder_delete(to_delete_dir_path, fs_account_config);
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
+    }
 }
 
 module.exports = NamespaceFS;

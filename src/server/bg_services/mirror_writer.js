@@ -179,7 +179,7 @@ class MirrorWriter {
         return system_store.data.buckets
             .filter(bucket =>
                 _.isUndefined(bucket.deleting) &&
-                bucket.tiering.tiers.some(tier => tier.tier.mirrors.length > 1))
+                bucket.tiering && bucket.tiering.tiers.some(tier => tier.tier.mirrors.length > 1))
             .map(bucket => ({
                 name: bucket.name,
                 _id: MDStore.instance().make_md_id(bucket._id),

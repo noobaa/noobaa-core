@@ -54,10 +54,7 @@ async function create_account(req) {
         has_login: req.rpc_params.has_login,
         is_external: req.rpc_params.is_external,
         access_keys: undefined,
-        nsfs_account_config: req.rpc_params.nsfs_account_config && {
-            uid: req.rpc_params.nsfs_account_config.uid,
-            gid: req.rpc_params.nsfs_account_config.gid
-        }
+        nsfs_account_config: req.rpc_params.nsfs_account_config
     };
 
     const { roles: account_roles = ['admin'] } = req.rpc_params;
@@ -86,7 +83,7 @@ async function create_account(req) {
 
     if (req.rpc_params.s3_access) {
         if (req.rpc_params.new_system_parameters) {
-            account.default_pool = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_pool);
+            account.default_resource = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_resource);
 
             const { full_permission, permission_list } = req.rpc_params.new_system_parameters.allowed_buckets;
             if (full_permission) {
@@ -106,9 +103,15 @@ async function create_account(req) {
             account.allow_bucket_creation = true;
 
         } else {
-            account.default_pool = req.rpc_params.default_pool ?
-                req.system.pools_by_name[req.rpc_params.default_pool]._id :
-                pool_server.get_internal_mongo_pool(req.system)._id; //Internal
+
+            const resource = req.rpc_params.default_resource ? req.system.pools_by_name[req.rpc_params.default_resource] ||
+                req.system.namespace_resources_by_name[req.rpc_params.default_resource] :
+                pool_server.get_internal_mongo_pool(req.system); //Internal
+
+            if (resource.nsfs_config && resource.nsfs_config.fs_root_path && !req.rpc_params.nsfs_account_config) {
+                throw new RpcError('Invalid account configuration - must specify nsfs_account_config when default resource is a namespace resource');
+            }
+            account.default_resource = resource._id;
 
             if (req.rpc_params.allowed_buckets) {
                 const { full_permission, permission_list } = req.rpc_params.allowed_buckets;
@@ -212,11 +215,12 @@ function create_external_user_account(req) {
         INTERNAL: internalStorage = []
     } = _.groupBy(system_store.data.pools, pool => pool.resource_type);
 
-    const default_pool =
+    const default_resource =
         cloudResource[0] ||
         hostPools[0] ||
         internalStorage[0];
 
+    // TODO: check if need here to add namespace resource as default resource
     Object.assign(req.rpc_params, {
         is_external: true,
         password: new SensitiveString(chance.string({ length: 16 })),
@@ -225,7 +229,7 @@ function create_external_user_account(req) {
         s3_access: true,
         allowed_buckets: { full_permission: true },
         allow_bucket_creation: true,
-        default_pool: default_pool.name
+        default_resource: default_resource.name
     });
 
     return create_account(req);
@@ -339,12 +343,12 @@ function update_account_s3_access(req) {
         _id: account._id
     };
 
-    //If s3_access is on, update allowed buckets and default_pool
+    //If s3_access is on, update allowed buckets and default_resource
     if (req.rpc_params.s3_access) {
-        if (!req.rpc_params.default_pool) {
+        if (!req.rpc_params.default_resource) {
             const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
             if (pools.length) { // has resources which is not internal - must supply resource
-                throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
+                throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_resource');
             }
         }
 
@@ -365,17 +369,17 @@ function update_account_s3_access(req) {
                 system.buckets_by_name[bucket.unwrap()]._id);
         }
         update.allowed_buckets = allowed_buckets;
-        update.default_pool = req.rpc_params.default_pool ?
-            system.pools_by_name[req.rpc_params.default_pool]._id :
-            Object.values(req.system.pools_by_name)[0]._id;
-
+        const resource = req.rpc_params.default_resource ?
+            system.pools_by_name[req.rpc_params.default_resource] || system.namespace_resources_by_name[req.rpc_params.default_resource] :
+            Object.values(req.system.pools_by_name)[0];
+        update.default_resource = resource._id;
         if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }
     } else {
         update.$unset = {
             allowed_buckets: true,
-            default_pool: true,
+            default_resource: true,
             allow_bucket_creation: true
         };
     }
@@ -389,15 +393,16 @@ function update_account_s3_access(req) {
             const origin_allowed_buckets = ((account.allowed_buckets &&
                     account.allowed_buckets.permission_list) || [])
                 .map(bucket => bucket.name);
-            const pool = system.pools_by_name[req.rpc_params.default_pool];
+            const pool = system.pools_by_name[req.rpc_params.default_resource] ||
+                (system.namespace_resources_by_name && system.namespace_resources_by_name[req.rpc_params.default_resource]);
             const original_pool = pool && pool.name;
             let desc_string = [];
             let added_buckets = [];
             let removed_buckets = [];
             desc_string.push(`${account.email.unwrap()} S3 access was updated by ${req.account && req.account.email.unwrap()}`);
             if (req.rpc_params.s3_access) {
-                if (original_pool !== req.rpc_params.default_pool) {
-                    desc_string.push(`default pool changed to`, req.rpc_params.default_pool ? req.rpc_params.default_pool : `None`);
+                if (original_pool !== req.rpc_params.default_resource) {
+                    desc_string.push(`default pool changed to`, req.rpc_params.default_resource ? req.rpc_params.default_resource : `None`);
                 }
                 if (req.rpc_params.allowed_buckets) {
                     if (req.rpc_params.allowed_buckets.full_permission) {
@@ -476,10 +481,7 @@ function update_account(req) {
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
-        nsfs_account_config: req.rpc_params.nsfs_account_config && {
-            uid: req.rpc_params.nsfs_account_config.uid,
-            gid: req.rpc_params.nsfs_account_config.gid
-        }
+        nsfs_account_config: req.rpc_params.nsfs_account_config
     };
 
     let removals = {
@@ -1237,7 +1239,7 @@ function get_account_info(account, include_connection_cache) {
             allowed_buckets.permission_list = _.map(permission_list, bucket => bucket.name);
         }
         info.allowed_buckets = allowed_buckets;
-        info.default_pool = account.default_pool.name;
+        info.default_resource = account.default_resource.name;
         info.can_create_buckets = account.allow_bucket_creation;
         if (account.bucket_claim_owner) {
             info.bucket_claim_owner = account.bucket_claim_owner.name;
@@ -1359,9 +1361,9 @@ function validate_create_account_params(req) {
                 throw new RpcError('No resources in the system - Can\'t create accounts');
             }
 
-            if (req.rpc_params.allow_bucket_creation && !req.rpc_params.default_pool) { //default resource needed only if new bucket can be created
+            if (req.rpc_params.allow_bucket_creation && !req.rpc_params.default_resource) { //default resource needed only if new bucket can be created
                 if (has_non_internal_resources) { // has resources which is not internal - must supply resource
-                    throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_pool');
+                    throw new RpcError('BAD_REQUEST', 'Enabling S3 requires providing default_resource');
                 }
             }
 
@@ -1377,10 +1379,10 @@ function validate_create_account_params(req) {
         }
 
         if (req.rpc_params.new_system_parameters) {
-            if (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_pool) {
+            if (!req.rpc_params.new_system_parameters.allowed_buckets || !req.rpc_params.new_system_parameters.default_resource) {
                 throw new RpcError(
                     'BAD_REQUEST',
-                    'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_pool'
+                    'Creating new system with enabled S3 access for owner requires providing allowed_buckets/default_resource'
                 );
             }
 
@@ -1397,14 +1399,14 @@ function validate_create_account_params(req) {
         }
 
         // Verify that account with login access have full s3 access permissions.
-        const { default_pool, allowed_buckets } = req.rpc_params.new_system_parameters || req.rpc_params;
+        const { default_resource, allowed_buckets } = req.rpc_params.new_system_parameters || req.rpc_params;
         const allow_bucket_creation = req.rpc_params.new_system_parameters ?
             true :
             req.rpc_params.allow_bucket_creation;
 
         if (
             !req.rpc_params.s3_access ||
-            (has_non_internal_resources && !default_pool) ||
+            (has_non_internal_resources && !default_resource) ||
             !allow_bucket_creation ||
             !allowed_buckets ||
             !allowed_buckets.full_permission

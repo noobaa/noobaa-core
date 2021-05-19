@@ -29,7 +29,7 @@ module.exports = {
         next_password_change: { date: true },
 
         // default policy for new buckets
-        default_pool: { objectid: true },
+        default_resource: { objectid: true },
         default_chunk_config: { objectid: true },
 
         allow_bucket_creation: { type: 'boolean' },

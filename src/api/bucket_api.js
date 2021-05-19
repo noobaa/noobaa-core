@@ -830,7 +830,7 @@ module.exports = {
 
         claim_bucket: {
             method: 'PUT',
-            required: ['name', 'tiering', 'email', 'create_bucket', 'namespace'],
+            required: ['name', 'email', 'create_bucket', 'namespace'],
             params: {
                 type: 'object',
                 properties: {
@@ -908,7 +908,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'bucket_type', 'tiering', 'versioning', 'usage_by_pool', 'storage', 'data', 'num_objects', 'host_tolerance', 'node_tolerance', 'writable', 'mode'],
+            required: ['name', 'bucket_type', 'versioning', 'usage_by_pool', 'storage', 'data', 'num_objects', 'mode'],
             properties: {
                 name: { $ref: 'common_api#/definitions/bucket_name' },
                 bucket_type: {
@@ -1175,6 +1175,9 @@ module.exports = {
                         caching: {
                             $ref: 'common_api#/definitions/bucket_cache_config'
                         },
+                        should_create_underlying_storage: {
+                            type: 'boolean'
+                        },
                     },
                 },
                 active_triggers: {
@@ -1439,7 +1442,8 @@ module.exports = {
                 },
                 caching: {
                     $ref: 'common_api#/definitions/bucket_cache_config'
-                }
+                },
+                should_create_underlying_storage: { type: 'boolean' } // should create underlying storage
             }
         },
     }

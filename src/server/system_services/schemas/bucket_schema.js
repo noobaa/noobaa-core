@@ -28,7 +28,6 @@ module.exports = {
         '_id',
         'system',
         'name',
-        'tiering',
         'versioning'
     ],
     properties: {
@@ -115,6 +114,7 @@ module.exports = {
                         path: { type: 'string' },
                     }
                 },
+                should_create_underlying_storage: { type: 'boolean' }, // should create underlying storage
                 caching: {
                     $ref: 'common_api#/definitions/bucket_cache_config'
                 },

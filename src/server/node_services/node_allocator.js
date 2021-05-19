@@ -64,6 +64,7 @@ async function refresh_system_alloc(system) {
     const pool_set = new Set();
 
     for (const bucket of Object.values(system.buckets_by_name)) {
+        if (!bucket.tiering) continue;
         tiering_list.push(bucket.tiering);
 
         // realted to https://bugzilla.redhat.com/show_bug.cgi?id=1839117
@@ -111,7 +112,7 @@ async function refresh_system_alloc(system) {
  * @returns {Promise<void>}
  */
 async function refresh_tiering_alloc(tiering, force) {
-    const pools = _.flatMap(tiering.tiers, ({ tier }) => {
+    const pools = _.flatMap(tiering && tiering.tiers, ({ tier }) => {
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
         _.forEach(tier.mirrors, mirror_object => {
@@ -129,7 +130,7 @@ async function refresh_tiering_alloc(tiering, force) {
     }
     await Promise.all([
         P.map(pools, pool => refresh_pool_alloc(pool, force)).then(() => { /*void*/ }),
-        refresh_tiers_alloc([tiering], force),
+        refresh_tiers_alloc((tiering && [tiering]) || [], force),
     ]);
 }
 
@@ -196,7 +197,6 @@ async function refresh_tiers_alloc(tiering_list, force) {
     if (tiering_list.length === 0) {
         return;
     }
-
     const system_id = tiering_list[0].tiers[0].tier.system._id;
     const update_list = [];
     const wait_list = [];
@@ -265,6 +265,7 @@ async function refresh_tiers_alloc(tiering_list, force) {
 function get_tiering_status(tiering) {
     /** @type {nb.TieringStatus} */
     const tiering_status_by_tier = {};
+    if (!tiering) return tiering_status_by_tier;
     const tiering_id_str = tiering._id.toHexString();
     const alloc_group = alloc_group_by_tiering[tiering_id_str];
     _.each(tiering.tiers, ({ tier }) => {

@@ -108,6 +108,20 @@ mocha.describe('namespace_fs', function() {
         console.log(inspect(res));
     });
 
+    mocha.it('read_object_md fails on directory head', async function() {
+        try {
+            await ns_src.read_object_md({
+                bucket: src_bkt,
+                key: src_key.substr(0, src_key.lastIndexOf('/')),
+            }, dummy_object_sdk);
+            throw new Error('Should have failed on head of directory');
+        } catch (error) {
+            assert.strict.equal(error.message, 'NoSuchKey');
+            assert.strict.equal(error.code, 'ENOENT');
+            assert.strict.equal(error.rpc_code, 'NO_SUCH_OBJECT');
+        }
+    });
+
     mocha.describe('read_object_stream', function() {
 
         mocha.it('read full', async function() {

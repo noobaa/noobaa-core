@@ -407,7 +407,7 @@ app.use(function(err, req, res, next) {
 function error_404(req, res, next) {
     return next({
         status: 404, // not found
-        message: 'We dug the earth, but couldn\'t find ' + req.originalUrl
+        message: 'We dug the earth, but couldn\'t find your requested URL'
     });
 }
 

@@ -181,7 +181,7 @@ class ObjectSDK {
             // NAMESPACE_FS HACK
             if (process.env.NAMESPACE_FS) {
                 return {
-                    ns: new NamespaceFS({ bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name }),
+                    ns: new NamespaceFS({ bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name, bucket_id: String(bucket._id) }),
                     bucket,
                     valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
                 };
@@ -202,7 +202,7 @@ class ObjectSDK {
                 }
                 if (bucket.namespace.write_resource && _.isEqual(bucket.namespace.read_resources, [bucket.namespace.write_resource])) {
                     return {
-                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
+                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource), bucket._id),
                         bucket,
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
@@ -253,7 +253,7 @@ class ObjectSDK {
         });
     }
 
-    _setup_single_namespace(namespace_resource_config) {
+    _setup_single_namespace(namespace_resource_config, bucket_id) {
         const ns_info = namespace_resource_config.resource;
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
@@ -300,7 +300,8 @@ class ObjectSDK {
         if (ns_info.fs_root_path) {
             return new NamespaceFS({
                 fs_backend: ns_info.fs_backend,
-                bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || '')
+                bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || ''),
+                bucket_id: String(bucket_id)
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

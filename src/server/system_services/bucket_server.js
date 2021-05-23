@@ -477,6 +477,7 @@ async function read_bucket_sdk_info(req) {
     const system = req.system;
 
     const reply = {
+        _id: bucket._id,
         name: bucket.name,
         website: bucket.website,
         s3_policy: bucket.s3_policy,

@@ -120,11 +120,13 @@ class NamespaceFS {
      * @param {{
      *  bucket_path: string;
      *  fs_backend?: string;
+     *  bucket_id: string;
      * }} params
      */
-    constructor({ bucket_path, fs_backend }) {
+    constructor({ bucket_path, fs_backend, bucket_id }) {
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
+        this.bucket_id = bucket_id;
     }
 
     set_cur_fs_account_config(object_sdk) {
@@ -138,6 +140,10 @@ class NamespaceFS {
 
         fs_config_param.backend = this.fs_backend || '';
         return fs_config_param;
+    }
+
+    get_bucket_tmpdir() {
+        return config.NSFS_TEMP_DIR_NAME + '_' + this.bucket_id;
     }
 
     get_write_resource() {
@@ -250,7 +256,7 @@ class NamespaceFS {
 
                 if (!ent.name.startsWith(prefix_ent) ||
                     ent.name < marker_curr ||
-                    ent.name === config.NSFS_TEMP_DIR_NAME) {
+                    ent.name === this.get_bucket_tmpdir()) {
                     return;
                 }
 
@@ -507,7 +513,7 @@ class NamespaceFS {
         const file_path = this._get_file_path(params);
         // Uploading to a temp file then we will rename it. 
         const upload_id = uuidv4();
-        const upload_path = path.join(this.bucket_path, config.NSFS_TEMP_DIR_NAME, 'uploads', upload_id);
+        const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
         // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
         await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
         try {
@@ -935,7 +941,7 @@ class NamespaceFS {
     _mpu_path(params) {
         return path.join(
             this.bucket_path,
-            config.NSFS_TEMP_DIR_NAME,
+            this.get_bucket_tmpdir(),
             'multipart-uploads',
             params.obj_id
         );

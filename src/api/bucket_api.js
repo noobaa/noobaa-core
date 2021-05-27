@@ -1130,6 +1130,9 @@ module.exports = {
                 'name', 'system_owner', 'bucket_owner'
             ],
             properties: {
+                _id: {
+                    objectid: true
+                },
                 name: {
                     $ref: 'common_api#/definitions/bucket_name'
                 },

@@ -97,7 +97,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         object_sdk._get_bucket_namespace = async bucket_name => {
             const existing_ns = namespaces[bucket_name];
             if (existing_ns) return existing_ns;
-            const ns_fs = new NamespaceFS({ bucket_path: fs_root + '/' + bucket_name });
+            const ns_fs = new NamespaceFS({ bucket_path: fs_root + '/' + bucket_name, bucket_id: '000000000000000000000000' });
             namespaces[bucket_name] = ns_fs;
             return ns_fs;
         };

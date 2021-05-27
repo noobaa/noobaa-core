@@ -475,14 +475,17 @@ function update_account(req) {
     if (params.ips && !_.every(params.ips, ip_range => (net.isIP(ip_range.start) && net.isIP(ip_range.end)))) {
         throw new RpcError('FORBIDDEN', 'Non valid IPs');
     }
-
+    if (req.rpc_params.nsfs_account_config && _.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
+            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
+    }
     let updates = {
         name: params.name,
         email: params.new_email,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
-        nsfs_account_config: req.rpc_params.nsfs_account_config
+        nsfs_account_config: req.rpc_params.nsfs_account_config && _.assign(account.nsfs_account_config, req.rpc_params.nsfs_account_config)
     };
 
     let removals = {

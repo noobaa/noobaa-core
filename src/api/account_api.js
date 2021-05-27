@@ -187,7 +187,12 @@ module.exports = {
                         }]
                     },
                     nsfs_account_config: {
-                        $ref: 'common_api#/definitions/nsfs_account_config'
+                        type: 'object',
+                        properties: {
+                            uid: { type: 'number' },
+                            gid: { type: 'number' },
+                            new_buckets_path: { type: 'string' },
+                        }
                     },
                     preferences: {
                         type: 'object',

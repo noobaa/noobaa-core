@@ -12,6 +12,8 @@ const { rpc_client, EMAIL, PASSWORD, SYSTEM} = coretest;
 const fs_utils = require('../../util/fs_utils');
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 const path = require('path');
+const _ = require('lodash');
+const P = require('../../util/promise');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -132,7 +134,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const first_bucket = bucket_in_list('first.bucket', res.Buckets);
         assert.ok(first_bucket);
     });
-
     mocha.it('create account 1 with uid, gid - wrong uid', async function() {
         account_wrong_uid = await rpc_client.account.create_account({...new_account_params,
                 email: 'account_wrong_uid0@noobaa.com',
@@ -157,6 +158,14 @@ mocha.describe('bucket operations - namespace_fs', function() {
         assert.ok(!bucket);
         const first_bucket = bucket_in_list('first.bucket', res.Buckets);
         assert.ok(first_bucket);
+    });
+    mocha.it('update account', async function() {
+        const arr = [ { nsfs_account_config: { uid: 26041993 }, should_fail: false },
+            { nsfs_account_config: {new_buckets_path: 'dummy_dir1/'}, should_fail: false }, { nsfs_account_config: {}, should_fail: true },
+            { nsfs_account_config: { uid: 26041992 }, should_fail: false }];
+        await P.all(_.map(arr, async item =>
+            update_account_nsfs_config('account_wrong_uid0@noobaa.com', item.nsfs_account_config, item.should_fail)
+        ));
     });
     mocha.it('list namespace resources after creation', async function() {
         await rpc_client.create_auth_token({
@@ -321,7 +330,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.strictEqual(err.code, 'AccessDenied');
         }
     });
-
     mocha.it('delete bucket with uid, gid - bucket is not empty', async function() {
         try {
             const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3'}).promise();
@@ -344,7 +352,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt'}).promise();
         console.log(inspect(res));
     });
-
     mocha.it('delete bucket without uid, gid - bucket is empty', async function() {
         try {
             const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3'}).promise();
@@ -364,11 +371,9 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const bucket = bucket_in_list(bucket_name + '-s3', res.Buckets);
         assert.ok(!bucket);
     });
-
     mocha.it('check dir doesnt exist after deletion', async function() {
         await fs_utils.file_must_not_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3'));
         await fs_utils.file_must_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir'));
-
     });
     mocha.it('delete account by uid, gid', async function() {
         let read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_uid0@noobaa.com' });
@@ -405,9 +410,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         let list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp2.length > 0);
     });
-
     mocha.it('delete account by uid, gid - no such account', async function() {
-
         let list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp1.length > 0);
         await rpc_client.account.delete_account_by_property({
@@ -424,6 +427,25 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 });
 
+
 function bucket_in_list(bucket_name, s3_buckets_list_response) {
     return s3_buckets_list_response.find(bucket => bucket.Name === bucket_name);
+}
+
+async function update_account_nsfs_config(email, new_nsfs_account_config, should_fail) {
+    try {
+        await rpc_client.account.update_account({
+            email,
+            nsfs_account_config: new_nsfs_account_config
+        });
+        if (should_fail) {
+            assert.fail(`update_account_nsfs_config - action should fail but it didn't`);
+        }
+    } catch (err) {
+        if (should_fail) {
+            assert.ok(err.rpc_code === 'FORBIDDEN');
+            return;
+        }
+        assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
+    }
 }

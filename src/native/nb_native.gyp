@@ -2,19 +2,6 @@
 {
     'includes': ['common.gypi'],
 
-    'variables': { # NOTE: variables in the same scope cannot expand each other!
-        'cflags_warnings': [
-            '-W',
-            '-Wall',
-            '-Wextra',
-            '-Werror',
-            '-Wpedantic',
-        ],
-        'nan_include_dirs':  ['''<!(node -e "require('nan')")'''],
-        'napi_include_dirs': ['''<!@(node -p "require('node-addon-api').include")'''],
-        'napi_dependencies': ['''<!(node -p "require('node-addon-api').gyp")'''],
-    },
-
     'target_defaults': {
         'cflags': ['<@(cflags_warnings)'],
         'conditions' : [
@@ -62,6 +49,9 @@
             'util/common.h',
             'util/napi.h',
             'util/napi.cpp',
+            'util/os.h',
+            'util/os_linux.cpp',
+            'util/os_darwin.cpp',
             'util/rabin.h',
             'util/rabin.cpp',
             'util/snappy.h',

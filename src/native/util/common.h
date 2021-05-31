@@ -48,23 +48,52 @@ namespace noobaa
 #define DBG8(x) DBG(8, x)
 #define DBG9(x) DBG(9, x)
 
-#define PANIC(info)                                                                        \
-    do {                                                                                   \
-        std::cerr << "PANIC: " << info << " function " << __func__ << " file " << __FILE__ \
-                  << " line " << __LINE__ << std::endl;                                    \
-        abort();                                                                           \
+#define PANIC(info)                          \
+    do {                                     \
+        int saved = errno;                   \
+        std::cerr << "PANIC: " << info       \
+                  << " " << strerror(saved)  \
+                  << " (" << saved << ")"    \
+                  << " " << __func__ << "()" \
+                  << " at " << __FILE__      \
+                  << ":" << __LINE__         \
+                  << std::endl;              \
+        abort();                             \
+    } while (0)
+
+#define MUST0(cond)                                          \
+    do {                                                     \
+        auto ret = (cond);                                   \
+        if (ret) {                                           \
+            PANIC("MUST FAILED: " << #cond << " = " << ret); \
+        }                                                    \
+    } while (0)
+
+#define MUST1(cond)                                          \
+    do {                                                     \
+        auto ret = (cond);                                   \
+        if (!ret) {                                          \
+            PANIC("MUST FAILED: " << #cond << " = " << ret); \
+        }                                                    \
+    } while (0)
+
+#define MUST_SYS(cond)                                               \
+    do {                                                             \
+        auto ret = (cond);                                           \
+        if (ret < 0) {                                               \
+            PANIC("MUST SYSCALL FAILED: " << #cond << " = " << ret); \
+        }                                                            \
     } while (0)
 
 #ifdef NDEBUG
 #define ASSERT(...)
 #else
-#define ASSERT(cond, info)                                                                  \
-    do {                                                                                    \
-        if (!(cond)) {                                                                      \
-            std::cerr << "ASSERT FAILED: " << #cond << " function " << __func__ << " file " \
-                      << __FILE__ << " line " << __LINE__ << ": " << info << std::endl;     \
-            abort();                                                                        \
-        }                                                                                   \
+#define ASSERT(cond, info)                                      \
+    do {                                                        \
+        auto ret = (cond);                                      \
+        if (!ret) {                                             \
+            PANIC("ASSERT FAILED: " << #cond << " - " << info); \
+        }                                                       \
     } while (0)
 #endif
 

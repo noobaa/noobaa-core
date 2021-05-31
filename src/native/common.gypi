@@ -1,10 +1,20 @@
 # Copyright (C) 2016 NooBaa
 {
-    'variables': {
+    'variables': { # NOTE: variables in the same scope cannot expand each other!
+        'cflags_warnings': [
+            '-W',
+            '-Wall',
+            '-Wextra',
+            '-Werror',
+            '-Wpedantic',
+        ],
         # see https://nodejs.org/docs/latest-v12.x/api/process.html#process_process_arch
         # Possible values are: 
         # 'arm', 'arm64', 'ia32', 'mips','mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.
         'node_arch': '''<!(node -p process.arch)''',
+        'nan_include_dirs':  ['''<!(node -e "require('nan')")'''],
+        'napi_include_dirs': ['''<!@(node -p "require('node-addon-api').include")'''],
+        'napi_dependencies': ['''<!(node -p "require('node-addon-api').gyp")'''],
     },
     'target_defaults': {
 

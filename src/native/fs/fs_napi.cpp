@@ -2,15 +2,16 @@
 #include "../util/b64.h"
 #include "../util/common.h"
 #include "../util/napi.h"
+#include "../util/os.h"
 
 #include <dirent.h>
 #include <fcntl.h>
 #include <map>
 #include <math.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/syscall.h>
 #include <thread>
 #include <typeinfo>
 #include <unistd.h>
@@ -22,44 +23,41 @@ namespace noobaa
 
 DBG_INIT(0);
 
-const static std::map<std::string,int> flags_to_case = {
-    {"r",O_RDONLY},
-    {"rs",O_RDONLY | O_SYNC},
-    {"sr",O_RDONLY | O_SYNC}, 
-    {"r+",O_RDWR},
-    {"rs+",O_RDWR | O_SYNC},
-    {"sr+",O_RDWR | O_SYNC},
-    {"w",O_TRUNC | O_CREAT | O_WRONLY},
-    {"wx",O_TRUNC | O_CREAT | O_WRONLY | O_EXCL},
-    {"xw",O_TRUNC | O_CREAT | O_WRONLY | O_EXCL},
-    {"w+",O_TRUNC | O_CREAT | O_RDWR},
-    {"wx+",O_TRUNC | O_CREAT | O_RDWR | O_EXCL},
-    {"xw+",O_TRUNC | O_CREAT | O_RDWR | O_EXCL},
-    {"a",O_APPEND | O_CREAT | O_WRONLY},
-    {"ax",O_APPEND | O_CREAT | O_WRONLY | O_EXCL},
-    {"xa",O_APPEND | O_CREAT | O_WRONLY | O_EXCL},
-    {"as",O_APPEND | O_CREAT | O_WRONLY | O_SYNC},
-    {"sa",O_APPEND | O_CREAT | O_WRONLY | O_SYNC},
-    {"a+",O_APPEND | O_CREAT | O_RDWR},
-    {"ax+",O_APPEND | O_CREAT | O_RDWR | O_EXCL},
-    {"xa+",O_APPEND | O_CREAT | O_RDWR | O_EXCL},
-    {"as+",O_APPEND | O_CREAT | O_RDWR | O_SYNC},
-    {"sa+",O_APPEND | O_CREAT | O_RDWR | O_SYNC}
+const static std::map<std::string, int> flags_to_case = {
+    { "r", O_RDONLY },
+    { "rs", O_RDONLY | O_SYNC },
+    { "sr", O_RDONLY | O_SYNC },
+    { "r+", O_RDWR },
+    { "rs+", O_RDWR | O_SYNC },
+    { "sr+", O_RDWR | O_SYNC },
+    { "w", O_TRUNC | O_CREAT | O_WRONLY },
+    { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
+    { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
+    { "w+", O_TRUNC | O_CREAT | O_RDWR },
+    { "wx+", O_TRUNC | O_CREAT | O_RDWR | O_EXCL },
+    { "xw+", O_TRUNC | O_CREAT | O_RDWR | O_EXCL },
+    { "a", O_APPEND | O_CREAT | O_WRONLY },
+    { "ax", O_APPEND | O_CREAT | O_WRONLY | O_EXCL },
+    { "xa", O_APPEND | O_CREAT | O_WRONLY | O_EXCL },
+    { "as", O_APPEND | O_CREAT | O_WRONLY | O_SYNC },
+    { "sa", O_APPEND | O_CREAT | O_WRONLY | O_SYNC },
+    { "a+", O_APPEND | O_CREAT | O_RDWR },
+    { "ax+", O_APPEND | O_CREAT | O_RDWR | O_EXCL },
+    { "xa+", O_APPEND | O_CREAT | O_RDWR | O_EXCL },
+    { "as+", O_APPEND | O_CREAT | O_RDWR | O_SYNC },
+    { "sa+", O_APPEND | O_CREAT | O_RDWR | O_SYNC },
 };
 
-
-struct Entry {
+struct Entry
+{
     std::string name;
     ino_t ino;
     uint8_t type;
 };
 
-
-static uid_t orig_uid = geteuid();
-static gid_t orig_gid = getegid();
-
 template <typename T>
-static Napi::Value api(const Napi::CallbackInfo& info)
+static Napi::Value
+api(const Napi::CallbackInfo& info)
 {
     auto w = new T(info);
     Napi::Promise promise = w->_deferred.Promise();
@@ -73,22 +71,25 @@ static Napi::Value api(const Napi::CallbackInfo& info)
 struct FSWorker : public Napi::AsyncWorker
 {
     Napi::Promise::Deferred _deferred;
-    gid_t _req_uid;
-    uid_t _req_gid;
+    pid_t _tid;
+    uid_t _uid;
+    gid_t _gid;
     std::string _backend;
-    int _errno;
     std::string _desc;
+    int _errno;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
+        , _tid(0)
+        , _uid(ThreadScope::orig_uid)
+        , _gid(ThreadScope::orig_gid)
         , _errno(0)
     {
-        Napi::Object config = info[0].As<Napi::Object>();        
-        _req_uid = config.Has("uid") ? config.Get("uid").ToNumber() : orig_uid;
-        _req_gid = config.Has("gid") ? config.Get("gid").ToNumber() : orig_gid;
-        // TODO: Fill the relevant type
-        _backend = config.Has("backend") ? config.Get("backend").ToString() : Napi::String::New(info.Env(), "");
+        Napi::Object config = info[0].As<Napi::Object>();
+        if (config.Has("uid")) _uid = config.Get("uid").ToNumber();
+        if (config.Has("gid")) _gid = config.Get("gid").ToNumber();
+        if (config.Has("backend")) _backend = config.Get("backend").ToString();
     }
     void Begin(std::string desc)
     {
@@ -98,51 +99,16 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void Work() = 0;
     void Execute() override
     {
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-        pid_t tid = int(pthread_mach_thread_np(pthread_self()));
-#else
-        // pid_t tid = syscall(__NR_gettid);
-        auto tid = std::this_thread::get_id();
-#endif
-        DBG1("FS::FSWorker::Execute: " << _desc <<
-            " orig_uid:" << orig_uid <<
-            " orig_gid:" << orig_gid <<
-            " req_uid:" << _req_uid <<
-            " req_gid:" << _req_gid <<
-            " backend:" << _backend <<
-            " thread_id:" << tid
-        );
-        bool change_uid = orig_uid != _req_uid;
-        bool change_gid = orig_gid != _req_gid;
-        if (change_gid) {
-            int r = syscall(SYS_setresgid, -1, _req_gid, -1);
-            if (r == -1) {
-                PANIC("FS::FSWorker::Execute setgid before work failed"
-                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
-            }
-        }
-        if (change_uid) {
-            int r = syscall(SYS_setresuid, -1, _req_uid, -1);
-            if (r == -1) {
-                PANIC("FS::FSWorker::Execute setgid before work failed"
-                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
-            }
-        }
+        ThreadScope tx;
+        _tid = tx.get_current_tid();
+        DBG1("FS::FSWorker::Execute: "
+            << _desc
+            << " tid:" << _tid
+            << " uid:" << _uid
+            << " gid:" << _gid
+            << " backend:" << _backend);
+        tx.set_user(_uid, _gid);
         Work();
-        if (change_uid) {
-            int r = syscall(SYS_setresuid, -1, orig_uid, -1);
-            if (r == -1) {
-                PANIC("FS::FSWorker::Execute setuid after work failed"
-                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
-            }
-        }
-        if (change_gid) {
-            int r = syscall(SYS_setresgid, -1, orig_gid, -1);
-            if (r == -1) {
-                PANIC("FS::FSWorker::Execute setgid after work failed"
-                    << " GID:" << getegid() << "|" << getgid() << " UID:" << geteuid() << "|" << getuid() << " thread_id:" << tid);
-            }
-        }
     }
     void SetSyscallError()
     {
@@ -160,7 +126,7 @@ struct FSWorker : public Napi::AsyncWorker
         DBG1("FS::FSWorker::OnOK: undefined " << _desc);
         _deferred.Resolve(Env().Undefined());
     }
-    virtual void OnError(Napi::Error const &error) override
+    virtual void OnError(Napi::Error const& error) override
     {
         Napi::Env env = Env();
         DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
@@ -179,8 +145,9 @@ struct FSWorker : public Napi::AsyncWorker
 template <typename Wrapper>
 struct FSWrapWorker : public FSWorker
 {
-    Wrapper *_wrap;
-    FSWrapWorker(const Napi::CallbackInfo& info) : FSWorker(info)
+    Wrapper* _wrap;
+    FSWrapWorker(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _wrap = Wrapper::Unwrap(info.This().As<Napi::Object>());
         _wrap->Ref();
@@ -199,7 +166,8 @@ struct Stat : public FSWorker
     std::string _path;
     struct stat _stat_res;
 
-    Stat(const Napi::CallbackInfo& info) : FSWorker(info)
+    Stat(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
         Begin(XSTR() << "Stat " << DVAL(_path));
@@ -226,17 +194,17 @@ struct Stat : public FSWorker
         res["blocks"] = Napi::Number::New(env, _stat_res.st_blocks);
 
         // https://nodejs.org/dist/latest-v14.x/docs/api/fs.html#fs_stat_time_values
-        #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-            double atimeMs = (double(1e3) * _stat_res.st_atimespec.tv_sec) + (double(1e-6) * _stat_res.st_atimespec.tv_nsec);
-            double ctimeMs = (double(1e3) * _stat_res.st_ctimespec.tv_sec) + (double(1e-6) * _stat_res.st_ctimespec.tv_nsec);
-            double mtimeMs = (double(1e3) * _stat_res.st_mtimespec.tv_sec) + (double(1e-6) * _stat_res.st_mtimespec.tv_nsec);
-            double birthtimeMs = (double(1e3) * _stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * _stat_res.st_birthtimespec.tv_nsec);
-        #else
-            double atimeMs = (double(1e3) * _stat_res.st_atim.tv_sec) + (double(1e-6) * _stat_res.st_atim.tv_nsec);
-            double ctimeMs = (double(1e3) * _stat_res.st_ctim.tv_sec) + (double(1e-6) * _stat_res.st_ctim.tv_nsec);
-            double mtimeMs = (double(1e3) * _stat_res.st_mtim.tv_sec) + (double(1e-6) * _stat_res.st_mtim.tv_nsec);
-            double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
-        #endif
+#ifdef __APPLE__
+        double atimeMs = (double(1e3) * _stat_res.st_atimespec.tv_sec) + (double(1e-6) * _stat_res.st_atimespec.tv_nsec);
+        double ctimeMs = (double(1e3) * _stat_res.st_ctimespec.tv_sec) + (double(1e-6) * _stat_res.st_ctimespec.tv_nsec);
+        double mtimeMs = (double(1e3) * _stat_res.st_mtimespec.tv_sec) + (double(1e-6) * _stat_res.st_mtimespec.tv_nsec);
+        double birthtimeMs = (double(1e3) * _stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * _stat_res.st_birthtimespec.tv_nsec);
+#else
+        double atimeMs = (double(1e3) * _stat_res.st_atim.tv_sec) + (double(1e-6) * _stat_res.st_atim.tv_nsec);
+        double ctimeMs = (double(1e3) * _stat_res.st_ctim.tv_sec) + (double(1e-6) * _stat_res.st_ctim.tv_nsec);
+        double mtimeMs = (double(1e3) * _stat_res.st_mtim.tv_sec) + (double(1e-6) * _stat_res.st_mtim.tv_nsec);
+        double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
+#endif
 
         res["atimeMs"] = Napi::Number::New(env, atimeMs);
         res["ctimeMs"] = Napi::Number::New(env, ctimeMs);
@@ -251,7 +219,6 @@ struct Stat : public FSWorker
     }
 };
 
-
 /**
  * CheckAccess is an fs op
  */
@@ -260,7 +227,8 @@ struct CheckAccess : public FSWorker
     std::string _path;
     struct stat _stat_res;
 
-    CheckAccess(const Napi::CallbackInfo& info) : FSWorker(info)
+    CheckAccess(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
         Begin(XSTR() << "CheckAccess " << DVAL(_path));
@@ -283,7 +251,8 @@ struct CheckAccess : public FSWorker
 struct Unlink : public FSWorker
 {
     std::string _path;
-    Unlink(const Napi::CallbackInfo& info) : FSWorker(info)
+    Unlink(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
         Begin(XSTR() << "Unlink " << DVAL(_path));
@@ -303,7 +272,7 @@ struct Unlinkat : public FSWorker
     int _dirfd;
     std::string _path;
     int _flags;
-    Unlinkat(const Napi::CallbackInfo& info) 
+    Unlinkat(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _dirfd(0)
         , _flags(0)
@@ -327,7 +296,8 @@ struct Link : public FSWorker
 {
     std::string _oldpath;
     std::string _newpath;
-    Link(const Napi::CallbackInfo& info) : FSWorker(info)
+    Link(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _oldpath = info[1].As<Napi::String>();
         _newpath = info[2].As<Napi::String>();
@@ -377,7 +347,7 @@ struct Mkdir : public FSWorker
 {
     std::string _path;
     int _mode;
-    Mkdir(const Napi::CallbackInfo& info) 
+    Mkdir(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _mode(0777)
     {
@@ -394,14 +364,14 @@ struct Mkdir : public FSWorker
     }
 };
 
-
 /**
  * Rmdir is an fs op
  */
 struct Rmdir : public FSWorker
 {
     std::string _path;
-    Rmdir(const Napi::CallbackInfo& info) : FSWorker(info)
+    Rmdir(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
         Begin(XSTR() << "Rmdir " << DVAL(_path));
@@ -413,7 +383,6 @@ struct Rmdir : public FSWorker
     }
 };
 
-
 /**
  * Rename is an fs op
  */
@@ -421,7 +390,8 @@ struct Rename : public FSWorker
 {
     std::string _old_path;
     std::string _new_path;
-    Rename(const Napi::CallbackInfo& info) : FSWorker(info)
+    Rename(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _old_path = info[1].As<Napi::String>();
         _new_path = info[2].As<Napi::String>();
@@ -442,7 +412,8 @@ struct Writefile : public FSWorker
     std::string _path;
     const uint8_t* _data;
     size_t _len;
-    Writefile(const Napi::CallbackInfo& info) : FSWorker(info)
+    Writefile(const Napi::CallbackInfo& info)
+        : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
         auto buf = info[2].As<Napi::Buffer<uint8_t>>();
@@ -478,7 +449,7 @@ struct Readfile : public FSWorker
     std::string _path;
     uint8_t* _data;
     int _len;
-    Readfile(const Napi::CallbackInfo& info) 
+    Readfile(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _data(0)
         , _len(0)
@@ -489,7 +460,7 @@ struct Readfile : public FSWorker
     virtual ~Readfile()
     {
         if (_data) {
-            delete [] _data;
+            delete[] _data;
             _data = 0;
         }
     }
@@ -500,7 +471,7 @@ struct Readfile : public FSWorker
             SetSyscallError();
             return;
         }
-    
+
         struct stat stat_res;
         int r = fstat(fd, &stat_res);
         if (r) {
@@ -513,7 +484,7 @@ struct Readfile : public FSWorker
         _len = stat_res.st_size;
         _data = new uint8_t[_len];
 
-        uint8_t *p = _data;
+        uint8_t* p = _data;
         int remain = _len;
         while (remain > 0) {
             ssize_t len = read(fd, p, remain);
@@ -536,7 +507,6 @@ struct Readfile : public FSWorker
     }
 };
 
-
 /**
  * Readdir is an fs op
  */
@@ -545,7 +515,7 @@ struct Readdir : public FSWorker
     std::string _path;
     // bool _withFileTypes;
     std::vector<Entry> _entries;
-    Readdir(const Napi::CallbackInfo& info) 
+    Readdir(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _entries(0)
     {
@@ -555,7 +525,7 @@ struct Readdir : public FSWorker
     }
     virtual void Work()
     {
-        DIR *dir;
+        DIR* dir;
         dir = opendir(_path.c_str());
         if (dir == NULL) {
             SetSyscallError();
@@ -565,16 +535,16 @@ struct Readdir : public FSWorker
         while (true) {
             // need to set errno before the call to readdir() to detect between EOF and error
             errno = 0;
-            struct dirent *e = readdir(dir);
+            struct dirent* e = readdir(dir);
             if (e) {
-                // Ignore parent and current directories 
+                // Ignore parent and current directories
                 if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
                     continue;
                 }
-                _entries.push_back(Entry{ 
+                _entries.push_back(Entry{
                     std::string(e->d_name),
-                    e->d_ino, 
-                    e->d_type 
+                    e->d_ino,
+                    e->d_type,
                 });
             } else {
                 if (errno) SetSyscallError();
@@ -610,7 +580,6 @@ struct Readdir : public FSWorker
     }
 };
 
-
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
     std::string _path;
@@ -618,12 +587,15 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     static Napi::FunctionReference constructor;
     static void init(Napi::Env env)
     {
-        constructor = Napi::Persistent(DefineClass(env, "File", { 
-          InstanceMethod<&FileWrap::close>("close"),
-          InstanceMethod<&FileWrap::read>("read"),
-          InstanceMethod<&FileWrap::write>("write"),
-          InstanceMethod<&FileWrap::writev>("writev"),
-        }));
+        constructor = Napi::Persistent(DefineClass(
+            env,
+            "File",
+            {
+                InstanceMethod<&FileWrap::close>("close"),
+                InstanceMethod<&FileWrap::read>("read"),
+                InstanceMethod<&FileWrap::write>("write"),
+                InstanceMethod<&FileWrap::writev>("writev"),
+            }));
         constructor.SuppressDestruct();
     }
     FileWrap(const Napi::CallbackInfo& info)
@@ -631,7 +603,8 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
         , _fd(0)
     {
     }
-    ~FileWrap() {
+    ~FileWrap()
+    {
         if (_fd) {
             PANIC("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
         }
@@ -650,7 +623,7 @@ struct FileOpen : public FSWorker
     int _fd;
     int _flags;
     mode_t _mode;
-    FileOpen(const Napi::CallbackInfo& info) 
+    FileOpen(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _fd(0)
         , _flags(0)
@@ -674,7 +647,7 @@ struct FileOpen : public FSWorker
     {
         DBG1("FS::FileOpen::OnOK: " << DVAL(_path));
         Napi::Object res = FileWrap::constructor.New({});
-        FileWrap *w = FileWrap::Unwrap(res);
+        FileWrap* w = FileWrap::Unwrap(res);
         w->_path = _path;
         w->_fd = _fd;
         _deferred.Resolve(res);
@@ -698,7 +671,6 @@ struct FileClose : public FSWrapWorker<FileWrap>
     }
 };
 
-
 struct FileRead : public FSWrapWorker<FileWrap>
 {
     uint8_t* _buf;
@@ -706,8 +678,8 @@ struct FileRead : public FSWrapWorker<FileWrap>
     int _len;
     int _pos;
     ssize_t _br;
-    FileRead(const Napi::CallbackInfo& info) 
-        : FSWrapWorker<FileWrap>(info) 
+    FileRead(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
         , _buf(0)
         , _offset(0)
         , _len(0)
@@ -743,12 +715,11 @@ struct FileRead : public FSWrapWorker<FileWrap>
     }
 };
 
-
 struct FileWrite : public FSWrapWorker<FileWrap>
 {
     const uint8_t* _buf;
     size_t _len;
-    FileWrite(const Napi::CallbackInfo& info) 
+    FileWrite(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , _buf(0)
         , _len(0)
@@ -776,7 +747,6 @@ struct FileWrite : public FSWrapWorker<FileWrap>
     }
 };
 
-
 struct FileWritev : public FSWrapWorker<FileWrap>
 {
     std::vector<struct iovec> iov_vec;
@@ -790,7 +760,7 @@ struct FileWritev : public FSWrapWorker<FileWrap>
         for (int i = 0; i < buffers_len; ++i) {
             Napi::Value buf_val = buffers[i];
             auto buf = buf_val.As<Napi::Buffer<uint8_t>>();
-            iov.iov_base = buf.Data(); 
+            iov.iov_base = buf.Data();
             iov.iov_len = buf.Length();
             iov_vec[i] = iov;
         }
@@ -811,27 +781,29 @@ struct FileWritev : public FSWrapWorker<FileWrap>
     }
 };
 
-
-Napi::Value FileWrap::close(const Napi::CallbackInfo& info)
+Napi::Value
+FileWrap::close(const Napi::CallbackInfo& info)
 {
     return api<FileClose>(info);
 }
 
-Napi::Value FileWrap::read(const Napi::CallbackInfo& info)
+Napi::Value
+FileWrap::read(const Napi::CallbackInfo& info)
 {
     return api<FileRead>(info);
 }
 
-Napi::Value FileWrap::write(const Napi::CallbackInfo& info)
+Napi::Value
+FileWrap::write(const Napi::CallbackInfo& info)
 {
     return api<FileWrite>(info);
 }
 
-Napi::Value FileWrap::writev(const Napi::CallbackInfo& info)
+Napi::Value
+FileWrap::writev(const Napi::CallbackInfo& info)
 {
     return api<FileWritev>(info);
 }
-
 
 /**
  * 
@@ -839,14 +811,17 @@ Napi::Value FileWrap::writev(const Napi::CallbackInfo& info)
 struct DirWrap : public Napi::ObjectWrap<DirWrap>
 {
     std::string _path;
-    DIR *_dir;
+    DIR* _dir;
     static Napi::FunctionReference constructor;
     static void init(Napi::Env env)
     {
-        constructor = Napi::Persistent(DefineClass(env, "Dir", { 
-          InstanceMethod("close", &DirWrap::close),
-          InstanceMethod("read", &DirWrap::read),
-        }));
+        constructor = Napi::Persistent(DefineClass(
+            env,
+            "Dir",
+            {
+                InstanceMethod("close", &DirWrap::close),
+                InstanceMethod("read", &DirWrap::read),
+            }));
         constructor.SuppressDestruct();
     }
     DirWrap(const Napi::CallbackInfo& info)
@@ -854,7 +829,8 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
         , _dir(0)
     {
     }
-    ~DirWrap() {
+    ~DirWrap()
+    {
         if (_dir) {
             PANIC("FS::DirWrap::dtor: dir not closed " << DVAL(_path) << DVAL(_dir));
         }
@@ -868,8 +844,10 @@ Napi::FunctionReference DirWrap::constructor;
 struct DirOpen : public FSWorker
 {
     std::string _path;
-    DIR *_dir;
-    DirOpen(const Napi::CallbackInfo& info) : FSWorker(info), _dir(0)
+    DIR* _dir;
+    DirOpen(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+        , _dir(0)
     {
         _path = info[1].As<Napi::String>();
         // TODO - info[1] = { bufferSize: 128 }
@@ -884,7 +862,7 @@ struct DirOpen : public FSWorker
     {
         DBG1("FS::DirOpen::OnOK: " << DVAL(_path));
         Napi::Object res = DirWrap::constructor.New({});
-        DirWrap *w = DirWrap::Unwrap(res);
+        DirWrap* w = DirWrap::Unwrap(res);
         w->_path = _path;
         w->_dir = _dir;
         _deferred.Resolve(res);
@@ -900,14 +878,13 @@ struct DirClose : public FSWrapWorker<DirWrap>
     }
     virtual void Work()
     {
-        DIR *dir = _wrap->_dir;
+        DIR* dir = _wrap->_dir;
         std::string path = _wrap->_path;
         int r = closedir(dir);
         if (r) SetSyscallError();
         _wrap->_dir = 0;
     }
 };
-
 
 struct DirReadEntry : public FSWrapWorker<DirWrap>
 {
@@ -921,7 +898,7 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
     }
     virtual void Work()
     {
-        DIR *dir = _wrap->_dir;
+        DIR* dir = _wrap->_dir;
         std::string path = _wrap->_path;
         if (!dir) {
             SetError(XSTR() << "FS::DirReadEntry::Execute: ERROR not opened " << path);
@@ -931,9 +908,9 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
         while (true) {
             // need to set errno before the call to readdir() to detect between EOF and error
             errno = 0;
-            struct dirent *e = readdir(dir);
+            struct dirent* e = readdir(dir);
             if (e) {
-                // Ignore parent and current directories 
+                // Ignore parent and current directories
                 if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
                     continue;
                 }
@@ -941,12 +918,12 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
                 _entry.ino = e->d_ino;
                 _entry.type = e->d_type;
             } else {
-               if (errno) {
+                if (errno) {
                     SetSyscallError();
-               } else {
+                } else {
                     _eof = true;
-               }
-               break;
+                }
+                break;
             }
         }
     }
@@ -965,12 +942,14 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
     }
 };
 
-Napi::Value DirWrap::close(const Napi::CallbackInfo& info)
+Napi::Value
+DirWrap::close(const Napi::CallbackInfo& info)
 {
     return api<DirClose>(info);
 }
 
-Napi::Value DirWrap::read(const Napi::CallbackInfo& info)
+Napi::Value
+DirWrap::read(const Napi::CallbackInfo& info)
 {
     return api<DirReadEntry>(info);
 }
@@ -986,16 +965,15 @@ set_debug_level(const Napi::CallbackInfo& info)
 void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
-    DBG1("FS::fs_napi:" << " orig_uid:" << orig_uid << " orig_gid:" << orig_gid);
     auto exports_fs = Napi::Object::New(env);
-    
+
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
     exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);
-    exports_fs["rename"] = Napi::Function::New(env, api<Rename>); 
-    exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>); 
-    exports_fs["rmdir"] = Napi::Function::New(env, api<Rmdir>); 
+    exports_fs["rename"] = Napi::Function::New(env, api<Rename>);
+    exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>);
+    exports_fs["rmdir"] = Napi::Function::New(env, api<Rmdir>);
     exports_fs["writeFile"] = Napi::Function::New(env, api<Writefile>);
     exports_fs["readFile"] = Napi::Function::New(env, api<Readfile>);
     exports_fs["readdir"] = Napi::Function::New(env, api<Readdir>);
@@ -1017,4 +995,4 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports["fs"] = exports_fs;
 }
 
-}
+} // namespace noobaa

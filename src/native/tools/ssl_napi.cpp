@@ -109,7 +109,13 @@ public:
     static void init(Napi::Env env)
     {
         Napi::HandleScope scope(env);
-        Napi::Function func = HASHER_ARGS::DefineClass(env, ALG, { HASHER_ARGS::InstanceMethod("update", &HASHER_ARGS::update), HASHER_ARGS::InstanceMethod("digest", &HASHER_ARGS::digest) });
+        Napi::Function func = HASHER_ARGS::DefineClass(
+            env,
+            ALG,
+            {
+                HASHER_ARGS::InstanceMethod("update", &HASHER_ARGS::update),
+                HASHER_ARGS::InstanceMethod("digest", &HASHER_ARGS::digest),
+            });
         constructor = Napi::Persistent(func);
         constructor.SuppressDestruct();
     }

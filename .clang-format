@@ -3,24 +3,26 @@ BasedOnStyle: LLVM
 UseTab: Never
 TabWidth: 4
 IndentWidth: 4
-ContinuationIndentWidth: 4
 ColumnLimit: 0
+AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+Cpp11BracedListStyle: false
+SpaceBeforeCpp11BracedList: false
 SortIncludes: true
 SortUsingDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
-AccessModifierOffset: -4
-ConstructorInitializerAllOnOneLineOrOnePerLine: true
 FixNamespaceComments: true
 NamespaceIndentation: Inner
 PointerAlignment: Left
-Cpp11BracedListStyle: false
 # IndentPPDirectives: AfterHash
 
-AlignOperands: false
+AlignOperands: DontAlign
+AlignAfterOpenBracket: DontAlign
+AlignEscapedNewlines: Left
 AlignTrailingComments: false
-AlignAfterOpenBracket: AlwaysBreak
-AlignEscapedNewlinesLeft: true
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 
@@ -33,6 +35,27 @@ AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: true
+AllowAllConstructorInitializersOnNextLine: true
+AllowAllArgumentsOnNextLine: true
 
-BreakBeforeBraces: Linux
+BreakInheritanceList: BeforeComma
 BreakConstructorInitializers: BeforeComma
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: true
+  AfterUnion: true
+  AfterClass: true
+  AfterStruct: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterExternBlock: true
+  AfterCaseLabel: false
+  AfterControlStatement: Never
+  BeforeElse: false
+  BeforeWhile: false
+  BeforeCatch: false
+  IndentBraces: false
+  BeforeLambdaBody: false
+  SplitEmptyRecord: false
+  SplitEmptyFunction: false
+  SplitEmptyNamespace: false

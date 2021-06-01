@@ -679,7 +679,7 @@ async function update_buckets(req) {
     };
     let update_events = [];
     let update_alerts = [];
-    dbg.log0(`update buckets: updating wit params:`, req.rpc_params);
+    dbg.log0(`update buckets: updating with params:`, req.rpc_params);
     for (const update_request of req.rpc_params) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&

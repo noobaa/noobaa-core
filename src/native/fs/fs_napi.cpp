@@ -3,6 +3,7 @@
 #include "../util/common.h"
 #include "../util/napi.h"
 #include "../util/os.h"
+#include "../util/buf.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -16,6 +17,7 @@
 #include <typeinfo>
 #include <unistd.h>
 #include <uv.h>
+#include <sys/xattr.h>
 #include <vector>
 
 namespace noobaa
@@ -54,6 +56,7 @@ struct Entry
     ino_t ino;
     uint8_t type;
 };
+
 
 template <typename T>
 static Napi::Value
@@ -223,6 +226,7 @@ struct Stat : public FSWorker
         _deferred.Resolve(res);
     }
 };
+
 
 /**
  * CheckAccess is an fs op
@@ -417,18 +421,23 @@ struct Writefile : public FSWorker
     std::string _path;
     const uint8_t* _data;
     size_t _len;
+    mode_t _mode;
     Writefile(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _mode(0666)
     {
         _path = info[1].As<Napi::String>();
         auto buf = info[2].As<Napi::Buffer<uint8_t>>();
         _data = buf.Data();
         _len = buf.Length();
-        Begin(XSTR() << "Writefile " << DVAL(_path) << DVAL(_len));
+        if (info.Length() > 3 && !info[3].IsUndefined()) {
+            _mode = info[3].As<Napi::Number>().Uint32Value();
+        }
+        Begin(XSTR() << "Writefile " << DVAL(_path) << DVAL(_len) << DVAL(_mode));
     }
     virtual void Work()
     {
-        int fd = open(_path.c_str(), O_WRONLY | O_CREAT);
+        int fd = open(_path.c_str(), O_TRUNC | O_CREAT | O_WRONLY, _mode);
         if (fd < 0) {
             SetSyscallError();
             return;
@@ -600,6 +609,8 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::read>("read"),
                 InstanceMethod<&FileWrap::write>("write"),
                 InstanceMethod<&FileWrap::writev>("writev"),
+                InstanceMethod<&FileWrap::setxattr>("setxattr"),
+                InstanceMethod<&FileWrap::getxattr>("getxattr"),
             }));
         constructor.SuppressDestruct();
     }
@@ -618,6 +629,8 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value read(const Napi::CallbackInfo& info);
     Napi::Value write(const Napi::CallbackInfo& info);
     Napi::Value writev(const Napi::CallbackInfo& info);
+    Napi::Value setxattr(const Napi::CallbackInfo& info);
+    Napi::Value getxattr(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -788,6 +801,148 @@ struct FileWritev : public FSWrapWorker<FileWrap>
     }
 };
 
+/**
+ * TODO: Not atomic and might cause partial updates of MD
+ */
+struct FileSetxattr : public FSWrapWorker<FileWrap>
+{
+    std::map<std::string, std::string> _md;
+    FileSetxattr(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        auto md = info[1].As<Napi::Object>();
+        auto keys = md.GetPropertyNames();
+        for (uint32_t i = 0; i < keys.Length(); ++i) {
+            auto key = keys.Get(i).ToString().Utf8Value();
+            auto value = md.Get(key).ToString().Utf8Value();
+            _md[key] = value;
+        }
+        Begin(XSTR() << "FileSetxattr " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        for (auto it = _md.begin(); it != _md.end(); ++it) {
+            #ifdef __APPLE__
+                auto r = fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0, 0);
+            #else
+                auto r = fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0);
+            #endif
+            if (r == -1) {
+                SetSyscallError();
+                return;
+            }
+        }
+    }
+};
+
+struct FileGetxattr : public FSWrapWorker<FileWrap>
+{
+    std::map<std::string, std::string> _md;
+    FileGetxattr(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        Begin(XSTR() << "FileGetxattr " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        // Serves as a "lock" mechanism when reading the xattrs of a file
+        // Since this is non atomic operation, we abort if ctime of file changed
+        struct stat stat_res;
+        auto r = fstat(fd, &stat_res);
+        if (r) {
+            SetSyscallError();
+            return;
+        }
+        auto start_ctime = stat_res.st_ctime;
+
+        #ifdef __APPLE__
+            ssize_t buf_len = flistxattr(fd, NULL, 0, 0);
+        #else
+            ssize_t buf_len = flistxattr(fd, NULL, 0);
+        #endif
+
+        // No xattr, nothing to do  
+        if (buf_len == 0) return;
+
+        if (buf_len == -1) {
+            SetSyscallError();
+            return;
+        }
+
+        Buf buf(buf_len);
+
+        #ifdef __APPLE__
+            buf_len = flistxattr(fd, buf.cdata(), buf_len, 0);
+        #else
+            buf_len = flistxattr(fd, buf.cdata(), buf_len);
+        #endif
+
+        if (buf_len == -1) {
+            SetSyscallError();
+            return;
+        }
+
+        while (buf.length()) {
+            std::string key(buf.cdata());
+
+            #ifdef __APPLE__
+                ssize_t value_len = fgetxattr(fd, key.c_str(), NULL, 0, 0, 0);
+            #else
+                ssize_t value_len = fgetxattr(fd, key.c_str(), NULL, 0);
+            #endif
+
+            if (value_len == -1) {
+                SetSyscallError();
+                return;
+            }
+
+            if (value_len > 0) {
+                Buf val(value_len);
+
+                #ifdef __APPLE__
+                    value_len = fgetxattr(fd, key.c_str(), val.cdata(), value_len, 0, 0);
+                #else
+                    value_len = fgetxattr(fd, key.c_str(), val.cdata(), value_len);
+                #endif
+
+                if (value_len == -1) {
+                    SetSyscallError();
+                    return;
+                }
+                
+                _md[key] = std::string(val.cdata(), value_len);
+            } else if (value_len == 0) {
+                _md[key] = "";
+            }
+
+            buf.slice(key.size() + 1, buf.length());
+        }
+
+        r = fstat(fd, &stat_res);
+        if (r) {
+            SetSyscallError();
+            return;
+        }
+        auto end_ctime = stat_res.st_ctime;
+        if (start_ctime != end_ctime) {
+            // Cancel on ctime change due to non atomic nature of this call
+            SetError(XSTR() << "FileGetxattr: " << DVAL(_wrap->_path) << " cancelled due to ctime change");
+        }
+    }
+    virtual void OnOK()
+    {
+        DBG1("FS::FSWorker::OnOK: FileGetxattr " << DVAL(_wrap->_path));
+        Napi::Env env = Env();
+        Napi::Object res = Napi::Object::New(env);
+        for (auto it = _md.begin(); it != _md.end(); ++it) {
+            res.Set(it->first, it->second);
+        }
+        _deferred.Resolve(res);
+    }
+};
+
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
 {
@@ -810,6 +965,18 @@ Napi::Value
 FileWrap::writev(const Napi::CallbackInfo& info)
 {
     return api<FileWritev>(info);
+}
+
+Napi::Value
+FileWrap::setxattr(const Napi::CallbackInfo& info)
+{
+    return api<FileSetxattr>(info);
+}
+
+Napi::Value
+FileWrap::getxattr(const Napi::CallbackInfo& info)
+{
+    return api<FileGetxattr>(info);
 }
 
 /**

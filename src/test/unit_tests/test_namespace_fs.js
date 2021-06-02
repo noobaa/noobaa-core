@@ -13,6 +13,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const test_ns_list_objects = require('./test_ns_list_objects');
 const _ = require('lodash');
 const P = require('../../util/promise');
+const s3_utils = require('../../endpoint/s3/s3_utils');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -165,12 +166,15 @@ mocha.describe('namespace_fs', function() {
     mocha.describe('upload_object', function() {
 
         const upload_key = 'upload_key_1';
+        const xattr = { key: 'value', key2: 'value2' };
+        xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
 
         mocha.it('upload, read, delete of a small object', async function() {
             const data = crypto.randomBytes(100);
             const upload_res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: upload_key,
+                xattr,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
@@ -184,6 +188,13 @@ mocha.describe('namespace_fs', function() {
             const read_data = read_res.join();
             assert.strictEqual(Buffer.compare(read_data, data), 0);
 
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key,
+            }, dummy_object_sdk);
+            console.log('read_object_md response', inspect(md));
+            assert.deepStrictEqual(xattr, md.xattr);
+
             const delete_res = await ns_tmp.delete_object({
                 bucket: upload_bkt,
                 key: upload_key,
@@ -195,6 +206,8 @@ mocha.describe('namespace_fs', function() {
     mocha.describe('multipart upload', function() {
 
         const mpu_key = 'mpu_upload';
+        const xattr = { key: 'value', key2: 'value2' };
+        xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
 
         mocha.it('upload, read, delete a small multipart object', async function() {
             this.timeout(20000); // eslint-disable-line no-invalid-this
@@ -202,6 +215,7 @@ mocha.describe('namespace_fs', function() {
             const create_res = await ns_tmp.create_object_upload({
                 bucket: mpu_bkt,
                 key: mpu_key,
+                xattr,
             }, dummy_object_sdk);
             console.log('create_object_upload response', inspect(create_res));
 
@@ -236,8 +250,6 @@ mocha.describe('namespace_fs', function() {
             console.log('list_uploads response', inspect(list1_res));
             // TODO list_uploads is not implemented
             assert.deepStrictEqual(list1_res.objects, []);
-            // assert.strictEqual(list1_res.objects.length, 1);
-            // assert.strictEqual(list1_res.objects[0].key, mpu_key);
 
             const complete_res = await ns_tmp.complete_object_upload({
                 obj_id,
@@ -265,6 +277,13 @@ mocha.describe('namespace_fs', function() {
             //         `i=${i} read=${read_data[i].toString(16)}, data=${data[i].toString(16)}`);
             // }
             assert.strictEqual(Buffer.compare(read_data, data), 0);
+
+            const md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+            }, dummy_object_sdk);
+            console.log('read_object_md response', inspect(md));
+            assert.deepStrictEqual(xattr, md.xattr);
 
             const delete_res = await ns_tmp.delete_object({
                 bucket: mpu_bkt,

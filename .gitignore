@@ -1,10 +1,9 @@
 # BUILD
-node_modules/
-bower_components/
+/node_modules/
 /build/
 /coverage/
 /.nyc_output/
-noobaa.rpm
+/noobaa.rpm
 
 ## TEST
 /metadata_storage*
@@ -13,22 +12,20 @@ noobaa.rpm
 /agent_conf*.json*
 
 ## LOGS
+/logs/
+/npm-debug.log*
 *.log
-logs/
-npm-debug.log*
 
 ## IDE
-.vscode/
-.idea/
-*.sublime*
-*.iml
-tags
+/.vscode/
+/.idea/
+/*.sublime*
 
 ## DEVELOPER
 /config-local.js
 /.env
+/heapdump-*
 *.pem
-heapdump-*
 .DS_Store
 # custom ignored files - use .IGNORE or any prefix.IGNORE dir/file name to remove from git
 *.IGNORE 

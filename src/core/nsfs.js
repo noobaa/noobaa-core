@@ -9,6 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
+const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
@@ -41,6 +42,7 @@ Options:
     --https_port <port>    (default 6443)           Set the S3 endpoint listening HTTPS port to serve.
     --uid <uid>            (default process uid)    Send requests to the Filesystem with uid.
     --gid <gid>            (default process gid)    Send requests to the Filesystem with gid.
+    --debug <level>        (default 0)              Increase debug level
 `;
 
 const WARNINGS = `
@@ -65,6 +67,11 @@ function print_usage() {
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
         if (argv.help || argv.h) return print_usage();
+        if (argv.debug) {
+            const debug_level = Number(argv.debug) || 5;
+            dbg.set_level(debug_level, 'core');
+            nb_native().fs.set_debug_level(debug_level);
+        }
         const http_port = Number(argv.http_port) || 6001;
         const https_port = Number(argv.https_port) || 6443;
         const fs_root = argv._[0];

@@ -1,11 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 #pragma once
 
-#include "../util/common.h"
+#include <sys/types.h>
 
-#include <unistd.h>
+namespace noobaa
+{
 
 // see os_linux.cpp and os_darwin.cpp
+
+pid_t get_current_tid();
+uid_t get_current_uid();
 
 /**
  * ThreadScope should be created on stack in a thread.
@@ -34,9 +38,6 @@ public:
         change_user();
     }
 
-    pid_t get_current_tid();
-    uid_t get_current_uid();
-
     const static uid_t orig_uid;
     const static gid_t orig_gid;
 
@@ -46,3 +47,5 @@ private:
     uid_t _uid;
     gid_t _gid;
 };
+
+} // namespace noobaa

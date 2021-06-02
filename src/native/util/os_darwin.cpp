@@ -1,8 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 #ifdef __APPLE__
 
-#include "os.h"
+#include "common.h"
 #include <sys/kauth.h> // for KAUTH_UID_NONE
+
+namespace noobaa
+{
 
 /**
  * get the effective uid/gid of the current thread using pthread_getugid_np()
@@ -16,23 +19,23 @@ static auto _mac_thread_getugid = pthread_getugid_np;
 static auto _mac_thread_setugid = pthread_setugid_np;
 #pragma GCC diagnostic pop
 
-const uid_t ThreadScope::orig_uid = getuid();
-const gid_t ThreadScope::orig_gid = getgid();
-
 pid_t
-ThreadScope::get_current_tid()
+get_current_tid()
 {
     return pthread_mach_thread_np(pthread_self());
 }
 
 uid_t
-ThreadScope::get_current_uid()
+get_current_uid()
 {
     uid_t uid;
     gid_t gid;
     MUST_SYS(_mac_thread_getugid(&uid, &gid));
     return uid;
 }
+
+const uid_t ThreadScope::orig_uid = getuid();
+const gid_t ThreadScope::orig_gid = getgid();
 
 void
 ThreadScope::change_user()
@@ -49,5 +52,7 @@ ThreadScope::restore_user()
         MUST_SYS(_mac_thread_setugid(KAUTH_UID_NONE, KAUTH_UID_NONE));
     }
 }
+
+} // namespace noobaa
 
 #endif

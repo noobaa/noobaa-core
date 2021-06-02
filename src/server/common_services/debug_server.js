@@ -9,6 +9,7 @@ const stream = require('stream');
 const dbg = require('../../util/debug_module')(__filename);
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
 const coverage_utils = require('../../util/coverage_utils');
 
@@ -22,6 +23,7 @@ const FE_DUMP_DIR_SIZE_LIMIT = 40 * (1024 ** 2); // 40MB
 function set_debug_level(req) {
     dbg.log0('Received set_debug_level req for level', req.rpc_params.level, 'mod', req.rpc_params.module);
     dbg.set_level(req.rpc_params.level, req.rpc_params.module);
+    nb_native().fs.set_debug_level(req.rpc_params.level);
 }
 
 function get_coverage_data(req) {

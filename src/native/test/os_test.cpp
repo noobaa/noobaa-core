@@ -3,7 +3,9 @@
  * $ node-gyp -C src/native/test/ rebuild
  * $ sudo src/native/test/build/Release/os_test
  */
-#include "../util/os.h"
+#include "../util/common.h"
+
+using namespace noobaa;
 
 void*
 thread_main(void* data)
@@ -12,7 +14,7 @@ thread_main(void* data)
     for (int i = 0; i < 1000; ++i) {
         ThreadScope tx;
         tx.set_user(2000, 500);
-        LOG("thread tid " << tx.get_current_tid() << " uid " << tx.get_current_uid());
+        LOG("thread tid " << get_current_tid() << " uid " << get_current_uid());
         usleep(1);
     }
     return 0;
@@ -30,7 +32,7 @@ main()
     for (int i = 0; i < 1000; ++i) {
         ThreadScope tx;
         tx.set_user(1000, 500);
-        LOG("main tid " << tx.get_current_tid() << " uid " << tx.get_current_uid());
+        LOG("main tid " << get_current_tid() << " uid " << get_current_uid());
         usleep(1);
     }
 

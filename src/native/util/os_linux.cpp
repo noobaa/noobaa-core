@@ -1,25 +1,28 @@
 /* Copyright (C) 2016 NooBaa */
 #ifdef __linux__
 
-#include "os.h"
+#include "common.h"
 
 #include <sys/syscall.h>
 #include <sys/types.h>
 
-const uid_t ThreadScope::orig_uid = getuid();
-const gid_t ThreadScope::orig_gid = getgid();
+namespace noobaa
+{
 
 pid_t
-ThreadScope::get_current_tid()
+get_current_tid()
 {
     return syscall(SYS_gettid);
 }
 
 uid_t
-ThreadScope::get_current_uid()
+get_current_uid()
 {
     return syscall(SYS_geteuid);
 }
+
+const uid_t ThreadScope::orig_uid = getuid();
+const gid_t ThreadScope::orig_gid = getgid();
 
 /**
  * set the effective uid/gid of the current thread using direct syscalls -
@@ -45,5 +48,7 @@ ThreadScope::restore_user()
         MUST_SYS(syscall(SYS_setresgid, -1, orig_gid, -1));
     }
 }
+
+} // namespace noobaa
 
 #endif

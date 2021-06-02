@@ -99,14 +99,8 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void Work() = 0;
     void Execute() override
     {
+        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
-        _tid = tx.get_current_tid();
-        DBG1("FS::FSWorker::Execute: "
-            << _desc
-            << " tid:" << _tid
-            << " uid:" << _uid
-            << " gid:" << _gid
-            << " backend:" << _backend);
         tx.set_user(_uid, _gid);
         Work();
     }
@@ -280,7 +274,7 @@ struct Unlinkat : public FSWorker
         _dirfd = info[1].As<Napi::Number>();
         _path = info[2].As<Napi::String>();
         _flags = info[3].As<Napi::Number>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << DVAL(_path) << DVAL(_dirfd) << DVAL(_flags));
     }
     virtual void Work()
     {
@@ -331,7 +325,7 @@ struct Linkat : public FSWorker
         _newdirfd = info[3].As<Napi::Number>();
         _newpath = info[4].As<Napi::String>();
         _flags = info[5].As<Napi::Number>();
-        Begin(XSTR() << DVAL(_oldpath) << DVAL(_newpath));
+        Begin(XSTR() << DVAL(_oldpath) << DVAL(_olddirfd) << DVAL(_newpath) << DVAL(_newdirfd) << DVAL(_flags));
     }
     virtual void Work()
     {
@@ -355,7 +349,7 @@ struct Mkdir : public FSWorker
         if (info.Length() > 2 && !info[2].IsUndefined()) {
             _mode = info[2].As<Napi::Number>().Uint32Value();
         }
-        Begin(XSTR() << "Mkdir " << DVAL(_path));
+        Begin(XSTR() << "Mkdir " << DVAL(_path) << DVAL(_mode));
     }
     virtual void Work()
     {
@@ -636,7 +630,7 @@ struct FileOpen : public FSWorker
         if (info.Length() > 3 && !info[3].IsUndefined()) {
             _mode = info[3].As<Napi::Number>().Uint32Value();
         }
-        Begin(XSTR() << "FileOpen " << DVAL(_path));
+        Begin(XSTR() << "FileOpen " << DVAL(_path) << DVAL(_flags) << DVAL(_mode));
     }
     virtual void Work()
     {
@@ -659,7 +653,7 @@ struct FileClose : public FSWrapWorker<FileWrap>
     FileClose(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
     {
-        Begin(XSTR() << "FileClose " << DVAL(_wrap->_path));
+        Begin(XSTR() << "FileClose " << DVAL(_wrap->_path) << DVAL(_wrap->_fd));
     }
     virtual void Work()
     {
@@ -674,9 +668,9 @@ struct FileClose : public FSWrapWorker<FileWrap>
 struct FileRead : public FSWrapWorker<FileWrap>
 {
     uint8_t* _buf;
-    off_t _offset;
+    int _offset;
     int _len;
-    int _pos;
+    off_t _pos;
     ssize_t _br;
     FileRead(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
@@ -691,7 +685,7 @@ struct FileRead : public FSWrapWorker<FileWrap>
         _offset = info[2].As<Napi::Number>();
         _len = info[3].As<Napi::Number>();
         _pos = info[4].As<Napi::Number>();
-        Begin(XSTR() << "FileRead " << DVAL(_wrap->_path));
+        Begin(XSTR() << "FileRead " << DVAL(_wrap->_path) << DVAL(_wrap->_fd) << DVAL(_pos) << DVAL(_offset) << DVAL(_len));
     }
     virtual void Work()
     {
@@ -727,7 +721,7 @@ struct FileWrite : public FSWrapWorker<FileWrap>
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
         _len = buf.Length();
-        Begin(XSTR() << "FileWrite " << DVAL(_wrap->_path));
+        Begin(XSTR() << "FileWrite " << DVAL(_wrap->_path) << DVAL(_len));
     }
     virtual void Work()
     {
@@ -755,6 +749,7 @@ struct FileWritev : public FSWrapWorker<FileWrap>
     {
         auto buffers = info[1].As<Napi::Array>();
         const int buffers_len = buffers.Length();
+        int total_len = 0;
         iov_vec.resize(buffers_len);
         struct iovec iov;
         for (int i = 0; i < buffers_len; ++i) {
@@ -763,8 +758,9 @@ struct FileWritev : public FSWrapWorker<FileWrap>
             iov.iov_base = buf.Data();
             iov.iov_len = buf.Length();
             iov_vec[i] = iov;
+            total_len += iov.iov_len;
         }
-        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path));
+        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path) << DVAL(total_len) << DVAL(buffers_len));
     }
     virtual void Work()
     {
@@ -957,7 +953,8 @@ DirWrap::read(const Napi::CallbackInfo& info)
 Napi::Value
 set_debug_level(const Napi::CallbackInfo& info)
 {
-    auto level = info[0].As<Napi::Number>();
+    int level = info[0].As<Napi::Number>();
+    LOG("FS::set_debug_level " << level);
     DBG_SET_LEVEL(level);
     return info.Env().Undefined();
 }

@@ -2,6 +2,7 @@
 'use strict';
 
 const stream = require('stream');
+const dbg = require('./debug_module')(__filename);
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
@@ -189,6 +190,7 @@ class BuffersPool {
      * }>}
      */
     async get_buffer(len) {
+        dbg.log1('BufferPool.get_buffer', this);
         let buffer = null;
         let should_release = 0;
         let should_pool = false;

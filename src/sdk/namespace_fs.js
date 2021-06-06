@@ -124,6 +124,7 @@ class NamespaceFS {
      * }} params
      */
     constructor({ bucket_path, fs_backend, bucket_id }) {
+        console.log('NamespaceFS: buffers_pool', buffers_pool);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
@@ -562,19 +563,24 @@ class NamespaceFS {
     async _copy_stream(source_file_path, upload_path, fs_account_config) {
         let target_file;
         let source_file;
+        let buffer_pool_cleanup = null;
         try {
             //Opening the source and target files
             source_file = await nb_native().fs.open(fs_account_config, source_file_path);
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
             //Reading the source_file and writing into the target_file
-            const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
             let read_pos = 0;
             for (;;) {
+                const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+                buffer_pool_cleanup = callback;
                 const bytesRead = await source_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                 if (!bytesRead) break;
                 read_pos += bytesRead;
                 const data = buffer.slice(0, bytesRead);
                 await target_file.write(fs_account_config, data);
+                // Returns the buffer to pool to avoid starvation
+                buffer_pool_cleanup = null;
+                callback();
             }
             //Closing the source_file and target files
             await source_file.close(fs_account_config);
@@ -585,6 +591,12 @@ class NamespaceFS {
             console.error('Failed to copy object', e);
             throw e;
         } finally {
+            try {
+                // release buffer back to pool if needed
+                if (buffer_pool_cleanup) buffer_pool_cleanup();
+            } catch (err) {
+                console.warn('NamespaceFS: upload_object - copy_source buffer pool cleanup error', err);
+            }
             try {
                 if (source_file) await source_file.close(fs_account_config);
                 if (target_file) await target_file.close(fs_account_config);
@@ -702,6 +714,7 @@ class NamespaceFS {
     async complete_object_upload(params, object_sdk) {
         let read_file;
         let write_file;
+        let buffer_pool_cleanup = null;
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         try {
             const { multiparts = [] } = params;
@@ -718,14 +731,18 @@ class NamespaceFS {
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
                 read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
-                const { buffer } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                 let read_pos = 0;
                 for (;;) {
+                    const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+                    buffer_pool_cleanup = callback;
                     const bytesRead = await read_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                     if (!bytesRead) break;
                     read_pos += bytesRead;
                     const data = buffer.slice(0, bytesRead);
                     await write_file.write(fs_account_config, data);
+                    // Returns the buffer to pool to avoid starvation
+                    buffer_pool_cleanup = null;
+                    callback();
                 }
                 await read_file.close(fs_account_config);
                 read_file = null;
@@ -740,6 +757,12 @@ class NamespaceFS {
             console.error(err);
             throw this._translate_object_error_codes(err);
         } finally {
+            try {
+                // release buffer back to pool if needed
+                if (buffer_pool_cleanup) buffer_pool_cleanup();
+            } catch (err) {
+                console.warn('NamespaceFS: complete_object_upload buffer pool cleanup error', err);
+            }
             try {
                 if (read_file) await read_file.close(fs_account_config);
                 if (write_file) await write_file.close(fs_account_config);

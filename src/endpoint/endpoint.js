@@ -34,6 +34,8 @@ const server_rpc = require('../server/server_rpc');
 const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const background_scheduler = require('../util/background_scheduler').get_instance();
+const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 
 /**
  * @typedef {http.IncomingMessage & {
@@ -130,6 +132,14 @@ async function start_endpoint(options = {}) {
 
         await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
 
+        if (internal_rpc_client) {
+            // Register a bg monitor on the endpoint
+            background_scheduler.register_bg_worker(new NamespaceMonitor({
+                name: 'namespace_fs_monitor',
+                client: internal_rpc_client,
+                should_monitor: nsr => Boolean(nsr.nsfs_config),
+            }));
+        }
         // Start a monitor to send periodic endpoint reports about endpoint usage.
         start_monitor(internal_rpc_client, endpoint_group_id);
 

@@ -35,8 +35,8 @@ mocha.describe('namespace_fs', function() {
     const ns_src_bucket_path = `./${src_bkt}`;
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
-    const ns_src = new NamespaceFS({ bucket_path: ns_src_bucket_path, bucket_id: '1'});
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2'});
+    const ns_src = new NamespaceFS({ bucket_path: ns_src_bucket_path, bucket_id: '1', namespace_resource_id: undefined });
+    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
 
     mocha.before(async () => {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
@@ -413,7 +413,7 @@ mocha.describe('namespace_fs copy object', function() {
 
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '3'});
+    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '3', namespace_resource_id: undefined });
 
     mocha.before(async () => {
         await P.all(_.map([src_bkt, upload_bkt], async buck =>

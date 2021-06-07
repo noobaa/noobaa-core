@@ -31,7 +31,7 @@ class Background_Scheduler {
     // so that it won't prevent the process from existing if it's the only timer left
     run_background_worker(worker) {
         const self = this;
-        const DEFUALT_DELAY = 10000;
+        const DEFAULT_DELAY = 10000;
         this.workers_by_name_cache[worker.name] = worker;
 
         function run() {
@@ -40,10 +40,10 @@ class Background_Scheduler {
                         return worker.run_batch();
                     })
                     .then(function(delay) {
-                        return P.delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
+                        return P.delay_unblocking(delay || worker.delay || DEFAULT_DELAY);
                     }, function(err) {
                         dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
-                        return P.delay_unblocking(worker.delay || DEFUALT_DELAY);
+                        return P.delay_unblocking(worker.delay || DEFAULT_DELAY);
                     })
                     .then(run);
             }
@@ -51,7 +51,7 @@ class Background_Scheduler {
         dbg.log('run_background_worker:', 'INIT', worker.name);
         let initial_delay = 0;
         if (!worker.run_immediate) {
-            initial_delay = worker.boot_delay || worker.delay || DEFUALT_DELAY;
+            initial_delay = worker.boot_delay || worker.delay || DEFAULT_DELAY;
         }
         P.delay_unblocking(initial_delay).then(run);
         return worker;
@@ -64,6 +64,19 @@ class Background_Scheduler {
         } else {
             dbg.log('remove_background_worker:', 'NO SUCH WORKER', worker_name);
         }
+    }
+
+    register_bg_worker(worker, run_batch_function) {
+        dbg.log0('Registering', worker.name, 'bg worker');
+        if (run_batch_function) {
+            worker.run_batch = run_batch_function;
+        }
+        const isFunction = typeof worker.run_batch;
+        if (!worker.name || isFunction !== 'function') {
+            console.error('Name and run function must be supplied for registering bg worker', worker.name);
+            throw new Error('Name and run function must be supplied for registering bg worker ' + worker.name);
+        }
+        this.run_background_worker(worker);
     }
 }
 

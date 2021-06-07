@@ -252,7 +252,7 @@ async function create_namespace_resource(req) {
     if (req.rpc_params.nsfs_config) {
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config);
         const already_used_by = system_store.data.namespace_resources.find(cur_nsr => cur_nsr.nsfs_config &&
-                (cur_nsr.nsfs_config.fs_root_path === namespace_resource.nsfs_config.fs_root_path));
+            (cur_nsr.nsfs_config.fs_root_path === namespace_resource.nsfs_config.fs_root_path));
         if (already_used_by) {
             dbg.error(`fs root path ${already_used_by.nsfs_config.fs_root_path} already exported by ${already_used_by.name}`);
             throw new RpcError('IN_USE', 'Target already in use');
@@ -714,7 +714,7 @@ function delete_resource_pool(req, pool) {
     var pool_name = pool.name;
     return P.resolve()
         .then(() => {
-            const reason = check_resrouce_pool_deletion(pool);
+            const reason = check_resource_pool_deletion(pool);
             if (reason === 'IS_BACKINGSTORE') {
                 const account_roles = req.account.roles_by_system[req.system._id];
                 if (!account_roles.includes('operator')) {
@@ -1016,12 +1016,12 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
             auth_method: pool.cloud_pool_info.auth_method,
             created_by: pool.cloud_pool_info.access_keys.account_id.email
         }, _.isUndefined);
-        info.undeletable = check_resrouce_pool_deletion(pool);
+        info.undeletable = check_resource_pool_deletion(pool);
         info.mode = calc_cloud_pool_mode(p_nodes);
         info.is_managed = true;
     } else if (_is_mongo_pool(pool)) {
         info.mongo_info = {};
-        info.undeletable = check_resrouce_pool_deletion(pool);
+        info.undeletable = check_resource_pool_deletion(pool);
         info.mode = calc_mongo_pool_mode(p_nodes);
         info.is_managed = true;
     } else {
@@ -1048,24 +1048,24 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
 
 function get_namespace_resource_info(namespace_resource) {
     const connection_info = namespace_resource.connection && {
-            endpoint_type: namespace_resource.connection.endpoint_type,
-            endpoint: namespace_resource.connection.endpoint,
-            auth_method: namespace_resource.connection.auth_method,
-            cp_code: namespace_resource.connection.cp_code || undefined,
-            target_bucket: namespace_resource.connection.target_bucket,
-            identity: namespace_resource.connection.access_key,
+        endpoint_type: namespace_resource.connection.endpoint_type,
+        endpoint: namespace_resource.connection.endpoint,
+        auth_method: namespace_resource.connection.auth_method,
+        cp_code: namespace_resource.connection.cp_code || undefined,
+        target_bucket: namespace_resource.connection.target_bucket,
+        identity: namespace_resource.connection.access_key,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
         fs_root_path: namespace_resource.nsfs_config.fs_root_path,
         fs_backend: namespace_resource.nsfs_config.fs_backend
     };
     const info = _.omitBy({
-            ...connection_info,
-            ...nsfs_info,
-            name: namespace_resource.name,
-            mode: calc_namespace_resource_mode(namespace_resource),
-            undeletable: check_namespace_resource_deletion(namespace_resource)
-        }, _.isUndefined);
+        ...connection_info,
+        ...nsfs_info,
+        name: namespace_resource.name,
+        mode: calc_namespace_resource_mode(namespace_resource),
+        undeletable: check_namespace_resource_deletion(namespace_resource)
+    }, _.isUndefined);
     return info;
 }
 
@@ -1073,8 +1073,9 @@ function calc_namespace_resource_mode(namespace_resource) {
     const map_err_to_type_count = {
         ContainerNotFound: 'storage_not_exist',
         NoSuchBucket: 'storage_not_exist',
+        ENOENT: 'storage_not_exist',
         AccessDenied: 'auth_failed',
-        AuthenticationFailed: 'auth_failed'
+        AuthenticationFailed: 'auth_failed',
     };
 
     const errors_count = _.reduce(namespace_resource.issues_report, (acc, issue) => {
@@ -1125,15 +1126,15 @@ function set_namespace_store_info(req) {
     return system_store.make_changes({
         update: {
             namespace_resources: [{
-                    _id: namespace_resource._id,
-                    $set: {
-                        namespace_store: {
-                            name: req.rpc_params.name,
-                            namespace: req.rpc_params.namespace,
-                            need_k8s_sync: false
-                        }
+                _id: namespace_resource._id,
+                $set: {
+                    namespace_store: {
+                        name: req.rpc_params.name,
+                        namespace: req.rpc_params.namespace,
+                        need_k8s_sync: false
                     }
-                }]
+                }
+            }]
         }
     });
 }
@@ -1260,7 +1261,7 @@ function check_pool_deletion(pool) {
 }
 
 
-function check_resrouce_pool_deletion(pool) {
+function check_resource_pool_deletion(pool) {
     //Verify pool is not used by any bucket/tier
     if (has_associated_buckets_int(pool, { exclude_deleting_buckets: true })) {
         return 'IN_USE';
@@ -1384,15 +1385,16 @@ function update_issues_report(req) {
     if (cur_issues_report.length === 10) {
         cur_issues_report.shift();
     }
-    cur_issues_report.push({error_code, time});
+    cur_issues_report.push({ error_code, time });
     const updates = { issues_report: cur_issues_report };
     if (monitoring) updates.last_monitoring = time;
 
     return system_store.make_changes({
-        update: { namespace_resources: [{
-                    _id: ns_resource._id,
-                    $set: updates
-                }]
+        update: {
+            namespace_resources: [{
+                _id: ns_resource._id,
+                $set: updates
+            }]
         }
     });
 }

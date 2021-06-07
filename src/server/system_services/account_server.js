@@ -385,7 +385,8 @@ function update_account_s3_access(req) {
         }
 
         if (req.rpc_params.nsfs_account_config && _.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
-            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path) {
+            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path &&
+            _.isUndefined(req.rpc_params.nsfs_account_config.nsfs_only)) {
             throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
         }
 

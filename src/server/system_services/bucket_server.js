@@ -149,6 +149,7 @@ async function create_bucket(req) {
         changes.insert.tiers = [tier];
     }
 
+    validate_non_nsfs_bucket_creation(req);
     validate_nsfs_bucket(req);
 
     let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
@@ -1875,6 +1876,23 @@ async function put_object_lock_configuration(req) {
             }]
         }
     });
+}
+
+// account with nsfs_config.nsfs_only = true - should not be allowed to create non nsfs buckets
+function validate_non_nsfs_bucket_creation(req) {
+    const nsfs_account_config = req.account && req.account.nsfs_account_config;
+    dbg.log0('validate_non_nsfs_bucket_create_allowed:', nsfs_account_config, req.rpc_params.namespace);
+    if (!nsfs_account_config || !nsfs_account_config.nsfs_only) return;
+
+    const nsr = req.rpc_params.namespace && req.system.namespace_resources_by_name &&
+        req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
+
+    dbg.log0('validate_non_nsfs_bucket_create_allowed: namespace_bucket_config', nsr && nsr.nsfs_config);
+
+    // non namespace bucket || non namespace fs bucket
+    if (!nsr || !nsr.nsfs_config) {
+        throw new RpcError('UNAUTHORIZED');
+    }
 }
 
 // EXPORTS

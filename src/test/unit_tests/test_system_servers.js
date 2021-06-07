@@ -151,7 +151,8 @@ mocha.describe('system_servers', function() {
             nsfs_account_config: {
                 uid: UID,
                 gid: GID,
-                new_buckets_path: '/test'
+                new_buckets_path: '/test',
+                nsfs_only: false
             }
         });
         await rpc_client.account.create_account({
@@ -167,7 +168,8 @@ mocha.describe('system_servers', function() {
             nsfs_account_config: {
                 uid: UID + 1,
                 gid: GID + 1,
-                new_buckets_path: '/test1'
+                new_buckets_path: '/test1',
+                nsfs_only: false
             }
         });
         const account_params = {

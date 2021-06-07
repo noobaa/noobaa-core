@@ -66,6 +66,10 @@ class Migrator {
         const start_index = this.migrate_status.collection_index;
         for (let i = start_index; i < this.collection_list.length; ++i) {
             const collection_name = this.collection_list[i].name;
+            if (collection_name === 'system_history') {
+                console.log(`skipping system_history collection migration due to possible heavy queries...`);
+                continue;
+            }
             this.migrate_status.collection_index = i;
             this.migrate_status.collection_name = collection_name;
             await P.retry({ attempts: 3, delay_ms: 10000, func: async () => this._migrate_collection(collection_name)});
@@ -85,11 +89,15 @@ class Migrator {
         let marker = this.migrate_status.marker;
         let total = 0;
         while (!done) {
+            console.log(`_migrate_collection: start searching docs in ${collection_name}`);
             const docs = await from_col.find({ _id: marker ? { $gt: marker } : undefined }, { limit: this.batch_size, sort: { _id: 1 }});
+            console.log(`_migrate_collection: found ${docs.length} docs in ${collection_name}`);
             if (docs.length > 0) {
                 try {
+                    console.log(`_migrate_collection: insertMany started`);
                     await to_col.insertManyUnordered(docs);
                 } catch (err) { // if duplicate key - continue
+                    console.log('_migrate_collection: failed with error: ', err);
                     if (err.code !== '23505') throw err;
                 }
                 total += docs.length;

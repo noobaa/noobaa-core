@@ -1,4 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
+/*eslint max-lines-per-function: ["error", 500]*/
 'use strict';
 
 
@@ -317,6 +318,39 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.strictEqual(err.code, 'AccessDenied');
         }
     });
+    mocha.it('upload object with wrong uid gid', async function() {
+        try {
+            const res = await s3_wrong_uid.upload({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+            console.log(inspect(res));
+            assert.fail('unpreviliged account could upload object on nsfs bucket');
+        } catch (err) {
+            assert.strictEqual(err.code, 'AccessDenied');
+        }
+    });
+    mocha.it('list parts with wrong uid gid', async function() {
+        // eslint-disable-next-line no-invalid-this
+        this.timeout(600000);
+
+        const res1 = await s3_correct_uid.createMultipartUpload({
+            Bucket: bucket_name,
+            Key: 'ob1.txt'
+        }).promise();
+        await s3_correct_uid.uploadPart({
+            Bucket: bucket_name,
+            Key: 'ob1.txt',
+            UploadId: res1.UploadId,
+            PartNumber: 1,
+            Body: 'AAAABBBBBCCCCCCDDDDD',
+        }).promise();
+        try {
+            // list_multiparts
+            const res = await s3_wrong_uid.listParts({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', UploadId: res1.UploadId }).promise();
+            console.log(inspect(res));
+            assert.fail('unpreviliged account could not list object parts on nsfs bucket');
+        } catch (err) {
+            assert.strictEqual(err.code, 'AccessDenied');
+        }
+    });
     mocha.it('put object with correct uid gid', async function() {
         const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD'}).promise();
         assert.ok(res && res.ETag);
@@ -326,6 +360,24 @@ mocha.describe('bucket operations - namespace_fs', function() {
             const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3'}).promise();
             console.log(inspect(res));
             assert.fail('unpreviliged account could delete bucket on nsfs: ');
+        } catch (err) {
+            assert.strictEqual(err.code, 'AccessDenied');
+        }
+    });
+    mocha.it('copy objects with wrong uid gid', async function() {
+        try {
+            const res = await s3_wrong_uid.copyObject({ Bucket: bucket_name + '-s3', Key: 'ob2.txt', CopySource: bucket_name + '-s3/ob1.txt' }).promise();
+            console.log(inspect(res));
+            assert.fail('unpreviliged account could copy objects on nsfs bucket');
+        } catch (err) {
+            assert.strictEqual(err.code, 'AccessDenied');
+        }
+    });
+    mocha.it('list objects with wrong uid gid', async function() {
+        try {
+            const res = await s3_wrong_uid.listObjects({ Bucket: bucket_name + '-s3' }).promise();
+            console.log(inspect(res));
+            assert.fail('unpreviliged account could list objects on nsfs bucket');
         } catch (err) {
             assert.strictEqual(err.code, 'AccessDenied');
         }

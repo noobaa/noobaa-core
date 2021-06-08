@@ -180,193 +180,196 @@ class NamespaceFS {
      * @param {ListParams} params 
      */
     async list_objects(params, object_sdk) {
+        try {
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_bucket(params, fs_account_config);
 
-        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
-        await this._load_bucket(params, fs_account_config);
+            const {
+                bucket,
+                delimiter = '',
+                prefix = '',
+                key_marker = '',
+            } = params;
 
-        const {
-            bucket,
-            delimiter = '',
-            prefix = '',
-            key_marker = '',
-        } = params;
-
-        if (delimiter && delimiter !== '/') {
-            throw new Error('NamespaceFS: Invalid delimiter ' + delimiter);
-        }
-
-        const limit = Math.min(1000, _.isUndefined(params.limit) ? 1000 : params.limit);
-        if (limit < 0) throw new Error('Limit must be a positive Integer');
-        // In case that we've received max-keys 0, we should return an empty reply without is_truncated
-        // This is used in order to follow aws spec and behaviour
-        if (!limit) return { is_truncated: false, objects: [], common_prefixes: [] };
-
-        let is_truncated = false;
-
-        /**
-         * @typedef {{
-         *  key: string,
-         *  common_prefix: boolean,
-         *  stat?: fs.Stats,
-         * }} Result
-         */
-
-        /** @type {Result[]} */
-        const results = [];
-
-        /**
-         * @param {string} dir_key
-         * @returns {Promise<void>}
-         */
-        const process_dir = async dir_key => {
-
-            // /** @type {fs.Dir} */
-            let dir_handle;
-
-            /** @type {ReaddirCacheItem} */
-            let cached_dir;
-
-            const dir_path = path.join(this.bucket_path, dir_key);
-
-            const prefix_dir = prefix.slice(0, dir_key.length);
-            const prefix_ent = prefix.slice(dir_key.length);
-            if (!dir_key.startsWith(prefix_dir)) {
-                // console.log(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
-                return;
+            if (delimiter && delimiter !== '/') {
+                throw new Error('NamespaceFS: Invalid delimiter ' + delimiter);
             }
 
-            const marker_dir = key_marker.slice(0, dir_key.length);
-            const marker_ent = key_marker.slice(dir_key.length);
-            // marker is after dir so no keys in this dir can apply
-            if (dir_key < marker_dir) {
-                // console.log(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
-                return;
-            }
-            // when the dir portion of the marker is completely below the current dir
-            // then every key in this dir satisfies the marker and marker_ent should not be used.
-            const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
+            const limit = Math.min(1000, _.isUndefined(params.limit) ? 1000 : params.limit);
+            if (limit < 0) throw new Error('Limit must be a positive Integer');
+            // In case that we've received max-keys 0, we should return an empty reply without is_truncated
+            // This is used in order to follow aws spec and behaviour
+            if (!limit) return { is_truncated: false, objects: [], common_prefixes: [] };
 
-            // console.log(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
+            let is_truncated = false;
 
             /**
-             * @param {fs.Dirent} ent
+             * @typedef {{
+             *  key: string,
+             *  common_prefix: boolean,
+             *  stat?: fs.Stats,
+             * }} Result
              */
-            const process_entry = async ent => {
 
-                // console.log('process_entry', dir_key, ent.name);
+            /** @type {Result[]} */
+            const results = [];
 
-                if (!ent.name.startsWith(prefix_ent) ||
-                    ent.name < marker_curr ||
-                    ent.name === this.get_bucket_tmpdir()) {
+            /**
+             * @param {string} dir_key
+             * @returns {Promise<void>}
+             */
+            const process_dir = async dir_key => {
+
+                // /** @type {fs.Dir} */
+                let dir_handle;
+
+                /** @type {ReaddirCacheItem} */
+                let cached_dir;
+
+                const dir_path = path.join(this.bucket_path, dir_key);
+
+                const prefix_dir = prefix.slice(0, dir_key.length);
+                const prefix_ent = prefix.slice(dir_key.length);
+                if (!dir_key.startsWith(prefix_dir)) {
+                    // console.log(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
                     return;
                 }
 
-                const r = {
-                    key: this._get_entry_key(dir_key, ent),
-                    common_prefix: isDirectory(ent),
+                const marker_dir = key_marker.slice(0, dir_key.length);
+                const marker_ent = key_marker.slice(dir_key.length);
+                // marker is after dir so no keys in this dir can apply
+                if (dir_key < marker_dir) {
+                    // console.log(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
+                    return;
+                }
+                // when the dir portion of the marker is completely below the current dir
+                // then every key in this dir satisfies the marker and marker_ent should not be used.
+                const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
+
+                // console.log(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
+
+                /**
+                 * @param {fs.Dirent} ent
+                 */
+                const process_entry = async ent => {
+
+                    // console.log('process_entry', dir_key, ent.name);
+
+                    if (!ent.name.startsWith(prefix_ent) ||
+                        ent.name < marker_curr ||
+                        ent.name === this.get_bucket_tmpdir()) {
+                        return;
+                    }
+
+                    const r = {
+                        key: this._get_entry_key(dir_key, ent),
+                        common_prefix: isDirectory(ent),
+                    };
+
+                    let pos;
+                    if (results.length && r.key < results[results.length - 1].key) {
+                        pos = _.sortedLastIndexBy(results, r, a => a.key);
+                    } else {
+                        pos = results.length;
+                    }
+
+                    if (pos >= limit) {
+                        is_truncated = true;
+                        return; // not added
+                    }
+
+                    if (!delimiter && r.common_prefix) {
+                        await process_dir(r.key);
+                    } else {
+                        if (pos < results.length) {
+                            results.splice(pos, 0, r);
+                        } else {
+                            results.push(r);
+                        }
+                        if (results.length > limit) {
+                            results.length = limit;
+                            is_truncated = true;
+                        }
+                    }
+                    };
+
+                try {
+                    cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
+                } catch (err) {
+                    if (err.code === 'ENOENT') {
+                        console.log('NamespaceFS: no keys for non existing dir', dir_path);
+                        return;
+                    }
+                    throw err;
+                    }
+
+                if (cached_dir.sorted_entries) {
+                    const sorted_entries = cached_dir.sorted_entries;
+                    const marker_index = _.sortedLastIndexBy(
+                        sorted_entries,
+                        make_named_dirent(marker_curr),
+                        get_entry_name
+                    );
+                    for (let i = marker_index; i < sorted_entries.length; ++i) {
+                        const ent = sorted_entries[i];
+                        await process_entry(ent);
+                        // since we traverse entries in sorted order,
+                        // we can break as soon as enough keys are collected.
+                        if (is_truncated) break;
+                    }
+                    return;
+                }
+
+                // for large dirs we cannot keep all entries in memory
+                // so we have to stream the entries one by one while filtering only the needed ones.
+                try {
+                    console.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
+                    dir_handle = await nb_native().fs.opendir(fs_account_config, dir_path); //, { bufferSize: 128 });
+                    for await (const ent of dir_handle) {
+                        await process_entry(ent);
+                        // since we dir entries streaming order is not sorted,
+                        // we have to keep scanning all the keys before we can stop.
+                    }
+                } finally {
+                    if (dir_handle) {
+                        try {
+                            console.warn('NamespaceFS: close dir streaming', dir_path, 'size', cached_dir.stat.size);
+                            await dir_handle.close(fs_account_config);
+                        } catch (err) {
+                            console.error('NamespaceFS: close dir failed', err);
+                        }
+                        dir_handle = null;
+                    }
+                }
                 };
 
-                let pos;
-                if (results.length && r.key < results[results.length - 1].key) {
-                    pos = _.sortedLastIndexBy(results, r, a => a.key);
-                } else {
-                    pos = results.length;
-                }
-
-                if (pos >= limit) {
-                    is_truncated = true;
-                    return; // not added
-                }
-
-                if (!delimiter && r.common_prefix) {
-                    await process_dir(r.key);
-                } else {
-                    if (pos < results.length) {
-                        results.splice(pos, 0, r);
-                    } else {
-                        results.push(r);
-                    }
-                    if (results.length > limit) {
-                        results.length = limit;
-                        is_truncated = true;
-                    }
-                }
+            const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
+            await process_dir(prefix_dir_key);
+            await Promise.all(results.map(async r => {
+                if (r.common_prefix) return;
+                const entry_path = path.join(this.bucket_path, r.key);
+                r.stat = await nb_native().fs.stat(fs_account_config, entry_path);
+            }));
+            const res = {
+                objects: [],
+                common_prefixes: [],
+                is_truncated,
+                next_marker: undefined,
             };
-
-            try {
-                cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
-            } catch (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('NamespaceFS: no keys for non existing dir', dir_path);
-                    return;
+            for (const r of results) {
+                if (r.common_prefix) {
+                    res.common_prefixes.push(r.key);
+                } else {
+                    res.objects.push(this._get_object_info(bucket, r.key, r.stat));
                 }
-                throw err;
-            }
-
-            if (cached_dir.sorted_entries) {
-                const sorted_entries = cached_dir.sorted_entries;
-                const marker_index = _.sortedLastIndexBy(
-                    sorted_entries,
-                    make_named_dirent(marker_curr),
-                    get_entry_name
-                );
-                for (let i = marker_index; i < sorted_entries.length; ++i) {
-                    const ent = sorted_entries[i];
-                    await process_entry(ent);
-                    // since we traverse entries in sorted order,
-                    // we can break as soon as enough keys are collected.
-                    if (is_truncated) break;
-                }
-                return;
-            }
-
-            // for large dirs we cannot keep all entries in memory
-            // so we have to stream the entries one by one while filtering only the needed ones.
-            try {
-                console.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
-                dir_handle = await nb_native().fs.opendir(fs_account_config, dir_path); //, { bufferSize: 128 });
-                for await (const ent of dir_handle) {
-                    await process_entry(ent);
-                    // since we dir entries streaming order is not sorted,
-                    // we have to keep scanning all the keys before we can stop.
-                }
-            } finally {
-                if (dir_handle) {
-                    try {
-                        console.warn('NamespaceFS: close dir streaming', dir_path, 'size', cached_dir.stat.size);
-                        await dir_handle.close(fs_account_config);
-                    } catch (err) {
-                        console.error('NamespaceFS: close dir failed', err);
-                    }
-                    dir_handle = null;
+                if (res.is_truncated) {
+                    res.next_marker = r.key;
                 }
             }
-        };
-
-        const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
-        await process_dir(prefix_dir_key);
-        await Promise.all(results.map(async r => {
-            if (r.common_prefix) return;
-            const entry_path = path.join(this.bucket_path, r.key);
-            r.stat = await nb_native().fs.stat(fs_account_config, entry_path);
-        }));
-        const res = {
-            objects: [],
-            common_prefixes: [],
-            is_truncated,
-            next_marker: undefined,
-        };
-        for (const r of results) {
-            if (r.common_prefix) {
-                res.common_prefixes.push(r.key);
-            } else {
-                res.objects.push(this._get_object_info(bucket, r.key, r.stat));
-            }
-            if (res.is_truncated) {
-                res.next_marker = r.key;
-            }
+            return res;
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
         }
-        return res;
     }
 
     async list_object_versions(params, object_sdk) {
@@ -516,8 +519,8 @@ class NamespaceFS {
         const upload_id = uuidv4();
         const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
         // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
-        await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
         try {
+            await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
             if (params.copy_source) {
                 const source_file_path = path.join(this.bucket_path, params.copy_source.key);
                 try {
@@ -532,13 +535,13 @@ class NamespaceFS {
             } else {
                 await this._upload_stream(params.source_stream, upload_path, fs_account_config);
             }
+            // TODO use file xattr to store md5_b64 xattr, etc.
+            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
+            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
+            return { etag: this._get_etag(stat) };
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
-        // TODO use file xattr to store md5_b64 xattr, etc.
-        const stat = await nb_native().fs.stat(fs_account_config, upload_path);
-        await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-        return { etag: this._get_etag(stat) };
     }
 
     // Comparing both device and inode number (st_dev and st_ino returned by stat) 
@@ -686,29 +689,33 @@ class NamespaceFS {
     }
 
     async list_multiparts(params, object_sdk) {
-        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
-        await this._load_multipart(params, fs_account_config);
-        const entries = await nb_native().fs.readdir(fs_account_config, params.mpu_path);
-        const multiparts = await Promise.all(
-            entries
-            .filter(e => e.name.startsWith('part-'))
-            .map(async e => {
-                const num = Number(e.name.slice('part-'.length));
-                const part_path = path.join(params.mpu_path, e.name);
-                const stat = await nb_native().fs.stat(fs_account_config, part_path);
-                return {
-                    num,
-                    size: stat.size,
-                    etag: this._get_etag(stat),
-                    last_modified: new Date(stat.mtime),
-                };
-            })
-        );
-        return {
-            is_truncated: false,
-            next_num_marker: undefined,
-            multiparts,
-        };
+        try {
+            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+            await this._load_multipart(params, fs_account_config);
+            const entries = await nb_native().fs.readdir(fs_account_config, params.mpu_path);
+            const multiparts = await Promise.all(
+                entries
+                .filter(e => e.name.startsWith('part-'))
+                .map(async e => {
+                    const num = Number(e.name.slice('part-'.length));
+                    const part_path = path.join(params.mpu_path, e.name);
+                    const stat = await nb_native().fs.stat(fs_account_config, part_path);
+                    return {
+                        num,
+                        size: stat.size,
+                        etag: this._get_etag(stat),
+                        last_modified: new Date(stat.mtime),
+                    };
+                })
+            );
+            return {
+                is_truncated: false,
+                next_num_marker: undefined,
+                multiparts,
+            };
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async complete_object_upload(params, object_sdk) {

@@ -561,6 +561,9 @@ module.exports = {
                 fs_backend: {
                     $ref: 'common_api#/definitions/fs_backend'
                 },
+                etag_md5: {
+                    type: 'boolean'
+                },
                 mode: {
                     type: 'string',
                     enum: ['OPTIMAL', 'STORAGE_NOT_EXIST', 'AUTH_FAILED', 'IO_ERRORS']
@@ -604,6 +607,9 @@ module.exports = {
                 },
                 fs_backend: {
                     $ref: 'common_api#/definitions/fs_backend'
+                },
+                etag_md5: {
+                    type: 'boolean'
                 },
             }
         },

@@ -763,7 +763,7 @@ module.exports = {
 
         bucket_cache_config: {
             type: 'object',
-            required: [ ],
+            required: [],
             properties: {
                 ttl_ms: {
                     $ref: '#/definitions/bucket_cache_ttl'
@@ -806,7 +806,10 @@ module.exports = {
                 },
                 fs_backend: {
                     $ref: '#/definitions/fs_backend'
-                }
+                },
+                etag_md5: {
+                    type: 'boolean'
+                },
             }
         },
         nsfs_account_config: {

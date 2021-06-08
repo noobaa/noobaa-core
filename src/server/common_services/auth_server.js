@@ -42,7 +42,6 @@ function create_auth(req) {
     var password = req.rpc_params.password;
     var system_name = req.rpc_params.system;
     var role_name = req.rpc_params.role;
-    // var expiry = req.rpc_params.expiry;
     var authenticated_account;
     var target_account;
     var system;
@@ -139,6 +138,7 @@ function create_auth(req) {
                 system_id: system && system._id,
                 role: role_name,
                 extra: req.rpc_params.extra,
+                expiry: req.rpc_params.expiry,
             });
 
             const info = _get_auth_info(
@@ -146,7 +146,7 @@ function create_auth(req) {
                 system,
                 'noobaa',
                 role_name,
-                req.rpc_params.extra
+                req.rpc_params.extra,
             );
 
             return { token, info };

@@ -506,7 +506,7 @@ async function read_bucket_sdk_info(req) {
                 path: bucket.namespace.write_resource.path,
             },
             read_resources: _.map(bucket.namespace.read_resources, rs =>
-                ({ resource: pool_server.get_namespace_resource_extended_info(rs.resource), path: rs.path})
+                ({ resource: pool_server.get_namespace_resource_extended_info(rs.resource), path: rs.path })
             ),
             caching: bucket.namespace.caching,
             should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
@@ -604,8 +604,8 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
 
     const read_resources = _.compact(update_request.namespace.read_resources
         .map(nsr => {
-                const res = req.system.namespace_resources_by_name[nsr.resource];
-                return res && { resource: res._id, path: nsr.path };
+            const res = req.system.namespace_resources_by_name[nsr.resource];
+            return res && { resource: res._id, path: nsr.path };
         }));
     if (!read_resources.length || (read_resources.length !== update_request.namespace.read_resources.length)) {
         throw new RpcError('INVALID_READ_RESOURCES');
@@ -625,6 +625,15 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
 
     _.set(single_bucket_update, 'namespace.read_resources', ordered_read_resources);
     _.set(single_bucket_update, 'namespace.write_resource', write_resource);
+
+    if (req.params.namespace.caching) {
+        // If the update request contains a caching policy, set it to the bucket
+        _.set(single_bucket_update, 'namespace.caching', req.params.namespace.caching);
+    } else if (bucket.namespace.caching) {
+        // If the update request does not contains a caching policy, but one was already set
+        // for the bucket, prevent it from being overridden
+        _.set(single_bucket_update, 'namespace.caching', bucket.namespace.caching);
+    }
 }
 
 function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes) {
@@ -1381,8 +1390,8 @@ function validate_nsfs_bucket(req) {
                 buck.namespace && buck.namespace.write_resource.resource.nsfs_config &&
                 path.join(buck.namespace.write_resource.resource.nsfs_config.fs_root_path, buck.namespace.write_resource.path || '') === bucket_path);
 
-                if (same_nsfs_path && same_nsfs_path.length > 0) {
-                    throw new RpcError('BUCKET_ALREADY_EXISTS');
+            if (same_nsfs_path && same_nsfs_path.length > 0) {
+                throw new RpcError('BUCKET_ALREADY_EXISTS');
             }
         }
     }

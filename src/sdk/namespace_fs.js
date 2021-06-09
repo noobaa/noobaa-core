@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const mime = require('mime');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 const config = require('../../config');
@@ -18,6 +19,8 @@ const nb_native = require('../util/nb_native');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
+
+const hash = crypto.createHash('md5');
 
 /*const DEFAULT_FS_CONFIG = {
     uid: Number(process.env.NSFS_UID) || process.getuid(),
@@ -128,6 +131,7 @@ class NamespaceFS {
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
+        this.etag_md5 = true; //LMLM Remove and replace from the .nsfs_config.etag_md5
     }
 
     set_cur_fs_account_config(object_sdk) {
@@ -160,6 +164,14 @@ class NamespaceFS {
             other.bucket_path === this.bucket_path &&
             other.fs_backend === this.fs_backend && //Check that the same backend type
             params.xattr_copy; // TODO, DO we need to hard link at TaggingDirective 'REPLACE'?
+    }
+
+    // get a stream and returns it's md5_b64
+    get_stream_md5_b64(stream) {
+        const md5_stream = stream_utils.get_stream_md5();
+        stream.pipe(md5_stream);
+        const md5_b64 = md5_stream.md5.digest('base64');
+        return md5_b64;
     }
 
     /////////////////
@@ -291,7 +303,7 @@ class NamespaceFS {
                             is_truncated = true;
                         }
                     }
-                    };
+                };
 
                 try {
                     cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
@@ -301,7 +313,7 @@ class NamespaceFS {
                         return;
                     }
                     throw err;
-                    }
+                }
 
                 if (cached_dir.sorted_entries) {
                     const sorted_entries = cached_dir.sorted_entries;
@@ -341,7 +353,7 @@ class NamespaceFS {
                         dir_handle = null;
                     }
                 }
-                };
+            };
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
@@ -534,6 +546,10 @@ class NamespaceFS {
                 }
             } else {
                 await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+                if (this.etag_md5) {
+                    const md5_b64 = this.get_stream_md5_b64(params.source_stream);
+                    console.log('Temp, printing till we have xattr:', md5_b64);
+                }
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
@@ -555,6 +571,8 @@ class NamespaceFS {
             const source_file_stat = await nb_native().fs.stat(fs_account_config, source_file_path);
             const source_file_inode = source_file_stat.ino.toString();
             const source_file_device = source_file_stat.dev.toString();
+            //LMLM TODO: question: do we need to tack care of a case where we want md5?
+            // this flow will not be called when we get params.xattr_copy, will we still want to get the md5?
             if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
                 return { etag: this._get_etag(file_path_stat) };
             }
@@ -576,6 +594,10 @@ class NamespaceFS {
             for (;;) {
                 const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                 buffer_pool_cleanup = callback;
+                if (this.etag_md5) {
+                    const md5_b64 = hash.update(buffer).digest('base64');
+                    console.log('Temp, printing till we have xattr:', md5_b64);
+                }
                 const bytesRead = await source_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                 if (!bytesRead) break;
                 read_pos += bytesRead;
@@ -681,6 +703,10 @@ class NamespaceFS {
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+            if (this.etag_md5) {
+                const md5_b64 = this.get_stream_md5_b64(params.source_stream);
+                console.log('Temp, printing till we have xattr:', md5_b64);
+            }
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
@@ -1053,7 +1079,7 @@ class NamespaceFS {
             fs_account_config.new_buckets_path, params.name);
 
         try {
-            const list = await this.list_objects({...params, limit: 1 }, object_sdk);
+            const list = await this.list_objects({ ...params, limit: 1 }, object_sdk);
 
             if (list && list.objects && list.objects.length > 0) {
                 const err = new Error('underlying directory has files in it');

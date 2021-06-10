@@ -465,17 +465,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('delete account by uid, gid - no such account', async function() {
         let list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp1.length > 0);
-        await rpc_client.account.delete_account_by_property({
-                nsfs_account_config: {
-                    uid: 26041993,
-                    gid: 26041993,
-                }
-            }
-        );
-        let list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
-        assert.deepStrictEqual(list_account_resp1, list_account_resp2);
-        assert.ok(list_account_resp2.length > 0);
-
+        try {
+            await rpc_client.account.delete_account_by_property({ nsfs_account_config: { uid: 26041993, gid: 26041993 } });
+            assert.fail(`delete account succeeded for none existing account`);
+        } catch (err) {
+            assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
+        }
     });
 });
 

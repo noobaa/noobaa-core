@@ -703,6 +703,10 @@ function delete_account(req) {
             return account_to_delete._id;
         });
 
+    if (!accounts_to_delete.length) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No account with provided uid/gid: ' +
+            req.rpc_params.nsfs_account_config.uid + '/' + req.rpc_params.nsfs_account_config.gid);
+    }
     return system_store.make_changes({
             remove: {
                 accounts: accounts_to_delete,

@@ -549,7 +549,7 @@ DebugLogger.prototype.set_level = function(level, mod) {
 };
 
 DebugLogger.prototype.should_log = function(level) {
-    if (this._cur_level.__level >= level) {
+    if (this._cur_level.__level >= level || (process.env.NOOBAA_LOG_LEVEL && process.env.NOOBAA_LOG_LEVEL >= level)) {
         return true;
     }
     return false;

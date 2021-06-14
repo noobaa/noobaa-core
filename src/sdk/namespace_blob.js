@@ -43,6 +43,10 @@ class NamespaceBlob {
         return this.container;
     }
 
+    get_write_resource() {
+        return this;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -627,6 +631,9 @@ class NamespaceBlob {
     }
 
     // TODO: Implement tagging on objects
+    /**
+     * @returns {nb.ObjectInfo}
+     */
     _get_blob_object_info(obj, bucket) {
         const blob_etag = blob_utils.parse_etag(obj.etag);
         const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || '';
@@ -680,6 +687,20 @@ class NamespaceBlob {
         throw new Error('TODO');
     }
     async put_object_retention() {
+        throw new Error('TODO');
+    }
+
+    ///////////////////
+    //    TAGGING    //
+    ///////////////////
+
+    async get_object_tagging(params, object_sdk) {
+        throw new Error('TODO');
+    }
+    async delete_object_tagging(params, object_sdk) {
+        throw new Error('TODO');
+    }
+    async put_object_tagging(params, object_sdk) {
         throw new Error('TODO');
     }
 

@@ -82,6 +82,7 @@ function make_named_dirent(name) {
  */
 const dir_cache = new LRUCache({
     name: 'nsfs-dir-cache',
+    make_key: ({ dir_path }) => dir_path,
     load: async ({ dir_path, fs_account_config }) => {
         const time = Date.now();
         const stat = await nb_native().fs.stat(fs_account_config, dir_path);
@@ -325,8 +326,10 @@ class NamespaceFS {
                 try {
                     console.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
                     dir_handle = await nb_native().fs.opendir(fs_account_config, dir_path); //, { bufferSize: 128 });
-                    for await (const ent of dir_handle) {
-                        await process_entry(ent);
+                    for (;;) {
+                        const dir_entry = await dir_handle.read(fs_account_config);
+                        if (!dir_entry) break;
+                        await process_entry(dir_entry);
                         // since we dir entries streaming order is not sorted,
                         // we have to keep scanning all the keys before we can stop.
                     }

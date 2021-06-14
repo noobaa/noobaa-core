@@ -900,26 +900,23 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
             SetError(XSTR() << "FS::DirReadEntry::Execute: ERROR not opened " << path);
             return;
         }
+        struct dirent* e = 0;
 
-        while (true) {
-            // need to set errno before the call to readdir() to detect between EOF and error
-            errno = 0;
-            struct dirent* e = readdir(dir);
-            if (e) {
-                // Ignore parent and current directories
-                if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
-                    continue;
-                }
-                _entry.name = std::string(e->d_name);
-                _entry.ino = e->d_ino;
-                _entry.type = e->d_type;
-            } else {
-                if (errno) {
-                    SetSyscallError();
-                } else {
-                    _eof = true;
-                }
-                break;
+        // loop to skip parent and current directories 
+        do { 
+            // need to set errno before the call to readdir() to detect between EOF and error 
+            errno = 0; 
+            e = readdir(dir); 
+        } while (e && (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)); 
+        if (e) { 
+            _entry.name = std::string(e->d_name); 
+            _entry.ino = e->d_ino; 
+            _entry.type = e->d_type; 
+        } else { 
+            if (errno) { 
+                SetSyscallError(); 
+            } else { 
+                _eof = true; 
             }
         }
     }

@@ -12,6 +12,7 @@ const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
+const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
@@ -125,7 +126,7 @@ class NamespaceFS {
      * }} params
      */
     constructor({ bucket_path, fs_backend, bucket_id }) {
-        console.log('NamespaceFS: buffers_pool', buffers_pool);
+        dbg.log0('NamespaceFS: buffers_pool', buffers_pool);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
@@ -157,10 +158,16 @@ class NamespaceFS {
     }
 
     is_server_side_copy(other, params) {
-        return other instanceof NamespaceFS &&
+        const is_server_side_copy = other instanceof NamespaceFS &&
             other.bucket_path === this.bucket_path &&
             other.fs_backend === this.fs_backend && //Check that the same backend type
             params.xattr_copy; // TODO, DO we need to hard link at TaggingDirective 'REPLACE'?
+        dbg.log2('NamespaceFS: is_server_side_copy:', is_server_side_copy);
+        dbg.log2('NamespaceFS: other instanceof NamespaceFS:', other instanceof NamespaceFS,
+            'other.bucket_path:', other.bucket_path, 'this.bucket_path:', this.bucket_path,
+            'other.fs_backend', other.fs_backend, 'this.fs_backend', this.fs_backend,
+            'params.xattr_copy', params.xattr_copy);
+        return is_server_side_copy;
     }
 
     /////////////////
@@ -232,7 +239,7 @@ class NamespaceFS {
                 const prefix_dir = prefix.slice(0, dir_key.length);
                 const prefix_ent = prefix.slice(dir_key.length);
                 if (!dir_key.startsWith(prefix_dir)) {
-                    // console.log(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
+                    // dbg.log0(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
                     return;
                 }
 
@@ -240,21 +247,21 @@ class NamespaceFS {
                 const marker_ent = key_marker.slice(dir_key.length);
                 // marker is after dir so no keys in this dir can apply
                 if (dir_key < marker_dir) {
-                    // console.log(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
+                    // dbg.log0(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
                     return;
                 }
                 // when the dir portion of the marker is completely below the current dir
                 // then every key in this dir satisfies the marker and marker_ent should not be used.
                 const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
 
-                // console.log(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
+                // dbg.log0(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
 
                 /**
                  * @param {fs.Dirent} ent
                  */
                 const process_entry = async ent => {
 
-                    // console.log('process_entry', dir_key, ent.name);
+                    // dbg.log0('process_entry', dir_key, ent.name);
 
                     if (!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
@@ -292,17 +299,17 @@ class NamespaceFS {
                             is_truncated = true;
                         }
                     }
-                    };
+                };
 
                 try {
                     cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
                 } catch (err) {
                     if (err.code === 'ENOENT') {
-                        console.log('NamespaceFS: no keys for non existing dir', dir_path);
+                        dbg.log0('NamespaceFS: no keys for non existing dir', dir_path);
                         return;
                     }
                     throw err;
-                    }
+                }
 
                 if (cached_dir.sorted_entries) {
                     const sorted_entries = cached_dir.sorted_entries;
@@ -324,7 +331,7 @@ class NamespaceFS {
                 // for large dirs we cannot keep all entries in memory
                 // so we have to stream the entries one by one while filtering only the needed ones.
                 try {
-                    console.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
+                    dbg.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
                     dir_handle = await nb_native().fs.opendir(fs_account_config, dir_path); //, { bufferSize: 128 });
                     for (;;) {
                         const dir_entry = await dir_handle.read(fs_account_config);
@@ -336,15 +343,15 @@ class NamespaceFS {
                 } finally {
                     if (dir_handle) {
                         try {
-                            console.warn('NamespaceFS: close dir streaming', dir_path, 'size', cached_dir.stat.size);
+                            dbg.warn('NamespaceFS: close dir streaming', dir_path, 'size', cached_dir.stat.size);
                             await dir_handle.close(fs_account_config);
                         } catch (err) {
-                            console.error('NamespaceFS: close dir failed', err);
+                            dbg.error('NamespaceFS: close dir failed', err);
                         }
                         dir_handle = null;
                     }
                 }
-                };
+            };
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
@@ -390,7 +397,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
             const stat = await nb_native().fs.stat(fs_account_config, file_path);
-            console.log(file_path, stat);
+            dbg.log0(file_path, stat);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
             return this._get_object_info(params.bucket, params.key, stat);
         } catch (err) {
@@ -433,7 +440,7 @@ class NamespaceFS {
             let log2_size_histogram = {};
             let drain_promise = null;
 
-            console.log('NamespaceFS: read_object_stream', { file_path, start, end });
+            dbg.log0('NamespaceFS: read_object_stream', { file_path, start, end });
 
             for (let pos = start; pos < end;) {
 
@@ -480,7 +487,7 @@ class NamespaceFS {
             res.end();
             await stream_utils.wait_finished(res);
 
-            console.log('NamespaceFS: read_object_stream completed', {
+            dbg.log0('NamespaceFS: read_object_stream completed', {
                 num_bytes,
                 num_buffers,
                 avg_buffer: num_bytes / num_buffers,
@@ -497,13 +504,13 @@ class NamespaceFS {
             try {
                 if (file) await file.close(fs_account_config);
             } catch (err) {
-                console.warn('NamespaceFS: read_object_stream file close error', err);
+                dbg.warn('NamespaceFS: read_object_stream file close error', err);
             }
             try {
                 // release buffer back to pool if needed
                 if (buffer_pool_cleanup) buffer_pool_cleanup();
             } catch (err) {
-                console.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
+                dbg.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
             }
         }
     }
@@ -521,7 +528,7 @@ class NamespaceFS {
         // Uploading to a temp file then we will rename it. 
         const upload_id = uuidv4();
         const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
-        // console.log('NamespaceFS.upload_object:', upload_path, '->', file_path);
+        // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
             await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
             if (params.copy_source) {
@@ -532,7 +539,7 @@ class NamespaceFS {
                     // Doing a hard link.
                     await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
                 } catch (e) {
-                    console.warn('NamespaceFS: COPY using link failed with:', e);
+                    dbg.warn('NamespaceFS: COPY using link failed with:', e);
                     await this._copy_stream(source_file_path, upload_path, fs_account_config);
                 }
             } else {
@@ -552,16 +559,20 @@ class NamespaceFS {
     // If so, we will return the etag of the file_path
     async _is_same_inode(fs_account_config, source_file_path, file_path) {
         try {
+            dbg.log2('NamespaceFS: checking _is_same_inode');
             const file_path_stat = await nb_native().fs.stat(fs_account_config, file_path);
             const file_path_inode = file_path_stat.ino.toString();
             const file_path_device = file_path_stat.dev.toString();
             const source_file_stat = await nb_native().fs.stat(fs_account_config, source_file_path);
             const source_file_inode = source_file_stat.ino.toString();
             const source_file_device = source_file_stat.dev.toString();
+            dbg.log2('NamespaceFS: file_path_inode:', file_path_inode, 'source_file_inode:', source_file_inode,
+                'file_path_device:', file_path_device, 'source_file_device:', source_file_device);
             if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
                 return { etag: this._get_etag(file_path_stat) };
             }
         } catch (e) {
+            dbg.log2('NamespaceFS: _is_same_inode got an error', e);
             // If we fail for any reason, we want to return undefined. so doing nothing in this catch.
         }
     }
@@ -594,20 +605,20 @@ class NamespaceFS {
             await target_file.close(fs_account_config);
             target_file = null;
         } catch (e) {
-            console.error('Failed to copy object', e);
+            dbg.error('Failed to copy object', e);
             throw e;
         } finally {
             try {
                 // release buffer back to pool if needed
                 if (buffer_pool_cleanup) buffer_pool_cleanup();
             } catch (err) {
-                console.warn('NamespaceFS: upload_object - copy_source buffer pool cleanup error', err);
+                dbg.warn('NamespaceFS: upload_object - copy_source buffer pool cleanup error', err);
             }
             try {
                 if (source_file) await source_file.close(fs_account_config);
                 if (target_file) await target_file.close(fs_account_config);
             } catch (err) {
-                console.warn('NamespaceFS: upload_object - copy_source file close error', err);
+                dbg.warn('NamespaceFS: upload_object - copy_source file close error', err);
             }
         }
     }
@@ -637,13 +648,13 @@ class NamespaceFS {
             }
             await flush();
         } catch (error) {
-            console.error('_upload_stream had error: ', error);
+            dbg.error('_upload_stream had error: ', error);
             throw error;
         } finally {
             try {
                 if (target_file) await target_file.close(fs_account_config);
             } catch (err) {
-                console.warn('NamespaceFS: _upload_stream file close error', err);
+                dbg.warn('NamespaceFS: _upload_stream file close error', err);
             }
         }
     }
@@ -764,20 +775,20 @@ class NamespaceFS {
             await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat) };
         } catch (err) {
-            console.error(err);
+            dbg.error(err);
             throw this._translate_object_error_codes(err);
         } finally {
             try {
                 // release buffer back to pool if needed
                 if (buffer_pool_cleanup) buffer_pool_cleanup();
             } catch (err) {
-                console.warn('NamespaceFS: complete_object_upload buffer pool cleanup error', err);
+                dbg.warn('NamespaceFS: complete_object_upload buffer pool cleanup error', err);
             }
             try {
                 if (read_file) await read_file.close(fs_account_config);
                 if (write_file) await write_file.close(fs_account_config);
             } catch (err) {
-                console.warn('NamespaceFS: complete_object_upload file close error', err);
+                dbg.warn('NamespaceFS: complete_object_upload file close error', err);
             }
         }
     }
@@ -785,7 +796,7 @@ class NamespaceFS {
     async abort_object_upload(params, object_sdk) {
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         await this._load_multipart(params, fs_account_config);
-        console.log('NamespaceFS: abort_object_upload', params.mpu_path);
+        dbg.log0('NamespaceFS: abort_object_upload', params.mpu_path);
         await this._folder_delete(params.mpu_path, fs_account_config);
     }
 
@@ -798,7 +809,7 @@ class NamespaceFS {
             const fs_account_config = this.set_cur_fs_account_config(object_sdk);
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            console.log('NamespaceFS: delete_object', file_path);
+            dbg.log0('NamespaceFS: delete_object', file_path);
             await nb_native().fs.unlink(fs_account_config, file_path);
             await this._delete_path_dirs(file_path, fs_account_config);
             return {};
@@ -813,7 +824,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_account_config);
             for (const { key } of params.objects) {
                 const file_path = this._get_file_path({ key });
-                console.log('NamespaceFS: delete_multiple_objects', file_path);
+                dbg.log0('NamespaceFS: delete_multiple_objects', file_path);
                 await nb_native().fs.unlink(fs_account_config, file_path);
                 await this._delete_path_dirs(file_path, fs_account_config);
             }
@@ -1018,7 +1029,7 @@ class NamespaceFS {
                 err.code !== 'ENOTDIR' &&
                 err.code !== 'EACCES'
             ) {
-                console.log('NamespaceFS: _delete_object_empty_path skip on unexpected error', err);
+                dbg.log0('NamespaceFS: _delete_object_empty_path skip on unexpected error', err);
             }
         }
     }
@@ -1056,7 +1067,7 @@ class NamespaceFS {
             fs_account_config.new_buckets_path, params.name);
 
         try {
-            const list = await this.list_objects({...params, limit: 1 }, object_sdk);
+            const list = await this.list_objects({ ...params, limit: 1 }, object_sdk);
 
             if (list && list.objects && list.objects.length > 0) {
                 const err = new Error('underlying directory has files in it');

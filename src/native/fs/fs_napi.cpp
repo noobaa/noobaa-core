@@ -20,6 +20,13 @@
 #include <sys/xattr.h>
 #include <vector>
 
+#ifdef __APPLE__
+    #include <sys/param.h>
+    #include <sys/mount.h>
+#else
+    #include <sys/statfs.h>
+#endif
+
 namespace noobaa
 {
 
@@ -66,6 +73,69 @@ api(const Napi::CallbackInfo& info)
     Napi::Promise promise = w->_deferred.Promise();
     w->Queue();
     return promise;
+}
+
+void
+set_stat_res(Napi::Object res, Napi::Env env, struct stat &stat_res)
+{
+    res["dev"] = Napi::Number::New(env, stat_res.st_dev);
+    res["ino"] = Napi::Number::New(env, stat_res.st_ino);
+    res["mode"] = Napi::Number::New(env, stat_res.st_mode);
+    res["nlink"] = Napi::Number::New(env, stat_res.st_nlink);
+    res["uid"] = Napi::Number::New(env, stat_res.st_uid);
+    res["gid"] = Napi::Number::New(env, stat_res.st_gid);
+    res["rdev"] = Napi::Number::New(env, stat_res.st_rdev);
+    res["size"] = Napi::Number::New(env, stat_res.st_size);
+    res["blksize"] = Napi::Number::New(env, stat_res.st_blksize);
+    res["blocks"] = Napi::Number::New(env, stat_res.st_blocks);
+
+    // https://nodejs.org/dist/latest-v14.x/docs/api/fs.html#fs_stat_time_values
+    #ifdef __APPLE__
+        double atimeMs = (double(1e3) * stat_res.st_atimespec.tv_sec) + (double(1e-6) * stat_res.st_atimespec.tv_nsec);
+        double ctimeMs = (double(1e3) * stat_res.st_ctimespec.tv_sec) + (double(1e-6) * stat_res.st_ctimespec.tv_nsec);
+        double mtimeMs = (double(1e3) * stat_res.st_mtimespec.tv_sec) + (double(1e-6) * stat_res.st_mtimespec.tv_nsec);
+        double birthtimeMs = (double(1e3) * stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * stat_res.st_birthtimespec.tv_nsec);
+    #else
+        double atimeMs = (double(1e3) * stat_res.st_atim.tv_sec) + (double(1e-6) * stat_res.st_atim.tv_nsec);
+        double ctimeMs = (double(1e3) * stat_res.st_ctim.tv_sec) + (double(1e-6) * stat_res.st_ctim.tv_nsec);
+        double mtimeMs = (double(1e3) * stat_res.st_mtim.tv_sec) + (double(1e-6) * stat_res.st_mtim.tv_nsec);
+        double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
+    #endif
+
+    res["atimeMs"] = Napi::Number::New(env, atimeMs);
+    res["ctimeMs"] = Napi::Number::New(env, ctimeMs);
+    res["mtimeMs"] = Napi::Number::New(env, mtimeMs);
+    res["birthtimeMs"] = Napi::Number::New(env, birthtimeMs);
+    res["atime"] = Napi::Date::New(env, uint64_t(round(atimeMs)));
+    res["mtime"] = Napi::Date::New(env, uint64_t(round(mtimeMs)));
+    res["ctime"] = Napi::Date::New(env, uint64_t(round(ctimeMs)));
+    res["birthtime"] = Napi::Date::New(env, uint64_t(round(birthtimeMs)));
+
+}
+
+void
+set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
+{
+    res["type"] = Napi::Number::New(env, statfs_res.f_type);
+    res["bsize"] = Napi::Number::New(env, statfs_res.f_bsize);
+    res["blocks"] = Napi::Number::New(env, statfs_res.f_blocks);
+    res["bfree"] = Napi::Number::New(env, statfs_res.f_bfree);
+    res["bavail"] = Napi::Number::New(env, statfs_res.f_bavail);
+    res["files"] = Napi::Number::New(env, statfs_res.f_files);
+    res["ffree"] = Napi::Number::New(env, statfs_res.f_ffree);
+    // Linux, SunOS, HP-UX, 4.4BSD have a system call statfs() that returns a struct statfs (defined in <sys/vfs.h>) 
+    // containing a fsid_t f_fsid, where fsid_t is defined as struct { int val[2]; }.
+    // so it's an array of two integers
+    // For now commenting out res["fsid"] as we cant use Napi::Number on it
+    // TODO: when we will need fsid in the results uncomment it and fix it.
+    // res["fsid"] = Napi::Number::New(env, statfs_res.f_fsid);
+    res["flags"] = Napi::Number::New(env, statfs_res.f_flags);
+
+    #ifndef __APPLE__   
+        res["namelen"] = Napi::Number::New(env, statfs_res.f_namelen);
+        res["frsize"] = Napi::Number::New(env, statfs_res.f_frsize);
+    #endif
+
 }
 
 /**
@@ -187,41 +257,70 @@ struct Stat : public FSWorker
     }
     virtual void OnOK()
     {
-        DBG1("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
+        DBG1("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));    
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
-        res["dev"] = Napi::Number::New(env, _stat_res.st_dev);
-        res["ino"] = Napi::Number::New(env, _stat_res.st_ino);
-        res["mode"] = Napi::Number::New(env, _stat_res.st_mode);
-        res["nlink"] = Napi::Number::New(env, _stat_res.st_nlink);
-        res["uid"] = Napi::Number::New(env, _stat_res.st_uid);
-        res["gid"] = Napi::Number::New(env, _stat_res.st_gid);
-        res["rdev"] = Napi::Number::New(env, _stat_res.st_rdev);
-        res["size"] = Napi::Number::New(env, _stat_res.st_size);
-        res["blksize"] = Napi::Number::New(env, _stat_res.st_blksize);
-        res["blocks"] = Napi::Number::New(env, _stat_res.st_blocks);
+        set_stat_res(res, env, _stat_res);
 
-        // https://nodejs.org/dist/latest-v14.x/docs/api/fs.html#fs_stat_time_values
-#ifdef __APPLE__
-        double atimeMs = (double(1e3) * _stat_res.st_atimespec.tv_sec) + (double(1e-6) * _stat_res.st_atimespec.tv_nsec);
-        double ctimeMs = (double(1e3) * _stat_res.st_ctimespec.tv_sec) + (double(1e-6) * _stat_res.st_ctimespec.tv_nsec);
-        double mtimeMs = (double(1e3) * _stat_res.st_mtimespec.tv_sec) + (double(1e-6) * _stat_res.st_mtimespec.tv_nsec);
-        double birthtimeMs = (double(1e3) * _stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * _stat_res.st_birthtimespec.tv_nsec);
-#else
-        double atimeMs = (double(1e3) * _stat_res.st_atim.tv_sec) + (double(1e-6) * _stat_res.st_atim.tv_nsec);
-        double ctimeMs = (double(1e3) * _stat_res.st_ctim.tv_sec) + (double(1e-6) * _stat_res.st_ctim.tv_nsec);
-        double mtimeMs = (double(1e3) * _stat_res.st_mtim.tv_sec) + (double(1e-6) * _stat_res.st_mtim.tv_nsec);
-        double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
-#endif
+        _deferred.Resolve(res);
+    }
+};
 
-        res["atimeMs"] = Napi::Number::New(env, atimeMs);
-        res["ctimeMs"] = Napi::Number::New(env, ctimeMs);
-        res["mtimeMs"] = Napi::Number::New(env, mtimeMs);
-        res["birthtimeMs"] = Napi::Number::New(env, birthtimeMs);
-        res["atime"] = Napi::Date::New(env, uint64_t(round(atimeMs)));
-        res["mtime"] = Napi::Date::New(env, uint64_t(round(mtimeMs)));
-        res["ctime"] = Napi::Date::New(env, uint64_t(round(ctimeMs)));
-        res["birthtime"] = Napi::Date::New(env, uint64_t(round(birthtimeMs)));
+/**
+ * LStat is an fs op
+ */
+struct LStat : public FSWorker
+{
+    std::string _path;
+    struct stat _stat_res;
+
+    LStat(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << "LStat " << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int r = lstat(_path.c_str(), &_stat_res);
+        if (r) SetSyscallError();
+    }
+    virtual void OnOK()
+    {
+        DBG1("FS::LStat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
+        Napi::Env env = Env();
+        auto res = Napi::Object::New(env);
+        set_stat_res(res, env, _stat_res);
+        
+        _deferred.Resolve(res);
+    }
+};
+
+/**
+ * Statfs is an fs op
+ */
+struct Statfs : public FSWorker
+{
+    std::string _path;
+    struct statfs _statfs_res;
+
+    Statfs(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << "Statfs " << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int r = statfs(_path.c_str(), &_statfs_res);
+        if (r) SetSyscallError();
+    }
+    virtual void OnOK()
+    {
+        DBG1("FS::Statfs::OnOK: " << DVAL(_path) << DVAL(_statfs_res.f_type) << DVAL(_statfs_res.f_bsize));
+        Napi::Env env = Env();
+        auto res = Napi::Object::New(env);
+        set_statfs_res(res, env, _statfs_res);
 
         _deferred.Resolve(res);
     }
@@ -611,6 +710,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::writev>("writev"),
                 InstanceMethod<&FileWrap::setxattr>("setxattr"),
                 InstanceMethod<&FileWrap::getxattr>("getxattr"),
+                InstanceMethod<&FileWrap::stat>("stat"),
             }));
         constructor.SuppressDestruct();
     }
@@ -631,6 +731,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value writev(const Napi::CallbackInfo& info);
     Napi::Value setxattr(const Napi::CallbackInfo& info);
     Napi::Value getxattr(const Napi::CallbackInfo& info);
+    Napi::Value stat(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -943,6 +1044,37 @@ struct FileGetxattr : public FSWrapWorker<FileWrap>
     }
 };
 
+struct FileStat : public FSWrapWorker<FileWrap>
+{
+    struct stat _stat_res;
+
+    FileStat(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        Begin(XSTR() << "FileStat " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        std::string path = _wrap->_path;
+        if (fd < 0) {
+            SetError(XSTR() << "FS::FileStat::Execute: ERROR not opened " << path);
+            return;
+        }
+        int r = fstat(fd, &_stat_res);
+        if (r) SetSyscallError();
+    }
+    virtual void OnOK()
+    {
+        DBG1("FS::FileStat::OnOK: FileStat " << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
+        Napi::Env env = Env();
+        auto res = Napi::Object::New(env);
+        set_stat_res(res, env, _stat_res);
+        
+        _deferred.Resolve(res);
+    }
+};
+
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
 {
@@ -977,6 +1109,12 @@ Napi::Value
 FileWrap::getxattr(const Napi::CallbackInfo& info)
 {
     return api<FileGetxattr>(info);
+}
+
+Napi::Value
+FileWrap::stat(const Napi::CallbackInfo& info)
+{
+    return api<FileStat>(info);
 }
 
 /**
@@ -1140,6 +1278,8 @@ fs_napi(Napi::Env env, Napi::Object exports)
     auto exports_fs = Napi::Object::New(env);
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
+    exports_fs["lstat"] = Napi::Function::New(env, api<LStat>);
+    exports_fs["statfs"] = Napi::Function::New(env, api<Statfs>);
     exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);

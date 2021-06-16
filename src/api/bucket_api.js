@@ -1015,17 +1015,7 @@ module.exports = {
                     }
                 },
                 quota: {
-                    type: 'object',
-                    required: ['size', 'unit'],
-                    properties: {
-                        size: {
-                            type: 'integer'
-                        },
-                        unit: {
-                            type: 'string',
-                            enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
-                        },
-                    }
+                    $ref: 'common_api#/definitions/quota_config'
                 },
                 data: {
                     type: 'object',
@@ -1045,7 +1035,10 @@ module.exports = {
                         free: {
                             $ref: 'common_api#/definitions/bigint'
                         },
-                        available_for_upload: {
+                        available_size_for_upload: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        available_quantity_for_upload: {
                             $ref: 'common_api#/definitions/bigint'
                         },
                         // spillover_free: {
@@ -1298,17 +1291,7 @@ module.exports = {
                     anyOf: [{
                         type: 'null'
                     }, {
-                        type: 'object',
-                        required: ['size', 'unit'],
-                        properties: {
-                            size: {
-                                type: 'integer'
-                            },
-                            unit: {
-                                type: 'string',
-                                enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
-                            },
-                        }
+                        $ref: 'common_api#/definitions/quota_config'
                     }]
                 },
                 // spillover: {

@@ -69,8 +69,10 @@ class BucketFunctions {
             await this._client.bucket.update_bucket({
                 name: bucket_name,
                 quota: {
-                    size,
-                    unit //'GIGABYTE', 'TERABYTE', 'PETABYTE'
+                    size: {
+                        value: size,
+                        unit: unit //'G', 'T', 'P'
+                    }
                 }
             });
         } catch (err) {

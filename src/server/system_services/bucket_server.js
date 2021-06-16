@@ -30,7 +30,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const func_store = require('../func_services/func_store');
 const replication_store = require('../system_services/replication_store');
 const node_allocator = require('../node_services/node_allocator');
-const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/new_azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
@@ -39,6 +38,7 @@ const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
+const Quota = require('../system_services/objects/quota');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -642,7 +642,7 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
     }
 }
 
-function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes) {
+function get_bucket_changes_quota(req, bucket, quota_config, single_bucket_update, changes) {
     const quota_event = {
         event: 'bucket.quota',
         level: 'info',
@@ -651,33 +651,23 @@ function get_bucket_changes_quota(req, bucket, quota, single_bucket_update, chan
         bucket: bucket._id,
     };
 
-    if (quota === null) {
+    const quota = new Quota(quota_config);
+    if (quota.is_empty_quota()) {
         single_bucket_update.$unset = { quota: 1 };
         quota_event.desc = `Bucket quota was removed from ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
     } else {
-        if (quota.size <= 0) throw new RpcError('BAD_REQUEST', 'quota size must be positive');
-        single_bucket_update.quota = quota;
-        quota.value = size_utils.size_unit_to_bigint(quota.size, quota.unit).toJSON();
-        let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, quota);
-        if (used_percent >= 100) {
-            changes.alerts.push({
-                sev: 'MAJOR',
-                sysid: system_store.data.systems[0]._id,
-                alert: `Bucket ${bucket.name.unwrap()} exceeded its configured quota of ${
-                    size_utils.human_size(quota.value)
-                }, uploads to this bucket will be denied`,
-                rule: Dispatcher.rules.once_daily
-            });
-            dbg.warn(`the bucket ${bucket.name} used capacity is more than the updated quota. uploads will be denied`);
-        } else if (used_percent >= 90) {
-            changes.alerts.push({
-                sev: 'INFO',
-                sysid: system_store.data.systems[0]._id,
-                alert: `Bucket ${bucket.name.unwrap()} exceeded 90% of its configured quota of ${size_utils.human_size(quota.value)}`,
-                rule: Dispatcher.rules.once_daily
-            });
-        }
-        quota_event.desc = `Quota of ${size_utils.human_size(quota.value)} was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
+        if (!quota.is_valid_quota()) throw new RpcError('BAD_REQUEST', 'quota config values must be positive');
+
+        quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, changes.alerts);
+
+        //Make event description
+        const quota_size_raw_value = quota.get_quota_by_size();
+        const quota_quantity_raw_data = quota.get_quota_by_quantity();
+        quota_event.desc = `Quota of ${quota_size_raw_value > 0 ? size_utils.human_size(quota_size_raw_value) : 'unlimited'} size
+        and ${quota_quantity_raw_data > 0 ? size_utils.human_size(quota_quantity_raw_data) : 'unlimited'} qunatity 
+        was set on ${bucket.name.unwrap()} by ${req.account && req.account.email.unwrap()}`;
+
+        single_bucket_update.quota = quota.get_config();
     }
     changes.events.push(quota_event);
 }
@@ -1634,13 +1624,11 @@ function _calc_metrics({
     let is_quota_exceeded = false;
     let is_quota_low = false;
     if (bucket.quota) {
-        let quota_precent = system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota);
-        info.quota = _.omit(bucket.quota, 'value');
-        if (quota_precent >= 100) {
-            is_quota_exceeded = true;
-        } else if (quota_precent >= 90) {
-            is_quota_low = true;
-        }
+        const quota = new Quota(bucket.quota);
+        info.quota = quota.get_config();
+        const quota_exceeded = quota.is_quota_exceeded(bucket);
+        is_quota_exceeded = quota_exceeded.is_quota_exceeded;
+        is_quota_low = quota_exceeded.is_quota_low;
     }
     let risky_tolerance = false;
 
@@ -1694,15 +1682,10 @@ function _calc_metrics({
     };
 
     const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
-    let available_for_upload = actual_free;
 
-    if (bucket.quota) {
-        let quota_free = size_utils.json_to_bigint(bucket.quota.value).minus(size_utils.json_to_bigint(objects_aggregate.size));
-        available_for_upload = size_utils.size_min([
-            size_utils.bigint_to_json(quota_free),
-            size_utils.bigint_to_json(available_for_upload)
-        ]);
-    }
+    const quota = new Quota(bucket.quota);
+    let available_size_for_upload = quota.get_available_size_for_upload(actual_free, objects_aggregate.size);
+    let available_quantity_for_upload = quota.get_available_quantity_for_upload(objects_aggregate.count);
 
     if (bucket_free.isZero()) {
         is_no_storage = true;
@@ -1718,7 +1701,8 @@ function _calc_metrics({
         size: objects_aggregate.size,
         size_reduced: bucket_chunks_capacity,
         free: actual_free,
-        available_for_upload,
+        available_size_for_upload,
+        available_quantity_for_upload,
         last_update,
     });
 

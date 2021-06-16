@@ -68,7 +68,7 @@ class KubernetesFunctions {
      */
     async read_resources(file_path) {
         try {
-            const file_json = await this.kubectl(`apply -f ${file_path} --dry-run -o json`);
+            const file_json = await this.kubectl(`apply -f ${file_path} --dry-run='client' -o json`);
             const resources = JSON.parse(file_json);
             return resources.items;
         } catch (err) {

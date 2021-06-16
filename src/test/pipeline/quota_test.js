@@ -194,7 +194,7 @@ async function _check_file_in_pool(file_name, pool, bucket_name) {
 }
 
 async function _check_quota(bucket_name, pool, multiplier) {
-    await bucket_functions.setQuotaBucket(bucket_name, 1, 'GIGABYTE');
+    await bucket_functions.setQuotaBucket(bucket_name, 1, 'G');
     // Start writing, and see that we are failing when we get into the quota
     const uploaded_files = await _upload_files(bucket_name, 1024, multiplier);
     await _wait_no_available_space(bucket_name);

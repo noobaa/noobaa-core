@@ -129,18 +129,7 @@ module.exports = {
         },
 
         quota: {
-            type: 'object',
-            required: ['size', 'unit', 'value'],
-            properties: {
-                size: {
-                    type: 'integer'
-                },
-                unit: {
-                    type: 'string',
-                    enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
-                },
-                value: bigint
-            }
+            $ref: 'common_api#/definitions/quota_config'
         },
         versioning: {
             type: 'string',

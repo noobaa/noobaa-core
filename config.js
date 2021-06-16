@@ -580,6 +580,10 @@ config.NSFS_TRIGGER_FSYNC = true;
 config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
 config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
 
+//Quota
+config.QUOTA_LOW_THRESHOLD = 80;
+config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

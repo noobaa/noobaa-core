@@ -35,6 +35,7 @@ const events_dispatcher = require('./events_dispatcher');
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
+const Quota = require('../system_services/objects/quota');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -1572,28 +1573,21 @@ function throw_if_maintenance(req) {
 function check_quota(bucket) {
     if (!bucket.quota) return;
 
-    let used_percent = system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota);
+    const quota = new Quota(bucket.quota);
+    const alerts = [];
+    const major_messages = [];
+    quota.add_quota_alerts(system_store.data.systems[0]._id, bucket, alerts);
+    for (const alert of alerts) {
+        Dispatcher.instance().alert(alert.sev, alert.sysid, alert.alert, alert.rule);
+        if (alert.sev === 'MAJOR') {
+            major_messages.push(alert.alert);
+        }
+    }
 
-    if (used_percent >= 100) {
-        const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
-        const message = `the bucket ${bucket.name} used storage(${
-                size_utils.human_size(bucket_used)
-            }) exceeds the bucket quota (${
-                size_utils.human_size(bucket.quota.value)
-            })`;
-        Dispatcher.instance().alert('MAJOR',
-            system_store.data.systems[0]._id,
-            `Bucket ${bucket.name.unwrap()} exceeded its configured quota of ${
-                    size_utils.human_size(bucket.quota.value)
-                }, uploads to this bucket will be denied`,
-            Dispatcher.rules.once_daily);
+    if (major_messages.length > 0) {
+        const message = major_messages.join();
         dbg.error(message);
         throw new RpcError('INVALID_BUCKET_STATE', message);
-    } else if (used_percent >= 90) {
-        Dispatcher.instance().alert('INFO',
-            system_store.data.systems[0]._id,
-            `Bucket ${bucket.name.unwrap()} exceeded 90% of its configured quota of ${size_utils.human_size(bucket.quota.value)}`,
-            Dispatcher.rules.once_daily);
     }
 }
 

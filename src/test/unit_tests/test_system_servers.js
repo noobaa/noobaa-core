@@ -382,14 +382,21 @@ mocha.describe('system_servers', function() {
             .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: {
-                    size: 10,
-                    unit: 'TERABYTE'
+                    size: {
+                        value: 10,
+                        unit: 'T'
+                    },
+                    quantity: {
+                        value: 50
+                    }
                 }
             }))
             .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET,
             }))
-            .then(info => assert(info.quota && info.quota.size === 10 && info.quota.unit === 'TERABYTE'))
+            .then(info => assert(info.quota && info.quota.size &&
+                info.quota.size.value === 10 && info.quota.size.unit === 'T' &&
+                info.quota.quantity && info.quota.quantity.value === 50))
             .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: null

@@ -5,7 +5,7 @@ import ConnectableViewModel from 'components/connectable';
 import { deepFreeze } from 'utils/core-utils';
 import { realizeUri } from 'utils/browser-utils';
 import { formatSize, fromBigInteger, toBigInteger, bigInteger } from 'utils/size-utils';
-import { getQuotaValue, getQuotaStateIcon } from 'utils/bucket-utils';
+import { getQuotaSizeValue, getQuotaStateIcon } from 'utils/bucket-utils';
 import ko from 'knockout';
 import * as routes from 'routes';
 import { requestLocation, openEditBucketQuotaModal } from 'action-creators';
@@ -76,8 +76,8 @@ class BucketQuotaPolicyFormViewModel extends ConnectableViewModel {
             });
             const { quota, data } = buckets[bucketName];
 
-            if (quota) {
-                const quotaSize = getQuotaValue(quota);
+            if (quota && quota.size) {
+                const quotaSize = getQuotaSizeValue(quota);
                 const dataLeftUntilQuota = fromBigInteger(
                     bigInteger.max(
                         toBigInteger(quotaSize).subtract(data.size),

@@ -371,12 +371,23 @@ function update_account_s3_access(req) {
         }
         update.allowed_buckets = allowed_buckets;
         const resource = req.rpc_params.default_resource ?
-            system.pools_by_name[req.rpc_params.default_resource] || system.namespace_resources_by_name[req.rpc_params.default_resource] :
+            system.pools_by_name[req.rpc_params.default_resource] ||
+            (system.namespace_resources_by_name && system.namespace_resources_by_name[req.rpc_params.default_resource]) :
             Object.values(req.system.pools_by_name)[0];
         update.default_resource = resource._id;
         if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }
+
+        if (req.rpc_params.nsfs_account_config && _.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
+            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path) {
+            throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
+        }
+
+        update.nsfs_account_config = req.rpc_params.nsfs_account_config && {
+            ...account.nsfs_account_config,
+            ...req.rpc_params.nsfs_account_config
+        };
     } else {
         update.$unset = {
             allowed_buckets: true,
@@ -475,20 +486,12 @@ function update_account(req) {
     if (params.ips && !_.every(params.ips, ip_range => (net.isIP(ip_range.start) && net.isIP(ip_range.end)))) {
         throw new RpcError('FORBIDDEN', 'Non valid IPs');
     }
-    if (req.rpc_params.nsfs_account_config && _.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
-            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path) {
-                throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
-    }
     let updates = {
         name: params.name,
         email: params.new_email,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
-        nsfs_account_config: req.rpc_params.nsfs_account_config && {
-            ...account.nsfs_account_config,
-            ...req.rpc_params.nsfs_account_config
-        }
     };
 
     let removals = {
@@ -673,7 +676,7 @@ function delete_account(req) {
  * DELETE_ACCOUNT BY PROPERTY
  *
  */
- function delete_account_by_property(req) {
+function delete_account_by_property(req) {
     let roles_to_delete = [];
     let accounts_to_delete = system_store.get_accounts_by_nsfs_account_config(req.rpc_params.nsfs_account_config)
         .map(account_to_delete => {
@@ -699,7 +702,7 @@ function delete_account(req) {
                 )
                 .map(
                     role => role._id
-            ));
+                ));
             return account_to_delete._id;
         });
 
@@ -708,10 +711,10 @@ function delete_account(req) {
             req.rpc_params.nsfs_account_config.uid + '/' + req.rpc_params.nsfs_account_config.gid);
     }
     return system_store.make_changes({
-            remove: {
-                accounts: accounts_to_delete,
-                roles: roles_to_delete
-            }
+        remove: {
+            accounts: accounts_to_delete,
+            roles: roles_to_delete
+        }
     });
 }
 
@@ -734,9 +737,9 @@ function list_accounts(req) {
         // filter list, UID and GID together
         .filter(account => !req.rpc_params.filter ||
             (req.rpc_params.filter &&
-            req.rpc_params.filter.fs_identity &&
-            req.rpc_params.filter.fs_identity.uid === (account.nsfs_account_config && account.nsfs_account_config.uid) &&
-            req.rpc_params.filter.fs_identity.gid === (account.nsfs_account_config && account.nsfs_account_config.gid))
+                req.rpc_params.filter.fs_identity &&
+                req.rpc_params.filter.fs_identity.uid === (account.nsfs_account_config && account.nsfs_account_config.uid) &&
+                req.rpc_params.filter.fs_identity.gid === (account.nsfs_account_config && account.nsfs_account_config.gid))
         )
         .map(account => get_account_info(account, req.account === account));
 
@@ -1193,7 +1196,8 @@ function delete_external_connection(req) {
                 accounts: [{
                     _id: account._id,
                     $pull: { sync_credentials_cache: { name: params.connection_name } }
-            }]}
+                }]
+            }
         })
         .then(
             val => {
@@ -1363,8 +1367,8 @@ function validate_create_account_permissions(req) {
         !(account.roles_by_system[req.system._id].some(
             role => role === 'admin' || role === 'operator'
         ))) {
-            throw new RpcError('UNAUTHORIZED', 'Cannot create new account');
-        }
+        throw new RpcError('UNAUTHORIZED', 'Cannot create new account');
+    }
 }
 
 function validate_create_account_params(req) {

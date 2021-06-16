@@ -186,14 +186,6 @@ module.exports = {
                             }
                         }]
                     },
-                    nsfs_account_config: {
-                        type: 'object',
-                        properties: {
-                            uid: { type: 'number' },
-                            gid: { type: 'number' },
-                            new_buckets_path: { type: 'string' },
-                        }
-                    },
                     preferences: {
                         type: 'object',
                         properties: {
@@ -282,7 +274,15 @@ module.exports = {
                     },
                     allow_bucket_creation: {
                         type: 'boolean'
-                    }
+                    },
+                    nsfs_account_config: {
+                        type: 'object',
+                        properties: {
+                            uid: { type: 'number' },
+                            gid: { type: 'number' },
+                            new_buckets_path: { type: 'string' },
+                        }
+                    },
                 },
             },
             auth: {

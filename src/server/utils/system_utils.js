@@ -23,6 +23,7 @@ function system_in_maintenance(system_id) {
 
 
 // returns the percent of quota used by the bucket
+// TODO remove the function
 function get_bucket_quota_usage_percent(bucket, bucket_quota) {
     if (!bucket_quota) return 0;
 
@@ -31,7 +32,6 @@ function get_bucket_quota_usage_percent(bucket, bucket_quota) {
     let used_percent = bucket_used.multiply(100).divide(quota);
     return used_percent.valueOf();
 }
-
 
 exports.system_in_maintenance = system_in_maintenance;
 exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;

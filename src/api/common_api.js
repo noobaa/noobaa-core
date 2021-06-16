@@ -819,5 +819,34 @@ module.exports = {
                 nsfs_only: { type: 'boolean' }
             }
         },
+        quota_config: {
+            type: 'object',
+            properties: {
+                size: {
+                    type: 'object',
+                    required: ['value', 'unit'],
+                    properties: {
+                        value: {
+                            type: 'integer',
+                            "minimum": 1
+                        },
+                        unit: {
+                            type: 'string',
+                            enum: ['GIGABYTE', 'TERABYTE', 'PETABYTE']
+                        },
+                    },
+                },
+                quantity: {
+                    type: 'object',
+                    required: ['value'],
+                    properties: {
+                        value: {
+                            type: 'integer',
+                            "minimum": 1
+                        }
+                    },
+                }
+            }
+        },
     }
 };

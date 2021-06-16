@@ -31,7 +31,7 @@ const { HistoryDataStore } = require('../analytic_services/history_data_store');
 const { google } = require('googleapis');
 const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
-const system_utils = require('../utils/system_utils');
+const Quota = require('../system_services/objects/quota');
 
 
 const ops_aggregation = {};
@@ -507,9 +507,11 @@ async function _partial_buckets_info(req) {
             const bucket_available = size_utils.json_to_bigint(_.get(bucket_info, 'data.free') || 0);
             const bucket_total = bucket_used.plus(bucket_available);
             const is_capacity_relevant = _.includes(CAPACITY_MODES, bucket_info.mode);
+            const { size_used_percent, quantity_used_percent } = Quota.get_bucket_quota_usages_percent(bucket, new Quota(bucket.quota));
             buckets_stats.buckets.push({
                 bucket_name: bucket_info.name.unwrap(),
-                quota_precent: system_utils.get_bucket_quota_usage_percent(bucket, bucket.quota),
+                quota_size_precent: size_used_percent,
+                quota_quantity_percent: quantity_used_percent,
                 capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),

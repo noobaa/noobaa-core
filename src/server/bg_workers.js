@@ -12,7 +12,6 @@ require('../util/fips');
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('BGWorkers');
 
-const _ = require('lodash');
 const url = require('url');
 const http_utils = require('../util/http_utils');
 const config = require('../../config.js');
@@ -72,18 +71,9 @@ function register_rpc() {
     });
 }
 
-
-function register_bg_worker(worker, run_batch_function) {
-    dbg.log0('Registering', worker.name, 'bg worker');
-    if (run_batch_function) {
-        worker.run_batch = run_batch_function;
-    }
-    if (!worker.name || !_.isFunction(worker.run_batch)) {
-        console.error('Name and run function must be supplied for registering bg worker', worker.name);
-        throw new Error('Name and run function must be supplied for registering bg worker ' + worker.name);
-    }
-    background_scheduler.run_background_worker(worker);
-}
+const register_bg_worker =
+    (worker, run_batch_function) =>
+    background_scheduler.register_bg_worker(worker, run_batch_function);
 
 function remove_master_workers() {
     MASTER_BG_WORKERS.forEach(worker_name => {
@@ -101,7 +91,8 @@ function run_master_workers() {
 
     register_bg_worker(new NamespaceMonitor({
         name: 'namespace_monitor',
-        client: server_rpc.client
+        client: server_rpc.client,
+        should_monitor: nsr => !nsr.nsfs_config,
     }));
     if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
         register_bg_worker({

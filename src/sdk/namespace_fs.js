@@ -123,13 +123,15 @@ class NamespaceFS {
      *  bucket_path: string;
      *  fs_backend?: string;
      *  bucket_id: string;
+     *  namespace_resource_id?: string;
      * }} params
      */
-    constructor({ bucket_path, fs_backend, bucket_id }) {
+    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id }) {
         dbg.log0('NamespaceFS: buffers_pool', buffers_pool);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
+        this.namespace_resource_id = namespace_resource_id;
     }
 
     set_cur_fs_account_config(object_sdk) {
@@ -168,6 +170,22 @@ class NamespaceFS {
             'other.fs_backend', other.fs_backend, 'this.fs_backend', this.fs_backend,
             'params.xattr_copy', params.xattr_copy);
         return is_server_side_copy;
+    }
+
+    run_update_issues_report(object_sdk, err) {
+        //We want to avoid the report when we have no error code.
+        if (!err.code) return;
+        //In standalone, we want to avoid the report.
+        if (!this.namespace_resource_id) return;
+        try {
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: err.code,
+                time: Date.now(),
+            });
+        } catch (e) {
+            console.log('update_issues_report on error:', e, 'ignoring.');
+        }
     }
 
     /////////////////
@@ -401,6 +419,7 @@ class NamespaceFS {
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
             return this._get_object_info(params.bucket, params.key, stat);
         } catch (err) {
+            this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
         }
     }
@@ -530,7 +549,10 @@ class NamespaceFS {
         const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
         // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
-            await Promise.all([this._make_path_dirs(file_path, fs_account_config), this._make_path_dirs(upload_path, fs_account_config)]);
+            await Promise.all([
+                this._make_path_dirs(file_path, fs_account_config),
+                this._make_path_dirs(upload_path, fs_account_config)
+            ]);
             if (params.copy_source) {
                 const source_file_path = path.join(this.bucket_path, params.copy_source.key);
                 try {
@@ -550,6 +572,7 @@ class NamespaceFS {
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
+            this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
         }
     }
@@ -698,6 +721,7 @@ class NamespaceFS {
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {
+            this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
         }
     }

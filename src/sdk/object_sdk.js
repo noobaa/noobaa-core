@@ -180,8 +180,13 @@ class ObjectSDK {
         try {
             // NAMESPACE_FS HACK
             if (process.env.NAMESPACE_FS) {
+                const namespace_resource_id = bucket.namespace.write_resource?.resource.id;
                 return {
-                    ns: new NamespaceFS({ bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name, bucket_id: String(bucket._id) }),
+                    ns: new NamespaceFS({
+                        bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name,
+                        bucket_id: String(bucket._id),
+                        namespace_resource_id,
+                    }),
                     bucket,
                     valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
                 };
@@ -301,7 +306,8 @@ class ObjectSDK {
             return new NamespaceFS({
                 fs_backend: ns_info.fs_backend,
                 bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || ''),
-                bucket_id: String(bucket_id)
+                bucket_id: String(bucket_id),
+                namespace_resource_id: ns_info.id,
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

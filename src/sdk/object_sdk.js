@@ -232,7 +232,7 @@ class ObjectSDK {
                 }
                 if (bucket.namespace.write_resource && _.isEqual(bucket.namespace.read_resources, [bucket.namespace.write_resource])) {
                     return {
-                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource), bucket._id),
+                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource,bucket), bucket._id),
                         bucket,
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
@@ -283,7 +283,7 @@ class ObjectSDK {
         });
     }
 
-    _setup_single_namespace(namespace_resource_config, bucket_id) {
+    _setup_single_namespace(namespace_resource_config, bucket_id, bucket) {
         const ns_info = namespace_resource_config.resource;
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
@@ -314,7 +314,8 @@ class ObjectSDK {
                     s3ForcePathStyle: true,
                     // computeChecksums: false, // disabled by default for performance
                     httpOptions: { agent }
-                }
+                },
+                active_triggers: bucket.active_triggers
             });
         }
         if (ns_info.endpoint_type === 'AZURE') {

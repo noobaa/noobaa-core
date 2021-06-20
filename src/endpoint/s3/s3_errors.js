@@ -502,4 +502,38 @@ S3Error.ObjectLockConfigurationNotFoundError = Object.freeze({
     http_code: 404,
 });
 
+S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
+    UNAUTHORIZED: S3Error.AccessDenied,
+    BAD_REQUEST: S3Error.BadRequest,
+    FORBIDDEN: S3Error.AccessDenied,
+    NO_SUCH_BUCKET: S3Error.NoSuchBucket,
+    NO_SUCH_OBJECT: S3Error.NoSuchKey,
+    INVALID_BUCKET_NAME: S3Error.InvalidBucketName,
+    NOT_EMPTY: S3Error.BucketNotEmpty,
+    BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
+    BUCKET_ALREADY_OWNED_BY_YOU: S3Error.BucketAlreadyOwnedByYou,
+    NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
+    BAD_DIGEST_MD5: S3Error.BadDigest,
+    BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,
+    BAD_SIZE: S3Error.IncompleteBody,
+    IF_MODIFIED_SINCE: S3Error.NotModified,
+    IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,
+    IF_MATCH_ETAG: S3Error.PreconditionFailed,
+    IF_NONE_MATCH_ETAG: S3Error.NotModified,
+    OBJECT_IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown,
+    INVALID_PART: S3Error.InvalidPart,
+    INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
+    INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
+    NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
+    MALFORMED_POLICY: S3Error.MalformedPolicy,
+    NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
+    OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,
+    INVALID_REQUEST: S3Error.InvalidRequest,
+    NOT_IMPLEMENTED: S3Error.NotImplemented,
+    INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
+    SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
+    SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
+    INVALID_RANGE: S3Error.InvalidRange,
+});
+
 exports.S3Error = S3Error;

@@ -59,40 +59,6 @@ const OBJECT_SUB_RESOURCES = Object.freeze({
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
 
-const RPC_ERRORS_TO_S3 = Object.freeze({
-    UNAUTHORIZED: S3Error.AccessDenied,
-    BAD_REQUEST: S3Error.BadRequest,
-    FORBIDDEN: S3Error.AccessDenied,
-    NO_SUCH_BUCKET: S3Error.NoSuchBucket,
-    NO_SUCH_OBJECT: S3Error.NoSuchKey,
-    INVALID_BUCKET_NAME: S3Error.InvalidBucketName,
-    NOT_EMPTY: S3Error.BucketNotEmpty,
-    BUCKET_ALREADY_EXISTS: S3Error.BucketAlreadyExists,
-    BUCKET_ALREADY_OWNED_BY_YOU: S3Error.BucketAlreadyOwnedByYou,
-    NO_SUCH_UPLOAD: S3Error.NoSuchUpload,
-    BAD_DIGEST_MD5: S3Error.BadDigest,
-    BAD_DIGEST_SHA256: S3Error.XAmzContentSHA256Mismatch,
-    BAD_SIZE: S3Error.IncompleteBody,
-    IF_MODIFIED_SINCE: S3Error.NotModified,
-    IF_UNMODIFIED_SINCE: S3Error.PreconditionFailed,
-    IF_MATCH_ETAG: S3Error.PreconditionFailed,
-    IF_NONE_MATCH_ETAG: S3Error.NotModified,
-    OBJECT_IO_STREAM_ITEM_TIMEOUT: S3Error.SlowDown,
-    INVALID_PART: S3Error.InvalidPart,
-    INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
-    INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
-    NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
-    MALFORMED_POLICY: S3Error.MalformedPolicy,
-    NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
-    OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,
-    INVALID_REQUEST: S3Error.InvalidRequest,
-    NOT_IMPLEMENTED: S3Error.NotImplemented,
-    INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
-    SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
-    SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
-    INVALID_RANGE: S3Error.InvalidRange,
-});
-
 const S3_OPS = load_ops();
 
 let usage_report = new_usage_report();
@@ -446,7 +412,7 @@ function parse_op_name(req) {
 function handle_error(req, res, err) {
     var s3err =
         ((err instanceof S3Error) && err) ||
-        new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
+        new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
 
     if (s3err.code === 'MalformedPolicy') {
         s3err.message = err.message;
@@ -455,10 +421,18 @@ function handle_error(req, res, err) {
 
     if (s3err.rpc_data) {
         if (s3err.rpc_data.etag) {
-            res.setHeader('ETag', s3err.rpc_data.etag);
+            if (res.headersSent) {
+                dbg.log0('Sent reply in body, bit too late for Etag header');
+            } else {
+                res.setHeader('ETag', s3err.rpc_data.etag);
+            }
         }
         if (s3err.rpc_data.last_modified) {
-            res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
+            if (res.headersSent) {
+                dbg.log0('Sent reply in body, bit too late for Last-Modified header');
+            } else {
+                res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
+            }
         }
     }
 
@@ -475,16 +449,20 @@ function handle_error(req, res, err) {
         req.method, req.originalUrl,
         JSON.stringify(req.headers),
         err.stack || err);
-    res.statusCode = s3err.http_code;
-    res.setHeader('Content-Type', 'application/xml');
-    res.setHeader('Content-Length', Buffer.byteLength(reply));
+    if (res.headersSent) {
+        dbg.log0('Sending error xml in body, but too late for headers...');
+    } else {
+        res.statusCode = s3err.http_code;
+        res.setHeader('Content-Type', 'application/xml');
+        res.setHeader('Content-Length', Buffer.byteLength(reply));
+    }
     res.end(reply);
 }
 
 async function _handle_html_response(req, res, err) {
     var s3err =
         ((err instanceof S3Error) && err) ||
-        new S3Error(RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
+        new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
 
     if (s3err.rpc_data) {
         if (s3err.rpc_data.etag) {

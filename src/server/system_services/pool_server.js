@@ -977,7 +977,8 @@ async function assign_pool_to_region(req) {
 
 function find_namespace_resource_by_name(req) {
     const name = req.rpc_params.name;
-    const namespace_resource = req.system.namespace_resources_by_name[name];
+    const namespace_resource = req.system.namespace_resources_by_name &&
+        req.system.namespace_resources_by_name[name];
     if (!namespace_resource) {
         throw new RpcError('NO_SUCH_NAMESPACE_RESOURCE', 'No such namespace resource: ' + name);
     }

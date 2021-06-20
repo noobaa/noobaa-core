@@ -58,6 +58,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770));
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + other_bucket_path, 0o770));
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));
+    mocha.it('read namespace resource before creation', async function() {
+        try {
+            await rpc_client.pool.read_namespace_resource({ name: 'dummy' });
+        } catch (err) {
+            assert.ok(err.rpc_code === 'NO_SUCH_NAMESPACE_RESOURCE');
+        }
+    });
     mocha.it('export dir as bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr,

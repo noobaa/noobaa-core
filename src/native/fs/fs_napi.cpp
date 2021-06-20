@@ -77,6 +77,7 @@ struct FSWorker : public Napi::AsyncWorker
     std::string _backend;
     std::string _desc;
     int _errno;
+    int thresholdInMilliSec = 2;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
@@ -99,10 +100,22 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void Work() = 0;
     void Execute() override
     {
+        using std::chrono::duration_cast; 
+        using std::chrono::milliseconds;
+        using std::chrono::system_clock;
+
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
+        if (_desc.find("FileWritev") != std::string::npos ) {
+            thresholdInMilliSec = 100;
+        }
         ThreadScope tx;
         tx.set_user(_uid, _gid);
+        std::time_t timeBefore = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
         Work();
+        std::time_t timeAfter = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        if (timeAfter - timeBefore > thresholdInMilliSec) {
+            DBG0("FS::FSWorker::Execute: " << _desc << " took: " << timeAfter - timeBefore << " milliseconds");
+        }
     }
     void SetSyscallError()
     {

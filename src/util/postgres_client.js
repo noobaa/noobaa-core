@@ -23,10 +23,20 @@ const fs = require('fs');
 const mongo_functions = require('./mongo_functions');
 const { RpcError } = require('../rpc');
 const SensitiveString = require('./sensitive_string');
-
+const time_utils = require('./time_utils');
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
+
+
+const COMPARISON_OPS = [
+    '$eq',
+    '$ne',
+    '$gt',
+    '$gte',
+    '$lt',
+    '$lte',
+];
 
 
 // temporary solution for encode\decode
@@ -81,6 +91,10 @@ function encode_json(schema, val) {
     const ops = handle_ops_encoding(schema, val);
     if (ops) return ops;
 
+    if (schema.objectid === true && val instanceof mongodb.ObjectID) {
+        return val.toString();
+    }
+
     if (schema.binary === true) {
         // assuming val is of type Buffer. convert to base64 string
         return val.toString('base64');
@@ -112,50 +126,94 @@ function encode_json(schema, val) {
 }
 
 function handle_ops_encoding(schema, val) {
-    let obj;
-    let op;
+
+    if (!val) return;
+
+    let obj = {};
 
     // handle $in
-    if (val && val.$in) {
-        op = '$in';
-        obj = { '$in': [] };
+    if (val.$in) {
+        obj.$in = [];
         for (const item of val.$in) {
             obj.$in.push(encode_json(schema, item));
         }
     }
 
     // handle $push
-    if (val && val.$push) {
-        op = '$push';
+    if (val.$push) {
         obj = { '$push': {} };
         for (const key of Object.keys(val.$push)) {
             obj.$push[key] = encode_json(schema.items, val.$push[key]);
         }
     }
     // handle $set
-    if (val && val.$set) {
-        op = '$set';
+    if (val.$set) {
         obj = { '$set': {} };
         for (const key of Object.keys(val.$set)) {
             obj.$set[key] = encode_json(schema.properties && schema.properties[key], val.$set[key]);
         }
     }
 
-    if (obj) {
-        const keys_no_val = encode_json(schema, _.omit(val, op));
-        return _.extend(obj, keys_no_val);
+    // for simple comparison ops encode the operand
+    for (const op of COMPARISON_OPS) {
+        if (val[op]) {
+            obj[op] = encode_json(schema, val[op]);
+        }
+    }
+
+    // fill in with the rest of the keys
+    if (Object.keys(obj).length > 0) {
+        return { ...val, ...obj };
     }
 }
 
 let query_counter = 0;
 
+async function log_query(pg_client, query, tag, millitook, should_explain) {
+    const log_obj = {
+        tag,
+        took: millitook,
+        query,
+        clients_pool: { total: pg_client.totalCount, waiting: pg_client.waitingCount, idle: pg_client.idleCount },
+        stack: (new Error()).stack.split('\n').slice(1),
+    };
+
+    if (should_explain && process.env.PG_EXPLAIN_QUERIES === 'true') {
+        let explain_res;
+        const explain_q = { text: 'explain ' + query.text, values: query.values };
+        try {
+            explain_res = await pg_client.query(explain_q);
+            log_obj.explain = explain_res.rows;
+        } catch (err) {
+            console.error('got error on explain', explain_q, err);
+        }
+    }
+
+    dbg.log0('QUERY_LOG:', JSON.stringify(log_obj));
+}
+
+function convert_sort(sort) {
+    return mongo_to_pg.convertSort('data', sort)
+        // fix _id refs to text references (->> instead of ->) refer
+        .replace("data->'_id'", "data->>'_id'")
+        // remove NULLS LAST or NULLS FIRST
+        .replace(/ NULLS LAST| NULLS FIRST/g, "");
+}
+
+
 async function _do_query(pg_client, q, transaction_counter) {
     query_counter += 1;
     const tag = `T${_.padStart(transaction_counter, 8, '0')}|Q${_.padStart(query_counter.toString(), 8, '0')}`;
     try {
-        dbg.log1(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
+        // dbg.log0(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
+        const millistart = time_utils.millistamp();
         const res = await pg_client.query(q);
-        dbg.log1(`postgres_client: ${tag}: got result:`, util.inspect(res, { depth: 6 }));
+        const millitook = time_utils.millitook(millistart);
+        if (process.env.PG_ENABLE_QUERY_LOG === 'true') {
+            // noticed that some failures in explain are invalidating the transaction. 
+            // myabe did something wrong but for now don't try to EXPLAIN the query when in transaction. 
+            await log_query(pg_client, q, tag, millitook, /*should_explain*/ transaction_counter === 0);
+        }
         return res;
     } catch (err) {
         dbg.error(`postgres_client: ${tag}: failed with error:`, err);
@@ -313,7 +371,7 @@ class BulkOp {
         const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
 
         let encoded_find = encode_json(this.schema, find);
-        const pg_selector = mongo_to_pg('data', encoded_find);
+        const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
 
         let query;
         // translation of '.$.' is currently supported for findAndUpdateOne and more specifcally to $set operations. 
@@ -382,7 +440,7 @@ class UnorderedBulkOp extends BulkOp {
     }
 
     findAndRemoveOne(find) {
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, find));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, find), { disableContainmentQuery: true });
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         this.add_query(query);
         return this;
@@ -411,7 +469,16 @@ class PostgresTable {
         const { schema, name, db_indexes, client, init_function } = table_params;
         this.name = name;
         this.init_function = init_function;
-        this.db_indexes = db_indexes;
+        const id_index = {
+            fields: {
+                _id: 1,
+            },
+            options: {
+                name: '_id_index',
+                unique: true,
+            }
+        };
+        this.db_indexes = [id_index, ...(db_indexes || [])];
         this.schema = schema;
         this.client = client;
         // calculate an advisory_lock_key from this collection by taking the first 32 bit 
@@ -472,7 +539,7 @@ class PostgresTable {
                         });
                         const col_idx = `(${col_arr.join(',')})`;
                         const uniq = options.unique ? 'UNIQUE' : '';
-                        const partial = options.partialFilterExpression ? `WHERE ${mongo_to_pg('data', options.partialFilterExpression)}` : '';
+                        const partial = options.partialFilterExpression ? `WHERE ${mongo_to_pg('data', options.partialFilterExpression, {disableContainmentQuery: true})}` : '';
                         const idx_str = `CREATE ${uniq} INDEX idx_btree_${this.name}_${index_name} ON ${this.name} USING BTREE ${col_idx} ${partial}`;
                         await this.single_query(idx_str, undefined, pool, true);
                         dbg.log0('db_indexes: created index', idx_str);
@@ -507,7 +574,7 @@ class PostgresTable {
 
     async countDocuments(query) {
         let query_string = `SELECT COUNT(*) FROM ${this.name}`;
-        if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', encode_json(this.schema, query))}`;
+        if (!_.isEmpty(query)) query_string += ` WHERE ${mongo_to_pg('data', encode_json(this.schema, query), {disableContainmentQuery: true})}`;
         try {
             const res = await this.single_query(query_string);
             return Number(res.rows[0].count);
@@ -574,7 +641,7 @@ class PostgresTable {
     async updateOne(selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
         const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         // console.warn('JENIA updateOne query', query);
         try {
@@ -591,7 +658,7 @@ class PostgresTable {
     async _updateOneWithClient(client, selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
         const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         try {
             const res = await this.single_query(query, null, client);
@@ -606,7 +673,7 @@ class PostgresTable {
     async updateMany(selector, update) {
 
         const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);
@@ -620,7 +687,7 @@ class PostgresTable {
 
     async deleteMany(selector) {
 
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);
@@ -641,9 +708,9 @@ class PostgresTable {
         const sql_query = {};
         sql_query.select = options.projection ? mongo_to_pg.convertSelect('data', options.projection) : '*';
         const encoded_query = encode_json(this.schema, query);
-        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', encoded_query);
+        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', encoded_query, { disableContainmentQuery: true });
 
-        sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
+        sql_query.order_by = options.sort && convert_sort(options.sort);
         sql_query.limit = options.limit;
         sql_query.offset = options.skip;
         let query_string = `SELECT ${sql_query.select} FROM ${this.name}`;
@@ -671,9 +738,9 @@ class PostgresTable {
 
     async findOne(query, options = {}) {
 
-        let query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, query))}`;
+        let query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, query), {disableContainmentQuery: true})}`;
         if (options.sort) {
-            query_string += ` ORDER BY ${mongo_to_pg.convertSort('data', options.sort)}`;
+            query_string += ` ORDER BY ${convert_sort(options.sort)}`;
         }
         query_string += ' LIMIT 1';
         try {
@@ -690,8 +757,8 @@ class PostgresTable {
 
         const sql_query = {};
         let mr_q;
-        sql_query.where = mongo_to_pg('data', encode_json(this.schema, options.query));
-        sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
+        sql_query.where = mongo_to_pg('data', encode_json(this.schema, options.query), { disableContainmentQuery: true });
+        sql_query.order_by = options.sort && convert_sort(options.sort);
         sql_query.limit = options.limit;
         let query_string = `SELECT * FROM ${this.name} WHERE ${sql_query.where}`;
         if (sql_query.order_by) {
@@ -724,7 +791,7 @@ class PostgresTable {
         let mr_q;
         let query_string;
         try {
-            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query))}`;
+            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query), {disableContainmentQuery: true})}`;
             mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
@@ -796,7 +863,7 @@ class PostgresTable {
         const map_reduced_array = [];
         try {
             // this is the map part of the map reduce
-            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query))}`;
+            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query), {disableContainmentQuery: true})}`;
             map_reduce_query = `SELECT * FROM ${func}($$${query_string}$$)`;
             map = await this.single_query(map_reduce_query);
         } catch (err) {
@@ -861,11 +928,11 @@ class PostgresTable {
         const select = {};
         select[property] = 1;
         sql_query.select = mongo_to_pg.convertSelect('data', select);
-        sql_query.where = mongo_to_pg('data', encode_json(this.schema, query));
-        sql_query.order_by = options.sort && mongo_to_pg.convertSort('data', options.sort);
+        sql_query.where = mongo_to_pg('data', encode_json(this.schema, query), { disableContainmentQuery: true });
+        sql_query.order_by = options.sort && convert_sort(options.sort).replace("data->'bucket'", "data->>'bucket'");
         sql_query.limit = options.limit;
         sql_query.offset = options.skip;
-        let query_string = `SELECT DISTINCT ON (data->'${property}') ${sql_query.select} FROM ${this.name} WHERE ${sql_query.where}`;
+        let query_string = `SELECT DISTINCT ON (data->>'${property}') ${sql_query.select} FROM ${this.name} WHERE ${sql_query.where}`;
         if (sql_query.order_by) {
             query_string += ` ORDER BY ${sql_query.order_by}`;
         }
@@ -952,7 +1019,7 @@ class PostgresTable {
     }
 
     async groupBy(match, group) {
-        const WHERE = mongo_to_pg('data', encode_json(this.schema, match));
+        const WHERE = mongo_to_pg('data', encode_json(this.schema, match), { disableContainmentQuery: true });
         const P_GROUP = this._prepare_aggregate_group_query(group);
         try {
             const res = await this.single_query(`SELECT ${P_GROUP.SELECT} FROM ${this.name} WHERE ${WHERE} GROUP BY ${P_GROUP.GROUP_BY}`);
@@ -1078,7 +1145,7 @@ class PostgresTable {
 
     async deleteOne(selector) {
 
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector));
+        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
         const query = `DELETE FROM ${this.name} WHERE ${pg_selector}`;
         try {
             await this.single_query(query);

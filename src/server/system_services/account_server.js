@@ -106,9 +106,9 @@ async function create_account(req) {
         } else {
 
             const resource = req.rpc_params.default_resource ? req.system.pools_by_name[req.rpc_params.default_resource] ||
-                req.system.namespace_resources_by_name[req.rpc_params.default_resource] :
+                (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.rpc_params.default_resource]) :
                 pool_server.get_internal_mongo_pool(req.system); //Internal
-
+            if (!resource) throw new RpcError('BAD_REQUEST', 'default resource doesn\'t exist');
             if (resource.nsfs_config && resource.nsfs_config.fs_root_path && !req.rpc_params.nsfs_account_config) {
                 throw new RpcError('Invalid account configuration - must specify nsfs_account_config when default resource is a namespace resource');
             }
@@ -370,11 +370,16 @@ function update_account_s3_access(req) {
                 system.buckets_by_name[bucket.unwrap()]._id);
         }
         update.allowed_buckets = allowed_buckets;
-        const resource = req.rpc_params.default_resource ?
-            system.pools_by_name[req.rpc_params.default_resource] ||
-            (system.namespace_resources_by_name && system.namespace_resources_by_name[req.rpc_params.default_resource]) :
-            Object.values(req.system.pools_by_name)[0];
-        update.default_resource = resource._id;
+        if (req.rpc_params.default_resource) {
+            const resource = system.pools_by_name[req.rpc_params.default_resource] ||
+                (system.namespace_resources_by_name &&
+                    system.namespace_resources_by_name[req.rpc_params.default_resource]);
+            if (!resource) throw new RpcError('BAD_REQUEST', 'default resource doesn\'t exist');
+            update.default_resource = resource._id;
+        } else {
+            update.default_resource = (Object.values(req.system.pools_by_name)[0])._id;
+        }
+
         if (!_.isUndefined(req.rpc_params.allow_bucket_creation)) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }

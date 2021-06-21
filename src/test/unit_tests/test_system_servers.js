@@ -170,7 +170,7 @@ mocha.describe('system_servers', function() {
                 new_buckets_path: '/test1'
             }
         });
-        await rpc_client.account.create_account({
+        const account_params = {
             name: EMAIL3,
             email: EMAIL3,
             has_login: false,
@@ -180,7 +180,27 @@ mocha.describe('system_servers', function() {
                 permission_list: []
             },
             default_resource: DEFAULT_POOL_NAME,
-        });
+        };
+        try {
+            const dummy_resource_account_params = { ...account_params, default_resource: 'dummy_resource' };
+            await rpc_client.account.create_account(dummy_resource_account_params);
+            assert.fail('should not be able to create account with not existing default resource');
+        } catch (err) {
+            assert.ok(err.rpc_code === 'BAD_REQUEST');
+        }
+        await rpc_client.account.create_account(account_params);
+        try {
+            const dummy_resource_account_params = {
+                ...account_params,
+                name: undefined,
+                has_login: undefined,
+                default_resource: 'dummy_resource'
+            };
+            await rpc_client.account.update_account_s3_access(_.omitBy(dummy_resource_account_params, _.isUndefined));
+            assert.fail('should not be able to update account with not existing default resource');
+        } catch (err) {
+            assert.ok(err.rpc_code === 'BAD_REQUEST');
+        }
         await rpc_client.system.read_system();
         const accountlistnofilter = await rpc_client.account.list_accounts({});
         await assert(accountlistnofilter.accounts.length === 5, 'should return 5 accounts');

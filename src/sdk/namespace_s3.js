@@ -18,13 +18,14 @@ const config = require('../../config');
 class NamespaceS3 {
 
 
-    constructor({ namespace_resource_id, rpc_client, s3_params }) {
+    constructor({ namespace_resource_id, rpc_client, s3_params , active_triggers}) {
         this.namespace_resource_id = namespace_resource_id;
         this.access_key = s3_params.accessKeyId;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
         this.bucket = String(this.s3.config.params.Bucket);
         this.rpc_client = rpc_client;
+        this.active_triggers = active_triggers;
     }
 
     get_write_resource() {
@@ -298,10 +299,35 @@ class NamespaceS3 {
                 throw err;
             }
         }
+        const operation = 'ObjectCreated';
+        const load_for_trigger = this.test_should_run_triggers({ active_triggers: this.active_triggers, operation });
+        if (load_for_trigger) {
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: params.size,
+                content_type: params.content_type,
+                etag: res.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+        }
+
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
         const last_modified_time = s3_utils.get_http_response_date(res);
         return { etag, version_id: res.VersionId, last_modified_time };
+    }
+
+    test_should_run_triggers({ active_triggers, operation, obj }) {
+        return _.some(active_triggers, trigger => {
+            const { event_name, object_suffix, object_prefix } = trigger;
+            if (event_name !== operation) return false;
+            // When we do not provide the object we just check if we shall load the objects
+            // This is a case in order to avoid read_object_mds flow to happen always
+            if (obj && object_prefix && !obj.key.startsWith(object_prefix)) return false;
+            if (obj && object_suffix && !obj.key.endsWith(object_suffix)) return false;
+            return true;
+        });
     }
 
     ////////////////////////
@@ -433,6 +459,21 @@ class NamespaceS3 {
                 }))
             }
         }).promise();
+
+        const operation = 'ObjectCreated';
+        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
+        if (load_for_trigger) {
+            const head_reply = await this.read_object_md(params, object_sdk);
+
+            const obj = {
+                bucket: params.bucket,
+                key: params.key,
+                size: head_reply.size,
+                content_type: head_reply.content_type,
+                etag: head_reply.etag
+            };
+            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
+        }
 
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);

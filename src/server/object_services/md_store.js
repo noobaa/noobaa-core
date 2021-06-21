@@ -187,14 +187,14 @@ class MDStore {
 
     async find_object_or_upload_null_version(bucket_id, key) {
         return this._objects.findOne({
-                // index fields:
-                bucket: bucket_id,
-                key,
-                version_enabled: null,
-                // partialFilterExpression:
-                deleted: null,
-            }, {
-                sort: { bucket: 1, key: 1, version_enabled: 1 },
+            // index fields:
+            bucket: bucket_id,
+            key,
+            version_enabled: null,
+            // partialFilterExpression:
+            deleted: null,
+        }, {
+            sort: { bucket: 1, key: 1, version_enabled: 1 },
         });
     }
 
@@ -1152,11 +1152,11 @@ class MDStore {
     async load_parts_objects_for_chunks(chunks) {
         if (!chunks || !chunks.length) return;
         const parts = await this._parts.find({
-            chunk: { $in: db_client.instance().uniq_ids(chunks, '_id') },
+            chunk: { $in: db_client.instance().uniq_ids(chunks, '_id'), $exists: true },
             deleted: null
         });
         const objects = await this._objects.find({
-            _id: { $in: db_client.instance().uniq_ids(parts, 'obj') }
+            _id: { $in: db_client.instance().uniq_ids(parts, 'obj'), $exists: true }
         });
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
@@ -1171,7 +1171,7 @@ class MDStore {
      * @returns {Promise<nb.PartSchemaDB[]>}
      */
     async find_all_parts_of_object(obj) {
-        return this._parts.find({ obj: obj._id, deleted: null });
+        return this._parts.find({ obj: { $eq: obj._id, $exists: true }, deleted: null });
     }
 
     update_parts_in_bulk(parts_updates) {
@@ -1273,7 +1273,8 @@ class MDStore {
             system: bucket.system._id,
             bucket: bucket._id,
             dedup_key: {
-                $in: dedup_keys
+                $in: dedup_keys,
+                $exists: true
             },
             deleted: null,
         }, {
@@ -1582,7 +1583,7 @@ class MDStore {
     async load_blocks_for_chunks(chunks, sorter) {
         if (!chunks || !chunks.length) return;
         const blocks = await this._blocks.find({
-            chunk: { $in: db_client.instance().uniq_ids(chunks, '_id') },
+            chunk: { $in: db_client.instance().uniq_ids(chunks, '_id'), $exists: true },
             deleted: null,
         });
         const blocks_by_chunk = _.groupBy(blocks, 'chunk');

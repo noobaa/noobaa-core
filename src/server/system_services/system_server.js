@@ -64,6 +64,15 @@ const SYS_NODES_INFO_DEFAULTS = Object.freeze({
     by_mode: {},
 });
 
+
+// cached result from bucket_server.list_undeletable_buckets()
+const CACHED_UNDELETABLE_BUCKETS_TTL = 60 * 1000; // cache result for one minute
+const _cached_undeletable_buckets_list = {
+    last_called: 0,
+    cached_list: []
+};
+
+
 // called on rpc server init
 let _is_initialized = false;
 async function _init() {
@@ -430,6 +439,20 @@ async function _create_owner_account(
     return { auth_token };
 }
 
+
+
+// quick fix for postgres performance issues: the DB query to get undeletable buckets uses distinct query which takes
+// a long time if there is a large number of objects. cache the result of bucket_server.list_undeletable_buckets() 
+// instead of calling it on every read_system
+async function _get_undeletable_buckets_cached() {
+    const now = Date.now();
+    if (now - _cached_undeletable_buckets_list.last_called > CACHED_UNDELETABLE_BUCKETS_TTL) {
+        _cached_undeletable_buckets_list.cached_list = await bucket_server.list_undeletable_buckets();
+        _cached_undeletable_buckets_list.last_called = now;
+    }
+    return _cached_undeletable_buckets_list.cached_list;
+}
+
 async function _configure_system_address(system_id, account_id) {
     const system_address = (process.env.CONTAINER_PLATFORM === 'KUBERNETES') ?
         await os_utils.discover_k8s_services() : [];
@@ -501,7 +524,7 @@ async function read_system(req) {
 
         refresh_system_alloc_unused: node_allocator.refresh_system_alloc(system),
 
-        undeletable_buckets: bucket_server.list_undeletable_buckets(),
+        undeletable_buckets: _get_undeletable_buckets_cached(),
 
         funcs: P.resolve()
             // using default domain - will serve the list_funcs from web_server so if

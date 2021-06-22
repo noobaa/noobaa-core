@@ -1,8 +1,16 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-exports.encode_xml = encode_xml;
-exports.encode_xml_str = encode_xml_str;
+// see https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Predefined_entities_in_XML
+const XML_CHAR_ENTITY_MAP = Object.freeze({
+    '"': '&quot;',
+    '&': '&amp;',
+    '\'': '&apos;',
+    '<': '&lt;',
+    '>': '&gt;'
+});
+
+const XML_HEADER = '<?xml version="1.0" encoding="UTF-8"?>';
 
 /**
  *
@@ -23,8 +31,8 @@ exports.encode_xml_str = encode_xml_str;
  *   <root> <a>1</a> <b>2</b> <a>3</a> <b>4</b> <z>42</z> <c d="5"></c> </root>
  *
  */
-function encode_xml(object) {
-    let output = '<?xml version="1.0" encoding="UTF-8"?>';
+function encode_xml(object, ignore_header) {
+    let output = ignore_header ? '' : XML_HEADER;
     append_object(s => {
         output += s;
     }, object);
@@ -82,15 +90,10 @@ function append_object(append, object) {
     }
 }
 
-// see https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Predefined_entities_in_XML
-const XML_CHAR_ENTITY_MAP = Object.freeze({
-    '"': '&quot;',
-    '&': '&amp;',
-    '\'': '&apos;',
-    '<': '&lt;',
-    '>': '&gt;'
-});
-
 function encode_xml_str(s) {
     return String(s).replace(/(["&'<>])/g, (str, ch) => XML_CHAR_ENTITY_MAP[ch]);
 }
+
+exports.encode_xml = encode_xml;
+exports.encode_xml_str = encode_xml_str;
+exports.XML_HEADER = XML_HEADER;

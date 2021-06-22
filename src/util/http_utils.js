@@ -15,6 +15,7 @@ const createHttpsProxyAgent = require('https-proxy-agent');
 const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
+const config = require('../../config');
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
 const http_agent = new http.Agent();
@@ -321,13 +322,19 @@ function send_reply(req, res, reply, options) {
                 }
             }) :
             reply;
-        const xml_reply = xml_utils.encode_xml(xml_root);
+        // TODO: Refactor later on to support potential headers response and delayed XML body
+        // This is done for the complete since we assign the XML header only in body prior to responding
+        const xml_reply = xml_utils.encode_xml(xml_root, /* ignore_header */ res.headersSent);
         dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
             xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
-        res.setHeader('Content-Type', 'application/xml');
-        res.setHeader('Content-Length', Buffer.byteLength(xml_reply));
+        if (res.headersSent) {
+            dbg.log0('Sending xml reply in body, bit too late for headers');
+        } else {
+            res.setHeader('Content-Type', 'application/xml');
+            res.setHeader('Content-Length', Buffer.byteLength(xml_reply));
+        }
         res.end(xml_reply);
         return;
     }
@@ -444,6 +451,30 @@ function make_https_request(options, body, body_encoding) {
     });
 }
 
+// Write periodically to keep the connection alive
+// TODO: Every complete above the S3_KEEP_ALIVE_WHITESPACE_INTERVAL
+// will be responded in BODY, we cannot rollback from that for pre HEADER failures
+// instread of having a fine tuned way start of sending body to make sure that we won't respond by BODY on HEADER failures
+function set_keep_alive_whitespace_interval(res) {
+    let count = 0;
+    res.keep_alive_whitespace_interval = setInterval(() => {
+        count += 1;
+        dbg.log0(`keep_alive_whitespace_interval headersSent=${res.headersSent} count=${count}`);
+        if (res.headersSent) {
+            // Keep the connection alive with white spaces
+            res.write(' ');
+        } else {
+            // Mark begining of BODY response
+            // Assuming that write automatically assigns 200 OK status
+            res.write(xml_utils.XML_HEADER);
+        }
+    }, config.S3_KEEP_ALIVE_WHITESPACE_INTERVAL);
+    res.keep_alive_whitespace_interval.unref();
+    const clear = () => clearInterval(res.keep_alive_whitespace_interval);
+    res.on('close', clear);
+    res.on('finish', clear);
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -459,4 +490,5 @@ exports.get_unsecured_agent = get_unsecured_agent;
 exports.update_http_agents = update_http_agents;
 exports.update_https_agents = update_https_agents;
 exports.make_https_request = make_https_request;
+exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;

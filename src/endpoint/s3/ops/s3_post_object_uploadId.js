@@ -24,6 +24,8 @@ async function post_object_uploadId(req, res) {
         throw new S3Error(S3Error.MalformedXML);
     }
 
+    http_utils.set_keep_alive_whitespace_interval(res);
+
     const reply = await req.object_sdk.complete_object_upload({
         obj_id: req.query.uploadId,
         bucket: req.params.bucket,
@@ -32,11 +34,15 @@ async function post_object_uploadId(req, res) {
         multiparts
     });
 
+    // TODO: Should be refactored when coding the complete solution
+    // We need to know all of these things prior to completion
+    // This also leaves a gap on long versioned/encrypted uploads (failure to assign headers after responding)
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 
     if (reply.version_id && reply.version_id !== 'null') {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
+
     return {
         CompleteMultipartUploadResult: {
             Bucket: req.params.bucket,

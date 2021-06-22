@@ -7,12 +7,12 @@ const path = require('path');
 const util = require('util');
 const mime = require('mime');
 const { v4: uuidv4 } = require('uuid');
+const dbg = require('../util/debug_module')(__filename);
 
 const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
-const dbg = require('../util/debug_module')(__filename);
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
@@ -99,13 +99,7 @@ const dir_cache = new LRUCache({
         return { time, stat, sorted_entries, usage };
     },
     validate: async ({ stat }, { dir_path, fs_account_config }) => {
-        let new_stat;
-        try {
-            new_stat = await nb_native().fs.stat(fs_account_config, dir_path);
-        } catch (err) {
-            // temporary solution: invalidating - should be more efficient  
-            return false;
-        }
+        const new_stat = await nb_native().fs.stat(fs_account_config, dir_path);
         return (new_stat.ino === stat.ino && new_stat.mtimeMs === stat.mtimeMs);
     },
     item_usage: ({ usage }, dir_path) => usage,
@@ -318,6 +312,8 @@ class NamespaceFS {
                         }
                     }
                 };
+
+                if (!(await this.check_access(fs_account_config, dir_path))) return;
 
                 try {
                     cached_dir = await dir_cache.get_with_cache({ dir_path, fs_account_config });
@@ -1003,7 +999,11 @@ class NamespaceFS {
     }
 
     async _load_bucket(params, fs_account_config) {
-        await nb_native().fs.stat(fs_account_config, this.bucket_path);
+        try {
+            await nb_native().fs.stat(fs_account_config, this.bucket_path);
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     _mpu_path(params) {
@@ -1102,6 +1102,29 @@ class NamespaceFS {
             await this._folder_delete(to_delete_dir_path, fs_account_config);
         } catch (err) {
             throw this._translate_object_error_codes(err);
+        }
+    }
+
+    async check_access(fs_account_config, dir_path) {
+        try {
+            dbg.log0('check_access: dir_path', dir_path, 'fs_account_config', fs_account_config);
+            await nb_native().fs.checkAccess(fs_account_config, dir_path);
+            return true;
+        } catch (err) {
+            dbg.error('check_access: error ', err.code, err, dir_path, this.bucket_path);
+            const is_bucket_dir = dir_path === this.bucket_path;
+
+            // if dir_path is the bucket path we would like to throw an error 
+            // for other dirs we will skip
+            if (['EPERM', 'EACCES'].includes(err.code) && !is_bucket_dir) {
+                return false;
+            }
+            if (err.code === 'ENOENT' && !is_bucket_dir) {
+                // invalidate if dir
+                dir_cache.invalidate({ dir_path, fs_account_config });
+                return false;
+            }
+            throw err;
         }
     }
 }

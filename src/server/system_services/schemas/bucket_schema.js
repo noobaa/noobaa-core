@@ -123,6 +123,11 @@ module.exports = {
         tiering: {
             objectid: true // tiering policy id
         },
+
+        replication_policy_id: {
+            objectid: true // replication policy id
+        },
+
         quota: {
             type: 'object',
             required: ['size', 'unit', 'value'],

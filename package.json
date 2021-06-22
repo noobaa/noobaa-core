@@ -74,7 +74,7 @@
     "@google-cloud/storage": "5.8.3",
     "ajv": "6.12.6",
     "aws-sdk": "2.884.0",
-    "azure-storage": "2.10.3",
+    "azure-storage": "2.10.4",
     "bcrypt": "5.0.1",
     "big-integer": "1.6.48",
     "bindings": "1.5.0",

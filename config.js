@@ -514,6 +514,17 @@ config.DB_TYPE = process.env.DB_TYPE || 'mongodb';
 ////////////////////////////////
 config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 
+
+////////////////////////////////
+//      BUCKET REPLICATOR     //
+////////////////////////////////
+
+config.BUCKET_REPLICATOR_DELAY = 15 * 60 * 1000;
+config.BUCKET_REPLICATOR_LIST_LIMIT = 1000;
+config.BUCKET_REPLICATION_MAX_RULES = 1000;
+config.BUCKET_REPLICATION_MAX_DST_BUCKETS = 100;
+
+
 ///////////////////////
 // NAMESPACE CACHING //
 ///////////////////////

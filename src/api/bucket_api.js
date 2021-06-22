@@ -902,6 +902,76 @@ module.exports = {
                 system: 'admin'
             },
         },
+
+        put_bucket_replication: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'name', 'replication_policy'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    replication_policy: { $ref: '#/definitions/replication_policy' },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_replication: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                },
+            },
+            reply: {
+                $ref: '#/definitions/replication_policy'
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_replication: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+
+        validate_replication: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name', 'replication_policy'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    replication_policy: { $ref: '#/definitions/replication_policy' },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {
@@ -1107,6 +1177,7 @@ module.exports = {
                 s3_policy: {
                     $ref: 'common_api#/definitions/bucket_policy'
                 },
+                replication_policy_id: { objectid: true },
             }
         },
 
@@ -1447,6 +1518,26 @@ module.exports = {
                     $ref: 'common_api#/definitions/bucket_cache_config'
                 },
                 should_create_underlying_storage: { type: 'boolean' } // should create underlying storage
+            }
+        },
+
+
+        replication_policy: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['destination_bucket', 'rule_id'],
+                properties: {
+                    destination_bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    rule_id: { type: 'string' },
+                    filter: {
+                        type: 'object',
+                        properties: {
+                            prefix: { type: 'string' },
+                            // s3 support also tag or and operator of 2 tags/ tag and prefix 
+                        }
+                    }
+                }
             }
         },
     }

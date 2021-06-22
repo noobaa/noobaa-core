@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 2000] */
+/* eslint max-lines: ['error', 2500] */
 'use strict';
 
 const _ = require('lodash');
@@ -28,6 +28,7 @@ const pool_server = require('../system_services/pool_server');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const func_store = require('../func_services/func_store');
+const replication_store = require('../system_services/replication_store');
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
 const azure_storage = require('../../util/azure_storage_wrap');
@@ -877,7 +878,10 @@ async function delete_bucket(req) {
                 tiers
             }
         });
-
+        if (bucket.replication_policy_id) {
+            // delete replication from replication collection
+            await replication_store.instance().delete_replication_by_id(bucket.replication_policy_id);
+        }
         const accounts_update = _.compact(_.map(system_store.data.accounts,
             account => {
                 if (!account.allowed_buckets ||
@@ -1519,6 +1523,7 @@ function get_bucket_info({
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
         s3_policy: bucket.s3_policy,
+        replication_policy_id: bucket.replication_policy_id,
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });
@@ -1900,6 +1905,111 @@ function validate_non_nsfs_bucket_creation(req) {
     }
 }
 
+async function put_bucket_replication(req) {
+    dbg.log0('put_bucket_replication:', req.rpc_params);
+    const bucket = find_bucket(req);
+
+    validate_replication(req);
+    const replication_rules = normalize_replication(req);
+
+    const bucket_replication_id = bucket.replication_policy_id;
+    const replication_id = bucket_replication_id ?
+        await replication_store.instance().update_replication(replication_rules, bucket_replication_id) :
+        await replication_store.instance().insert_replication(replication_rules);
+
+    console.log('update_bucket_class_replication: replication_id: ', replication_id);
+
+    await system_store.make_changes({
+        update: {
+            buckets: [{ _id: bucket._id, replication_policy_id: replication_id }]
+        }
+    });
+}
+
+async function get_bucket_replication(req) {
+    dbg.log0('get_bucket_replication:', req.rpc_params);
+    const bucket = find_bucket(req);
+
+    const replication_id = bucket.replication_policy_id;
+    if (!replication_id) throw new RpcError('NO_REPLICATION_ON_BUCKET');
+
+    const replication = await replication_store.instance().get_replication_by_id(replication_id);
+    const bucket_names_replication = _.map(replication, rule =>
+        ({ ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name }));
+
+    return bucket_names_replication;
+}
+
+async function delete_bucket_replication(req) {
+    dbg.log0('delete_bucket_replication:', req.rpc_params);
+    const bucket = find_bucket(req);
+    const replication_id = bucket.replication_policy_id;
+    if (!replication_id) return;
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { replication_policy_id: 1 }
+            }]
+        }
+    });
+
+    // delete replication from replication collection
+    await replication_store.instance().delete_replication_by_id(replication_id);
+}
+
+function validate_replication(req) {
+    const replication_rules = req.rpc_params.replication_policy;
+    // num of rules in configuration must be in defined limits
+    if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
+        replication_rules.length < 1) throw new RpcError('INVALID_REPLICATION_POLICY', 'Number of rules is invalid');
+
+    let rule_ids = [];
+    let pref_by_dst_bucket = {};
+
+    for (const rule of replication_rules) {
+        const { destination_bucket, filter, rule_id } = rule;
+        const dst_bucket = req.system.buckets_by_name && req.system.buckets_by_name[destination_bucket.unwrap()];
+        // rule's destination bucket must exist and not equal to the replicated bucket
+        if (req.rpc_params.name.unwrap() === destination_bucket.unwrap() || !dst_bucket) {
+            throw new RpcError('INVALID_REPLICATION_POLICY', `Rule ${rule_id} destination bucket is invalid`);
+        }
+
+        rule_ids.push(rule_id);
+        pref_by_dst_bucket[destination_bucket] = pref_by_dst_bucket[destination_bucket] || [];
+        pref_by_dst_bucket[destination_bucket].push((filter && filter.prefix) || '');
+    }
+    // all rule_ids must be different
+    if (new Set(rule_ids).size < replication_rules.length) throw new RpcError('INVALID_REPLICATION_POLICY', 'All rule ids must be unique');
+
+    // num of different destination buckets in configuration must be in defined limits
+    if (Object.keys(pref_by_dst_bucket).length > config.BUCKET_REPLICATION_MAX_DST_BUCKETS) {
+        throw new RpcError('INVALID_REPLICATION_POLICY', 'Number of unique destination buckets is invalid');
+    }
+    // all prefixes of same destination bucket must not be a prefix of another prefix.
+    for (const dst in pref_by_dst_bucket) {
+        if (pref_by_dst_bucket[dst].length > 1) {
+            const ordered_prefixes = _.orderBy(pref_by_dst_bucket[dst]);
+            for (let i = 0; i < ordered_prefixes.length + 1; i++) {
+                if (ordered_prefixes[i + 1].startsWith(ordered_prefixes[i])) {
+                    throw new RpcError('INVALID_REPLICATION_POLICY', 'All prefixes of same destination bucket must not be a prefix of another prefix');
+                }
+            }
+        }
+    }
+}
+
+function normalize_replication(req) {
+    const replication_rules = req.rpc_params.replication_policy;
+
+    const validated_replication = replication_rules.map(rule => {
+        const { destination_bucket } = rule;
+        const dst_bucket = req.system.buckets_by_name && req.system.buckets_by_name[destination_bucket.unwrap()];
+        return { ...rule, destination_bucket: dst_bucket._id };
+    });
+    return validated_replication;
+}
+
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
@@ -1951,3 +2061,8 @@ exports.update_all_buckets_default_pool = update_all_buckets_default_pool;
 
 exports.get_object_lock_configuration = get_object_lock_configuration;
 exports.put_object_lock_configuration = put_object_lock_configuration;
+
+exports.put_bucket_replication = put_bucket_replication;
+exports.get_bucket_replication = get_bucket_replication;
+exports.delete_bucket_replication = delete_bucket_replication;
+exports.validate_replication = validate_replication;

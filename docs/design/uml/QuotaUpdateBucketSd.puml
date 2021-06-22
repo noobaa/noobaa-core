@@ -1,0 +1,23 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title update buckets with quota config
+
+scale 1
+
+actor Client order 10
+participant "Rpc Server" as RS order 20
+participant bucket_server as BS order 30
+participant "system_store" as SS order 40
+
+Client ->  RS: update_buckets
+RS -> BS: update_buckets
+loop req.rpc_params
+    BS -> BS: find_bucket
+    BS -> BS: get_bucket_changes
+    group get change events
+        BS -> BS: get_bucket_changes_quota
+    end
+end
+BS -> SS: make_changes
+@enduml

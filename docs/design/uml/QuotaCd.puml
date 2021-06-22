@@ -1,0 +1,19 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title Quota Classes
+
+scale 1
+
+class Quota {
+  {field} Structure size
+  Structure amount
+  {method} BigInt get_quota_size_raw_value
+  {method} BigInt get_quota_amount_raw_value
+  {method} {size, amount} get_config
+}
+
+class QuotaHelper {
+   {method} {size_used_percent, amount_used_percent} get_bucket_quota_usages_percent
+}
+@enduml

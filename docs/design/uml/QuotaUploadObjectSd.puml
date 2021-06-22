@@ -1,0 +1,15 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title upload object wiht quota validation
+
+scale 1
+
+actor Client order 10
+participant "Rpc Server" as RS order 20
+participant object_server as OS order 30
+
+Client ->  RS: create_object_upload
+RS -> OS: create_object_upload
+OS -> OS: check_quota
+@enduml

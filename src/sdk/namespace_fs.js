@@ -16,6 +16,7 @@ const buffer_utils = require('../util/buffer_utils');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
+const RpcError = require('../rpc/rpc_error');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
@@ -445,6 +446,7 @@ class NamespaceFS {
         try {
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
+            await this._fail_if_archived_or_sparse_file(fs_account_config, file_path);
             file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
 
             const start = Number(params.start) || 0;
@@ -551,6 +553,7 @@ class NamespaceFS {
             ]);
             if (params.copy_source) {
                 const source_file_path = path.join(this.bucket_path, params.copy_source.key);
+                await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
                 try {
                     const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path);
                     if (same_inode) return same_inode;
@@ -992,6 +995,7 @@ class NamespaceFS {
     }
 
     _translate_object_error_codes(err) {
+        if (err.rpc_code) return err;
         if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
         if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
@@ -1125,6 +1129,20 @@ class NamespaceFS {
                 return false;
             }
             throw err;
+        }
+    }
+
+    async _fail_if_archived_or_sparse_file(fs_account_config, file_path) {
+        const stat = await nb_native().fs.stat(fs_account_config, file_path);
+        if (isDirectory(stat)) return;
+        // In order to verify if the file is stored in tape we compare sizes
+        // Multiple number of blocks by default block size and verify we get the size of the object
+        // If we get a size that is lower than the size of the object this means that it is taped or a spare file
+        // We had to use this logic since we do not have a POSIX call in order to verify that the file is taped
+        // This is why sparse files won't be accessible as well
+        if (stat.blocks * 512 < stat.size) {
+            dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
+            throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
         }
     }
 }

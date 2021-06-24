@@ -534,6 +534,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
     SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
     INVALID_RANGE: S3Error.InvalidRange,
+    INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
 });
 
 exports.S3Error = S3Error;

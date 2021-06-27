@@ -600,3 +600,7 @@ if (console_wrapper) {
     var conlogger = new DebugLogger("CONSOLE.js");
     console_wrapper.register_logger(conlogger);
 }
+
+if (Number(process.env.NOOBAA_LOG_LEVEL)) {
+    nb_native().fs.set_debug_level(Number(process.env.NOOBAA_LOG_LEVEL));
+}

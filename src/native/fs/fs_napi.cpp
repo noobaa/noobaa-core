@@ -77,7 +77,7 @@ struct FSWorker : public Napi::AsyncWorker
     std::string _backend;
     std::string _desc;
     int _errno;
-    int thresholdInMilliSec = 2;
+    int _warn_threshold_ms;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
@@ -86,11 +86,13 @@ struct FSWorker : public Napi::AsyncWorker
         , _uid(ThreadScope::orig_uid)
         , _gid(ThreadScope::orig_gid)
         , _errno(0)
+        , _warn_threshold_ms(0)
     {
         Napi::Object config = info[0].As<Napi::Object>();
         if (config.Has("uid")) _uid = config.Get("uid").ToNumber();
         if (config.Has("gid")) _gid = config.Get("gid").ToNumber();
         if (config.Has("backend")) _backend = config.Get("backend").ToString();
+        if (config.Has("warn_threshold_ms")) _warn_threshold_ms = config.Get("warn_threshold_ms").ToNumber();
     }
     void Begin(std::string desc)
     {
@@ -100,21 +102,17 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void Work() = 0;
     void Execute() override
     {
-        using std::chrono::duration_cast; 
-        using std::chrono::milliseconds;
-        using std::chrono::system_clock;
-
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
-        if (_desc.find("FileWritev") != std::string::npos ) {
-            thresholdInMilliSec = 100;
-        }
         ThreadScope tx;
         tx.set_user(_uid, _gid);
-        std::time_t timeBefore = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        auto start_time = std::chrono::high_resolution_clock::now();
         Work();
-        std::time_t timeAfter = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-        if (timeAfter - timeBefore > thresholdInMilliSec) {
-            DBG0("FS::FSWorker::Execute: " << _desc << " took: " << timeAfter - timeBefore << " milliseconds");
+        auto end_time = std::chrono::high_resolution_clock::now();
+        double took_time = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+        if (_warn_threshold_ms && took_time > _warn_threshold_ms) {
+            DBG0("FS::FSWorker::Execute: WARNING " << _desc << " took too long: " << took_time << " ms");
+        } else {
+            DBG1("FS::FSWorker::Execute: " << _desc << " took: " << took_time << " ms");
         }
     }
     void SetSyscallError()

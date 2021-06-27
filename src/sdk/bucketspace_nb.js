@@ -6,6 +6,7 @@ const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
 const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
+const config = require('../../config.js');
 
 /**
  * @implements {nb.BucketSpace}
@@ -45,13 +46,13 @@ class BucketSpaceNB {
                 const ns = await object_sdk._get_bucket_namespace(params.name.unwrap());
                 const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name.unwrap());
                 await ns.create_uls({
-                    name: params.name, fs_root_path:
-                    namespace_bucket_config.write_resource.resource.fs_root_path
+                    name: params.name,
+                    fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
                 }, object_sdk);
             }
         } catch (err) {
             dbg.log0('could not create underlying directory - nsfs, deleting bucket', err);
-            await this.rpc_client.bucket.delete_bucket({name: params.name.unwrap()});
+            await this.rpc_client.bucket.delete_bucket({ name: params.name.unwrap() });
             throw err;
         }
         return resp;
@@ -63,8 +64,8 @@ class BucketSpaceNB {
         if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
             const ns = await object_sdk._get_bucket_namespace(params.name);
             await ns.delete_uls({
-                    name: params.name,
-                    fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
+                name: params.name,
+                fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
             }, object_sdk);
         }
         return this.rpc_client.bucket.delete_bucket(params);
@@ -216,10 +217,11 @@ class BucketSpaceNB {
             dbg.log0('_has_access_to_nsfs_dir', namespace_bucket_config.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
 
             await nb_native().fs.checkAccess({
-                    uid: account.nsfs_account_config.uid,
-                    gid: account.nsfs_account_config.gid,
-                    backend: namespace_bucket_config.write_resource.resource.fs_backend
-                }, path.join(namespace_bucket_config.write_resource.resource.fs_root_path, namespace_bucket_config.write_resource.path || ''));
+                uid: account.nsfs_account_config.uid,
+                gid: account.nsfs_account_config.gid,
+                backend: namespace_bucket_config.write_resource.resource.fs_backend,
+                warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+            }, path.join(namespace_bucket_config.write_resource.resource.fs_root_path, namespace_bucket_config.write_resource.path || ''));
 
             return true;
         } catch (err) {

@@ -557,6 +557,9 @@ config.BASE_MODE_DIR = 0o777;
 // umask that will be used for creation of directories and files with no permissions for 'others'
 config.NSFS_UMASK = 0o007;
 
+// The threshold in milliseconds for prompting a warning
+config.NSFS_WARN_THRESHOLD_MS = 100;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

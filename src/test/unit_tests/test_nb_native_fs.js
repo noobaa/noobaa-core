@@ -10,7 +10,8 @@ const nb_native = require('../../util/nb_native');
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
     gid: process.getgid(),
-    backend: ''
+    backend: '',
+    warn_threshold_ms: 100,
 };
 
 mocha.describe('nb_native fs', function() {

@@ -21,12 +21,6 @@ const RpcError = require('../rpc/rpc_error');
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
-/*const DEFAULT_FS_CONFIG = {
-    uid: Number(process.env.NSFS_UID) || process.getuid(),
-    gid: Number(process.env.NSFS_GID) || process.getgid(),
-    backend: ''
-};*/
-
 /**
  * @param {fs.Dirent} a 
  * @param {fs.Dirent} b 
@@ -139,6 +133,7 @@ class NamespaceFS {
         }
 
         fs_config_param.backend = this.fs_backend || '';
+        fs_config_param.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
         return fs_config_param;
     }
 

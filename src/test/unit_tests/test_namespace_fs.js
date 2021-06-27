@@ -19,7 +19,8 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
     gid: process.getgid(),
-    backend: ''
+    backend: '',
+    warn_threshold_ms: 100,
 };
 
 mocha.describe('namespace_fs', function() {

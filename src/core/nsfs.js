@@ -9,6 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
+const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
@@ -80,7 +81,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         let fs_config = {
             uid: Number(argv.uid) || process.getuid(),
             gid: Number(argv.gid) || process.getgid(),
-            backend: ''
+            backend: '',
+            warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
         };
 
         if (!fs.existsSync(fs_root)) {

@@ -226,7 +226,7 @@ class BucketSpaceNB {
             return true;
         } catch (err) {
             dbg.log0('_has_access_to_nsfs_dir4', err);
-            if (err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
+            if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }
     }

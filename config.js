@@ -108,6 +108,7 @@ config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 // Keep connection on long requests
 config.S3_KEEP_ALIVE_WHITESPACE_INTERVAL = 15 * 1000;
+config.S3_MD_SIZE_LIMIT = 2 * 1024;
 
 ///////////////
 // MD CONFIG //

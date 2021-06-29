@@ -13,6 +13,7 @@ const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
+// const http_utils = require('../util/http_utils');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
@@ -20,6 +21,8 @@ const RpcError = require('../rpc/rpc_error');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
+
+const XATTR_USER_PREFIX = 'user.';
 
 /**
  * @param {fs.Dirent} a 
@@ -64,6 +67,22 @@ function make_named_dirent(name) {
     const entry = new fs.Dirent();
     entry.name = name;
     return entry;
+}
+
+function to_xattr(fs_xattr) {
+    const xattr = _.mapKeys(fs_xattr, (val, key) =>
+        (key.startsWith(XATTR_USER_PREFIX) ? key.slice(XATTR_USER_PREFIX.length) : '')
+    );
+    // keys which do not start with prefix will all map to the empty string key, so we remove it once
+    delete xattr[''];
+    // @ts-ignore
+    xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
+    return xattr;
+}
+
+function to_fs_xattr(xattr) {
+    if (_.isEmpty(xattr)) return undefined;
+    return _.mapKeys(xattr, (val, key) => XATTR_USER_PREFIX + key);
 }
 
 
@@ -402,17 +421,21 @@ class NamespaceFS {
     /////////////////
 
     async read_object_md(params, object_sdk) {
+        let file;
+        const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         try {
-            const fs_account_config = this.set_cur_fs_account_config(object_sdk);
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
             const stat = await nb_native().fs.stat(fs_account_config, file_path);
-            dbg.log0(file_path, stat);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
-            return this._get_object_info(params.bucket, params.key, stat);
+            file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            const fsxattr = await file.getxattr(fs_account_config);
+            return this._get_object_info(params.bucket, params.key, stat, fsxattr);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
+        } finally {
+            if (file) await file.close(fs_account_config);
         }
     }
 
@@ -540,6 +563,7 @@ class NamespaceFS {
         // Uploading to a temp file then we will rename it. 
         const upload_id = uuidv4();
         const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
+        const fs_xattr = to_fs_xattr(params.xattr);
         // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
             await Promise.all([
@@ -556,10 +580,10 @@ class NamespaceFS {
                     await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
                 } catch (e) {
                     dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                    await this._copy_stream(source_file_path, upload_path, fs_account_config);
+                    await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
-                await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+                await this._upload_stream(params.source_stream, upload_path, fs_account_config, fs_xattr);
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
@@ -594,7 +618,7 @@ class NamespaceFS {
         }
     }
 
-    async _copy_stream(source_file_path, upload_path, fs_account_config) {
+    async _copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr) {
         let target_file;
         let source_file;
         let buffer_pool_cleanup = null;
@@ -615,6 +639,9 @@ class NamespaceFS {
                 // Returns the buffer to pool to avoid starvation
                 buffer_pool_cleanup = null;
                 callback();
+            }
+            if (fs_xattr) {
+                await target_file.setxattr(fs_account_config, fs_xattr);
             }
             //Closing the source_file and target files
             await source_file.close(fs_account_config);
@@ -640,7 +667,7 @@ class NamespaceFS {
         }
     }
 
-    async _upload_stream(source_stream, upload_path, fs_account_config) {
+    async _upload_stream(source_stream, upload_path, fs_account_config, fs_xattr) {
         let target_file;
         try {
             let q_buffers = [];
@@ -664,6 +691,9 @@ class NamespaceFS {
                 }
             }
             await flush();
+            if (fs_xattr) {
+                await target_file.setxattr(fs_account_config, fs_xattr);
+            }
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
@@ -699,7 +729,12 @@ class NamespaceFS {
             params.mpu_path = this._mpu_path(params);
             await this._create_path(params.mpu_path, fs_account_config);
             const create_params = JSON.stringify({ ...params, source_stream: null });
-            await nb_native().fs.writeFile(fs_account_config, path.join(params.mpu_path, 'create_object_upload'), Buffer.from(create_params));
+            await nb_native().fs.writeFile(
+                fs_account_config,
+                path.join(params.mpu_path, 'create_object_upload'),
+                Buffer.from(create_params),
+                get_umasked_mode(config.BASE_MODE_FILE)
+            );
             return { obj_id: params.obj_id };
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -785,6 +820,15 @@ class NamespaceFS {
                 }
                 await read_file.close(fs_account_config);
                 read_file = null;
+            }
+            const create_params_buffer = await nb_native().fs.readFile(
+                fs_account_config,
+                path.join(params.mpu_path, 'create_object_upload')
+            );
+            const { xattr } = JSON.parse(create_params_buffer);
+            const fs_xattr = to_fs_xattr(xattr);
+            if (fs_xattr) {
+                await write_file.setxattr(fs_account_config, fs_xattr);
             }
             await write_file.close(fs_account_config);
             write_file = null;
@@ -963,7 +1007,7 @@ class NamespaceFS {
      * @param {string} key 
      * @returns {nb.ObjectInfo}
      */
-    _get_object_info(bucket, key, stat) {
+    _get_object_info(bucket, key, stat, fs_xattr) {
         const etag = this._get_etag(stat);
         return {
             obj_id: etag,
@@ -978,7 +1022,7 @@ class NamespaceFS {
             is_latest: true,
             delete_marker: false,
             tag_count: 0,
-            xattr: {},
+            xattr: to_xattr(fs_xattr),
             encryption: undefined,
             lock_settings: undefined,
             md5_b64: undefined,

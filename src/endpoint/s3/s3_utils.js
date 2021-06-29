@@ -28,6 +28,8 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
     }]
 });
 
+const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
+
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:putanalyticsconfiguration" },
     delete_bucket_cors: { regular: "s3:putbucketcors" },
@@ -131,9 +133,31 @@ function get_request_xattr(req) {
 }
 
 function set_response_xattr(res, xattr) {
-    _.each(xattr, (val, key) => {
-        res.setHeader(X_AMZ_META + key, val);
-    });
+    let size_for_md_left = config.S3_MD_SIZE_LIMIT;
+    const keys = Object.keys(xattr);
+    // Using a special symbol on the xattr object to specify when sorting of keys is needed
+    // which will make sure the returned headers are consistently being truncated.
+    // The symbol is set by namespace_fs and could be used in other namespaces where
+    // xattrs are more likely to exceed the size limit and therefore sorting is desired,
+    // but for most namespaces where the size is also imposed on PUT, we can avoid it.
+    if (xattr[XATTR_SORT_SYMBOL]) {
+        keys.sort();
+    }
+    let returned_keys = 0;
+    for (const key of keys) {
+        const md_header_size =
+            X_AMZ_META.length +
+            4 + // for ': ' and '\r\n'
+            Buffer.byteLength(key, 'utf8') +
+            Buffer.byteLength(xattr[key], 'utf8');
+        if (md_header_size > size_for_md_left) {
+            res.setHeader('x-amz-missing-meta', keys.length - returned_keys);
+            break;
+        }
+        returned_keys += 1;
+        size_for_md_left -= md_header_size;
+        res.setHeader(X_AMZ_META + key, xattr[key]);
+    }
 }
 
 function parse_etag(etag, err) {
@@ -657,3 +681,4 @@ exports._is_valid_retention = _is_valid_retention;
 exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
+exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;

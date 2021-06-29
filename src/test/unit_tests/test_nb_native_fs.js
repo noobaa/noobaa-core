@@ -172,4 +172,17 @@ mocha.describe('nb_native fs', function() {
     //     });
     // });
 
+    mocha.describe('FileWrap Getxattr, Setxattr', function() {
+        mocha.it('set, get', async function() {
+            const { open } = nb_native().fs;
+            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+            const xattr_obj = { key: 'value' };
+            await tmpfile.setxattr(DEFAULT_FS_CONFIG, xattr_obj);
+            const xattr_res = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            tmpfile.close(DEFAULT_FS_CONFIG);
+            assert.deepEqual(xattr_obj, xattr_res);
+        });
+    });
+
 });

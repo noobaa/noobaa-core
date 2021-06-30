@@ -13,6 +13,7 @@ const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
+const stats_collector = require('./endpoint_stats_collector');
 // const http_utils = require('../util/http_utils');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
@@ -477,6 +478,7 @@ class NamespaceFS {
 
             dbg.log0('NamespaceFS: read_object_stream', { file_path, start, end });
 
+            let count = 1;
             for (let pos = start; pos < end;) {
 
                 // allocate or reuse buffer
@@ -486,6 +488,17 @@ class NamespaceFS {
 
                 // read from file
                 const read_size = Math.min(buffer.length, remain_size);
+
+                // Update the read stats               
+                stats_collector.instance(object_sdk.rpc_client).update_namespace_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
+                    size: read_size,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+
                 const bytesRead = await file.read(fs_account_config, buffer, 0, read_size, pos);
                 if (!bytesRead) break;
                 const data = buffer.slice(0, bytesRead);
@@ -583,7 +596,7 @@ class NamespaceFS {
                     await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
-                await this._upload_stream(params.source_stream, upload_path, fs_account_config, fs_xattr);
+                await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr);
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
@@ -667,7 +680,7 @@ class NamespaceFS {
         }
     }
 
-    async _upload_stream(source_stream, upload_path, fs_account_config, fs_xattr) {
+    async _upload_stream(source_stream, upload_path, fs_account_config, rpc_client, fs_xattr) {
         let target_file;
         try {
             let q_buffers = [];
@@ -680,7 +693,16 @@ class NamespaceFS {
                     q_size = 0;
                 }
             };
+            let count = 1;
             for await (let data of source_stream) {
+                // Update the write stats
+                stats_collector.instance(rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
                 while (data && data.length) {
                     const available_size = config.NSFS_BUF_SIZE - q_size;
                     const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
@@ -746,7 +768,7 @@ class NamespaceFS {
             const fs_account_config = this.set_cur_fs_account_config(object_sdk);
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
-            await this._upload_stream(params.source_stream, upload_path, fs_account_config);
+            await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client);
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat) };
         } catch (err) {

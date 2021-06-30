@@ -146,10 +146,11 @@ async function create_bucket(req) {
 
     if (req.rpc_params.namespace) {
         const read_resources = _.compact(req.rpc_params.namespace.read_resources
-            .map(ns_name => req.system.namespace_resources_by_name[ns_name] &&
+            .map(ns_name => req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[ns_name] &&
                 req.system.namespace_resources_by_name[ns_name]._id)
         );
-        const wr_obj = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
+        const wr_obj = req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name &&
+            req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource];
         const write_resource = wr_obj && wr_obj._id;
         if (req.rpc_params.namespace.read_resources &&
             (!read_resources.length ||
@@ -575,12 +576,14 @@ function get_bucket_changes_namespace(req, bucket, update_request, single_bucket
     if (!update_request.namespace.read_resources.length) throw new RpcError('INVALID_READ_RESOURCES');
 
     const read_resources = _.compact(update_request.namespace.read_resources
-        .map(ns_name => req.system.namespace_resources_by_name[ns_name] && req.system.namespace_resources_by_name[ns_name]._id));
+        .map(ns_name => req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[ns_name] &&
+            req.system.namespace_resources_by_name[ns_name]._id));
     if (!read_resources.length || (read_resources.length !== update_request.namespace.read_resources.length)) {
         throw new RpcError('INVALID_READ_RESOURCES');
     }
     _.set(single_bucket_update, 'namespace.read_resources', read_resources);
-    const wr_obj = req.system.namespace_resources_by_name[update_request.namespace.write_resource];
+    const wr_obj = req.system.namespace_resources_by_name &&
+        req.system.namespace_resources_by_name[update_request.namespace.write_resource];
     const write_resource = wr_obj && wr_obj._id;
     if (!write_resource) throw new RpcError('INVALID_WRITE_RESOURCES');
     _.set(single_bucket_update, 'namespace.write_resource', write_resource);
@@ -1678,17 +1681,17 @@ function get_bucket_func_configs(req, bucket) {
 
 function calc_namespace_bucket_mode(namespace_dict) {
 
-        const rr = namespace_dict.read_resources;
-        const rr_modes = _.reduce(rr, (acc, resource) => {
-            const resource_mode = pool_server.calc_namespace_resource_mode(resource);
-            acc[resource_mode.toLowerCase()] += 1;
-            return acc;
-        }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
+    const rr = namespace_dict.read_resources;
+    const rr_modes = _.reduce(rr, (acc, resource) => {
+        const resource_mode = pool_server.calc_namespace_resource_mode(resource);
+        acc[resource_mode.toLowerCase()] += 1;
+        return acc;
+    }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
 
-        const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
-            ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
-            'OPTIMAL';
-        return mode;
+    const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
+        ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
+        'OPTIMAL';
+    return mode;
 }
 
 function calc_bucket_mode(tiers, metrics, ignore_quota, bucket_namespace) {

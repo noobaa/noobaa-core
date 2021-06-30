@@ -596,7 +596,7 @@ function find_bucket_by_tier(req) {
 
 function find_tier_by_name(req, tier_name) {
     const name = tier_name || req.rpc_params.name;
-    const tier = req.system.tiers_by_name[name.unwrap()];
+    const tier = req.system.tiers_by_name && req.system.tiers_by_name[name.unwrap()];
     if (!tier) {
         throw new RpcError('NO_SUCH_TIER', 'No such tier: ' + name);
     }
@@ -605,7 +605,7 @@ function find_tier_by_name(req, tier_name) {
 
 function find_policy_by_name(req) {
     const name = req.rpc_params.name;
-    const policy = req.system.tiering_policies_by_name[name.unwrap()];
+    const policy = req.system.tiering_policies_by_name && req.system.tiering_policies_by_name[name.unwrap()];
     if (!policy) {
         throw new RpcError('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
     }
@@ -856,12 +856,12 @@ function throw_on_invalid_pools_for_tier(pools) {
 
 function check_tiering_policy_exists(req, policy_name) {
     const name = policy_name instanceof SensitiveString ? policy_name.unwrap() : policy_name;
-    if (req.system.tiering_policies_by_name[name]) throw new RpcError(`Policy ${policy_name} already exists`);
+    if (req.system.tiering_policies_by_name && req.system.tiering_policies_by_name[name]) throw new RpcError(`Policy ${policy_name} already exists`);
 }
 
 function check_tier_exists(req, tier_name) {
     const name = tier_name instanceof SensitiveString ? tier_name.unwrap() : tier_name;
-    if (req.system.tiers_by_name[name]) throw new RpcError(`Tier ${tier_name} already exists`);
+    if (req.system.tiers_by_name && req.system.tiers_by_name[name]) throw new RpcError(`Tier ${tier_name} already exists`);
 }
 
 

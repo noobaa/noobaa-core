@@ -28,6 +28,18 @@ mocha.describe('nb_native fs', function() {
         });
     });
 
+    mocha.describe('lstat', function() {
+        mocha.it('works', async function() {
+            const path = 'package.json';
+            const res = await nb_native().fs.lstat(DEFAULT_FS_CONFIG, path);
+            const res2 = await fs.promises.stat(path);
+            assert.deepStrictEqual(
+                res,
+                _.omitBy(res2, v => typeof v === 'function'),
+            );
+        });
+    });
+
     // mocha.describe('rename', function() {
     //     mocha.it('works', async function() {
     //         throw new Error('TODO')

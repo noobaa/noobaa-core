@@ -426,9 +426,9 @@ class NamespaceFS {
         try {
             await this._load_bucket(params, fs_account_config);
             const file_path = this._get_file_path(params);
-            const stat = await nb_native().fs.stat(fs_account_config, file_path);
-            if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
             file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            const stat = await file.stat(fs_account_config);
+            if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
             const fsxattr = await file.getxattr(fs_account_config);
             return this._get_object_info(params.bucket, params.key, stat, fsxattr);
         } catch (err) {
@@ -830,9 +830,9 @@ class NamespaceFS {
             if (fs_xattr) {
                 await write_file.setxattr(fs_account_config, fs_xattr);
             }
+            const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);
             write_file = null;
-            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
             await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat) };

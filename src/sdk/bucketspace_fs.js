@@ -43,19 +43,33 @@ class BucketSpaceFS {
             if (!bucket_dir_stat.isDirectory()) {
                 throw new S3Error(S3Error.NoSuchBucket);
             }
+            const owner_account = {
+                email: new SensitiveString('nsfs@noobaa.io'),
+                id: '12345678',
+            };
+            const nsr = {
+                resource: 'nsfs',
+                path: '',
+            };
             return {
                 name,
-                bucket_type: 'NAMESPACE',
-                versioning: 'DISABLED',
-                namespace: { read_resources: [], write_resources: [] },
+                owner_account,
+                namespace: {
+                    read_resources: [nsr],
+                    write_resource: nsr,
+                    should_create_underlying_storage: true,
+                },
                 tiering: { name, tiers: [] },
                 usage_by_pool: { last_update: 0, pools: [] },
+                num_objects: { last_update: 0, value: 0 },
                 storage: { last_update: 0, values: {} },
                 data: { last_update: 0 },
-                num_objects: { last_update: 0, value: 0 },
-                host_tolerance: 0,
-                node_tolerance: 0,
+                host_tolerance: undefined,
+                node_tolerance: undefined,
                 writable: true,
+                tag: '',
+                bucket_type: 'NAMESPACE',
+                versioning: 'DISABLED',
                 mode: 'OPTIMAL',
                 undeletable: 'NOT_EMPTY',
             };

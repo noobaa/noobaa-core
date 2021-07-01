@@ -213,10 +213,31 @@ async function head_object() {
     return s3.headObject({ Key: argv.head }).promise();
 }
 
+
+let objects = [];
+let index = 0;
+async function get_object_key() {
+    if (typeof argv.get === 'string') {
+        return argv.get;
+    } else {
+        if (index === objects.length) {
+            const marker = objects[objects.length - 1];
+            let objlist = await s3.listObjects({ Marker: marker }).promise();
+            objects = objlist.Contents.map(entry => entry.Key);
+            index = 0;
+        }
+
+        let key = objects[index];
+        index += 1;
+        return key;
+    }
+}
+
 async function get_object() {
+    const key = await get_object_key();
     return new Promise((resolve, reject) => {
         s3.getObject({
-                Key: argv.get,
+                Key: key,
                 Range: `bytes=0-${data_size}`
             })
             .createReadStream()
@@ -265,9 +286,9 @@ function print_usage() {
 Usage:
   --help                 show this usage
   --head <key>           head key name
-  --get <key>            get key name
-  --put <key>            put (single) to key (key can be omited
-  --upload <key>         upload (multipart) to key (key can be omited
+  --get <key>            get key name (key can be omitted)
+  --put <key>            put (single) to key (key can be omitted)
+  --upload <key>         upload (multipart) to key (key can be omitted)
   --mb <bucket>          creates a new bucket (bucket can be omitted)
 Upload Flags:
   --concur <num>         concurrent operations to run from each process (default is 1)

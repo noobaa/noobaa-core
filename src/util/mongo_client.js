@@ -455,6 +455,8 @@ class MongoClient extends EventEmitter {
         if (col.db_indexes) {
             try {
                 await Promise.all(col.db_indexes.map(async index => {
+                    // skip postgres indexes
+                    if (index.postgres) return;
                     try {
                         const res = await db.collection(col.name).createIndex(index.fields, _.extend({ background: true }, index.options));
                         dbg.log0('_init_collection: created index', col.name, res);

@@ -38,9 +38,9 @@ WORKDIR /root/node_modules/noobaa-core/
 #
 ##############################################################
 
-RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
-RUN cd ./src/test/system_tests/s3-tests/ && \
-    ./bootstrap
+# RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
+# RUN cd ./src/test/system_tests/s3-tests/ && \
+#     ./bootstrap
 
 ##############################################################
 # Layers:

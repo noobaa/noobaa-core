@@ -2,6 +2,19 @@
 'use strict';
 
 module.exports = [{
+        postgres: true,
+        fields: {
+            _id: -1,
+        },
+        options: {
+            // iterate_all_chunks
+            name: 'id_desc',
+            partialFilterExpression: {
+                deleted: null,
+            }
+        }
+    },
+    {
         fields: {
             dedup_key: 1,
         },

@@ -205,6 +205,26 @@ class NodesMonitor extends EventEmitter {
         this.n2n_agent.set_rpc_address('n2n://nodes_monitor');
     }
 
+    waitForValue(accessor, pullInterval = 1000) {
+        let count = 1;
+        return new Promise(resolve => {
+            function pull() {
+                const val = accessor();
+                if (_.isUndefined(val)) {
+                    setTimeout(pull, pullInterval);
+                    count += 1;
+                    if (count > 30) {
+                        dbg.log0('waited for', count, 'times, Ignoring');
+                        resolve();
+                    }
+                } else {
+                    resolve();
+                }
+            }
+            pull();
+        });
+    }
+
     async start() {
         if (this._started) {
             dbg.log2('NodesMonitor already started returning.');
@@ -214,6 +234,9 @@ class NodesMonitor extends EventEmitter {
         this._started = true;
         this.n2n_rpc.set_disconnected_state(false);
         await this._load_from_store();
+
+        // waiting a while for system_store to be set up. after a while will despair.
+        await this.waitForValue(() => system_store.data.systems[0]);
 
         // initialize nodes stats in prometheus
         if (config.PROMETHEUS_ENABLED && system_store.data.systems[0]) {

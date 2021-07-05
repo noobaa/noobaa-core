@@ -1140,11 +1140,9 @@ class NamespaceFS {
 
     async create_uls(params, object_sdk) {
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
-        const new_dir_path = path.join(params.fs_root_path,
-            fs_account_config.new_buckets_path, params.name.unwrap());
-
+        dbg.log0('NamespaceFS: create_uls fs_account_config:', fs_account_config, 'new_dir_path: ', params.full_path);
         try {
-            await nb_native().fs.mkdir(fs_account_config, new_dir_path, get_umasked_mode(0o777));
+            await nb_native().fs.mkdir(fs_account_config, params.full_path, get_umasked_mode(0o777));
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
@@ -1152,8 +1150,7 @@ class NamespaceFS {
 
     async delete_uls(params, object_sdk) {
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
-        const to_delete_dir_path = path.join(params.fs_root_path,
-            fs_account_config.new_buckets_path, params.name);
+        dbg.log0('NamespaceFS: delete_uls fs_account_config:', fs_account_config, 'to_delete_dir_path: ', params.full_path);
 
         try {
             const list = await this.list_objects({ ...params, limit: 1 }, object_sdk);
@@ -1164,7 +1161,7 @@ class NamespaceFS {
                 throw err;
             }
 
-            await this._folder_delete(to_delete_dir_path, fs_account_config);
+            await this._folder_delete(params.full_path, fs_account_config);
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }

@@ -490,11 +490,11 @@ async function read_bucket_sdk_info(req) {
         bucket_owner: bucket.owner_account.email,
         bucket_info: await P.map_props({
                 bucket,
-                nodes_aggregate_pool: nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
-                hosts_aggregate_pool: nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
+                nodes_aggregate_pool: bucket.tiering && nodes_client.instance().aggregate_nodes_by_pool(pool_names, system._id),
+                hosts_aggregate_pool: bucket.tiering && nodes_client.instance().aggregate_hosts_by_pool(null, system._id),
                 // num_of_objects: MDStore.instance().count_objects_of_bucket(bucket._id),
                 func_configs: get_bucket_func_configs(req, bucket),
-                unused_refresh_tiering_alloc: node_allocator.refresh_tiering_alloc(bucket.tiering),
+                unused_refresh_tiering_alloc: bucket.tiering && node_allocator.refresh_tiering_alloc(bucket.tiering),
             })
             .then(get_bucket_info),
     };

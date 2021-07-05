@@ -763,7 +763,7 @@ module.exports = {
 
         bucket_cache_config: {
             type: 'object',
-            required: [ ],
+            required: [],
             properties: {
                 ttl_ms: {
                     $ref: '#/definitions/bucket_cache_ttl'
@@ -811,11 +811,12 @@ module.exports = {
         },
         nsfs_account_config: {
             type: 'object',
-            required: ['uid', 'gid', 'new_buckets_path'],
+            required: ['uid', 'gid', 'new_buckets_path', 'nsfs_only'],
             properties: {
                 uid: { type: 'number' },
                 gid: { type: 'number' },
                 new_buckets_path: { type: 'string' },
+                nsfs_only: { type: 'boolean' }
             }
         },
     }

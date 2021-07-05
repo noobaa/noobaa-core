@@ -139,8 +139,8 @@ class ObjectSDK {
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {
             // ANONYMOUS: cannot work without bucket, cannot work on namespace bucket (?)
+            const ns = await this.read_bucket_sdk_namespace_info(bucket);
             if (!token) {
-                const ns = await this.read_bucket_sdk_namespace_info(bucket);
                 // TODO: Anonymous access to namespace buckets not supported
                 if (ns) {
                     throw new RpcError('UNAUTHORIZED', `Anonymous access to namespace buckets not supported`);
@@ -149,6 +149,11 @@ class ObjectSDK {
                     return;
                 }
             }
+
+            if (!this.has_non_nsfs_bucket_access(this.requesting_account, ns)) {
+                throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
+            }
+
             const bucket_allowed = _.get(this.requesting_account, 'allowed_buckets.full_permission', false) ||
                 _.find(
                     _.get(this.requesting_account, 'allowed_buckets.permission_list') || [],
@@ -156,6 +161,20 @@ class ObjectSDK {
                 );
             if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
         }
+    }
+
+    is_nsfs_bucket(ns) {
+        return ns && ns.write_resource.resource.fs_root_path;
+    }
+
+    // validates requests for non nsfs buckets from accounts which are nsfs_only 
+    has_non_nsfs_bucket_access(account, ns) {
+        dbg.log0('validate_non_nsfs_bucket: ', account, ns && ns.write_resource.resource);
+        if (!account) return false;
+        if (this.is_nsfs_bucket(ns) ||
+            !account.nsfs_account_config || !account.nsfs_account_config.nsfs_only) return true;
+        // nsfs only = true, allow nsfs buckets only
+        return false;
     }
 
     async _validate_bucket_namespace(data, params) {

@@ -281,6 +281,7 @@ module.exports = {
                             uid: { type: 'number' },
                             gid: { type: 'number' },
                             new_buckets_path: { type: 'string' },
+                            nsfs_only: { type: 'boolean' }
                         }
                     },
                 },

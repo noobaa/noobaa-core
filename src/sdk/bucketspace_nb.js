@@ -26,12 +26,12 @@ class BucketSpaceNB {
         const has_access_buckets = (await P.all(_.map(
             buckets,
             async bucket => {
-                const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
-                if (await this._has_access_to_nsfs_dir(namespace_bucket_config, object_sdk.requesting_account)) {
-                    return bucket;
-                }
-            }
-        ))).filter(bucket => bucket);
+                const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
+                const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
+                    await this._has_access_to_nsfs_dir(ns, object_sdk) :
+                    object_sdk.has_non_nsfs_bucket_access(object_sdk.requesting_account, ns);
+                return has_access_to_bucket && bucket;
+            }))).filter(bucket => bucket);
         return { buckets: has_access_buckets };
     }
 
@@ -207,27 +207,25 @@ class BucketSpaceNB {
     //  nsfs
 
 
-    async _has_access_to_nsfs_dir(namespace_bucket_config, account) {
-        if (!namespace_bucket_config || !namespace_bucket_config.write_resource) return true;
-        console.log('_has_access_to_nsfs_dir0', namespace_bucket_config.write_resource);
-        if (namespace_bucket_config.write_resource.resource && !namespace_bucket_config.write_resource.resource.fs_root_path) return true;
-        dbg.log0('_has_access_to_nsfs_dir1', account.nsfs_account_config);
-
+    async _has_access_to_nsfs_dir(ns, object_sdk) {
+        const account = object_sdk.requesting_account;
+        console.log('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account.nsfs_account_config);
+        // nsfs bucket
         if (!account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
-            dbg.log0('_has_access_to_nsfs_dir', namespace_bucket_config.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
+            dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
 
             await nb_native().fs.checkAccess({
                 uid: account.nsfs_account_config.uid,
                 gid: account.nsfs_account_config.gid,
-                backend: namespace_bucket_config.write_resource.resource.fs_backend,
+                backend: ns.write_resource.resource.fs_backend,
                 warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            }, path.join(namespace_bucket_config.write_resource.resource.fs_root_path, namespace_bucket_config.write_resource.path || ''));
+            }, path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || ''));
 
             return true;
         } catch (err) {
-            dbg.log0('_has_access_to_nsfs_dir4', err);
+            dbg.log0('_has_access_to_nsfs_dir: failed', err);
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }

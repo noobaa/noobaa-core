@@ -47,7 +47,8 @@ class BucketSpaceNB {
                 const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name.unwrap());
                 await ns.create_uls({
                     name: params.name,
-                    fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
+                    full_path: path.join(namespace_bucket_config.write_resource.resource.fs_root_path,
+                        namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
                 }, object_sdk);
             }
         } catch (err) {
@@ -65,7 +66,8 @@ class BucketSpaceNB {
             const ns = await object_sdk._get_bucket_namespace(params.name);
             await ns.delete_uls({
                 name: params.name,
-                fs_root_path: namespace_bucket_config.write_resource.resource.fs_root_path
+                full_path: path.join(namespace_bucket_config.write_resource.resource.fs_root_path,
+                    namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
             }, object_sdk);
         }
         return this.rpc_client.bucket.delete_bucket(params);

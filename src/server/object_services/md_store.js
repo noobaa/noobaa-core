@@ -453,7 +453,8 @@ class MDStore {
             deleted: null,
             // allow filtering of uploading/non-uploading objects
             create_time: max_create_time ? {
-                $lt: new Date(moment.unix(max_create_time).toISOString())
+                $lt: new Date(moment.unix(max_create_time).toISOString()),
+                $exists: true
             } : undefined,
             upload_started: typeof upload_mode === 'boolean' ? {
                 $exists: upload_mode
@@ -803,6 +804,7 @@ class MDStore {
             create_time: {
                 $gte: new Date(from_time),
                 $lt: new Date(till_time),
+                $exists: true
             }
         });
     }
@@ -911,7 +913,10 @@ class MDStore {
      * @returns {Promise<nb.ObjectMultipart[]>}
      */
     async find_all_multiparts_of_object(obj_id) {
-        return this._multiparts.find({ obj: obj_id, deleted: null });
+        return this._multiparts.find({
+            obj: { $eq: obj_id, $exists: true },
+            deleted: null
+        });
     }
 
     /**
@@ -922,7 +927,7 @@ class MDStore {
      */
     find_completed_multiparts_of_object(obj_id, num_gt, limit) {
         return this._multiparts.find({
-            obj: obj_id,
+            obj: { $eq: obj_id, $exists: true },
             num: { $gt: num_gt },
             size: { $exists: true },
             md5_b64: { $exists: true },
@@ -939,7 +944,7 @@ class MDStore {
     delete_multiparts_of_object(obj) {
         const delete_date = new Date();
         return this._multiparts.updateMany({
-            obj: obj._id,
+            obj: { $eq: obj._id, $exists: true },
             deleted: null
         }, {
             $set: {
@@ -961,7 +966,7 @@ class MDStore {
 
     async db_delete_multiparts_of_object(obj) {
         const res = await this._multiparts.deleteMany({
-            obj: obj._id,
+            obj: { $eq: obj._id, $exists: true },
             deleted: { $exists: true }
         });
         dbg.warn(`Removed ${res.result.n} multiparts of object ${obj} from DB`);
@@ -1023,7 +1028,7 @@ class MDStore {
      */
     async find_parts_by_start_range({ obj_id, start_gte, start_lt, end_gt }) {
         return this._parts.find({
-            obj: obj_id,
+            obj: { $eq: obj_id, $exists: true },
             start: {
                 // since end is not indexed we query start with both
                 // low and high constraint, which allows the index to reduce scan
@@ -1048,7 +1053,7 @@ class MDStore {
      */
     async find_parts_sorted_by_start({ obj_id, skip, limit }) {
         return this._parts.find({
-            obj: obj_id,
+            obj: { $eq: obj_id, $exists: true },
             deleted: null,
             uncommitted: null,
         }, {
@@ -1064,7 +1069,7 @@ class MDStore {
      */
     async find_parts_chunk_ids(obj) {
         const find = {
-            obj: obj._id,
+            obj: { $eq: obj._id, $exists: true },
             deleted: null,
         };
         return this._parts.find(find, {
@@ -1084,7 +1089,7 @@ class MDStore {
      */
     async find_parts_by_chunk_ids(chunk_ids) {
         return this._parts.find({
-            chunk: { $in: chunk_ids },
+            chunk: { $in: chunk_ids, $exists: true },
             deleted: null,
         });
     }
@@ -1114,7 +1119,7 @@ class MDStore {
      */
     async find_parts_unreferenced_chunk_ids(chunk_ids) {
         return this._parts.find({
-                chunk: { $in: chunk_ids },
+                chunk: { $in: chunk_ids, $exists: true },
                 deleted: null,
             }, {
                 projection: {
@@ -1136,7 +1141,7 @@ class MDStore {
 
     find_parts_chunks_references(chunk_ids) {
         return this._parts.find({
-                chunk: { $in: chunk_ids },
+                chunk: { $in: chunk_ids, $exists: true },
                 deleted: null,
             })
 
@@ -1186,7 +1191,7 @@ class MDStore {
     delete_parts_of_object(obj) {
         const delete_date = new Date();
         return this._parts.updateMany({
-            obj: obj._id,
+            obj: { $eq: obj._id, $exists: true },
             deleted: null
         }, {
             $set: {
@@ -1208,7 +1213,7 @@ class MDStore {
 
     async db_delete_parts_of_object(obj) {
         const res = await this._parts.deleteMany({
-            obj: obj._id,
+            obj: { $eq: obj._id, $exists: true },
             deleted: { $exists: true }
         });
         dbg.warn(`Removed ${res.result.n} parts of object ${obj} from DB`);
@@ -1340,7 +1345,7 @@ class MDStore {
             tier_lru: sort_direction
         };
         return this._chunks.find({
-                tier,
+                tier: { $eq: tier, $exists: true },
                 deleted: null,
             }, {
                 projection: { _id: 1 },
@@ -1453,7 +1458,7 @@ class MDStore {
 
     iterate_indexed_chunks(limit, marker) {
         return this._chunks.find({
-                dedup_key: marker ? { $lt: marker } : { $exists: true }
+                dedup_key: marker ? { $lt: marker, $exists: true } : { $exists: true }
             }, {
                 projection: {
                     _id: 1,
@@ -1489,14 +1494,14 @@ class MDStore {
 
     has_any_blocks_for_chunk(chunk_id) {
         return this._blocks.findOne({
-                chunk: chunk_id,
+                chunk: { $eq: chunk_id, $exists: true },
             })
             .then(obj => Boolean(obj));
     }
 
     has_any_parts_for_chunk(chunk_id) {
         return this._parts.findOne({
-                chunk: chunk_id,
+                chunk: { $eq: chunk_id, $exists: true },
             })
             .then(obj => Boolean(obj));
     }
@@ -1504,7 +1509,7 @@ class MDStore {
 
     has_any_parts_for_object(obj) {
         return this._parts.findOne({
-                obj: obj._id,
+                obj: { $eq: obj._id, $exists: true },
                 deleted: null
             })
             .then(part => Boolean(part));
@@ -1570,7 +1575,7 @@ class MDStore {
     async find_blocks_of_chunks(chunk_ids) {
         if (!chunk_ids || !chunk_ids.length) return;
         const blocks = await this._blocks.find({
-            chunk: { $in: chunk_ids },
+            chunk: { $in: chunk_ids, $exists: true },
         });
         return blocks;
     }
@@ -1598,7 +1603,7 @@ class MDStore {
 
     iterate_node_chunks({ node_id, marker, limit }) {
         return this._blocks.find(compact({
-                node: node_id,
+                node: { $eq: node_id, $exists: true },
                 _id: marker ? {
                     $lt: marker
                 } : undefined,
@@ -1630,7 +1635,7 @@ class MDStore {
      */
     async find_blocks_chunks_by_node_ids(node_ids, skip = 0, limit = 0) {
         const blocks = await this._blocks.find({
-            node: { $in: node_ids },
+            node: { $in: node_ids, $exists: true },
             deleted: null,
         }, {
             projection: { _id: 0, chunk: 1 },
@@ -1647,7 +1652,7 @@ class MDStore {
      */
     async count_blocks_of_nodes(node_ids) {
         return this._blocks.countDocuments({
-            node: { $in: node_ids },
+            node: { $in: node_ids, $exists: true },
             deleted: null,
         });
     }

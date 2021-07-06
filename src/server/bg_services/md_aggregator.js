@@ -25,7 +25,7 @@ async function background_worker() {
 
 // returns all buckets from system storewhich are not in deleting state
 function get_buckets(system_store) {
-    return system_store.data.buckets.filter(b => !b.deleting);
+    return system_store.data.buckets.filter(b => !b.deleting && !b.namespace);
 }
 
 

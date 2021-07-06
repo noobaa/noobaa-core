@@ -1015,7 +1015,8 @@ function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
             endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
             target_bucket: pool.cloud_pool_info.target_bucket,
             auth_method: pool.cloud_pool_info.auth_method,
-            created_by: pool.cloud_pool_info.access_keys.account_id.email
+            created_by: pool.cloud_pool_info.access_keys.account_id.email,
+            identity: pool.cloud_pool_info.access_keys.access_key
         }, _.isUndefined);
         info.undeletable = check_resource_pool_deletion(pool);
         info.mode = calc_cloud_pool_mode(p_nodes);

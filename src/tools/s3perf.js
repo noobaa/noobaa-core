@@ -58,6 +58,8 @@ if (argv.help) {
 } else if (argv.upload) {
     op_func = upload_object;
     op_size = data_size;
+} else if (argv.delete) {
+    op_func = delete_all_objects;
 } else if (argv.mb) {
     op_func = create_bucket;
     op_size = 0;
@@ -249,6 +251,13 @@ async function get_object() {
     });
 }
 
+async function delete_all_objects() {
+    const key = await get_object_key();
+    await s3.deleteObject({
+        Key: key
+    }).promise();
+}
+
 async function put_object() {
     const upload_key = argv.put + '-' + Date.now().toString(36);
     return s3.putObject({
@@ -290,6 +299,7 @@ Usage:
   --put <key>            put (single) to key (key can be omitted)
   --upload <key>         upload (multipart) to key (key can be omitted)
   --mb <bucket>          creates a new bucket (bucket can be omitted)
+  --delete               iterates and delete all objects in the bucket (passed by --bucket or default)
 Upload Flags:
   --concur <num>         concurrent operations to run from each process (default is 1)
   --forks <num>          number of forked processes to run (default is 1)

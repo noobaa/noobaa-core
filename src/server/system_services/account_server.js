@@ -543,7 +543,11 @@ function update_account(req) {
  * RESET PASSWORD
  *
  */
-function reset_password(req) {
+async function reset_password(req) {
+    const is_authorized_account = await verify_authorized_account(req);
+    if (!is_authorized_account) {
+        throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
+    }
     let account = system_store.data.accounts_by_email[req.rpc_params.email.unwrap()];
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
@@ -559,41 +563,35 @@ function reset_password(req) {
     }
 
     const params = req.rpc_params;
-    return verify_authorized_account(req)
-        .then(res => {
-            if (!res) throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
-        })
-        .then(() => bcrypt_password(params.password.unwrap()))
-        .then(password => {
-            const changes = {
-                password: new SensitiveString(password),
-                next_password_change: params.must_change_password === true ? new Date() : undefined
-            };
-            const removals = {
-                next_password_change: params.must_change_password === false ? true : undefined
-            };
 
-            return system_store.make_changes({
-                update: {
-                    accounts: [{
-                        _id: account._id,
-                        $set: _.omitBy(changes, _.isUndefined),
-                        $unset: _.omitBy(removals, _.isUndefined)
-                    }]
-                }
-            });
-        })
-        .then(() => Dispatcher.instance().activity({
-            event: 'account.update',
-            level: 'info',
-            system: req.system && req.system._id,
-            actor: req.account && req.account._id,
-            account: account._id,
-            desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
-        }))
-        .then(() => {
-            // do nothing. 
-        });
+    const password = await bcrypt_password(params.password.unwrap());
+
+    const changes = {
+        password: new SensitiveString(password),
+        next_password_change: params.must_change_password === true ? new Date() : undefined
+    };
+    const removals = {
+        next_password_change: params.must_change_password === false ? true : undefined
+    };
+
+    await system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: account._id,
+                $set: _.omitBy(changes, _.isUndefined),
+                $unset: _.omitBy(removals, _.isUndefined)
+            }]
+        }
+    });
+
+    await Dispatcher.instance().activity({
+        event: 'account.update',
+        level: 'info',
+        system: req.system && req.system._id,
+        actor: req.account && req.account._id,
+        account: account._id,
+        desc: `${account.email.unwrap()} was updated by ${req.account.email.unwrap()}: reset password`,
+    });
 
 }
 
@@ -1462,13 +1460,12 @@ function generate_access_keys() {
     };
 }
 
-function verify_authorized_account(req) {
-    return P.resolve()
-        .then(() => bcrypt.compare(req.rpc_params.verification_password.unwrap(), req.account.password.unwrap()))
-        .then(match => {
-            if (!match) return false;
-            return true;
-        });
+async function verify_authorized_account(req) {
+    //operator connects by token and doesn't have the password property.
+    if (req.role === 'operator') {
+        return true;
+    }
+    return bcrypt.compare(req.rpc_params.verification_password.unwrap(), req.account.password.unwrap());
 }
 
 function _list_connection_usage(account, credentials) {

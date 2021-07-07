@@ -24,6 +24,8 @@ const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
 const XATTR_USER_PREFIX = 'user.';
+// TODO: In order to verify validity add content_md5_mtime as well
+const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 
 /**
  * @param {fs.Dirent} a 
@@ -244,6 +246,7 @@ class NamespaceFS {
              *  key: string,
              *  common_prefix: boolean,
              *  stat?: fs.Stats,
+             *  fs_xattr?: object
              * }} Result
              */
 
@@ -391,6 +394,8 @@ class NamespaceFS {
                 if (r.common_prefix) return;
                 const entry_path = path.join(this.bucket_path, r.key);
                 r.stat = await nb_native().fs.stat(fs_account_config, entry_path);
+                // This is done to get the MD5 for the response, should find a more efficient way
+                // r.fs_xattr = config.NSFS_CALCULATE_MD5 ? await this._get_fs_xattr_from_path(fs_account_config, entry_path) : undefined;
             }));
             const res = {
                 objects: [],
@@ -402,7 +407,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    res.objects.push(this._get_object_info(bucket, r.key, r.stat));
+                    res.objects.push(this._get_object_info(bucket, r.key, r.stat, r.fs_xattr));
                 }
                 if (res.is_truncated) {
                     res.next_marker = r.key;
@@ -432,10 +437,10 @@ class NamespaceFS {
             file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
             const stat = await file.stat(fs_account_config);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
-            const fsxattr = await file.getxattr(fs_account_config);
+            const fs_xattr = await file.getxattr(fs_account_config);
             await file.close(fs_account_config);
             file = null;
-            return this._get_object_info(params.bucket, params.key, stat, fsxattr);
+            return this._get_object_info(params.bucket, params.key, stat, fs_xattr);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -582,7 +587,7 @@ class NamespaceFS {
         // Uploading to a temp file then we will rename it. 
         const upload_id = uuidv4();
         const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
-        const fs_xattr = to_fs_xattr(params.xattr);
+        let fs_xattr = to_fs_xattr(params.xattr);
         // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
             await Promise.all([
@@ -593,21 +598,21 @@ class NamespaceFS {
                 const source_file_path = path.join(this.bucket_path, params.copy_source.key);
                 await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
                 try {
-                    const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path);
+                    const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr);
                     if (same_inode) return same_inode;
                     // Doing a hard link.
                     await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
                 } catch (e) {
                     dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                    await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
+                    fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
-                await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr);
+                fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr);
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-            return { etag: this._get_etag(stat) };
+            return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -617,7 +622,7 @@ class NamespaceFS {
     // Comparing both device and inode number (st_dev and st_ino returned by stat) 
     // will tell you whether two different file names refer to the same thing.
     // If so, we will return the etag of the file_path
-    async _is_same_inode(fs_account_config, source_file_path, file_path) {
+    async _is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr) {
         try {
             dbg.log2('NamespaceFS: checking _is_same_inode');
             const file_path_stat = await nb_native().fs.stat(fs_account_config, file_path);
@@ -629,7 +634,7 @@ class NamespaceFS {
             dbg.log2('NamespaceFS: file_path_inode:', file_path_inode, 'source_file_inode:', source_file_inode,
                 'file_path_device:', file_path_device, 'source_file_device:', source_file_device);
             if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
-                return { etag: this._get_etag(file_path_stat) };
+                return { etag: this._get_etag(file_path_stat, fs_xattr) };
             }
         } catch (e) {
             dbg.log2('NamespaceFS: _is_same_inode got an error', e);
@@ -642,6 +647,8 @@ class NamespaceFS {
         let source_file;
         let buffer_pool_cleanup = null;
         try {
+            let MD5Async =
+                config.NSFS_CALCULATE_MD5 && !(fs_xattr && fs_xattr[XATTR_MD5_KEY]) ? new (nb_native().crypto.MD5Async)() : undefined;
             //Opening the source and target files
             source_file = await nb_native().fs.open(fs_account_config, source_file_path);
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w');
@@ -654,10 +661,14 @@ class NamespaceFS {
                 if (!bytesRead) break;
                 read_pos += bytesRead;
                 const data = buffer.slice(0, bytesRead);
+                if (MD5Async) await MD5Async.update(data);
                 await target_file.write(fs_account_config, data);
                 // Returns the buffer to pool to avoid starvation
                 buffer_pool_cleanup = null;
                 callback();
+            }
+            if (MD5Async) {
+                fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
             }
             if (fs_xattr) {
                 await target_file.setxattr(fs_account_config, fs_xattr);
@@ -667,6 +678,8 @@ class NamespaceFS {
             source_file = null;
             await target_file.close(fs_account_config);
             target_file = null;
+            // Used for etag
+            return fs_xattr;
         } catch (e) {
             dbg.error('Failed to copy object', e);
             throw e;
@@ -692,6 +705,7 @@ class NamespaceFS {
 
     async _upload_stream(source_stream, upload_path, fs_account_config, rpc_client, fs_xattr) {
         let target_file;
+        let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
         try {
             let q_buffers = [];
             let q_size = 0;
@@ -705,6 +719,7 @@ class NamespaceFS {
             };
             let count = 1;
             for await (let data of source_stream) {
+                if (MD5Async) await MD5Async.update(data);
                 // Update the write stats
                 stats_collector.instance(rpc_client).update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
@@ -723,9 +738,14 @@ class NamespaceFS {
                 }
             }
             await flush();
+            if (MD5Async) {
+                fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
+            }
             if (fs_xattr) {
                 await target_file.setxattr(fs_account_config, fs_xattr);
             }
+            // Used for etag
+            return fs_xattr;
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
@@ -778,9 +798,10 @@ class NamespaceFS {
             const fs_account_config = this.set_cur_fs_account_config(object_sdk);
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
-            await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client);
+            // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
+            const fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client);
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
-            return { etag: this._get_etag(stat) };
+            return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -799,10 +820,12 @@ class NamespaceFS {
                     const num = Number(e.name.slice('part-'.length));
                     const part_path = path.join(params.mpu_path, e.name);
                     const stat = await nb_native().fs.stat(fs_account_config, part_path);
+                    const fs_xattr =
+                        config.NSFS_CALCULATE_MD5 ? await this._get_fs_xattr_from_path(fs_account_config, part_path) : undefined;
                     return {
                         num,
                         size: stat.size,
-                        etag: this._get_etag(stat),
+                        etag: this._get_etag(stat, fs_xattr),
                         last_modified: new Date(stat.mtime),
                     };
                 })
@@ -823,6 +846,7 @@ class NamespaceFS {
         let buffer_pool_cleanup = null;
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         try {
+            let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_account_config);
@@ -832,11 +856,14 @@ class NamespaceFS {
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(fs_account_config, part_path);
-                if (etag !== this._get_etag(part_stat)) {
+                read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+                // Assuming that a every multipart upload object uses the same NSFS_CALCULATE_MD5 configuration
+                const fs_xattr = MD5Async ? await read_file.getxattr(fs_account_config) : undefined;
+                // TODO: Should we seperate to two cases and save the open if we do not use NSFS_CALCULATE_MD5?
+                if (etag !== this._get_etag(part_stat, fs_xattr)) {
                     throw new Error('mismatch part etag: ' +
                         util.inspect({ num, etag, part_path, part_stat, params }));
                 }
-                read_file = await nb_native().fs.open(fs_account_config, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
                 let read_pos = 0;
                 for (;;) {
                     const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
@@ -852,13 +879,17 @@ class NamespaceFS {
                 }
                 await read_file.close(fs_account_config);
                 read_file = null;
+                if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
             }
             const create_params_buffer = await nb_native().fs.readFile(
                 fs_account_config,
                 path.join(params.mpu_path, 'create_object_upload')
             );
             const { xattr } = JSON.parse(create_params_buffer);
-            const fs_xattr = to_fs_xattr(xattr);
+            let fs_xattr = to_fs_xattr(xattr);
+            if (MD5Async) {
+                fs_xattr = this._assign_md5_to_fs_xattr(((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length, fs_xattr);
+            }
             if (fs_xattr) {
                 await write_file.setxattr(fs_account_config, fs_xattr);
             }
@@ -867,7 +898,7 @@ class NamespaceFS {
             write_file = null;
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
             await this._folder_delete(params.mpu_path, fs_account_config);
-            return { etag: this._get_etag(stat) };
+            return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             dbg.error(err);
             throw this._translate_object_error_codes(err);
@@ -1011,6 +1042,30 @@ class NamespaceFS {
         return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
     }
 
+    _assign_md5_to_fs_xattr(md5_digest, fs_xattr) {
+        // TODO: Assign content_md5_mtime
+        fs_xattr = Object.assign(fs_xattr || {}, {
+            [XATTR_MD5_KEY]: md5_digest
+        });
+        return fs_xattr;
+    }
+
+    // TODO: Can be changed to get MD5 attributes only
+    async _get_fs_xattr_from_path(fs_account_config, file_path) {
+        let file;
+        try {
+            file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            const fs_xattr = await file.getxattr(fs_account_config);
+            await file.close(fs_account_config);
+            file = null;
+            return fs_xattr;
+        } catch (error) {
+            throw this._translate_object_error_codes(error);
+        } finally {
+            if (file) await file.close(fs_account_config);
+        }
+    }
+
     /**
      * @param {string} dir_key 
      * @param {fs.Dirent} ent 
@@ -1030,12 +1085,19 @@ class NamespaceFS {
      * @param {fs.Stats} stat 
      * @returns {string}
      */
-    _get_etag(stat) {
+    _get_etag(stat, fs_xattr) {
+        const xattr_etag = this._etag_from_fs_xattr(fs_xattr);
+        if (xattr_etag) return xattr_etag;
         // IMPORTANT NOTICE - we must return an etag that contains a dash!
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
         const ident_str = 'inode-' + stat.ino.toString() + '-mtime-' + stat.mtimeMs.toString();
         return ident_str;
+    }
+
+    _etag_from_fs_xattr(xattr) {
+        if (_.isEmpty(xattr)) return undefined;
+        return xattr[XATTR_MD5_KEY];
     }
 
     /**
@@ -1044,7 +1106,7 @@ class NamespaceFS {
      * @returns {nb.ObjectInfo}
      */
     _get_object_info(bucket, key, stat, fs_xattr) {
-        const etag = this._get_etag(stat);
+        const etag = this._get_etag(stat, fs_xattr);
         return {
             obj_id: etag,
             bucket,

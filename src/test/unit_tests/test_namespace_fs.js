@@ -14,8 +14,12 @@ const test_ns_list_objects = require('./test_ns_list_objects');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const s3_utils = require('../../endpoint/s3/s3_utils');
+const config = require('../../../config');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
+
+// TODO: In order to verify validity add content_md5_mtime as well
+const XATTR_MD5_KEY = 'content_md5';
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
@@ -62,6 +66,7 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.it('list src dir without delimiter', async function() {
+            nb_native().fs.set_debug_level(5);
             const res = await ns_src.list_objects({
                 bucket: src_bkt,
             }, dummy_object_sdk);
@@ -178,6 +183,7 @@ mocha.describe('namespace_fs', function() {
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
+            if (config.NSFS_CALCULATE_MD5) xattr[XATTR_MD5_KEY] = upload_res.etag;
 
             const read_res = buffer_utils.write_stream();
             await ns_tmp.read_object_stream({
@@ -258,6 +264,7 @@ mocha.describe('namespace_fs', function() {
                 multiparts,
             }, dummy_object_sdk);
             console.log('complete_object_upload response', inspect(complete_res));
+            if (config.NSFS_CALCULATE_MD5) xattr[XATTR_MD5_KEY] = complete_res.etag;
 
             const list2_res = await ns_src.list_uploads({
                 bucket: mpu_bkt,
@@ -272,10 +279,6 @@ mocha.describe('namespace_fs', function() {
             }, dummy_object_sdk, read_res);
             console.log('read_object_stream response', inspect(read_res));
             const read_data = read_res.join();
-            // for (let i = 0; i < data.length; ++i) {
-            //     assert.strictEqual(read_data[i], data[i],
-            //         `i=${i} read=${read_data[i].toString(16)}, data=${data[i].toString(16)}`);
-            // }
             assert.strictEqual(Buffer.compare(read_data, data), 0);
 
             const md = await ns_tmp.read_object_md({
@@ -447,6 +450,7 @@ mocha.describe('namespace_fs copy object', function() {
 
     mocha.describe('upload_object (copy)', function() {
         const upload_key = 'upload_key_1';
+        let copy_xattr = {};
         const copy_key_1 = 'copy_key_1';
         const data = crypto.randomBytes(100);
 
@@ -456,6 +460,8 @@ mocha.describe('namespace_fs copy object', function() {
                 key: upload_key,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
+            // This is needed for the copy to work because we have a dummy_object_sdk that does not populate
+            copy_xattr[XATTR_MD5_KEY] = upload_res.etag;
             console.log('upload_object response', inspect(upload_res));
         });
 
@@ -463,6 +469,7 @@ mocha.describe('namespace_fs copy object', function() {
             const copy_res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: copy_key_1,
+                xattr: copy_xattr,
                 copy_source: {
                     key: upload_key,
                 }
@@ -489,6 +496,7 @@ mocha.describe('namespace_fs copy object', function() {
             let copy_res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: copy_key_1,
+                xattr: copy_xattr,
                 copy_source: {
                     key: upload_key,
                 }
@@ -498,6 +506,7 @@ mocha.describe('namespace_fs copy object', function() {
             copy_res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: copy_key_1,
+                xattr: copy_xattr,
                 copy_source: {
                     key: upload_key,
                 }
@@ -524,7 +533,7 @@ mocha.describe('namespace_fs copy object', function() {
             const copy_res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: copy_key_1,
-                xattr_copy: false,
+                xattr: copy_xattr,
                 copy_source: {
                     key: upload_key,
                 }

@@ -6,12 +6,20 @@ const assert = require('assert');
 const crypto = require('crypto');
 const nb_native = require('../../util/nb_native');
 
-mocha.describe('nb_native hashes', function() {
+mocha.describe('nb_native hashes', async function() {
     function md5(input) {
         const MD5 = new (nb_native().MD5_MB)();
         const native_md5 = MD5.update(Buffer.from(input)).digest().toString('hex');
         const crypto_md5 = crypto.createHash('md5').update(input).digest('hex');
         assert.strictEqual(native_md5, crypto_md5);
+    }
+
+    async function md5_async(input) {
+        const MD5Async = new (nb_native().crypto.MD5Async)();
+        await MD5Async.update(Buffer.from(input));
+        const native_md5_async = await MD5Async.digest();
+        const crypto_md5 = crypto.createHash('md5').update(input).digest('hex');
+        assert.strictEqual(native_md5_async.toString('hex'), crypto_md5);
     }
 
     function sha1(input) {
@@ -39,6 +47,9 @@ mocha.describe('nb_native hashes', function() {
         mocha.it(`MD5 ${s}`, function() {
             md5(Buffer.from(s));
         });
+        mocha.it(`MD5 Async ${s}`, async function() {
+            await md5_async(Buffer.from(s));
+        });
         mocha.it(`SHA1 ${s}`, function() {
             sha1(Buffer.from(s));
         });
@@ -48,6 +59,9 @@ mocha.describe('nb_native hashes', function() {
         const input = crypto.randomBytes(i);
         mocha.it(`MD5 length${i}`, function() {
             md5(input);
+        });
+        mocha.it(`MD5 Async length${i}`, async function() {
+            await md5_async(input);
         });
         mocha.it(`SHA1 length${i}`, function() {
             sha1(input);
@@ -59,6 +73,9 @@ mocha.describe('nb_native hashes', function() {
         const input = crypto.randomBytes(len);
         mocha.it(`MD5 random${i} - length${len}`, function() {
             md5(input);
+        });
+        mocha.it(`MD5 Async random${i} - length${len}`, async function() {
+            await md5_async(input);
         });
         mocha.it(`SHA1 random${i} - length${len}`, function() {
             sha1(input);

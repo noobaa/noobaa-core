@@ -370,6 +370,8 @@ class NamespaceFS {
                         // since we dir entries streaming order is not sorted,
                         // we have to keep scanning all the keys before we can stop.
                     }
+                    await dir_handle.close(fs_account_config);
+                    dir_handle = null;
                 } finally {
                     if (dir_handle) {
                         try {
@@ -431,6 +433,8 @@ class NamespaceFS {
             const stat = await file.stat(fs_account_config);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
             const fsxattr = await file.getxattr(fs_account_config);
+            await file.close(fs_account_config);
+            file = null;
             return this._get_object_info(params.bucket, params.key, stat, fsxattr);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
@@ -525,6 +529,8 @@ class NamespaceFS {
                 }
             }
 
+            await file.close(fs_account_config);
+            file = null;
             // wait for the last drain if pending.
             if (drain_promise) {
                 await drain_promise;
@@ -673,9 +679,13 @@ class NamespaceFS {
             }
             try {
                 if (source_file) await source_file.close(fs_account_config);
+            } catch (err) {
+                dbg.warn('NamespaceFS: upload_object - copy_source source_file close error', err);
+            }
+            try {
                 if (target_file) await target_file.close(fs_account_config);
             } catch (err) {
-                dbg.warn('NamespaceFS: upload_object - copy_source file close error', err);
+                dbg.warn('NamespaceFS: upload_object - copy_source target_file close error', err);
             }
         }
     }
@@ -870,9 +880,13 @@ class NamespaceFS {
             }
             try {
                 if (read_file) await read_file.close(fs_account_config);
+            } catch (err) {
+                dbg.warn('NamespaceFS: complete_object_upload read file close error', err);
+            }
+            try {
                 if (write_file) await write_file.close(fs_account_config);
             } catch (err) {
-                dbg.warn('NamespaceFS: complete_object_upload file close error', err);
+                dbg.warn('NamespaceFS: complete_object_upload write file close error', err);
             }
         }
     }

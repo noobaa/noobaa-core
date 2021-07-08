@@ -289,7 +289,7 @@ class SystemStoreData {
                         map[key].push(val);
                     } else if (key in map) {
                         dbg.error('SystemStoreData:', index.name,
-                            'collision on key', key, val, map[key]);
+                            'collision on key', key, val._id, map[key]._id);
                     } else {
                         map[key] = val;
                     }

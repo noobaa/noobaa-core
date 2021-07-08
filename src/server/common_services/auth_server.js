@@ -588,7 +588,7 @@ function _prepare_auth_request(req) {
             }
         }
 
-        dbg.log3('load auth system:', req.system);
+        dbg.log3('load auth system:', req.system && req.system._id);
     };
 
     req.has_bucket_permission = function(bucket) {

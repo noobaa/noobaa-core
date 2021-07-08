@@ -130,7 +130,11 @@ class ObjectSDK {
                 });
             } catch (error) {
                 dbg.error('authorize_request_account error:', error);
-                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+                if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
+                    throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+                } else {
+                    throw error;
+                }
             }
             const signature = signature_utils.get_signature_from_auth_token(
                 token, this.requesting_account.access_keys[0].secret_key.unwrap());

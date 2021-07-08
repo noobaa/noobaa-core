@@ -36,6 +36,8 @@ const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
 const path = require('path');
+const KeysSemaphore = require('../../util/keys_semaphore');
+const bucket_semaphore = new KeysSemaphore(1);
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -79,166 +81,167 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
  *
  */
 async function create_bucket(req) {
+    return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        validate_bucket_creation(req);
 
-    validate_bucket_creation(req);
-
-    let tiering_policy;
-    let should_create_underlying_storage = false;
-    const changes = {
-        insert: {},
-        update: {}
-    };
-
-    const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
-    if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
-    if (req.rpc_params.tiering) {
-        tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-    } else if (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.account.default_resource.name]) {
-        dbg.log0('creating bucket on default namespace resource');
-        if (!req.account.nsfs_account_config || !req.account.nsfs_account_config.new_buckets_path) {
-            throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
-        }
-        const nsr = {
-            resource: req.account.default_resource.name,
-            path: path.join(req.account.nsfs_account_config.new_buckets_path, req.rpc_params.name.unwrap())
-        };
-        req.rpc_params.namespace = {
-            read_resources: [nsr],
-            write_resource: nsr
-        };
-        should_create_underlying_storage = true;
-
-    } else {
-        // we create dedicated tier and tiering policy for the new bucket
-        // that uses the default_resource of that account
-        const default_pool = req.account.default_resource;
-        // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
-        validate_pool_constraints({ mongo_pool, default_pool });
-        const chunk_config = chunk_config_utils.resolve_chunk_config(
-            req.rpc_params.chunk_coder_config, req.account, req.system);
-        if (!chunk_config._id) {
-            chunk_config._id = system_store.new_system_store_id();
-            changes.insert.chunk_configs = [chunk_config];
-        }
-        const bucket_with_suffix = req.rpc_params.name.unwrap() + '#' + Date.now().toString(36);
-        const mirrors = [{
-            _id: system_store.new_system_store_id(),
-            spread_pools: [default_pool._id]
-        }];
-
-        tier_server.check_tier_exists(req, bucket_with_suffix);
-        const tier = tier_server.new_tier_defaults(
-            bucket_with_suffix,
-            req.system._id,
-            chunk_config._id,
-            mirrors
-        );
-
-        tier_server.check_tiering_policy_exists(req, bucket_with_suffix);
-        tiering_policy = tier_server.new_policy_defaults(
-            bucket_with_suffix,
-            req.system._id,
-            req.rpc_params.chunk_split_config, [{
-                tier: tier._id,
-                order: 0,
-                spillover: false,
-                disabled: false
-            }]
-        );
-        changes.insert.tieringpolicies = [tiering_policy];
-        changes.insert.tiers = [tier];
-    }
-
-    validate_non_nsfs_bucket_creation(req);
-    validate_nsfs_bucket(req);
-
-    let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
-        tiering_policy && tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
-
-    const bucket_m_key = system_store.master_key_manager.new_master_key({
-        description: `master key of ${bucket._id} bucket`,
-        master_key_id: req.system.master_key_id._id,
-        cipher_type: req.system.master_key_id.cipher_type
-    });
-    bucket.master_key_id = bucket_m_key._id;
-
-    if (req.rpc_params.namespace) {
-        const read_resources = _.compact(req.rpc_params.namespace.read_resources
-            .map(nsr => {
-                const res = req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[nsr.resource];
-                return res && { resource: res._id, path: nsr.path };
-            })
-        );
-        const wr_obj = req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name &&
-            req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
-        const write_resource = wr_obj && { resource: wr_obj._id, path: req.rpc_params.namespace.write_resource.path };
-        if (req.rpc_params.namespace.read_resources &&
-            (!read_resources.length ||
-                (read_resources.length !== req.rpc_params.namespace.read_resources.length)
-            )) {
-            throw new RpcError('INVALID_READ_RESOURCES');
-        }
-        if (req.rpc_params.namespace.write_resource && !write_resource) {
-            throw new RpcError('INVALID_WRITE_RESOURCES');
-        }
-
-        const caching = req.rpc_params.namespace.caching && {
-            ttl_ms: config.NAMESPACE_CACHING.DEFAULT_CACHE_TTL_MS,
-            ...req.rpc_params.namespace.caching,
+        let tiering_policy;
+        let should_create_underlying_storage = false;
+        const changes = {
+            insert: {},
+            update: {}
         };
 
-        // reorder read resources so that the write resource is the first in the list
-        const ordered_read_resources = [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource));
-
-        bucket.namespace = {
-            read_resources: ordered_read_resources,
-            write_resource,
-            caching,
-            should_create_underlying_storage
-        };
-    }
-    if (req.rpc_params.bucket_claim) {
-        // TODO: Should implement validity checks
-        bucket.bucket_claim = req.rpc_params.bucket_claim;
-    }
-    changes.insert.buckets = [bucket];
-    changes.insert.master_keys = [bucket_m_key];
-
-    Dispatcher.instance().activity({
-        event: 'bucket.create',
-        level: 'info',
-        system: req.system._id,
-        actor: req.account && req.account._id,
-        bucket: bucket._id,
-        desc: `${bucket.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
-    });
-
-    // Grant the account a full access for the newly created bucket.
-    if (req.account.allowed_buckets && !req.account.allowed_buckets.full_permission) {
-        changes.update.accounts = [{
-            _id: req.account._id,
-            $push: {
-                'allowed_buckets.permission_list': bucket._id,
+        const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
+        if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
+        if (req.rpc_params.tiering) {
+            tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
+        } else if (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.account.default_resource.name]) {
+            dbg.log0('creating bucket on default namespace resource');
+            if (!req.account.nsfs_account_config || !req.account.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
-        }];
-    }
+            const nsr = {
+                resource: req.account.default_resource.name,
+                path: path.join(req.account.nsfs_account_config.new_buckets_path, req.rpc_params.name.unwrap())
+            };
+            req.rpc_params.namespace = {
+                read_resources: [nsr],
+                write_resource: nsr
+            };
+            should_create_underlying_storage = true;
 
-    await system_store.make_changes(changes);
-    req.load_auth();
-    if (req.rpc_params.bucket_claim || req.rpc_params.namespace) {
-        try {
-            // Trigger partial aggregation for the Prometheus metrics
-            server_rpc.client.stats.get_partial_stats({
-                requester: 'create_bucket',
-            }, {
-                auth_token: req.auth_token
-            });
-        } catch (error) {
-            dbg.error('create_bucket: get_partial_stats failed with', error);
+        } else {
+            // we create dedicated tier and tiering policy for the new bucket
+            // that uses the default_resource of that account
+            const default_pool = req.account.default_resource;
+            // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
+            validate_pool_constraints({ mongo_pool, default_pool });
+            const chunk_config = chunk_config_utils.resolve_chunk_config(
+                req.rpc_params.chunk_coder_config, req.account, req.system);
+            if (!chunk_config._id) {
+                chunk_config._id = system_store.new_system_store_id();
+                changes.insert.chunk_configs = [chunk_config];
+            }
+            const bucket_with_suffix = req.rpc_params.name.unwrap() + '#' + Date.now().toString(36);
+            const mirrors = [{
+                _id: system_store.new_system_store_id(),
+                spread_pools: [default_pool._id]
+            }];
+
+            tier_server.check_tier_exists(req, bucket_with_suffix);
+            const tier = tier_server.new_tier_defaults(
+                bucket_with_suffix,
+                req.system._id,
+                chunk_config._id,
+                mirrors
+            );
+
+            tier_server.check_tiering_policy_exists(req, bucket_with_suffix);
+            tiering_policy = tier_server.new_policy_defaults(
+                bucket_with_suffix,
+                req.system._id,
+                req.rpc_params.chunk_split_config, [{
+                    tier: tier._id,
+                    order: 0,
+                    spillover: false,
+                    disabled: false
+                }]
+            );
+            changes.insert.tieringpolicies = [tiering_policy];
+            changes.insert.tiers = [tier];
         }
-    }
-    let created_bucket = find_bucket(req);
-    return get_bucket_info({ bucket: created_bucket });
+
+        validate_non_nsfs_bucket_creation(req);
+        validate_nsfs_bucket(req);
+
+        let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
+            tiering_policy && tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
+
+        const bucket_m_key = system_store.master_key_manager.new_master_key({
+            description: `master key of ${bucket._id} bucket`,
+            master_key_id: req.system.master_key_id._id,
+            cipher_type: req.system.master_key_id.cipher_type
+        });
+        bucket.master_key_id = bucket_m_key._id;
+
+        if (req.rpc_params.namespace) {
+            const read_resources = _.compact(req.rpc_params.namespace.read_resources
+                .map(nsr => {
+                    const res = req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[nsr.resource];
+                    return res && { resource: res._id, path: nsr.path };
+                })
+            );
+            const wr_obj = req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name &&
+                req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
+            const write_resource = wr_obj && { resource: wr_obj._id, path: req.rpc_params.namespace.write_resource.path };
+            if (req.rpc_params.namespace.read_resources &&
+                (!read_resources.length ||
+                    (read_resources.length !== req.rpc_params.namespace.read_resources.length)
+                )) {
+                throw new RpcError('INVALID_READ_RESOURCES');
+            }
+            if (req.rpc_params.namespace.write_resource && !write_resource) {
+                throw new RpcError('INVALID_WRITE_RESOURCES');
+            }
+
+            const caching = req.rpc_params.namespace.caching && {
+                ttl_ms: config.NAMESPACE_CACHING.DEFAULT_CACHE_TTL_MS,
+                ...req.rpc_params.namespace.caching,
+            };
+
+            // reorder read resources so that the write resource is the first in the list
+            const ordered_read_resources = [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource));
+
+            bucket.namespace = {
+                read_resources: ordered_read_resources,
+                write_resource,
+                caching,
+                should_create_underlying_storage
+            };
+        }
+        if (req.rpc_params.bucket_claim) {
+            // TODO: Should implement validity checks
+            bucket.bucket_claim = req.rpc_params.bucket_claim;
+        }
+        changes.insert.buckets = [bucket];
+        changes.insert.master_keys = [bucket_m_key];
+
+        Dispatcher.instance().activity({
+            event: 'bucket.create',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: bucket._id,
+            desc: `${bucket.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
+        });
+
+        // Grant the account a full access for the newly created bucket.
+        if (req.account.allowed_buckets && !req.account.allowed_buckets.full_permission) {
+            changes.update.accounts = [{
+                _id: req.account._id,
+                $push: {
+                    'allowed_buckets.permission_list': bucket._id,
+                }
+            }];
+        }
+
+        await system_store.make_changes(changes);
+        req.load_auth();
+        if (req.rpc_params.bucket_claim || req.rpc_params.namespace) {
+            try {
+                // Trigger partial aggregation for the Prometheus metrics
+                server_rpc.client.stats.get_partial_stats({
+                    requester: 'create_bucket',
+                }, {
+                    auth_token: req.auth_token
+                });
+            } catch (error) {
+                dbg.error('create_bucket: get_partial_stats failed with', error);
+            }
+        }
+        let created_bucket = find_bucket(req);
+        return get_bucket_info({ bucket: created_bucket });
+    });
 }
 
 function validate_pool_constraints({ mongo_pool, default_pool }) {
@@ -835,64 +838,66 @@ async function delete_bucket_and_objects(req) {
  *
  */
 async function delete_bucket(req) {
-    var bucket = find_bucket(req);
-    // TODO before deleting tier and tiering_policy need to check they are not in use
-    let tiering_policy = bucket.tiering;
-    const reason = await can_delete_bucket(req.system, bucket);
-    if (reason) {
-        throw new RpcError(reason, 'Cannot delete bucket');
-    }
-    if (!req.rpc_params.internal_call) {
-        Dispatcher.instance().activity({
-            event: 'bucket.delete',
-            level: 'info',
-            system: req.system._id,
-            actor: req.account && req.account._id,
-            bucket: bucket._id,
-            desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
-        });
-    }
-    const associated_buckets = tier_server.get_associated_buckets(tiering_policy)
-        .filter(bucket_id => String(bucket_id) !== String(bucket._id));
-    const tieringpolicies = [];
-    const tiers = [];
-    if (tiering_policy && _.isEmpty(associated_buckets)) {
-        tieringpolicies.push(tiering_policy._id);
-        tiers.push(..._.compact(_.map(tiering_policy.tiers, tier_and_order => {
-            const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
-                .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
-            if (_.isEmpty(associated_tiering_policies)) {
-                return tier_and_order.tier._id;
+    return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        var bucket = find_bucket(req);
+        // TODO before deleting tier and tiering_policy need to check they are not in use
+        let tiering_policy = bucket.tiering;
+        const reason = await can_delete_bucket(req.system, bucket);
+        if (reason) {
+            throw new RpcError(reason, 'Cannot delete bucket');
+        }
+        if (!req.rpc_params.internal_call) {
+            Dispatcher.instance().activity({
+                event: 'bucket.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: `${bucket.name.unwrap()} was deleted by ${req.account && req.account.email.unwrap()}`,
+            });
+        }
+        const associated_buckets = tier_server.get_associated_buckets(tiering_policy)
+            .filter(bucket_id => String(bucket_id) !== String(bucket._id));
+        const tieringpolicies = [];
+        const tiers = [];
+        if (tiering_policy && _.isEmpty(associated_buckets)) {
+            tieringpolicies.push(tiering_policy._id);
+            tiers.push(..._.compact(_.map(tiering_policy.tiers, tier_and_order => {
+                const associated_tiering_policies = tier_server.get_associated_tiering_policies(tier_and_order.tier)
+                    .filter(policy_id => String(policy_id) !== String(tiering_policy._id));
+                if (_.isEmpty(associated_tiering_policies)) {
+                    return tier_and_order.tier._id;
+                }
+            })));
+        }
+        await system_store.make_changes({
+            remove: {
+                buckets: [bucket._id],
+                tieringpolicies,
+                tiers
             }
-        })));
-    }
-    await system_store.make_changes({
-        remove: {
-            buckets: [bucket._id],
-            tieringpolicies,
-            tiers
+        });
+
+        const accounts_update = _.compact(_.map(system_store.data.accounts,
+            account => {
+                if (!account.allowed_buckets ||
+                    (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
+                return {
+                    _id: account._id,
+                    $pullAll: {
+                        'allowed_buckets.permission_list': [bucket._id]
+                    }
+                };
+            }));
+
+        if (!_.isEmpty(accounts_update)) {
+            await system_store.make_changes({
+                update: {
+                    accounts: accounts_update
+                }
+            });
         }
     });
-
-    const accounts_update = _.compact(_.map(system_store.data.accounts,
-        account => {
-            if (!account.allowed_buckets ||
-                (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
-            return {
-                _id: account._id,
-                $pullAll: {
-                    'allowed_buckets.permission_list': [bucket._id]
-                }
-            };
-        }));
-
-    if (!_.isEmpty(accounts_update)) {
-        await system_store.make_changes({
-            update: {
-                accounts: accounts_update
-            }
-        });
-    }
 }
 
 /**

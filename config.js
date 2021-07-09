@@ -561,6 +561,8 @@ config.NSFS_UMASK = 0o007;
 // The threshold in milliseconds for prompting a warning
 config.NSFS_WARN_THRESHOLD_MS = 100;
 
+config.NSFS_CALCULATE_MD5 = true;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

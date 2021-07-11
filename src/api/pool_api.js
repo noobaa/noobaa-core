@@ -716,6 +716,9 @@ module.exports = {
                         },
                         host: {
                             type: 'string'
+                        },
+                        identity: {
+                            $ref: 'common_api#/definitions/access_key'
                         }
                     }
                 },

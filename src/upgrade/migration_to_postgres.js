@@ -44,20 +44,25 @@ const { Migrator } = require('./migrator');
 const name_deleted_indexes = [{
     fields: {
         name: 1,
-        deleted: 1
     },
     options: {
         unique: true,
+        partialFilterExpression: {
+            deleted: null,
+        }
     }
 }];
 
-const name_system_deleted_indexes = [{
+const system_name_deleted_indexes = [{
     fields: {
+        system: 1,
         name: 1,
-        deleted: 1
     },
     options: {
         unique: true,
+        partialFilterExpression: {
+            deleted: null,
+        }
     }
 }];
 
@@ -90,28 +95,30 @@ const COLLECTIONS = [{
     db_indexes: [{
         fields: {
             email: 1,
-            deleted: 1
         },
         options: {
             unique: true,
+            partialFilterExpression: {
+                deleted: null,
+            }
         }
     }],
 }, {
     name: 'buckets',
     schema: bucket_schema,
-    db_indexes: name_system_deleted_indexes,
+    db_indexes: system_name_deleted_indexes,
 }, {
     name: 'tieringpolicies',
     schema: tiering_policy_schema,
-    db_indexes: name_system_deleted_indexes,
+    db_indexes: system_name_deleted_indexes,
 }, {
     name: 'tiers',
     schema: tier_schema,
-    db_indexes: name_system_deleted_indexes,
+    db_indexes: system_name_deleted_indexes,
 }, {
     name: 'pools',
     schema: pool_schema,
-    db_indexes: name_system_deleted_indexes,
+    db_indexes: system_name_deleted_indexes,
 }, {
     name: 'agent_configs',
     schema: agent_config_schema,

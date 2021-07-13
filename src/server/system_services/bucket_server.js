@@ -92,7 +92,7 @@ async function create_bucket(req) {
 
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-    } else {
+    } else if (_.isUndefined(req.rpc_params.namespace) || req.rpc_params.namespace.caching) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool of that account
         const default_pool = req.account.default_pool;

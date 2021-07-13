@@ -216,6 +216,7 @@ async function _do_query(pg_client, q, transaction_counter) {
         }
         return res;
     } catch (err) {
+        if (err.routine === 'index_create' && err.code === '42P07') return;
         dbg.error(`postgres_client: ${tag}: failed with error:`, err);
         throw err;
     }

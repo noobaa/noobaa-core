@@ -111,7 +111,7 @@ async function create_bucket(req) {
             };
             should_create_underlying_storage = true;
 
-        } else {
+        } else if (_.isUndefined(req.rpc_params.namespace) || req.rpc_params.namespace.caching) {
             // we create dedicated tier and tiering policy for the new bucket
             // that uses the default_resource of that account
             const default_pool = req.account.default_resource;

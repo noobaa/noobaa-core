@@ -73,9 +73,6 @@ class NamespaceNB {
 
     read_object_md(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
-        // If set, part_number is positive integer from 1 to 10000
-        if (params.part_number) _.unset(params, 'part_number');
         return object_sdk.rpc_client.object.read_object_md(params);
     }
 
@@ -86,9 +83,6 @@ class NamespaceNB {
             client: object_sdk.rpc_client,
             bucket: this.target_bucket,
         }, params);
-        // Noobaa bucket does not currrently support partNumber query parameter. Ignore it for now.
-        // If set, part_number is positive integer from 1 to 10000
-        if (params.part_number) _.unset(params, 'part_number');
         const active_triggers = this.get_triggers_for_bucket(params.bucket);
         const load_for_trigger = !params.noobaa_trigger_agent && object_sdk.should_run_triggers({
             active_triggers,

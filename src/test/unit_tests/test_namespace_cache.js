@@ -741,7 +741,7 @@ mocha.describe('namespace caching: proxy get request with partNumber query to hu
         const params = {
             bucket: obj.bucket,
             key: obj.key,
-            part_number: 1,
+            multipart_number: 1,
         };
 
         params.object_md = await ns_cache.read_object_md(params, object_sdk);

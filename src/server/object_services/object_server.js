@@ -1362,6 +1362,9 @@ function get_object_info(md, options = {}) {
         upload_started: md.upload_started ? md.upload_started.getTimestamp().getTime() : undefined,
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
+        num_multiparts: md.num_multiparts,
+        multipart_start: md.multipart_start,
+        multipart_end: md.multipart_end,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
         lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
@@ -1415,7 +1418,50 @@ async function find_object_md(req) {
         obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
     }
     check_object_mode(req, obj, 'NO_SUCH_OBJECT');
+
+    // if part number was specified in the S3 Query
+    if (req.rpc_params.multipart_number) {
+        await calculate_multipart_range(req.rpc_params.multipart_number, obj);
+        if (!obj.num_multiparts) await calculate_num_multiparts(obj);
+    }
+
     return obj;
+}
+
+/**
+ * calculate (start, end) range of the specified multipart_number
+ *
+ * @param multipart_number integer in 1..10000 range
+ * @param {nb.ObjectMD} obj
+ */
+async function calculate_multipart_range(multipart_number, obj) {
+    // fetch the multiparts of this obj which are lte(<=) the requested part number
+    // TODO: store the range inside each multipart in _complete_object_multiparts() so we can read just the requested multipart here
+    const multiparts = await MDStore.instance().find_multiparts_of_object_lte_number(obj._id, multipart_number);
+    obj.multipart_start = 0;
+    obj.multipart_end = 0;
+    for (const mp of multiparts) {
+        if (mp.num < multipart_number) obj.multipart_start += mp.size;
+        obj.multipart_end += mp.size;
+    }
+}
+
+/**
+ * Lazily calculate the number of object's multiparts from the multiparts in the DB
+ * and populate the object num_multiparts field in object md DB
+ *
+ * @param {nb.ObjectMD} obj
+ */
+ async function calculate_num_multiparts(obj) {
+    // fetch the commited multiparts of this obj
+    const multiparts = await MDStore.instance().find_commited_multiparts_of_object(obj._id);
+    if (multiparts.length) {
+        obj.num_multiparts = multiparts.length;
+
+        // schedule it - forget it
+        // don't await the update, perform in "background"
+        MDStore.instance().update_object_by_id(obj._id, { num_multiparts: obj.num_multiparts });
+    }
 }
 
 /**
@@ -1956,6 +2002,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
     await Promise.all([
         context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
         used_multiparts_ids.length && MDStore.instance().update_multiparts_by_ids(used_multiparts_ids, undefined, { uncommitted: 1 }),
+        used_multiparts_ids.length && MDStore.instance().update_object_by_id(obj._id, { num_multiparts: used_multiparts_ids.length }),
         unused_parts.length && MDStore.instance().delete_parts(unused_parts),
         unused_multiparts.length && MDStore.instance().delete_multiparts(unused_multiparts),
         chunks_to_dereference.length && map_deleter.delete_chunks_if_unreferenced(chunks_to_dereference),

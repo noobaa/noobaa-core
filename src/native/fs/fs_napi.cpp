@@ -722,7 +722,10 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     ~FileWrap()
     {
         if (_fd) {
-            PANIC("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
+            LOG("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
+            int r = ::close(_fd);
+            if (r) LOG("FS::FileWrap::dtor: file close failed " << DVAL(_path) << DVAL(_fd) << DVAL(r));
+            _fd = 0;
         }
     }
     Napi::Value close(const Napi::CallbackInfo& info);
@@ -1144,7 +1147,10 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
     ~DirWrap()
     {
         if (_dir) {
-            PANIC("FS::DirWrap::dtor: dir not closed " << DVAL(_path) << DVAL(_dir));
+            LOG("FS::DirWrap::dtor: dir not closed " << DVAL(_path) << DVAL(_dir));
+            int r = closedir(_dir);
+            if (r) LOG("FS::DirWrap::dtor: dir close failed " << DVAL(_path) << DVAL(_dir) << DVAL(r));
+            _dir = 0;
         }
     }
     Napi::Value close(const Napi::CallbackInfo& info);

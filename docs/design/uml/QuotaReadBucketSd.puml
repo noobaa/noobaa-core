@@ -1,0 +1,24 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title read bucket with quota config
+
+scale 1
+
+actor Client order 10
+participant "Rpc Server" as RS order 20
+participant "bucket_server" as BS order 30
+
+Client ->  RS: read_bucket_sdk_info
+RS -> BS: read_bucket_sdk_info
+group get bucket sdk info
+    BS -> BS: find_bucket
+    BS -> BS: get_bucket_info
+    group get bucket info
+        BS -> BS: _calc_metrics
+        BS -> BS: calc_quota_status
+        BS -> BS: calc_bucket_mode
+    end
+end
+BS -> Client: bucket_sdk_info
+@enduml

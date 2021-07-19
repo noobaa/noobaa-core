@@ -1,0 +1,21 @@
+@startuml
+/'To generate png file, use https://www.plantuml.com/plantuml '/
+
+title Get Partial Stats
+
+scale 1
+
+actor Client order 10
+participant "Rpc Server" as RS order 20
+participant "stats_aggregator" as SA order 30
+
+Client ->  RS: get_partial_stats
+RS -> SA: get_partial_stats
+group get partital stats
+    SA -> SA: get_partial_systems_stats
+    group get partital system stats
+        SA -> SA: _partial_buckets_info
+    end
+end
+SA -> Client: stats_payload
+@enduml

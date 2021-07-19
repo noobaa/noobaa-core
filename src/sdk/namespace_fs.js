@@ -896,6 +896,7 @@ class NamespaceFS {
             const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);
             write_file = null;
+            await this._make_path_dirs(file_path, fs_account_config);
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
             await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat, fs_xattr) };

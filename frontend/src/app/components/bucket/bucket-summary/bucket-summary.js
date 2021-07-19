@@ -12,7 +12,7 @@ import numeral from 'numeral';
 import {
     getBucketStateIcon,
     getDataBreakdown,
-    getQuotaValue,
+    getQuotaSizeValue,
     countStorageNodesByMirrorSet
 } from 'utils/bucket-utils';
 
@@ -109,7 +109,7 @@ function _mapModeToStateTooltip(bucket, dataBreakdown, hostPools, cloudResources
             return 'According to the configured data resiliency policy, only 1 node/drive can fail before all stored data will no longer be able to recover. It’s recommended to add more nodes to the pools and distribute drives over the different nodes';
         }
         case 'APPROUCHING_QUOTA': {
-            const quota = formatSize(getQuotaValue(bucket.quota));
+            const quota = formatSize(getQuotaSizeValue(bucket.quota));
             const used = formatSize(dataBreakdown.used);
             const available = formatSize(dataBreakdown.availableForUpload);
             return `Bucket utilization is ${used} out of ${quota}. Please change the configured limit if you wish to write more then ${available} this bucket`;
@@ -338,8 +338,8 @@ class BucketSummrayViewModel extends ConnectableViewModel {
                     markers: [
                         {
                             visible: Boolean(quota) && isInOveruse,
-                            text: quota ?
-                                `Quota: ${formatSize(getQuotaValue(quota))}` :
+                            text: quota && quota.size ?
+                                `Quota: ${formatSize(getQuotaSizeValue(quota))}` :
                                 ''
                         }
                     ]

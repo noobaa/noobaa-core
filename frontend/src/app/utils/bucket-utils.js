@@ -258,7 +258,7 @@ export function getQuotaStateIcon(quota) {
 }
 
 export function getDataBreakdown(data, quota) {
-    if (!quota) {
+    if (!quota || !quota.size) {
         return {
             used: data.size,
             overused: 0,
@@ -272,7 +272,7 @@ export function getDataBreakdown(data, quota) {
     const sizeBigInt = toBigInteger(data.size);
     const uploadBigInt = toBigInteger(data.availableForUpload);
 
-    let q = toBigInteger(quota.size).multiply(unitsInBytes[quota.unit]);
+    let q = toBigInteger(quota.size.value).multiply(unitsInBytes[quota.size.unit]);
     const used = min(sizeBigInt, q);
     const overused = sizeBigInt.subtract(used);
 
@@ -290,9 +290,8 @@ export function getDataBreakdown(data, quota) {
     };
 }
 
-export function getQuotaValue(quota) {
-    const { size, unit } = quota;
-    const quotaBigInt = toBigInteger(size).multiply(unitsInBytes[unit]);
+export function getQuotaSizeValue(quota) {
+    const quotaBigInt = toBigInteger(quota.size.value).multiply(unitsInBytes[quota.size.unit]);
     return fromBigInteger(quotaBigInt);
 }
 

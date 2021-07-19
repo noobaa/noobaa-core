@@ -728,12 +728,15 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'quota_precent', 'capacity_precent', 'is_healthy', 'tagging'],
+                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
                             },
-                            quota_precent: {
+                            quota_size_precent: {
+                                type: 'number'
+                            },
+                            quota_quantity_percent: {
                                 type: 'number'
                             },
                             capacity_precent: {

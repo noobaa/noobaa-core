@@ -116,6 +116,9 @@ function bigint_to_bytes(bigint) {
 
 function size_unit_to_bigint(size, unit) {
     let big;
+    if (size === 0) {
+        return new BigInteger(0);
+    }
     if (unit === 'PETABYTE') {
         big = new BigInteger(PETABYTE);
     } else if (unit === 'TERABYTE') {

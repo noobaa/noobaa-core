@@ -563,6 +563,10 @@ config.NSFS_WARN_THRESHOLD_MS = 100;
 
 config.NSFS_CALCULATE_MD5 = true;
 
+//Quota
+config.QUOTA_LOW_THRESHOLD = 80;
+config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

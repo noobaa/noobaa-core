@@ -12,10 +12,10 @@ const dbg = require('../../util/debug_module')(__filename);
 
 // argv.verbose = true;
 if (argv.verbose) {
-    dbg.set_level(5, 'core');
+    dbg.set_module_level(5, 'core');
 } else {
     // disable dbg messages by default
-    dbg.set_level(-1, 'core');
+    dbg.set_module_level(-1, 'core');
 }
 
 

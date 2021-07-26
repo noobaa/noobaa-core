@@ -9,7 +9,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 
-// dbg.set_level(5);
+// dbg.set_module_level(5);
 
 /**
  *

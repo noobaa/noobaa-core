@@ -11,6 +11,7 @@ require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('BGWorkers');
+const debug_config = require('../util/debug_config');
 
 const url = require('url');
 const http_utils = require('../util/http_utils');
@@ -52,6 +53,11 @@ const MASTER_BG_WORKERS = [
     'agent_blocks_verifier',
     'agent_blocks_reclaimer'
 ];
+
+if (process.env.NOOBAA_LOG_LEVEL) {
+    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
+}
 
 db_client.instance().connect();
 register_rpc();

@@ -21,7 +21,7 @@ const { ChunkDB } = require('./map_db_types');
 
 const builder_lock = new KeysLock();
 
-// dbg.set_level(5);
+// dbg.set_module_level(5);
 
 /**
  *

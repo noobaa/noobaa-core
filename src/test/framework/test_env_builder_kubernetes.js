@@ -20,7 +20,7 @@ const RED = "\x1b[31;1m";
 const NC = "\x1b[0m";
 
 if (process.env.SUPPRESS_LOGS) {
-    dbg.set_level(-5, 'core');
+    dbg.set_module_level(-5, 'core');
 }
 
 const {
@@ -39,9 +39,9 @@ const {
 } = argv;
 
 if (debug) {
-    dbg.set_level(3, 'core');
+    dbg.set_module_level(3, 'core');
 } else {
-    dbg.set_level(-1, 'core');
+    dbg.set_module_level(-1, 'core');
 }
 
 const deleted_namespaces = [];

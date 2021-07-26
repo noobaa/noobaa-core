@@ -21,7 +21,7 @@ const { RpcError } = require('../rpc');
 
 Object.isFrozen(RpcError); // otherwise unused
 
-// dbg.set_level(5, 'core');
+// dbg.set_module_level(5, 'core');
 
 /**
  * @typedef {Object} UploadParams

@@ -6,7 +6,7 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var ObjectIO = require('../sdk/object_io');
 var dbg = require('../util/debug_module')(__filename);
-dbg.set_level(5);
+dbg.set_module_level(5);
 
 var bkt = process.argv[2];
 var key = process.argv[3];

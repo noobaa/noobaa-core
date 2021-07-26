@@ -71,7 +71,7 @@ let heapdiff;
 argv.heap = argv.heap || false;
 
 dbg.log('Arguments', argv);
-dbg.set_level(argv.debug, __dirname);
+dbg.set_module_level(argv.debug, __dirname);
 
 const schema = new RpcSchema();
 schema.register_api({

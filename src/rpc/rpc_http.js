@@ -12,7 +12,7 @@ const http_utils = require('../util/http_utils');
 const RpcBaseConnection = require('./rpc_base_conn');
 const { RPC_VERSION_NUMBER } = require('./rpc_message');
 
-// dbg.set_level(5);
+// dbg.set_module_level(5);
 
 const BASE_PATH = '/rpc/';
 const browser_location = global.window && global.window.location;

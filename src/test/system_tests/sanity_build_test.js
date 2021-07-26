@@ -7,7 +7,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const argv = require('minimist')(process.argv);
 
 if (process.env.SUPPRESS_LOGS) {
-    dbg.set_level(-5, 'core');
+    dbg.set_module_level(-5, 'core');
 }
 
 const { CloudFunction } = require('../utils/cloud_functions');

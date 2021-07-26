@@ -32,7 +32,7 @@ const RpcNtcpConnection = require('./rpc_ntcp');
 const RpcFcallConnection = require('./rpc_fcall');
 const RPC_BUFFERS = RpcRequest.RPC_BUFFERS;
 
-// dbg.set_level(5, __dirname);
+// dbg.set_module_level(5, __dirname);
 
 /**
  *

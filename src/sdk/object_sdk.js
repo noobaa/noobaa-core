@@ -435,7 +435,11 @@ class ObjectSDK {
             params.xattr = source_md.xattr;
             params.content_type = source_md.content_type;
         }
-        if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
+        try {
+            if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
+        } catch (e) {
+            dbg.log3("Got an error while trying to omitBy param.xattr:", params.xattr, "error:", e);
+        }
         if (params.tagging_copy) params.tagging = source_md.tagging;
 
         // check if source and target are the same and can handle server side copy

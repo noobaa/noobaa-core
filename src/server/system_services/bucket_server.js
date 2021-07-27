@@ -843,7 +843,7 @@ async function delete_bucket(req) {
         var bucket = find_bucket(req);
         // TODO before deleting tier and tiering_policy need to check they are not in use
         let tiering_policy = bucket.tiering;
-        const reason = await can_delete_bucket(req.system, bucket);
+        const reason = await can_delete_bucket(bucket);
         if (reason) {
             throw new RpcError(reason, 'Cannot delete bucket');
         }
@@ -901,6 +901,10 @@ async function delete_bucket(req) {
                 }
             });
         }
+        await BucketStatsStore.instance().delete_stats({
+            system: req.system._id,
+            bucket: bucket._id
+        });
     });
 }
 
@@ -1844,7 +1848,7 @@ function resolve_tiering_policy(req, policy_name) {
     return tiering_policy;
 }
 
-function can_delete_bucket(system, bucket) {
+function can_delete_bucket(bucket) {
     return P.resolve()
         .then(() => {
             if (bucket.namespace) return;
@@ -2013,7 +2017,6 @@ function normalize_replication(req) {
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
-exports.can_delete_bucket = can_delete_bucket;
 exports.list_undeletable_buckets = list_undeletable_buckets;
 //Bucket Management
 exports.create_bucket = create_bucket;

@@ -71,6 +71,9 @@ class BucketStatsStore {
         return [];
     }
 
+    async delete_stats({ system, bucket }) {
+        await this._bucket_stats.deleteOne({ system, bucket });
+    }
 }
 
 // EXPORTS

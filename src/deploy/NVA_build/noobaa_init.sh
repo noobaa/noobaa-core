@@ -134,8 +134,6 @@ prepare_agent_conf() {
 }
 
 prepare_server_pvs() {
-  # change ownership and permissions of /data and /log.
-  ${KUBE_PV_CHOWN} server
   # when running in kubernetes\openshift we mount PV under /data and /log
   # ensure existence of folders such as mongo, supervisor, etc.
   mkdir -p /log/supervisor

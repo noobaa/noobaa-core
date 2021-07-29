@@ -41,6 +41,7 @@ handle_server_upgrade() {
   then
     UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
   fi
+  echo "Running /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}"
   /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
   rc=$?
   if [ ${rc} -ne 0 ]; then

@@ -12,11 +12,16 @@ start() {
     then
         path="/noobaa_init_files/"
     fi
+    echo "calling noobaa_init.sh"
+    logger -p local0.info -t Superd "calling noobaa_init.sh"
     ${path}/noobaa_init.sh
-    #Abort pod start if noobaa_init fails
     rc=$?
+    echo "noobaa_init.sh finished"
+    logger -p local0.info -t Superd "noobaa_init.sh finished"
+    #Abort pod start if noobaa_init fails
     if [ ${rc} -ne 0 ]; then
         echo "noobaa_init failed with exit code ${rc}. aborting"
+        logger -p local0.info -t Superd "noobaa_init failed with exit code ${rc}. aborting"
         exit ${rc}
     fi
 

@@ -439,7 +439,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['identity', 'secret', 'endpoint'],
+                required: ['identity', 'secret', 'endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -457,6 +457,9 @@ module.exports = {
                     },
                     endpoint_type: {
                         $ref: 'common_api#/definitions/endpoint_type'
+                    },
+                    ignore_name_already_exist: {
+                        type: 'boolean'
                     }
                 }
             },

@@ -41,6 +41,7 @@ handle_server_upgrade() {
   then
     UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
   fi
+  echo "Running /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}"
   /usr/local/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
   rc=$?
   if [ ${rc} -ne 0 ]; then
@@ -133,8 +134,6 @@ prepare_agent_conf() {
 }
 
 prepare_server_pvs() {
-  # change ownership and permissions of /data and /log.
-  ${KUBE_PV_CHOWN} server
   # when running in kubernetes\openshift we mount PV under /data and /log
   # ensure existence of folders such as mongo, supervisor, etc.
   mkdir -p /log/supervisor

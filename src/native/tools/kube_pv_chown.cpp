@@ -87,7 +87,7 @@ main(int argc, char* argv[])
     } else if (deployment_type == "agent") {
         change_path_permissions_recursive("/noobaa_storage", uid);
     } else {
-        cout << "Error:  expected to get server/agent as first parameter" << endl;
+        cout << "Error:  expected to get mongo/postgres/agent as first parameter" << endl;
         return 1;
     }
     return 0;

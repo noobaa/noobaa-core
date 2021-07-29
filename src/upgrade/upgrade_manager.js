@@ -12,6 +12,7 @@ const system_store = require('../server/system_services/system_store').get_insta
 const system_server = require('../server/system_services/system_server');
 const dbg = require('../util/debug_module')('UPGRADE');
 const db_client = require('../util/db_client');
+dbg.set_process_name('Upgrade');
 
 function parse_ver(ver) {
     const stripped_ver = ver.split('-')[0];

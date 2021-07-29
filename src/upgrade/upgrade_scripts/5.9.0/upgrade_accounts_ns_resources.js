@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-async function run({ dbg, system_store, system_server}) {
+async function run({ dbg, system_store, system_server }) {
 
     try {
         dbg.log0('starting upgrade accounts...');
         const accounts = system_store.data.accounts
             .map(a => a.default_pool && ({
                 _id: a._id,
-                $set: { default_resource: a.default_pool._id },
+                $set: { default_resource: a.default_pool },
                 $unset: { default_pool: true }
             }))
             .filter(account => account);

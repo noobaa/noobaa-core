@@ -1399,36 +1399,39 @@ class PostgresClient extends EventEmitter {
         // return this.wait_for_client_init();
 
         let pool;
-        try {
-            if (this._disconnected_state) return;
-            if (this.pool) return;
-            dbg.log0('_connect: called with', this.new_pool_params);
-            // this._set_connect_timeout();
-            // client = await mongodb.MongoClient.connect(this.url, this.config);
-            pool = new Pool(this.new_pool_params);
-            if (skip_init_db !== 'skip_init_db') {
-                await this._init_collections(pool);
+        let is_connected = false;
+        while (!is_connected) {
+            try {
+                if (this._disconnected_state) return;
+                if (this.pool) return;
+                dbg.log0('_connect: called with', this.new_pool_params);
+                // this._set_connect_timeout();
+                // client = await mongodb.MongoClient.connect(this.url, this.config);
+                pool = new Pool(this.new_pool_params);
+                if (skip_init_db !== 'skip_init_db') {
+                    await this._init_collections(pool);
+                }
+                dbg.log0('_connect: connected', this.new_pool_params);
+                // this._reset_connect_timeout();
+                this.pool = pool;
+                this.pool.on('error', err => {
+                    dbg.error('got error on postgres pool', err);
+                });
+                this.emit('reconnect');
+                dbg.log0(`connected`);
+                is_connected = true;
+                // return this.mongo_client.db();
+            } catch (err) {
+                // autoReconnect only works once initial connection is created,
+                // so we need to handle retry in initial connect.
+                dbg.error('_connect: initial connect failed, will retry', err.message);
+                if (pool) {
+                    pool.end();
+                    pool = null;
+                    this.pool = null;
+                }
+                await P.delay(3000);
             }
-            dbg.log0('_connect: connected', this.new_pool_params);
-            // this._reset_connect_timeout();
-            this.pool = pool;
-            this.pool.on('error', err => {
-                dbg.error('got error on postgres pool', err);
-            });
-            this.emit('reconnect');
-            dbg.log0(`connected`);
-            // return this.mongo_client.db();
-        } catch (err) {
-            // autoReconnect only works once initial connection is created,
-            // so we need to handle retry in initial connect.
-            dbg.error('_connect: initial connect failed, will retry', err.message);
-            if (pool) {
-                pool.end();
-                pool = null;
-                this.pool = null;
-            }
-            await P.delay_unblocking(3000);
-            return this._connect(skip_init_db);
         }
     }
 

@@ -1921,7 +1921,7 @@ async function put_bucket_replication(req) {
         await replication_store.instance().update_replication(replication_rules, bucket_replication_id) :
         await replication_store.instance().insert_replication(replication_rules);
 
-    console.log('update_bucket_class_replication: replication_id: ', replication_id);
+    console.log('update_bucket_replication: replication_id: ', replication_id);
 
     await system_store.make_changes({
         update: {
@@ -1994,7 +1994,7 @@ function validate_replication(req) {
     for (const dst in pref_by_dst_bucket) {
         if (pref_by_dst_bucket[dst].length > 1) {
             const ordered_prefixes = _.orderBy(pref_by_dst_bucket[dst]);
-            for (let i = 0; i < ordered_prefixes.length + 1; i++) {
+            for (let i = 0; i < ordered_prefixes.length - 1; i++) {
                 if (ordered_prefixes[i + 1].startsWith(ordered_prefixes[i])) {
                     throw new RpcError('INVALID_REPLICATION_POLICY', 'All prefixes of same destination bucket must not be a prefix of another prefix');
                 }

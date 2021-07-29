@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const mongodb = require('mongodb');
 const db_client = require('../../util/db_client');
 const dbg = require('../../util/debug_module')(__filename);
@@ -68,6 +69,33 @@ class ReplicationStore {
             },
         });
         return ans;
+    }
+
+    async update_replication_status_by_id(_id, rule_id, status) {
+        dbg.log0('update_replication_status_by_id: ', _id, rule_id, status);
+        const parsed_id = db_client.instance().parse_object_id(_id);
+        const find = { _id: parsed_id, 'rules.rule_id': rule_id };
+        const update = { $set: { 'rules.$.status': status } };
+        const options = { returnOriginal: false };
+        dbg.log1('update_replication_status_by_id: ', find, update, options);
+        const ans = await this._replicationconfigs.findOneAndUpdate(find, update, options);
+        dbg.log1('update_replication_status_by_id: ans', ans);
+        this._replicationconfigs.validate(ans.value, 'warn');
+        return ans;
+    }
+
+    async find_rules_updated_longest_time_ago() {
+        // TODO: postgres client does not support $project with $min op,
+        // for doing an in db operation we will need to add support 
+        // for aggregation framework in postgres client 
+        const replications = await this._replicationconfigs.find({ deleted: null });
+        const reduced_replications = replications.map(repl => ({
+            replication_id: repl._id,
+            rule: _.minBy(repl.rules, rule => (rule.status && rule.status.last_cycle_end) || 0) //least_recently_replicated_rule
+        }));
+        dbg.log0('find_rules_updated_longest_time_ago: ', reduced_replications);
+
+        return reduced_replications;
     }
 }
 

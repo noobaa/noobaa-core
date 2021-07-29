@@ -28,6 +28,16 @@ module.exports = {
                             prefix: { type: 'string' },
                             // s3 support also tag or and operator of 2 tags/ tag and prefix 
                         }
+                    },
+                    status: {
+                        type: 'object',
+                        required: ['src_cont_token', 'dst_cont_token', 'last_cycle_start', 'last_cycle_end'],
+                        properties: {
+                            src_cont_token: { type: 'string' },
+                            dst_cont_token: { type: 'string' },
+                            last_cycle_start: { idate: true },
+                            last_cycle_end: { idate: true }
+                        }
                     }
                 }
             }

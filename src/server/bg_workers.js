@@ -31,6 +31,7 @@ const AgentBlocksVerifier = require('./bg_services/agent_blocks_verifier').Agent
 const AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').AgentBlocksReclaimer;
 const stats_aggregator = require('./system_services/stats_aggregator');
 const { NamespaceMonitor } = require('./bg_services/namespace_monitor');
+const { ReplicationScanner } = require('./bg_services/replication_scanner');
 const aws_usage_metering = require('./system_services/aws_usage_metering');
 const usage_aggregator = require('./bg_services/usage_aggregator');
 const md_aggregator = require('./bg_services/md_aggregator');
@@ -100,6 +101,15 @@ function run_master_workers() {
         client: server_rpc.client,
         should_monitor: nsr => !nsr.nsfs_config,
     }));
+
+    if (config.REPLICATION_ENABLED) {
+        register_bg_worker(new ReplicationScanner({
+            name: 'replication_scanner',
+            client: server_rpc.client,
+        }));
+    } else {
+        dbg.warn('REPLICATION NOT ENABLED');
+    }
     if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
         register_bg_worker({
             name: 'md_aggregator',

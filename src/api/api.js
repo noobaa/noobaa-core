@@ -33,6 +33,8 @@ api_schema.register_api(require('./hosted_agents_api'));
 api_schema.register_api(require('./frontend_notifications_api'));
 api_schema.register_api(require('./func_api'));
 api_schema.register_api(require('./func_node_api'));
+api_schema.register_api(require('./replication_api'));
+
 api_schema.compile();
 
 function get_protocol_port(protocol) {
@@ -108,6 +110,7 @@ function new_rpc_from_routing(routing_table) {
             object_api: 'md',
             func_api: 'md',
             scrubber_api: 'bg',
+            replication_api: 'bg',
             hosted_agents_api: 'hosted_agents',
             node_api: 'master',
             host_api: 'master'

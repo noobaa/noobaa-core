@@ -11,8 +11,19 @@ const Semaphore = require('../../util/semaphore');
 const replication_store = require('../system_services/replication_store').instance();
 const auth_server = require('../common_services/auth_server');
 const cloud_utils = require('../../util/cloud_utils');
+const prom_reporting = require('../analytic_services/prometheus_reporting');
 
 
+const PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS = {
+    replication_id: '',
+    last_cycle_rule_id: '',
+    bucket_name: '',
+    last_cycle_src_cont_token: '',
+    last_cycle_writes_num: 0,
+    last_cycle_writes_size: 0,
+    last_cycle_error_writes_num: 0,
+    last_cycle_error_writes_size: 0,
+};
 
 class ReplicationScanner {
 
@@ -77,14 +88,16 @@ class ReplicationScanner {
             const cur_src_cont_token = (rule.status && rule.status.src_cont_token) || '';
             const cur_dst_cont_token = (rule.status && rule.status.dst_cont) || '';
 
-            const { keys_to_copy, src_cont_token, dst_cont_token } = await this.list_buckets_and_compare(src_bucket.name,
+            const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await this.list_buckets_and_compare(src_bucket.name,
                 dst_bucket.name, prefix, cur_src_cont_token, cur_dst_cont_token);
 
-            dbg.log1('replication_scanner: keys_to_copy: ', keys_to_copy);
+            dbg.log1('replication_scanner: keys_sizes_map_to_copy: ', keys_sizes_map_to_copy);
+            let move_res;
+            const keys_to_copy = Object.keys(keys_sizes_map_to_copy);
             if (keys_to_copy.length) {
                 const copy_type = this._get_copy_type();
-                const res = await this.move_objects(copy_type, src_bucket.name, dst_bucket.name, keys_to_copy);
-                console.log('replication_scanner: scan res: ', res); // will be needed for metrics
+                move_res = await this.move_objects(copy_type, src_bucket.name, dst_bucket.name, keys_to_copy);
+                console.log('replication_scanner: scan move_res: ', move_res);
             }
 
             await replication_store.update_replication_status_by_id(replication_id,
@@ -95,6 +108,11 @@ class ReplicationScanner {
                     dst_cont_token
                     // always advance the src cont token, if failures happened - they will eventually will be copied
                 });
+
+            const replication_status = this._get_rule_status(rule.rule_id,
+                src_cont_token, keys_sizes_map_to_copy, move_res || []);
+
+            this.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
         }));
     }
 
@@ -103,7 +121,7 @@ class ReplicationScanner {
         // list src_bucket
         const src_list = await this.list_objects(src_bucket, prefix, cur_src_cont_token);
         const ans = {
-            keys_to_copy: [],
+            keys_sizes_map_to_copy: {},
             src_cont_token: src_list.NextContinuationToken || '',
             dst_cont_token: ''
         };
@@ -122,7 +140,11 @@ class ReplicationScanner {
             // edge case 2: dst list = [] , replicate all src_list
             // edge case 3: all src_keys are lexicographic smaller than the first dst key, replicate all src_list
             if (!dst_list.Contents.length || last_src_key < dst_list.Contents[0].Key) {
-                ans.keys_to_copy = ans.keys_to_copy.concat(src_contents_left.map(content1 => content1.Key));
+                ans.keys_sizes_map_to_copy = src_contents_left.reduce(
+                    (acc, content1) => {
+                        acc[content1.Key] = content1.Size;
+                        return acc;
+                    }, { ...ans.keys_sizes_map_to_copy });
                 break;
             }
 
@@ -132,7 +154,7 @@ class ReplicationScanner {
 
             keep_listing_dst = diff.keep_listing_dst;
             src_contents_left = diff.src_contents_left;
-            ans.keys_to_copy = ans.keys_to_copy.concat(diff.to_replicate_arr);
+            ans.keys_sizes_map_to_copy = { ...ans.keys_sizes_map_to_copy, ...diff.to_replicate_map };
 
             // advance dst token only when cur dst list could not contains next src list items
             const last_dst_key = dst_list.Contents[dst_list.Contents.length - 1].Key;
@@ -249,7 +271,7 @@ class ReplicationScanner {
     async get_keys_diff(src_keys, dst_keys, dst_next_cont_token, src_bucket_name, dst_bucket_name) {
         dbg.log1('replication_server.get_keys_diff: src contents', src_keys.map(c => c.Key), 'dst contents', dst_keys.map(c => c.Key));
 
-        let to_replicate_arr = [];
+        let to_replicate_map = {};
         const dst_map = _.keyBy(dst_keys, 'Key');
 
         for (let [i, src_content] of src_keys.entries()) {
@@ -260,8 +282,11 @@ class ReplicationScanner {
             if (cur_src_key > dst_keys[dst_keys.length - 1].Key) {
                 const src_contents_left = src_keys.slice(i);
                 // in next iteration we shouldn't iterate again src keys we already passed
-                const ans = (dst_next_cont_token && { to_replicate_arr, keep_listing_dst: true, src_contents_left }) || {
-                    to_replicate_arr: to_replicate_arr.concat(src_contents_left.map(c => c.Key))
+                const ans = dst_next_cont_token ? { to_replicate_map, keep_listing_dst: true, src_contents_left } : {
+                    to_replicate_map: src_contents_left.reduce((acc, cur_obj) => {
+                        acc[cur_obj.Key] = cur_obj.Size;
+                        return acc;
+                    }, { ...to_replicate_map })
                 };
                 dbg.log1('replication_server.get_keys_diff, case1: ', dst_next_cont_token, ans);
                 return ans;
@@ -269,7 +294,7 @@ class ReplicationScanner {
             // case 2
             if (cur_src_key < dst_keys[0].Key) {
                 dbg.log1('replication_server.get_keys_diff, case2: ', cur_src_key);
-                to_replicate_arr.push(cur_src_key);
+                to_replicate_map[cur_src_key] = src_content.Size;
                 continue;
             }
             // case 3: src_key is in range
@@ -278,13 +303,33 @@ class ReplicationScanner {
             if (dst_content) {
                 const should_copy = await this.check_data_or_md_changed(cur_src_key, src_bucket_name, dst_bucket_name,
                     src_content, dst_content);
-                if (should_copy) to_replicate_arr.push(cur_src_key);
+                if (should_copy) to_replicate_map[cur_src_key] = src_content.Size;
             } else {
-                to_replicate_arr.push(cur_src_key);
+                to_replicate_map[cur_src_key] = src_content.Size;
             }
         }
-        dbg.log1('replication_server.get_keys_diff result:', to_replicate_arr);
-        return { to_replicate_arr };
+        dbg.log1('replication_server.get_keys_diff result:', to_replicate_map);
+        return { to_replicate_map };
+    }
+
+    _get_rule_status(rule, src_cont_token, keys_sizes_map_to_copy, move_res) {
+        const keys_to_copy_sizes = Object.values(keys_sizes_map_to_copy);
+        const num_keys_to_copy = keys_to_copy_sizes.length || 0;
+        const num_bytes_to_copy = num_keys_to_copy > 0 ? _.sum(keys_to_copy_sizes) : 0;
+
+        const num_keys_moved = move_res.length || 0;
+        const num_bytes_moved = num_keys_moved > 0 ? _.sumBy(move_res, itm => keys_sizes_map_to_copy[itm]) : 0;
+
+        const status = {
+            last_cycle_rule_id: rule,
+            last_cycle_src_cont_token: src_cont_token,
+            last_cycle_writes_num: num_keys_moved,
+            last_cycle_writes_size: num_bytes_moved,
+            last_cycle_error_writes_num: num_keys_to_copy - num_keys_moved,
+            last_cycle_error_writes_size: num_bytes_to_copy - num_bytes_moved,
+        };
+        dbg.log0('_get_rule_status: ', status);
+        return status;
     }
 
     find_src_and_dst_buckets(dst_bucket_id, replication_id) {
@@ -299,6 +344,17 @@ class ReplicationScanner {
         }, { src_bucket: undefined, dst_bucket: undefined });
 
         return ans;
+    }
+
+    update_replication_prom_report(bucket_name, replication_policy_id, replication_status) {
+        const core_report = prom_reporting.get_core_report();
+        const last_cycle_status = _.defaults({
+            ...replication_status,
+            bucket_name: bucket_name.unwrap(),
+            replication_id: replication_policy_id
+        }, PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS);
+
+        core_report.set_replication_status(last_cycle_status);
     }
 }
 

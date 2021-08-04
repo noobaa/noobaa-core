@@ -518,20 +518,20 @@ mocha.describe('replication pagination tests', function() {
     mocha.it('list_buckets_and_compare - to_replicate_arr = [], tokens undefined', async function() {
         process.env.REPLICATION_MAX_KEYS = "5";
         // bucket1 is empty - nothing to replicate
-        const { keys_to_copy, src_cont_token, dst_cont_token } = await scanner.list_buckets_and_compare(new SensitiveString(bucket1),
-            new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination1: ', keys_to_copy, src_cont_token, dst_cont_token);
-        assert.deepStrictEqual(keys_to_copy, []);
+        const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await
+        scanner.list_buckets_and_compare(new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
+        console.log('check pagination1: ', keys_sizes_map_to_copy, src_cont_token, dst_cont_token);
+        assert.deepStrictEqual(keys_sizes_map_to_copy, {});
         assert.deepStrictEqual(src_cont_token, '');
         assert.deepStrictEqual(dst_cont_token, '');
     });
 
     mocha.it('list_buckets_and_compare - to_replicate_arr = all objects in src bucket, tokens undefined', async function() {
         // bucket2 is empty - replicate all objects in bucket1
-        const { keys_to_copy, src_cont_token, dst_cont_token } = await scanner.list_buckets_and_compare(new SensitiveString(bucket2),
-            new SensitiveString(bucket1), '', '', '');
-        console.log('check pagination2: ', keys_to_copy, src_cont_token, dst_cont_token);
-        assert.deepStrictEqual(keys_to_copy, bucket2_keys.sort());
+        const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await
+        scanner.list_buckets_and_compare(new SensitiveString(bucket2), new SensitiveString(bucket1), '', '', '');
+        console.log('check pagination2: ', keys_sizes_map_to_copy, src_cont_token, dst_cont_token);
+        assert.deepStrictEqual(Object.keys(keys_sizes_map_to_copy), bucket2_keys.sort());
         assert.deepStrictEqual(src_cont_token, '');
         assert.deepStrictEqual(dst_cont_token, '');
 
@@ -552,15 +552,15 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, ['b3']);
+        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['b3']);
         assert.notDeepStrictEqual(diff1.src_cont_token, '');
         assert.notDeepStrictEqual(diff1.dst_cont_token, '');
 
         const diff2 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_to_copy, []);
+        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
+        assert.deepStrictEqual(diff2.keys_sizes_map_to_copy, {});
         assert.deepStrictEqual(diff2.src_cont_token, '');
         assert.deepStrictEqual(diff2.dst_cont_token, '');
 
@@ -582,15 +582,15 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, ['b1', 'b2', 'b3', 'b4', 'b5']);
+        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['b1', 'b2', 'b3', 'b4', 'b5']);
         assert.notDeepStrictEqual(diff1.src_cont_token, '');
         assert.notDeepStrictEqual(diff1.dst_cont_token, '');
 
         const diff2 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_to_copy, ['b8']);
+        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff2.keys_sizes_map_to_copy), ['b8']);
         assert.deepStrictEqual(diff2.src_cont_token, '');
         assert.deepStrictEqual(diff2.dst_cont_token, '');
 
@@ -613,15 +613,15 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, []);
+        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(diff1.keys_sizes_map_to_copy, {});
         assert.notDeepStrictEqual(diff1.src_cont_token, '');
         assert.notDeepStrictEqual(diff1.dst_cont_token, '');
 
         const diff2 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_to_copy, ['z1', 'z2', 'z3', 'z4']);
+        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff2.keys_sizes_map_to_copy), ['z1', 'z2', 'z3', 'z4']);
         assert.deepStrictEqual(diff2.src_cont_token, '');
         assert.deepStrictEqual(diff2.dst_cont_token, '');
 
@@ -644,8 +644,8 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, ['a1', 'a2', 'a3', 'a4']);
+        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['a1', 'a2', 'a3', 'a4']);
         assert.deepStrictEqual(diff1.src_cont_token, '');
         assert.deepStrictEqual(diff1.dst_cont_token, '');
 
@@ -676,15 +676,15 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination33: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, []);
+        console.log('check pagination33: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(diff1.keys_sizes_map_to_copy, {});
         assert.notDeepStrictEqual(diff1.src_cont_token, '');
         assert.notDeepStrictEqual(diff1.dst_cont_token, '');
 
         const diff2 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination44: ', diff2.keys_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_to_copy, []);
+        console.log('check pagination44: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
+        assert.deepStrictEqual(diff2.keys_sizes_map_to_copy, {});
         assert.notDeepStrictEqual(diff2.src_cont_token, '');
         assert.notDeepStrictEqual(diff2.dst_cont_token, '');
         assert.ok(diff1.src_cont_token !== diff2.src_cont_token);
@@ -693,8 +693,8 @@ mocha.describe('replication pagination tests', function() {
 
         const diff3 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff2.src_cont_token, diff2.dst_cont_token);
-        console.log('check pagination44: ', diff3.keys_to_copy, diff3.src_cont_token, diff3.dst_cont_token);
-        assert.deepStrictEqual(diff3.keys_to_copy, []);
+        console.log('check pagination44: ', diff3.keys_sizes_map_to_copy, diff3.src_cont_token, diff3.dst_cont_token);
+        assert.deepStrictEqual(diff3.keys_sizes_map_to_copy, {});
         assert.deepStrictEqual(diff3.src_cont_token, '');
         assert.deepStrictEqual(diff3.dst_cont_token, '');
 
@@ -716,8 +716,8 @@ mocha.describe('replication pagination tests', function() {
 
         const diff1 = await scanner.list_buckets_and_compare(
             new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination456: ', diff1.keys_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_to_copy, src_keys);
+        console.log('check pagination456: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
+        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), src_keys);
         assert.deepStrictEqual(diff1.src_cont_token, '');
         assert.deepStrictEqual(diff1.dst_cont_token, '');
 

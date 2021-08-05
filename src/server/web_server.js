@@ -351,7 +351,7 @@ app.use(function(err, req, res, next) {
     } else {
         e = _.pick(err, 'statusCode', 'message', 'reload');
     }
-    e.statusCode = err.statusCode || res.statusCode;
+    e.statusCode = err.status || res.statusCode;
     if (e.statusCode < 400) {
         e.statusCode = 500;
     }

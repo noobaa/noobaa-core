@@ -18,7 +18,7 @@ const stats_collector = require('./endpoint_stats_collector');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
-const RpcError = require('../rpc/rpc_error');
+// const RpcError = require('../rpc/rpc_error');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
@@ -1267,18 +1267,19 @@ class NamespaceFS {
         }
     }
 
+    // TODO: Return/Refactor check after handling of FSync
     async _fail_if_archived_or_sparse_file(fs_account_config, file_path) {
-        const stat = await nb_native().fs.stat(fs_account_config, file_path);
-        if (isDirectory(stat)) return;
-        // In order to verify if the file is stored in tape we compare sizes
-        // Multiple number of blocks by default block size and verify we get the size of the object
-        // If we get a size that is lower than the size of the object this means that it is taped or a spare file
-        // We had to use this logic since we do not have a POSIX call in order to verify that the file is taped
-        // This is why sparse files won't be accessible as well
-        if (stat.blocks * 512 < stat.size) {
-            dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
-            throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
-        }
+        // const stat = await nb_native().fs.stat(fs_account_config, file_path);
+        // if (isDirectory(stat)) return;
+        // // In order to verify if the file is stored in tape we compare sizes
+        // // Multiple number of blocks by default block size and verify we get the size of the object
+        // // If we get a size that is lower than the size of the object this means that it is taped or a spare file
+        // // We had to use this logic since we do not have a POSIX call in order to verify that the file is taped
+        // // This is why sparse files won't be accessible as well
+        // if (stat.blocks * 512 < stat.size) {
+        //     dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
+        //     throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
+        // }
     }
 }
 

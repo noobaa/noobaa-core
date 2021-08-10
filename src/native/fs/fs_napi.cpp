@@ -693,6 +693,38 @@ struct Readdir : public FSWorker
     }
 };
 
+/**
+ * Fsync is an fs op
+ */
+struct Fsync : public FSWorker
+{
+    std::string _path;
+    Fsync(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << "Fsync " << DVAL(_path));
+    }
+    virtual void Work()
+    {
+        int fd = open(_path.c_str(), 0);
+        if (fd < 0) {
+            SetSyscallError();
+            return;
+        }
+
+        int rs = fsync(fd);
+        if (rs) {
+            SetSyscallError();
+            return;
+        }
+
+        int rc = close(fd);
+        if (rc) SetSyscallError();
+    }
+};
+
+
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
     std::string _path;
@@ -711,6 +743,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::setxattr>("setxattr"),
                 InstanceMethod<&FileWrap::getxattr>("getxattr"),
                 InstanceMethod<&FileWrap::stat>("stat"),
+                InstanceMethod<&FileWrap::fsync>("fsync"),
             }));
         constructor.SuppressDestruct();
     }
@@ -735,6 +768,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value setxattr(const Napi::CallbackInfo& info);
     Napi::Value getxattr(const Napi::CallbackInfo& info);
     Napi::Value stat(const Napi::CallbackInfo& info);
+    Napi::Value fsync(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1078,6 +1112,26 @@ struct FileStat : public FSWrapWorker<FileWrap>
     }
 };
 
+struct FileFsync : public FSWrapWorker<FileWrap>
+{
+    FileFsync(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        Begin(XSTR() << "FileFsync " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        std::string path = _wrap->_path;
+        if (fd < 0) {
+            SetError(XSTR() << "FS::FileFsync::Execute: ERROR not opened " << path);
+            return;
+        }
+        int r = fsync(fd);
+        if (r) SetSyscallError();
+    }
+};
+
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
 {
@@ -1118,6 +1172,12 @@ Napi::Value
 FileWrap::stat(const Napi::CallbackInfo& info)
 {
     return api<FileStat>(info);
+}
+
+Napi::Value
+FileWrap::fsync(const Napi::CallbackInfo& info)
+{
+    return api<FileFsync>(info);
 }
 
 /**
@@ -1297,6 +1357,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["readdir"] = Napi::Function::New(env, api<Readdir>);
     exports_fs["link"] = Napi::Function::New(env, api<Link>);
     exports_fs["linkat"] = Napi::Function::New(env, api<Linkat>);
+    exports_fs["fsync"] = Napi::Function::New(env, api<Fsync>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

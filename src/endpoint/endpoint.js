@@ -31,11 +31,17 @@ const net_utils = require('../util/net_utils');
 const addr_utils = require('../util/addr_utils');
 const md_server = require('../server/md_server');
 const server_rpc = require('../server/server_rpc');
+const debug_config = require('../util/debug_config');
 const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const background_scheduler = require('../util/background_scheduler').get_instance();
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
+
+if (process.env.NOOBAA_LOG_LEVEL) {
+    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    dbg_conf.endpoint.map(module => dbg.set_module_level(dbg_conf.level, module));
+}
 
 /**
  * @typedef {http.IncomingMessage & {

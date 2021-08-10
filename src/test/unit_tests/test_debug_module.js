@@ -80,7 +80,7 @@ mocha.describe('debug_module', function() {
 
     mocha.it('should set level for windows style module and propogate', function() {
         var dbg = new DebugModule('C:\\Program Files\\NooBaa\\src\\agent\\agent_cli.js');
-        dbg.set_level(3, 'C:\\Program Files\\NooBaa\\src\\agent');
+        dbg.set_module_level(3, 'C:\\Program Files\\NooBaa\\src\\agent');
         assert.strictEqual(dbg._cur_level.__level, 3);
     });
 
@@ -107,7 +107,7 @@ mocha.describe('debug_module', function() {
 
     mocha.it('should log after changing level of module', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        dbg.set_level(4);
+        dbg.set_module_level(4);
         var a = {
             out: "out",
             second: {
@@ -115,7 +115,7 @@ mocha.describe('debug_module', function() {
             }
         };
         dbg.log4("test_debug_module: log4 should appear after level change", a);
-        dbg.set_level(0);
+        dbg.set_module_level(0);
         return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log4 should appear after level change");
     });
 
@@ -127,9 +127,9 @@ mocha.describe('debug_module', function() {
 
     mocha.it('setting a higher module should affect sub module', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        dbg.set_level(2, 'core');
+        dbg.set_module_level(2, 'core');
         dbg.log2("test_debug_module: log2 setting a higher level module level should affect current");
-        dbg.set_level(0, 'core');
+        dbg.set_module_level(0, 'core');
         return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");
     });
 

@@ -70,7 +70,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) return print_usage();
         if (argv.debug) {
             const debug_level = Number(argv.debug) || 5;
-            dbg.set_level(debug_level, 'core');
+            dbg.set_module_level(debug_level, 'core');
             nb_native().fs.set_debug_level(debug_level);
         }
         const http_port = Number(argv.http_port) || 6001;

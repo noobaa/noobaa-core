@@ -29,7 +29,7 @@ const dbg_level =
     (process.env.SUPPRESS_LOGS && -5) ||
     (argv.verbose && 5) ||
     0;
-dbg.set_level(dbg_level, 'core');
+dbg.set_module_level(dbg_level, 'core');
 
 const P = require('../../util/promise');
 const ObjectIO = require('../../sdk/object_io');

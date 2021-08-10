@@ -13,6 +13,7 @@ require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
 dbg.set_process_name('WebServer');
+const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');
 const path = require('path');
@@ -40,6 +41,11 @@ const http_utils = require('../util/http_utils');
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
+
+if (process.env.NOOBAA_LOG_LEVEL) {
+    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
+}
 
 db_client.instance().connect();
 
@@ -180,7 +186,7 @@ app.post('/set_log_level*', function(req, res) {
     }
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
-    dbg.set_level(req.param('level'), req.param('module'));
+    dbg.set_module_level(req.param('level'), req.param('module'));
 
     return server_rpc.client.redirector.publish_to_cluster({
             target: '', // required but irrelevant

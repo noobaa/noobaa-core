@@ -11,8 +11,8 @@
   By using __filename upon creation, the created nested modules tree would reflect the source directory structure.
   Provides the following API:
 
-    - .set_level(level) change current module logging level
-    - .set_level(level,module) change given module logging level and all its sub-tree
+    - .set_module_level(level) change current module logging level
+    - .set_module_level(level,module) change given module logging level and all its sub-tree
     - .logX (...) logs if current module level or any of its parents >= X
     - .logX_withbt logs and adds backtrace if current module level or any of its parents >= X
     - trace / log / info / error / warn will always log. They exist to comply with syslog levels
@@ -38,8 +38,8 @@
 
   4) A level of a module can be set by using the set_level API.
 
-     ___dbg.set_level(3); //This will cause the current module level to be 3___
+     ___dbg.set_module_level(3); //This will cause the current module level to be 3___
 
      Another options is so set another module's level, this is especially beneficial when we want to catch all logs under a certain component. For example, setting level 3 for for every module under the "some" directory (including sub directories):
 
-     ___dbg.set_level("core.some",3);___
+     ___dbg.set_module_level("core.some",3);___

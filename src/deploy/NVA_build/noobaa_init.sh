@@ -75,6 +75,9 @@ fix_non_root_user() {
 run_internal_process() {
   while true
   do
+    local package_path="/root/node_modules/noobaa-core/package.json"
+    local version=$(cat ${package_path} | grep version | awk '{print $2}' | sed 's/[",]//g')
+    echo "Version is: ${version}"
     echo "Running: $*"
     $*
     rc=$?

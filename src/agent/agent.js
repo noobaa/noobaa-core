@@ -314,7 +314,7 @@ class Agent {
     }
 
     suppress_logs() {
-        this.dbg.set_level(-5, 'core');
+        this.dbg.set_module_level(-5, 'core');
     }
 
     _update_servers_list(new_list) {
@@ -1041,10 +1041,10 @@ class Agent {
     async set_debug_node(req) {
         const dbg = this.dbg;
         dbg.log0('Received set debug req ', req.rpc_params.level);
-        dbg.set_level(req.rpc_params.level, 'core');
+        dbg.set_module_level(req.rpc_params.level, 'core');
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
             await P.delay_unblocking(config.DEBUG_MODE_PERIOD);
-            dbg.set_level(0, 'core');
+            dbg.set_module_level(0, 'core');
         }
     }
 

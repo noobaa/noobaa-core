@@ -4,7 +4,7 @@
   It provides multi nested modules definitions for easier module->level management.
   DebugLogger exposes logX and logX_withbt functions.
   InternalDebugLogger is a "singleton" used by all DebugLogger objects,
-  performing the actuall logic and calls to rotating file stream.
+  performing the actual logic and calls to rotating file stream.
 */
 /* eslint-disable global-require */
 'use strict';
@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const os = require('os');
+const debug_config = require('./debug_config');
 const { createStream: createRotatingFileStream } = require('rotating-file-stream');
 
 const nb_native = require('./nb_native');
@@ -28,7 +29,17 @@ const LRU = require('./lru');
 
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 
-var config = {
+
+let dbg_conf;
+let LOG_LEVEL = 0;
+if (process.env.NOOBAA_LOG_LEVEL) {
+    dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    if (process.env.NOOBAA_LOG_LEVEL !== 'nsfs') {
+        LOG_LEVEL = dbg_conf.level;
+    }
+}
+
+let config = {
     dbg_log_level: 0,
 };
 
@@ -54,8 +65,8 @@ util.inspect.defaultOptions.breakLength = Infinity;
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example rotating file steam usage or console wrapping
-var syslog;
-var console_wrapper;
+let syslog;
+let console_wrapper;
 if (typeof process !== 'undefined' &&
     process.versions &&
     process.versions['atom-shell']) { //atom shell
@@ -68,7 +79,7 @@ if (typeof process !== 'undefined' &&
     // check if we run on md_server <=> /etc/rsyslog.d/noobaa_syslog.conf exists
     let should_log_to_syslog = true;
     try {
-        var file = fs.statSync('/etc/rsyslog.d/noobaa_syslog.conf');
+        const file = fs.statSync('/etc/rsyslog.d/noobaa_syslog.conf');
         if (!file.isFile()) {
             should_log_to_syslog = false;
         }
@@ -89,8 +100,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 // Pretty time format
 function formatted_time() {
     const now = new Date();
-    var timemsg = MONTHS[now.getMonth()] + '-' + now.getDate() + ' ' + now.getHours() + ':';
-    //not pretty but more effecient than convert to array and slice
+    let timemsg = MONTHS[now.getMonth()] + '-' + now.getDate() + ' ' + now.getHours() + ':';
+    //not pretty but more efficient than convert to array and slice
     timemsg += (now.getMinutes() < 10 ? "0" : "") + now.getMinutes();
     timemsg += ":" + (now.getSeconds() < 10 ? "0" : "") + now.getSeconds();
     timemsg += "." + (now.getMilliseconds() < 100 ? "0" : "") + (now.getMilliseconds() < 10 ? "0" : "") +
@@ -111,16 +122,16 @@ function extract_module(mod, ignore_extension) {
 
     //for initial module construction, filename is passed, remove extension
     //for set_level, name of module is passed, don't try to remove extension
-    var name;
+    let name;
     if (ignore_extension) {
         name = mod;
     } else {
         // remove the extension
-        var last_dot = mod.lastIndexOf('.');
+        const last_dot = mod.lastIndexOf('.');
         name = last_dot >= 0 ? mod.substr(0, last_dot) : mod;
     }
 
-    var ind;
+    let ind;
     //compact stem directory structure
     _.each(stems, function(val, s) {
         ind = name.lastIndexOf(s);
@@ -141,7 +152,7 @@ function extract_module(mod, ignore_extension) {
     return name;
 }
 
-var LOG_FUNC_PER_LEVEL = {
+const LOG_FUNC_PER_LEVEL = {
     LOG: 'log',
     INFO: 'info',
     WARN: 'warn',
@@ -197,6 +208,9 @@ class InternalDebugLogger {
             L3: 5,
             L4: 5
         };
+        // this.mod_list = {
+
+        // }
         this._proc_name = '';
         this._pid = process.pid;
         this._log_console = console;
@@ -236,13 +250,13 @@ class InternalDebugLogger {
     }
 
     build_module_context(mod, mod_object) {
-        var mod_name;
-        var new_mod;
+        let mod_name;
+        let new_mod;
         // skip empty modules
         while (mod[0] === '.') {
             mod = mod.substr(1);
         }
-        var ind = mod.indexOf(".");
+        const ind = mod.indexOf(".");
         if (ind === -1) {
             mod_name = mod;
             new_mod = "";
@@ -253,7 +267,7 @@ class InternalDebugLogger {
         if (mod_name) {
             if (!mod_object[mod_name]) {
                 mod_object[mod_name] = {
-                    __level: 0
+                    __level: LOG_LEVEL
                 };
             }
         }
@@ -276,10 +290,10 @@ class InternalDebugLogger {
 
     // Setting level for a node in the tree sets all the subtree to the same level
     set_level(mod, level) {
-        var parts = mod.split(".");
-        var tmp_mod = this._modules;
+        const parts = mod.split(".");
+        let tmp_mod = this._modules;
         //find the desired node to set level for
-        for (var ind = 0; ind < parts.length; ++ind) {
+        for (let ind = 0; ind < parts.length; ++ind) {
             if (!tmp_mod[parts[ind]]) {
                 if (console_wrapper) {
                     console_wrapper.original_console();
@@ -299,10 +313,10 @@ class InternalDebugLogger {
 
     //Getting level for a node in the tree
     get_level(mod) {
-        var parts = mod.split(".");
-        var tmp_mod = this._modules;
+        const parts = mod.split(".");
+        let tmp_mod = this._modules;
         //find the desired node to set level for
-        for (var ind = 0; ind < parts.length; ++ind) {
+        for (let ind = 0; ind < parts.length; ++ind) {
             if (!tmp_mod[parts[ind]]) {
                 if (console_wrapper) {
                     console_wrapper.original_console();
@@ -363,7 +377,7 @@ class InternalDebugLogger {
             console_wrapper.original_console();
         }
 
-        let msg_info = this.message_format(level, args);
+        const msg_info = this.message_format(level, args);
         return this.log_internal(msg_info);
     }
 
@@ -373,7 +387,7 @@ class InternalDebugLogger {
             console_wrapper.original_console();
         }
 
-        let msg_info = this.message_format(level, args);
+        const msg_info = this.message_format(level, args);
         try {
             // get formatted message to use as key for lru
             const lru_item = this.lru.find_or_add_item(msg_info.message_syslog);
@@ -448,7 +462,7 @@ function DebugLogger(mod) {
         return new DebugLogger(mod);
     }
 
-    var name = extract_module(mod);
+    const name = extract_module(mod);
     this._name = name;
 
     this._cur_level = int_dbg.build_module_context(this._name, int_dbg._modules);
@@ -490,8 +504,8 @@ function log_bt_builder(idx) {
     return function(...args) {
         if (this.should_log(idx)) {
             const level = 'L' + idx;
-            var err = new Error();
-            var bt = err.stack.substr(err.stack.indexOf(")") + 1).replace(/(\r\n|\n|\r)/gm, " ");
+            const err = new Error();
+            const bt = err.stack.substr(err.stack.indexOf(")") + 1).replace(/(\r\n|\n|\r)/gm, " ");
             if (typeof(args[0]) === 'string') { //Keep string formatting if exists
                 args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '') + bt;
             } else {
@@ -540,7 +554,7 @@ DebugLogger.prototype.log3_withbt = log_bt_builder(3);
 DebugLogger.prototype.log4_withbt = log_bt_builder(4);
 
 
-DebugLogger.prototype.set_level = function(level, mod) {
+DebugLogger.prototype.set_module_level = function(level, mod) {
     if (typeof mod === 'undefined') {
         int_dbg.set_level(this._name, level);
     } else {
@@ -549,7 +563,7 @@ DebugLogger.prototype.set_level = function(level, mod) {
 };
 
 DebugLogger.prototype.should_log = function(level) {
-    if (this._cur_level.__level >= level || (process.env.NOOBAA_LOG_LEVEL && process.env.NOOBAA_LOG_LEVEL >= level)) {
+    if (this._cur_level.__level >= level) {
         return true;
     }
     return false;
@@ -597,10 +611,14 @@ DebugLogger.prototype.wrapper_console = function() {
 
 if (console_wrapper) {
     //Register a "console" module DebugLogger for the console wrapper
-    var conlogger = new DebugLogger("CONSOLE.js");
+    const conlogger = new DebugLogger("CONSOLE.js");
     console_wrapper.register_logger(conlogger);
 }
 
-if (Number(process.env.NOOBAA_LOG_LEVEL)) {
-    nb_native().fs.set_debug_level(Number(process.env.NOOBAA_LOG_LEVEL));
+let native_log_level = LOG_LEVEL;
+if (process.env.NOOBAA_LOG_LEVEL) {
+    native_log_level = dbg_conf.level;
+}
+if (Number(native_log_level)) {
+    nb_native().fs.set_debug_level(Number(native_log_level));
 }

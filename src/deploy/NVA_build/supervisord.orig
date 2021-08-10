@@ -6,6 +6,10 @@ PIDFILE="/var/log/supervisord.pid"
 # chkconfig: 345 15 15
 
 start() {
+    local package_path="/root/node_modules/noobaa-core/package.json"
+    local version=$(cat ${package_path} | grep version | awk '{print $2}' | sed 's/[",]//g')
+    echo "Version is: ${version}"
+    logger -p local0.info -t Superd "Version is: ${version}"
     #Run noobaa_init script before start
     local path="/root/node_modules/noobaa-core/src/deploy/NVA_build/"
     if [ "${container}" == "docker" ]

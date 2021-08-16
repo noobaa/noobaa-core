@@ -636,7 +636,9 @@ class NamespaceBlob {
      */
     _get_blob_object_info(obj, bucket) {
         const blob_etag = blob_utils.parse_etag(obj.etag);
-        const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || '';
+        // content settings is a blob sdk property and doesn't exist while calling list objects
+        // since list objects calls directly to the blob API
+        const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || obj.contentMd5 || '';
         const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
         const etag = md5_hex || blob_etag;
         const size = parseInt(obj.contentLength, 10);
@@ -650,7 +652,7 @@ class NamespaceBlob {
             size,
             etag,
             create_time: new Date(obj.lastModified),
-            content_type: obj.contentSettings && obj.contentSettings.contentType,
+            content_type: (obj.contentSettings && obj.contentSettings.contentType) || obj.contentType,
             xattr
         };
     }

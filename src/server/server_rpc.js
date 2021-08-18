@@ -134,6 +134,8 @@ class ServerRpc {
         let options = this.get_server_options();
         rpc.register_service(schema.scrubber_api,
             require('./bg_services/scrubber'), options);
+        rpc.register_service(schema.replication_api,
+            require('./bg_services/replication_server'), options);
     }
 
     register_hosted_agents_services() {

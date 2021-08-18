@@ -110,6 +110,28 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
     return _.concat(cloud_resource_targets, namespace_resource_targets);
 }
 
+function set_noobaa_s3_connection(sys) {
+    const system_address = _.filter(sys.system_address, { 'api': 's3' });
+    const endpoint = system_address[0] && system_address[0].hostname;
+    const access_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].access_key.unwrap();
+    const secret_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].secret_key.unwrap();
+    dbg.log0('replication_server.set_noobaa_s3_connection: ', endpoint, access_key, secret_key);
+    if (!endpoint || !access_key || !secret_key) {
+        dbg.error('set_noobaa_s3_connection: temporary error: invalid noobaa s3 connection details');
+        return;
+    }
+
+    return new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false
+    });
+}
+
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_signed_url = get_signed_url;
@@ -117,3 +139,4 @@ exports.get_used_cloud_targets = get_used_cloud_targets;
 exports.get_s3_endpoint_signature_ver = get_s3_endpoint_signature_ver;
 exports.is_aws_endpoint = is_aws_endpoint;
 exports.disable_s3_compatible_bodysigning = disable_s3_compatible_bodysigning;
+exports.set_noobaa_s3_connection = set_noobaa_s3_connection;

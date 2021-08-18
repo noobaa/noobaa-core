@@ -55,7 +55,6 @@ require('./test_mirror_writer');
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
 require('./test_bucketspace');
-require('./test_bucket_replication');
 
 // // SERVERS
 require('./test_agent');
@@ -84,6 +83,7 @@ require('./test_node_allocator');
 require('./test_namespace_cache');
 require('./test_namespace_auth');
 require('./test_encryption');
+require('./test_bucket_replication');
 // require('./test_tiering_upload');
 //require('./test_s3_worm');
 

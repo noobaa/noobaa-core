@@ -236,6 +236,52 @@ function not_implemented() {
 
 let trans_counter = 1;
 
+// builds postgres query for special case of $set with .$.
+// other cases are not yet supported
+function buildPostgresArrayQuery(table_name, update, find) {
+    let arr_to_update;
+    let latest_set;
+    _.map(Object.keys(update), to_set => {
+
+        let arr_and_property = to_set.split('.$.');
+        if (arr_and_property.length > 1) {
+            arr_to_update = arr_and_property[0];
+            latest_set = `jsonb_set(${latest_set || 'data'}, array['${arr_to_update}', elem_index::text,` +
+                ` '${arr_and_property[1]}'], '${JSON.stringify(update[to_set])}'::jsonb, true)`;
+        } else {
+            latest_set = `jsonb_set(${latest_set || 'data'}, '{${to_set}}', '${JSON.stringify(update[to_set])}'::jsonb)`;
+        }
+    });
+
+    let [array_where, column_where] = ['', ''];
+    _.map(Object.keys(find), key => {
+        const find_in_array = arr_to_update && key.includes(arr_to_update);
+        const prefix = find_in_array ? 'elem->>\'' + key.split('.')[1] + '\'' : key;
+        const suffix = prefix + '=\'' + find[key].toString() + '\' and ';
+        array_where += suffix;
+        column_where += find_in_array ? '' : suffix;
+
+    });
+    array_where = array_where.substr(0, array_where.length - 4);
+    column_where = column_where.substr(0, column_where.length - 4);
+
+    // find index of item to set in array
+    const from = (arr_to_update && `FROM (SELECT pos- 1 as elem_index FROM ${table_name}, jsonb_array_elements(data->'${arr_to_update}')` +
+        ` with ordinality arr(elem, pos) WHERE ${array_where} ) SUB`) || '';
+
+    const query = `UPDATE ${table_name} SET data = ${latest_set} ${from} WHERE ${column_where}`;
+    return query;
+}
+
+function convert_array_query(table_name, encoded_update, encoded_find) {
+    let query;
+    // translation of '.$.' is currently supported for findAndUpdateOne and more specifcally to $set operations. 
+    const update_keys = encoded_update.$set && Object.keys(encoded_update.$set).filter(key => key.includes('.$.'));
+    if (update_keys && update_keys.length) {
+        query = buildPostgresArrayQuery(table_name, encoded_update.$set, encoded_find);
+    }
+    return query;
+}
 class PgTransaction {
 
     constructor(client) {
@@ -374,54 +420,11 @@ class BulkOp {
         let encoded_find = encode_json(this.schema, find);
         const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
 
-        let query;
-        // translation of '.$.' is currently supported for findAndUpdateOne and more specifcally to $set operations. 
-        const update_keys = encoded_update.$set && Object.keys(encoded_update.$set).filter(key => key.includes('.$.'));
-        if (update_keys && update_keys.length) {
-            query = this.buildPostgresArrayQuery(encoded_update.$set, encoded_find);
-        } else {
-            query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
-        }
+        let dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
+        const query = dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
 
         this.add_query(query);
         return this;
-    }
-
-    // builds postgres query for special case of $set with .$.
-    // other cases are not yet supported
-    buildPostgresArrayQuery(update, find) {
-        let arr_to_update;
-        let latest_set;
-        _.map(Object.keys(update), to_set => {
-
-            let arr_and_property = to_set.split('.$.');
-            if (arr_and_property.length > 1) {
-                arr_to_update = arr_and_property[0];
-                latest_set = `jsonb_set(${latest_set || 'data'}, array['${arr_to_update}', elem_index::text,` +
-                    ` '${arr_and_property[1]}'], '${JSON.stringify(update[to_set])}'::jsonb, true)`;
-            } else {
-                latest_set = `jsonb_set(${latest_set || 'data'}, '{${to_set}}', '${JSON.stringify(update[to_set])}'::jsonb)`;
-            }
-        });
-
-        let [array_where, column_where] = ['', ''];
-        _.map(Object.keys(find), key => {
-            const find_in_array = arr_to_update && key.includes(arr_to_update);
-            const prefix = find_in_array ? 'elem->>\'' + key.split('.')[1] + '\'' : key;
-            const suffix = prefix + '=\'' + find[key].toString() + '\' and ';
-            array_where += suffix;
-            column_where += find_in_array ? '' : suffix;
-
-        });
-        array_where = array_where.substr(0, array_where.length - 4);
-        column_where = column_where.substr(0, column_where.length - 4);
-
-        // find index of item to set in array
-        const from = (arr_to_update && `FROM (SELECT pos- 1 as elem_index FROM ${this.name}, jsonb_array_elements(data->'${arr_to_update}')` +
-            ` with ordinality arr(elem, pos) WHERE ${array_where} ) SUB`) || '';
-
-        const query = `UPDATE ${this.name} SET data = ${latest_set} ${from} WHERE ${column_where}`;
-        return query;
     }
 }
 
@@ -641,10 +644,14 @@ class PostgresTable {
 
     async updateOne(selector, update, options = {}) {
         // console.warn('JENIA updateOne', selector, update, options);
-        const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
-        const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
-        let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
-        // console.warn('JENIA updateOne query', query);
+        const encoded_update = encode_json(this.schema, update);
+        const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
+        const encoded_find = encode_json(this.schema, selector);
+        const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
+
+        let dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
+        const query = (dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`) + ' RETURNING _id, data';
+
         try {
             const res = await this.single_query(query);
             // console.warn('JENIA updateOne res', res);

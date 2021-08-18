@@ -619,6 +619,7 @@ interface APIClient {
     readonly frontend_notifications: APIGroup;
     readonly func: APIGroup;
     readonly func_node: APIGroup;
+    readonly replication: APIGroup;
 
     options: {
         auth_token?: string;

@@ -30,7 +30,7 @@ export function normalizeSize(sizeOrBytes) {
     return peta !== 0 ? sizeOrBytes : { peta, n };
 }
 
-// Compact a size object to nubmer if possible.
+// Compact a size object to number if possible.
 export function compactSize(sizeOrBytes) {
     const { peta, n } = normalizeSize(sizeOrBytes);
     return peta === 0 ? n : sizeOrBytes;

@@ -51,7 +51,7 @@ class DeployRemoteEndpointGroupModalViewModel extends ConnectableViewModel {
         if (minCount < 1) {
             errors.minCount = useAutoScaling ?
                 'Invalid range, Lower bound must be greater then 1' :
-                'Nubmer of endpoint must be greater then 1';
+                'Number of endpoint must be greater then 1';
 
         } else if (useAutoScaling && maxCount < minCount)  {
             errors.minCount = 'Invalid range, upper bound must be greater than lower bound';

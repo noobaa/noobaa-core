@@ -157,8 +157,8 @@ class DataBreakdownFormViewModel extends ConnectableViewModel {
                     label: (item, data) => {
                         const { r } = data.datasets[item.datasetIndex].data[0];
                         return [
-                            `Nubmer of Reads: ${item.xLabel}`,
-                            `Nubmer of Writes: ${item.yLabel}`,
+                            `Number of Reads: ${item.xLabel}`,
+                            `Number of Writes: ${item.yLabel}`,
                             `Bucket Data Usage: ${formatSize(
                                 2 ** (Math.sqrt(r - 2) * 5)
                             )}`

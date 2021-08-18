@@ -12,7 +12,7 @@ const _compress = promisify(zlib.gzip);
 const _decompress = promisify(zlib.gunzip);
 
 async function _writeDumpLog(gzip, log, nbVersion) {
-    gzip.write(`{"buildNubmer":"${nbVersion}","log":[`);
+    gzip.write(`{"buildNumber":"${nbVersion}","log":[`);
     for (let i = 0; i < log.length; ++i) {
         if (i > 0) gzip.write(',');
         gzip.write(await _decompress(log[i]));

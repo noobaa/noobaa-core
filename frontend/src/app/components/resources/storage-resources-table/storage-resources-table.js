@@ -61,7 +61,7 @@ const columns = deepFreeze([
     },
     {
         name: 'hosts',
-        label: 'Nubmer of Nodes',
+        label: 'Number of Nodes',
         sortable: true,
         compareKey: resource => resource.type === 'HOSTS' ?
             resource.configuredHostCount :

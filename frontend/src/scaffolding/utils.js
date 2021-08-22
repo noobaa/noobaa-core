@@ -4,12 +4,13 @@
 const fs = require('fs');
 const gulp = require('gulp');
 const path = require('path');
-const pathExists = require('path-exists');
 const gulpRename = require('gulp-rename');
 const gulpReplace = require('gulp-replace');
 const gulpInject = require('gulp-inject-string');
 const gulpContains = require('gulp-contains');
 const gulpIf = require('gulp-if');
+
+import { pathExists } from 'path-exists';
 
 function scaffold(src, dest, params) {
     const replaceRegExp = /\[\[(.*?)\]\]/g;

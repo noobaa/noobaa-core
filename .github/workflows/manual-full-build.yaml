@@ -46,7 +46,7 @@ jobs:
       - name: Login to DockerHub Registry
         run: echo ${{ secrets.GHACTIONSDOCKERHUB }} | docker login -u ${{ secrets.GHACTIONSDOCKERHUBNAME }} --password-stdin
 
-      - name: Build & Push Docker Images
+      - name: Build & Push Docker Images to DockerHub
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
         run: |
@@ -57,6 +57,14 @@ jobs:
             docker push ${{ steps.prep.outputs.buildertags }}
             docker tag noobaa ${{ steps.prep.outputs.coretags }}
             docker push ${{ steps.prep.outputs.coretags }}
+
+      - name: Login to Quay Registry
+        run: echo ${{ secrets.GHACTIONQUAYTOKEN }} | docker login quay.io -u ${{ secrets.GHACTIONQUAYNAME }} --password-stdin
+      
+      - name: Push Docker Images to Quay
+        env:
+          DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
+        run: docker push ${{ steps.prep.outputs.coretags }}
 
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

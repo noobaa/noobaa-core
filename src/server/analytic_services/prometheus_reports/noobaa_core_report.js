@@ -11,8 +11,7 @@ const js_utils = require('../../../util/js_utils');
 // Providing an interface to set/update said
 // metrics
 // -----------------------------------------
-const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
-    {
+const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         type: 'Gauge',
         name: 'cloud_types',
         configuration: {
@@ -330,6 +329,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([
         configuration: {
             help: 'Health status'
         }
+    }, {
+        type: 'Gauge',
+        name: 'odf_health_status',
+        generate_default_set: true,
+        configuration: {
+            help: 'Health status'
+        }
     }
 ]);
 
@@ -485,7 +491,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
             const bucket_labels = { bucket_name: bucket_info.bucket_name };
             if (bucket_info.tagging && bucket_info.tagging.length) {
                 const tagging = bucket_info.tagging.map(tag => `{ ${tag.key} : ${tag.value} }`);
-                this._metrics.bucket_tagging.set({...bucket_labels, tagging}, Date.now());
+                this._metrics.bucket_tagging.set({ ...bucket_labels, tagging }, Date.now());
             }
             this._metrics.bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
             this._metrics.bucket_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
@@ -502,7 +508,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
             const bucket_labels = { bucket_name: bucket_info.bucket_name };
             if (bucket_info.tagging && bucket_info.tagging.length) {
                 const tagging = bucket_info.tagging.map(tag => `{ ${tag.key} : ${tag.value} }`);
-                this._metrics.namespace_bucket_tagging.set({...bucket_labels, tagging}, Date.now());
+                this._metrics.namespace_bucket_tagging.set({ ...bucket_labels, tagging }, Date.now());
             }
             this._metrics.namespace_bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
         });

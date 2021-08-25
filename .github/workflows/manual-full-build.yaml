@@ -64,7 +64,9 @@ jobs:
       - name: Push Docker Images to Quay
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
-        run: docker push ${{ steps.prep.outputs.coretags }}
+        run: |
+            docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.coretags }}
+            docker push quay.io/${{ steps.prep.outputs.coretags }}
 
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

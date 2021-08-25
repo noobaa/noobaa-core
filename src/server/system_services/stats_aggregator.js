@@ -524,8 +524,14 @@ async function _partial_buckets_info(req) {
             usage_by_project[key] = usage_by_project[key].toJSNumber();
         });
 
-        return { buckets_stats, objects_sys, objects_non_namespace_buckets_sys, usage_by_project, usage_by_bucket_class,
-             namespace_buckets_stats };
+        return {
+            buckets_stats,
+            objects_sys,
+            objects_non_namespace_buckets_sys,
+            usage_by_project,
+            usage_by_bucket_class,
+            namespace_buckets_stats
+        };
     } catch (err) {
         dbg.warn('Error in collecting partial buckets stats,',
             'skipping current sampling point', err.stack || err);
@@ -596,7 +602,8 @@ function get_nodes_stats(req) {
                     role: 'admin',
                     account_id: support_account._id
                 })
-            })])
+            })
+        ])
         .then(([nodes_results, hosts_results]) => {
             //Collect nodes stats
             for (const node of nodes_results.nodes) {
@@ -974,10 +981,19 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     const { logical_size, physical_size } = savings;
 
     let percentage_of_unhealthy_buckets = unhealthy_buckets / buckets_num;
+
+    // 0 - Everything is fine (BE wise not means that there is no NooBaa CR errors, default status for working system)
+    // 1 - All resources are unhealthy
+    // 2 - Object bucket has an issue
+    // 3 - Many buckets have issues
+    // 4 - Some buckets have issues
     let health_status = (unhealthy_pool_count === pool_count && 1) ||
         (unhealthy_buckets === 1 && 2) ||
         (percentage_of_unhealthy_buckets > 0.5 && 4) ||
         (percentage_of_unhealthy_buckets > 0.3 && 3) || 0;
+    // 0 = OK, 1 = warning, 2= error
+    const odf_health_status = (health_status === 1 && 2) ||
+        (health_status >= 1 && 1) || 0;
 
     const core_report = prom_reporting.get_core_report();
     core_report.set_providers_physical_logical(providers_stats);
@@ -999,6 +1015,7 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     core_report.set_num_unhealthy_buckets(unhealthy_buckets);
     core_report.set_num_unhealthy_namespace_buckets(unhealthy_namespace_buckets);
     core_report.set_health_status(health_status);
+    core_report.set_odf_health_status(odf_health_status);
     core_report.set_num_unhealthy_bucket_claims(unhealthy_bucket_claims);
     core_report.set_num_buckets_claims(bucket_claims);
     core_report.set_num_objects_buckets_claims(objects_in_bucket_claims);

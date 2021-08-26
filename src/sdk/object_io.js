@@ -130,7 +130,7 @@ class ObjectIO {
 
         this._io_buffers_sem = new Semaphore(config.IO_SEMAPHORE_CAP, {
             timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
-            timeout_error_code: 'OBJECT_IO_STREAM_ITEM_TIMEOUT'
+            timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT'
         });
 
         dbg.log0('ObjectIO Configurations:', util.inspect({
@@ -712,7 +712,7 @@ class ObjectIO {
     }
 
     _handle_semaphore_errors(client, err) {
-        if (err.code !== 'OBJECT_IO_STREAM_ITEM_TIMEOUT') return;
+        if (err.code !== 'IO_STREAM_ITEM_TIMEOUT') return;
         const curr_date = Date.now();
         const HOUR_IN_MILI = 3600000;
         if (curr_date - this._last_io_bottleneck_report < HOUR_IN_MILI) return;

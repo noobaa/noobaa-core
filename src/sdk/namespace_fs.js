@@ -20,7 +20,10 @@ const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
 // const RpcError = require('../rpc/rpc_error');
 
-const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT);
+const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
+    timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
+    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT'
+});
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
 const XATTR_USER_PREFIX = 'user.';
@@ -1141,6 +1144,7 @@ class NamespaceFS {
         if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
         if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
+        if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
         return err;
     }
 

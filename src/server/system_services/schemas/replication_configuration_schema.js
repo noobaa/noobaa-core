@@ -10,7 +10,6 @@ module.exports = {
     ],
     properties: {
 
-        // identifiers
         _id: { objectid: true },
         rules: {
             type: 'array',
@@ -29,7 +28,7 @@ module.exports = {
                             // s3 support also tag or and operator of 2 tags/ tag and prefix 
                         }
                     },
-                    status: {
+                    rule_status: {
                         type: 'object',
                         required: ['src_cont_token', 'dst_cont_token', 'last_cycle_start', 'last_cycle_end'],
                         properties: {

@@ -336,6 +336,45 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         configuration: {
             help: 'Health status'
         }
+    }, {
+        type: 'Gauge',
+        name: 'replication_status',
+        configuration: {
+            help: 'Replication status',
+            labelNames: ['replication_id', 'bucket_name',
+                'last_cycle_rule_id', 'last_cycle_src_cont_token'
+            ]
+        }
+    }, {
+        type: 'Gauge',
+        name: 'replication_last_cycle_writes_size',
+        configuration: {
+            help: 'Number of bytes replicated by replication_id in last replication cycle',
+            labelNames: ['replication_id']
+        }
+    },
+    {
+        type: 'Gauge',
+        name: 'replication_last_cycle_writes_num',
+        configuration: {
+            help: 'Number of objects replicated by replication_id in last replication cycle',
+            labelNames: ['replication_id']
+        }
+    },
+    {
+        type: 'Gauge',
+        name: 'replication_last_cycle_error_writes_size',
+        configuration: {
+            help: 'Number of error bytes replication_id in last replication cycle',
+            labelNames: ['replication_id']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'replication_last_cycle_error_writes_num',
+        configuration: {
+            help: 'Number of error objects replication_id in last replication cycle',
+            labelNames: ['replication_id']
+        }
     }
 ]);
 
@@ -349,7 +388,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
             this._metrics = {};
             for (const m of NOOBAA_CORE_METRICS) {
                 if (!m.type && !this.prom_client[m.type]) {
-                    dbg.warn(`noobaa_core_report - Metric ${m.name} has an unknow type`);
+                    dbg.warn(`noobaa_core_report - Metric ${m.name} has an unknown type`);
                     continue;
                 }
                 this._metrics[m.name] = new this.prom_client[m.type]({
@@ -545,6 +584,27 @@ class NooBaaCoreReport extends BasePrometheusReport {
 
         this._metrics.providers_ops_read_num.inc({ type }, read_num);
         this._metrics.providers_ops_write_num.inc({ type }, write_num);
+    }
+
+    set_replication_status(repl_info) {
+        if (!this._metrics) return;
+        const replication_id = repl_info.replication_id;
+        delete this._metrics.replication_status.hashMap[String(repl_info.replication_id)];
+        this._metrics.replication_status.set(_.omit(repl_info, ['last_cycle_writes_size',
+            'last_cycle_writes_num', 'last_cycle_error_writes_size', 'last_cycle_error_writes_num'
+        ]), Date.now());
+
+        delete this._metrics.replication_last_cycle_writes_size.hashMap[String(repl_info.replication_id)];
+        this._metrics.replication_last_cycle_writes_size.set({ replication_id }, repl_info.last_cycle_writes_size);
+
+        delete this._metrics.replication_last_cycle_writes_num.hashMap[String(repl_info.replication_id)];
+        this._metrics.replication_last_cycle_writes_num.set({ replication_id }, repl_info.last_cycle_writes_num);
+
+        delete this._metrics.replication_last_cycle_error_writes_size.hashMap[String(repl_info.replication_id)];
+        this._metrics.replication_last_cycle_error_writes_size.set({ replication_id }, repl_info.last_cycle_error_writes_size);
+
+        delete this._metrics.replication_last_cycle_error_writes_num.hashMap[String(repl_info.replication_id)];
+        this._metrics.replication_last_cycle_error_writes_num.set({ replication_id }, repl_info.last_cycle_error_writes_num);
     }
 }
 

@@ -22,7 +22,7 @@ const nb_native = require('../util/nb_native');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
     timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
-    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT'
+    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT',
 });
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
@@ -610,7 +610,10 @@ class NamespaceFS {
                     fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
-                fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr);
+                fs_xattr = await buffers_pool_sem.surround_count(
+                    config.NSFS_BUF_SIZE,
+                    async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr)
+                );
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
@@ -708,6 +711,10 @@ class NamespaceFS {
         }
     }
 
+    // Allocated config.NSFS_BUF_SIZE in Semaphore but in fact we can take up more inside
+    // This is due to MD5 calculation and data buffers
+    // Can be finetuned further on if needed and inserting the Semaphore logic inside
+    // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
     async _upload_stream(source_stream, upload_path, fs_account_config, rpc_client, fs_xattr) {
         let target_file;
         let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
@@ -805,7 +812,10 @@ class NamespaceFS {
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
-            const fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client);
+            const fs_xattr = await buffers_pool_sem.surround_count(
+                config.NSFS_BUF_SIZE,
+                async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client)
+            );
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {

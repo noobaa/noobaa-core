@@ -111,7 +111,7 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
 }
 
 function set_noobaa_s3_connection(sys) {
-    const system_address = _.filter(sys.system_address, { 'api': 's3' });
+    const system_address = _.filter(sys.system_address, { 'api': 's3', 'kind': 'INTERNAL' });
     const endpoint = system_address[0] && system_address[0].hostname;
     const access_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].access_key.unwrap();
     const secret_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].secret_key.unwrap();

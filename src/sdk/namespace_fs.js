@@ -724,31 +724,39 @@ class NamespaceFS {
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             const flush = async () => {
                 if (q_buffers.length) {
+                    if (MD5Async) {
+                        for await (const buf of q_buffers) await MD5Async.update(buf);
+                    }
                     await target_file.writev(fs_account_config, q_buffers);
                     q_buffers = [];
                     q_size = 0;
                 }
             };
-            let count = 1;
-            for await (let data of source_stream) {
-                if (MD5Async) await MD5Async.update(data);
-                // Update the write stats
-                stats_collector.instance(rpc_client).update_namespace_write_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    size: data.length,
-                    count
+            // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
+            await new Promise((resolve, reject) => {
+                let count = 1;
+                source_stream.on('data', async data => {
+                    // Update the write stats
+                    stats_collector.instance(rpc_client).update_namespace_write_stats({
+                        namespace_resource_id: this.namespace_resource_id,
+                        size: data.length,
+                        count
+                    });
+                    // clear count for next updates
+                    count = 0;
+                    while (data && data.length) {
+                        const available_size = config.NSFS_BUF_SIZE - q_size;
+                        const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
+                        q_buffers.push(buf);
+                        q_size += buf.length;
+                        if (q_size === config.NSFS_BUF_SIZE) await flush();
+                        data = (available_size < data.length) ? data.slice(available_size) : null;
+                    }
                 });
-                // clear count for next updates
-                count = 0;
-                while (data && data.length) {
-                    const available_size = config.NSFS_BUF_SIZE - q_size;
-                    const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
-                    q_buffers.push(buf);
-                    q_size += buf.length;
-                    if (q_size === config.NSFS_BUF_SIZE) await flush();
-                    data = (available_size < data.length) ? data.slice(available_size) : null;
-                }
-            }
+                source_stream.on('end', resolve);
+                source_stream.on('close', () => reject(new Error('_upload_stream: source_stream closed')));
+                source_stream.on('error', err => reject(err));
+            });
             await flush();
             if (MD5Async) {
                 fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);

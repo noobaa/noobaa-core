@@ -23,9 +23,22 @@ class Semaphore {
             this._verbose = Boolean(params && params.verbose);
             if (params.timeout) {
                 this._timeout = params.timeout;
+                this._timeout_error_code = params.timeout_error_code || 'SEMAPHORE_TIMEOUT';
             }
-            this._timeout_error_code = params.timeout_error_code || 'SEMAPHORE_TIMEOUT';
+            if (params.work_timeout) {
+                this._work_timeout = params.work_timeout;
+                this._work_timeout_error_code = params.work_timeout_error_code || 'SEMAPHORE_WORKER_TIMEOUT';
+            }
         }
+    }
+
+    async _work_cap() {
+        return new Promise((resolve, reject) => {
+            const err = new Error('Semaphore Worker Timeout');
+            err.code = this._work_timeout_error_code;
+            const t = setTimeout(() => reject(err), this._work_timeout);
+            t.unref();
+        });
     }
 
     /**
@@ -37,7 +50,8 @@ class Semaphore {
     async surround(func) {
         await this.wait();
         try {
-            return await func();
+            // May lead to unaccounted work in the background on timeout
+            return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();
         } finally {
             // Release should be called only when the wait was successful
             // If the item did not take any "resources"/value from the semaphore
@@ -56,7 +70,8 @@ class Semaphore {
     async surround_count(count, func) {
         await this.wait(count);
         try {
-            return await func();
+            // May lead to unaccounted work in the background on timeout
+            return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();
         } finally {
             // Release should be called only when the wait was successful
             // If the item did not take any "resources"/value from the semaphore
@@ -148,6 +163,7 @@ class Semaphore {
                 () => this._on_timeout(),
                 this._timeout
             );
+            this._timer.unref();
         }
 
         this._waiting_value += count;

@@ -22,7 +22,7 @@ const nb_native = require('../util/nb_native');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
     timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
-    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT'
+    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT',
 });
 const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
 
@@ -610,7 +610,10 @@ class NamespaceFS {
                     fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
-                fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr);
+                fs_xattr = await buffers_pool_sem.surround_count(
+                    config.NSFS_BUF_SIZE,
+                    async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr)
+                );
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
@@ -708,6 +711,10 @@ class NamespaceFS {
         }
     }
 
+    // Allocated config.NSFS_BUF_SIZE in Semaphore but in fact we can take up more inside
+    // This is due to MD5 calculation and data buffers
+    // Can be finetuned further on if needed and inserting the Semaphore logic inside
+    // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
     async _upload_stream(source_stream, upload_path, fs_account_config, rpc_client, fs_xattr) {
         let target_file;
         let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
@@ -717,31 +724,39 @@ class NamespaceFS {
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             const flush = async () => {
                 if (q_buffers.length) {
+                    if (MD5Async) {
+                        for await (const buf of q_buffers) await MD5Async.update(buf);
+                    }
                     await target_file.writev(fs_account_config, q_buffers);
                     q_buffers = [];
                     q_size = 0;
                 }
             };
-            let count = 1;
-            for await (let data of source_stream) {
-                if (MD5Async) await MD5Async.update(data);
-                // Update the write stats
-                stats_collector.instance(rpc_client).update_namespace_write_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    size: data.length,
-                    count
+            // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
+            await new Promise((resolve, reject) => {
+                let count = 1;
+                source_stream.on('data', async data => {
+                    // Update the write stats
+                    stats_collector.instance(rpc_client).update_namespace_write_stats({
+                        namespace_resource_id: this.namespace_resource_id,
+                        size: data.length,
+                        count
+                    });
+                    // clear count for next updates
+                    count = 0;
+                    while (data && data.length) {
+                        const available_size = config.NSFS_BUF_SIZE - q_size;
+                        const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
+                        q_buffers.push(buf);
+                        q_size += buf.length;
+                        if (q_size === config.NSFS_BUF_SIZE) await flush();
+                        data = (available_size < data.length) ? data.slice(available_size) : null;
+                    }
                 });
-                // clear count for next updates
-                count = 0;
-                while (data && data.length) {
-                    const available_size = config.NSFS_BUF_SIZE - q_size;
-                    const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
-                    q_buffers.push(buf);
-                    q_size += buf.length;
-                    if (q_size === config.NSFS_BUF_SIZE) await flush();
-                    data = (available_size < data.length) ? data.slice(available_size) : null;
-                }
-            }
+                source_stream.on('end', resolve);
+                source_stream.on('close', () => reject(new Error('_upload_stream: source_stream closed')));
+                source_stream.on('error', err => reject(err));
+            });
             await flush();
             if (MD5Async) {
                 fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
@@ -805,7 +820,10 @@ class NamespaceFS {
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
-            const fs_xattr = await this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client);
+            const fs_xattr = await buffers_pool_sem.surround_count(
+                config.NSFS_BUF_SIZE,
+                async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client)
+            );
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {

@@ -66,7 +66,6 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.it('list src dir without delimiter', async function() {
-            nb_native().fs.set_debug_level(5);
             const res = await ns_src.list_objects({
                 bucket: src_bkt,
             }, dummy_object_sdk);

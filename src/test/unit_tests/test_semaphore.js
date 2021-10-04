@@ -134,4 +134,25 @@ mocha.describe('semaphore', function() {
         assert.strictEqual(sem.waiting_value, 0);
     });
 
+    mocha.it('should release value on non settled worker', async function() {
+        const sem = new Semaphore(1, {
+            work_timeout: 1,
+            work_timeout_error_code: 'MAJESTIC_SLOTH_TIMEOUT'
+        });
+        assert.strictEqual(sem.length, 0);
+        assert.strictEqual(sem.value, 1);
+        try {
+            await sem.surround_count(1, async function() {
+                return new Promise((resolve, reject) => setTimeout(resolve, 500));
+            });
+            throw new Error('Semaphore did not throw an error on non settled worker');
+        } catch (error) {
+            assert.strictEqual(error.code, 'MAJESTIC_SLOTH_TIMEOUT');
+            assert.strictEqual(error.message, 'Semaphore Worker Timeout');
+        }
+        assert.strictEqual(sem.length, 0);
+        assert.strictEqual(sem.value, 1);
+        assert.strictEqual(sem.waiting_value, 0);
+    });
+
 });

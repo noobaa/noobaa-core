@@ -143,7 +143,7 @@ mocha.describe('semaphore', function() {
         assert.strictEqual(sem.value, 1);
         try {
             await sem.surround_count(1, async function() {
-                return new Promise((resolve, reject) => setTimeout(resolve, 2));
+                return new Promise((resolve, reject) => setTimeout(resolve, 500));
             });
             throw new Error('Semaphore did not throw an error on non settled worker');
         } catch (error) {

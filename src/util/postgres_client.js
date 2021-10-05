@@ -267,8 +267,10 @@ class PgTransaction {
     }
 
     release() {
-        this.pg_client.release();
-        this.pg_client = null;
+        if (this.pg_client) {
+            this.pg_client.release();
+            this.pg_client = null;
+        }
     }
 
 }

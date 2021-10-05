@@ -74,7 +74,7 @@ class NamespaceBlob {
         let iterator;
         if (params.delimiter) {
             iterator = await this.container_client.listBlobsByHierarchy(
-                params.delimiter, { prefix: params.prefix }).byPage({ continuationToken: params.key_marker, maxPageSize: max_keys});
+                params.delimiter, { prefix: params.prefix }).byPage({ continuationToken: params.key_marker, maxPageSize: max_keys });
         } else {
             iterator = await this.container_client.listBlobsFlat({ prefix: params.prefix })
                 .byPage({ continuationToken: params.key_marker, maxPageSize: max_keys });

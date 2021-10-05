@@ -16,17 +16,19 @@ const P = require('../../util/promise');
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
 // for namespace and namespace cache bucket testing.
-const USE_REMOTE_ENDPOINT = process.env.USE_REMOTE_ENDPOINT === 'true';
+let USE_REMOTE_ENDPOINT = process.env.USE_REMOTE_ENDPOINT === 'true';
 const { rpc_client, EMAIL } = coretest;
 const BKT1 = 'test-s3-ops-bucket-ops';
 const BKT2 = 'test-s3-ops-object-ops';
 const BKT3 = 'test2-s3-ops-object-ops';
 const BKT4 = 'test3-s3-ops-object-ops';
 const BKT5 = 'test5-s3-ops-objects-ops';
+const BKT6 = 'test6-s3-ops-object-ops';
+const BKT7 = 'test7-s3-ops-objects-ops';
 const CONNECTION_NAME = 's3_connection';
 const NAMESPACE_RESOURCE_SOURCE = 'namespace_target_bucket';
 const NAMESPACE_RESOURCE_TARGET = 'namespace_source_bucket';
-const TARGET_BUCKET = 's3-ops-target';
+const TARGET_BUCKET = 's3-ops-target'; // these 2 buckets needs to be exist in the external cloud provider
 const SOURCE_BUCKET = 's3-ops-source';
 const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
 const file_body2 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
@@ -37,6 +39,8 @@ const text_file2 = 'text-file2';
 const text_file3 = 'text-file3';
 const text_file5 = 'text-file5';
 
+let S3_OPS_ACCESS_KEY;
+let S3_OPS_ACCESS_SECRET;
 mocha.describe('s3_ops', function() {
 
     let s3;
@@ -110,8 +114,9 @@ mocha.describe('s3_ops', function() {
 
                 const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_https_address();
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
-                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
-                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY : s3.config.secretAccessKey;
+                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? S3_OPS_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
+                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? S3_OPS_ACCESS_SECRET || process.env.AWS_SECRET_ACCESS_KEY :
+                    s3.config.secretAccessKey;
 
                 coretest.log("Using endpoint: ", ENDPOINT);
 
@@ -196,6 +201,7 @@ mocha.describe('s3_ops', function() {
 
         mocha.it('shoult tag text file', async function() {
             this.timeout(60000); // eslint-disable-line no-invalid-this
+            if (is_namespace_blob_bucket(bucket_type)) this.skip(); // eslint-disable-line no-invalid-this
             const params = {
                 Bucket: bucket_name,
                 Key: text_file1,
@@ -252,57 +258,61 @@ mocha.describe('s3_ops', function() {
 
         mocha.it('should head text-file', async function() {
             this.timeout(60000); // eslint-disable-line no-invalid-this
-            const params = {
-                Bucket: bucket_name,
-                Key: text_file1,
-                Tagging: {
-                    TagSet: [{
-                        Key: 's3ops',
-                        Value: 'set_file_attribute'
-                    }]
+            if (!is_namespace_blob_bucket(bucket_type)) {
+
+                const params = {
+                    Bucket: bucket_name,
+                    Key: text_file1,
+                    Tagging: {
+                        TagSet: [{
+                            Key: 's3ops',
+                            Value: 'set_file_attribute'
+                        }]
+                    }
+                };
+                let httpStatus;
+                var notSupported = false;
+
+                try {
+                    await s3.putObjectTagging(params).on('complete', function(response) {
+                        httpStatus = response.httpResponse.statusCode;
+                    }).on('error', err => {
+                        httpStatus = err.statusCode;
+                        notSupported = true;
+                    }).promise();
+                    assert.strictEqual(httpStatus, 200, 'Should be 200');
+                } catch (err) {
+                    assert.strictEqual(notSupported, true);
                 }
-            };
-            let httpStatus;
-            var notSupported = false;
-            try {
-                await s3.putObjectTagging(params).on('complete', function(response) {
-                    httpStatus = response.httpResponse.statusCode;
-                }).on('error', err => {
-                    httpStatus = err.statusCode;
-                    notSupported = true;
-                }).promise();
-                assert.strictEqual(httpStatus, 200, 'Should be 200');
-            } catch (err) {
-                assert.strictEqual(notSupported, true);
-            }
 
-            const query_params = { get_from_cache: true };
-            const res = await s3.getObjectTagging({
-                Bucket: bucket_name,
-                Key: params.Key,
-            }).on('build', req => {
-                if (!caching) return;
-                const sep = req.httpRequest.search() ? '&' : '?';
-                const query_string = querystring.stringify(query_params);
-                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                req.httpRequest.path = req_path;
-            }).promise();
-            assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
-
-            if (!notSupported) {
-                assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
-                assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
-            }
-            try {
-                await s3.deleteObjectTagging({
+                const query_params = { get_from_cache: true };
+                const res = await s3.getObjectTagging({
                     Bucket: bucket_name,
                     Key: params.Key,
-                }).on('complete', function(response) {
-                    httpStatus = response.httpResponse.statusCode;
+                }).on('build', req => {
+                    if (!caching) return;
+                    const sep = req.httpRequest.search() ? '&' : '?';
+                    const query_string = querystring.stringify(query_params);
+                    const req_path = `${req.httpRequest.path}${sep}${query_string}`;
+                    req.httpRequest.path = req_path;
                 }).promise();
-                assert.strictEqual(httpStatus, 204, 'Should be 200');
-            } catch (err) {
-                assert.strictEqual(httpStatus, 500, 'Should be 500');
+                assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
+
+                if (!notSupported) {
+                    assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
+                    assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
+                }
+                try {
+                    await s3.deleteObjectTagging({
+                        Bucket: bucket_name,
+                        Key: params.Key,
+                    }).on('complete', function(response) {
+                        httpStatus = response.httpResponse.statusCode;
+                    }).promise();
+                    assert.strictEqual(httpStatus, 204, 'Should be 200');
+                } catch (err) {
+                    assert.strictEqual(httpStatus, 500, 'Should be 500');
+                }
             }
             await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
         });
@@ -450,7 +460,10 @@ mocha.describe('s3_ops', function() {
             var UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
-            assert.strictEqual(UploadId, res1.UploadId);
+            if (!is_namespace_blob_bucket(bucket_type)) {
+                assert.strictEqual(UploadId, res1.UploadId);
+            }
+
             // list_multiparts
             const res5 = await s3.listParts({
                 Bucket: bucket_name,
@@ -562,4 +575,28 @@ mocha.describe('s3_ops', function() {
     mocha.describe('namespace-bucket-caching-enabled-object-ops', function() {
         test_object_ops(BKT4, "namespace", { ttl_ms: 60000 });
     });
+
+    mocha.describe('azure-namespace-bucket-object-ops', function() {
+        if (!process.env.NEWAZUREPROJKEY || !process.env.NEWAZUREPROJSECRET) return; // eslint-disable-line no-invalid-this
+        process.env.ENDPOINT = 'https://blob.core.windows.net';
+        process.env.ENDPOINT_TYPE = 'AZURE';
+        USE_REMOTE_ENDPOINT = true;
+        S3_OPS_ACCESS_KEY = process.env.NEWAZUREPROJKEY;
+        S3_OPS_ACCESS_SECRET = process.env.NEWAZUREPROJSECRET;
+        test_object_ops(BKT6, 'namespace');
+    });
+
+    mocha.describe('aws-namespace-bucket-object-ops', function() {
+        if (!process.env.NEWAWSPROJKEY || !process.env.NEWAWSPROJSECRET) return; // eslint-disable-line no-invalid-this
+        process.env.ENDPOINT = 'https://s3.amazonaws.com';
+        process.env.ENDPOINT_TYPE = 'AWS';
+        USE_REMOTE_ENDPOINT = true;
+        S3_OPS_ACCESS_KEY = process.env.NEWAWSPROJKEY;
+        S3_OPS_ACCESS_SECRET = process.env.NEWAWSPROJSECRET;
+        test_object_ops(BKT7, 'namespace');
+    });
 });
+
+function is_namespace_blob_bucket(bucket_type) {
+    return process.env.ENDPOINT_TYPE === 'AZURE' && bucket_type === 'namespace';
+}

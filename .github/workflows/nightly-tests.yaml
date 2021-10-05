@@ -1,0 +1,29 @@
+name: Nightly Tests
+
+# Run every day at 23:00 UTC
+# on: 
+#   schedule:
+#     - cron: "0 23 * * *"
+on: workflow_dispatch
+
+jobs:
+  nightly-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: print_something
+        run: |
+          echo "printing_something0"
+          echo ${{ secrets.GHACTIONSDOCKERHUBNAME }}
+          echo ${{ secrets.NEWAZUREPROJKEY }}
+          echo -n ${{ secrets.NEWAWSPROJKEY }} | wc -m
+
+      - name: Run Nightly Tests
+        id: run-nightly-tests
+        # uses: benc-uk/workflow-dispatch@v1
+        run: |
+          make test || exit 1
+          docker run --rm -e NEWAWSPROJKEY=${{ secrets.NEWAWSPROJKEY }} \
+          -e NEWAWSPROJSECRET=${{ secrets.NEWAWSPROJSECRET }} \
+          -e NEWAZUREPROJKEY=${{ secrets.NEWAZUREPROJKEY }} \
+          -e NEWAZUREPROJSECRET=${{ secrets.NEWAZUREPROJSECRET }} \
+          --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s test_s3_ops.js || exit 1

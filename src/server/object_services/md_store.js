@@ -964,12 +964,12 @@ class MDStore {
         });
     }
 
-    async db_delete_multiparts_of_object(obj) {
+    async db_delete_multiparts_of_object(id) {
         const res = await this._multiparts.deleteMany({
-            obj: { $eq: obj._id, $exists: true },
+            obj: { $eq: id, $exists: true },
             deleted: { $exists: true }
         });
-        dbg.warn(`Removed ${res.result.n} multiparts of object ${obj} from DB`);
+        dbg.warn(`Removed ${res.result.n} multiparts of object ${id} from DB`);
     }
 
     has_any_objects_for_bucket_including_deleted(bucket_id) {
@@ -1211,12 +1211,12 @@ class MDStore {
         });
     }
 
-    async db_delete_parts_of_object(obj) {
+    async db_delete_parts_of_object(id) {
         const res = await this._parts.deleteMany({
-            obj: { $eq: obj._id, $exists: true },
+            obj: { $eq: id, $exists: true },
             deleted: { $exists: true }
         });
-        dbg.warn(`Removed ${res.result.n} parts of object ${obj} from DB`);
+        dbg.warn(`Removed ${res.result.n} parts of object ${id} from DB`);
     }
 
 

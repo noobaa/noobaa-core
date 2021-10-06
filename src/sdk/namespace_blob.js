@@ -8,17 +8,11 @@ const crypto = require('crypto');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const blob_utils = require('../endpoint/blob/blob_utils');
-const azure_storage = require('../util/azure_storage_wrap');
+const azure_storage = require('../util/new_azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const stats_collector = require('./endpoint_stats_collector');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
-
-const MAP_BLOCK_LIST_TYPE = Object.freeze({
-    uncommitted: 'UncommittedBlocks',
-    latest: 'LatestBlocks',
-    committed: 'CommittedBlocks'
-});
 
 
 /**
@@ -26,13 +20,27 @@ const MAP_BLOCK_LIST_TYPE = Object.freeze({
  */
 class NamespaceBlob {
 
-    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name }) {
+    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name, account_key }) {
         this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
-        this.blob = azure_storage.createBlobService(connection_string);
+        this.blob = azure_storage.BlobServiceClient.fromConnectionString(connection_string);
+        // needed only for generateBlockIdPrefix() and get_block_id() functions
+        // TODO: replace old lib functions with new impl of block_id getters
+        this.old_blob = azure_storage.get_old_blob_service_conn_string(connection_string);
         this.rpc_client = rpc_client;
         this.account_name = account_name;
+        this.account_key = account_key;
+        this.container_client = azure_storage.get_container_client(this.blob, this.container);
+    }
+
+    _get_blob_client(blob_name) {
+        return azure_storage.get_blob_client(this.container_client, blob_name);
+    }
+
+    _generate_blob_url(container, blob, sas_token) {
+        const sas_string = sas_token ? '?' + sas_token : '';
+        return `https://${this.account_name}.blob.core.windows.net/${container}/${blob}${sas_string}`;
     }
 
     is_server_side_copy(other, params) {
@@ -56,33 +64,29 @@ class NamespaceBlob {
         const regex = '^\\d{1,9}!\\d{1,9}!';
         if (!(_.isUndefined(params.key_marker)) && params.key_marker.match(regex) === null) {
             dbg.log0(`Got an invalid marker: ${params.key_marker}, changing the marker into null`);
-            params.key_marker = null;
+            params.key_marker = undefined;
         }
-
         dbg.log0('NamespaceBlob.list_objects:',
             this.container,
             inspect(params)
         );
-
-        const sasToken = await this._get_sas_token(this.container, undefined, azure_storage.BlobUtilities.SharedAccessPermissions.LIST);
-        // Azure blob SDK does not allow list blobs and dirs in one request but it is possible when calling directly to the API.
-        // https://github.com/Azure/azure-storage-node/blob/8afb26eda981581381e3358cbb3a5c0ddb51465d/lib/services/blob/blobservice.core.js#L5757
-        // calling list blobs and list directories seperatley may cause 0-2 unsynced continuation tokens.
-        // because of the descripted problem we call directly to the blob API.
-        const { blobs, dirs, next_marker } = await blob_utils.list_objects(params, this.account_name, this.container, sasToken);
-
-        dbg.log2('NamespaceBlob.list_objects:',
-            this.container,
-            inspect(params),
-            'blobs', inspect(blobs),
-            'dirs', inspect(dirs)
-        );
+        const max_keys = params.limit || 1000;
+        let iterator;
+        if (params.delimiter) {
+            iterator = await this.container_client.listBlobsByHierarchy(
+                params.delimiter, { prefix: params.prefix }).byPage({ continuationToken: params.key_marker, maxPageSize: max_keys});
+        } else {
+            iterator = await this.container_client.listBlobsFlat({ prefix: params.prefix })
+                .byPage({ continuationToken: params.key_marker, maxPageSize: max_keys });
+        }
+        const response = (await iterator.next()).value;
+        dbg.log0('list_objects: ', response.continuationToken, response.segment.blobItems, response.segment.blobPrefixes);
 
         return {
-            objects: _.map(blobs, obj => this._get_blob_object_info(obj, params.bucket)),
-            common_prefixes: _.map(dirs, dir => dir.Name[0]),
-            is_truncated: Boolean(next_marker),
-            next_marker
+            objects: _.map(response.segment.blobItems, obj => this._get_blob_object_info(obj, params.bucket)),
+            common_prefixes: _.map(response.segment.blobPrefixes, prefix => prefix.name),
+            is_truncated: Boolean(response.continuationToken),
+            next_marker: response.continuationToken
         };
     }
 
@@ -122,18 +126,14 @@ class NamespaceBlob {
                 this.container,
                 inspect(params)
             );
-            const obj = await P.fromCallback(callback =>
-                this.blob.getBlobProperties(
-                    this.container,
-                    params.key,
-                    callback)
-            );
+            const blob_client = this._get_blob_client(params.key);
+            const obj = await blob_client.getProperties();
             dbg.log0('NamespaceBlob.read_object_md:',
                 this.container,
                 inspect(params),
                 'obj', inspect(obj)
             );
-            return this._get_blob_object_info(obj, params.bucket);
+            return this._get_blob_object_info({ ...obj, key: params.key }, params.bucket);
 
         } catch (err) {
             this._translate_error_code(err);
@@ -185,43 +185,38 @@ class NamespaceBlob {
                 resolve(count_stream);
             };
             count_stream.on('readable', on_readable);
-            const options = {
-                skipSizeCheck: true,
-            };
-            if (params.end) {
-                options.rangeStart = params.start;
-                options.rangeEnd = params.end;
-            }
-            this.blob.getBlobToStream(
-                this.container,
-                params.key,
-                count_stream,
-                options,
-                (err, res) => {
-                    if (err) {
-                        this._translate_error_code(err);
-                        dbg.warn('NamespaceBlob.read_object_stream:',
-                            this.container,
-                            inspect(_.omit(params, 'object_md.ns')),
-                            'callback err', inspect(err)
-                        );
-                        try {
-                            count_stream.emit('error', err);
-                        } catch (err2) {
-                            // ignore, only needed if there is no error listeners
-                        }
-                        return reject(err);
-                    }
-                    dbg.log0('NamespaceBlob.read_object_stream:',
+            const blob_client = this._get_blob_client(params.key);
+
+            blob_client.download(
+                params.start,
+                params.end - params.start,
+            ).then(res => {
+                dbg.log0('NamespaceBlob.read_object_stream:',
+                    this.container,
+                    inspect(_.omit(params, 'object_md.ns')),
+                    'callback res', inspect(res)
+                );
+                if (!res.readableStreamBody) throw new Error('NamespaceBlob.read_object_stream: download response is invalid');
+                return resolve(res.readableStreamBody.pipe(count_stream));
+            }).catch(err => {
+                    this._translate_error_code(err);
+                    dbg.warn('NamespaceBlob.read_object_stream:',
                         this.container,
                         inspect(_.omit(params, 'object_md.ns')),
-                        'callback res', inspect(res)
+                        'callback err', inspect(err)
                     );
-                    return resolve(count_stream);
+                    try {
+                        count_stream.emit('error', err);
+                    } catch (err2) {
+                        // ignore, only needed if there is no error listeners
+                    }
+                    return reject(err);
                 }
+
             );
         });
     }
+
 
     ///////////////////
     // OBJECT UPLOAD //
@@ -233,18 +228,14 @@ class NamespaceBlob {
             inspect(_.omit(params, 'source_stream'))
         );
         let obj;
+        const blob_client = this._get_blob_client(params.key);
         if (params.copy_source) {
             if (params.copy_source.ranges) {
                 throw new Error('NamespaceBlob.upload_object: copy source range not supported');
             }
-            obj = await P.fromCallback(callback =>
-                this.blob.startCopyBlob(
-                    this.blob.getUrl(params.copy_source.bucket, params.copy_source.key),
-                    this.container,
-                    params.key,
-                    callback
-                )
-            );
+            const sasToken = await this._get_sas_token(params.copy_source.bucket, params.copy_source.key, 'r'); // read permission
+            const url = this._generate_blob_url(params.copy_source.bucket, params.copy_source.key, sasToken);
+            obj = await blob_client.syncUploadFromURL(url);
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -259,19 +250,17 @@ class NamespaceBlob {
 
             this._check_valid_xattr(params);
             try {
-                obj = await P.fromCallback(callback =>
-                    this.blob.createBlockBlobFromStream(
-                        this.container,
-                        params.key,
-                        params.source_stream.pipe(count_stream),
-                        params.size, // streamLength really required ???
-                        {
-                            metadata: params.xattr,
-                            contentSettings: {
-                                contentType: params.content_type,
-                            }
-                        },
-                        callback));
+                const { new_stream, md5_buf } = await azure_storage.calc_body_md5(params.source_stream);
+                obj = await blob_client.uploadStream(
+                    new_stream.pipe(count_stream),
+                    params.size,
+                    undefined, {
+                        metadata: params.xattr,
+                        blobHTTPHeaders: {
+                            blobContentType: params.content_type,
+                            blobContentMD5: md5_buf // TODO: check that before & after the change the MD5 was uploaded 
+                        }
+                    });
             } catch (err) {
                 this._translate_error_code(err);
                 dbg.warn('NamespaceBlob.upload_object:', inspect(err));
@@ -316,14 +305,11 @@ class NamespaceBlob {
             // clear count for next updates
             count = 0;
         });
-        await P.fromCallback(callback =>
-            this.blob.createBlockFromStream(
-                params.block_id,
-                this.container,
-                params.key,
-                params.source_stream.pipe(count_stream),
-                params.size, // streamLength really required ???
-                callback)
+        const blob_client = this._get_blob_client(params.key);
+        await blob_client.stageBlock(
+            params.block_id,
+            () => params.source_stream.pipe(count_stream),
+            params.size // streamLength really required ???
         );
     }
 
@@ -331,11 +317,12 @@ class NamespaceBlob {
         // node sdk does not support the full rest api capability to mix committed\uncommitted blocks
         // if we send both committed and uncommitted lists we can't control the order.
         // for now if there is a mix sent by the client, convert all to latest which is the more common case.
-        const is_mix = _.uniqBy(params.block_list, 'type').length > 1;
-        const list_to_use = is_mix ? 'LatestBlocks' : MAP_BLOCK_LIST_TYPE[params.block_list[0].type];
-        const block_list = {};
-        block_list[list_to_use] = params.block_list.map(block => block.block_id);
-        return P.fromCallback(callback => this.blob.commitBlocks(params.bucket, params.key, block_list, callback));
+        //const is_mix = _.uniqBy(params.block_list, 'type').length > 1;
+        //const list_to_use = is_mix ? 'LatestBlocks' : MAP_BLOCK_LIST_TYPE[params.block_list[0].type];
+        // const block_list = {};
+        //block_list[list_to_use] = params.block_list.map(block => block.block_id);
+        const blob_client = this._get_blob_client(params.key);
+        return blob_client.commitBlockList(params.block_list);
     }
 
     async get_blob_block_lists(params) {
@@ -347,7 +334,10 @@ class NamespaceBlob {
         } else {
             list_type = 'committed';
         }
-        const list_blocks_res = await P.fromCallback(callback => this.blob.listBlocks(params.bucket, params.key, list_type, callback));
+        const blob_client = this._get_blob_client(params.key);
+        // TODO: this is not the correct function - but this whole function not in use
+        // delete or do the correct changes
+        const list_blocks_res = await blob_client.getBlockList(list_type);
         const response = {};
         if (list_blocks_res.CommittedBlocks) {
             response.committed = list_blocks_res.CommittedBlocks.map(block => ({ block_id: block.Name, size: block.Size }));
@@ -404,13 +394,16 @@ class NamespaceBlob {
     async upload_multipart(params, object_sdk) {
         // generating block ids in the form: '95342c3f-000005'
         // this is needed mostly since azure requires all the block_ids to have the same fixed length
-        const block_id = this.blob.getBlockId(params.obj_id, params.num);
+        const block_id = azure_storage.get_block_id(this.old_blob, params.obj_id, params.num);
+        const block_id_base64 = Buffer.from(block_id).toString('base64');
         let res;
         dbg.log0('NamespaceBlob.upload_multipart:',
             this.container,
             inspect(_.omit(params, 'source_stream')),
-            'block_id', block_id
+            'block_id', block_id,
+            'block_id_base64', block_id_base64
         );
+        const blob_client = this._get_blob_client(params.key);
         if (params.copy_source) {
 
             const start = params.copy_source.ranges ? params.copy_source.ranges[0].start : 0;
@@ -420,21 +413,14 @@ class NamespaceBlob {
             if (end - start > maxCopySource) {
                 throw new Error('The specified copy source is larger than the maximum allowable size for a copy source (100mb).');
             }
+            const sasToken = await this._get_sas_token(params.copy_source.bucket, params.copy_source.key, 'r'); // read permission
+            const url = this._generate_blob_url(params.copy_source.bucket, params.copy_source.key, sasToken);
 
-            const sasToken = await this._get_sas_token(this.container, params.copy_source.key,
-                azure_storage.BlobUtilities.SharedAccessPermissions.READ);
-            const url = this.blob.getUrl(params.copy_source.bucket, params.copy_source.key, sasToken);
-
-            res = await P.fromCallback(callback =>
-                this.blob.createBlockFromURL(
-                    block_id,
-                    this.container,
-                    params.key,
-                    url,
-                    start,
-                    end - 1,
-                    callback)
-            );
+            res = await blob_client.stageBlockFromURL(
+                block_id_base64,
+                url,
+                start,
+                end - start); // TODO: check that end is ok when ranges provided
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -447,14 +433,10 @@ class NamespaceBlob {
                 count = 0;
             });
             try {
-                res = await P.fromCallback(callback =>
-                    this.blob.createBlockFromStream(
-                        block_id,
-                        this.container,
-                        params.key,
-                        params.source_stream.pipe(count_stream),
-                        params.size, // streamLength really required ???
-                        callback)
+                res = await blob_client.stageBlock(
+                    block_id_base64,
+                    () => params.source_stream.pipe(count_stream),
+                    params.size // streamLength really required ???
                 );
             } catch (err) {
                 object_sdk.rpc_client.pool.update_issues_report({
@@ -469,11 +451,13 @@ class NamespaceBlob {
             this.container,
             inspect(_.omit(params, 'source_stream')),
             'block_id', block_id,
+            'block_id_base64', block_id_base64,
             'res', inspect(res)
         );
-        const block_id_hex = Buffer.from(block_id).toString('hex');
+        const hex_etag = Buffer.from(block_id_base64, 'base64').toString('hex');
+        dbg.log0('ETAg: ', hex_etag);
         return {
-            etag: block_id_hex,
+            etag: hex_etag,
         };
     }
 
@@ -483,14 +467,15 @@ class NamespaceBlob {
         const expiry_date = new Date(start_date);
         expiry_date.setMinutes(start_date.getMinutes() + 10);
         start_date.setMinutes(start_date.getMinutes() - 10);
-        const shared_access_policy = {
-            AccessPolicy: {
-                Permissions: permission,
-                Start: start_date,
-                Expiry: expiry_date
-            },
-        };
-        return this.blob.generateSharedAccessSignature(container, block_key, shared_access_policy);
+        const ssk = new azure_storage.StorageSharedKeyCredential(this.account_name, this.account_key);
+
+        return azure_storage.generateBlobSASQueryParameters({
+            containerName: container,
+            blobName: block_key,
+            permissions: azure_storage.ContainerSASPermissions.parse(permission),
+            expiresOn: expiry_date,
+            startsOn: start_date
+        }, ssk).toString();
     }
 
     async list_multiparts(params, object_sdk) {
@@ -498,14 +483,8 @@ class NamespaceBlob {
             this.container,
             inspect(params)
         );
-
-        const res = await P.fromCallback(callback =>
-            this.blob.listBlocks(
-                this.container,
-                params.key,
-                azure_storage.BlobUtilities.BlockListFilter.UNCOMMITTED,
-                callback)
-        );
+        const blob_client = this._get_blob_client(params.key);
+        const res = await blob_client.getBlockList('uncommitted');
 
         dbg.log0('NamespaceBlob.list_multiparts:',
             this.container,
@@ -514,12 +493,15 @@ class NamespaceBlob {
         );
         return {
             is_truncated: false,
-            multiparts: _.map(res.UncommittedBlocks, b => ({
-                num: parseInt(b.Name.split('-')[1], 10),
-                size: b.Size,
-                etag: Buffer.from(b.Name).toString('hex'),
-                last_modified: new Date(),
-            }))
+            multiparts: _.map(res.uncommittedBlocks, block => {
+                const buf = Buffer.from(block.name, 'base64');
+                return ({
+                    num: parseInt(buf.toString().split('-')[1], 10),
+                    size: block.size,
+                    etag: buf.toString('hex'),
+                    last_modified: new Date(),
+                });
+            })
         };
     }
 
@@ -533,18 +515,19 @@ class NamespaceBlob {
         const md5_hash = crypto.createHash('md5');
         const block_list = _.times(num_parts, num => {
             const part = part_by_num[num + 1];
-            const block_id = Buffer.from(part.etag, 'hex').toString('ascii');
+            const block_id = Buffer.from(part.etag, 'hex').toString('base64');
             md5_hash.update(block_id);
             return block_id;
         });
-        const block_obj = { UncommittedBlocks: block_list };
-        const obj = await P.fromCallback(callback =>
-            this.blob.commitBlocks(
-                this.container,
-                params.key,
-                block_obj,
-                callback)
-        );
+        const md5_hex = md5_hash.digest('hex');
+
+        const options = {
+            blobHTTPHeaders: {
+                blobContentMD5: Buffer.from(md5_hex, 'hex') // TODO: check that before & after the change the MD5 was uploaded 
+            }
+        };
+        const blob_client = this._get_blob_client(params.key);
+        const obj = await blob_client.commitBlockList(block_list, options);
 
         dbg.log0('NamespaceBlob.complete_object_upload:',
             this.container,
@@ -565,8 +548,7 @@ class NamespaceBlob {
                 'obj_md', inspect(obj_md)
             );
             if (obj_md && obj_md.xattr) {
-                await P.fromCallback(callback => this.blob.setBlobMetadata(this.container,
-                    params.key, obj_md.xattr, callback));
+                await blob_client.setMetadata(obj_md.xattr);
 
                 await object_sdk.rpc_client.object.abort_object_upload({
                     key: params.key,
@@ -577,7 +559,7 @@ class NamespaceBlob {
         }
 
         const res = this._get_blob_object_info(obj, params.bucket);
-        res.etag = md5_hash.digest('hex') + '-' + num_parts;
+        res.etag = md5_hex + '-' + num_parts;
         return res;
     }
 
@@ -599,9 +581,7 @@ class NamespaceBlob {
     async delete_object(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_object:', this.container, inspect(params));
 
-        const res = await P.fromCallback(
-            callback => this.blob.deleteBlob(this.container, params.key, callback)
-        );
+        const res = await this.container_client.deleteBlob(params.key);
 
         dbg.log0('NamespaceBlob.delete_object:',
             this.container,
@@ -615,9 +595,8 @@ class NamespaceBlob {
     async delete_multiple_objects(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_multiple_objects:', this.container, inspect(params));
 
-        const res = await P.map_with_concurrency(10, params.objects, obj => P.fromCallback(
-                callback => this.blob.deleteBlob(this.container, obj.key, callback)
-            )
+        const res = await P.map_with_concurrency(10, params.objects, obj =>
+            this.container_client.deleteBlob(obj.key)
             .then(() => ({}))
             .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })));
 
@@ -630,18 +609,20 @@ class NamespaceBlob {
         return res;
     }
 
+    // TODO: check contentSettings replcae etc
     // TODO: Implement tagging on objects
     /**
      * @returns {nb.ObjectInfo}
      */
     _get_blob_object_info(obj, bucket) {
-        const blob_etag = blob_utils.parse_etag(obj.etag);
-        // content settings is a blob sdk property and doesn't exist while calling list objects
-        // since list objects calls directly to the blob API
-        const md5_b64 = (obj.contentSettings && obj.contentSettings.contentMD5) || obj.contentMd5 || '';
+        // list objects returns properties
+        // head object returns flat
+        const flat_obj = obj.properties || obj;
+        const blob_etag = blob_utils.parse_etag(flat_obj.etag);
+        const md5_b64 = flat_obj.contentMD5 || '';
         const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
         const etag = md5_hex || blob_etag;
-        const size = parseInt(obj.contentLength, 10);
+        const size = parseInt(flat_obj.contentLength, 10);
         const xattr = _.extend(obj.metadata, {
             'noobaa-namespace-blob-container': this.container,
         });
@@ -651,8 +632,8 @@ class NamespaceBlob {
             key: obj.name,
             size,
             etag,
-            create_time: new Date(obj.lastModified),
-            content_type: (obj.contentSettings && obj.contentSettings.contentType) || obj.contentType,
+            create_time: flat_obj.lastModified,
+            content_type: flat_obj.contentType,
             xattr
         };
     }

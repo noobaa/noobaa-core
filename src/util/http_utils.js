@@ -17,7 +17,7 @@ const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
 const config = require('../../config');
 
-const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY } = process.env;
+const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS } = process.env;
 const http_agent = new http.Agent();
 const https_agent = new https.Agent();
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
@@ -393,7 +393,9 @@ function get_default_agent(endpoint) {
  */
 function get_unsecured_agent(endpoint) {
     const is_aws_address = cloud_utils.is_aws_endpoint(endpoint);
-    return _get_http_agent(endpoint, !is_aws_address);
+    const hostname = url.parse(endpoint) ? url.parse(endpoint).hostname : endpoint;
+    const is_localhost = _.isString(hostname) && hostname.toLowerCase() === 'localhost';
+    return _get_http_agent(endpoint, is_localhost || (!is_aws_address && _.isEmpty(NODE_EXTRA_CA_CERTS)));
 }
 
 function _get_http_agent(endpoint, request_unsecured) {

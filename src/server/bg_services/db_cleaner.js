@@ -76,11 +76,11 @@ async function clean_md_store(last_date_to_remove) {
     dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
 }
 
-async function db_delete_object_parts(obj) {
-    if (!obj) return;
+async function db_delete_object_parts(id) {
+    if (!id) return;
     return P.all([
-        MDStore.instance().db_delete_parts_of_object(obj),
-        MDStore.instance().db_delete_multiparts_of_object(obj)
+        MDStore.instance().db_delete_parts_of_object(id),
+        MDStore.instance().db_delete_multiparts_of_object(id)
     ]);
 }
 

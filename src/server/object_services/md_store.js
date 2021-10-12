@@ -743,19 +743,6 @@ class MDStore {
         return Boolean(obj);
     }
 
-    async all_buckets_with_completed_objects() {
-        return this._objects.distinct('bucket', {
-            // prefix for stored blob blocks information. TODO: move somwhere like config.js
-            key: { $not: /^\.noobaa_blob_blocks/ },
-            // partialFilterExpression:
-            deleted: null,
-            upload_started: null,
-        }, {
-            hint: 'version_seq_index',
-            sort: { bucket: 1 }
-        });
-    }
-
     async count_objects_of_bucket(bucket_id) {
         return this._objects.countDocuments({
             bucket: bucket_id,
@@ -964,12 +951,12 @@ class MDStore {
         });
     }
 
-    async db_delete_multiparts_of_object(obj) {
+    async db_delete_multiparts_of_object(id) {
         const res = await this._multiparts.deleteMany({
-            obj: { $eq: obj._id, $exists: true },
+            obj: { $eq: id, $exists: true },
             deleted: { $exists: true }
         });
-        dbg.warn(`Removed ${res.result.n} multiparts of object ${obj} from DB`);
+        dbg.warn(`Removed ${res.result.n} multiparts of object ${id} from DB`);
     }
 
     has_any_objects_for_bucket_including_deleted(bucket_id) {
@@ -1211,12 +1198,12 @@ class MDStore {
         });
     }
 
-    async db_delete_parts_of_object(obj) {
+    async db_delete_parts_of_object(id) {
         const res = await this._parts.deleteMany({
-            obj: { $eq: obj._id, $exists: true },
+            obj: { $eq: id, $exists: true },
             deleted: { $exists: true }
         });
-        dbg.warn(`Removed ${res.result.n} parts of object ${obj} from DB`);
+        dbg.warn(`Removed ${res.result.n} parts of object ${id} from DB`);
     }
 
 

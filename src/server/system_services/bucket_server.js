@@ -1861,10 +1861,6 @@ function can_delete_bucket(bucket) {
         });
 }
 
-async function list_undeletable_buckets() {
-    return MDStore.instance().all_buckets_with_completed_objects();
-}
-
 async function get_object_lock_configuration(req) {
     const bucket = find_bucket(req);
     dbg.log0('get object lock configuration of bucket', req.rpc_params);
@@ -2017,7 +2013,6 @@ function normalize_replication(req) {
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
-exports.list_undeletable_buckets = list_undeletable_buckets;
 //Bucket Management
 exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;

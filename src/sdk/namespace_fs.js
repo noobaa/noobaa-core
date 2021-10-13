@@ -355,6 +355,16 @@ class NamespaceFS {
                         make_named_dirent(marker_curr),
                         get_entry_name
                     );
+                    // handling a scenario in which key_marker points to an object inside a directory
+                    // since there can be entries inside the directory that will need to be pushed
+                    // to results array
+                    if (marker_index) {
+                        const dir_before_marker_index = path.join(sorted_entries[marker_index - 1].name, '/');
+                        if (marker_curr.startsWith(dir_before_marker_index) && marker_curr !== dir_before_marker_index) {
+                            await process_dir(path.join(dir_key, dir_before_marker_index));
+
+                        }
+                    }
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
                         await process_entry(ent);

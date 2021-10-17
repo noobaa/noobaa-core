@@ -384,16 +384,18 @@ function update_account_s3_access(req) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }
 
-        if (req.rpc_params.nsfs_account_config && _.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
-            _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path &&
-            _.isUndefined(req.rpc_params.nsfs_account_config.nsfs_only)) {
-            throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
-        }
+        if (req.rpc_params.nsfs_account_config) {
+            if (_.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
+                _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path &&
+                _.isUndefined(req.rpc_params.nsfs_account_config.nsfs_only)) {
+                throw new RpcError('FORBIDDEN', 'Invalid nsfs_account_config');
+            }
 
-        update.nsfs_account_config = req.rpc_params.nsfs_account_config && {
-            ...account.nsfs_account_config,
-            ...req.rpc_params.nsfs_account_config
-        };
+            update.nsfs_account_config = {
+                ...account.nsfs_account_config,
+                ...req.rpc_params.nsfs_account_config
+            };
+        }
     } else {
         update.$unset = {
             allowed_buckets: true,

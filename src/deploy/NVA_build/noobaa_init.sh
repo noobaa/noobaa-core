@@ -180,6 +180,12 @@ prepare_postgres_pv() {
 init_endpoint() {
   fix_non_root_user
 
+  # nsfs folder is a root folder of mount points to backing storages.
+  # In oder to avoid access denied of sub folders, configure nsfs with full permisions (777)  
+  if [ -d "/nsfs" ];then
+    chmod 777 /nsfs
+  fi
+
   cd /root/node_modules/noobaa-core/
   run_internal_process node ./src/s3/s3rver_starter.js
 }

@@ -359,14 +359,21 @@ class NamespaceFS {
                     // since there can be entries inside the directory that will need to be pushed
                     // to results array
                     if (marker_index) {
-                        const dir_before_marker_index = path.join(sorted_entries[marker_index - 1].name, '/');
-                        if (marker_curr.startsWith(dir_before_marker_index) && marker_curr !== dir_before_marker_index) {
-                            await process_dir(path.join(dir_key, dir_before_marker_index));
-
+                        const prev_dir = sorted_entries[marker_index - 1];
+                        const prev_dir_name = path.join(prev_dir.name, '/');
+                        if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
+                            if (!delimiter && isDirectory(prev_dir)) {
+                                await process_dir(path.join(dir_key, prev_dir_name));
+                            }
                         }
                     }
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
+                        // when entry is NSFS_FOLDER_OBJECT_NAME=.folder file, 
+                        // and the dir key marker is the name of the curr directory - skip on adding it
+                        if (ent.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) {
+                            continue;
+                        }
                         await process_entry(ent);
                         // since we traverse entries in sorted order,
                         // we can break as soon as enough keys are collected.

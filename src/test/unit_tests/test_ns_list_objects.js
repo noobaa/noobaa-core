@@ -14,6 +14,8 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
     const files_in_folders_to_upload = make_keys(264, i => `folder1/file${i}`);
     const files_in_utf_diff_delimiter = make_keys(264, i => `תיקיה#קובץ${i}`);
     const max_keys_objects = make_keys(2604, i => `max_keys_test${i}`);
+    const files_in_inner_folders_to_upload_post = make_keys(264, i => `folder1/inner_folder/file${i}`);
+    const files_in_inner_folders_to_upload_pre = make_keys(264, i => `folder1/ainner_folder/file${i}`);
     // const files_in_multipart_folders_to_upload = make_keys(264, i => `multipart/file${i}`);
     // const same_multipart_file1 = make_keys(10, i => `multipart1`);
     // const same_multipart_file2 = make_keys(10, i => `multipart3`);
@@ -179,6 +181,124 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
                 ...files_without_folders_to_upload,
                 ...files_in_utf_diff_delimiter,
             ].sort());
+
+        });
+
+    });
+
+    mocha.describe('list objects - dirs', function() {
+
+        this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this
+
+        mocha.before(async function() {
+            await create_keys([
+                ...folders_to_upload,
+                ...files_in_folders_to_upload,
+                ...files_without_folders_to_upload,
+                ...files_in_utf_diff_delimiter,
+                ...files_in_inner_folders_to_upload_pre,
+                ...files_in_inner_folders_to_upload_post
+            ]);
+        });
+        mocha.after(async function() {
+            await delete_keys([
+                ...folders_to_upload,
+                ...files_in_folders_to_upload,
+                ...files_without_folders_to_upload,
+                ...files_in_utf_diff_delimiter,
+                ...files_in_inner_folders_to_upload_pre,
+                ...files_in_inner_folders_to_upload_post
+            ]);
+        });
+        mocha.it('key_marker=folder229/', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder229/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd = folders_to_upload.filter(folder => folder > 'folder229/');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd, ...files_in_utf_diff_delimiter]);
+        });
+
+        mocha.it('key_marker=folder1/', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, true);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/');
+            const fd1 = files_in_folders_to_upload;
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...files_in_inner_folders_to_upload_pre,
+                ...fd1, ...files_in_inner_folders_to_upload_post,
+                ...fd, ...files_in_utf_diff_delimiter
+            ].slice(0, 1000));
+        });
+
+        mocha.it('key_marker=folder1/file57', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/file57'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/');
+            const fd1 = files_in_folders_to_upload.filter(folder => folder > 'folder1/file57');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd1, ...files_in_inner_folders_to_upload_post,
+                ...fd, ...files_in_utf_diff_delimiter
+            ]);
+        });
+
+        mocha.it('key_marker=folder1/inner_folder/file40', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/inner_folder/file40'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd1 = files_in_inner_folders_to_upload_post.filter(file => file > 'folder1/inner_folder/file40');
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd1, ...fd, ...files_in_utf_diff_delimiter]);
+        });
+
+        mocha.it('key_marker=folder1/inner_folder/', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/inner_folder/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd1 = files_in_inner_folders_to_upload_post.filter(file => file > 'folder1/inner_folder/');
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/inner_folder/');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd1, ...fd, ...files_in_utf_diff_delimiter]);
+        });
+
+        mocha.it('key_marker=folder1/ainner_folder/', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/ainner_folder/file50'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, true);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/ainner_folder/');
+            const fd2 = files_in_inner_folders_to_upload_pre.filter(file => file > 'folder1/ainner_folder/file50');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd2, ...files_in_folders_to_upload,
+                ...files_in_inner_folders_to_upload_post,
+                ...fd, ...files_in_utf_diff_delimiter
+            ].slice(0, 1000));
+        });
+
+        mocha.it('key_marker=folder1/inner_folder/file40 delimiter=/', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder1/inner_folder/file40',
+                delimiter: '/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            const fd = folders_to_upload.filter(folder => folder > 'folder1/');
+            assert.deepStrictEqual(r.common_prefixes, fd);
+            assert.deepStrictEqual(r.objects.map(it => it.key), files_in_utf_diff_delimiter);
         });
     });
 

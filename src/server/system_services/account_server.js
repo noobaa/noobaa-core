@@ -846,7 +846,7 @@ async function update_external_connection(req) {
 
     let check_failed = false;
     try {
-        const { status } = await _check_external_connection({
+        const { status } = await _check_external_connection_internal({
             name,
             identity,
             secret,
@@ -858,7 +858,7 @@ async function update_external_connection(req) {
         check_failed = status !== 'SUCCESS';
 
     } catch (error) {
-        dbg.error('update_external_connection: _check_external_connection had error', error);
+        dbg.error('update_external_connection: _check_external_connection_internal had error', error);
         check_failed = true;
     }
 
@@ -926,47 +926,21 @@ async function update_external_connection(req) {
     }
 }
 
-function check_external_connection(req) {
+async function check_external_connection(req) {
     dbg.log0('check_external_connection:', req.rpc_params);
-    const { endpoint_type } = req.rpc_params;
     const params = req.rpc_params;
     const account = req.account;
 
     const connection = req.rpc_params.name && _.find(account.sync_credentials_cache, sync_conn =>
         sync_conn.name === req.rpc_params.name);
-    if (connection) {
+    if (connection && !req.rpc_params.ignore_name_already_exist) {
         throw new RpcError('CONNECTION_ALREADY_EXIST', 'Connection name already exists: ' + req.rpc_params.name);
     }
 
-    return P.resolve()
-        .then(() => {
-            switch (endpoint_type) {
-                case 'AZURE': {
-                    return check_azure_connection(params);
-                }
-
-                case 'AWS':
-                case 'S3_COMPATIBLE':
-                case 'FLASHBLADE':
-                case 'IBM_COS': {
-                    return check_aws_connection(params);
-                }
-
-                case 'NET_STORAGE': {
-                    return check_net_storage_connection(params);
-                }
-                case 'GOOGLE': {
-                    return check_google_connection(params);
-                }
-
-                default: {
-                    throw new Error('Unknown endpoint type');
-                }
-            }
-        });
+    return _check_external_connection_internal(params);
 }
 
-async function _check_external_connection(connection) {
+async function _check_external_connection_internal(connection) {
     const { endpoint_type } = connection;
     switch (endpoint_type) {
         case 'AZURE': {

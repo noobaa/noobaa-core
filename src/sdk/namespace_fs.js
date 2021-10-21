@@ -24,8 +24,13 @@ const nb_native = require('../util/nb_native');
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
     timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
     timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT',
+    warning_timeout: config.NSFS_SEM_WARNING_TIMEOUT,
 });
-const buffers_pool = new buffer_utils.BuffersPool(config.NSFS_BUF_SIZE, buffers_pool_sem);
+const buffers_pool = new buffer_utils.BuffersPool({
+    buf_size: config.NSFS_BUF_SIZE,
+    sem: buffers_pool_sem,
+    warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT
+});
 
 const XATTR_USER_PREFIX = 'user.';
 // TODO: In order to verify validity add content_md5_mtime as well
@@ -737,18 +742,17 @@ class NamespaceFS {
         let target_file;
         try {
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
-            const MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
             const chunk_fs = new ChunkFS({
-                MD5Async,
                 target_file,
                 fs_account_config,
                 rpc_client,
                 namespace_resource_id: this.namespace_resource_id
             });
-            await stream_utils.pipeline(source_stream, chunk_fs);
-            if (MD5Async) {
-                fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
+            await stream_utils.pipeline([source_stream, chunk_fs]);
+            await stream_utils.wait_finished(chunk_fs);
+            if (chunk_fs.digest) {
+                fs_xattr = this._assign_md5_to_fs_xattr(chunk_fs.digest, fs_xattr);
             }
             if (fs_xattr) {
                 await target_file.setxattr(fs_account_config, fs_xattr);

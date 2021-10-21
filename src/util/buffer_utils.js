@@ -176,10 +176,11 @@ function write_to_stream(writable, buf) {
 
 class BuffersPool {
 
-    constructor(buf_size, sem) {
+    constructor({ buf_size, sem, warning_timeout }) {
         this.buf_size = buf_size;
         this.buffers = [];
         this.sem = sem;
+        this.warning_timeout = warning_timeout;
     }
 
     /**
@@ -194,6 +195,7 @@ class BuffersPool {
         let buffer = null;
         let should_release = 0;
         let should_pool = false;
+        let warning_timer;
         if (len < this.buf_size / 4) {
             await this.sem.wait(len);
             should_release = len;
@@ -207,7 +209,15 @@ class BuffersPool {
             should_pool = true;
             buffer = Buffer.allocUnsafeSlow(this.buf_size);
         }
+        if (this.warning_timeout) {
+            const err = new Error('Warning stuck buffer_pool buffer');
+            warning_timer = setTimeout(() => {
+                console.error(err.stack);
+            }, this.warning_timeout);
+            warning_timer.unref();
+        }
         const callback = () => {
+            if (warning_timer) clearTimeout(warning_timer);
             if (should_release) {
                 this.sem.release(should_release);
                 should_release = 0;

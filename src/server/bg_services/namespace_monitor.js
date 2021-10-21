@@ -68,6 +68,7 @@ class NamespaceMonitor {
                 } else {
                     dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
                 }
+                await this.update_last_monitoring(nsr._id, nsr.name);
             } catch (err) {
                 await this.run_update_issues_report(err, nsr);
                 dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has error as expected`);
@@ -89,6 +90,20 @@ class NamespaceMonitor {
                 account_id: system_store.data.systems[0].owner._id,
                 role: 'admin'
             })
+        });
+    }
+
+    async update_last_monitoring(nsr_id, nsr_name) {
+        dbg.log0(`update_last_monitoring: monitoring for ${nsr_name}, ${nsr_id} finished successfully..`);
+        await system_store.make_changes({
+            update: {
+                namespace_resources: [{
+                    _id: nsr_id,
+                    $set: {
+                        last_monitoring: Date.now()
+                    }
+                }]
+            }
         });
     }
 

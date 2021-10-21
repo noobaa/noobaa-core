@@ -4,6 +4,7 @@
 const util = require('util');
 const stream = require('stream');
 const events = require('events');
+const _ = require('lodash');
 
 
 /**
@@ -28,7 +29,22 @@ function get_tap_stream(func) {
 
 }
 
-const pipeline = util.promisify(stream.pipeline);
+const async_pipeline = util.promisify(stream.pipeline);
+async function pipeline(streams) {
+    if (!streams || !streams.length) throw new Error('Pipeline called without streams');
+    if (streams.find(strm => strm.destroyed)) {
+        const err = new Error('Pipeline called on destroyed stream');
+        for (const strm of streams) {
+            if (!strm.destroyed) strm.destroy(err);
+        }
+        throw err;
+    }
+    // When we wait for finish on the last transform of the pipeline we are in a deadlock and the waiting for finishing never resolves.
+    // Added a tap stream at the end just to make sure that we advance.
+    // TODO: Need to examine more elegant solutions
+    streams.push(get_tap_stream(_.noop));
+    return async_pipeline(streams);
+}
 
 exports.wait_drain = wait_drain;
 exports.wait_finished = wait_finished;

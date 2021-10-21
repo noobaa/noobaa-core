@@ -29,6 +29,9 @@ class Semaphore {
                 this._work_timeout = params.work_timeout;
                 this._work_timeout_error_code = params.work_timeout_error_code || 'SEMAPHORE_WORKER_TIMEOUT';
             }
+            if (params.warning_timeout) {
+                this._warning_timeout = params.warning_timeout;
+            }
         }
     }
 
@@ -48,11 +51,18 @@ class Semaphore {
      * @returns {Promise<T>}
      */
     async surround(func) {
+        let warning_timer;
         await this.wait();
         try {
+            if (this._warning_timeout) {
+                // Capture the stack trace of the caller before registering the timer to identify the code that called it
+                const err = new Error('Warning stuck surround item');
+                warning_timer = setTimeout(() => console.error(err.stack), this._warning_timeout).unref();
+            }
             // May lead to unaccounted work in the background on timeout
             return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();
         } finally {
+            if (warning_timer) clearTimeout(warning_timer);
             // Release should be called only when the wait was successful
             // If the item did not take any "resources"/value from the semaphore
             // Then we should not release it because it will just increase our semaphore value
@@ -68,11 +78,18 @@ class Semaphore {
      * @returns {Promise<T>}
      */
     async surround_count(count, func) {
+        let warning_timer;
         await this.wait(count);
         try {
+            if (this._warning_timeout) {
+                // Capture the stack trace of the caller before registering the timer to identify the code that called it
+                const err = new Error('Warning stuck surround_count item');
+                warning_timer = setTimeout(() => console.error(err.stack), this._warning_timeout).unref();
+            }
             // May lead to unaccounted work in the background on timeout
             return this._work_timeout ? Promise.race([func(), this._work_cap()]) : await func();
         } finally {
+            if (warning_timer) clearTimeout(warning_timer);
             // Release should be called only when the wait was successful
             // If the item did not take any "resources"/value from the semaphore
             // Then we should not release it because it will just increase our semaphore value

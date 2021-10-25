@@ -4,6 +4,7 @@
 const stream = require('stream');
 const config = require('../../config');
 const stats_collector = require('../../src/sdk/endpoint_stats_collector');
+const nb_native = require('./nb_native');
 
 /**
  *
@@ -14,11 +15,11 @@ const stats_collector = require('../../src/sdk/endpoint_stats_collector');
  */
 class ChunkFS extends stream.Transform {
 
-    constructor({ MD5Async, target_file, fs_account_config, rpc_client, namespace_resource_id }) {
+    constructor({ target_file, fs_account_config, rpc_client, namespace_resource_id }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
-        this.MD5Async = MD5Async;
+        this.MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
         this.target_file = target_file;
         this.fs_account_config = fs_account_config;
         this.count = 1;
@@ -30,7 +31,7 @@ class ChunkFS extends stream.Transform {
         try {
             this._process_chunk(chunk, callback);
         } catch (error) {
-            callback(error);
+            return callback(error);
         }
     }
 
@@ -38,7 +39,7 @@ class ChunkFS extends stream.Transform {
         try {
             this._flush_buffers(callback);
         } catch (error) {
-            callback(error);
+            return callback(error);
         }
     }
 
@@ -48,7 +49,10 @@ class ChunkFS extends stream.Transform {
             this.q_buffers = [];
             this.q_size = 0;
         }
-        if (callback) callback();
+        if (callback) {
+            if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');
+            return callback();
+        }
     }
 
     async _process_chunk(data, callback) {
@@ -67,7 +71,7 @@ class ChunkFS extends stream.Transform {
             if (this.q_size === config.NSFS_BUF_SIZE) await this._flush_buffers();
             data = (available_size < data.length) ? data.slice(available_size) : null;
         }
-        callback();
+        return callback();
     }
 }
 

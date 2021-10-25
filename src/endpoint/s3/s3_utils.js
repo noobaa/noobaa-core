@@ -11,7 +11,7 @@ const endpoint_utils = require('../endpoint_utils');
 const crypto = require('crypto');
 const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
-const stream = require('stream');
+const stream_utils = require('../../util/stream_utils');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
 
@@ -107,9 +107,11 @@ function decode_chunked_upload(source_stream) {
     const decoder = new ChunkedContentDecoder();
     // pipeline will back-propagate errors from the decoder to stop streaming from the source,
     // so the error callback here is only needed for logging.
-    stream.pipeline(source_stream, decoder, err => {
-        if (err) console.log('decode_chunked_upload: pipeline error', err.stack || err);
-    });
+    // Previously were implemented using callback with error
+    // Latest implementation of pipeline is async so chaining .catch would behave the same way as callback errors
+    // We are not waiting for the pipeline to end like previously
+    stream_utils.pipeline([source_stream, decoder])
+        .catch(err => console.warn('decode_chunked_upload: pipeline error', err.stack || err));
     return decoder;
 }
 

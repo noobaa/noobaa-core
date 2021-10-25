@@ -576,6 +576,9 @@ config.NSFS_WARN_THRESHOLD_MS = 100;
 
 config.NSFS_CALCULATE_MD5 = true;
 
+config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
+config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

@@ -12,7 +12,6 @@ const fs = require('fs');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const pkg = require('../../../package.json');
 const Histogram = require('../../util/histogram');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -28,8 +27,6 @@ const fs_utils = require('../../util/fs_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const prom_reporting = require('../analytic_services/prometheus_reporting');
 const { HistoryDataStore } = require('../analytic_services/history_data_store');
-const { google } = require('googleapis');
-const google_storage = google.storage('v1');
 const addr_utils = require('../../util/addr_utils');
 const system_utils = require('../utils/system_utils');
 
@@ -1184,8 +1181,6 @@ async function _perform_full_cycle() {
     const system = system_store.data.systems[0];
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
 
-    await _notify_latest_version();
-
     const payload = await server_rpc.client.stats.get_all_stats({}, {
         auth_token: auth_server.make_auth_token({
             system_id: system._id,
@@ -1226,79 +1221,6 @@ async function _perform_partial_cycle() {
             account_id: support_account._id
         })
     });
-}
-
-async function _notify_latest_version() {
-    try {
-        const results = await google_storage.objects.list({
-            bucket: 'noobaa-fe-assets',
-            prefix: 'release-notes/',
-            delimiter: '/',
-        });
-
-        const items = results.data.items;
-        const [current_major, current_minor, current_patch] = pkg.version.split('-')[0].split('.').map(str => Number(str));
-        const current_val = (current_major * 10000) + (current_minor * 100) + current_patch;
-        const un_sorted_files = _.compact(items.map(fl => fl.name
-            .replace('release-notes/', '')
-            .replace('.txt', '')));
-        const files = un_sorted_files.sort((a, b) => {
-            const [a_major, a_minor, a_patch] = a.split('-')[0].split('.').map(str => Number(str));
-            const [b_major, b_minor, b_patch] = b.split('-')[0].split('.').map(str => Number(str));
-            const a_val = (a_major * 10000) + (a_minor * 100) + a_patch;
-            const b_val = (b_major * 10000) + (b_minor * 100) + b_patch;
-            if (a_val < b_val) return -1;
-            if (a_val > b_val) return 1;
-            return 0;
-        });
-
-        dbg.log0('_notify_latest_version gcloud response:', files);
-
-        const same_major_latest = _.last(
-            _.filter(files, ver => {
-                const major = Number(ver.split('-')[0].split('.')[0]);
-                return Boolean(major === current_major);
-            })
-        );
-        const latest_version = _.last(files);
-
-        dbg.log0('_notify_latest_version latest_version:', latest_version, ' same_major_latest:', same_major_latest, ' current_val:', current_val);
-
-        let latest_version_val;
-        let same_major_latest_val;
-        if (latest_version) {
-            const [major, minor, patch] = latest_version.split('-')[0].split('.').map(str => Number(str));
-            latest_version_val = (major * 10000) + (minor * 100) + patch;
-        }
-        if (same_major_latest) {
-            const [major, minor, patch] = same_major_latest.split('-')[0].split('.').map(str => Number(str));
-            same_major_latest_val = (major * 10000) + (minor * 100) + patch;
-        }
-
-        const is_same_major_latest_alpha = same_major_latest &&
-            same_major_latest.split('-').length > 1 &&
-            same_major_latest.split('-')[1] === 'alpha';
-        const is_latest_version_alpha = latest_version.split('-').length > 1 && latest_version.split('-')[1] === 'alpha';
-
-        if (!is_same_major_latest_alpha && same_major_latest && current_val < same_major_latest_val) {
-            Dispatcher.instance().alert('INFO',
-                system_store.data.systems[0]._id,
-                `A newer version of NooBaa, ${same_major_latest}, is now available, check your inbox for details or send us a download request to support@noobaa.com`,
-                Dispatcher.rules.once_weekly);
-        }
-        if (!is_latest_version_alpha && (
-                (same_major_latest &&
-                    same_major_latest_val < latest_version_val) ||
-                (!same_major_latest &&
-                    current_val < latest_version_val))) {
-            Dispatcher.instance().alert('INFO',
-                system_store.data.systems[0]._id,
-                `A new NooBaa platform version is now available, for migrating to the new platform please contact support at support@noobaa.com`,
-                Dispatcher.rules.once_weekly);
-        }
-    } catch (err) {
-        dbg.error('_notify_latest_version had error', err);
-    }
 }
 
 // EXPORTS

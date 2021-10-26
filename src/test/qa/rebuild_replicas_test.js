@@ -267,12 +267,8 @@ async function main() {
         await test_utils.create_hosts_pool(client, POOL_NAME, 3);
         //Create a dataset on it (1/4 GB per agent)
         await uploadAndVerifyFiles(agents_number);
-        // for (let cycle = 0; cycle < iterations_number; ++cycle) {
-        //     console.log(`starting cycle number: ${cycle}`);
         await stopAgentAndCheckRebuildReplicas();
         throw new Error(`need to think about the stop start agents when testing in kubernetes`);
-        // await agent_functions.startOfflineAgents(azf, mgmt_ip, mgmt_port_https, stopped_oses);
-        // }
     } catch (err) {
         console.error('something went wrong :(' + err + errors);
         console.error(':( :( Errors during rebuild replicas parts test (replicas) ): ):' + errors);

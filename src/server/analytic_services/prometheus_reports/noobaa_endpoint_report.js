@@ -10,7 +10,7 @@ const js_utils = require('../../../util/js_utils');
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
 
-const NOBBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
+const NOOBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
         type: 'Counter',
         name: 'hub_read_bytes',
         configuration: {
@@ -170,7 +170,7 @@ class NooBaaEndpointReport extends BasePrometheusReport {
 
         if (this.enabled) {
             this._metrics = {};
-            for (const m of NOBBAA_ENDPOINT_METRICS) {
+            for (const m of NOOBAA_ENDPOINT_METRICS) {
                 this._metrics[m.name] = {
                     type: m.type,
                     prom_instance: new this.prom_client[m.type]({
@@ -187,17 +187,17 @@ class NooBaaEndpointReport extends BasePrometheusReport {
     inc(name, labels, value) {
         if (!this._metrics) return;
         const metric = this._metrics[name];
-        if (!metric) throw new Error(`Unknow metric ${name}`);
+        if (!metric) throw new Error(`Unknown metric ${name}`);
         if (metric.type !== 'Counter') throw new Error(`Metric ${name} is not Counter`);
         metric.prom_instance.inc(labels, value);
     }
 
-    // Update historgram metric
+    // Update histogram metric
     observe(name, labels, value) {
         if (!this._metrics) return;
         const metric = this._metrics[name];
-        if (!metric) throw new Error(`Unknow metric ${name}`);
-        if (metric.type !== 'Histogram') throw new Error(`Metric ${name} is not Historgram`);
+        if (!metric) throw new Error(`Unknown metric ${name}`);
+        if (metric.type !== 'Histogram') throw new Error(`Metric ${name} is not Histogram`);
         metric.prom_instance.observe(labels, value);
     }
 

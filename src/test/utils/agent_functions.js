@@ -5,7 +5,6 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const api = require('../../api');
 const crypto = require('crypto');
-const ssh_functions = require('./ssh_functions');
 
 // Environment Setup
 const shasum = crypto.createHash('sha1');
@@ -238,41 +237,6 @@ class AgentFunctions {
         return false;
     }
 
-    async startOfflineAgents(azf, mgmt_ip, mgmt_port_https, oses) {
-        throw new Error('DEPRECATED - this flow is not relevant anymore');
-        // let listNodes = await this.list_nodes(mgmt_ip, mgmt_port_https);
-        // const agentsExpected = listNodes.length + oses.length;
-        // for (const agent of oses) {
-        //     await start_agent(azf, agent);
-        // }
-        // await waitForAgentsAmount(mgmt_ip, mgmt_port_https, agentsExpected);
-        // listNodes = await this.list_nodes(mgmt_ip, mgmt_port_https);
-        // const onlineAgentsOn = listNodes.length;
-        // if (onlineAgentsOn === agentsExpected) {
-        //     console.log(`Number of online agents is ${onlineAgentsOn} - as expected`);
-        // } else {
-        //     console.error(`We expected ${agentsExpected} online agents and got ${onlineAgentsOn}`);
-        // }
-    }
-    /*
-     * Write or remove fake local disk usage from an agent (or a server)
-     * if sizeMB is supplied, will allocate a local file equal to that size
-     * Otherwise will delete the previously allocated local file
-     */
-    async manipulateLocalDisk(params) {
-        const ssh_client = await ssh_functions.ssh_connect({
-            host: params.ip,
-            username: 'noobaaroot',
-            password: params.secret,
-            keepaliveInterval: 5000,
-        });
-        if (params.sizeMB) {
-            await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "fallocate -l ${params.sizeMB}M /tmp/manipulateLocalDisk.dat"`);
-        } else {
-            await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "rm -f /tmp/manipulateLocalDisk.dat"`);
-        }
-        await ssh_functions.ssh_exec(ssh_client, `sudo bash -c "sync"`);
-    }
 }
 
 exports.AgentFunctions = AgentFunctions;

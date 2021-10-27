@@ -1485,10 +1485,10 @@ function get_bucket_info({
     const last_update = Math.max(system_last_update, bucket_last_update);
     const info = {
         name: bucket.name,
-        owner_account: {
+        owner_account: bucket.owner_account && bucket.owner_account.email ? {
             email: bucket.owner_account.email,
             id: bucket.owner_account._id,
-        },
+        } : undefined,
         namespace: bucket.namespace ? {
             write_resource: {
                 resource: pool_server.get_namespace_resource_info(bucket.namespace.write_resource.resource).name,

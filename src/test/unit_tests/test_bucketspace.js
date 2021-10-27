@@ -716,7 +716,8 @@ mocha.describe('nsfs account configurations', function() {
     const tmp_fs_root1 = '/tmp/test_bucket_namespace_fs2';
     const bucket_path = '/nsfs_accounts';
     const accounts = {}; // {account_name : s3_account_object...}
-    const regular_bucket_name = 'regular-bucket';
+    const regular_bucket_name = ['regular-bucket', 'regular-bucket1', 'regular-bucket2'];
+    const regular_bucket_fail = ['regular-bucket-fail', 'regular-bucket-fail1', 'regular-bucket-fail2'];
     const data_bucket = 'data-bucket';
     let s3_creds = {
         s3ForcePathStyle: true,
@@ -819,17 +820,36 @@ mocha.describe('nsfs account configurations', function() {
     // default pool
     mocha.it('s3 put bucket allowed non nsfs buckets - default pool', async function() {
         const s3_account = accounts.account1;
-        await s3_account.createBucket({ Bucket: regular_bucket_name }).promise();
+        await s3_account.createBucket({ Bucket: regular_bucket_name[0] }).promise();
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name], [], res.Buckets);
+        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]], [], res.Buckets);
+        assert.ok(list_ok);
+    });
+
+    // default nsr - nsfs 
+    mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
+        const s3_account = accounts.account3;
+        await s3_account.createBucket({ Bucket: regular_bucket_name[1] }).promise();
+        const res = await s3_account.listBuckets().promise();
+        console.log(inspect(res));
+        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]], [], res.Buckets);
+        assert.ok(list_ok);
+    });
+
+    mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - nsfs', async function() {
+        const s3_account = accounts.account_nsfs_only3;
+        await s3_account.createBucket({ Bucket: regular_bucket_name[2] }).promise();
+        const res = await s3_account.listBuckets().promise();
+        console.log(inspect(res));
+        const list_ok = bucket_in_list([bucket_name1, regular_bucket_name[2]], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
     });
 
     mocha.it('s3 put bucket not allowed non nsfs buckets - default pool', async function() {
         try {
             const s3_account = accounts.account_nsfs_only1;
-            await s3_account.createBucket({ Bucket: 'regular-bucket1' }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[0] }).promise();
             assert.fail('account should not be allowed to create bucket');
         } catch (err) {
             assert.ok(err.code === 'AccessDenied');
@@ -838,10 +858,9 @@ mocha.describe('nsfs account configurations', function() {
 
     // default nsr - s3 compatible
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - s3 compatible', async function() {
-        const regular_bucket_name2 = 'regular-bucket2';
         try {
             const s3_account = accounts.account2;
-            await s3_account.createBucket({ Bucket: regular_bucket_name2 }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[1] }).promise();
         } catch (err) {
             // create uls in namespace s3 compatible is not implement yet - but the error is not access denied
             assert.ok(err.code === 'InternalError');
@@ -851,33 +870,13 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - s3 compatible', async function() {
         try {
             const s3_account = accounts.account_nsfs_only2;
-            await s3_account.createBucket({ Bucket: 'regular-bucket3' }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[2] }).promise();
             assert.fail('account should not be allowed to create bucket');
         } catch (err) {
             assert.ok(err.code === 'AccessDenied');
         }
     });
 
-    // default nsr - nsfs 
-    mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
-        const regular_bucket_name4 = 'regular-bucket4';
-        const s3_account = accounts.account3;
-        await s3_account.createBucket({ Bucket: regular_bucket_name4 }).promise();
-        const res = await s3_account.listBuckets().promise();
-        console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name4], [], res.Buckets);
-        assert.ok(list_ok);
-    });
-
-    mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - nsfs', async function() {
-        const regular_bucket_name5 = 'regular-bucket5';
-        const s3_account = accounts.account_nsfs_only3;
-        await s3_account.createBucket({ Bucket: regular_bucket_name5 }).promise();
-        const res = await s3_account.listBuckets().promise();
-        console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name1, regular_bucket_name5], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
-        assert.ok(list_ok);
-    });
 
     ///////////////////
     // list buckets  //
@@ -907,7 +906,7 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 object bucket using nsfs_only=false account - regular-bucket', async function() {
         const s3_account = accounts.account1;
         await put_and_delete_objects(s3_account,
-            regular_bucket_name,
+            regular_bucket_name[0],
             'allowed_key',
             create_random_body()
         );
@@ -958,6 +957,13 @@ mocha.describe('nsfs account configurations', function() {
             'allowed_key-nsfs2',
             create_random_body()
         );
+    });
+
+
+    mocha.it('delete buckets', async function() {
+        for (const bucket of regular_bucket_name) {
+            await rpc_client.bucket.delete_bucket({ name: bucket });
+        }
     });
 
     ////////////////////////

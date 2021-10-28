@@ -3,7 +3,6 @@
 
 const WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
 
-// const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const http_utils = require('../util/http_utils');
 const RpcBaseConnection = require('./rpc_base_conn');

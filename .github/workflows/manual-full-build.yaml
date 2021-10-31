@@ -38,10 +38,12 @@ jobs:
           BASE_TAGS="${DOCKER_BASE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix }}"
           BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix }}"
           CORE_TAGS="${DOCKER_CORE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix }}"
+          CORE_OCS_DEV_TAG="ocs-dev/noobaa-core:${{ github.event.inputs.branch }}-latest"
           echo "::warning ${CORE_TAGS}"
           echo ::set-output name=basetags::${BASE_TAGS}
           echo ::set-output name=buildertags::${BUILDER_TAGS}
           echo ::set-output name=coretags::${CORE_TAGS}
+          echo ::set-output name=ocsdevlatest::${CORE_OCS_DEV_TAG}
 
       - name: Login to DockerHub Registry
         run: echo ${{ secrets.GHACTIONSDOCKERHUB }} | docker login -u ${{ secrets.GHACTIONSDOCKERHUBNAME }} --password-stdin
@@ -67,6 +69,14 @@ jobs:
         run: |
             docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.coretags }}
             docker push quay.io/${{ steps.prep.outputs.coretags }}
+
+      - name: Push to ocs-dev as latest
+        env:
+          DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
+        run: |
+          docker login -u="${{ secrets.OCSDEVCIUSER }}" -p="${{ secrets.OCSDEVCITOKEN }}" quay.io
+          docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.ocsdevlatest }} 
+          docker push quay.io/${{ steps.prep.outputs.ocsdevlatest }}
 
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

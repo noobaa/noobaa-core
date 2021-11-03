@@ -641,7 +641,7 @@ class NamespaceFS {
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-            await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
+            if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
@@ -706,7 +706,7 @@ class NamespaceFS {
             //Closing the source_file and target files
             await source_file.close(fs_account_config);
             source_file = null;
-            await target_file.fsync(fs_account_config);
+            if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_account_config);
             await target_file.close(fs_account_config);
             target_file = null;
             // Used for etag
@@ -757,7 +757,7 @@ class NamespaceFS {
             if (fs_xattr) {
                 await target_file.setxattr(fs_account_config, fs_xattr);
             }
-            await target_file.fsync(fs_account_config);
+            if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_account_config);
             // Used for etag
             return fs_xattr;
         } catch (error) {
@@ -910,7 +910,7 @@ class NamespaceFS {
             if (fs_xattr) {
                 await write_file.setxattr(fs_account_config, fs_xattr);
             }
-            await write_file.fsync(fs_account_config);
+            if (config.NSFS_TRIGGER_FSYNC) await write_file.fsync(fs_account_config);
             const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);
             write_file = null;
@@ -1199,7 +1199,7 @@ class NamespaceFS {
                 if (!ERR_CODES.includes(err.code)) throw err;
             }
         }
-        await nb_native().fs.fsync(fs_account_config, dir_path);
+        if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_account_config, dir_path);
     }
 
     async _delete_path_dirs(file_path, fs_account_config) {

@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-// let P = require('../util/promise');
-let url = require('url');
-let EventEmitter = require('events').EventEmitter;
-let RpcWsConnection = require('./rpc_ws');
-let dbg = require('../util/debug_module')(__filename);
-let WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
+const url = require('url');
+const EventEmitter = require('events').EventEmitter;
+const RpcWsConnection = require('./rpc_ws');
+const dbg = require('../util/debug_module')(__filename);
+const WS = global.WebSocket || require('ws'); // eslint-disable-line global-require
 
 
 /**
@@ -20,7 +18,7 @@ class RpcWsServer extends EventEmitter {
     constructor(http_server) {
         super();
 
-        let ws_server = new WS.Server({
+        const ws_server = new WS.Server({
             server: http_server,
             perMessageDeflate: false,
         });
@@ -37,7 +35,7 @@ class RpcWsServer extends EventEmitter {
                     hostname: ws._socket.remoteAddress,
                     port: ws._socket.remotePort
                 });
-                let addr_url = url.parse(address);
+                const addr_url = url.parse(address);
                 conn = new RpcWsConnection(addr_url);
                 dbg.log0('WS ACCEPT CONNECTION', conn.connid);
                 conn._init(ws);

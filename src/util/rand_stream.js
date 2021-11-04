@@ -3,7 +3,6 @@
 
 let stream = require('stream');
 let crypto = require('crypto');
-let chance = require('chance')();
 
 /**
  *
@@ -21,6 +20,15 @@ let chance = require('chance')();
  */
 class RandStream extends stream.Readable {
 
+    /**
+     * 
+     * @param {number} max_length when to stop generating random bytes
+     * @param {{
+     *      highWaterMark?: number;
+     *      generator?: 'crypto' | 'cipher' | 'fake' | 'zeros' | 'fill' | 'noinit';
+     *      cipher_seed?: Buffer;
+     *  }?} options 
+     */
     constructor(max_length, options) {
         super(options);
         this.max_length = max_length;
@@ -29,6 +37,17 @@ class RandStream extends stream.Readable {
         this.cipher_seed = options && options.cipher_seed;
         this.pos = 0;
         this.ticks = 0;
+    }
+
+    /**
+     * generate_crypto:
+     *
+     * crypto.randomBytes() used to be slow ~50 MB/sec - BUT it is no longer so...
+     * 
+     * The speed of this mode is ~2000 MB/sec.
+     */
+    generate_crypto(size) {
+        return crypto.randomBytes(size);
     }
 
     /**
@@ -45,7 +64,7 @@ class RandStream extends stream.Readable {
      * GCM is limited to encrypting (2^39−256) bits of plain text (64 GiB)"
      * This is why we need to recreate the cipher after some bytes.
      *
-     * The speed of this mode is ~1000 MB/sec.
+     * The speed of this mode is ~2500 MB/sec.
      *
      */
     generate_cipher(size) {
@@ -87,7 +106,7 @@ class RandStream extends stream.Readable {
      * The overall expected speed can be calculated by:
      * speed = fake_factor * speed(crypto.randomBytes)
      *
-     * The speed of this mode is ~3000 MB/sec (with fake_factor=64)
+     * The speed of this mode is ~4500 MB/sec (with fake_factor=64)
      *
      */
     generate_fake(size) {
@@ -107,26 +126,39 @@ class RandStream extends stream.Readable {
             this.fake_limit = this.fake_factor * this.fake_buf_size;
             this.fake_buf = crypto.randomBytes(this.fake_buf_size);
         }
-        const offset = chance.integer(this.fake_offset_range);
+        const offset = crypto.randomInt(0, this.fake_buf_size - this.fake_slice);
         const buf = this.fake_buf.slice(offset, offset + this.fake_slice);
         this.fake_bytes += buf.length;
         return buf;
     }
 
     /**
-     * generate_crypto:
-     *
-     * crypto.randomBytes() is slow ~50 MB/sec. use at your own time.
+     * generate_zeros:
+     * 
+     * The speed of this mode is ~7000 MB/sec.
      */
-    generate_crypto(size) {
-        return crypto.randomBytes(size);
-    }
-
     generate_zeros(size) {
         return Buffer.alloc(size);
     }
 
-    generate_alloc(size) {
+    /**
+     * generate_fill:
+     * 
+     * The speed of this mode is ~7000 MB/sec.
+     */
+    generate_fill(size) {
+        return Buffer.alloc(size, crypto.randomInt(0, 256));
+    }
+
+    /**
+     * generate_noinit:
+     * 
+     * Just allocates memory, no initialization.
+     * Do not use if your process memory might contain sensitive data.
+     * 
+     * The speed of this mode is ~100,000 MB/sec.
+     */
+    generate_noinit(size) {
         return Buffer.allocUnsafe(size);
     }
 

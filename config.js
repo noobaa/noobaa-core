@@ -631,7 +631,7 @@ function load_config_env_overrides() {
                     config[conf_name] = true;
                 } else if (val === 'false') {
                     console.log(`Overriding config.js from ENV with ${conf_name}=false (bool)`);
-                    config[conf_name] = true;
+                    config[conf_name] = false;
                 } else {
                     throw new Error(`${val} should be true|false`);
                 }

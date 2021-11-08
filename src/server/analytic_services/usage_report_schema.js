@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'usage_report_schema',
+    $id: 'usage_report_schema',
     type: 'object',
     required: ['_id', 'system', 'start_time', 'end_time'],
     properties: {

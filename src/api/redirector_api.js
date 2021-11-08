@@ -8,7 +8,7 @@
  */
 module.exports = {
 
-    id: 'redirector_api',
+    $id: 'redirector_api',
 
     methods: {
 

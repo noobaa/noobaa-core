@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'cluster_schema',
+    $id: 'cluster_schema',
     type: 'object',
     required: [
         'owner_secret',

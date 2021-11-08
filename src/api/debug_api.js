@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    id: 'debug_api',
+    $id: 'debug_api',
 
     methods: {
         set_debug_level: {

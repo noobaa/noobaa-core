@@ -346,5 +346,7 @@ module.exports = {
 
         'no-promise-executor-return': 'off',
 
+        //Allow spacing between template tags and their literals
+        'template-tag-spacing': 'off',
     }
 };

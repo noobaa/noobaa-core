@@ -3,7 +3,7 @@
 
 
 const _ = require('lodash');
-const Ajv = require('ajv');
+const { default: Ajv } = require('ajv');
 const util = require('util');
 const assert = require('assert');
 
@@ -11,6 +11,7 @@ const dbg = require('../util/debug_module')(__filename);
 const RpcError = require('./rpc_error');
 const RPC_BUFFERS = require('./rpc_request').RPC_BUFFERS;
 const schema_utils = require('../util/schema_utils');
+const schema_keywords = require('../util/schema_keywords');
 
 const VALID_HTTP_METHODS = {
     GET: 1,
@@ -25,14 +26,18 @@ const VALID_HTTP_METHODS = {
 class RpcSchema {
 
     constructor() {
-        this._ajv = new Ajv({ verbose: true, schemaId: 'auto', allErrors: true });
-        this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
-        this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
+        this._ajv = new Ajv({ verbose: true, allErrors: true });
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.methods);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.doc);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.date);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.idate);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.objectid);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.binary);
         if (global.window === global ||
             (process.argv[1] && process.argv[1].includes('src/test/qa'))) {
-            this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper_check_only);
+            this._ajv.addKeyword(schema_keywords.KEYWORDS.wrapper_check_only);
         } else {
-            this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper);
+            this._ajv.addKeyword(schema_keywords.KEYWORDS.wrapper);
         }
 
         this._client_factory = null;
@@ -51,7 +56,7 @@ class RpcSchema {
      *
      */
     register_api(api) {
-        assert(!this[api.id], 'RPC: api already registered ' + api.id);
+        assert(!this[api.$id], 'RPC: api already registered ' + api.$id);
         assert(!this._compiled, 'RPC: schema is already compiled');
 
         _.each(api.definitions, schema => {
@@ -73,7 +78,7 @@ class RpcSchema {
             dbg.error('register_api: failed compile api schema', api, err.stack || err);
             throw err;
         }
-        this[api.id] = api;
+        this[api.$id] = api;
     }
 
     compile() {
@@ -82,11 +87,11 @@ class RpcSchema {
         }
 
         _.each(this, api => {
-            if (!api || !api.id || api.id[0] === '_') return;
+            if (!api || !api.$id || api.$id[0] === '_') return;
             _.each(api.methods, (method_api, method_name) => {
                 method_api.api = api;
                 method_api.name = method_name;
-                method_api.fullname = api.id + '#/methods/' + method_name;
+                method_api.fullname = api.$id + '#/methods/' + method_name;
                 method_api.method = method_api.method || 'POST';
                 assert(method_api.method in VALID_HTTP_METHODS,
                     'RPC: unexpected http method: ' +
@@ -167,7 +172,7 @@ class RpcSchema {
         };
 
         for (const api of Object.values(this)) {
-            if (!api || !api.id || api.id[0] === '_') {
+            if (!api || !api.$id || api.$id[0] === '_') {
                 continue;
             }
 
@@ -176,7 +181,7 @@ class RpcSchema {
                 continue;
             }
 
-            const name = api.id.replace(/_api$/, '');
+            const name = api.$id.replace(/_api$/, '');
             if (name === 'rpc' || name === 'options') {
                 throw new Error('ILLEGAL API ID');
             }

@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'test_report_schema',
+    $id: 'test_report_schema',
     type: 'object',
     required: [
         'date',

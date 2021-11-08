@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'cluster_internal_api',
+    $id: 'cluster_internal_api',
 
     methods: {
         join_to_cluster: {

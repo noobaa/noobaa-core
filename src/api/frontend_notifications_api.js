@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    id: 'frontend_notifications_api',
+    $id: 'frontend_notifications_api',
 
     methods: {
         alert: {

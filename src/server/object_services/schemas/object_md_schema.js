@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'object_md_schema',
+    $id: 'object_md_schema',
     type: 'object',
     required: [
         '_id',

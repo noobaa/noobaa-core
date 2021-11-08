@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'data_block_schema',
+    $id: 'data_block_schema',
     type: 'object',
     required: [
         '_id',

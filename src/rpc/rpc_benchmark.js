@@ -75,7 +75,7 @@ dbg.set_module_level(argv.debug, __dirname);
 
 const schema = new RpcSchema();
 schema.register_api({
-    id: 'rpcbench',
+    $id: 'rpcbench',
     methods: {
         io: {
             method: 'POST',

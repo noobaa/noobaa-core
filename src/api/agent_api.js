@@ -10,7 +10,7 @@
 
 module.exports = {
 
-    id: 'agent_api',
+    $id: 'agent_api',
 
     methods: {
 

@@ -3,22 +3,18 @@
 
 const mocha = require('mocha');
 // const _ = require('lodash');
-const Ajv = require('ajv');
+const { default: Ajv } = require('ajv');
 const util = require('util');
 const BSON = require('bson');
 const assert = require('assert');
-const { KEYWORDS } = require('../../util/schema_utils');
+const { KEYWORDS } = require('../../util/schema_keywords');
 const SensitiveString = require('../../util/sensitive_string');
 
 mocha.describe('SensitiveString', function() {
-    const ajv = new Ajv({
-        verbose: true,
-        schemaId: 'auto',
-        allErrors: true
-    });
-    ajv.addKeyword('wrapper', KEYWORDS.wrapper);
+    const ajv = new Ajv({ verbose: true, allErrors: true });
+    ajv.addKeyword(KEYWORDS.wrapper);
     ajv.addSchema({
-        id: 'system',
+        $id: 'system',
         type: 'object',
         required: ['users'],
         additionalProperties: false,
@@ -102,7 +98,7 @@ mocha.describe('SensitiveString', function() {
 
     mocha.it('Should throw on non string/undefined value', function() {
         assert.throws(function() {
-            const a = new SensitiveString({a: 1});
+            const a = new SensitiveString({ a: 1 });
             a.unwrap();
         }, Error);
     });

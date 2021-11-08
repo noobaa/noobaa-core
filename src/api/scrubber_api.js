@@ -8,7 +8,7 @@
  */
 module.exports = {
 
-    id: 'scrubber_api',
+    $id: 'scrubber_api',
 
     methods: {
 

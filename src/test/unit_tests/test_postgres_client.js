@@ -16,7 +16,7 @@ const P = require('../../util/promise');
 
 
 const test_schema = {
-    id: 'test_postgres_client_schema',
+    $id: 'test_postgres_client_schema',
     type: 'object',
     required: [
         '_id',
@@ -68,7 +68,7 @@ async function get_postgres_client(params) {
     await pgc.dropDatabase();
     console.log('creating new database', params.database);
     await pgc.createDatabase();
-    console.log('created database succesfuly', params.database);
+    console.log('created database successfully', params.database);
     return pgc;
 }
 

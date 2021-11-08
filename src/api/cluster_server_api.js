@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'cluster_server_api',
+    $id: 'cluster_server_api',
 
     methods: {
         add_member_to_cluster: {

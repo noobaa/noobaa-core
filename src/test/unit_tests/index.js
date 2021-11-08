@@ -10,6 +10,9 @@ coretest.setup({ incomplete_rpc_coverage: 'show' });
 // Tests that does not require hosts pools
 // ---------------------------------------
 
+//JSON SCHEMA 
+require('./test_schema_keywords');
+
 // UTILS
 require('./test_linked_list');
 require('./test_keys_lock');

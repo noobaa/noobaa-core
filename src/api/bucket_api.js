@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'bucket_api',
+    $id: 'bucket_api',
 
     methods: {
 

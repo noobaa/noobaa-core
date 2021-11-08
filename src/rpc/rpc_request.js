@@ -70,7 +70,7 @@ class RpcRequest {
         this.method_api = method_api;
         this.params = params;
         this.auth_token = auth_token;
-        this.srv = api.id + '.' + method_api.name;
+        this.srv = api.$id + '.' + method_api.name;
     }
 
     /**
@@ -82,7 +82,7 @@ class RpcRequest {
         const body = {
             op: 'req',
             reqid: this.reqid,
-            api: this.api.id,
+            api: this.api.$id,
             method: this.method_api.name,
             params: this.params && js_utils.omit_symbol(this.params, RPC_BUFFERS),
             auth_token: this.auth_token || undefined,
@@ -134,7 +134,7 @@ class RpcRequest {
         this.method_api = method_api;
         this.params = msg.body.params;
         this.auth_token = msg.body.auth_token;
-        this.srv = `${api ? api.id : '?'}.${method_api ? method_api.name : '?'}`;
+        this.srv = `${api ? api.$id : '?'}.${method_api ? method_api.name : '?'}`;
 
         if (msg.body.buffers) {
             const buffers = {};

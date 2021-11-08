@@ -29,7 +29,7 @@ const storage_stat_schema = {
 };
 
 module.exports = {
-    id: 'node_schema',
+    $id: 'node_schema',
     type: 'object',
     required: [
         '_id',

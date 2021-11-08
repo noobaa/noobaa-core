@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'role_schema',
+    $id: 'role_schema',
     type: 'object',
     required: [
         '_id',

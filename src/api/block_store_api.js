@@ -10,7 +10,7 @@
 
 module.exports = {
 
-    id: 'block_store_api',
+    $id: 'block_store_api',
 
     methods: {
 

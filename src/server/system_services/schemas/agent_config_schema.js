@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'agent_config_schema',
+    $id: 'agent_config_schema',
     type: 'object',
     required: [
         '_id',

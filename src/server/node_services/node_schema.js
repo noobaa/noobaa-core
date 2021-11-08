@@ -6,24 +6,24 @@ const storage_stat_schema = {
     properties: {
         total: {
             // total amount of storage space on the node/drive
-            type: 'number',
+            $ref: 'common_api#/definitions/bigint',
         },
         free: {
             // amount of available storage on the node/drive
-            type: 'number',
+            $ref: 'common_api#/definitions/bigint',
         },
         used: {
             // amount of storage used by the system
             // computed from the data blocks owned by this node
-            type: 'number',
+            $ref: 'common_api#/definitions/bigint',
         },
         alloc: {
             // preallocated storage space
-            type: 'number',
+            $ref: 'common_api#/definitions/bigint',
         },
         limit: {
             // top limit for used storage
-            type: 'number',
+            $ref: 'common_api#/definitions/bigint',
         }
     }
 };

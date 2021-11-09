@@ -1682,14 +1682,14 @@ function get_bucket_func_configs(req, bucket) {
 
 function calc_namespace_bucket_mode(namespace_dict) {
 
-    const rr = namespace_dict.read_resources;
-    const rr_modes = _.reduce(rr, (acc, resource) => {
-        const resource_mode = pool_server.calc_namespace_resource_mode(resource);
+    const rrs = namespace_dict.read_resources;
+    const rr_modes = _.reduce(rrs, (acc, rr) => {
+        const resource_mode = pool_server.calc_namespace_resource_mode(rr.resource);
         acc[resource_mode.toLowerCase()] += 1;
         return acc;
     }, { auth_failed: 0, storage_not_exist: 0, io_errors: 0, optimal: 0 });
 
-    const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rr.length) && 'NO_RESOURCES') ||
+    const mode = ((rr_modes.auth_failed + rr_modes.storage_not_exist === rrs.length) && 'NO_RESOURCES') ||
         ((rr_modes.auth_failed || rr_modes.storage_not_exist) && 'NOT_ENOUGH_HEALTHY_RESOURCES') ||
         'OPTIMAL';
     return mode;

@@ -886,7 +886,12 @@ class NamespaceFS {
                     const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
                     buffer_pool_cleanup = callback;
                     const bytesRead = await read_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
-                    if (!bytesRead) break;
+                    if (!bytesRead) {
+                        // Returns the buffer to pool to avoid starvation
+                        buffer_pool_cleanup = null;
+                        callback();
+                        break;
+                    }
                     read_pos += bytesRead;
                     const data = buffer.slice(0, bytesRead);
                     await write_file.write(fs_account_config, data);
@@ -904,13 +909,9 @@ class NamespaceFS {
             );
             const { xattr } = JSON.parse(create_params_buffer);
             let fs_xattr = to_fs_xattr(xattr);
-            if (MD5Async) {
-                fs_xattr = this._assign_md5_to_fs_xattr(((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length, fs_xattr);
-            }
-            if (fs_xattr) {
-                await write_file.setxattr(fs_account_config, fs_xattr);
-            }
-            await write_file.fsync(fs_account_config);
+            if (MD5Async) fs_xattr = this._assign_md5_to_fs_xattr(((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length, fs_xattr);
+            if (fs_xattr) await write_file.setxattr(fs_account_config, fs_xattr);
+            if (config.NSFS_TRIGGER_FSYNC) await write_file.fsync(fs_account_config);
             const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);
             write_file = null;

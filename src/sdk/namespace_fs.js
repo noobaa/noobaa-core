@@ -897,6 +897,7 @@ class NamespaceFS {
                     buffer_pool_cleanup = callback;
                     const bytesRead = await read_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                     if (!bytesRead) {
+                        // Returns the buffer to pool to avoid starvation
                         buffer_pool_cleanup = null;
                         callback();
                         break;

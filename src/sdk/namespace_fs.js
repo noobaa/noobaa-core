@@ -518,7 +518,7 @@ class NamespaceFS {
 
                 // allocate or reuse buffer
                 const remain_size = Math.max(0, end - pos);
-                const { buffer, callback } = await buffers_pool.get_buffer(remain_size);
+                const { buffer, callback } = await buffers_pool.get_buffer();
                 buffer_pool_cleanup = callback;
 
                 // read from file
@@ -637,6 +637,8 @@ class NamespaceFS {
                     fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
                 }
             } else {
+                // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
+                // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
                 fs_xattr = await buffers_pool_sem.surround_count(
                     config.NSFS_BUF_SIZE,
                     async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr)
@@ -689,7 +691,7 @@ class NamespaceFS {
             //Reading the source_file and writing into the target_file
             let read_pos = 0;
             for (;;) {
-                const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+                const { buffer, callback } = await buffers_pool.get_buffer();
                 buffer_pool_cleanup = callback;
                 const bytesRead = await source_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                 if (!bytesRead) {
@@ -891,7 +893,7 @@ class NamespaceFS {
                 }
                 let read_pos = 0;
                 for (;;) {
-                    const { buffer, callback } = await buffers_pool.get_buffer(config.NSFS_BUF_SIZE);
+                    const { buffer, callback } = await buffers_pool.get_buffer();
                     buffer_pool_cleanup = callback;
                     const bytesRead = await read_file.read(fs_account_config, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
                     if (!bytesRead) {

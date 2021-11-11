@@ -30,6 +30,7 @@ require('./test_kmeans');
 require('./test_sensitive_wrapper');
 // require('./test_debug_module');
 require('./test_range_stream');
+require('./test_buffer_pool');
 
 // // STORES
 require('./test_md_store');

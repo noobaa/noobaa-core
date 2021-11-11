@@ -184,29 +184,22 @@ class BuffersPool {
     }
 
     /**
-     * @param {number} len
      * @returns {Promise<{
      *  buffer: Buffer,
      *  callback: () => void,
      * }>}
      */
-    async get_buffer(len) {
+    async get_buffer() {
         dbg.log1('BufferPool.get_buffer', this);
         let buffer = null;
-        let should_release = 0;
-        let should_pool = false;
         let warning_timer;
-        if (len < this.buf_size / 4) {
-            await this.sem.wait(len);
-            should_release = len;
-            buffer = Buffer.allocUnsafe(len);
-        } else if (this.buffers.length) {
+        // Lazy allocation of buffers pool, first cycle will take up buffers
+        // Will cause semaphore to be empty with actual buffers allocated and waiting to be used
+        // Any buffer that is in usage (allocated from this.buffers) will be accounted in the semaphore
+        await this.sem.wait(this.buf_size);
+        if (this.buffers.length) {
             buffer = this.buffers.shift();
-            should_pool = true;
         } else {
-            await this.sem.wait(this.buf_size);
-            should_release = this.buf_size;
-            should_pool = true;
             buffer = Buffer.allocUnsafeSlow(this.buf_size);
         }
         if (this.warning_timeout) {
@@ -218,14 +211,8 @@ class BuffersPool {
         }
         const callback = () => {
             if (warning_timer) clearTimeout(warning_timer);
-            if (should_release) {
-                this.sem.release(should_release);
-                should_release = 0;
-            }
-            if (should_pool) {
-                this.buffers.push(buffer);
-                should_pool = false;
-            }
+            this.buffers.push(buffer);
+            this.sem.release(this.buf_size);
         };
         return { buffer, callback };
     }

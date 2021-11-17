@@ -71,6 +71,7 @@
     ]
   },
   "dependencies": {
+    "@azure/storage-blob": "12.8.0",
     "@google-cloud/storage": "5.13.0",
     "ajv": "8.8.1",
     "aws-sdk": "2.965.0",

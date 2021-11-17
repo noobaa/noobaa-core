@@ -48,7 +48,8 @@ function get_signed_url(params) {
         }
     );
 }
-
+// TODO: remove it after removed all old library code
+// and rename get_azure_new_connection_string to get_azure_connection_string
 function get_azure_connection_string(params) {
     let endpoint_url = url.parse(params.endpoint);
     let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http:');
@@ -64,6 +65,23 @@ function get_azure_connection_string(params) {
     return connection_string;
 }
 
+
+function get_azure_new_connection_string(params) {
+    const endpoint_url = url.parse(params.endpoint);
+    let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http:');
+    protocol = protocol.slice(0, protocol.length - 1);
+    let connection_string = 'DefaultEndpointsProtocol=' + protocol + ';';
+    connection_string += 'AccountName=' + params.access_key.unwrap() + ';';
+    connection_string += 'AccountKey=' + params.secret_key.unwrap() + ';';
+
+    const AZURE_BLOB_ENDPOINT = 'core.windows.net';
+    if (endpoint_url.host === 'blob.' + AZURE_BLOB_ENDPOINT) {
+        connection_string += 'EndpointSuffix=' + AZURE_BLOB_ENDPOINT + ';';
+    } else {
+        connection_string += 'BlobEndpoint=' + params.endpoint + ';';
+    }
+    return connection_string;
+}
 
 function is_aws_endpoint(endpoint) {
     const endpoint_url = url.parse(endpoint);
@@ -134,6 +152,7 @@ function set_noobaa_s3_connection(sys) {
 
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
+exports.get_azure_new_connection_string = get_azure_new_connection_string;
 exports.get_signed_url = get_signed_url;
 exports.get_used_cloud_targets = get_used_cloud_targets;
 exports.get_s3_endpoint_signature_ver = get_s3_endpoint_signature_ver;

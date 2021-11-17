@@ -2,7 +2,7 @@
 'use strict';
 
 const system_store = require('../system_services/system_store').get_instance();
-const azure_storage = require('../../util/azure_storage_wrap');
+const azure_storage = require('../../util/new_azure_storage_wrap');
 const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
@@ -142,24 +142,20 @@ class NamespaceMonitor {
         let conn = this.nsr_connections_obj[nsr._id];
         if (!conn) {
             const { endpoint, access_key, secret_key } = nsr.connection;
-            const conn_string = cloud_utils.get_azure_connection_string({
+            const conn_string = cloud_utils.get_azure_new_connection_string({
                 endpoint,
                 access_key: access_key,
                 secret_key: secret_key
             });
-            conn = azure_storage.createBlobService(conn_string);
+            conn = azure_storage.BlobServiceClient.fromConnectionString(conn_string);
             if (conn) this.nsr_connections_obj[nsr._id] = conn;
         }
         const { target_bucket } = nsr.connection;
         const block_key = `test-delete-non-existing-key-${Date.now()}`;
 
         try {
-            await P.fromCallback(callback =>
-                conn.deleteBlob(
-                    target_bucket,
-                    block_key,
-                    callback)
-            );
+            const container_client = conn.getContainerClient(target_bucket);
+            await container_client.deleteBlob(block_key);
         } catch (err) {
             dbg.log1('test_blob_resource: got error:', err);
             if (err.code !== 'BlobNotFound') throw err;

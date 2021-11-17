@@ -62,7 +62,7 @@ RUN dnf install -y -q bash \
     lsof \
     procps \
     openssl \
-    rsyslog-8.1911.0 \
+    rsyslog \
     strace \
     wget \
     curl \

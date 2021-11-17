@@ -111,7 +111,6 @@
     "ps-node": "0.1.6",
     "request": "2.88.2",
     "rimraf": "3.0.2",
-    "rotating-file-stream": "2.1.5",
     "seedrandom": "3.0.5",
     "serve-favicon": "2.5.0",
     "setimmediate": "1.0.5",

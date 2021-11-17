@@ -22,13 +22,9 @@ const path = require('path');
 const util = require('util');
 const os = require('os');
 const debug_config = require('./debug_config');
-const { createStream: createRotatingFileStream } = require('rotating-file-stream');
 
 const nb_native = require('./nb_native');
 const LRU = require('./lru');
-
-const DEV_MODE = (process.env.DEV_MODE === 'true');
-
 
 let dbg_conf;
 let LOG_LEVEL = 0;
@@ -225,19 +221,6 @@ class InternalDebugLogger {
             if (e.code !== 'EEXIST') {
                 throw e;
             }
-        }
-
-
-        // if not logging to syslog add a file transport
-        if (!syslog && syslog) { // TODO GUYM UNDO
-            const suffix = DEV_MODE ? `_${process.argv[1].split('/').slice(-1)[0]}` : '';
-            const filename_generator = (time, index) => (`noobaa${suffix}${index ? `.${index}.log.gz` : '.log'}`);
-            this._log_file = createRotatingFileStream(filename_generator, {
-                path: "./logs/",
-                maxFiles: 100,
-                size: "100MB", // rotate every 100 MegaBytes written
-                compress: "gzip" // compress rotated files
-            });
         }
 
     }

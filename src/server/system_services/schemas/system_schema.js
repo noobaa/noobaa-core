@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'system_schema',
+    $id: 'system_schema',
     type: 'object',
     required: [
         '_id',

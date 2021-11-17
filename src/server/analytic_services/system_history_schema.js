@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'system_history_schema',
+    $id: 'system_history_schema',
     type: 'object',
     required: ['_id', 'time_stamp', 'history_type'],
     properties: {

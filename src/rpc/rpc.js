@@ -89,10 +89,10 @@ class RPC extends EventEmitter {
     register_service(api, server, options) {
         options = options || {};
 
-        dbg.log0('RPC register_service', api.id);
+        dbg.log0('RPC register_service', api.$id);
 
         _.each(api.methods, (method_api, method_name) => {
-            const srv = api.id + '.' + method_name;
+            const srv = api.$id + '.' + method_name;
             assert(!this._services[srv],
                 'RPC register_service: service already registered ' + srv);
             const func = server[method_name] ||
@@ -117,7 +117,7 @@ class RPC extends EventEmitter {
 
         //Service was registered, call _init (if exists)
         if (server._init) {
-            dbg.log2('RPC register_service: calling _init() for', api.id);
+            dbg.log2('RPC register_service: calling _init() for', api.$id);
             server._init();
         }
     }
@@ -125,10 +125,10 @@ class RPC extends EventEmitter {
     replace_service(api, server, options) {
         options = options || {};
 
-        dbg.log0('RPC replace_service', api.id);
+        dbg.log0('RPC replace_service', api.$id);
 
         _.each(api.methods, (method_api, method_name) => {
-            const srv = api.id + '.' + method_name;
+            const srv = api.$id + '.' + method_name;
             assert(this._services[srv],
                 'RPC replace_service: service is not registered ' + srv);
             const func = server[method_name] ||
@@ -153,7 +153,7 @@ class RPC extends EventEmitter {
 
         //Service was registered, call _init (if exists)
         if (server._init) {
-            dbg.log2('RPC replace_service: calling _init() for', api.id);
+            dbg.log2('RPC replace_service: calling _init() for', api.$id);
             server._init();
         }
     }
@@ -415,7 +415,7 @@ class RPC extends EventEmitter {
     _get_remote_address(req, options) {
         var address = options.address;
         if (!address) {
-            const domain = options.domain || this.api_routes[req.api.id] || 'default';
+            const domain = options.domain || this.api_routes[req.api.$id] || 'default';
             address = this.router[domain];
             dbg.log3('RPC ROUTER', domain, '=>', address);
         }
@@ -794,7 +794,7 @@ class RPC extends EventEmitter {
 
     _proxy(api, method, params, options) {
         const req = {
-            method_api: api.id,
+            method_api: api.$id,
             method_name: method.name,
             target: options.address,
             request_params: js_utils.omit_symbol(params, RPC_BUFFERS),

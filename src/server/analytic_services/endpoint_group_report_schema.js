@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'endpoint_group_report_schema',
+    $id: 'endpoint_group_report_schema',
     type: 'object',
     properties: {
         _id: { objectid: true },

@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    id: 'pool_api',
+    $id: 'pool_api',
 
     methods: {
         create_hosts_pool: {

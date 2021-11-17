@@ -5,15 +5,15 @@ const _ = require('lodash');
 const P = require('../util/promise');
 
 const migrate_schema = {
-    id: 'migrate_schema',
+    $id: 'migrate_schema',
     type: 'object',
     required: ['_id', 'collection_index'],
     properties: {
         _id: { objectid: true },
         collection_index: { type: 'number' },
-        collection_name: { type: 'string'},
-        last_move_size: { type: 'number'},
-        total_move_size: { type: 'number'},
+        collection_name: { type: 'string' },
+        last_move_size: { type: 'number' },
+        total_move_size: { type: 'number' },
         marker: { objectid: true },
         last_update: { idate: true }
     }
@@ -72,10 +72,10 @@ class Migrator {
             }
             this.migrate_status.collection_index = i;
             this.migrate_status.collection_name = collection_name;
-            await P.retry({ attempts: 3, delay_ms: 10000, func: async () => this._migrate_collection(collection_name)});
+            await P.retry({ attempts: 3, delay_ms: 10000, func: async () => this._migrate_collection(collection_name) });
             await this._verify_collection(collection_name);
             this.migrate_status.marker = undefined;
-            await this.upgrade_table.updateOne({}, { $set: { collection_index: i + 1, last_update: Date.now()}, $unset: { marker: 1}});
+            await this.upgrade_table.updateOne({}, { $set: { collection_index: i + 1, last_update: Date.now() }, $unset: { marker: 1 } });
         }
         await this.from_client.disconnect();
         await this.to_client.disconnect();
@@ -90,7 +90,7 @@ class Migrator {
         let total = 0;
         while (!done) {
             console.log(`_migrate_collection: start searching docs in ${collection_name}`);
-            const docs = await from_col.find({ _id: marker ? { $gt: marker } : undefined }, { limit: this.batch_size, sort: { _id: 1 }});
+            const docs = await from_col.find({ _id: marker ? { $gt: marker } : undefined }, { limit: this.batch_size, sort: { _id: 1 } });
             console.log(`_migrate_collection: found ${docs.length} docs in ${collection_name}`);
             if (docs.length > 0) {
                 try {
@@ -103,12 +103,14 @@ class Migrator {
                 total += docs.length;
                 console.log(`migrated ${total} documents to table ${collection_name}`);
                 marker = docs[docs.length - 1]._id;
-                await this.upgrade_table.updateOne({}, { $set: {
-                    marker,
-                    last_move_size: docs.length,
-                    total_move_size: total,
-                    last_update: Date.now()
-                }});
+                await this.upgrade_table.updateOne({}, {
+                    $set: {
+                        marker,
+                        last_move_size: docs.length,
+                        total_move_size: total,
+                        last_update: Date.now()
+                    }
+                });
             } else {
                 done = true;
             }
@@ -126,7 +128,7 @@ class Migrator {
             throw new Error(`Last migrate failed! collection ${collection_name} sizes don't match. 
                 FROM: ${from_documents_number}, 
                 TO: ${to_documents_number}`);
-}
+        }
     }
 }
 

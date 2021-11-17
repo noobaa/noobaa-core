@@ -12,7 +12,7 @@ const SensitiveString = require('../util/sensitive_string');
  */
 module.exports = {
 
-    id: 'common_api',
+    $id: 'common_api',
 
     definitions: {
 

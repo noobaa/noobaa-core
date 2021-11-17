@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'chunk_config_schema',
+    $id: 'chunk_config_schema',
     type: 'object',
     required: [
         '_id',

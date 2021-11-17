@@ -21,7 +21,7 @@ const bigint = {
 };
 
 module.exports = {
-    id: 'pool_schema',
+    $id: 'pool_schema',
     type: 'object',
     required: [
         '_id',

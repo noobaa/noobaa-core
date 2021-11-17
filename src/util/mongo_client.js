@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 const fs = require('fs');
-const Ajv = require('ajv');
+const { default: Ajv } = require('ajv');
 const util = require('util');
 const mongodb = require('mongodb');
 const EventEmitter = require('events').EventEmitter;
@@ -15,6 +15,7 @@ const js_utils = require('./js_utils');
 const common_api = require('../api/common_api');
 const db_client = require('./db_client');
 const schema_utils = require('./schema_utils');
+const schema_keywords = require('./schema_keywords');
 const { RpcError } = require('../rpc');
 
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
@@ -133,12 +134,14 @@ class MongoClient extends EventEmitter {
             //authSource: 'admin',
         };
 
-        this._ajv = new Ajv({ verbose: true, schemaId: 'auto', allErrors: true });
-        this._ajv.addKeyword('date', schema_utils.KEYWORDS.date);
-        this._ajv.addKeyword('idate', schema_utils.KEYWORDS.idate);
-        this._ajv.addKeyword('objectid', schema_utils.KEYWORDS.objectid);
-        this._ajv.addKeyword('binary', schema_utils.KEYWORDS.binary);
-        this._ajv.addKeyword('wrapper', schema_utils.KEYWORDS.wrapper);
+        this._ajv = new Ajv({ verbose: true, allErrors: true });
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.methods);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.doc);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.date);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.idate);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.objectid);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.binary);
+        this._ajv.addKeyword(schema_keywords.KEYWORDS.wrapper);
         this._ajv.addSchema(common_api);
 
         if (process.env.MONGO_RS_URL) {

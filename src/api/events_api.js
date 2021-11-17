@@ -10,7 +10,7 @@ const SensitiveString = require('../util/sensitive_string');
  */
 module.exports = {
 
-    id: 'events_api',
+    $id: 'events_api',
 
     methods: {
         read_activity_log: {

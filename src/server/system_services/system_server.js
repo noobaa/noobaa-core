@@ -1312,8 +1312,7 @@ async function rotate_master_key(req) {
     // create the new master key and update in db
     const ROOT_KEY = system_store.master_key_manager.get_root_key_id();
     const master_key_base_props = {
-        'master_key_id': system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ? ROOT_KEY :
-            old_master_key.master_key_id._id,
+        'master_key_id': system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ? ROOT_KEY : old_master_key.master_key_id._id,
         'description': old_master_key.description,
         'cipher_type': old_master_key.cipher_type
     };
@@ -1341,14 +1340,18 @@ async function rotate_master_key(req) {
     if (entity_type === 'SYSTEM') {
         await P.all(_.map(system_store.data.buckets, async function(bucket) {
             const reencrypted = mkm._reencrypt_master_key(bucket.master_key_id._id, new_master_key._id);
-            await upsert_master_key({ _id: bucket.master_key_id._id,
-                    update: { cipher_key: reencrypted, master_key_id: new_master_key._id}});
+            await upsert_master_key({
+                _id: bucket.master_key_id._id,
+                update: { cipher_key: reencrypted, master_key_id: new_master_key._id }
+            });
         }));
         await P.all(_.map(system_store.data.accounts, async function(account) {
             if (account.email.unwrap() === "support@noobaa.com") return;
             const reencrypted = mkm._reencrypt_master_key(account.master_key_id._id, new_master_key._id);
-            await upsert_master_key({ _id: account.master_key_id._id,
-                    update: { cipher_key: reencrypted, master_key_id: new_master_key._id}});
+            await upsert_master_key({
+                _id: account.master_key_id._id,
+                update: { cipher_key: reencrypted, master_key_id: new_master_key._id }
+            });
         }));
     }
 
@@ -1389,7 +1392,7 @@ async function _disable_master_key(entity, entity_type) {
         throw new Error(`_disable_master_key: can not disable master key, current master key is: ${util.inspect(entity_info)}`);
     }
 
-    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: true }});
+    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: true } });
     system_store.master_key_manager.set_m_key_disabled_val(entity_info.master_key_id._id, true);
 
     await system_store.load();
@@ -1428,7 +1431,7 @@ async function enable_master_key(req) {
         throw new Error(`_enable_master_key: can not enable master key, current master key is: ${entity_info.master_key_id}`);
     }
 
-    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: false }});
+    await upsert_master_key({ _id: entity_info.master_key_id._id, update: { disabled: false } });
     system_store.master_key_manager.set_m_key_disabled_val(entity_info.master_key_id._id, false);
 
     if (entity_type === 'ACCOUNT') {
@@ -1520,8 +1523,10 @@ function get_pools_and_ns_resources_changes(sync_creds, account_id) {
             }));
         ns_resources_updates.push(...ns_resource_update);
     });
-    return { pools: pools_updates,
-            namespace_resources: ns_resources_updates };
+    return {
+        pools: pools_updates,
+        namespace_resources: ns_resources_updates
+    };
 }
 
 function get_entity_info(entity, entity_type) {
@@ -1558,16 +1563,16 @@ async function upgrade_master_keys() {
             cipher_type: system_master_key.cipher_type
         });
         buckets_updates.push({
-                _id: bucket._id,
-                $set: {
-                    "master_key_id": bucket_m_key._id
-                }
+            _id: bucket._id,
+            $set: {
+                "master_key_id": bucket_m_key._id
+            }
         });
         master_keys.push(bucket_m_key);
 
-     });
+    });
     // upgrade accounts master keys
-     _.map(system_store.data.accounts, account => {
+    _.map(system_store.data.accounts, account => {
         if (account.master_key_id || account.email.unwrap() === 'support@noobaa.com') return;
         const account_m_key = system_store.master_key_manager.new_master_key({
             description: `master key of ${account._id} account`,
@@ -1593,36 +1598,36 @@ async function upgrade_master_keys() {
         // get updated for pools and ns_resources
         const pool_and_ns_resources_updates = get_pools_and_ns_resources_changes(encrypted_sync_creds, account._id);
         accounts_updates.push({
-                _id: account._id,
-                $set: {
-                    "access_keys": encrypted_access_keys,
-                    "sync_credentials_cache": encrypted_sync_creds,
-                    "master_key_id": account_m_key._id
-                }
+            _id: account._id,
+            $set: {
+                "access_keys": encrypted_access_keys,
+                "sync_credentials_cache": encrypted_sync_creds,
+                "master_key_id": account_m_key._id
+            }
         });
         pools_updates.push(...pool_and_ns_resources_updates.pools);
         namespace_resources_updates.push(...pool_and_ns_resources_updates.namespace_resources);
         master_keys.push(account_m_key);
-     });
+    });
 
     await system_store.make_changes({
-            update: {
-                systems: [{
-                        _id: system_store.data.systems[0]._id,
-                        $set: {
-                            "master_key_id": system_master_key._id
-                        }
-                }],
-                buckets: buckets_updates,
-                accounts: accounts_updates,
-                pools: pools_updates,
-                namespace_resources: namespace_resources_updates
-            },
-            insert: {
-                master_keys: master_keys
-            }
-        });
-    }
+        update: {
+            systems: [{
+                _id: system_store.data.systems[0]._id,
+                $set: {
+                    "master_key_id": system_master_key._id
+                }
+            }],
+            buckets: buckets_updates,
+            accounts: accounts_updates,
+            pools: pools_updates,
+            namespace_resources: namespace_resources_updates
+        },
+        insert: {
+            master_keys: master_keys
+        }
+    });
+}
 
 // EXPORTS
 exports._init = _init;

@@ -9,7 +9,7 @@
 
 module.exports = {
 
-    id: 'host_api',
+    $id: 'host_api',
 
     methods: {
 

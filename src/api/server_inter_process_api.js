@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    id: 'server_inter_process_api',
+    $id: 'server_inter_process_api',
 
     methods: {
         load_system_store: {

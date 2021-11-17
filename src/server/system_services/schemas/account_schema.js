@@ -4,7 +4,7 @@
 const SensitiveString = require('../../../util/sensitive_string');
 
 module.exports = {
-    id: 'account_schema',
+    $id: 'account_schema',
     type: 'object',
     required: [
         '_id',

@@ -22,7 +22,7 @@ const bigint = {
 };
 
 module.exports = {
-    id: 'bucket_schema',
+    $id: 'bucket_schema',
     type: 'object',
     required: [
         '_id',

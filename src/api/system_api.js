@@ -11,7 +11,7 @@
  */
 module.exports = {
 
-    id: 'system_api',
+    $id: 'system_api',
 
     methods: {
         get_system_status: {

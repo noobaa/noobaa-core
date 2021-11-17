@@ -27,7 +27,7 @@
  *
  */
 module.exports = {
-    id: 'data_chunk_schema',
+    $id: 'data_chunk_schema',
     type: 'object',
     required: [
         '_id',

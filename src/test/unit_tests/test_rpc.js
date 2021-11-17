@@ -21,7 +21,7 @@ mocha.describe('RPC', function() {
 
     const test_api = {
 
-        id: 'test_api',
+        $id: 'test_api',
 
         methods: {
             get: {
@@ -135,7 +135,7 @@ mocha.describe('RPC', function() {
 
     const common_test_api = {
 
-        id: 'common_test_api',
+        $id: 'common_test_api',
 
         definitions: {
 
@@ -268,7 +268,7 @@ mocha.describe('RPC', function() {
             assert.throws(function() {
                 var bad_schema = new RpcSchema();
                 bad_schema.register_api({
-                    id: 'test_bad_api',
+                    $id: 'test_bad_api',
                     methods: {
                         a: {
                             method: 'POSTER',

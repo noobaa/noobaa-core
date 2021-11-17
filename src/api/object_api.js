@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'object_api',
+    $id: 'object_api',
 
     methods: {
         create_object_upload: {
@@ -1376,7 +1376,7 @@ module.exports = {
                 content_type: { type: 'string' },
                 create_time: { idate: true },
                 cache_last_valid_time: { idate: true },
-                last_modified_time: { idate: true},
+                last_modified_time: { idate: true },
                 upload_started: { idate: true },
                 upload_size: { type: 'integer' },
                 etag: { type: 'string' },

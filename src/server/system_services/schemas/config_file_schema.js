@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'certificate_schema',
+    $id: 'certificate_schema',
     type: 'object',
     required: [
         '_id',

@@ -4,7 +4,7 @@
 const SensitiveString = require('../../../util/sensitive_string');
 
 module.exports = {
-    id: 'tiering_policy_schema',
+    $id: 'tiering_policy_schema',
     type: 'object',
     required: [
         '_id',

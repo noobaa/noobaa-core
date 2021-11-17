@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'bucket_stats_schema',
+    $id: 'bucket_stats_schema',
     type: 'object',
     required: ['_id', 'system', 'bucket', 'content_type'],
     properties: {

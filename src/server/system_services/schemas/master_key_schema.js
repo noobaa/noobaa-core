@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'master_key_schema',
+    $id: 'master_key_schema',
     type: 'object',
     required: [
         '_id',

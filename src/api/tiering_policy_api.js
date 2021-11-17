@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    id: 'tiering_policy_api',
+    $id: 'tiering_policy_api',
 
     methods: {
 

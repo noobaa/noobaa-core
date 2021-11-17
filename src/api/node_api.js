@@ -13,7 +13,7 @@
 
 module.exports = {
 
-    id: 'node_api',
+    $id: 'node_api',
 
     methods: {
 

@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'namespace_resource_schema',
+    $id: 'namespace_resource_schema',
     type: 'object',
     required: [
         '_id',

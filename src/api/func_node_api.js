@@ -8,7 +8,7 @@
  */
 module.exports = {
 
-    id: 'func_node_api',
+    $id: 'func_node_api',
 
     methods: {
 

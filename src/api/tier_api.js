@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'tier_api',
+    $id: 'tier_api',
 
     methods: {
 

@@ -2,7 +2,7 @@
 'use strict';
 
 module.exports = {
-    id: 'replication_configuration_schema',
+    $id: 'replication_configuration_schema',
     type: 'object',
     required: [
         '_id',

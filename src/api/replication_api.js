@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    id: 'replication_api',
+    $id: 'replication_api',
 
     methods: {
 

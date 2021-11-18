@@ -31,7 +31,7 @@ const func_store = require('../func_services/func_store');
 const replication_store = require('../system_services/replication_store');
 const node_allocator = require('../node_services/node_allocator');
 const system_utils = require('../utils/system_utils');
-const azure_storage = require('../../util/azure_storage_wrap');
+const azure_storage = require('../../util/new_azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
@@ -1103,15 +1103,17 @@ function get_cloud_buckets(req) {
                 req.rpc_params.connection
             );
             if (connection.endpoint_type === 'AZURE') {
-                let blob_svc = azure_storage.createBlobService(cloud_utils.get_azure_connection_string(connection));
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
+                const blob_svc = azure_storage.BlobServiceClient.fromConnectionString(
+                    cloud_utils.get_azure_new_connection_string(connection));
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
-                        blob_svc.listContainersSegmented(null, { maxResults: 100 }, callback);
-                    }))
-                    .then(data => data.entries.map(entry =>
-                        _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets)
-                    ));
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO,
+                        blob_svc.listContainers().byPage({ maxPageSize: 100 }).next())
+                    .then(iterator => {
+                        const response = iterator.value;
+                        return response.containerItems.map(entry =>
+                            _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets));
+                    });
             } else if (connection.endpoint_type === 'NET_STORAGE') {
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);

@@ -10,7 +10,6 @@ const AWS = require('aws-sdk');
 const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
-const { StorageError } = require('azure-storage/lib/common/errors/errors');
 const server_rpc = require('../server_rpc');
 
 const config = require('../../../config');
@@ -25,7 +24,7 @@ const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
 const pool_server = require('../system_services/pool_server');
-const azure_storage = require('../../util/azure_storage_wrap');
+const azure_storage = require('../../util/new_azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 
@@ -36,6 +35,7 @@ const demo_access_keys = Object.freeze({
 });
 
 const check_connection_timeout = 15 * 1000;
+const check_new_azure_connection_timeout = 20 * 1000;
 
 /**
  *
@@ -974,7 +974,7 @@ async function check_azure_connection(params) {
     try {
         // set a timeout for the entire flow
         const res = await P.timeout(
-            check_connection_timeout,
+            check_new_azure_connection_timeout,
             _check_azure_connection_internal(params),
             () => new Error('TIMEOUT')
         );
@@ -993,7 +993,7 @@ async function check_azure_connection(params) {
 
 async function _check_azure_connection_internal(params) {
 
-    const conn_str = cloud_utils.get_azure_connection_string({
+    const conn_str = cloud_utils.get_azure_new_connection_string({
         endpoint: params.endpoint,
         access_key: params.identity,
         secret_key: params.secret
@@ -1006,35 +1006,37 @@ async function _check_azure_connection_internal(params) {
         });
     }
 
-    /** @type {BlobService} */
+    /** @type {azure_storage.BlobServiceClient} */
     let blob;
     try {
-        blob = azure_storage.createBlobService(conn_str);
+        blob = azure_storage.BlobServiceClient.fromConnectionString(conn_str);
     } catch (err) {
         dbg.warn(`got error on createBlobService with params`, _.omit(params, 'secret'), ` error: ${err}`);
-        throw err_to_status(err, err instanceof SyntaxError ? 'INVALID_CREDENTIALS' : 'UNKNOWN_FAILURE');
+        throw err_to_status(err, 'INVALID_CONNECTION_STRING');
     }
 
     try {
-        await P.fromCallback(callback => blob.listContainersSegmented(null, callback));
+        const iterator = blob.listContainers().byPage({ maxPageSize: 100 });
+        const response = (await iterator.next()).value;
+        dbg.log1('_check_azure_connection_internal: got response: ', response);
     } catch (err) {
-        dbg.warn(`got error on listContainersSegmented with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        dbg.warn(`got error on listContainers with params`, _.omit(params, 'secret'), ` error: ${err}`);
         if (err.code === 'AuthenticationFailed' &&
             err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
             throw err_to_status(err, 'TIME_SKEW');
         }
-        throw err_to_status(err, err instanceof StorageError ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
+        throw err_to_status(err, err.code === 'AuthenticationFailed' ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
     }
 
     let service_properties;
     try {
-        service_properties = await P.fromCallback(callback => blob.getServiceProperties(callback));
+        service_properties = await blob.getProperties();
     } catch (err) {
         dbg.warn(`got error on getServiceProperties with params`, _.omit(params, 'secret'), ` error: ${err}`);
         throw err_to_status(err, 'NOT_SUPPORTED');
     }
 
-    if (!service_properties.Logging) {
+    if (!service_properties.blobAnalyticsLogging) {
         dbg.warn(`Error - connection for Premium account with params`, _.omit(params, 'secret'));
         throw err_to_status({}, 'NOT_SUPPORTED');
     }

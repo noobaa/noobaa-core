@@ -1,7 +1,7 @@
 name: Unit Tests with Postgres
 
 # Run on each new PR and each new push to existing PR
-on: [push, pull_request]
+on: [push, pull_request_target]
 
 jobs:
   run-unit-tests-postgres:

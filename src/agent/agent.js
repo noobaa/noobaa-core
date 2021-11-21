@@ -112,7 +112,7 @@ class Agent {
                     this.node_type = 'BLOCK_STORE_S3';
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
-                    let connection_string = cloud_utils.get_azure_connection_string({
+                    let connection_string = cloud_utils.get_azure_new_connection_string({
                         endpoint: params.cloud_info.endpoint,
                         access_key: params.cloud_info.access_keys.access_key,
                         secret_key: params.cloud_info.access_keys.secret_key
@@ -273,7 +273,7 @@ class Agent {
         if (this.node_type === 'BLOCK_STORE_S3') {
             this.block_store = new BlockStoreS3(block_store_options);
         } else if (this.node_type === 'BLOCK_STORE_AZURE') {
-            const connection_string = cloud_utils.get_azure_connection_string({
+            const connection_string = cloud_utils.get_azure_new_connection_string({
                 endpoint: block_store_options.cloud_info.endpoint,
                 access_key: this.cloud_info.access_keys.access_key,
                 secret_key: this.cloud_info.access_keys.secret_key,

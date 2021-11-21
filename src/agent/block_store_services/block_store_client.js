@@ -5,7 +5,7 @@ const AWS = require('aws-sdk');
 const _ = require('lodash');
 
 const Storage = require('../../util/google_storage_wrap');
-const azure_storage = require('../../util/azure_storage_wrap');
+const azure_storage = require('../../util/new_azure_storage_wrap');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
@@ -194,19 +194,21 @@ class BlockStoreClient {
                 const azure_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const blob = azure_storage.createBlobService(azure_params.connection_string);
+                const blob = azure_storage.BlobServiceClient.fromConnectionString(azure_params.connection_string);
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const encoded_md = Buffer.from(JSON.stringify(block_md)).toString('base64');
-                await P.fromCallback(callback => blob.createBlockBlobFromText(
-                    container,
-                    block_key,
-                    data, {
+                const container_client = azure_storage.get_container_client(blob, container);
+                const blob_client = azure_storage.get_blob_client(container_client, block_key);
+                dbg.log1('block_store_client._delegate_write_block_azure uploading block_key:', block_key, ' container: ', container, 'data_length: ', data.length);
+
+                await blob_client.upload(
+                    data, data.length, {
                         metadata: {
                             noobaablockmd: encoded_md
                         }
-                    },
-                    callback));
+                    });
+                dbg.log1('block_store_client._delegate_write_block_azure uploaded succefully block_key:', block_key, ' container: ', container);
                 const data_length = data.length;
                 const usage = data_length ? {
                     size: (block_md.is_preallocated ? 0 : data_length) + encoded_md.length,
@@ -215,10 +217,10 @@ class BlockStoreClient {
                 this._update_usage_stats(rpc_client, usage, options.address, 'WRITE');
             } catch (err) {
                 dbg.error('Azure write operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
-                if (err.code === 'ContainerNotFound') {
+                if (err.details && err.details.code === 'ContainerNotFound') {
                     block_store_info_cache.invalidate_key(options.address);
                     throw new RpcError('STORAGE_NOT_EXIST', `azure container not found for block ${block_md.id}. got error ${err}`);
-                } else if (err.code === 'AuthenticationFailed') {
+                } else if (err.details && err.details.code === 'AuthenticationFailed') {
                     block_store_info_cache.invalidate_key(options.address);
                     throw new RpcError('AUTH_FAILED', `access denied to the azure container for block ${block_md.id}. got error ${err}`);
                 }
@@ -230,7 +232,6 @@ class BlockStoreClient {
 
     async _delegate_read_block_azure(rpc_client, params, options) {
         const { timeout = config.IO_READ_BLOCK_TIMEOUT } = options;
-        const writable = buffer_utils.write_stream();
         const { block_md } = params;
         let bs_info;
         // get signed access signature from the agent
@@ -241,26 +242,29 @@ class BlockStoreClient {
                 const azure_params = bs_info.connection_params;
                 const block_id = block_md.id;
                 const block_dir = get_block_internal_dir(block_id);
-                const blob = azure_storage.createBlobService(azure_params.connection_string);
+                const blob = azure_storage.BlobServiceClient.fromConnectionString(azure_params.connection_string);
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
-                const info = await P.fromCallback(callback => blob.getBlobToStream(container, block_key, writable, {
-                        disableContentMD5Validation: true
-                    },
-                    callback));
-                const noobaablockmd = info.metadata.noobaablockmd || info.metadata.noobaa_block_md;
+                const container_client = azure_storage.get_container_client(blob, container);
+                const blob_client = azure_storage.get_blob_client(container_client, block_key);
+                dbg.log1('block_store_client._delegate_read_block_azure starting download block_key:', block_key, ' container: ', container);
+
+                const response = await blob_client.download(0, undefined);
+                dbg.log1('block_store_client._delegate_read_block_azure downloaded succefully block_key:', block_key, ' container: ', container);
+
+                const noobaablockmd = response.metadata.noobaablockmd || response.metadata.noobaa_block_md;
                 const store_block_md = JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
                 this._update_usage_stats(rpc_client, { size: params.block_md.size, count: 1 }, options.address, 'READ');
                 return {
-                    [RPC_BUFFERS]: { data: buffer_utils.join(writable.buffers, writable.total_length) },
+                    [RPC_BUFFERS]: { data: await buffer_utils.read_stream_join(response.readableStreamBody) },
                     block_md: store_block_md,
                 };
             } catch (err) {
                 dbg.error('Azure read operation failed for block:', util.inspect(block_md, { depth: 4 }), err);
-                if (err.code === 'ContainerNotFound') {
+                if (err.details && err.details.code === 'ContainerNotFound') {
                     block_store_info_cache.invalidate_key(options.address);
                     throw new RpcError('STORAGE_NOT_EXIST', `azure container not found for block ${block_md.id}. got error ${err}`);
-                } else if (err.code === 'AuthenticationFailed') {
+                } else if (err.details && err.details.code === 'AuthenticationFailed') {
                     block_store_info_cache.invalidate_key(options.address);
                     throw new RpcError('AUTH_FAILED', `access denied to the azure container for block ${block_md.id}. got error ${err}`);
                 }

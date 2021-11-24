@@ -43,11 +43,7 @@
             </editor>
 
             <editor params="label: accountNameProps.label">
-                <input type="text"
-                    ko.validationCss="$form.accountName"
-                    ko.value="$form.accountName"
-                    ko.attr.placeholder="accountNameProps.placeholder"
-                />
+                <input type="text" ko.validationCss="$form.accountName" ko.value="$form.accountName" ko.attr.placeholder="accountNameProps.placeholder" />
                 <p class="remark" ko.visible="accountNameProps.isRemarkVisible">
                     3 - 32 characters
                 </p>
@@ -74,20 +70,14 @@
                         options: resourceOptions,
                         selected: $form.defaultResource,
                         subject: 'resource'
-                    "
-                    ko.validationCss="$form.defaultResource"
-                ></dropdown>
-                 <validation-message params="field: $form.defaultResource"></validation-message>
+                    " ko.validationCss="$form.defaultResource"></dropdown>
+                <validation-message params="field: $form.defaultResource"></validation-message>
             </editor>
 
             <!-- ko if:  $form.accessType.eq('APP') -->
             <editor params="label: 'Buckets Permissions'">
                 <dropdown class="push-next" params="
                     options: bucketOptions,
-                    selected: ko.pc(
-                        $form.allowedBuckets,
-                        buckets => onSelectAllowedBuckets(buckets)
-                    ),
                     filter: true,
                     subject: 'bucket',
                     placeholder: 'Choose Buckets',

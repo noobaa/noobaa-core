@@ -22,9 +22,6 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 let new_account_params = {
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: true
-    }
 };
 
 // currently will pass only when running locally
@@ -164,14 +161,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const email = 'account_wrong_uid0@noobaa.com';
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
-        const allowed_buckets = account.allowed_buckets;
-        const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, allowed_buckets, should_fail: false },
-            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, allowed_buckets, should_fail: false },
-            { nsfs_account_config: {}, default_resource, allowed_buckets, should_fail: true },
-            { nsfs_account_config: { uid: 26041992 }, default_resource, allowed_buckets, should_fail: false }
+        const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, should_fail: false },
+            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: false },
+            { nsfs_account_config: {}, default_resource, should_fail: true },
+            { nsfs_account_config: { uid: 26041992 }, default_resource, should_fail: false }
         ];
         await P.all(_.map(arr, async item =>
-            update_account_nsfs_config(email, item.default_resource, item.allowed_buckets, item.nsfs_account_config, item.should_fail)));
+            update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail)));
     });
     mocha.it('list namespace resources after creation', async function() {
         await rpc_client.create_auth_token({
@@ -208,9 +204,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 email: 'account_s3_correct_uid1@noobaa.com',
                 name: 'account_s3_correct_uid1',
                 s3_access: true,
-                allowed_buckets: {
-                    full_permission: true
-                },
                 default_resource: nsr
             });
             assert.fail(inspect(res));
@@ -224,9 +217,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_correct_uid1@noobaa.com',
             name: 'account_s3_correct_uid1',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: process.getuid(),
@@ -257,9 +247,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_correct_uid@noobaa.com',
             name: 'account_s3_correct_uid',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: process.getuid(),
@@ -282,9 +269,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_incorrect_uid@noobaa.com',
             name: 'account_s3_incorrect_uid',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: 26041992,
@@ -502,13 +486,12 @@ function object_in_list(res, key) {
     return ans;
 }
 
-async function update_account_nsfs_config(email, default_resource, allowed_buckets, new_nsfs_account_config, should_fail) {
+async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail) {
     try {
         await rpc_client.account.update_account_s3_access({
             email,
             s3_access: true,
             default_resource,
-            allowed_buckets,
             nsfs_account_config: new_nsfs_account_config
         });
         if (should_fail) {

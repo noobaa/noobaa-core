@@ -56,20 +56,16 @@ const dos_func = {
     }]
 };
 
+// const SA_EVENT = {
+//     "email": "test@noobaa.com",
+//     "ips": ["1.1.1.1"]
+// };
 
 const SP_EVENT = {
     "email": "new@aaa.com",
     "s3_access": true,
     "default_resource": "london",
-    "allowed_buckets": ['logs']
 };
-
-
-
-// const SA_EVENT = {
-//     "email": "test@noobaa.com",
-//     "ips": ["1.1.1.1"]
-// };
 
 const WC_EVENT = {
     text: 'a',
@@ -128,8 +124,8 @@ function install_func(fn) {
     return P.resolve()
         .then(() => prepare_func(fn))
         .then(() => P.fromCallback(callback => lambda.deleteFunction({
-            FunctionName: fn.FunctionName,
-        }, callback))
+                FunctionName: fn.FunctionName,
+            }, callback))
             .catch(err => {
                 console.log('Delete function if exist:', fn.FunctionName, err.message);
             }))
@@ -143,9 +139,9 @@ function clear() {
             f => P.fromCallback(callback => lambda.deleteFunction({
                 FunctionName: f.FunctionName,
             }, callback))
-                .catch(err => {
-                    console.log('Delete function if exist:.', f.FunctionName, err.message);
-                })
+            .catch(err => {
+                console.log('Delete function if exist:.', f.FunctionName, err.message);
+            })
         ));
 }
 
@@ -166,11 +162,11 @@ function test() {
         FunctionName: dos_func.FunctionName,
         Payload: JSON.stringify(DOS_EVENT),
     } : {
-            FunctionName: word_count_func.FunctionName,
-            Payload: JSON.stringify(SP_EVENT)
-            // FunctionName: create_account_func.FunctionName,
-            // Payload: JSON.stringify(CA_EVENT)
-        };
+        FunctionName: word_count_func.FunctionName,
+        Payload: JSON.stringify(SP_EVENT)
+        // FunctionName: create_account_func.FunctionName,
+        // Payload: JSON.stringify(CA_EVENT)
+    };
     console.log('Testing', params);
     return P.fromCallback(callback => lambda.invoke(params, callback))
         .then(res => console.log('Result:', res));

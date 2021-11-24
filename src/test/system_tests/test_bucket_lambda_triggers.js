@@ -47,10 +47,6 @@ let full_access_user = {
     password: 'master',
     has_login: true,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'bucket2', 'ns.external.bucket1']
-    },
     default_resource: POOL_NAME,
 };
 
@@ -60,10 +56,6 @@ let bucket1_user = {
     password: 'onlyb1',
     has_login: true,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'ns.external.bucket1']
-    },
     default_resource: POOL_NAME,
 };
 
@@ -226,7 +218,7 @@ async function setup() {
         await client.bucket.create_bucket({
             name: 'ns.external.bucket1',
             namespace: {
-                read_resources: [ nsr1 ],
+                read_resources: [nsr1],
                 write_resource: nsr2
             }
         });

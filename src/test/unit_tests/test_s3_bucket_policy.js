@@ -55,9 +55,6 @@ async function setup() {
     const account = {
         has_login: false,
         s3_access: true,
-        allowed_buckets: {
-            full_permission: true,
-        },
         default_resource: POOL_LIST[0].name
     };
     const admin_keys = (await rpc_client.account.read_account({

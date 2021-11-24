@@ -6,7 +6,6 @@ export default {
         type: 'object',
         required: [
             'accessKeys',
-            'allowedBuckets',
             'canCreateBuckets',
             'externalConnections',
             'isAdmin',
@@ -29,12 +28,6 @@ export default {
                     secretKey: {
                         type: 'string'
                     }
-                }
-            },
-            allowedBuckets: {
-                type: 'array',
-                items: {
-                    type: 'string'
                 }
             },
             canCreateBuckets: {

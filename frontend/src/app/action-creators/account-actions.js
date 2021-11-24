@@ -41,7 +41,6 @@ export function createAccount(
     password,
     defaultResource,
     hasAccessToAllBucekts,
-    allowedBuckets,
     allowBucketCreation
 ) {
     return {
@@ -52,7 +51,6 @@ export function createAccount(
             password,
             defaultResource,
             hasAccessToAllBucekts,
-            allowedBuckets,
             allowBucketCreation
         }
     };
@@ -76,7 +74,6 @@ export function updateAccountS3Access(
     accountName,
     defaultResource,
     hasAccessToAllBuckets,
-    allowedBuckets,
     allowBucketCreation
 ) {
     return {
@@ -85,7 +82,6 @@ export function updateAccountS3Access(
             accountName,
             defaultResource,
             hasAccessToAllBuckets,
-            allowedBuckets,
             allowBucketCreation
         }
     };

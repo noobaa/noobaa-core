@@ -33,9 +33,7 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         has_login,
         is_external,
         access_keys,
-        has_s3_access,
         default_resource,
-        allowed_buckets,
         can_create_buckets,
         allowed_ips,
         external_connections
@@ -45,11 +43,6 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         access_key: accessKey,
         secret_key: secretKey
     } = access_keys[0];
-
-    const hasAccessToAllBuckets = has_s3_access && allowed_buckets.full_permission;
-    const allowedBuckets = has_s3_access ?
-        (hasAccessToAllBuckets ? allBuckets : allowed_buckets.permission_list) :
-        [];
 
     const externalConnections = _mapExternalConnections(external_connections);
 
@@ -73,12 +66,9 @@ function _mapAccount(account, owner, systemName, pools, allBuckets, accountsOwni
         isAdmin: has_login,
         isOwner,
         isExternal: Boolean(is_external), // is_external might be undefined
-        hasAccessToAllBuckets,
-        allowedBuckets,
-        canCreateBuckets: Boolean(has_s3_access && can_create_buckets),
-        defaultResource: default_resource !== internalResource.name  ?
-            default_resource:
-            'INTERNAL_STORAGE',
+        canCreateBuckets: Boolean(can_create_buckets),
+        defaultResource: default_resource !== internalResource.name ?
+            default_resource : 'INTERNAL_STORAGE',
         accessKeys: { accessKey, secretKey },
         allowedIps: allowed_ips,
         externalConnections,

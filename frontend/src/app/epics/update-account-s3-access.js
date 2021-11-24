@@ -13,8 +13,6 @@ export default function(action$, { api }) {
             const {
                 accountName,
                 defaultResource,
-                hasAccessToAllBuckets,
-                allowedBuckets,
                 allowBucketCreation
             } = action.payload;
 
@@ -23,10 +21,6 @@ export default function(action$, { api }) {
                     email: accountName,
                     s3_access: true,
                     default_resource: defaultResource,
-                    allowed_buckets: {
-                        full_permission: hasAccessToAllBuckets,
-                        permission_list: hasAccessToAllBuckets ? undefined : allowedBuckets
-                    },
                     allow_bucket_creation: allowBucketCreation
                 });
 

@@ -12,14 +12,12 @@ function _getAccountOption({ name, hasAccessToAllBuckets }) {
         value: name,
         disabled: hasAccessToAllBuckets,
         tooltip: hasAccessToAllBuckets ?
-            'This account access permissions is set to “all buckets” and cannot be edited' :
-            name
+            'This account access permissions is set to “all buckets” and cannot be edited' : name
     };
 }
 
-function _getSelectedAccounts(accountList, bucketName) {
+function _getSelectedAccounts(accountList) {
     return accountList
-        .filter(account => account.allowedBuckets.includes(bucketName))
         .map(account => account.name);
 }
 
@@ -54,7 +52,7 @@ class EditBucketS3AccessModalViewModel extends ConnectableViewModel {
                 .filter(account => !account.roles.includes('operator'))
                 .map(_getAccountOption),
             fields: !form ? {
-                selectedAccounts: _getSelectedAccounts(accountList, bucketName)
+                selectedAccounts: _getSelectedAccounts(accountList)
             } : undefined
         });
     }

@@ -46,18 +46,6 @@ module.exports = {
             }
         },
 
-        allowed_buckets: {
-            type: 'object',
-            required: ['full_permission'],
-            properties: {
-                full_permission: { type: 'boolean' },
-                permission_list: {
-                    type: 'array',
-                    items: { objectid: true },
-                }
-            }
-        },
-
         allowed_ips: {
             type: 'array',
             items: {

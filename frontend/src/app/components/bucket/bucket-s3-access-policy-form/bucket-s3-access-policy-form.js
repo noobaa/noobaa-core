@@ -101,7 +101,6 @@ class BucketS3AccessTableViewModel extends ConnectableViewModel {
 
             const connectedAccounts = Object.values(accounts)
                 .filter(account =>
-                    account.allowedBuckets.includes(params.bucket) &&
                     !account.roles.includes('operator')
                 );
 

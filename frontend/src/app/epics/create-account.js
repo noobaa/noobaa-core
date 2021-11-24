@@ -16,8 +16,6 @@ export default function(action$, { api }) {
                 isAdmin,
                 password,
                 defaultResource,
-                hasAccessToAllBucekts,
-                allowedBuckets,
                 allowBucketCreation
             } = action.payload;
 
@@ -31,10 +29,6 @@ export default function(action$, { api }) {
                         must_change_password: isAdmin || undefined,
                         s3_access: true,
                         default_resource: defaultResource,
-                        allowed_buckets: {
-                            full_permission: hasAccessToAllBucekts,
-                            permission_list: !hasAccessToAllBucekts ? allowedBuckets : undefined
-                        },
                         allow_bucket_creation: allowBucketCreation
                     }),
                     sleep(750)

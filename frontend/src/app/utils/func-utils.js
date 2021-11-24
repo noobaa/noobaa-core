@@ -8,29 +8,27 @@ const handlerFuncNameRegExp = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 
 export const funcSizeLimit = unitsInBytes.MEGABYTE * 100;
 export const handlerFileSuffix = '.js';
-export const memorySizeOptions = deepFreeze([
-    {
-        value: 128,
-        label: '128 MB'
-    },
-    {
-        value: 256,
-        label: '256 MB'
-    },
-    {
-        value: 512,
-        label: '512 MB'
-    }
+export const memorySizeOptions = deepFreeze([{
+    value: 128,
+    label: '128 MB'
+},
+{
+    value: 256,
+    label: '256 MB'
+},
+{
+    value: 512,
+    label: '512 MB'
+}
 ]);
 
-export function getFunctionOption(func, accounts, bucket) {
+export function getFunctionOption(func, accounts) {
     const { name, version } = func;
     const value = `${name}:${version}`;
     const icon = { name: 'healthy', css: 'success' };
     const label = name;
     const executor = accounts[func.executor];
-    const disabled = !executor.hasAccessToAllBuckets &&
-        !executor.allowedBuckets.includes(bucket);
+    const disabled = !executor.hasAccessToAllBuckets;
 
     let tooltip = '';
     if (disabled) {
@@ -41,7 +39,7 @@ export function getFunctionOption(func, accounts, bucket) {
 
     return { value, icon, label, disabled, tooltip };
 }
-export function isValidFuncName(name){
+export function isValidFuncName(name) {
     return funcNameRegExp.test(name);
 }
 
@@ -56,3 +54,4 @@ export function getFullHandlerName(handlerFile, handlerFunc) {
         handlerFunc
     }`;
 }
+

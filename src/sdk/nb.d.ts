@@ -53,10 +53,6 @@ interface Account extends Base {
     email: SensitiveString;
     next_password_change: Date;
     is_support?: boolean;
-    allowed_buckets: {
-        full_permission: boolean;
-        permission_list: Bucket[];
-    };
     access_keys: Array<{
         access_key: SensitiveString;
         secret_key: SensitiveString;

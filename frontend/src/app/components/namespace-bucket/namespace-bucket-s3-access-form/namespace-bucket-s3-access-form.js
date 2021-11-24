@@ -12,17 +12,16 @@ import {
     openS3AccessDetailsModal
 } from 'action-creators';
 
-const columns = deepFreeze([
-    {
-        name: 'name',
-        type: 'link',
-        sortable: true,
-        compareKey: account => account.name
-    },
-    {
-        name: 'credentialsDetails',
-        type: 'button'
-    }
+const columns = deepFreeze([{
+    name: 'name',
+    type: 'link',
+    sortable: true,
+    compareKey: account => account.name
+},
+{
+    name: 'credentialsDetails',
+    type: 'button'
+}
 ]);
 
 class AccountRowViewModel {
@@ -78,7 +77,6 @@ class NamespaceBucketS3AccessFormViewModel extends ConnectableViewModel {
             const baseRoute = realizeUri(routes.account, { system: location.params.system }, {}, true);
             const filteredAccounts = Object.values(accounts)
                 .filter(account =>
-                    account.allowedBuckets.includes(this.bucketName) &&
                     !account.roles.includes('operator')
                 );
 

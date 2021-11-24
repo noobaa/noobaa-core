@@ -39,20 +39,6 @@ mocha.describe('system_servers', function() {
         const accounts_status = await rpc_client.account.accounts_status();
         await assert(accounts_status.has_accounts, 'has_accounts');
 
-        try {
-            await rpc_client.account.create_account({
-                name: EMAIL1,
-                email: EMAIL1,
-                has_login: false,
-                s3_access: true,
-                allow_bucket_creation: false
-            });
-        } catch (err) {
-            if (err.rpc_code !== 'BAD_REQUEST') {
-                throw err;
-            }
-        }
-
         await rpc_client.account.create_account({
             name: EMAIL1,
             email: EMAIL1,
@@ -70,11 +56,7 @@ mocha.describe('system_servers', function() {
             email: EMAIL1,
             has_login: false,
             s3_access: true,
-            allow_bucket_creation: false,
-            allowed_buckets: {
-                full_permission: true,
-                permission_list: ['first.bucket']
-            },
+            allow_bucket_creation: false
         });
 
         await rpc_client.system.read_system();
@@ -109,10 +91,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL1,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME
         });
         await rpc_client.system.read_system();
@@ -143,10 +121,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL1,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID,
@@ -160,10 +134,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL2,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID + 1,
@@ -177,10 +147,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL3,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
         };
         try {

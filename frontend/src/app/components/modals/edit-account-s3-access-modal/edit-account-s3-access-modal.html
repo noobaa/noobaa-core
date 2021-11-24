@@ -35,10 +35,6 @@
         <editor params="label: 'Buckets Permissions',">
             <dropdown class="push-next" params="
                 options: bucketOptions,
-                selected: ko.pc(
-                    $form.allowedBuckets,
-                    buckets => onSelectAllowedBuckets(buckets)
-                ),
                 filter: true,
                 subject: 'bucket',
                 placeholder: 'Choose Buckets',

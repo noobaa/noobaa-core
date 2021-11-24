@@ -239,7 +239,6 @@ class SystemStoreData {
         this.rebuild_idmap();
         this.rebuild_object_links();
         this.rebuild_indexes();
-        this.rebuild_allowed_buckets_links();
         this.rebuild_accounts_by_email_lowercase();
 
         // TODO: deep freeze the data once tested enough
@@ -295,20 +294,6 @@ class SystemStoreData {
                     }
                 });
             });
-        });
-    }
-
-    rebuild_allowed_buckets_links() {
-        _.each(this.accounts, account => {
-            // filter only the buckets that were resolved to existing buckets
-            // this is to handle deletions of buckets that currently do not
-            // update all the accounts.
-            if (account.allowed_buckets && account.allowed_buckets.permission_list) {
-                account.allowed_buckets.permission_list = _.filter(
-                    account.allowed_buckets.permission_list,
-                    bucket => Boolean(bucket._id)
-                );
-            }
         });
     }
 

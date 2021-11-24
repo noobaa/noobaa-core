@@ -11,7 +11,6 @@ import { getFormValues, getFieldValue, isFieldTouched, isFieldValid, isFormValid
 import { isEmail } from 'validations';
 import {
     touchForm,
-    updateForm,
     closeModal,
     updateModal,
     createAccount
@@ -35,8 +34,8 @@ const steps = deepFreeze([
 ]);
 
 const fieldsByStep = deepFreeze({
-    0: [ 'accountName' ],
-    1: [ 'defaultResource' ]
+    0: ['accountName'],
+    1: ['defaultResource']
 });
 
 function _getAccountNameFieldProps(form) {
@@ -100,11 +99,9 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             });
 
         } else {
-            const bucketList = [...Object.keys(buckets), ...Object.keys(namespaceBuckets)];
             const {
                 accessType = 'ADMIN',
-                allowAccessToFutureBuckets = false,
-                allowedBuckets = bucketList
+                allowAccessToFutureBuckets = false
             } = form ? getFormValues(form) : {};
 
             const accountNames = Object.keys(accounts);
@@ -114,14 +111,11 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             ];
             const resourceOptions = resourceList.map(mapResourceToOptions);
             const systemHasResources = resourceList.length > 0;
-            const isAllowAccessToFutureBucketsDisabled = allowedBuckets.length < bucketList.length;
 
             ko.assignToProps(this, {
                 accountNames,
                 resourceOptions,
-                bucketOptions: bucketList,
                 accountNameProps: _getAccountNameFieldProps(form),
-                isAllowAccessToFutureBucketsDisabled,
                 systemHasResources,
                 isStepValid: form ? isFormValid(form) : false,
                 fields: !form ? {
@@ -129,20 +123,11 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
                     accountName: '',
                     accessType,
                     defaultResource: undefined,
-                    allowedBuckets,
                     allowAccessToFutureBuckets,
                     allowBucketCreation: true
                 } : undefined
             });
         }
-    }
-
-    onSelectAllowedBuckets(allowedBuckets) {
-        const update = { allowedBuckets };
-        if (allowedBuckets.length < this.bucketOptions().length) {
-            update.allowAccessToFutureBuckets = false;
-        }
-        this.dispatch(updateForm(this.formName, update));
     }
 
     onWarn(values) {
@@ -221,13 +206,12 @@ class CreateAccountModalViewModel extends ConnectableViewModel {
             accessType,
             defaultResource,
             allowAccessToFutureBuckets,
-            allowedBuckets,
             allowBucketCreation
         } = values;
 
         const createAction = accessType === 'ADMIN' ?
             createAccount(accountName, true, this.password, defaultResource, true, null, true) :
-            createAccount(accountName, false, null, defaultResource, allowAccessToFutureBuckets, allowedBuckets, allowBucketCreation);
+            createAccount(accountName, false, null, defaultResource, allowAccessToFutureBuckets, allowBucketCreation);
 
         this.dispatch(
             updateModal({

@@ -33,9 +33,6 @@ module.exports = {
                     s3_access: {
                         type: 'boolean'
                     },
-                    allowed_buckets: {
-                        $ref: '#/definitions/allowed_buckets'
-                    },
                     default_resource: {
                         type: 'string',
                     },
@@ -61,9 +58,6 @@ module.exports = {
                             },
                             account_id: {
                                 type: 'string'
-                            },
-                            allowed_buckets: {
-                                $ref: '#/definitions/allowed_buckets'
                             },
                             default_resource: {
                                 type: 'string',
@@ -271,9 +265,6 @@ module.exports = {
                     email: { $ref: 'common_api#/definitions/email' },
                     s3_access: {
                         type: 'boolean'
-                    },
-                    allowed_buckets: {
-                        $ref: '#/definitions/allowed_buckets'
                     },
                     default_resource: {
                         type: 'string'
@@ -576,7 +567,7 @@ module.exports = {
     definitions: {
         account_info: {
             type: 'object',
-            required: ['name', 'email', 'has_login', 'has_s3_access'],
+            required: ['name', 'email', 'has_login'],
             properties: {
                 name: { $ref: 'common_api#/definitions/account_name' },
                 email: { $ref: 'common_api#/definitions/email' },
@@ -596,22 +587,6 @@ module.exports = {
                     type: 'array',
                     items: {
                         $ref: 'common_api#/definitions/access_keys'
-                    }
-                },
-                has_s3_access: {
-                    type: 'boolean'
-                },
-                allowed_buckets: {
-                    type: 'object',
-                    required: ['full_permission'],
-                    properties: {
-                        full_permission: {
-                            type: 'boolean'
-                        },
-                        permission_list: {
-                            type: 'array',
-                            items: { $ref: 'common_api#/definitions/bucket_name' },
-                        }
                     }
                 },
                 can_create_buckets: {
@@ -714,21 +689,6 @@ module.exports = {
                 }
             },
         },
-
-        allowed_buckets: {
-            type: 'object',
-            required: ['full_permission'],
-            properties: {
-                full_permission: {
-                    type: 'boolean'
-                },
-                permission_list: {
-                    type: 'array',
-                    items: { $ref: 'common_api#/definitions/bucket_name' },
-                }
-            }
-        },
-
         account_acl: {
             anyOf: [{
                 type: 'null'

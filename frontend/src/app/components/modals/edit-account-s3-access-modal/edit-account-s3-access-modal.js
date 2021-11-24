@@ -5,10 +5,8 @@ import ConnectableViewModel from 'components/connectable';
 import { flatMap } from 'utils/core-utils';
 import { sumSize, formatSize } from 'utils/size-utils';
 import { getCloudServiceMeta } from 'utils/cloud-utils';
-import { getFormValues } from 'utils/form-utils';
 import ko from 'knockout';
 import {
-    updateForm,
     updateAccountS3Access,
     closeModal
 } from 'action-creators';
@@ -68,10 +66,10 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
         }
 
         const resourceOptions = flatMap(
-            [ hostPools, cloudResources ],
+            [hostPools, cloudResources],
             resources => Object.values(resources).map(mapResourceToOption)
         );
-        const systemHasResources= resourceOptions.length > 0;
+        const systemHasResources = resourceOptions.length > 0;
 
         const allBuckets = [
             ...Object.keys(buckets),
@@ -81,15 +79,10 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
         const bucketOptions = allBuckets
             .map(bucket => {
                 const value = bucket;
-                const tooltip =  { text: bucket, breakWords: true };
+                const tooltip = { text: bucket, breakWords: true };
                 return { value, tooltip };
             });
 
-        const {
-            allowedBuckets = account.allowedBuckets
-        } = form ? getFormValues(form) : {};
-
-        const isAllowAccessToFutureBucketsDisabled = allowedBuckets.length < bucketOptions.length;
         const defaultResource = account.defaultResource !== 'INTERNAL_STORAGE' ?
             account.defaultResource :
             undefined;
@@ -99,23 +92,13 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
             resourceOptions: resourceOptions,
             systemHasResources,
             bucketOptions: bucketOptions,
-            isAllowAccessToFutureBucketsDisabled,
             fields: !form ? {
                 accountName: account.name,
                 allowAccessToFutureBuckets: account.hasAccessToAllBuckets,
-                allowedBuckets: account.allowedBuckets || [],
                 defaultResource,
                 allowBucketCreation: account.canCreateBuckets
             } : undefined
         });
-    }
-
-    onSelectAllowedBuckets(allowedBuckets) {
-        const update = { allowedBuckets };
-        if (allowedBuckets.length < this.bucketOptions().length) {
-            update.allowAccessToFutureBuckets = false;
-        }
-        this.dispatch(updateForm(this.formName, update));
     }
 
     onWarn() {
@@ -139,22 +122,10 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
         return errors;
     }
 
-    onSelectAllBuckets() {
-        const allowedBuckets = this.bucketOptions()
-            .map(opt => opt.value);
-
-        this.dispatch(updateForm(this.formName, { allowedBuckets }));
-    }
-
-    onClearSelectedBuckets() {
-        this.dispatch(updateForm(this.formName, { allowedBuckets: [] }));
-    }
-
     onSubmit({
         accountName,
         defaultResource,
         allowAccessToFutureBuckets,
-        allowedBuckets,
         allowBucketCreation
     }) {
 
@@ -164,7 +135,6 @@ class EditAccountS3AccessModalViewModel extends ConnectableViewModel {
                 accountName,
                 defaultResource,
                 allowAccessToFutureBuckets,
-                allowedBuckets,
                 allowBucketCreation
             )
         );

@@ -25,7 +25,6 @@ const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
 const pool_server = require('../system_services/pool_server');
-const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const func_store = require('../func_services/func_store');
 const replication_store = require('../system_services/replication_store');
@@ -215,16 +214,6 @@ async function create_bucket(req) {
             bucket: bucket._id,
             desc: `${bucket.name.unwrap()} was created by ${req.account && req.account.email.unwrap()}`,
         });
-
-        // Grant the account a full access for the newly created bucket.
-        if (req.account.allowed_buckets && !req.account.allowed_buckets.full_permission) {
-            changes.update.accounts = [{
-                _id: req.account._id,
-                $push: {
-                    'allowed_buckets.permission_list': bucket._id,
-                }
-            }];
-        }
 
         await system_store.make_changes(changes);
         req.load_auth();
@@ -714,39 +703,10 @@ async function update_buckets(req) {
  */
 function update_bucket_s3_access(req) {
     const bucket = find_bucket(req);
-    const allowed_accounts = req.rpc_params.allowed_accounts.map(
-        email => system_store.get_account_by_email(email)
-    );
 
     const added_accounts = [];
     const removed_accounts = [];
     const updates = [];
-    system_store.data.accounts.forEach(account => {
-        if (!account.allowed_buckets ||
-            (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
-
-        const is_allowed = account.allowed_buckets.permission_list.includes(bucket);
-        const should_be_allowed = allowed_accounts.includes(account);
-
-        if (!is_allowed && should_be_allowed) {
-            added_accounts.push(account);
-            updates.push({
-                _id: account._id,
-                $push: {
-                    'allowed_buckets.permission_list': bucket._id
-                }
-            });
-        } else if (is_allowed && !should_be_allowed) {
-            removed_accounts.push(account);
-            updates.push({
-                _id: account._id,
-                $pullAll: {
-                    'allowed_buckets.permission_list': [bucket._id]
-                }
-            });
-        }
-    });
-
     return system_store.make_changes({
             update: {
                 accounts: updates
@@ -871,25 +831,6 @@ async function delete_bucket(req) {
         if (bucket.replication_policy_id) {
             // delete replication from replication collection
             await replication_store.instance().delete_replication_by_id(bucket.replication_policy_id);
-        }
-        const accounts_update = _.compact(_.map(system_store.data.accounts,
-            account => {
-                if (!account.allowed_buckets ||
-                    (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
-                return {
-                    _id: account._id,
-                    $pullAll: {
-                        'allowed_buckets.permission_list': [bucket._id]
-                    }
-                };
-            }));
-
-        if (!_.isEmpty(accounts_update)) {
-            await system_store.make_changes({
-                update: {
-                    accounts: accounts_update
-                }
-            });
         }
         await BucketStatsStore.instance().delete_stats({
             system: req.system._id,
@@ -1316,10 +1257,6 @@ async function claim_bucket(req) {
             has_login: false,
             s3_access: true,
             allow_bucket_creation: false,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: [req.rpc_params.name],
-            }
         }, {
             auth_token: req.auth_token
         });
@@ -1423,13 +1360,7 @@ function validate_trigger_update(bucket, validated_trigger) {
         }
     });
     if (!validate_function) return P.resolve(); // if update doesn't change function - no need to validate access
-    return func_store.instance().read_func(bucket.system._id, validated_trigger.func_name, validated_trigger.func_version)
-        .then(func => {
-            const exec_account = system_store.data.get_by_id(func.exec_account);
-            if (!auth_server.has_bucket_permission(bucket, exec_account)) {
-                throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-            }
-        });
+    return true;
 }
 
 function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
@@ -1453,7 +1384,6 @@ function find_bucket(req, bucket_name = req.rpc_params.name) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
     }
-    req.check_s3_bucket_permission(bucket);
     return bucket;
 }
 
@@ -1551,12 +1481,6 @@ function get_bucket_info({
     info.triggers = _.map(bucket.lambda_triggers, trigger => {
         const ret_trigger = _.omit(trigger, '_id');
         ret_trigger.id = trigger._id.toString();
-        const func = _.find(func_configs, func_config =>
-            func_config.name === trigger.func_name &&
-            func_config.version === trigger.func_version
-        );
-        const exec_account = system_store.get_account_by_email(func.exec_account);
-        ret_trigger.permission_problem = !auth_server.has_bucket_permission(bucket, exec_account);
         return ret_trigger;
     });
 

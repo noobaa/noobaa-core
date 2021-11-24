@@ -23,76 +23,63 @@ function _getAllowedIpsInfo(allowedIps = []) {
     };
 }
 
-function _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) {
-    return {
-        tags: hasAccessToAllBuckets ? [] : allowedBuckets,
-        maxCount: boxCount,
-        emptyMessage: hasAccessToAllBuckets ?
-            'All current and future buckets' :
-            '(None)'
-    };
-}
-
-
 class AccountS3AccessFormViewModel extends ConnectableViewModel {
     dataReady = ko.observable();
     accountName = ko.observable();
     canEdit = ko.observable();
     actionsTooltip = ko.observable();
-    s3AccessInfo = [
-        {
-            label: 'Access Type',
-            value: ko.observable()
+    s3AccessInfo = [{
+        label: 'Access Type',
+        value: ko.observable()
+    },
+    {
+        label: 'Permitted Buckets',
+        template: 'tagList',
+        value: {
+            tags: ko.observableArray(),
+            maxCount: boxCount,
+            emptyMessage: ko.observable()
         },
-        {
-            label: 'Permitted Buckets',
-            template: 'tagList',
-            value: {
-                tags: ko.observableArray(),
-                maxCount: boxCount,
-                emptyMessage: ko.observable()
-            },
-            disabled: ko.observable()
+        disabled: ko.observable()
+    },
+    {
+        label: 'New Bucket Creation',
+        value: ko.observable(),
+        disabled: ko.observable()
+    },
+    {
+        label: 'Default Resource for S3 Applications',
+        value: ko.observable(),
+        disabled: ko.observable()
+    },
+    {
+        label: 'IP Restrictions',
+        value: ko.observable(),
+        disabled: ko.observable()
+    },
+    {
+        label: 'Allowed IPs',
+        template: 'tagList',
+        value: {
+            tags: ko.observableArray(),
+            maxCount: boxCount,
+            emptyMessage: ko.observable()
         },
-        {
-            label: 'New Bucket Creation',
-            value: ko.observable(),
-            disabled: ko.observable()
-        },
-        {
-            label: 'Default Resource for S3 Applications',
-            value: ko.observable(),
-            disabled: ko.observable()
-        },
-        {
-            label: 'IP Restrictions',
-            value: ko.observable(),
-            disabled: ko.observable()
-        },
-        {
-            label: 'Allowed IPs',
-            template: 'tagList',
-            value: {
-                tags: ko.observableArray(),
-                maxCount: boxCount,
-                emptyMessage: ko.observable()
-            },
-            visible: ko.observable()
-        }
+        visible: ko.observable()
+    }
     ];
-    credentials = [
-        {
-            label: 'Access Key',
-            allowCopy: true,
-            value: ko.observable(),
-            disabled: ko.observable()
-        },
-        {
-            label: 'Secret Key',
-            allowCopy: true,
-            value: ko.observable(),
-            disabled: ko.observable()
-        }
+    credentials = [{
+        label: 'Access Key',
+        allowCopy: true,
+        value: ko.observable(),
+        disabled: ko.observable()
+    },
+    {
+        label: 'Secret Key',
+        allowCopy: true,
+        value: ko.observable(),
+        disabled: ko.observable()
+    }
     ];
 
     selectState(state, params) {
@@ -115,8 +102,6 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
             const {
                 defaultResource,
                 isAdmin,
-                hasAccessToAllBuckets,
-                allowedBuckets,
                 accessKeys,
                 allowedIps
             } = account;
@@ -135,7 +120,6 @@ class AccountS3AccessFormViewModel extends ConnectableViewModel {
                 actionsTooltip: canEdit ? '' : 'User has no permission to edit this account',
                 s3AccessInfo: [
                     { value: isAdmin ? 'Administator' : 'Application' },
-                    { value: _getAllowedBucketsInfo(hasAccessToAllBuckets, allowedBuckets) },
                     { value: account.canCreateBuckets ? 'Allowed' : 'Not Allowed' },
                     { value: defaultResourceName },
                     { value: allowedIps ? 'Enabled' : 'Not set' },

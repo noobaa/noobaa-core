@@ -591,27 +591,14 @@ function _prepare_auth_request(req) {
         dbg.log3('load auth system:', req.system && req.system._id);
     };
 
-    req.has_bucket_permission = function(bucket) {
-        return has_bucket_permission(bucket, req.account);
-    };
-
     req.has_bucket_anonymous_permission = function(bucket) {
         return has_bucket_anonymous_permission(bucket);
-    };
-
-    req.check_bucket_permission = function(bucket) {
-        if (!req.has_bucket_permission(bucket)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
     };
 
     req.has_s3_bucket_permission = function(bucket) {
         // Since this method can be called both authorized and unauthorized
         // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
         // In case of anonymous function but with authentication flow we roll back to previous code and not return here
-        if (req.auth_token && typeof req.auth_token === 'object') {
-            return req.has_bucket_permission(bucket);
-        }
         // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
         // There is nothing specific to bucket permissions for the management credentials
         // So we allow bucket access to any valid auth token
@@ -625,13 +612,6 @@ function _prepare_auth_request(req) {
 
         return false;
     };
-
-    req.check_s3_bucket_permission = function(bucket) {
-        if (!req.has_s3_bucket_permission(bucket)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
-    };
-
 }
 
 function _get_auth_info(account, system, authorized_by, role, extra) {
@@ -654,14 +634,6 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
     }
 
     return response;
-}
-
-function has_bucket_permission(bucket, account) {
-    return _.get(account, 'allowed_buckets.full_permission', false) ||
-        _.find(
-            _.get(account, 'allowed_buckets.permission_list') || [],
-            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-        );
 }
 
 // TODO: This should be changed to ACLs / Bucket Policy
@@ -731,5 +703,4 @@ exports.create_access_key_auth = create_access_key_auth;
 // it reads and prepares the authorized info on the request (req.auth).
 exports.authorize = authorize;
 exports.make_auth_token = make_auth_token;
-exports.has_bucket_permission = has_bucket_permission;
 exports.has_bucket_anonymous_permission = has_bucket_anonymous_permission;

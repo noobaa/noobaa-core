@@ -109,16 +109,6 @@ class BucketsReclaimer {
             this.tiering_to_delete.push(tiering_policy._id);
             this.tiers_to_delete.push(...tiering_policy.tiers.map(t => t.tier._id));
         }
-        system_store.data.accounts.forEach(account => {
-            if (!account.allowed_buckets || (account.allowed_buckets && account.allowed_buckets.full_permission)) return;
-            if (!account.allowed_buckets.permission_list.includes(bucket)) return;
-            this.account_updates.push({
-                _id: account._id,
-                $pullAll: {
-                    'allowed_buckets.permission_list': [bucket._id]
-                }
-            });
-        });
     }
 
     _reset_delete_lists() {

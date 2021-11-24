@@ -16,7 +16,6 @@ const test_utils = require('./test_utils');
 
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const { v4: uuid } = require('uuid');
 const assert = require('assert');
 
 
@@ -42,10 +41,6 @@ const full_access_user = {
     email: 'full_access@noobaa.com',
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'bucket2']
-    },
     default_resource: POOL_NAME
 };
 
@@ -54,10 +49,6 @@ const bucket1_user = {
     email: 'bucket1_access@noobaa.com',
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1']
-    },
     default_resource: POOL_NAME
 };
 
@@ -132,53 +123,18 @@ function get_new_server(user) {
 async function run_test() {
     await authenticate();
     await setup();
-    await test_list_buckets_returns_allowed_buckets();
     await test_bucket_write_allowed();
     await test_bucket_read_allowed();
     await test_bucket_list_allowed();
     await test_bucket_write_denied();
     await test_bucket_read_denied();
     await test_bucket_list_denied();
-    await test_create_bucket_add_creator_permissions();
-    await test_delete_bucket_deletes_permissions();
     await test_no_s3_access();
     await test_ip_restrictions();
     console.log('test_bucket_access PASSED');
 }
 
 /********************Tests:****************************/
-
-
-async function test_list_buckets_returns_allowed_buckets() {
-    let account;
-    let full_access_user_buckets = 0;
-    let bucket1_user_buckets = 0;
-    let server = get_new_server(full_access_user);
-
-    const system_info = await client.system.read_system();
-    account = account_by_name(system_info.accounts, full_access_user.email);
-    full_access_user_buckets = (account.allowed_buckets.permission_list || []).length;
-
-    account = account_by_name(system_info.accounts, bucket1_user.email);
-    bucket1_user_buckets = (account.allowed_buckets.permission_list || []).length;
-    let data = await server.listBuckets().promise();
-    assert(data.Buckets.length === full_access_user_buckets,
-        'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
-
-    let buckets = data.Buckets.map(bucket => bucket.Name);
-    assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-    assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
-
-    server = get_new_server(bucket1_user);
-    data = await server.listBuckets().promise();
-
-    assert(data.Buckets.length === bucket1_user_buckets,
-        'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
-
-    buckets = data.Buckets.map(bucket => bucket.Name);
-    assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-    console.log('test_list_buckets_returns_allowed_buckets PASSED');
-}
 
 async function test_bucket_write_allowed() {
     console.log(`Starting test_bucket_write_allowed`);
@@ -319,45 +275,6 @@ async function test_bucket_list_denied() {
         assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
     }
 
-}
-
-async function test_create_bucket_add_creator_permissions() {
-    console.log(`Starting test_create_bucket_add_creator_permissions`);
-    const server = get_new_server(full_access_user);
-    const unique_bucket_name = 'bucket' + uuid();
-    const params = {
-        Bucket: unique_bucket_name
-    };
-    await server.createBucket(params).promise();
-    // check account server for permissions of full_access_user
-    const system_info = await client.system.read_system();
-    const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets.permission_list;
-    const has_access = Boolean(allowed_buckets.find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
-    assert(has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
-}
-
-async function test_delete_bucket_deletes_permissions() {
-    console.log(`Starting test_delete_bucket_deletes_permissions`);
-    const server = get_new_server(full_access_user);
-    const unique_bucket_name = 'bucket' + uuid();
-
-    await server.createBucket({ Bucket: unique_bucket_name }).promise();
-    let system_info = await client.system.read_system();
-
-    let user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
-        .allowed_buckets
-        .permission_list
-        .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
-
-    assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
-    await server.deleteBucket({ Bucket: unique_bucket_name }).promise();
-    system_info = await client.system.read_system();
-    user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
-        .allowed_buckets
-        .permission_list
-        .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
-
-    assert(!user_has_access, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);
 }
 
 async function test_no_s3_access() {

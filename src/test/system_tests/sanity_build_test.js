@@ -192,12 +192,6 @@ async function _create_accounts() {
         has_login: false,
         s3_access: true,
         default_resource: 'COMP-S3-V2-Resource',
-        allowed_buckets: {
-            full_permission: false,
-            permission_list: [
-                'first.bucket'
-            ]
-        },
         allow_bucket_creation: true
     };
 
@@ -208,10 +202,6 @@ async function _create_accounts() {
         must_change_password: true,
         s3_access: true,
         default_resource: 'COMP-S3-V2-Resource',
-        allowed_buckets: {
-            full_permission: false,
-            permission_list: ['first.bucket', 'ec.no.quota', 'replica.with.quota']
-        },
         allow_bucket_creation: true
     };
 
@@ -222,7 +212,6 @@ async function _create_accounts() {
         must_change_password: false,
         s3_access: true,
         default_resource: 'COMP-S3-V2-Resource',
-        allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
 
@@ -234,7 +223,6 @@ async function _create_accounts() {
         must_change_password: false,
         s3_access: true,
         default_resource: 'COMP-S3-V2-Resource',
-        allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
 
@@ -245,7 +233,6 @@ async function _create_accounts() {
         must_change_password: false,
         s3_access: true,
         default_resource: 'COMP-S3-V2-Resource',
-        allowed_buckets: { full_permission: true },
         allow_bucket_creation: true
     };
     const ac5_update = {

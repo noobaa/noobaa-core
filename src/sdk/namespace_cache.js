@@ -177,13 +177,61 @@ class NamespaceCache {
     // OBJECT LIST //
     /////////////////
 
-    async list_objects(params, object_sdk) {
-        const get_from_cache = params.get_from_cache;
-        params = _.omit(params, 'get_from_cache');
-        if (get_from_cache) {
-            return this.namespace_nb.list_objects(params, object_sdk);
+    // While listing objects compare hub and cache
+    // and delete objects from cache if
+    // - object is missing in hub (out of band delete)
+    // - object is outdated (out of band object update)
+    async _invalidate_on_list(cache_promise, hub_promise, object_sdk) {
+        const [hub_res, cache_res] = await Promise.allSettled([hub_promise, cache_promise]);
+
+        // if one of the promises was rejected,
+        // get out of here
+        const hub_ok = hub_res.status === 'fulfilled';
+        const cache_ok = cache_res.status === 'fulfilled';
+        if (!hub_ok || !cache_ok) {
+            return;
         }
-        return this.namespace_hub.list_objects(params, object_sdk);
+
+        // filter out objects in cache list which
+        // are not marked is_latest
+        const cobjs = cache_res.value.objects.filter(o => o.is_latest);
+        const hobjs = hub_res.value.objects;
+
+        var j = 0; // j is index into the hub list
+        const cl = cobjs.length; // cache list length
+        const hl = hobjs.length; // hub list length
+
+        // iterate over the cache list
+        // Amazon S3 lists objects in alphabetical order, see https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html
+        for (var i = 0; i < cl; i += 1) {
+            const co = cobjs[i]; // current cache list object
+            var should_delete = false;
+
+            if (j < hl) { // there is corresponding object in hub list
+                const ho = hobjs[j]; // current hub list object
+                const missing_in_hub = (ho.key.localeCompare(co.key) > 0);
+                const same_key = (ho.key.localeCompare(co.key) === 0);
+                const outdated = (ho.etag !== co.etag);
+                should_delete = (missing_in_hub || (same_key && outdated));
+                if (same_key) {
+                    j += 1; // next hub list object
+                }
+            } else { // hub list is over, so this object no longer resides in the hub
+                should_delete = true;
+            }
+
+            // remove this object from cache
+            if (should_delete) {
+                setImmediate(() => this._delete_object_from_cache(co, object_sdk));
+            }
+        }
+    }
+
+    async list_objects(params, object_sdk) {
+        const cache_promise = this.namespace_nb.list_objects(params, object_sdk);
+        const hub_promise = this.namespace_hub.list_objects(params, object_sdk);
+        this._invalidate_on_list(cache_promise, hub_promise, object_sdk); // in background
+        return hub_promise;
     }
 
     async list_uploads(params, object_sdk) {

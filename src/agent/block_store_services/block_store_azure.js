@@ -4,9 +4,9 @@
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const buffer_utils = require('../../util/buffer_utils');
 const size_utils = require('../../util/size_utils');
-const azure_storage = require('../../util/azure_storage_wrap');
+const buffer_utils = require('../../util/buffer_utils');
+const azure_storage = require('../../util/new_azure_storage_wrap');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
 const _ = require('lodash');
@@ -20,8 +20,9 @@ class BlockStoreAzure extends BlockStoreBase {
         this.blocks_path = this.base_path + '/blocks_tree';
         this.usage_path = this.base_path + '/usage';
         this.usage_md_key = 'noobaa_usage';
-        this.blob = azure_storage.createBlobService(this.cloud_info.azure.connection_string);
+        this.blob = azure_storage.BlobServiceClient.fromConnectionString(this.cloud_info.azure.connection_string);
         this.container_name = this.cloud_info.azure.container;
+        this.container_client = azure_storage.get_container_client(this.blob, this.container_name);
     }
 
     init() {
@@ -38,22 +39,6 @@ class BlockStoreAzure extends BlockStoreBase {
         };
     }
 
-    _get_shared_access_signature(block_key, permission) {
-        // set start and expiry dates to -10 minutes till 10 minutes from now
-        const start_date = new Date();
-        const expiry_date = new Date(start_date);
-        expiry_date.setMinutes(start_date.getMinutes() + 10);
-        start_date.setMinutes(start_date.getMinutes() - 10);
-        const shared_access_policy = {
-            AccessPolicy: {
-                Permissions: permission,
-                Start: start_date,
-                Expiry: expiry_date
-            },
-        };
-        return this.blob.generateSharedAccessSignature(this.container_name, block_key, shared_access_policy);
-    }
-
     _get_block_store_info() {
         const connection_params = {
             connection_string: this.cloud_info.azure.connection_string,
@@ -65,82 +50,83 @@ class BlockStoreAzure extends BlockStoreBase {
         };
     }
 
-    _read_block(block_md) {
+    async _read_block(block_md) {
+
         const block_key = this._block_key(block_md.id);
-        const writable = buffer_utils.write_stream();
-        return P.fromCallback(callback => this.blob.getBlobToStream(
-                this.container_name,
-                block_key,
-                writable, {
-                    disableContentMD5Validation: true
-                },
-                callback
-            ))
-            .then(info => ({
-                data: buffer_utils.join(writable.buffers, writable.total_length),
-                block_md: this._decode_block_md(info.metadata.noobaablockmd || info.metadata.noobaa_block_md)
-            }))
-            .catch(err => {
-                dbg.error('BlockStoreAzure _read_block failed:',
-                    this.container_name, block_key, err);
-                if (err.code === 'ContainerNotFound') {
-                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
-                } else if (err.code === 'AuthenticationFailed') {
-                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
-                }
-                throw err;
+        const blob_client = azure_storage.get_blob_client(this.container_client, block_key);
+        dbg.log1('block_store_azure._read_block downloading: ', block_key, block_md);
+
+        try {
+            const response = await blob_client.download(0, undefined);
+            dbg.log1('block_store_azure._read_block download response: ', response);
+            return ({
+                data: await buffer_utils.read_stream_join(response.readableStreamBody),
+                block_md: this._decode_block_md(response.metadata.noobaablockmd || response.metadata.noobaa_block_md)
             });
+        } catch (err) {
+            dbg.error('BlockStoreAzure _read_block failed:',
+                this.container_name, block_key, err, err.details && err.details.code);
+            if (err.details && err.details.code === 'ContainerNotFound') {
+                throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+            } else if (err.details && err.details.code === 'AuthenticationFailed') {
+                throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
+            }
+            throw err;
+        }
     }
 
 
+
     async _read_block_md(block_md) {
-        const block_info = await P.fromCallback(callback => this.blob.getBlobProperties(
-            this.container_name,
-            this._block_key(block_md.id),
-            callback
-        ));
+        const blob_client = azure_storage.get_blob_client(this.container_client, this._block_key(block_md.id));
+        const block_info = await blob_client.getProperties();
+        dbg.log1('block_store_azure._read_block_md block_info: ', block_info);
+
         const store_block_md = this._decode_block_md(block_info.metadata.noobaablockmd || block_info.metadata.noobaa_block_md);
-        const store_md5 = block_info.contentSettings.contentMD5;
+        const store_md5 = block_info.contentMD5;
+        dbg.log1('block_store_azure._read_block_md store_block_md: ', store_block_md, ' store_md5: ', store_md5);
+
         return {
             block_md: store_block_md,
             store_md5
         };
     }
 
-    _write_block(block_md, data, options) {
+    async _write_block(block_md, data, options) {
         const encoded_md = this._encode_block_md(block_md);
         const block_key = this._block_key(block_md.id);
         // check to see if the object already exists
+        const blob_client = azure_storage.get_blob_client(this.container_client, block_key);
+        dbg.log1('block_store_azure._write_block upload: data.length: ', data.length, ' md: ', block_md);
 
-        return P.fromCallback(callback => this.blob.createBlockBlobFromText(
-                this.container_name,
-                block_key,
-                data, {
+        try {
+            await blob_client.upload(
+                data, data.length, {
                     metadata: {
                         noobaablockmd: encoded_md
                     }
-                },
-                callback))
-            .then(() => {
-                if (options && options.ignore_usage) return;
-                // return usage count for the object
-                const usage = {
-                    size: (block_md.is_preallocated ? 0 : data.length) + encoded_md.length,
-                    count: block_md.is_preallocated ? 0 : 1
-                };
-                return this._update_usage(usage);
-            })
-            .catch(err => {
-                dbg.error('BlockStoreAzure _write_block failed:',
-                    this.container_name, block_key, err.code, err);
-                if (err.code === 'ContainerNotFound') {
-                    throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
-                } else if (err.code === 'AuthenticationFailed') {
-                    throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
-                }
+                });
 
-                throw err;
-            });
+            dbg.log1('block_store_azure._write_block finished upload YAY');
+
+            if (options && options.ignore_usage) return;
+            // return usage count for the object
+            const usage = {
+                size: (block_md.is_preallocated ? 0 : data.length) + encoded_md.length,
+                count: block_md.is_preallocated ? 0 : 1
+            };
+            return this._update_usage(usage);
+
+        } catch (err) {
+            dbg.error('BlockStoreAzure _write_block failed:',
+                this.container_name, block_key, err.details && err.details.code, err);
+            if (err.details && err.details.code === 'ContainerNotFound') {
+                throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
+            } else if (err.details && err.details.code === 'AuthenticationFailed') {
+                throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
+            }
+            throw err;
+        }
     }
 
     async cleanup_target_path() {
@@ -151,31 +137,33 @@ class BlockStoreAzure extends BlockStoreBase {
             dbg.log0(`cleaning up all objects with prefix ${this.base_path}`);
             while (!done) {
                 const prev_continuation_token = continuation_token;
-                const list_res = await P.fromCallback(callback => this.blob.listBlobsSegmentedWithPrefix(
-                    this.container_name,
-                    this.base_path,
-                    prev_continuation_token,
-                    callback));
-                if (list_res.entries.length !== 0) {
-                    await P.map_with_concurrency(10, list_res.entries, async entry => {
+                const iterator = this.container_client.listBlobsFlat({
+                    prefix: this.base_path
+                }).byPage({ continuationToken: prev_continuation_token, maxPageSize: 1000 });
+                const list_res = (await iterator.next()).value;
+                dbg.log1('block_store_azure.cleanup_target_path list_res: ', list_res);
+
+                if (list_res.segment.blobItems.length !== 0) {
+                    await P.map_with_concurrency(10, list_res.segment.blobItems, async entry => {
                         try {
-                            await P.fromCallback(callback =>
-                                this.blob.deleteBlob(
-                                    this.container_name,
-                                    entry.name,
-                                    callback)
-                            );
+                            dbg.log1('block_store_azure.cleanup_target_path deleting blob: ', entry.name);
+
+                            await this.container_client.deleteBlob(entry.name);
+                            dbg.log1('block_store_azure.cleanup_target_path deleted blob succefully: ', entry.name);
+
                         } catch (err) {
                             dbg.warn('BlockStoreAzure _delete_blocks failed for block',
                                 this.container_name, entry.name, err);
                         }
                     });
                 }
+                dbg.log1('block_store_azure.cleanup_target_path deleted blob: list_res.segment.blobItems: ', list_res.segment.blobItems);
+                dbg.log1('block_store_azure.cleanup_target_path deleted blob: list_res.continuationToken: ', list_res.continuationToken);
 
-                total += list_res.entries.length;
+                total += list_res.segment.blobItems.length;
                 continuation_token = list_res.continuationToken;
 
-                if (!continuation_token || list_res.entries.length === 0) {
+                if (!continuation_token || list_res.segment.blobItems.length === 0) {
                     done = true;
                 }
             }
@@ -192,38 +180,34 @@ class BlockStoreAzure extends BlockStoreBase {
             count: 0
         };
         let failed_to_delete_block_ids = [];
-        return P.map_with_concurrency(10, block_ids, block_id => {
+        dbg.log1('block_store_azure._delete_blocks block_ids: ', block_ids);
+
+        return P.map_with_concurrency(10, block_ids, async block_id => {
                 const block_key = this._block_key(block_id);
-                let info;
-                return P.fromCallback(callback =>
-                        this.blob.getBlobProperties(
-                            this.container_name,
-                            block_key,
-                            callback)
-                    )
-                    .then(info_arg => {
-                        info = info_arg;
-                    })
-                    .then(() => P.fromCallback(callback =>
-                        this.blob.deleteBlob(
-                            this.container_name,
-                            block_key,
-                            callback)
-                    ))
-                    .then(() => {
-                        const data_size = Number(info.contentLength);
-                        const noobaablockmd = info.metadata.noobaablockmd || info.metadata.noobaa_block_md;
-                        const md_size = (noobaablockmd && noobaablockmd.length) || 0;
-                        deleted_storage.size -= (data_size + md_size);
-                        deleted_storage.count -= 1;
-                    })
-                    .catch(err => {
-                        if (err.code !== 'BlobNotFound') {
-                            failed_to_delete_block_ids.push(block_id);
-                        }
-                        dbg.warn('BlockStoreAzure _delete_blocks failed for block',
-                            this.container_name, block_key, err);
-                    });
+                try {
+                    const blob_client = azure_storage.get_blob_client(this.container_client, block_key);
+                    const info_arg = await blob_client.getProperties();
+                    dbg.log1('block_store_azure._delete_blocks info_arg: ', info_arg, 'block_key: ', block_key);
+
+                    await this.container_client.deleteBlob(block_key);
+                    dbg.log1('block_store_azure._delete_blocks deleted blob: block_key: ', block_key);
+
+                    const data_size = Number(info_arg.contentLength);
+                    const noobaablockmd = info_arg.metadata.noobaablockmd || info_arg.metadata.noobaa_block_md;
+                    dbg.log0('block_store_azure._delete_blocks info: data_size: ', data_size, 'noobaablockmd: ', noobaablockmd);
+
+                    const md_size = (noobaablockmd && noobaablockmd.length) || 0;
+                    deleted_storage.size -= (data_size + md_size);
+                    deleted_storage.count -= 1;
+
+                } catch (err) {
+                    dbg.log1('block_store_azure._delete_blocks err.details.code: ', err.details && err.details.code, err);
+                    if (err.details && err.details.code !== 'BlobNotFound') {
+                        failed_to_delete_block_ids.push(block_id);
+                    }
+                    dbg.warn('BlockStoreAzure _delete_blocks failed for block',
+                        this.container_name, block_key, err);
+                }
             })
             .then(() => this._update_usage(deleted_storage))
             .then(() => ({
@@ -235,26 +219,24 @@ class BlockStoreAzure extends BlockStoreBase {
     async test_store_validity() {
         const block_key = this._block_key(`test-delete-non-existing-key-${Date.now()}`);
         try {
-            await P.fromCallback(callback =>
-                this.blob.deleteBlob(
-                    this.container_name,
-                    block_key,
-                    callback)
-            );
+            await this.container_client.deleteBlob(block_key);
         } catch (err) {
-            if (err.code !== 'BlobNotFound') {
+            dbg.log1('block_store_azure.test_store_validity: err.details.code', err.details && err.details.code, 'err: ', err);
+            if (err.details && err.details.code !== 'BlobNotFound') {
                 dbg.error('in _test_cloud_service - deleteBlob failed:', err, _.omit(this.cloud_info, 'access_keys'));
-                if (err.code === 'ContainerNotFound') {
+                if (err.details && err.details.code === 'ContainerNotFound') {
                     throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
-                } else if (err.code === 'AuthenticationFailed') {
+                } else if (err.details && err.details.code === 'AuthenticationFailed') {
                     throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
                 }
-                dbg.warn(`unexpected error (code=${err.code}) from deleteBlob during test. ignoring..`);
+                dbg.warn(`unexpected error (code=${err.details && err.details.code}) from deleteBlob during test. ignoring..`);
             }
         }
+        dbg.log1('block_store_azure.test_store_validity finished succefully');
     }
 
     _handle_delegator_error(err, usage, op_type) {
+        dbg.log1('block_store_azure._handle_delegator_error: err', err, 'usage: ', usage, 'op_type: ', op_type);
         if (usage) {
             if (op_type === 'WRITE') {
                 this._update_usage({ size: -usage.size, count: -usage.count });
@@ -264,10 +246,10 @@ class BlockStoreAzure extends BlockStoreBase {
             }
         }
         dbg.error('BlockStoreAzure operation failed:',
-            this.container_name, err.code, err);
-        if (err.code === 'ContainerNotFound') {
+            this.container_name, err.details && err.details.code, err);
+        if (err.details && err.details.code === 'ContainerNotFound') {
             throw new RpcError('STORAGE_NOT_EXIST', `azure container ${this.container_name} not found. got error ${err}`);
-        } else if (err.code === 'AuthenticationFailed') {
+        } else if (err.details && err.details.code === 'AuthenticationFailed') {
             throw new RpcError('AUTH_FAILED', `access denied to the azure container ${this.container_name}. got error ${err}`);
         }
         throw err;
@@ -286,45 +268,40 @@ class BlockStoreAzure extends BlockStoreBase {
         return this._usage;
     }
 
-    _read_usage() {
-        return P.fromCallback(callback =>
-                this.blob.getBlobProperties(
-                    this.container_name,
-                    this.usage_path,
-                    callback)
-            )
-            .then(info => {
-                const usage_data = info.metadata[this.usage_md_key];
-                if (usage_data) {
-                    this._usage = this._decode_block_md(usage_data);
-                    dbg.log0('BlockStoreAzure init: found usage data in',
-                        this.usage_path, 'usage_data = ', this._usage);
-                }
-            }, err => {
-                if (err.code === 'NotFound') {
-                    // first time init, continue without usage info
-                    dbg.log0('BlockStoreAzure init: no usage path');
-                } else {
-                    dbg.error('got error on _read_usage:', err);
-                }
+    async _read_usage() {
+        const blob_client = azure_storage.get_blob_client(this.container_client, this.usage_path);
+        try {
+            const info = await blob_client.getProperties();
+            dbg.log1('block_store_azure._read_usage info: ', info);
+            const usage_data = info.metadata[this.usage_md_key];
+            if (usage_data) {
+                this._usage = this._decode_block_md(usage_data);
+                dbg.log0('BlockStoreAzure init: found usage data in',
+                    this.usage_path, 'usage_data = ', this._usage);
+            }
+        } catch (err) {
+            dbg.log1('block_store_azure._read_usage: err.details.code', err.details && err.details.code, 'err: ', err);
+            if (err.details && err.details.errorCode === 'BlobNotFound') {
+                // first time init, continue without usage info
+                dbg.log0('BlockStoreAzure init: no usage path');
+            } else {
+                dbg.error('got error on block_store_azure._read_usage:', err);
+            }
 
-            });
+        }
     }
 
     _write_usage_internal() {
         const metadata = {
             [this.usage_md_key]: this._encode_block_md(this._usage)
         };
+        const blob_client = azure_storage.get_blob_client(this.container_client, this.usage_path);
 
-        return P.fromCallback(callback =>
-            this.blob.createBlockBlobFromText(
-                this.container_name,
-                this.usage_path,
-                '', // no data, only metadata is used on the usage object
-                {
-                    metadata: metadata
-                },
-                callback)
+        return blob_client.upload(
+            '', // no data, only metadata is used on the usage object
+            0, {
+                metadata: metadata
+            }
         );
     }
 

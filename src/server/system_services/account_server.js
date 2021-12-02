@@ -53,7 +53,6 @@ async function create_account(req) {
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
         is_external: req.rpc_params.is_external,
-        access_keys: undefined,
         nsfs_account_config: req.rpc_params.nsfs_account_config
     };
 
@@ -65,7 +64,9 @@ async function create_account(req) {
     if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
         account.access_keys = [demo_access_keys];
     } else {
-        account.access_keys = [generate_access_keys()];
+        const access_keys = req.rpc_params.access_keys || [generate_access_keys()];
+        if (!access_keys.length) throw new RpcError('FORBIDDEN', 'cannot create account without access_keys');
+        account.access_keys = access_keys;
     }
 
     if (req.rpc_params.must_change_password) {

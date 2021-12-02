@@ -14,6 +14,7 @@ process.env.DEBUG_MODE = 'true';
 process.env.CORETEST = CORETEST;
 process.env.JWT_SECRET = CORETEST;
 process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
+process.env.ACCOUNTS_CACHE_EXPIRY = '1';
 
 console.log('loading .env file');
 require('../../util/dotenv').load();
@@ -55,6 +56,8 @@ let base_address;
 let http_address;
 let http_server;
 let https_address;
+let https_server_sts;
+let https_address_sts;
 let https_server;
 let _setup = false;
 let _incomplete_rpc_coverage;
@@ -127,6 +130,8 @@ function setup(options = {}) {
     const object_io = new ObjectIO();
     const endpoint_request_handler = endpoint.create_endpoint_handler(
         endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), []);
+    const endpoint_request_handler_sts = endpoint.create_endpoint_handler(
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), [], true);
 
     async function announce(msg) {
         if (process.env.SUPPRESS_LOGS) return;
@@ -175,15 +180,26 @@ function setup(options = {}) {
             default_handler: endpoint_request_handler,
         });
 
+        await announce('start_https_server (sts)');
+        https_server_sts = await server_rpc.rpc.start_http_server({
+            port: 0,
+            protocol: 'wss:',
+            logging: true,
+            default_handler: endpoint_request_handler_sts,
+        });
         // the http/ws port is used by the agents
         const http_net_address = /** @type {import('net').AddressInfo} */ (http_server.address());
         const https_net_address = /** @type {import('net').AddressInfo} */ (https_server.address());
         const http_port = http_net_address.port;
         const https_port = https_net_address.port;
 
+        const https_net_address_sts = /** @type {import('net').AddressInfo} */ (https_server_sts.address());
+        const https_port_sts = https_net_address_sts.port;
+
         base_address = `wss://localhost:${https_port}`;
         http_address = `http://localhost:${http_port}`;
         https_address = `https://localhost:${https_port}`;
+        https_address_sts = `https://localhost:${https_port_sts}`;
 
         // update the nodes_monitor n2n_rpc to find the base_address correctly for signals
         await node_server.start_monitor();
@@ -238,6 +254,8 @@ function setup(options = {}) {
             if (http_server) http_server.close();
             await announce('https_server close()');
             if (https_server) https_server.close();
+            await announce('https_server_sts close()');
+            if (https_server_sts) https_server_sts.close();
             await announce('coretest done ...');
 
         } catch (err) {
@@ -420,6 +438,9 @@ function get_https_address() {
     return https_address;
 }
 
+function get_https_address_sts() {
+    return https_address_sts;
+}
 // This was coded for tests that create multiple systems (not necessary parallel, could be creation of system after deletion of system)
 // Webserver's init happens only one time (upon init of process), it is crucial in order to ensure internal storage structures
 // When we create systems without doing the init, we encounter a problem regarding failed internal storage structures
@@ -646,5 +667,6 @@ exports.rpc_client = rpc_client;
 exports.new_rpc_client = new_rpc_client;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
+exports.get_https_address_sts = get_https_address_sts;
 exports.describe_mapper_test_case = describe_mapper_test_case;
 exports.get_dbg_level = get_dbg_level;

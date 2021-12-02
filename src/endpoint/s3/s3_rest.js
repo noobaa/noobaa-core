@@ -4,7 +4,6 @@
 const _ = require('lodash');
 
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
 const S3Error = require('./s3_errors').S3Error;
 const js_utils = require('../../util/js_utils');
 const time_utils = require('../../util/time_utils');
@@ -56,9 +55,6 @@ const OBJECT_SUB_RESOURCES = Object.freeze({
     'retention': 'retention'
 });
 
-const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
-const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
-
 const S3_OPS = load_ops();
 
 let usage_report = new_usage_report();
@@ -77,19 +73,7 @@ async function s3_rest(req, res) {
 
 async function handle_request(req, res) {
 
-    // fill up standard amz response headers
-    res.setHeader('x-amz-request-id', req.request_id);
-    res.setHeader('x-amz-id-2', req.request_id);
-
-    // note that browsers will not allow origin=* with credentials
-    // but anyway we allow it by the agent server.
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers',
-        'Content-Type,Content-MD5,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
-    res.setHeader('Access-Control-Expose-Headers', 'ETag,X-Amz-Version-Id');
-
+    http_utils.set_response_headers(req, res, { expose_headers: 'ETag,X-Amz-Version-Id' });
 
     if (req.method === 'OPTIONS') {
         dbg.log1('OPTIONS!');
@@ -98,7 +82,17 @@ async function handle_request(req, res) {
         return;
     }
 
-    check_headers(req);
+    const headers_options = {
+        ErrorClass: S3Error,
+        error_invalid_argument: S3Error.InvalidArgument,
+        error_access_denied: S3Error.AccessDenied,
+        error_bad_request: S3Error.BadRequest,
+        error_invalid_digest: S3Error.InvalidDigest,
+        error_request_time_too_skewed: S3Error.RequestTimeTooSkewed,
+        error_missing_content_length: S3Error.MissingContentLength,
+        auth_token: () => signature_utils.make_auth_token_from_request(req)
+    };
+    http_utils.check_headers(req, headers_options);
 
     const redirect = await populate_request_additional_info_or_redirect(req);
     if (redirect) {
@@ -167,81 +161,6 @@ async function _get_redirection_bucket(req, bucket) {
         const dest = redirect.host_name;
         const protocol = redirect.protocol || (req.secure ? 'https' : 'http');
         return `${protocol.toLowerCase()}://${dest}`;
-    }
-}
-
-function check_headers(req) {
-    _.each(req.headers, (val, key) => {
-        // test for non printable characters
-        // 403 is required for unreadable headers
-        // eslint-disable-next-line no-control-regex
-        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
-            dbg.warn('Invalid header characters', key, val);
-            if (key.startsWith('x-amz-meta-')) {
-                throw new S3Error(S3Error.InvalidArgument);
-            }
-            if (key !== 'expect' && key !== 'user-agent') {
-                throw new S3Error(S3Error.AccessDenied);
-            }
-        }
-    });
-    _.each(req.query, (val, key) => {
-        // test for non printable characters
-        // 403 is required for unreadable query
-        // eslint-disable-next-line no-control-regex
-        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
-            dbg.warn('Invalid query characters', key, val);
-            if (key !== 'marker') {
-                throw new S3Error(S3Error.InvalidArgument);
-            }
-        }
-    });
-
-    if (req.headers['content-length'] === '') {
-        throw new S3Error(S3Error.BadRequest);
-    }
-
-    if (req.method === 'POST' || req.method === 'PUT') s3_utils.parse_content_length(req);
-
-    const content_md5_b64 = req.headers['content-md5'];
-    if (typeof content_md5_b64 === 'string') {
-        req.content_md5 = Buffer.from(content_md5_b64, 'base64');
-        if (req.content_md5.length !== 16) {
-            throw new S3Error(S3Error.InvalidDigest);
-        }
-    }
-
-    const content_sha256_hdr = req.headers['x-amz-content-sha256'];
-    req.content_sha256_sig = req.query['X-Amz-Signature'] ?
-        UNSIGNED_PAYLOAD :
-        content_sha256_hdr;
-    if (typeof content_sha256_hdr === 'string' &&
-        content_sha256_hdr !== UNSIGNED_PAYLOAD &&
-        content_sha256_hdr !== STREAMING_PAYLOAD) {
-        req.content_sha256_buf = Buffer.from(content_sha256_hdr, 'hex');
-        if (req.content_sha256_buf.length !== 32) {
-            throw new S3Error(S3Error.InvalidDigest);
-        }
-    }
-
-    const content_encoding = req.headers['content-encoding'] || '';
-    req.chunked_content =
-        content_encoding.split(',').includes('aws-chunked') ||
-        content_sha256_hdr === STREAMING_PAYLOAD;
-
-    const req_time =
-        time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
-        time_utils.parse_http_header_date(req.headers.date);
-
-    const auth_token = signature_utils.make_auth_token_from_request(req);
-    const is_not_anonymous_req = Boolean(auth_token && auth_token.access_key);
-    // In case of presigned urls / anonymous requests we shouldn't fail on non provided time.
-    if (isNaN(req_time) && !req.query.Expires && is_not_anonymous_req) {
-        throw new S3Error(S3Error.AccessDenied);
-    }
-
-    if (Math.abs(Date.now() - req_time) > config.AMZ_DATE_MAX_TIME_SKEW_MILLIS) {
-        throw new S3Error(S3Error.RequestTimeTooSkewed);
     }
 }
 

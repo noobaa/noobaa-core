@@ -9,6 +9,7 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
+const time_utils = require('./time_utils');
 const createHttpProxyAgent = require('http-proxy-agent');
 const createHttpsProxyAgent = require('https-proxy-agent');
 
@@ -16,6 +17,9 @@ const dbg = require('./debug_module')(__filename);
 const xml_utils = require('./xml_utils');
 const cloud_utils = require('./cloud_utils');
 const config = require('../../config');
+
+const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
+const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
 
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS } = process.env;
 const http_agent = new http.Agent();
@@ -287,6 +291,17 @@ async function parse_request_body(req, options) {
             throw new options.ErrorClass(options.error_invalid_body);
         }
     }
+    if (options.body.type.includes('application/x-www-form-urlencoded')) {
+        try {
+            const res = querystring.parse(req.body.toString());
+            const renamed = _.mapKeys(res, (value, key) => _.snakeCase(key));
+            req.body = renamed;
+            return;
+        } catch (err) {
+            console.error('parse_request_body: urlencoded parse problem', err);
+            throw new options.ErrorClass(options.error_invalid_body);
+        }
+    }
     dbg.error('HTTP BODY UNEXPECTED TYPE', req.method, req.originalUrl,
         JSON.stringify(req.headers), options);
     throw new Error(`HTTP BODY UNEXPECTED TYPE ${options.body.type}`);
@@ -477,6 +492,105 @@ function set_keep_alive_whitespace_interval(res) {
     res.on('finish', clear);
 }
 
+function check_headers(req, options) {
+    _.each(req.headers, (val, key) => {
+        // test for non printable characters
+        // 403 is required for unreadable headers
+        // eslint-disable-next-line no-control-regex
+        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+            dbg.warn('Invalid header characters', key, val);
+            if (key.startsWith('x-amz-meta-')) {
+                throw new options.ErrorClass(options.error_invalid_argument);
+            }
+            if (key !== 'expect' && key !== 'user-agent') {
+                throw new options.ErrorClass(options.error_access_denied);
+            }
+        }
+    });
+    _.each(req.query, (val, key) => {
+        // test for non printable characters
+        // 403 is required for unreadable query
+        // eslint-disable-next-line no-control-regex
+        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+            dbg.warn('Invalid query characters', key, val);
+            if (key !== 'marker') {
+                throw new options.ErrorClass(options.error_invalid_argument);
+            }
+        }
+    });
+
+    if (req.headers['content-length'] === '') {
+        throw new options.ErrorClass(options.error_bad_request);
+    }
+
+    if (req.method === 'POST' || req.method === 'PUT') parse_content_length(req, options);
+
+    const content_md5_b64 = req.headers['content-md5'];
+    if (typeof content_md5_b64 === 'string') {
+        req.content_md5 = Buffer.from(content_md5_b64, 'base64');
+        if (req.content_md5.length !== 16) {
+            throw new options.ErrorClass(options.error_invalid_digest);
+        }
+    }
+
+    const content_sha256_hdr = req.headers['x-amz-content-sha256'];
+    req.content_sha256_sig = req.query['X-Amz-Signature'] ?
+        UNSIGNED_PAYLOAD :
+        content_sha256_hdr;
+    if (typeof content_sha256_hdr === 'string' &&
+        content_sha256_hdr !== UNSIGNED_PAYLOAD &&
+        content_sha256_hdr !== STREAMING_PAYLOAD) {
+        req.content_sha256_buf = Buffer.from(content_sha256_hdr, 'hex');
+        if (req.content_sha256_buf.length !== 32) {
+            throw new options.ErrorClass(options.error_invalid_digest);
+        }
+    }
+
+    const content_encoding = req.headers['content-encoding'] || '';
+    req.chunked_content =
+        content_encoding.split(',').includes('aws-chunked') ||
+        content_sha256_hdr === STREAMING_PAYLOAD;
+
+    const req_time =
+        time_utils.parse_amz_date(req.headers['x-amz-date'] || req.query['X-Amz-Date']) ||
+        time_utils.parse_http_header_date(req.headers.date);
+
+    const auth_token = options.auth_token(req);
+    const is_not_anonymous_req = Boolean(auth_token && auth_token.access_key);
+    // In case of presigned urls / anonymous requests we shouldn't fail on non provided time.
+    if (isNaN(req_time) && !req.query.Expires && is_not_anonymous_req) {
+        throw new options.ErrorClass(options.error_access_denied);
+    }
+
+    if (Math.abs(Date.now() - req_time) > config.AMZ_DATE_MAX_TIME_SKEW_MILLIS) {
+        throw new options.ErrorClass(options.error_request_time_too_skewed);
+    }
+}
+
+function set_response_headers(req, res, options) {
+    res.setHeader('x-amz-request-id', req.request_id);
+    res.setHeader('x-amz-id-2', req.request_id);
+
+    // note that browsers will not allow origin=* with credentials
+    // but anyway we allow it by the agent server.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers',
+        'Content-Type,Content-MD5,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
+    res.setHeader('Access-Control-Expose-Headers', options.expose_headers);
+}
+
+function parse_content_length(req, options) {
+    const size = Number(req.headers['x-amz-decoded-content-length'] || req.headers['content-length']);
+    const copy = req.headers['x-amz-copy-source'];
+    if (!copy && (!Number.isInteger(size) || size < 0)) {
+        dbg.warn('Missing content-length', req.headers['content-length']);
+        throw new options.ErrorClass(options.error_missing_content_length);
+    }
+    return size;
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -494,3 +608,6 @@ exports.update_https_agents = update_https_agents;
 exports.make_https_request = make_https_request;
 exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
+exports.check_headers = check_headers;
+exports.set_response_headers = set_response_headers;
+exports.parse_content_length = parse_content_length;

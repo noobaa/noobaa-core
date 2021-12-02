@@ -111,5 +111,9 @@ module.exports = {
         nsfs_account_config: {
             $ref: 'common_api#/definitions/nsfs_account_config'
         },
+
+        role_config: {
+            $ref: 'common_api#/definitions/role_config'
+        },
     }
 };

@@ -3,10 +3,15 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const s3_utils = require('../s3_utils');
+const S3Error = require('../s3_errors').S3Error;
 const http_utils = require('../../../util/http_utils');
 const mime = require('mime');
 const config = require('../../../../config');
 
+const s3_error_options = {
+    ErrorClass: S3Error,
+    error_missing_content_length: S3Error.MissingContentLength
+};
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectCOPY.html
@@ -18,7 +23,7 @@ async function put_object(req, res) {
     const lock_settings = config.WORM_ENABLED ? s3_utils.parse_lock_header(req) : undefined;
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
-        size: s3_utils.parse_content_length(req),
+        size: http_utils.parse_content_length(req, s3_error_options),
         md5_b64: req.content_md5 && req.content_md5.toString('base64'),
         sha256_b64: req.content_sha256_buf && req.content_sha256_buf.toString('base64'),
     };
@@ -69,7 +74,8 @@ async function put_object(req, res) {
 
 function get_bucket_usage(req, res) {
     // don't count usage for copy
-    const write_bytes = req.headers['x-amz-copy-source'] ? 0 : s3_utils.parse_content_length(req);
+    const write_bytes = req.headers['x-amz-copy-source'] ? 0 :
+        http_utils.parse_content_length(req, s3_error_options);
     return {
         bucket: req.params.bucket,
         access_key: req.object_sdk.get_auth_token().access_key,

@@ -105,7 +105,39 @@ module.exports = {
             }
         },
 
-        // TODO: Update to the relevant schema
+        assume_role_policy: {
+            type: 'object',
+            required: ['statement'],
+            properties: {
+                version: { type: 'string' },
+                statement: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['effect', 'action', 'principal'],
+                        properties: {
+                            effect: {
+                                enum: ['allow', 'deny'],
+                                type: 'string'
+                            },
+                            action: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
+                            },
+                            principal: {
+                                type: 'array',
+                                items: {
+                                    $ref: '#/definitions/email',
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        },
+
         bucket_policy: {
             type: 'object',
             required: ['statement'],
@@ -848,5 +880,17 @@ module.exports = {
                 }
             }
         },
+        role_config: {
+            type: 'object',
+            required: ['role_name', 'assume_role_policy'],
+            properties: {
+                role_name: {
+                    type: 'string'
+                },
+                assume_role_policy: {
+                    $ref: '#/definitions/assume_role_policy'
+                }
+            }
+        }
     }
 };

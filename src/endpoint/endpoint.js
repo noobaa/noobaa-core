@@ -20,9 +20,11 @@ const P = require('../util/promise');
 const config = require('../../config');
 const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
+const sts_rest = require('./sts/sts_rest');
 const lambda_rest = require('./lambda/lambda_rest');
 const endpoint_utils = require('./endpoint_utils');
 const FuncSDK = require('../sdk/func_sdk');
+const StsSDK = require('../sdk/sts_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
 const xml_utils = require('../util/xml_utils');
@@ -47,6 +49,7 @@ if (process.env.NOOBAA_LOG_LEVEL) {
  * @typedef {http.IncomingMessage & {
  *  object_sdk?: ObjectSDK;
  *  func_sdk?: FuncSDK;
+ *  sts_sdk?: StsSDK;
  *  virtual_hosts?: readonly string[];
  * }} EndpointRequest
  */
@@ -62,6 +65,7 @@ if (process.env.NOOBAA_LOG_LEVEL) {
  * @typedef {{
  *  http_port?: number;
  *  https_port?: number;
+ *  https_port_sts?: number;
  *  init_request_sdk?: EndpointHandler;
  * }} EndpointOptions
  */
@@ -73,6 +77,7 @@ async function start_endpoint(options = {}) {
     try {
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
+        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
@@ -124,17 +129,23 @@ async function start_endpoint(options = {}) {
         }
 
         const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts);
+        const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
         const ssl_cert = await ssl_utils.get_ssl_certificate('S3');
         const ssl_options = { ...ssl_cert, honorCipherOrder: true };
         const http_server = http.createServer(endpoint_request_handler);
         const https_server = https.createServer(ssl_options, endpoint_request_handler);
+        const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
 
         dbg.log0('Starting HTTP', http_port);
         await listen_http(http_port, http_server);
         dbg.log0('Starting HTTPS', https_port);
         await listen_http(https_port, https_server);
         dbg.log0('S3 server started successfully');
+
+        dbg.log0('Starting HTTPS STS', https_port_sts);
+        await listen_http(https_port_sts, https_server_sts);
+        dbg.log0('STS server started successfully');
 
         await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
 
@@ -159,7 +170,7 @@ async function start_endpoint(options = {}) {
  * @param {readonly string[]} virtual_hosts
  * @returns {EndpointHandler}
  */
-function create_endpoint_handler(init_request_sdk, virtual_hosts) {
+function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
     const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
     const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
 
@@ -168,7 +179,6 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts) {
         endpoint_utils.prepare_rest_request(req);
         req.virtual_hosts = virtual_hosts;
         init_request_sdk(req, res);
-
         if (req.url.startsWith('/2015-03-31/functions')) {
             return lambda_rest_handler(req, res);
         } else if (req.headers['x-ms-version']) {
@@ -177,8 +187,14 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts) {
             return s3_rest.handler(req, res);
         }
     };
+    /** @type {EndpointHandler} */
+    const endpoint_sts_request_handler = (req, res) => {
+        endpoint_utils.prepare_rest_request(req);
+        init_request_sdk(req, res);
+        return sts_rest(req, res);
+    };
 
-    return endpoint_request_handler;
+    return sts ? endpoint_sts_request_handler : endpoint_request_handler;
 }
 
 /**
@@ -191,6 +207,7 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
     const init_request_sdk = (req, res) => {
         const rpc_client = rpc.new_client();
         req.func_sdk = new FuncSDK(rpc_client);
+        req.sts_sdk = new StsSDK(rpc_client, internal_rpc_client);
         req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
     };
     return init_request_sdk;

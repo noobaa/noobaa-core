@@ -1,5 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint max-lines-per-function: ['error', 700] */
+/* eslint-disable no-invalid-this */
+
 'use strict';
 const _ = require('lodash');
 // setup coretest first to prepare the env
@@ -15,7 +17,7 @@ const P = require('../../util/promise');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
-// for namespace and namespace cache bucket testing.
+// for namespace cache bucket testing.
 let USE_REMOTE_ENDPOINT = process.env.USE_REMOTE_ENDPOINT === 'true';
 const { rpc_client, EMAIL } = coretest;
 const BKT1 = 'test-s3-ops-bucket-ops';
@@ -39,8 +41,6 @@ const text_file2 = 'text-file2';
 const text_file3 = 'text-file3';
 const text_file5 = 'text-file5';
 
-let S3_OPS_ACCESS_KEY;
-let S3_OPS_ACCESS_SECRET;
 mocha.describe('s3_ops', function() {
 
     let s3;
@@ -51,7 +51,7 @@ mocha.describe('s3_ops', function() {
     let source_bucket;
 
     mocha.before(async function() {
-        const self = this; // eslint-disable-line no-invalid-this
+        const self = this;
         self.timeout(60000);
 
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
@@ -70,7 +70,6 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('bucket-ops', function() {
-        // eslint-disable-next-line no-invalid-this
         this.timeout(60000);
         mocha.it('should create bucket', async function() {
             await s3.createBucket({ Bucket: BKT1 }).promise();
@@ -100,10 +99,10 @@ mocha.describe('s3_ops', function() {
         });
     });
 
-    function test_object_ops(bucket_name, bucket_type, caching) {
+    async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {
 
         mocha.before(async function() {
-            this.timeout(100000); // eslint-disable-line no-invalid-this
+            this.timeout(100000);
             source_bucket = bucket_name + '-source';
             if (bucket_type === "regular") {
                 await s3.createBucket({ Bucket: bucket_name }).promise();
@@ -114,13 +113,12 @@ mocha.describe('s3_ops', function() {
 
                 const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_https_address();
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
-                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? S3_OPS_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
-                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? S3_OPS_ACCESS_SECRET || process.env.AWS_SECRET_ACCESS_KEY :
-                    s3.config.secretAccessKey;
+                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
+                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY : s3.config.secretAccessKey;
 
                 coretest.log("Using endpoint: ", ENDPOINT);
-
-                await rpc_client.account.add_external_connection({
+                const ns_remote_conn = remote_endpoint_options && { ...remote_endpoint_options, name: CONNECTION_NAME };
+                await rpc_client.account.add_external_connection(ns_remote_conn || {
                     name: CONNECTION_NAME,
                     endpoint: ENDPOINT,
                     endpoint_type: ENDPOINT_TYPE,
@@ -198,10 +196,12 @@ mocha.describe('s3_ops', function() {
             }).promise();
 
         });
-
+        mocha.beforeEach('s3 ops before each', async function() {
+            this.timeout(100000);
+        });
         mocha.it('shoult tag text file', async function() {
-            this.timeout(60000); // eslint-disable-line no-invalid-this
-            if (is_namespace_blob_bucket(bucket_type)) this.skip(); // eslint-disable-line no-invalid-this
+            this.timeout(60000);
+            if (is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) this.skip();
             const params = {
                 Bucket: bucket_name,
                 Key: text_file1,
@@ -257,8 +257,8 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should head text-file', async function() {
-            this.timeout(60000); // eslint-disable-line no-invalid-this
-            if (!is_namespace_blob_bucket(bucket_type)) {
+            this.timeout(60000);
+            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
 
                 const params = {
                     Bucket: bucket_name,
@@ -336,6 +336,7 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should get text-file', async function() {
+            this.timeout(100000);
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
             assert.strictEqual(res.Body.toString(), file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
@@ -343,6 +344,7 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should get text-file with size > inline range', async function() {
+            this.timeout(100000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
             // Change the inline max size so the objects get cached.
             config.INLINE_MAX_SIZE = 1;
@@ -354,6 +356,7 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should head text-file with size > inline range', async function() {
+            this.timeout(100000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
             // Change the inline max size so the objects get cached.
             config.INLINE_MAX_SIZE = 1;
@@ -371,6 +374,7 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should get text-file sliced 2', async function() {
+            this.timeout(100000);
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=-5' }).promise();
             assert.strictEqual(res.Body.toString(), sliced_file_body1);
             assert.strictEqual(res.ContentType, 'text/plain');
@@ -378,13 +382,14 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should get text-file sliced 3', async function() {
+            this.timeout(120000);
             const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-' }).promise();
             assert.strictEqual(res.Body.toString(), file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
         mocha.it('should copy text-file', async function() {
-            this.timeout(120000); // eslint-disable-line no-invalid-this
+            this.timeout(120000);
             const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
             await s3.copyObject({
                 Bucket: bucket_name,
@@ -400,7 +405,6 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
         });
         mocha.it('should copy text-file multi-part', async function() {
-            // eslint-disable-next-line no-invalid-this
             this.timeout(600000);
 
             const res1 = await s3.createMultipartUpload({
@@ -460,7 +464,7 @@ mocha.describe('s3_ops', function() {
             var UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
-            if (!is_namespace_blob_bucket(bucket_type)) {
+            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
                 assert.strictEqual(UploadId, res1.UploadId);
             }
 
@@ -486,7 +490,6 @@ mocha.describe('s3_ops', function() {
             }).promise();
         });
         mocha.it('should list objects with text-file', async function() {
-            // eslint-disable-next-line no-invalid-this
             this.timeout(60000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
             // Change the inline max size so the objects get cached.
@@ -523,7 +526,6 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.it('should delete text-file', async function() {
-            // eslint-disable-next-line no-invalid-this
             this.timeout(60000);
             // await s3.deleteObjects({
             //     Bucket: bucket_name,
@@ -538,7 +540,6 @@ mocha.describe('s3_ops', function() {
             await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
         });
         mocha.it('should list objects after no objects left', async function() {
-            // eslint-disable-next-line no-invalid-this
             this.timeout(100000);
             const res = await s3.listObjects({ Bucket: bucket_name }).promise();
             assert.strictEqual(res.Contents.length, 0);
@@ -577,26 +578,28 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('azure-namespace-bucket-object-ops', function() {
-        if (!process.env.NEWAZUREPROJKEY || !process.env.NEWAZUREPROJSECRET) return; // eslint-disable-line no-invalid-this
-        process.env.ENDPOINT = 'https://blob.core.windows.net';
-        process.env.ENDPOINT_TYPE = 'AZURE';
-        USE_REMOTE_ENDPOINT = true;
-        S3_OPS_ACCESS_KEY = process.env.NEWAZUREPROJKEY;
-        S3_OPS_ACCESS_SECRET = process.env.NEWAZUREPROJSECRET;
-        test_object_ops(BKT6, 'namespace');
+        if (!process.env.NEWAZUREPROJKEY || !process.env.NEWAZUREPROJSECRET) return;
+        const options = {
+            endpoint: 'https://blob.core.windows.net',
+            endpoint_type: 'AZURE',
+            identity: process.env.NEWAZUREPROJKEY,
+            secret: process.env.NEWAZUREPROJSECRET
+        };
+        test_object_ops(BKT6, 'namespace', undefined, options);
     });
 
     mocha.describe('aws-namespace-bucket-object-ops', function() {
-        if (!process.env.NEWAWSPROJKEY || !process.env.NEWAWSPROJSECRET) return; // eslint-disable-line no-invalid-this
-        process.env.ENDPOINT = 'https://s3.amazonaws.com';
-        process.env.ENDPOINT_TYPE = 'AWS';
-        USE_REMOTE_ENDPOINT = true;
-        S3_OPS_ACCESS_KEY = process.env.NEWAWSPROJKEY;
-        S3_OPS_ACCESS_SECRET = process.env.NEWAWSPROJSECRET;
-        test_object_ops(BKT7, 'namespace');
+        if (!process.env.NEWAWSPROJKEY || !process.env.NEWAWSPROJSECRET) return;
+        const options = {
+            endpoint: 'https://s3.amazonaws.com',
+            endpoint_type: 'AWS',
+            identity: process.env.NEWAWSPROJKEY,
+            secret: process.env.NEWAWSPROJSECRET
+        };
+        test_object_ops(BKT7, 'namespace', undefined, options);
     });
 });
 
-function is_namespace_blob_bucket(bucket_type) {
-    return process.env.ENDPOINT_TYPE === 'AZURE' && bucket_type === 'namespace';
+function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
+    return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace';
 }

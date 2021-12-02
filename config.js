@@ -641,6 +641,10 @@ function load_config_env_overrides() {
                 console.log(`Overriding config.js from ENV with ${conf_name}=${val} (string)`);
                 config[conf_name] = val;
 
+            } else if (type === 'object') {
+                // TODO: Validation checks, more complex type casting for values if needed
+                config[conf_name] = Array.isArray(prev_val) ? val.split(',') : JSON.parse(val);
+                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (object of type ${Array.isArray(prev_val) ? 'array' : 'json'})`);
             } else {
                 console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
             }

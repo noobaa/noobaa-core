@@ -73,6 +73,12 @@ module.exports = {
                     nsfs_account_config: {
                         $ref: 'common_api#/definitions/nsfs_account_config'
                     },
+                    access_keys: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/access_keys'
+                        }
+                    },
                 },
             },
             reply: {

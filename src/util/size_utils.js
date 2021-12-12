@@ -114,16 +114,41 @@ function bigint_to_bytes(bigint) {
     return (peta * PETABYTE) + n;
 }
 
+/**
+ * convert size number with floating point to BigInt based on unit.
+ * @param {number} size - size number with floating point.
+ * @param {string} unit - supported units: PETABYTE, TERABYTE, GIGABYTE
+ * @returns {BigInt}
+ */
 function size_unit_to_bigint(size, unit) {
-    let big;
-    if (unit === 'PETABYTE') {
-        big = new BigInteger(PETABYTE);
-    } else if (unit === 'TERABYTE') {
-        big = new BigInteger(TERABYTE);
-    } else if (unit === 'GIGABYTE') {
-        big = new BigInteger(GIGABYTE);
+    if (size === 0) {
+        return BigInt(0);
     }
-    return big.multiply(size);
+
+    let big;
+    if (unit === 'P') {
+        big = BigInt(PETABYTE);
+    } else if (unit === 'T') {
+        big = BigInt(TERABYTE);
+    } else if (unit === 'G') {
+        big = BigInt(GIGABYTE);
+    }
+
+    /**
+     * Convert floating point if exists to BigInt.
+     * Count the number of digits in decimal part.
+     * Remove floating point an convert the number to BigInt.
+     * Devide the BigInt number by number of digits.
+     * Result for instance:
+     * 1.2536G = 1346042750.5664 Bytes
+     * int = 1; decimalLength = 4
+     * BigInt(12536) * GIGABYTE / 10^4 = 1346042750n Bytes
+     */
+    const splittedSize = size.toString().split(".");
+    const int = BigInt(splittedSize[0] + (splittedSize[1] ? splittedSize[1] : ""));
+    const decimalLength = (splittedSize[1] ? splittedSize[1].length : 0);
+    const multiplier = 10n ** BigInt(decimalLength);
+    return (int * big) / multiplier;
 }
 
 /**

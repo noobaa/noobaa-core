@@ -284,9 +284,7 @@ export default {
             quota: {
                 type: 'object',
                 required: [
-                    'mode',
-                    'size',
-                    'unit'
+                    'mode'
                 ],
                 properties: {
                     mode: {
@@ -298,15 +296,27 @@ export default {
                         ]
                     },
                     size: {
-                        type: 'integer'
+                        type: 'object',
+                        required: ['value', 'unit'],
+                        properties: {
+                            value: {
+                                type: 'integer'
+                            },
+                            unit: {
+                                type: 'string',
+                                //Based on https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go
+                                enum: ['G', 'T', 'P', 'Gi', 'Ti', 'Pi']
+                            }
+                        }
                     },
-                    unit: {
-                        type: 'string',
-                        enum: [
-                            'GIGABYTE',
-                            'TERABYTE',
-                            'PETABYTE'
-                        ]
+                    quantity: {
+                        type: 'object',
+                        required: ['value'],
+                        properties: {
+                            value: {
+                                type: 'integer'
+                            }
+                        }
                     }
                 }
             },

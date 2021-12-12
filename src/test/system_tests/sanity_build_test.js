@@ -164,7 +164,7 @@ async function _create_resources_and_buckets() {
     });
 
     console.info('Setting Bucket Quota and Updating to Replica & Spread');
-    await TEST_CTX.bucketfunc.setQuotaBucket(TEST_CTX.bucket_spread, 2, 'TERABYTE');
+    await TEST_CTX.bucketfunc.setQuotaBucket(TEST_CTX.bucket_spread, 2, 'T');
     await TEST_CTX.client.tier.update_tier({
         name: buck2.tiering.tiers[0].tier,
         attached_pools: ['COMP-S3-V2-Resource', 'COMP-S3-V4-Resource'],

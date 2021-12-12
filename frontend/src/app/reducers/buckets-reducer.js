@@ -82,8 +82,8 @@ function _mapQuota(mode, quota) {
         return;
     }
 
-    const { size, unit } = quota;
-    return { mode, size, unit };
+    const { size, quantity } = quota;
+    return { mode, size, quantity };
 }
 
 function _usingInternalStorage(placement, typeByName) {

@@ -296,9 +296,16 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         }
     }, {
         type: 'Gauge',
-        name: 'bucket_quota',
+        name: 'bucket_size_quota',
         configuration: {
-            help: 'Bucket Quota Precent',
+            help: 'Bucket Size Quota Precent',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_quantity_quota',
+        configuration: {
+            help: 'Bucket Quantity Quota Precent',
             labelNames: ['bucket_name']
         }
     }, {
@@ -523,7 +530,8 @@ class NooBaaCoreReport extends BasePrometheusReport {
         if (!this._metrics) return;
 
         this._metrics.bucket_status.reset();
-        this._metrics.bucket_quota.reset();
+        this._metrics.bucket_size_quota.reset();
+        this._metrics.bucket_quantity_quota.reset();
         this._metrics.bucket_capacity.reset();
         this._metrics.bucket_tagging.reset();
         buckets_info.forEach(bucket_info => {
@@ -533,7 +541,8 @@ class NooBaaCoreReport extends BasePrometheusReport {
                 this._metrics.bucket_tagging.set({ ...bucket_labels, tagging }, Date.now());
             }
             this._metrics.bucket_status.set(bucket_labels, Number(bucket_info.is_healthy));
-            this._metrics.bucket_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_precent);
+            this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_size_precent);
+            this._metrics.bucket_quantity_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_quantity_percent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
 
         });

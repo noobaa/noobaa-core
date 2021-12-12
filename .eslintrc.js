@@ -6,7 +6,7 @@ module.exports = {
     // our environment is node.js with it's es6 extensions
     env: {
         node: true,
-        es6: true,
+        es2020: true,
     },
 
     parserOptions: {

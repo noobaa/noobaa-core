@@ -3,7 +3,7 @@
 import template from './edit-bucket-quota-modal.html';
 import ConnectableViewModel from 'components/connectable';
 import { deepFreeze, mapValues } from 'utils/core-utils';
-import { getDataBreakdown, getQuotaValue } from 'utils/bucket-utils';
+import { getDataBreakdown, getQuotaSizeValue } from 'utils/bucket-utils';
 import ko from 'knockout';
 import { updateBucketQuotaPolicy, closeModal } from 'action-creators';
 import {
@@ -38,37 +38,50 @@ function _findMaxQuotaPossible(data) {
 
     if (total.greaterOrEquals(PETABYTE)) {
         return {
-            size: fromBigInteger(total.divide(PETABYTE)),
-            unit: 'PETABYTE'
+            size: {
+                value: fromBigInteger(total.divide(PETABYTE)),
+                unit: 'PETABYTE'
+            }
         };
 
     } else if (total.greaterOrEquals(TERABYTE)) {
         return {
-            size: fromBigInteger(total.divide(TERABYTE)),
-            unit: 'TERABYTE'
+            size: {
+                value: fromBigInteger(total.divide(TERABYTE)),
+                unit: 'TERABYTE'
+            }
         };
     } else if (total.greaterOrEquals(GIGABYTE)) {
         return {
-            size: fromBigInteger(total.divide(GIGABYTE)),
-            unit: 'GIGABYTE'
+            size: {
+                value: fromBigInteger(total.divide(GIGABYTE)),
+                unit: 'GIGABYTE'
+            }
         };
 
     } else {
         return {
-            size: 1,
-            unit: 'GIGABYTE'
+            size: {
+                value: 1,
+                unit: 'GIGABYTE'
+            }
         };
     }
 }
 
 function _getQuota(formValues, bucket) {
     if (formValues) {
-        const size = Number.isInteger(formValues.size) ? Math.max(formValues.size, 0) : 0;
+        const size_value = Number.isInteger(formValues.size) ? Math.max(formValues.size, 0) : 0;
         const unit = formValues.unit;
-        return { size, unit };
+        return { 
+            size: {
+                value: size_value, 
+                unit: unit 
+            }
+        };
 
     } else {
-        return bucket.quota || _findMaxQuotaPossible(bucket.data);
+        return bucket.quota && bucket.quota.size ? bucket.quota : _findMaxQuotaPossible(bucket.data);
     }
 }
 
@@ -76,6 +89,7 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
     formName = this.constructor.name;
     unitOptions = unitOptions;
     bucketName = '';
+    prevQuota = null;
     fields = ko.observable();
     bar = {
         values: [
@@ -131,12 +145,13 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
         }
 
         const formValues = form && mapValues(form.fields, field => field.value);
-        const enabled = formValues ? formValues.enabled : Boolean(bucket.quota);
+        const enabled = formValues ? formValues.enabled : Boolean(bucket.quota) && Boolean(bucket.quota.size);
         const quota = _getQuota(formValues, bucket);
         const breakdown = getDataBreakdown(bucket.data, enabled ? quota : undefined);
 
         ko.assignToProps(this, {
             bucketName: bucket.name,
+            prevQuota: bucket.quota,
             bar: {
                 values: [
                     {
@@ -161,14 +176,14 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
                 markers: [
                     {
                         visible: enabled,
-                        text: enabled ? `Quota: ${formatSize(getQuotaValue(quota))}` : ''
+                        text: enabled ? `Quota: ${formatSize(getQuotaSizeValue(quota))}` : ''
                     }
                 ]
             },
             fields: !form ? {
                 enabled: enabled,
-                unit: quota.unit,
-                size: quota.size
+                unit: quota.size.unit,
+                size: quota.size.value
             } : undefined
         });
     }
@@ -186,8 +201,10 @@ class EditBucketQuotaModalViewModel extends ConnectableViewModel {
 
     onSubmit(values) {
         const quota = values.enabled ?
-            { unit: values.unit, size: Number(values.size) } :
-            null;
+            {
+                size: {value: Number(values.size), unit: values.unit},
+                quantity: this.prevQuota ? this.prevQuota.quantity : null
+            } : null;
 
         this.dispatch(
             closeModal(),

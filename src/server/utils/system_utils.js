@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const size_utils = require('../../util/size_utils');
 const system_store = require('../system_services/system_store').get_instance();
 
 function system_in_maintenance(system_id) {
@@ -21,17 +20,4 @@ function system_in_maintenance(system_id) {
     return false;
 }
 
-
-// returns the percent of quota used by the bucket
-function get_bucket_quota_usage_percent(bucket, bucket_quota) {
-    if (!bucket_quota) return 0;
-
-    const bucket_used = bucket.storage_stats && size_utils.json_to_bigint(bucket.storage_stats.objects_size);
-    const quota = size_utils.json_to_bigint(bucket_quota.value);
-    let used_percent = bucket_used.multiply(100).divide(quota);
-    return used_percent.valueOf();
-}
-
-
 exports.system_in_maintenance = system_in_maintenance;
-exports.get_bucket_quota_usage_percent = get_bucket_quota_usage_percent;

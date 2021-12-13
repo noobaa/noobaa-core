@@ -641,7 +641,7 @@ class NamespaceFS {
                 // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
                 fs_xattr = await buffers_pool_sem.surround_count(
                     config.NSFS_BUF_SIZE,
-                    async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr)
+                    async () => this._upload_stream(params, upload_path, fs_account_config, object_sdk.rpc_client, fs_xattr)
                 );
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
@@ -748,8 +748,9 @@ class NamespaceFS {
     // This is due to MD5 calculation and data buffers
     // Can be finetuned further on if needed and inserting the Semaphore logic inside
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
-    async _upload_stream(source_stream, upload_path, fs_account_config, rpc_client, fs_xattr) {
+    async _upload_stream(params, upload_path, fs_account_config, rpc_client, fs_xattr) {
         let target_file;
+        const { source_stream, md5_b64, key, bucket, upload_id } = params;
         try {
             target_file = await nb_native().fs.open(fs_account_config, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
@@ -762,6 +763,10 @@ class NamespaceFS {
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
             if (chunk_fs.digest) {
+                if (md5_b64) {
+                    const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
+                    if (md5_hex !== chunk_fs.digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest: chunk_fs.digest }));
+                }
                 fs_xattr = this._assign_md5_to_fs_xattr(chunk_fs.digest, fs_xattr);
             }
             if (fs_xattr) {
@@ -825,7 +830,7 @@ class NamespaceFS {
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
             const fs_xattr = await buffers_pool_sem.surround_count(
                 config.NSFS_BUF_SIZE,
-                async () => this._upload_stream(params.source_stream, upload_path, fs_account_config, object_sdk.rpc_client)
+                async () => this._upload_stream(params, upload_path, fs_account_config, object_sdk.rpc_client)
             );
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat, fs_xattr) };
@@ -927,7 +932,7 @@ class NamespaceFS {
             write_file = null;
             await this._make_path_dirs(file_path, fs_account_config);
             await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-            await this._folder_delete(params.mpu_path, fs_account_config);
+            if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             dbg.error(err);

@@ -45,9 +45,10 @@ class ChunkFS extends stream.Transform {
 
     async _flush_buffers(callback) {
         if (this.q_buffers.length) {
-            await this.target_file.writev(this.fs_account_config, this.q_buffers);
+            const buffers_to_write = this.q_buffers;
             this.q_buffers = [];
             this.q_size = 0;
+            await this.target_file.writev(this.fs_account_config, buffers_to_write);
         }
         if (callback) {
             if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');

@@ -173,7 +173,7 @@ class ObjectSDK {
 
     // validates requests for non nsfs buckets from accounts which are nsfs_only 
     has_non_nsfs_bucket_access(account, ns) {
-        dbg.log0('validate_non_nsfs_bucket: ', account, ns && ns.write_resource.resource);
+        dbg.log1('validate_non_nsfs_bucket: ', account, ns && ns.write_resource.resource);
         if (!account) return false;
         if (this.is_nsfs_bucket(ns) ||
             !account.nsfs_account_config || !account.nsfs_account_config.nsfs_only) return true;

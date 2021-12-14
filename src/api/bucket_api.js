@@ -614,16 +614,16 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['id', 'prefix', 'status', 'expiration'],
+                            required: ['id', 'filter', 'status', 'expiration'],
                             properties: {
                                 id: {
                                     type: 'string'
                                 },
-                                prefix: {
-                                    type: 'string'
-                                },
                                 status: {
                                     type: 'string'
+                                },
+                                filter: {
+                                    $ref: 'common_api#/definitions/bucket_lifecycle_filter'
                                 },
                                 expiration: {
                                     type: 'object',
@@ -637,7 +637,6 @@ module.exports = {
                                         expired_object_delete_marker: {
                                             type: 'boolean'
                                         }
-
                                     }
                                 },
                                 abort_incomplete_multipart_upload: {
@@ -700,16 +699,16 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['id', 'prefix', 'status', 'expiration'],
+                    required: ['id', 'filter', 'status', 'expiration'],
                     properties: {
                         id: {
                             type: 'string'
                         },
-                        prefix: {
-                            type: 'string'
-                        },
                         status: {
                             type: 'string'
+                        },
+                        filter: {
+                            $ref: 'common_api#/definitions/bucket_lifecycle_filter'
                         },
                         last_sync: {
                             idate: true

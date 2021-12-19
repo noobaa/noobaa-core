@@ -59,6 +59,7 @@ require('./test_mirror_writer');
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
 require('./test_bucketspace');
+require('./test_chunk_fs');
 
 // // SERVERS
 require('./test_agent');

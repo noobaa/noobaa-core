@@ -609,12 +609,17 @@ class Agent {
             throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
 
-        if (req.connection && req.connection.url && req.connection.url.protocol !== 'n2n:') {
-            dbg.error('AGENT API auth requires n2n connection', req.connection.connid);
-            // close the connection but after sending the error response, for supportability of the caller
-            setTimeout(() => req.connection.close(), 1000);
-            throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
-        }
+        // TODO: remove this block as part of the clean up of ICE code. 
+        // For some reason we used to forbid none 'n2n' protocol on the agents commenting this out will enable that.
+
+        // if (req.connection && req.connection.url && req.connection.url.protocol !== 'n2n:') {
+        // if (req.connection && req.connection.url) {
+        //     dbg.error('AGENT API auth requires n2n connection', req.connection.connid);
+        //     // close the connection but after sending the error response, for supportability of the caller
+        //     setTimeout(() => req.connection.close(), 1000);
+        //     throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
+        // }
+
         // otherwise it's good
     }
 

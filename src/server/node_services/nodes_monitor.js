@@ -1303,10 +1303,15 @@ class NodesMonitor extends EventEmitter {
         if (!item.agent_info) return;
         if (!item.node_from_store) return;
         const system = system_store.data.get_by_id(item.node.system);
-        const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
-        const rpc_address = rpc_proto === 'n2n' ?
-            'n2n://' + item.node.peer_id :
-            rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 9999);
+        // TODO: remove this block as part of the clean up of ICE code. 
+        // We will set the rpc protocol to be 'ws' and the port to be 60101
+
+        // const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
+        // const rpc_address = rpc_proto === 'n2n' ?
+        //     'n2n://' + item.node.peer_id :
+        //     rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 60101);
+        const rpc_proto = 'ws';
+        const rpc_address = rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 60101);
         const rpc_config = {};
         if (rpc_address !== item.agent_info.rpc_address) {
             rpc_config.rpc_address = rpc_address;

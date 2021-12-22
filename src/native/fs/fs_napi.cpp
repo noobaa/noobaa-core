@@ -19,6 +19,7 @@
 #include <uv.h>
 #include <sys/xattr.h>
 #include <vector>
+#include <stdlib.h>
 
 #ifdef __APPLE__
     #include <sys/param.h>
@@ -1136,6 +1137,34 @@ struct FileFsync : public FSWrapWorker<FileWrap>
     }
 };
 
+struct RealPath : public FSWorker
+{
+    std::string _path;
+    char* _full_path;
+
+    RealPath(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Begin(XSTR() << DVAL(_path));
+    }
+
+    virtual void Work()
+    {
+        _full_path = realpath(_path.c_str(), NULL);
+        if (_full_path == NULL) SetSyscallError();
+    }
+
+    virtual void OnOK()
+    {
+        DBG1("FS::RealPath::OnOK: " << DVAL(_path) << DVAL(_full_path));
+        
+        Napi::Env env = Env();
+        auto res = Napi::String::New(env, _full_path);
+        _deferred.Resolve(res);
+    }
+};
+
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
 {
@@ -1362,6 +1391,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["link"] = Napi::Function::New(env, api<Link>);
     exports_fs["linkat"] = Napi::Function::New(env, api<Linkat>);
     exports_fs["fsync"] = Napi::Function::New(env, api<Fsync>);
+    exports_fs["realpath"] = Napi::Function::New(env, api<RealPath>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);
@@ -1371,7 +1401,9 @@ fs_napi(Napi::Env env, Napi::Object exports)
 
     exports_fs["S_IFMT"] = Napi::Number::New(env, S_IFMT);
     exports_fs["S_IFDIR"] = Napi::Number::New(env, S_IFDIR);
+    exports_fs["S_IFLNK"] = Napi::Number::New(env, S_IFLNK);
     exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
+    exports_fs["DT_LNK"] = Napi::Number::New(env, DT_LNK);
 
     exports_fs["set_debug_level"] = Napi::Function::New(env, set_debug_level);
 

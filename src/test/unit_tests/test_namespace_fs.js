@@ -15,11 +15,14 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const s3_utils = require('../../endpoint/s3/s3_utils');
 const config = require('../../../config');
+const fs = require('fs');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = 'content_md5';
+
+const MAC_PLATFORM = 'darwin';
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
@@ -35,7 +38,10 @@ mocha.describe('namespace_fs', function() {
     const mpu_bkt = 'test_ns_multipart_upload';
 
     const src_key = 'test/unit_tests/test_namespace_fs.js';
-    const tmp_fs_path = '/tmp/test_namespace_fs';
+    let tmp_fs_path = '/tmp/test_namespace_fs';
+    if (process.platform === MAC_PLATFORM) {
+        tmp_fs_path = '/private/' + tmp_fs_path;
+    }
     const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
 
     const ns_src_bucket_path = `./${src_bkt}`;
@@ -314,18 +320,9 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.it('do not delete the path', async function() {
-            const copy_res = await ns_tmp.upload_object({
-                bucket: upload_bkt,
-                key: upload_key_2,
-                source_stream: buffer_utils.buffer_to_read_stream(data)
-            }, dummy_object_sdk);
-            console.log('upload_object with path response', inspect(copy_res));
-
-            const delete_copy_res = await ns_tmp.delete_object({
-                bucket: upload_bkt,
-                key: upload_key_2,
-            }, dummy_object_sdk);
-            console.log('delete_object do not delete the path response', inspect(delete_copy_res));
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, upload_key_2, dummy_object_sdk, source);
+            await delete_object(ns_tmp, upload_bkt, upload_key_2, dummy_object_sdk);
 
             let entries;
             try {
@@ -339,18 +336,9 @@ mocha.describe('namespace_fs', function() {
 
 
         mocha.it('delete the path - stop when not empty', async function() {
-            const copy_res = await ns_tmp.upload_object({
-                bucket: upload_bkt,
-                key: upload_key_3,
-                source_stream: buffer_utils.buffer_to_read_stream(data)
-            }, dummy_object_sdk);
-            console.log('upload_object with path response', inspect(copy_res));
-
-            const delete_copy_res = await ns_tmp.delete_object({
-                bucket: upload_bkt,
-                key: upload_key_1,
-            }, dummy_object_sdk);
-            console.log('delete_object - stop when not empty response', inspect(delete_copy_res));
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, upload_key_3, dummy_object_sdk, source);
+            await delete_object(ns_tmp, upload_bkt, upload_key_1, dummy_object_sdk);
 
             let entries;
             try {
@@ -426,11 +414,152 @@ mocha.describe('namespace_fs', function() {
 
 });
 
+mocha.describe('nsfs_symlinks_validations', function() {
+
+    let tmp_fs_path = '/tmp/test_nsfs_symboliclinks';
+    if (process.platform === MAC_PLATFORM) {
+        tmp_fs_path = '/private/' + tmp_fs_path;
+    }
+    const bucket = 'bucket1';
+    const bucket_full_path = tmp_fs_path + '/' + bucket;
+    const expected_dirs = ['d1', 'd2', 'd3/d3d1'];
+    const expected_files = ['f1', 'f2', 'f3', 'd2/f4', 'd2/f5', 'd3/d3d1/f6'];
+    const expected_links = [{ t: 'f1', n: 'lf1' }, { t: '/etc', n: 'ld2' }];
+    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
+
+    const ns = new NamespaceFS({ bucket_path: bucket_full_path, bucket_id: '1', namespace_resource_id: undefined });
+
+    mocha.before(async () => {
+        await fs_utils.create_fresh_path(`${bucket_full_path}`);
+        await P.all(_.map(expected_dirs, async dir =>
+            fs_utils.create_fresh_path(`${bucket_full_path}/${dir}`)));
+        await P.all(_.map(expected_files, async file =>
+            create_file(`${bucket_full_path}/${file}`)));
+        await P.all(_.map(expected_links, async link =>
+            fs.promises.symlink(link.t, `${bucket_full_path}/${link.n}`)));
+
+    });
+
+    mocha.after(async () => {
+        await P.all(_.map(expected_files, async file =>
+            fs_utils.folder_delete(`${bucket_full_path}/${file}`)));
+    });
+     mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+
+    mocha.describe('without_symlinks', function() {
+                mocha.it('without_symlinks:list iner dir', async function() {
+            const res = await list_objects(ns, bucket, '/', 'd2/', dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 2, 'amount of files is not as expected');
+        });
+
+        mocha.it('without_symlinks:list iner dir without delimiter', async function() {
+            const res = await list_objects(ns, bucket, undefined, 'd2/', dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 2, 'amount of files is not as expected');
+        });
+
+        mocha.it('without_symlinks:read_object_md', async function() {
+            try {
+                await read_object_md(ns, bucket, 'd2/f4', dummy_object_sdk);
+            } catch (err) {
+                assert(err, 'read_object_md failed with err');
+            }
+        });
+
+        mocha.it('without_symlinks:read_object_stream', async function() {
+            try {
+                await read_object_stream(ns, bucket, 'd2/f4', dummy_object_sdk);
+            } catch (err) {
+                assert(err, 'read_object_stream failed with err');
+            }
+        });
+
+        mocha.it('without_symlinks:upload_object', async function() {
+            const data = crypto.randomBytes(100);
+            const source = buffer_utils.buffer_to_read_stream(data);
+            try {
+                await upload_object(ns, bucket, 'd2/uploaded-file1', dummy_object_sdk, source);
+            } catch (err) {
+                assert(err, 'upload_object failed with err');
+            }
+        });
+
+        mocha.it('without_symlinks:delete_object', async function() {
+            try {
+                await delete_object(ns, bucket, 'd2/uploaded-file1', dummy_object_sdk);
+            } catch (err) {
+                assert(err, 'delete_object failed with err');
+            }
+        });
+    });
+
+    mocha.describe('by_symlinks', function() {
+                mocha.it('by_symlinks:list root dir', async function() {
+            const res = await list_objects(ns, bucket, '/', undefined, dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 4, 'amount of files is not as expected');
+        });
+
+        mocha.it('by_symlinks:list src dir without delimiter', async function() {
+            const res = await list_objects(ns, bucket, undefined, undefined, dummy_object_sdk);
+            console.log("IGOR", res.objects);
+            assert.strictEqual(res.objects.length, 7, 'amount of files is not as expected');
+        });
+
+        mocha.it('by_symlinks:list iner dir', async function() {
+            const res = await list_objects(ns, bucket, '/', 'ld2/', dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 0, 'amount of files is not as expected');
+        });
+
+        mocha.it('by_symlinks:list iner dir without delimiter', async function() {
+            const res = await list_objects(ns, bucket, undefined, 'ld2/', dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 0, 'amount of files is not as expected');
+        });
+
+        mocha.it('by_symlinks:read_object_md', async function() {
+            try {
+                await read_object_md(ns, bucket, 'd2/f4', dummy_object_sdk);
+            } catch (err) {
+                assert.strictEqual(err.code, 'EACCES', 'read_object_md should return access denied');
+            }
+        });
+
+        mocha.it('by_symlinks:read_object_stream', async function() {
+            try {
+                await read_object_stream(ns, bucket, 'ld2/f4', dummy_object_sdk);
+            } catch (err) {
+                assert.strictEqual(err.code, 'EACCES', 'read_object_stream should return access denied');
+            }
+        });
+
+        mocha.it('by_symlinks:upload_object', async function() {
+            const data = crypto.randomBytes(100);
+            const source = buffer_utils.buffer_to_read_stream(data);
+            try {
+                await upload_object(ns, bucket, 'ld2/uploaded-file1', dummy_object_sdk, source);
+            } catch (err) {
+                assert.strictEqual(err.code, 'EACCES', 'upload_object should return access denied');
+            }
+        });
+
+        mocha.it('by_symlinks:delete_object', async function() {
+            try {
+                await delete_object(ns, bucket, 'ld2/f5', dummy_object_sdk);
+            } catch (err) {
+                assert.strictEqual(err.code, 'EACCES', 'delete_object should return access denied');
+            }
+        });
+    });
+
+
+});
+
 mocha.describe('namespace_fs copy object', function() {
 
     const src_bkt = 'src';
     const upload_bkt = 'test_ns_uploads_object';
-    const tmp_fs_path = '/tmp/test_namespace_fs';
+    let tmp_fs_path = '/tmp/test_namespace_fs';
+    if (process.platform === MAC_PLATFORM) {
+        tmp_fs_path = '/private/' + tmp_fs_path;
+    }
     const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
 
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
@@ -565,3 +694,58 @@ mocha.describe('namespace_fs copy object', function() {
     });
 
 });
+
+async function list_objects(ns, bucket, delimiter, prefix, dummy_object_sdk) {
+    const res = await ns.list_objects({
+        bucket: bucket,
+        delimiter: delimiter,
+        prefix: prefix,
+    }, dummy_object_sdk);
+    console.log(JSON.stringify(res));
+    return res;
+}
+
+async function upload_object(ns, bucket, file_key, dummy_object_sdk, source) {
+    const xattr = { key: 'value', key2: 'value2' };
+    xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
+    const upload_res = await ns.upload_object({
+        bucket: bucket,
+        key: file_key,
+        xattr,
+        source_stream: source
+    }, dummy_object_sdk);
+    console.log('upload_object response', inspect(upload_res));
+    return upload_object;
+}
+
+async function delete_object(ns, bucket, file_key, dummy_object_sdk) {
+    const delete_copy_res = await ns.delete_object({
+        bucket: bucket,
+        key: file_key,
+    }, dummy_object_sdk);
+    console.log('delete_object do not delete the path response', inspect(delete_copy_res));
+    return delete_copy_res;
+}
+
+async function read_object_md(ns, bucket, file_key, dummy_object_sdk) {
+    const res = await ns.read_object_md({
+        bucket: bucket,
+        key: file_key,
+    }, dummy_object_sdk);
+    console.log(inspect(res));
+    return res;
+}
+
+async function read_object_stream(ns, bucket, file_key, dummy_object_sdk) {
+    const out = buffer_utils.write_stream();
+    await ns.read_object_stream({
+        bucket: bucket,
+        key: file_key,
+    }, dummy_object_sdk, out);
+    console.log(inspect(out));
+    return out;
+}
+
+function create_file(file_path) {
+    return fs.promises.appendFile(file_path, file_path + '\n');
+}

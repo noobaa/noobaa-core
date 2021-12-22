@@ -535,6 +535,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
     INVALID_RANGE: S3Error.InvalidRange,
     INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
+    INTERNAL_ERROR: S3Error.InternalError,
 });
 
 exports.S3Error = S3Error;

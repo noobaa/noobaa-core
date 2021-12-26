@@ -25,7 +25,8 @@ RUN dnf group install -y -q "Development Tools" && \
     mongodb-org-shell-3.6.3 \
     mongodb-org-mongos-3.6.3 \
     mongodb-org-tools-3.6.3 \
-    which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
+    # commenting out as we are not running ceph test (system_test_list) anywhere
+    # which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \ 
     git && \
     dnf clean all
 
@@ -37,10 +38,10 @@ WORKDIR /root/node_modules/noobaa-core/
 #   Size: ~ 83.9 MB
 #
 ##############################################################
-
-RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
-RUN cd ./src/test/system_tests/s3-tests/ && \
-    ./bootstrap
+# commenting out as we are not running ceph test (system_test_list) anywhere
+# RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
+# RUN cd ./src/test/system_tests/s3-tests/ && \
+#     ./bootstrap
 
 ##############################################################
 # Layers:

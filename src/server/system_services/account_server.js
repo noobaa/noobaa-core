@@ -28,7 +28,6 @@ const azure_storage = require('../../util/new_azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 
-
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
     secret_key: new SensitiveString('abc')
@@ -791,7 +790,7 @@ async function add_external_connection(req) {
         throw new RpcError(res.error.code, res.error.message);
     }
 
-    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
+    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type', 'aws_sts_arn');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
@@ -950,7 +949,9 @@ async function _check_external_connection_internal(connection) {
         case 'AZURE': {
             return check_azure_connection(connection);
         }
-
+        case 'AWSSTS': {
+            return check_aws_sts_connection(connection);
+        }
         case 'AWS':
         case 'S3_COMPATIBLE':
         case 'FLASHBLADE':
@@ -1085,8 +1086,13 @@ async function check_google_connection(params) {
     }
 }
 
-
-
+async function check_aws_sts_connection(params) {
+    const creds = await cloud_utils.generate_aws_sts_creds(params, "check_aws_sts_sessions");
+    params.identity = new SensitiveString(creds.accessKeyId);
+    params.secret = new SensitiveString(creds.secretAccessKey);
+    params.sessionToken = creds.sessionToken;
+    return check_aws_connection(params);
+}
 async function check_aws_connection(params) {
     if (!params.endpoint.startsWith('http://') && !params.endpoint.startsWith('https://')) {
         params.endpoint = 'http://' + params.endpoint;
@@ -1095,6 +1101,7 @@ async function check_aws_connection(params) {
         endpoint: params.endpoint,
         accessKeyId: params.identity.unwrap(),
         secretAccessKey: params.secret.unwrap(),
+        sessionToken: params.sessionToken,
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
         s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
         httpOptions: {

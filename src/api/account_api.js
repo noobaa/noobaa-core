@@ -395,7 +395,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'identity', 'secret', 'endpoint', 'endpoint_type'],
+                required: ['name', 'endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -405,6 +405,12 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
+                    aws_sts_arn: {
+                        type: 'string'
+                    },
+                    region: {
+                        type: 'string'
+                    },
                     auth_method: {
                         $ref: 'common_api#/definitions/cloud_auth_method'
                     },
@@ -445,7 +451,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['identity', 'secret', 'endpoint', 'endpoint_type'],
+                required: ['endpoint', 'endpoint_type'],
                 properties: {
                     name: {
                         type: 'string'
@@ -455,6 +461,12 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
+                    aws_sts_arn: {
+                        type: 'string'
+                    },
+                    region: {
+                        type: 'string'
+                    },
                     auth_method: {
                         $ref: 'common_api#/definitions/cloud_auth_method'
                     },

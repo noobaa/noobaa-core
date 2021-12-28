@@ -76,11 +76,14 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['name', 'endpoint', 'access_key', 'secret_key'],
+                required: ['name', 'endpoint'],
                 properties: {
                     name: { type: 'string' },
                     access_key: { $ref: 'common_api#/definitions/access_key' },
                     secret_key: { $ref: 'common_api#/definitions/secret_key' },
+                    aws_sts_arn: {
+                        type: 'string'
+                    },
                     auth_method: {
                         type: 'string',
                         enum: ['AWS_V2', 'AWS_V4']
@@ -89,7 +92,7 @@ module.exports = {
                     cp_code: { type: 'string' },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                        enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                     },
                 }
             }

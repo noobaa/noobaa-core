@@ -327,6 +327,7 @@ async function create_cloud_pool(req) {
             secret_key,
             account_id: req.account._id
         },
+        aws_sts_arn: connection.aws_sts_arn,
         endpoint_type: connection.endpoint_type || 'AWS',
         backingstore: req.rpc_params.backingstore,
         available_capacity: req.rpc_params.available_capacity,
@@ -367,6 +368,7 @@ async function create_cloud_pool(req) {
     }
 
     const map_pool_type = {
+        AWSSTS: 'BLOCK_STORE_S3',
         AWS: 'BLOCK_STORE_S3',
         S3_COMPATIBLE: 'BLOCK_STORE_S3',
         FLASHBLADE: 'BLOCK_STORE_S3',

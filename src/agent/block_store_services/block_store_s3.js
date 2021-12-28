@@ -33,6 +33,12 @@ class BlockStoreS3 extends BlockStoreBase {
         const endpoint = this.cloud_info.endpoint;
         // upload copy to s3 cloud storage.
         if (cloud_utils.is_aws_endpoint(endpoint)) {
+            const is_aws_sts = Boolean(this.cloud_info.aws_sts_arn);
+            if (is_aws_sts) {
+                 this.additionalS3Params = {
+                    RoleSessionName: 'block_store_operations'
+                };
+            } else {
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
                 accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
@@ -44,6 +50,7 @@ class BlockStoreS3 extends BlockStoreBase {
                     agent: http_utils.get_default_agent(endpoint)
                 }
             });
+        }
         } else {
             this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION[this.cloud_info.endpoint_type] ||
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION.DEFAULT;
@@ -66,6 +73,9 @@ class BlockStoreS3 extends BlockStoreBase {
 
     async init() {
         try {
+            if (this.cloud_info.aws_sts_arn) {
+                this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+            }
             const res = await this.s3cloud.getObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: this.usage_path,
@@ -90,6 +100,9 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     async _read_block_md(block_md) {
+        if (this.cloud_info.aws_sts_arn) {
+            this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+        }
         const res = await this.s3cloud.headObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
@@ -132,6 +145,9 @@ class BlockStoreS3 extends BlockStoreBase {
             signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
             s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
         };
+        if (this.cloud_info.aws_sts_arn) {
+             connection_params.aws_sts_arn = this.cloud_info.aws_sts_arn;
+        }
         return {
             connection_params,
             target_bucket: this.cloud_info.target_bucket,
@@ -142,6 +158,9 @@ class BlockStoreS3 extends BlockStoreBase {
 
     async _read_block(block_md) {
         try {
+            if (this.cloud_info.aws_sts_arn) {
+                this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+            }
             const res = await this.s3cloud.getObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: this._block_key(block_md.id),
@@ -166,6 +185,9 @@ class BlockStoreS3 extends BlockStoreBase {
             const block_key = this._block_key(block_md.id);
             const encoded_md = this.disable_metadata ? '' : this._encode_block_md(block_md);
             dbg.log3('writing block id to cloud:', block_key);
+            if (this.cloud_info.aws_sts_arn) {
+                this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+            }
             await this.s3cloud.putObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: block_key,
@@ -210,6 +232,9 @@ class BlockStoreS3 extends BlockStoreBase {
 
     async _write_usage_internal() {
         const usage_data = this._encode_block_md(this._usage);
+        if (this.cloud_info.aws_sts_arn) {
+            this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+        }
         const res = await this.s3cloud.putObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this.usage_path,
@@ -266,6 +291,9 @@ class BlockStoreS3 extends BlockStoreBase {
         let is_truncated = true;
         let key_marker;
         let version_marker;
+        if (this.cloud_info.aws_sts_arn) {
+            this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+        }
         while (is_truncated) {
             const res = await this.s3cloud.listObjectVersions({
                 Bucket: this.cloud_info.target_bucket,
@@ -299,6 +327,9 @@ class BlockStoreS3 extends BlockStoreBase {
             let key_marker;
             let version_marker;
             dbg.log0(`cleaning up all objects with prefix ${this.base_path}`);
+            if (this.cloud_info.aws_sts_arn) {
+                this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+            }
             while (!done) {
                 const list_res = await this.s3cloud.listObjectVersions({
                     Prefix: this.base_path,
@@ -338,6 +369,9 @@ class BlockStoreS3 extends BlockStoreBase {
         let failed_block_ids = [];
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
         try {
+            if (this.cloud_info.aws_sts_arn) {
+                this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+            }
             const usage = await this._get_blocks_usage(block_ids);
             deleted_storage.size -= usage.size;
             deleted_storage.count -= usage.count;
@@ -373,6 +407,9 @@ class BlockStoreS3 extends BlockStoreBase {
         };
         await P.map_with_concurrency(10, block_ids, async block_id => {
             try {
+                if (this.cloud_info.aws_sts_arn) {
+                    this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+                }
                 const res = await this.s3cloud.headObject({
                     Bucket: this.cloud_info.target_bucket,
                     Key: this._block_key(block_id),

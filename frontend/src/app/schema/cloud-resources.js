@@ -36,6 +36,8 @@ export default {
             type: {
                 type: 'string',
                 enum: [
+                    //TODO Without AWSSTS option noobaa management console won't work
+                    'AWSSTS',
                     'AWS',
                     'AZURE',
                     'S3_COMPATIBLE',

@@ -94,7 +94,7 @@ class CreateNamespaceBucketModalViewModel extends ConnectableViewModel {
         bucketName: '',
         readPolicy: [],
         writePolicy: undefined,
-        cacheTTL: 60000,
+        cacheTTL: 0,
         enableCaching: false
     };
 

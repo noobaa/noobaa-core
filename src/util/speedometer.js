@@ -23,6 +23,9 @@ class Speedometer {
         this.max_latency = -Infinity;
 
         this.worker_mode = cluster.isWorker;
+    }
+
+    fork(count) {
         if (cluster.isMaster) {
             cluster.on('message', (worker, bytes) => this.update(bytes));
             cluster.on('exit', worker => {
@@ -33,9 +36,6 @@ class Speedometer {
                 }
             });
         }
-    }
-
-    fork(count) {
         for (var i = 0; i < count; ++i) {
             const worker = cluster.fork();
             console.warn('Worker start', worker.process.pid);
@@ -76,9 +76,9 @@ class Speedometer {
             process.send(this.num_bytes - this.last_bytes);
         } else {
             const speed = (this.num_bytes - this.last_bytes) /
-                (now - this.last_time) * 1000 / 1024 / 1024;
+                Math.max(0.001, now - this.last_time) * 1000 / 1024 / 1024;
             const avg_speed = this.num_bytes /
-                (now - this.start_time) * 1000 / 1024 / 1024;
+                Math.max(0.001, now - this.start_time) * 1000 / 1024 / 1024;
             const ops = this.num_ops - this.last_ops;
             const avg_latency = this.sum_latency - this.last_latency;
             console.log(

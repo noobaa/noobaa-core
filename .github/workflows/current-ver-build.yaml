@@ -1,0 +1,19 @@
+name: Current Version Build on Changes
+
+# Run on Backports
+on: 
+  push:
+    branches:
+      - 5.9
+
+jobs:
+  publish-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke Build on Operator Repo
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: Manual Build Dispatch
+          repo: noobaa/noobaa-core
+          token: ${{ secrets.GHACCESSTOKEN }}
+          inputs: '{ "branch": "5.9", "tag": "" }' 

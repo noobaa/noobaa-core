@@ -906,12 +906,13 @@ struct FileWrite : public FSWrapWorker<FileWrap>
 struct FileWritev : public FSWrapWorker<FileWrap>
 {
     std::vector<struct iovec> iov_vec;
+    ssize_t _total_len;
     FileWritev(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
+        , _total_len(0)
     {
         auto buffers = info[1].As<Napi::Array>();
         const int buffers_len = buffers.Length();
-        int total_len = 0;
         iov_vec.resize(buffers_len);
         struct iovec iov;
         for (int i = 0; i < buffers_len; ++i) {
@@ -920,9 +921,9 @@ struct FileWritev : public FSWrapWorker<FileWrap>
             iov.iov_base = buf.Data();
             iov.iov_len = buf.Length();
             iov_vec[i] = iov;
-            total_len += iov.iov_len;
+            _total_len += iov.iov_len;
         }
-        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path) << DVAL(total_len) << DVAL(buffers_len));
+        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path) << DVAL(_total_len) << DVAL(buffers_len));
     }
     virtual void Work()
     {
@@ -935,6 +936,9 @@ struct FileWritev : public FSWrapWorker<FileWrap>
         ssize_t bw = writev(fd, iov_vec.data(), iov_vec.size());
         if (bw < 0) {
             SetSyscallError();
+        } else if (bw != _total_len) {
+            // TODO: Handle partial writes as well and not fail the operation
+            SetError(XSTR() << "FS::FileWritev::Execute: partial writev error " << DVAL(bw) << DVAL(_total_len));
         }
     }
 };

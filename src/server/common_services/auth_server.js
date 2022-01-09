@@ -476,8 +476,8 @@ function _authorize_signature_token(req) {
         role: role.role,
         client_ip: auth_token_obj.client_ip,
     };
-
-    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, secret_key.unwrap());
+    const signature_secret = auth_token_obj.temp_secret_key || secret_key.unwrap();
+    const signature = signature_utils.get_signature_from_auth_token(auth_token_obj, signature_secret);
 
     if (auth_token_obj.signature !== signature) {
         dbg.error('Signature for access key:', auth_token_obj.access_key,

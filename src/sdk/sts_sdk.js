@@ -72,8 +72,8 @@ class StsSDK {
                     throw error;
                 }
             }
-            const signature = signature_utils.get_signature_from_auth_token(
-                token, this.requesting_account.access_keys[0].secret_key.unwrap());
+            const signature_secret = token.temp_secret_key || this.requesting_account.access_keys[0].secret_key.unwrap();
+            const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
             if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
             return;
         }

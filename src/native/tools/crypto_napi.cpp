@@ -25,11 +25,19 @@ api(const Napi::CallbackInfo& info)
 struct CryptoWorker : public Napi::AsyncWorker
 {
     Napi::Promise::Deferred _deferred;
+    // _args_ref is used to keep refs to all the args for the worker lifetime,
+    // which is needed for workers that receive buffers,
+    // because in their ctor they copy the pointers to the buffer's memory,
+    // and if the JS caller scope does not keep a ref to the buffers until after the call,
+    // then the worker may access invalid memory...
+    Napi::ObjectReference _args_ref;
 
     CryptoWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
+        , _args_ref(Napi::Persistent(Napi::Object::New(info.Env())))
     {
+        for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
     }
     virtual void OnOK() override
     {

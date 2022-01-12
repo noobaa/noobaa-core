@@ -72,7 +72,7 @@ module.exports = {
         'dot-location': ['error', 'property'],
 
         // match generator-star-spacing to the beautifier preference
-        'generator-star-spacing': ['error', { before: false, after: true }],
+        'generator-star-spacing': 'off',
 
         // max depth of blocks in a function
         // TODO eslint max-depth of blocks should be reduced to ~3 instead of 5

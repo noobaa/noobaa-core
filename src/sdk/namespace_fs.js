@@ -811,6 +811,7 @@ class NamespaceFS {
                 rpc_client,
                 namespace_resource_id: this.namespace_resource_id
             });
+            chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
             if (chunk_fs.digest) {
@@ -1373,7 +1374,7 @@ class NamespaceFS {
         dbg.log0('check_bucket_boundaries: fs_account_config', fs_account_config, 'file_path', entry_path);
         if (!entry_path.startsWith(this.bucket_path)) {
             dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
-                return false;
+            return false;
         }
         try {
             // Returns the real path of the entry.

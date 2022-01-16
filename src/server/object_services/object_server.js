@@ -1927,7 +1927,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
                 `multipart num=${num} etag=${etag} etag_md5_b64=${etag_md5_b64} not found in group ${util.inspect(group)}`);
         }
         md5.update(Buffer.from(mp.md5_b64, 'base64'));
-        const mp_parts = parts_by_mp[mp._id.toHexString()];
+        const mp_parts = parts_by_mp[mp._id.toHexString()] || [];
         _complete_next_parts(mp_parts, context);
         used_multiparts.push(mp);
         for (const part of mp_parts) {

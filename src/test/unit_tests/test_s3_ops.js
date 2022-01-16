@@ -489,6 +489,65 @@ mocha.describe('s3_ops', function() {
                 }
             }).promise();
         });
+
+        mocha.it('should allow multipart with empty part', async function() {
+            this.timeout(600000);
+
+            const res1 = await s3.createMultipartUpload({
+                Bucket: bucket_name,
+                Key: text_file2
+            }).promise();
+
+            const res2 = await s3.uploadPart({
+                Bucket: bucket_name,
+                Body: "blabla",
+                Key: text_file2,
+                UploadId: res1.UploadId,
+                PartNumber: 1,
+            }).promise();
+            const res3 = await s3.uploadPart({
+                Bucket: bucket_name,
+                Key: text_file2, // No Body - use to fail - BZ2040682
+                UploadId: res1.UploadId,
+                PartNumber: 2,
+            }).promise();
+            // list_uploads
+            const res6 = await s3.listMultipartUploads({
+                Bucket: bucket_name
+            }).promise();
+            var UploadId = _.result(_.find(res6.Uploads, function(obj) {
+                return obj.UploadId === res1.UploadId;
+            }), 'UploadId');
+            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
+                assert.strictEqual(UploadId, res1.UploadId);
+            }
+
+            // list_multiparts
+            const res5 = await s3.listParts({
+                Bucket: bucket_name,
+                Key: text_file2,
+                UploadId: res1.UploadId,
+            }).promise();
+            assert.strictEqual(res5.Parts.length, 2);
+            assert.strictEqual(res5.Parts[0].ETag, res2.ETag);
+            assert.strictEqual(res5.Parts[1].ETag, res3.ETag);
+
+            await s3.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: text_file2,
+                UploadId: res1.UploadId,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: res2.ETag,
+                        PartNumber: 1
+                    }, {
+                        ETag: res3.ETag,
+                        PartNumber: 2
+                    }]
+                }
+            }).promise();
+        });
+
         mocha.it('should list objects with text-file', async function() {
             this.timeout(60000);
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;

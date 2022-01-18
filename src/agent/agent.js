@@ -105,7 +105,8 @@ class Agent {
                 this.cloud_path = params.cloud_path;
                 block_store_options.cloud_info = params.cloud_info;
                 block_store_options.cloud_path = params.cloud_path;
-                if (params.cloud_info.endpoint_type === 'AWS' ||
+                if (params.cloud_info.endpoint_type === 'AWSSTS' ||
+                    params.cloud_info.endpoint_type === 'AWS' ||
                     params.cloud_info.endpoint_type === 'S3_COMPATIBLE' ||
                     params.cloud_info.endpoint_type === 'FLASHBLADE' ||
                     params.cloud_info.endpoint_type === 'IBM_COS') {

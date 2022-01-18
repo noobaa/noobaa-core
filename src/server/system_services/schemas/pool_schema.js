@@ -85,7 +85,7 @@ module.exports = {
         // cloud pool information - exist only for cloud pools
         cloud_pool_info: {
             type: 'object',
-            required: ['endpoint', 'target_bucket', 'access_keys'],
+            required: ['endpoint', 'target_bucket'],
             properties: {
                 // Target endpoint, location + bucket
                 endpoint: {
@@ -97,6 +97,9 @@ module.exports = {
                 auth_method: {
                     type: 'string',
                     enum: ['AWS_V2', 'AWS_V4']
+                },
+                aws_sts_arn: {
+                    type: 'string'
                 },
                 backingstore: {
                     type: 'object',
@@ -128,7 +131,7 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                    enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 agent_info: {
                     type: 'object',

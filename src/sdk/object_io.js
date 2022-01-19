@@ -398,6 +398,7 @@ class ObjectIO {
             calc_sha256: Boolean(params.sha256_b64),
             chunk_split_config: params.chunk_split_config,
         });
+        splitter.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Splitter: ', err1));
 
         // The coder transformer is responsible for digest & compress & encrypt & erasure coding
         const coder = new ChunkCoder({
@@ -408,12 +409,14 @@ class ObjectIO {
             // TODO: Load the key from KMS as well
             cipher_key_b64: params.encryption && params.encryption.key_b64
         });
+        coder.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream ChunkCoder: ', err1));
 
         const coalescer = new CoalesceStream({
             objectMode: true,
             max_length: 50,
             max_wait_ms: 1000,
         });
+        coalescer.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Coalescer: ', err1));
 
         // The uploader transformer takes chunks after processed by the coder and uploads them
         // by doing allocate(md) + write(data) + finalize(md).
@@ -424,6 +427,7 @@ class ObjectIO {
             transform: (chunks, encoding, callback) =>
                 this._upload_chunks(params, complete_params, chunks, callback)
         });
+        uploader.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Uploader: ', err1));
 
         const transforms = [params.source_stream,
             splitter,

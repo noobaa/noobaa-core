@@ -6,6 +6,10 @@ const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 
+const s3_error_options = {
+    ErrorClass: S3Error,
+    error_missing_content_length: S3Error.MissingContentLength
+};
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
@@ -18,7 +22,7 @@ async function put_object_uploadId(req, res) {
 
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
-        size: s3_utils.parse_content_length(req),
+        size: http_utils.parse_content_length(req, s3_error_options),
         md5_b64: req.content_md5 && req.content_md5.toString('base64'),
         sha256_b64: req.content_sha256_buf && req.content_sha256_buf.toString('base64'),
     };
@@ -69,7 +73,7 @@ function get_bucket_usage(req, res) {
     return {
         bucket: req.params.bucket,
         access_key: req.object_sdk.get_auth_token().access_key,
-        write_bytes: s3_utils.parse_content_length(req),
+        write_bytes: http_utils.parse_content_length(req, s3_error_options),
     };
 }
 

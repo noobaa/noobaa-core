@@ -20,13 +20,13 @@ const http_utils = require('../../util/http_utils');
 const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const auth_server = require('../common_services/auth_server');
-const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
 const pool_server = require('../system_services/pool_server');
 const azure_storage = require('../../util/new_azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
+const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -63,7 +63,7 @@ async function create_account(req) {
     if (account.name.unwrap() === 'demo' && account.email.unwrap() === 'demo@noobaa.com') {
         account.access_keys = [demo_access_keys];
     } else {
-        const access_keys = req.rpc_params.access_keys || [generate_access_keys()];
+        const access_keys = req.rpc_params.access_keys || [cloud_utils.generate_access_keys()];
         if (!access_keys.length) throw new RpcError('FORBIDDEN', 'cannot create account without access_keys');
         account.access_keys = access_keys;
     }
@@ -181,6 +181,12 @@ async function create_account(req) {
         secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
             account.access_keys[0].secret_key, account_mkey._id)
     };
+
+    if (req.rpc_params.role_config) {
+        validate_assume_role_policy(req.rpc_params.role_config.assume_role_policy);
+        account.role_config = req.rpc_params.role_config;
+    }
+
     await system_store.make_changes({
         insert: {
             accounts: [account],
@@ -207,6 +213,25 @@ async function create_account(req) {
         token: auth_server.make_auth_token(auth),
         access_keys: decrypted_access_keys
     };
+}
+
+function validate_assume_role_policy(policy) {
+    const all_op_names = Object.values(OP_NAME_TO_ACTION);
+    for (const statement of policy.statement) {
+        for (const principal of statement.principal) {
+            if (principal.unwrap() !== '*') {
+                const account = system_store.get_account_by_email(principal);
+                if (!account) {
+                    throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+                }
+            }
+        }
+        for (const action of statement.action) {
+            if (action !== 'sts:*' && !all_op_names.includes(action)) {
+                throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
+            }
+        }
+    }
 }
 
 function create_external_user_account(req) {
@@ -272,7 +297,6 @@ function read_account_by_access_key(req) {
     return get_account_info(account);
 }
 
-
 /**
  *
  * GENERATE_ACCOUNT_KEYS
@@ -291,7 +315,7 @@ async function generate_account_keys(req) {
     if (account.is_support) {
         throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
-    const access_keys = generate_access_keys();
+    const access_keys = cloud_utils.generate_access_keys();
     access_keys.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         access_keys.secret_key, account.master_key_id._id);
 
@@ -501,6 +525,11 @@ function update_account(req) {
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
     };
+
+    if (req.rpc_params.role_config) {
+        validate_assume_role_policy(req.rpc_params.role_config.assume_role_policy);
+        updates.role_config = req.rpc_params.role_config;
+    }
 
     let removals = {
         next_password_change: params.must_change_password === false ? true : undefined,
@@ -1289,7 +1318,7 @@ function get_account_info(account, include_connection_cache) {
         ...config.DEFAULT_ACCOUNT_PREFERENCES,
         ...account.preferences
     };
-
+    info.role_config = account.role_config;
     return info;
 }
 
@@ -1442,12 +1471,7 @@ function validate_create_account_params(req) {
     }
 }
 
-function generate_access_keys() {
-    return {
-        access_key: new SensitiveString(string_utils.crypto_random_string(20, string_utils.ALPHA_NUMERIC_CHARSET)),
-        secret_key: new SensitiveString(string_utils.crypto_random_string(40, string_utils.ALPHA_NUMERIC_CHARSET + '+/')),
-    };
-}
+
 
 async function verify_authorized_account(req) {
     //operator connects by token and doesn't have the password property.

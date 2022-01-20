@@ -42,7 +42,7 @@ const bucket_namespace_cache = new LRUCache({
 const account_cache = new LRUCache({
     name: 'AccountCache',
     // TODO: Decide on a time that we want to invalidate
-    expiry_ms: 10 * 60 * 1000,
+    expiry_ms: Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000,
     make_key: ({ access_key }) => access_key,
     load: async ({ rpc_client, access_key }) => rpc_client.account.read_account_by_access_key({ access_key }),
 });
@@ -807,3 +807,4 @@ class ObjectSDK {
 }
 
 module.exports = ObjectSDK;
+module.exports.account_cache = account_cache;

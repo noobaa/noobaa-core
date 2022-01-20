@@ -79,6 +79,9 @@ module.exports = {
                             $ref: 'common_api#/definitions/access_keys'
                         }
                     },
+                    role_config: {
+                        $ref: 'common_api#/definitions/role_config'
+                    },
                 },
             },
             reply: {
@@ -200,7 +203,10 @@ module.exports = {
                                 enum: ['DARK', 'LIGHT']
                             }
                         }
-                    }
+                    },
+                    role_config: {
+                        $ref: 'common_api#/definitions/role_config'
+                    },
                 }
             },
             auth: {
@@ -625,6 +631,9 @@ module.exports = {
                             items: { $ref: 'common_api#/definitions/bucket_name' },
                         }
                     }
+                },
+                role_config: {
+                    $ref: 'common_api#/definitions/role_config'
                 },
                 can_create_buckets: {
                     type: 'boolean'

@@ -4,9 +4,11 @@ const dbg = require('./debug_module')(__filename);
 const fs = require('fs');
 const { RpcError } = require('../rpc');
 const http_utils = require('./http_utils');
+const string_utils = require('./string_utils');
 const AWS = require('aws-sdk');
 const url = require('url');
 const _ = require('lodash');
+const SensitiveString = require('./sensitive_string');
 
 const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/oidc-token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
@@ -183,6 +185,13 @@ function set_noobaa_s3_connection(sys) {
     });
 }
 
+function generate_access_keys() {
+    return {
+        access_key: new SensitiveString(string_utils.crypto_random_string(20, string_utils.ALPHA_NUMERIC_CHARSET)),
+        secret_key: new SensitiveString(string_utils.crypto_random_string(40, string_utils.ALPHA_NUMERIC_CHARSET + '+/')),
+    };
+}
+
 exports.find_cloud_connection = find_cloud_connection;
 exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_azure_new_connection_string = get_azure_new_connection_string;
@@ -194,3 +203,4 @@ exports.disable_s3_compatible_bodysigning = disable_s3_compatible_bodysigning;
 exports.set_noobaa_s3_connection = set_noobaa_s3_connection;
 exports.createSTSS3Client = createSTSS3Client;
 exports.generate_aws_sts_creds = generate_aws_sts_creds;
+exports.generate_access_keys = generate_access_keys;

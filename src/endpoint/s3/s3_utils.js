@@ -241,16 +241,6 @@ function parse_sse(req) {
     };
 }
 
-function parse_content_length(req) {
-    const size = Number(req.headers['x-amz-decoded-content-length'] || req.headers['content-length']);
-    const copy = req.headers['x-amz-copy-source'];
-    if (!copy && (!Number.isInteger(size) || size < 0)) {
-        dbg.warn('Missing content-length', req.headers['content-length']);
-        throw new S3Error(S3Error.MissingContentLength);
-    }
-    return size;
-}
-
 function parse_part_number(num_str, err) {
     const num = Number(num_str);
     if (!Number.isInteger(num) || num < 1 || num > 10000) {
@@ -665,7 +655,6 @@ exports.format_s3_xml_date = format_s3_xml_date;
 exports.get_request_xattr = get_request_xattr;
 exports.set_response_xattr = set_response_xattr;
 exports.parse_etag = parse_etag;
-exports.parse_content_length = parse_content_length;
 exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
 exports.format_copy_source = format_copy_source;

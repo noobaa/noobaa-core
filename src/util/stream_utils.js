@@ -4,7 +4,6 @@
 const util = require('util');
 const stream = require('stream');
 const events = require('events');
-const _ = require('lodash');
 
 
 /**
@@ -30,7 +29,7 @@ function get_tap_stream(func) {
 }
 
 const async_pipeline = util.promisify(stream.pipeline);
-async function pipeline(streams) {
+async function pipeline(streams, reuse_last_stream) {
     if (!streams || !streams.length) throw new Error('Pipeline called without streams');
     if (streams.find(strm => strm.destroyed)) {
         const err = new Error('Pipeline called on destroyed stream');
@@ -39,11 +38,16 @@ async function pipeline(streams) {
         }
         throw err;
     }
+    // TODO: Need to follow https://github.com/nodejs/node/issues/40685 and check when Node will merge a fix
     // When we wait for finish on the last transform of the pipeline we are in a deadlock and the waiting for finishing never resolves.
-    // Added a tap stream at the end just to make sure that we advance.
-    // TODO: Need to examine more elegant solutions
-    streams.push(get_tap_stream(_.noop));
-    return async_pipeline(streams);
+    // By calling .resume() on the last_stream of the pipeline, the stream's data will be fully consumed and the finish will happen
+    // we should call resume() only if the last stream of the pipeline won't be reused
+    return async_pipeline(streams).then(() => {
+        if (!reuse_last_stream) {
+            const last_stream = streams[streams.length - 1];
+            if (last_stream.readable) last_stream.resume();
+        }
+    });
 }
 
 exports.wait_drain = wait_drain;

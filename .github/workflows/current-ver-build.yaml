@@ -4,7 +4,7 @@ name: Current Version Build on Changes
 on: 
   push:
     branches:
-      - 5.9
+      - 5.10
 
 jobs:
   publish-image:
@@ -16,4 +16,4 @@ jobs:
           workflow: Manual Build Dispatch
           repo: noobaa/noobaa-core
           token: ${{ secrets.GHACCESSTOKEN }}
-          inputs: '{ "branch": "5.9", "tag": "" }' 
+          inputs: '{ "branch": "5.10", "tag": "" }'

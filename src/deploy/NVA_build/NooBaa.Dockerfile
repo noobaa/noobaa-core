@@ -39,7 +39,7 @@ RUN tar \
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM centos:8
+FROM quay.io/centos/centos:stream8
 
 ENV container docker
 ENV PORT 8080
@@ -69,7 +69,8 @@ RUN dnf install -y -q bash \
     nc \
     less \
     bash-completion \
-    python3-setuptools && \
+    python3-setuptools \
+    xz && \
     dnf clean all
 
 RUN mkdir -p /usr/local/lib/python3.6/site-packages

@@ -1,5 +1,5 @@
 # dev.Dockerfile is meant to be used manually for developer testing
-FROM centos:8 
+FROM quay.io/centos/centos:stream8
 
 ENV container docker
 

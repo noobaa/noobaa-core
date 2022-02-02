@@ -25,6 +25,7 @@ class ChunkFS extends stream.Transform {
         this.count = 1;
         this.rpc_client = rpc_client;
         this.namespace_resource_id = namespace_resource_id;
+        this._total_num_buffers = 0;
     }
 
     _transform(chunk, encoding, callback) {
@@ -49,6 +50,8 @@ class ChunkFS extends stream.Transform {
             this.q_buffers = [];
             this.q_size = 0;
             await this.target_file.writev(this.fs_account_config, buffers_to_write);
+            // Hold the ref on the buffers from the JS side
+            this._total_num_buffers += buffers_to_write.length;
         }
         if (callback) {
             if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');

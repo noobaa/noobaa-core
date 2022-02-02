@@ -144,6 +144,12 @@ set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
 struct FSWorker : public Napi::AsyncWorker
 {
     Napi::Promise::Deferred _deferred;
+    // _args_ref is used to keep refs to all the args for the worker lifetime,
+    // which is needed for workers that receive buffers,
+    // because in their ctor they copy the pointers to the buffer's memory,
+    // and if the JS caller scope does not keep a ref to the buffers until after the call,
+    // then the worker may access invalid memory...
+    Napi::ObjectReference _args_ref;
     pid_t _tid;
     uid_t _uid;
     gid_t _gid;
@@ -155,12 +161,14 @@ struct FSWorker : public Napi::AsyncWorker
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
+        , _args_ref(Napi::Persistent(Napi::Object::New(info.Env())))
         , _tid(0)
         , _uid(ThreadScope::orig_uid)
         , _gid(ThreadScope::orig_gid)
         , _errno(0)
         , _warn_threshold_ms(0)
     {
+        for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
         Napi::Object config = info[0].As<Napi::Object>();
         if (config.Has("uid")) _uid = config.Get("uid").ToNumber();
         if (config.Has("gid")) _gid = config.Get("gid").ToNumber();

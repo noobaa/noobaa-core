@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-
 const _ = require('lodash');
 const moment = require('moment');
 
@@ -11,8 +10,7 @@ const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const auth_server = require('../common_services/auth_server');
 
-
-var LIFECYCLE = {
+const LIFECYCLE = {
     schedule_min: 1 //run every 5 minutes
 };
 
@@ -46,7 +44,7 @@ async function background_worker() {
                     dbg.log0('LIFECYCLE PROCESSING bucket:', bucket_rule);
                     if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.date < Date.now()) {
                         dbg.log0('LIFECYCLE DELETING bucket:', bucket_rule);
-                        const deletion_params = { bucket: bucket.name, prefix: lifecycle_rule.prefix };
+                        const deletion_params = { bucket: bucket.name, prefix: lifecycle_rule.filter.prefix };
                         // Delete objects with create time older than expiration days
                         if (lifecycle_rule.expiration.days) {
                             const create_time = moment().subtract(lifecycle_rule.expiration.days, 'days');
@@ -62,7 +60,7 @@ async function background_worker() {
                         });
                         bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
                         dbg.log0('LIFECYCLE Done bucket:', bucket.name.unwrap(), 'done deletion of objects per prefix',
-                            lifecycle_rule.prefix, 'time:', bucket.lifecycle_configuration_rules[j].last_sync);
+                            lifecycle_rule.filter.prefix, 'time:', bucket.lifecycle_configuration_rules[j].last_sync);
                     }
                 } else {
                     dbg.log0('LIFECYCLE NOTHING bucket:', bucket.name.unwrap(), 'rule id', lifecycle_rule.id, 'nothing to do');

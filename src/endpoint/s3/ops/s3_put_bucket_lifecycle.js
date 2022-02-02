@@ -13,22 +13,36 @@ async function put_bucket_lifecycle(req) {
 
     // <Rule>
     //   <ID>id2</ID>
-    //   <Prefix>logs/</Prefix>
+    //   <Filter>
+    //     <Prefix>logs/</Prefix> 
+    //   </Filter>
     //   <Status>Enabled</Status>
     //   <Expiration>
     //     <Days>365</Days>
     //   </Expiration>
     // </Rule>
     const lifecycle_rules = _.map(req.body.LifecycleConfiguration.Rule, rule => {
-        var rule_id = uuid().split('-')[0];
+        let rule_id = uuid().split('-')[0];
         if (rule.ID) {
             rule_id = rule.ID[0];
         }
-        let current_rule = {
+        const current_rule = {
             id: rule_id,
-            prefix: rule.Prefix[0],
+            filter: {},
             status: rule.Status[0]
         };
+        if (rule.Prefix) {
+            dbg.error('Rule should not have prefix, it should be filter.prefix', rule);
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        if (rule.Filter) {
+            if (rule.Filter.length > 1 || rule.Filter[0].ObjectSizeGreaterThan || rule.Filter[0].ObjectSizeLessThan) {
+                throw new S3Error(S3Error.NotImplemented);
+            }
+            if (rule.Filter[0].Prefix) {
+                current_rule.filter.prefix = rule.Filter[0].Prefix[0];
+            }
+        }
         if (rule.Expiration) {
             current_rule.expiration = {};
             if (rule.Expiration[0].Days) {
@@ -36,7 +50,9 @@ async function put_bucket_lifecycle(req) {
                 if (rule.Expiration[0].Days < 1) {
                     throw new S3Error(S3Error.InvalidArgument);
                 }
-            } else {
+            }
+
+            if (rule.Expiration[0].Date) {
                 current_rule.expiration.date = (new Date(rule.Expiration[0].Date[0])).getTime();
             }
 
@@ -79,7 +95,7 @@ async function put_bucket_lifecycle(req) {
         rules: lifecycle_rules
     });
 
-    dbg.log('set_bucket_lifecycle', req.params.rule);
+    dbg.log0('set_bucket_lifecycle', lifecycle_rules);
 }
 
 module.exports = {

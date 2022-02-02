@@ -890,7 +890,44 @@ module.exports = {
                 assume_role_policy: {
                     $ref: '#/definitions/assume_role_policy'
                 }
+            },
+        },
+        bucket_lifecycle_filter: {
+            type: 'object',
+            properties: {
+                prefix: {
+                    type: 'string'
+                },
+                // TODO: the functionality is not yet implemented so it is commented out
+                // object_size_greater_than: {
+                //     $ref: 'common_api#/definitions/bigint'
+                // },
+                // object_size_less_than: {
+                //     $ref: 'common_api#/definitions/bigint'
+                // },
+                // tag: {
+                //     // It is an Array for the use of And property
+                //     // Which includes all the filter properties and and array of tags
+                //     // It is not in the api as we dont need it, we will just parse it.
+                //     type: 'array',
+                //     items: {
+                //         $ref: '#/definitions/bucket_lifecycle_filter_tag'
+                //     },
+                // },
             }
-        }
+        },
+        // TODO: the functionality is not yet implemented so it is commented out
+        // bucket_lifecycle_filter_tag: {
+        //     type: 'object',
+        //     required: ['key', 'value'],
+        //     properties: {
+        //         key: {
+        //             type: 'string'
+        //         },
+        //         value: {
+        //             type: 'string'
+        //         },
+        //     }
+        // }
     }
 };

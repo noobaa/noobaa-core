@@ -199,16 +199,16 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['id', 'prefix', 'status', 'expiration'],
+                required: ['id', 'status'],
                 properties: {
                     id: {
                         type: 'string'
                     },
-                    prefix: {
-                        type: 'string'
-                    },
                     status: {
                         type: 'string'
+                    },
+                    filter: {
+                        $ref: 'common_api#/definitions/bucket_lifecycle_filter'
                     },
                     expiration: {
                         type: 'object',

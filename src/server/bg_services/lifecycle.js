@@ -24,17 +24,17 @@ async function background_worker() {
             if (!bucket.lifecycle_configuration_rules || bucket.deleting) return;
 
             await P.all(_.map(bucket.lifecycle_configuration_rules, async (lifecycle_rule, j) => {
-                dbg.log0('LIFECYCLE HANDLING BUCKET:', bucket.name.unwrap(), 'BEGIN');
+                dbg.log0('LIFECYCLE HANDLING BUCKET:', bucket.name, '(bucket id:', bucket._id, ') BEGIN');
                 const now = Date.now();
                 const yesterday = now - (1000 * 60 * 60 * 24);
                 //If refresh time
                 if (!lifecycle_rule.last_sync) {
-                    dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name.unwrap(), 'rule id', lifecycle_rule.id,
+                    dbg.log0('LIFECYCLE HANDLING bucket:', bucket.name, '(bucket id:', bucket._id, ') rule id', lifecycle_rule.id,
                         'status:', lifecycle_rule.status, ', setting last_sync as yesterday (', yesterday, ')');
                     lifecycle_rule.last_sync = yesterday; //set yesterday as last sync
                 }
 
-                const bucket_rule = bucket.name.unwrap() + ' rule id(' + j + ') ' + lifecycle_rule.id;
+                const bucket_rule = bucket.name + '(bucket id:' + bucket._id + ') rule id(' + j + ') ' + lifecycle_rule.id;
                 const last_synced_min = (now - lifecycle_rule.last_sync) / 1000 / 60;
 
                 dbg.log0('LIFECYCLE HANDLING bucket:', bucket_rule, 'status:', lifecycle_rule.status,
@@ -59,14 +59,14 @@ async function background_worker() {
                             })
                         });
                         bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
-                        dbg.log0('LIFECYCLE Done bucket:', bucket.name.unwrap(), 'done deletion of objects per prefix',
+                        dbg.log0('LIFECYCLE Done bucket:', bucket.name, '(bucket id:', bucket._id, ') done deletion of objects per prefix',
                             lifecycle_rule.filter.prefix, 'time:', bucket.lifecycle_configuration_rules[j].last_sync);
                     }
                 } else {
-                    dbg.log0('LIFECYCLE NOTHING bucket:', bucket.name.unwrap(), 'rule id', lifecycle_rule.id, 'nothing to do');
+                    dbg.log0('LIFECYCLE NOTHING bucket:', bucket.name, '(bucket id:', bucket._id, ') rule id', lifecycle_rule.id, 'nothing to do');
                 }
             }));
-            dbg.log0('LIFECYCLE SYNC TIME bucket', bucket.name.unwrap(), 'SAVE last sync', bucket.lifecycle_configuration_rules[0].last_sync);
+            dbg.log0('LIFECYCLE SYNC TIME bucket', bucket.name, '(bucket id:', bucket._id, ') SAVE last sync', bucket.lifecycle_configuration_rules[0].last_sync);
             update_lifecycle_rules_last_sync(bucket, bucket.lifecycle_configuration_rules);
         }
     } catch (err) {

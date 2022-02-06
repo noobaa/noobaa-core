@@ -209,6 +209,8 @@ function map_get_or_create(map, key, item_initializer) {
  * @returns {Boolean}
  */
 function hasOwnProperty(obj, prop_name_or_sym) {
+    // TODO: replace to Object.hasOwn once we are using node 16.9.0 and remove the rule disable
+    // eslint-disable-next-line prefer-object-has-own
     return Object.prototype.hasOwnProperty.call(obj, prop_name_or_sym);
 }
 

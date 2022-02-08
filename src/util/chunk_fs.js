@@ -8,7 +8,7 @@ const nb_native = require('./nb_native');
 
 /**
  *
- * ChunkNSFS
+ * ChunkFS
  * 
  * Calculates etag and writes stream data to the filesystem batching data buffers
  *
@@ -28,54 +28,55 @@ class ChunkFS extends stream.Transform {
         this._total_num_buffers = 0;
     }
 
-    _transform(chunk, encoding, callback) {
+    async _transform(chunk, encoding, callback) {
         try {
-            this._process_chunk(chunk, callback);
+            if (this.MD5Async) await this.MD5Async.update(chunk);
+            if (this.rpc_client) {
+                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: chunk.length,
+                    count: this.count
+                });
+            }
+            this.count = 0;
+            while (chunk && chunk.length) {
+                const available_size = config.NSFS_BUF_SIZE - this.q_size;
+                const buf = (available_size < chunk.length) ? chunk.slice(0, available_size) : chunk;
+                this.q_buffers.push(buf);
+                this.q_size += buf.length;
+                // Should flush when equals, but added greater than just in case
+                if (this.q_size >= config.NSFS_BUF_SIZE) await this._flush_buffers();
+                chunk = (available_size < chunk.length) ? chunk.slice(available_size) : null;
+            }
+            return callback();
         } catch (error) {
+            console.error('ChunkFS _transform failed', this.q_size, this._total_num_buffers, error);
             return callback(error);
         }
     }
 
-    _flush(callback) {
-        try {
-            this._flush_buffers(callback);
-        } catch (error) {
-            return callback(error);
-        }
+    async _flush(callback) {
+        this._flush_buffers(callback);
     }
 
     async _flush_buffers(callback) {
-        if (this.q_buffers.length) {
-            const buffers_to_write = this.q_buffers;
-            this.q_buffers = [];
-            this.q_size = 0;
-            await this.target_file.writev(this.fs_account_config, buffers_to_write);
-            // Hold the ref on the buffers from the JS side
-            this._total_num_buffers += buffers_to_write.length;
+        try {
+            if (this.q_buffers.length) {
+                const buffers_to_write = this.q_buffers;
+                this.q_buffers = [];
+                this.q_size = 0;
+                await this.target_file.writev(this.fs_account_config, buffers_to_write);
+                // Hold the ref on the buffers from the JS side
+                this._total_num_buffers += buffers_to_write.length;
+            }
+            if (callback) {
+                if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');
+                return callback();
+            }
+        } catch (error) {
+            console.error('ChunkFS _flush_buffers failed', this.q_size, this._total_num_buffers, error);
+            return callback(error);
         }
-        if (callback) {
-            if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');
-            return callback();
-        }
-    }
-
-    async _process_chunk(data, callback) {
-        if (this.MD5Async) await this.MD5Async.update(data);
-        stats_collector.instance(this.rpc_client).update_namespace_write_stats({
-            namespace_resource_id: this.namespace_resource_id,
-            size: data.length,
-            count: this.count
-        });
-        this.count = 0;
-        while (data && data.length) {
-            const available_size = config.NSFS_BUF_SIZE - this.q_size;
-            const buf = (available_size < data.length) ? data.slice(0, available_size) : data;
-            this.q_buffers.push(buf);
-            this.q_size += buf.length;
-            if (this.q_size === config.NSFS_BUF_SIZE) await this._flush_buffers();
-            data = (available_size < data.length) ? data.slice(available_size) : null;
-        }
-        return callback();
     }
 }
 

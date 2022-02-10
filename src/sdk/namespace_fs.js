@@ -620,10 +620,7 @@ class NamespaceFS {
         let fs_xattr = to_fs_xattr(params.xattr);
         // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
-            await Promise.all([
-                this._make_path_dirs(file_path, fs_account_config),
-                this._make_path_dirs(upload_path, fs_account_config)
-            ]);
+            await this._make_path_dirs(upload_path, fs_account_config);
             if (params.copy_source) {
                 const source_file_path = path.join(this.bucket_path, params.copy_source.key);
                 await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
@@ -646,12 +643,32 @@ class NamespaceFS {
             }
             // TODO use file xattr to store md5_b64 xattr, etc.
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
-            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
-            await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
+            await this._move_to_dest(fs_account_config, upload_path, file_path);
+            if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
+        }
+    }
+
+    async _move_to_dest(fs_account_config, source_path, dest_path) {
+        let retries = config.NSFS_RENAME_RETRIES;
+        // will retry renaming a file in case of parallel deleting of the destination path
+        for (;;) {
+            try {
+                await this._make_path_dirs(dest_path, fs_account_config);
+                await nb_native().fs.rename(fs_account_config, source_path, dest_path);
+                break;
+            } catch (err) {
+                retries -= 1;
+                if (retries <= 0) throw err;
+                if (err.code !== 'ENOENT') throw err;
+                // checking that the source_path still exists
+                if (!await this.check_access(fs_account_config, source_path)) throw err;
+                dbg.warn(`NamespaceFS: Retrying failed move to dest retries=${retries}` +
+                    ` source_path=${source_path} dest_path=${dest_path}`, err);
+            }
         }
     }
 
@@ -930,8 +947,7 @@ class NamespaceFS {
             const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);
             write_file = null;
-            await this._make_path_dirs(file_path, fs_account_config);
-            await nb_native().fs.rename(fs_account_config, upload_path, file_path);
+            await this._move_to_dest(fs_account_config, upload_path, file_path);
             if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_account_config);
             return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {

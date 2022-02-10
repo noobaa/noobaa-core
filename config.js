@@ -580,6 +580,8 @@ config.NSFS_REMOVE_PARTS_ON_COMPLETE = true;
 
 config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
 config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
+// number of rename retries in case of deleted destination directory
+config.NSFS_RENAME_RETRIES = 3;
 
 /////////////////////
 //                 //

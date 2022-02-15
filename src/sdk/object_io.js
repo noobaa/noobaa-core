@@ -201,6 +201,7 @@ class ObjectIO {
             'bucket',
             'key',
             'content_type',
+            'content_encoding',
             'size',
             'md5_b64',
             'sha256_b64',

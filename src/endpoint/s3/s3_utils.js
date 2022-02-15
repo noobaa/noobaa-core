@@ -317,6 +317,7 @@ function set_response_object_md(res, object_md) {
         res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(object_md.create_time)));
     }
     res.setHeader('Content-Type', object_md.content_type);
+    if (object_md.content_encoding) res.setHeader('Content-Encoding', object_md.content_encoding);
     res.setHeader('Content-Length', object_md.content_length === undefined ? object_md.size : object_md.content_length);
     res.setHeader('Accept-Ranges', 'bytes');
     if (config.WORM_ENABLED && object_md.lock_settings) {

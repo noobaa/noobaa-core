@@ -71,6 +71,8 @@ module.exports = {
         // MIME
         content_type: { type: 'string' },
 
+        content_encoding: { type: 'string' },
+
         // upload_size is filled for objects while uploading,
         // and ultimatly removed once the write is done
         upload_size: { type: 'integer' },

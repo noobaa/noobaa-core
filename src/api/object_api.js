@@ -27,6 +27,9 @@ module.exports = {
                     content_type: {
                         type: 'string',
                     },
+                    content_encoding: {
+                        type: 'string',
+                    },
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
@@ -170,6 +173,7 @@ module.exports = {
                     version_id: { type: 'string' },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     content_type: { type: 'string' },
+                    content_encoding: { type: 'string' },
                     size: { type: 'integer' },
                 }
             },
@@ -596,6 +600,7 @@ module.exports = {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     key: { type: 'string' },
                     content_type: { type: 'string' },
+                    content_encoding: { type: 'string' },
                     xattr: { $ref: '#/definitions/xattr' },
                     cache_last_valid_time: { idate: true },
                     last_modified_time: { idate: true },
@@ -1374,6 +1379,7 @@ module.exports = {
                 delete_marker: { type: 'boolean' },
                 num_parts: { type: 'integer' },
                 content_type: { type: 'string' },
+                content_encoding: { type: 'string' },
                 create_time: { idate: true },
                 cache_last_valid_time: { idate: true },
                 last_modified_time: { idate: true },

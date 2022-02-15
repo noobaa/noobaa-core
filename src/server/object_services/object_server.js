@@ -108,6 +108,10 @@ async function create_object_upload(req) {
         info.xattr = _.mapKeys(req.rpc_params.xattr, (v, k) => k.replace(/\./g, '@'));
     }
 
+    if (req.rpc_params.content_encoding) {
+        info.content_encoding = req.rpc_params.content_encoding;
+    }
+
     const tier = await map_server.select_tier_for_write(req.bucket);
     await MDStore.instance().insert_object(info);
     object_md_cache.put_in_cache(String(info._id), info);
@@ -1357,6 +1361,7 @@ function get_object_info(md, options = {}) {
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
+        content_encoding: md.content_encoding,
         create_time: md.create_time ? md.create_time.getTime() : md._id.getTimestamp().getTime(),
         last_modified_time: md.last_modified_time ? (md.last_modified_time.getTime()) : undefined,
         cache_last_valid_time: md.cache_last_valid_time ? md.cache_last_valid_time.getTime() : undefined,

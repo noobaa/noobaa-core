@@ -15,6 +15,7 @@ async function post_object_uploads(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: req.headers['content-type'] || mime.getType(req.params.key) || 'application/octet-stream',
+        content_encoding: req.headers['content-encoding'],
         xattr: s3_utils.get_request_xattr(req),
         tagging,
         encryption

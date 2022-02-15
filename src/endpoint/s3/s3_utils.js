@@ -43,7 +43,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_website: { regular: "s3:deletebucketwebsite" },
     delete_bucket: { regular: "s3:deletebucket" },
     delete_object_tagging: { regular: "s3:deleteobjecttagging", versioned: "s3:deleteobjectversiontagging" },
-    delete_object_uploadid: { regular: "s3:abortmultipartupload" },
+    delete_object_uploadId: { regular: "s3:abortmultipartupload" },
     delete_object: { regular: "s3:deleteobject", versioned: "s3:deleteobjectversion" },
 
     get_bucket_accelerate: { regular: "s3:getaccelerateconfiguration" },
@@ -68,7 +68,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     get_bucket: { regular: "s3:listbucket" },
     get_object_acl: { regular: "s3:getobjectacl" },
     get_object_tagging: { regular: "s3:getobjecttagging", versioned: "s3:getobjectversiontagging" },
-    get_object_uploadid: { regular: "s3:listmultipartuploadparts" },
+    get_object_uploadId: { regular: "s3:listmultipartuploadparts" },
     get_object: { regular: "s3:getobject", versioned: "s3:getobjectversion" },
     get_service: { regular: "s3:listallmybuckets" },
 
@@ -77,7 +77,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
 
     post_bucket_delete: { regular: "s3:deleteobject" },
     post_object: { regular: "s3:putobject" },
-    post_object_uploadid: { regular: "s3:putobject" },
+    post_object_uploadId: { regular: "s3:putobject" },
     post_object_uploads: { regular: "s3:putobject" },
 
     put_bucket_accelerate: { regular: "s3:putaccelerateconfiguration" },
@@ -99,7 +99,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_bucket: { regular: "s3:createbucket" },
     put_object_acl: { regular: "s3:putobjectacl" },
     put_object_tagging: { regular: "s3:putobjecttagging", versioned: "s3:putobjectversiontagging" },
-    put_object_uploadid: { regular: "s3:putobject" },
+    put_object_uploadId: { regular: "s3:putobject" },
     put_object: { regular: "s3:putobject" },
 });
 

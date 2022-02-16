@@ -591,6 +591,20 @@ function parse_content_length(req, options) {
     return size;
 }
 
+function authorize_session_token(req, options) {
+    const jwt_utils = require('./jwt_utils'); // eslint-disable-line global-require
+    if (!req.headers['x-amz-security-token']) {
+        return;
+    }
+    try {
+        req.session_token = jwt_utils.authorize_jwt_token(req.headers['x-amz-security-token']);
+    } catch (err) {
+        dbg.error('http_utils.authorize_session_token JWT VERIFY FAILED', err);
+        if (err.name === 'TokenExpiredError') throw new options.ErrorClass(options.error_token_expired);
+        throw new options.ErrorClass(options.error_invalid_token);
+    }
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -611,3 +625,4 @@ exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;
 exports.set_response_headers = set_response_headers;
 exports.parse_content_length = parse_content_length;
+exports.authorize_session_token = authorize_session_token;

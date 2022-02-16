@@ -587,6 +587,11 @@ config.NSFS_RENAME_RETRIES = 3;
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 
+//////////////////////////
+//      STS CONFIG      //
+//////////////////////////
+config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

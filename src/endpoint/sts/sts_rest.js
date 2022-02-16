@@ -16,6 +16,7 @@ const STS_XML_ROOT_ATTRS = Object.freeze({
 });
 
 const RPC_ERRORS_TO_STS = Object.freeze({
+    SIGNATURE_DOES_NOT_MATCH: StsError.AccessDeniedException,
     UNAUTHORIZED: StsError.AccessDeniedException,
     INVALID_ACCESS_KEY_ID: StsError.AccessDeniedException,
     NO_SUCH_ACCOUNT: StsError.AccessDeniedException,
@@ -59,6 +60,8 @@ async function handle_request(req, res) {
         error_invalid_digest: StsError.InternalFailure,
         error_request_time_too_skewed: StsError.InternalFailure,
         error_missing_content_length: StsError.InternalFailure,
+        error_invalid_token: StsError.InvalidClientTokenId,
+        error_token_expired: StsError.ExpiredToken,
         auth_token: () => signature_utils.make_auth_token_from_request(req)
     };
     http_utils.check_headers(req, headers_options);
@@ -78,6 +81,7 @@ async function handle_request(req, res) {
     const op_name = parse_op_name(req, req.body.action);
     req.op_name = op_name;
 
+    http_utils.authorize_session_token(req, headers_options);
     authenticate_request(req);
     await authorize_request(req);
 
@@ -102,6 +106,11 @@ function authenticate_request(req) {
         const auth_token = signature_utils.make_auth_token_from_request(req);
         if (auth_token) {
             auth_token.client_ip = http_utils.parse_client_ip(req);
+        }
+        if (req.session_token) {
+            auth_token.access_key = req.session_token.assumed_role_access_key;
+            auth_token.temp_access_key = req.session_token.access_key;
+            auth_token.temp_secret_key = req.session_token.secret_key;
         }
         req.sts_sdk.set_auth_token(auth_token);
         signature_utils.check_request_expiry(req);

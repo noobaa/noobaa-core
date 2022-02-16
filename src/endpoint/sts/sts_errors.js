@@ -134,5 +134,9 @@ StsError.NotImplemented = Object.freeze({
     message: 'A header you provided implies functionality that is not implemented.',
     http_code: 501,
 });
-
+StsError.ExpiredToken = Object.freeze({
+    code: 'ExpiredToken',
+    message: 'The security token included in the request is expired',
+    http_code: 400,
+});
 exports.StsError = StsError;

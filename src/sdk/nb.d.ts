@@ -370,6 +370,7 @@ interface ObjectMD {
     size: number;
     num_parts: number;
     content_type: string;
+    content_encoding?: string;
     upload_size?: number;
     upload_started?: ID;
     create_time?: Date;
@@ -396,6 +397,7 @@ interface ObjectInfo {
     size: number;
     num_parts: number;
     content_type: string;
+    content_encoding?: string;
     upload_size?: number;
     upload_started?: number;
     create_time?: number;

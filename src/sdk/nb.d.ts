@@ -369,7 +369,7 @@ interface ObjectMD {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
-    num_multiparts: number;
+    num_multiparts?: number;
     multipart_start?: number;
     multipart_end?: number;
     content_type: string;

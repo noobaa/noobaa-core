@@ -1460,9 +1460,9 @@ async function calculate_multipart_range(multipart_number, obj) {
  */
  async function calculate_num_multiparts(obj) {
     // fetch the commited multiparts of this obj
-    const multiparts = await MDStore.instance().find_commited_multiparts_of_object(obj._id);
-    if (multiparts.length) {
-        obj.num_multiparts = multiparts.length;
+    const multiparts_count = await MDStore.instance().count_commited_multiparts_of_object(obj._id);
+    if (multiparts_count) {
+        obj.num_multiparts = multiparts_count;
 
         await MDStore.instance().update_object_by_id(obj._id, { num_multiparts: obj.num_multiparts });
     }

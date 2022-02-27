@@ -910,8 +910,8 @@ class MDStore {
      * @param {nb.ID} obj_id
      * @returns {Promise<nb.ObjectMultipart[]>}
      */
-    async find_commited_multiparts_of_object(obj_id) {
-        return this._multiparts.find({ obj: obj_id, deleted: null, uncommitted: null });
+    async count_commited_multiparts_of_object(obj_id) {
+        return this._multiparts.count({ obj: obj_id, deleted: null, uncommitted: null });
     }
 
     /**

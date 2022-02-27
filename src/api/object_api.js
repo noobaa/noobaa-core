@@ -152,9 +152,7 @@ module.exports = {
                             required: ['num', 'etag'],
                             properties: {
                                 num: {
-                                    type: 'integer',
-                                    minimum: 1,
-                                    maximum: 10000
+                                    $ref: 'common_api#/definitions/multipart'
                                 },
                                 etag: {
                                     type: 'string'
@@ -223,9 +221,7 @@ module.exports = {
                         type: 'string',
                     },
                     num: {
-                        type: 'integer',
-                        minimum: 1,
-                        maximum: 10000
+                        $ref: 'common_api#/definitions/multipart'
                     },
                     size: {
                         type: 'integer',
@@ -278,9 +274,7 @@ module.exports = {
                         type: 'string',
                     },
                     num: {
-                        type: 'integer',
-                        minimum: 1,
-                        maximum: 10000
+                        $ref: 'common_api#/definitions/multipart'
                     },
                     multipart_id: {
                         objectid: true
@@ -368,9 +362,7 @@ module.exports = {
                             ],
                             properties: {
                                 num: {
-                                    type: 'integer',
-                                    minimum: 1,
-                                    maximum: 10000
+                                    $ref: 'common_api#/definitions/multipart'
                                 },
                                 size: {
                                     type: 'integer'
@@ -578,9 +570,7 @@ module.exports = {
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
                     multipart_number: {
-                        type: 'integer',
-                        minimum: 1,
-                        maximum: 10000
+                        $ref: 'common_api#/definitions/multipart'
                     },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     adminfo: {
@@ -1392,9 +1382,7 @@ module.exports = {
                 delete_marker: { type: 'boolean' },
                 num_parts: { type: 'integer' },
                 num_multiparts: {
-                    type: 'integer',
-                    minimum: 1,
-                    maximum: 10000
+                    $ref: 'common_api#/definitions/multipart'
                 },
                 multipart_start: { type: 'integer' },
                 multipart_end: { type: 'integer' },

@@ -55,35 +55,8 @@ async function get_object(req, res) {
     if (multipart_number) {
         params.multipart_number = multipart_number;
     }
-    try {
-        // A 'ranged' GET is performed if a  "part number"
-        // is specified in the S3 ObjectGET query or alternatively,
-        // ranges could be specified in HTTP header
-        const range = s3_utils.get_object_range(req, object_md);
+    s3_utils.s3_range(req, res, object_md, obj_size, params);
 
-        // If range is specified, set it in HTTP response headers
-        if (range) {
-            params.start = range.start;
-            params.end = range.end;
-            s3_utils.set_range_response_headers(req, res, range, obj_size);
-        } else {
-            dbg.log1('reading object', req.path, obj_size);
-        }
-    } catch (err) {
-        if (err.ranges_code === 400) {
-            // return http 400 Bad Request
-            dbg.log1('bad range request', req.headers.range, req.path, obj_size);
-            throw new S3Error(S3Error.InvalidArgument);
-        }
-        if (err.ranges_code === 416) {
-            // return http 416 Requested Range Not Satisfiable
-            dbg.warn('invalid range', req.headers.range, req.path, obj_size);
-            // let the client know of the relevant range
-            res.setHeader('Content-Range', 'bytes */' + obj_size);
-            throw new S3Error(S3Error.InvalidRange);
-        }
-        throw err;
-    }
     // first_range_data are the first 4K data of the object
     // if the object's size or the end of range is smaller than 4K return it, else get the whole object
     if (params.object_md.first_range_data) {

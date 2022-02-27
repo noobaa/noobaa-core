@@ -684,6 +684,39 @@ function _is_statements_fit(statements, account, method, arn_path) {
     return false;
 }
 
+function s3_range(req, res, object_md, obj_size, params) {
+    try {
+        // A 'ranged' GET/HEAD is performed if a  "part number"
+        // is specified in the S3 query or alternatively,
+        // ranges could be specified in HTTP header
+        const range = get_object_range(req, object_md);
+
+        // If range is specified, set it in the HTTP response headers
+        if (range) {
+            if (params) {
+                params.start = range.start;
+                params.end = range.end;
+            }
+            set_range_response_headers(req, res, range, obj_size);
+        } else {
+            dbg.log1('reading object', req.path, obj_size);
+        }
+    } catch (err) {
+        if (err.ranges_code === 400) {
+            // return http 400 Bad Request
+            dbg.log1('bad range request', req.headers.range, req.path, obj_size);
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        if (err.ranges_code === 416) {
+            // return http 416 Requested Range Not Satisfiable
+            dbg.warn('invalid range', req.headers.range, req.path, obj_size);
+            // let the client know of the relevant range
+            res.setHeader('Content-Range', 'bytes */' + obj_size);
+            throw new S3Error(S3Error.InvalidRange);
+        }
+        throw err;
+    }
+}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
@@ -716,3 +749,4 @@ exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
+exports.s3_range = s3_range;

@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines-per-function: ['error', 700] */
+/* eslint max-lines-per-function: ['error', 1600] */
 /* eslint-disable no-invalid-this */
 
 'use strict';
@@ -14,6 +14,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const querystring = require('querystring');
 const P = require('../../util/promise');
+const crypto = require('crypto');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -546,6 +547,111 @@ mocha.describe('s3_ops', function() {
                     }]
                 }
             }).promise();
+        });
+
+        mocha.it('should support GET/HEAD partNumber query', async function() {
+            this.timeout(600000);
+
+            const Key = `test-get-object-part-${Date.now()}`;
+            const Bucket = bucket_name;
+            const part_size = 1024 * 1024 * 16;
+            const part1_range_expected = `bytes 0-${part_size - 1}/${part_size * 2}`;
+            // eslint-disable-next-line no-mixed-operators
+            const part2_range_expected = `bytes ${part_size}-${part_size * 2 - 1}/${part_size * 2}`;
+
+            console.log('- The GET/HEAD partNumber query test');
+
+            const mp_init = await s3.createMultipartUpload({
+                Bucket,
+                Key,
+            }).promise();
+
+            const UploadId = mp_init.UploadId;
+            assert(UploadId);
+            console.log('created multipart upload', mp_init);
+
+            // upload 2 parts
+            const body1 = crypto.randomBytes(part_size);
+            const upload_part1 = await s3.uploadPart({
+                Bucket,
+                Key,
+                UploadId,
+                Body: body1,
+                PartNumber: 1
+            }).promise();
+            assert(upload_part1.ETag);
+            console.log('uploaded part 1', upload_part1);
+
+            const body2 = crypto.randomBytes(part_size);
+            const upload_part2 = await s3.uploadPart({
+                Bucket,
+                Key,
+                UploadId,
+                Body: body2,
+                PartNumber: 2
+            }).promise();
+            assert(upload_part1.ETag);
+            console.log('uploaded part 2', upload_part2);
+
+            const complete = await s3.completeMultipartUpload({
+                Bucket,
+                Key,
+                UploadId,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: upload_part1.ETag,
+                        PartNumber: 1
+                    }, {
+                        ETag: upload_part2.ETag,
+                        PartNumber: 2
+                    }]
+                }
+            }).promise();
+            assert(complete.ETag);
+            console.log('completed multipart upload', complete);
+
+            const part1_req = {
+                Bucket,
+                Key,
+                PartNumber: 1
+            };
+            const head_part1 = await s3.headObject(part1_req).promise();
+            console.log('head part 1', head_part1);
+            assert(head_part1.ContentLength === part_size);
+            assert(head_part1.PartsCount === 2);
+
+            const get_part1 = await s3.getObject(part1_req).promise();
+            console.log('get part 1', get_part1);
+            assert(get_part1.ContentLength === part_size);
+            assert(get_part1.ContentRange === part1_range_expected);
+            // @ts-ignore
+            assert(body1.equals(get_part1.Body));
+
+            const part2_req = {
+                Bucket,
+                Key,
+                PartNumber: 2
+            };
+            const head_part2 = await s3.headObject(part2_req).promise();
+            console.log('head part 2', head_part2);
+            assert(head_part2.ContentLength === part_size);
+            assert(head_part2.PartsCount === 2);
+
+            const get_part2 = await s3.getObject(part2_req).promise();
+            console.log('get part 2', get_part2);
+            assert(get_part2.ContentLength === part_size);
+            assert(get_part2.ContentRange === part2_range_expected);
+            // @ts-ignore
+            assert(body2.equals(get_part2.Body));
+
+            // clean up
+            await s3.deleteObject({
+                Bucket,
+                Key
+            }).promise();
+            console.log('delete test object key', Key);
+
+            console.log('✅ The GET/HEAD partNumber query test was completed successfully');
         });
 
         mocha.it('should list objects with text-file', async function() {

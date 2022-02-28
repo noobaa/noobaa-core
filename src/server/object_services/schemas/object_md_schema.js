@@ -70,6 +70,9 @@ module.exports = {
 
         // number of objects S3 multiparts for the object created by multipart upload
         // NOTE: only updated once the upload of all parts is completed
+        //       or lazy update in calculate_num_multiparts upon reads
+        //       if upgraded from older version which does not support
+        //       partNumber in GET/HEAD
         num_multiparts: { type: 'integer' },
 
         // MIME

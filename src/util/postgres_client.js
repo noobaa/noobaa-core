@@ -1001,6 +1001,7 @@ class PostgresTable {
     }
 
     async _upsert(query, update, options) {
+        await this.init_promise;
         const MAX_RETRIES = 5;
         let retries = 0;
         // eslint-disable-next-line no-constant-condition

@@ -28,7 +28,7 @@ async function head_object(req, res) {
 
     s3_utils.set_response_object_md(res, object_md);
     s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
-    s3_utils.s3_range(req, res, object_md, obj_size);
+    s3_utils.set_response_range(req, res, object_md, obj_size);
 }
 
 module.exports = {

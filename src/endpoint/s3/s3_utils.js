@@ -684,7 +684,7 @@ function _is_statements_fit(statements, account, method, arn_path) {
     return false;
 }
 
-function s3_range(req, res, object_md, obj_size, params) {
+function set_response_range(req, res, object_md, obj_size, params) {
     try {
         // A 'ranged' GET/HEAD is performed if a  "part number"
         // is specified in the S3 query or alternatively,
@@ -749,4 +749,4 @@ exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
-exports.s3_range = s3_range;
+exports.set_response_range = set_response_range;

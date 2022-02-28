@@ -55,7 +55,7 @@ async function get_object(req, res) {
     if (multipart_number) {
         params.multipart_number = multipart_number;
     }
-    s3_utils.s3_range(req, res, object_md, obj_size, params);
+    s3_utils.set_response_range(req, res, object_md, obj_size, params);
 
     // first_range_data are the first 4K data of the object
     // if the object's size or the end of range is smaller than 4K return it, else get the whole object

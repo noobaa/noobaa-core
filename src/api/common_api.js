@@ -23,6 +23,14 @@ module.exports = {
             maximum: 10000
         },
 
+        object_range: {
+            type: 'object',
+            properties: {
+                start: { type: 'integer' },
+                end: { type: 'integer' },
+            }
+        },
+
         bucket_trigger_event: { // Based on AWS: https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html#supported-notification-event-types
             enum: ['ObjectCreated', 'ObjectRemoved', 'ObjectRead', /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
             type: 'string',

@@ -1385,11 +1385,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/multipart_num'
                 },
                 multipart_range: {
-                    type: 'object',
-                    properties: {
-                        start: { type: 'integer' },
-                        end: { type: 'integer' },
-                    }
+                    $ref: 'common_api#/definitions/object_range'
                 },
                 content_type: { type: 'string' },
                 content_encoding: { type: 'string' },

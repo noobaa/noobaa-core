@@ -1369,8 +1369,7 @@ function get_object_info(md, options = {}) {
         upload_size: _.isNumber(md.upload_size) ? md.upload_size : undefined,
         num_parts: md.num_parts,
         num_multiparts: md.num_multiparts,
-        multipart_start: md.multipart_start,
-        multipart_end: md.multipart_end,
+        multipart_range: md.multipart_range,
         version_id: bucket.versioning === 'DISABLED' ? undefined : MDStore.instance().get_object_version_id(md),
         lock_settings: config.WORM_ENABLED && options.role === 'admin' ? md.lock_settings : undefined,
         is_latest: !md.version_past,
@@ -1444,11 +1443,10 @@ async function calculate_multipart_range(multipart_number, obj) {
     // fetch the multiparts of this obj which are lte(<=) the requested part number
     // TODO: store the range inside each multipart in _complete_object_multiparts() so we can read just the requested multipart here
     const multiparts = await MDStore.instance().find_multiparts_of_object_lte_number(obj._id, multipart_number);
-    obj.multipart_start = 0;
-    obj.multipart_end = 0;
+    obj.multipart_range = {start: 0, end: 0};
     for (const mp of multiparts) {
-        if (mp.num < multipart_number) obj.multipart_start += mp.size;
-        obj.multipart_end += mp.size;
+        if (mp.num < multipart_number) obj.multipart_range.start += mp.size;
+        obj.multipart_range.end += mp.size;
     }
 }
 

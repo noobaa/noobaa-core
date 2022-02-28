@@ -370,8 +370,10 @@ interface ObjectMD {
     size: number;
     num_parts: number;
     num_multiparts?: number;
-    multipart_start?: number;
-    multipart_end?: number;
+    multipart_range: {
+        start?: number;
+        end?: number;
+    };
     content_type: string;
     content_encoding?: string;
     upload_size?: number;
@@ -399,8 +401,10 @@ interface ObjectInfo {
     delete_marker?: boolean;
     size: number;
     num_parts: number;
-    multipart_start?: number;
-    multipart_end?: number;
+    multipart_range: {
+        start?: number;
+        end?: number;
+    };
     content_type: string;
     content_encoding?: string;
     upload_size?: number;

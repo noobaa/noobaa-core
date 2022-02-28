@@ -1384,8 +1384,13 @@ module.exports = {
                 num_multiparts: {
                     $ref: 'common_api#/definitions/multipart'
                 },
-                multipart_start: { type: 'integer' },
-                multipart_end: { type: 'integer' },
+                multipart_range: {
+                    type: 'object',
+                    properties: {
+                        start: { type: 'integer' },
+                        end: { type: 'integer' },
+                    }
+                },
                 content_type: { type: 'string' },
                 content_encoding: { type: 'string' },
                 create_time: { idate: true },

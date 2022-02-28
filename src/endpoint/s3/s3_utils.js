@@ -293,8 +293,12 @@ function set_range_response_headers(req, res, range, obj_size) {
  */
 function get_object_range(req, object_md) {
     // S3 part number
-    if (req.query.partNumber && object_md.multipart_start !== undefined && object_md.multipart_end !== undefined) {
-        return { start: object_md.multipart_start, end: object_md.multipart_end };
+    if (req.query.partNumber &&
+        object_md.multipart_range &&
+        object_md.multipart_range.start !== undefined &&
+        object_md.multipart_range.end !== undefined) {
+        return { start: object_md.multipart_range.start,
+                 end: object_md.multipart_range.end };
     // HTTP headers ranges
     } else {
         const ranges = http_utils.normalize_http_ranges(

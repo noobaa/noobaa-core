@@ -17,7 +17,7 @@ module.exports = {
     definitions: {
 
 
-        multipart: {
+        multipart_num: {
             type: 'integer',
             minimum: 1,
             maximum: 10000

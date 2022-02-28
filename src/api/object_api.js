@@ -152,7 +152,7 @@ module.exports = {
                             required: ['num', 'etag'],
                             properties: {
                                 num: {
-                                    $ref: 'common_api#/definitions/multipart'
+                                    $ref: 'common_api#/definitions/multipart_num'
                                 },
                                 etag: {
                                     type: 'string'
@@ -221,7 +221,7 @@ module.exports = {
                         type: 'string',
                     },
                     num: {
-                        $ref: 'common_api#/definitions/multipart'
+                        $ref: 'common_api#/definitions/multipart_num'
                     },
                     size: {
                         type: 'integer',
@@ -274,7 +274,7 @@ module.exports = {
                         type: 'string',
                     },
                     num: {
-                        $ref: 'common_api#/definitions/multipart'
+                        $ref: 'common_api#/definitions/multipart_num'
                     },
                     multipart_id: {
                         objectid: true
@@ -362,7 +362,7 @@ module.exports = {
                             ],
                             properties: {
                                 num: {
-                                    $ref: 'common_api#/definitions/multipart'
+                                    $ref: 'common_api#/definitions/multipart_num'
                                 },
                                 size: {
                                     type: 'integer'
@@ -570,7 +570,7 @@ module.exports = {
                     key: { type: 'string' },
                     md_conditions: { $ref: '#/definitions/md_conditions' },
                     multipart_number: {
-                        $ref: 'common_api#/definitions/multipart'
+                        $ref: 'common_api#/definitions/multipart_num'
                     },
                     encryption: { $ref: 'common_api#/definitions/object_encryption' },
                     adminfo: {
@@ -1382,7 +1382,7 @@ module.exports = {
                 delete_marker: { type: 'boolean' },
                 num_parts: { type: 'integer' },
                 num_multiparts: {
-                    $ref: 'common_api#/definitions/multipart'
+                    $ref: 'common_api#/definitions/multipart_num'
                 },
                 multipart_range: {
                     type: 'object',

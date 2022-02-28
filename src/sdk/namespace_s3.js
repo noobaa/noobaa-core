@@ -162,7 +162,10 @@ class NamespaceS3 {
             this._assign_encryption_to_request(params, request);
             let res;
             try {
-                res = can_use_get_inline ?
+                // params.multipart_number was added, since head
+                // does not return Content-Range, which is needed
+                // for GetObject with part num.
+                res = (can_use_get_inline || params.multipart_number) ?
                     await this.s3.getObject(request).promise() :
                     await this.s3.headObject(request).promise();
             } catch (err) {

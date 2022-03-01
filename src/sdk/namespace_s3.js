@@ -142,7 +142,7 @@ class NamespaceS3 {
         }
     }
 
-    async read_object_md(params, object_sdk) {
+    async old_read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
             const request = {
@@ -186,7 +186,102 @@ class NamespaceS3 {
         }
     }
 
+    async _read_object_md_head(params, request) {
+        let res;
+        try {
+            res = await this.s3.headObject(request).promise();
+        } catch (err) {
+            // catch invalid range error for objects of size 0 and trying head object instead
+            if (err.code !== 'InvalidRange') {
+                throw err;
+            }
+            res = await this.s3.headObject({ ...request, Range: undefined }).promise();
+        }
+        dbg.log0('NamespaceS3._read_object_md_head:', this.bucket, inspect(params), 'res', inspect(res));
+        return this._get_s3_object_info(res, params.bucket, params.part_number);
+    }
+
+    async _read_object_md_get(params, request) {
+        return new Promise((resolve, reject) => {
+            const req = this.s3.getObject(request)
+            .on('httpHeaders', (statusCode, headers, res) => {
+                dbg.log0('NamespaceS3._read_object_md_get:',
+                    this.bucket, inspect(params),
+                    'res', inspect(res),
+                    'statusCode', statusCode,
+                    'headers', headers
+                    );
+                if (statusCode >= 300) return; // will be handled by error event
+                                               // should not we reject here?
+                req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
+                req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
+                dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
+                return resolve(this._get_s3_object_info(res, params.bucket, params.part_number));
+            });
+            req.send();
+        });
+    }
+
+    async read_object_md(params, object_sdk) {
+        try {
+            dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
+            const request = {
+                Bucket: this.bucket,
+                Key: params.key,
+                PartNumber: params.part_number,
+            };
+            this._set_md_conditions(params, request);
+            this._assign_encryption_to_request(params, request);
+            if (params.head) {
+                return await this._read_object_md_head(params, request);
+            } else {
+                return await this._read_object_md_get(params, request);
+            }
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.read_object_md:', inspect(err));
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: err.code,
+                time: Date.now(),
+            });
+            throw err;
+        }
+    }
+
     async read_object_stream(params, object_sdk) {
+        if (!params.res) {
+            dbg.error('NamespaceS3.read_object_stream no res, params:', inspect(params));
+            return;
+        }
+        try {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
+            const read_stream = /** @type {import('stream').Readable} */
+                (params.res.httpResponse.createUnbufferedStream());
+            return read_stream.pipe(count_stream);
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: err.code,
+                time: Date.now(),
+            });
+            throw err;
+        }
+    }
+
+    async old_read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         return new Promise((resolve, reject) => {
             const request = {
@@ -676,6 +771,7 @@ class NamespaceS3 {
             obj_id: res.UploadId || etag,
             bucket: bucket,
             key: res.Key,
+            res,
             size,
             etag,
             create_time: last_modified_time,

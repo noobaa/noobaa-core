@@ -1,0 +1,15 @@
+name: Bucket Lifecycle Tests
+
+# Run on each new PR and each new push to existing PR
+on: [push, pull_request]
+
+jobs:
+  run-lifecycle-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Run Unit Bucket Lifecycle Tests
+        id: run-test-bucket-lifecycle
+        run: make run-single-test testname=lifecycle_index.js || exit 1

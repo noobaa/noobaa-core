@@ -73,22 +73,26 @@ module.exports = {
             }
         },
 
+        tag: {
+            type: 'object',
+            required: [
+                'key',
+                'value'
+            ],
+            properties: {
+                key: {
+                    type: 'string'
+                },
+                value: {
+                    type: 'string'
+                },
+            }
+        },
+
         tagging: {
             type: 'array',
             items: {
-                type: 'object',
-                required: [
-                    'key',
-                    'value'
-                ],
-                properties: {
-                    key: {
-                        type: 'string'
-                    },
-                    value: {
-                        type: 'string'
-                    },
-                }
+                $ref: '#/definitions/tag'
             }
         },
 
@@ -135,6 +139,126 @@ module.exports = {
                         }
                     }
                 },
+            }
+        },
+
+        // bucket lifecycle
+
+        bucket_lifecycle_rule_expiration: {
+            type: 'object',
+            properties: {
+                days: {
+                    minimum: 1,
+                    type: 'integer'
+                },
+                date: {
+                    idate: true
+                },
+                expired_object_delete_marker: {
+                    type: 'boolean'
+                }
+            }
+        },
+        bucket_lifecycle_rule_status: {
+            enum: ['Enabled', 'Disabled'],
+            type: 'string'
+        },
+        bucket_lifecycle_rule_and_operator: {
+            type: 'object',
+            properties: {
+                prefix: {
+                    type: 'string'
+                },
+                tags: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/tag',
+                    },
+                },
+                object_size_greater_than: {
+                    type: 'number',
+                },
+                object_size_less_than: {
+                    type: 'number',
+                },
+            },
+        },
+        bucket_lifecycle_rule_filter: {
+            type: 'object',
+            properties: {
+                prefix: {
+                    type: 'string'
+                },
+                tag: {
+                    $ref: '#/definitions/tag'
+                },
+                object_size_greater_than: {
+                    type: 'number'
+                },
+                object_size_less_than: {
+                    type: 'number'
+                },
+                and: {
+                    $ref: '#/definitions/bucket_lifecycle_rule_and_operator'
+                }
+            }
+        },
+        bucket_lifecycle_rule: {
+            type: 'object',
+            required: ['id', 'filter', 'expiration'],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                status: {
+                    $ref: 'common_api#/definitions/bucket_lifecycle_rule_status'
+                },
+                filter: {
+                    $ref: 'common_api#/definitions/bucket_lifecycle_rule_filter'
+                },
+                expiration: {
+                    $ref: 'common_api#/definitions/bucket_lifecycle_rule_expiration'
+                },
+                /*
+                abort_incomplete_multipart_upload: {
+                    type: 'object',
+                    properties: {
+                        days_after_initiation: {
+                            type: 'integer'
+                        },
+                    }
+                },
+                transition: {
+                    type: 'object',
+                    properties: {
+                        date: {
+                            idate: true
+                        },
+                        storage_class: {
+                            $ref: '#/definitions/storage_class_enum'
+                        }
+                    }
+                },
+                noncurrent_version_expiration: {
+                    type: 'object',
+                    properties: {
+                        noncurrent_days: {
+                            type: 'integer'
+                        },
+                    }
+                },
+                noncurrent_version_transition: {
+                    type: 'object',
+                    properties: {
+                        noncurrent_days: {
+                            type: 'integer'
+                        },
+                        storage_class: {
+                            $ref: '#/definitions/storage_class_enum'
+                        }
+                    }
+                },
+                */
             }
         },
 
@@ -892,42 +1016,6 @@ module.exports = {
                 }
             },
         },
-        bucket_lifecycle_filter: {
-            type: 'object',
-            properties: {
-                prefix: {
-                    type: 'string'
-                },
-                // TODO: the functionality is not yet implemented so it is commented out
-                // object_size_greater_than: {
-                //     $ref: 'common_api#/definitions/bigint'
-                // },
-                // object_size_less_than: {
-                //     $ref: 'common_api#/definitions/bigint'
-                // },
-                // tag: {
-                //     // It is an Array for the use of And property
-                //     // Which includes all the filter properties and and array of tags
-                //     // It is not in the api as we dont need it, we will just parse it.
-                //     type: 'array',
-                //     items: {
-                //         $ref: '#/definitions/bucket_lifecycle_filter_tag'
-                //     },
-                // },
-            }
-        },
-        // TODO: the functionality is not yet implemented so it is commented out
-        // bucket_lifecycle_filter_tag: {
-        //     type: 'object',
-        //     required: ['key', 'value'],
-        //     properties: {
-        //         key: {
-        //             type: 'string'
-        //         },
-        //         value: {
-        //             type: 'string'
-        //         },
-        //     }
-        // }
+
     }
 };

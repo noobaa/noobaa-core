@@ -394,6 +394,7 @@ class ObjectSDK {
 
     async read_object_stream(params, res) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        dbg.log("BAUM object_sdk read_object_stream response ", res);
         const reply = await ns.read_object_stream(params, this, res);
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_read_counters({

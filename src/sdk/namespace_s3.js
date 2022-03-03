@@ -162,10 +162,7 @@ class NamespaceS3 {
             this._assign_encryption_to_request(params, request);
             let res;
             try {
-                // params.multipart_number was added, since head
-                // does not return Content-Range, which is needed
-                // for GetObject with part num.
-                res = (can_use_get_inline || params.multipart_number) ?
+                res = can_use_get_inline ?
                     await this.s3.getObject(request).promise() :
                     await this.s3.headObject(request).promise();
             } catch (err) {
@@ -189,8 +186,10 @@ class NamespaceS3 {
         }
     }
 
-    async read_object_stream(params, object_sdk) {
+    async read_object_stream(params, object_sdk, response) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
+        const _response = response;
+        dbg.log0('BAUM NamespaceS3.read_object_stream response:', response);
         return new Promise((resolve, reject) => {
             const request = {
                 Bucket: this.bucket,
@@ -214,6 +213,11 @@ class NamespaceS3 {
                         'headers', headers
                     );
                     if (statusCode >= 300) return; // will be handled by error event
+                    // handle multipart byte range
+                    if (params.multipart_number && headers['content-range']) {
+                        dbg.log0('BAUM NamespaceS3.read_object_stream closure _response:', _response);
+                        _response.setHeader('Content-Range', headers['content-range']);
+                    }
                     req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
                     req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
                     let count = 1;

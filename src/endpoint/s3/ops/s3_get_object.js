@@ -81,6 +81,7 @@ async function get_object(req, res) {
         if (read_stream && read_stream.close) read_stream.close();
     });
 
+    dbg.log0('BAUM get_object response:', res);
     read_stream = await req.object_sdk.read_object_stream(params, res);
     if (read_stream) {
         read_stream.on('error', err => {

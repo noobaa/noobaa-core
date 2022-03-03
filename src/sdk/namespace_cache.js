@@ -308,7 +308,7 @@ class NamespaceCache {
     //     it uploads entire object to cache .
     //   - otherwise, it reads data from cache by providing missing_part_getter to
     //     cache's read_object_stream.
-    async _read_object_stream(params, object_sdk) {
+    async _read_object_stream(params, object_sdk, response) {
         dbg.log0('NamespaceCache._read_object_stream', { params: params });
 
         params.bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
@@ -341,7 +341,7 @@ class NamespaceCache {
                 dbg.log0('NamespaceCache._read_object_stream: partial object created:', create_reply.obj_id);
             }
 
-            return this._read_hub_object_stream(params, object_sdk,
+            return this._read_hub_object_stream(params, object_sdk, response,
                 range_hub_read ? { start: params.start, end: params.end } : undefined);
         }
 
@@ -353,7 +353,7 @@ class NamespaceCache {
             read_params.end = missing_part_end;
 
             const read_stream = await this._read_hub_object_stream(
-                read_params, object_sdk, { start: missing_part_start, end: missing_part_end });
+                read_params, object_sdk, response, { start: missing_part_start, end: missing_part_end });
 
             return buffer_utils.read_stream_join(read_stream);
         };
@@ -386,7 +386,8 @@ class NamespaceCache {
             return tap_stream;
         } catch (err) {
             dbg.error('NamespaceCache.hub_range_read: fallback to hub after error in reading cache', err);
-            return this._read_hub_object_stream(params, object_sdk, range_hub_read ? { start: params.start, end: params.end } : undefined);
+            return this._read_hub_object_stream(params, object_sdk, response,
+                range_hub_read ? { start: params.start, end: params.end } : undefined);
         }
     }
 
@@ -401,7 +402,7 @@ class NamespaceCache {
      *
      * Returns range_stream if range read; otherwise, hub_read_stream
      */
-    async _read_hub_object_stream(params, object_sdk, hub_read_range) {
+    async _read_hub_object_stream(params, object_sdk, response, hub_read_range) {
         dbg.log0('NamespaceCache._read_hub_object_stream', { params: params, hub_read_range });
 
         let hub_read_size = params.read_size;
@@ -543,7 +544,7 @@ class NamespaceCache {
     }
 
 
-    async read_object_stream(params, object_sdk) {
+    async read_object_stream(params, object_sdk, response) {
         // multipart_number is set to the query parameter partNumber in request. If set,
         // it should be a positive integer between 1 and 10,000. We will perform a 'ranged'
         // GET request for the part specified.
@@ -551,7 +552,7 @@ class NamespaceCache {
             // If the query parameter partNumber is set, the object was most likely
             // created by the multipart upload. Since we don't support MP in cache,
             // we proxy the read to hub.
-            return this.namespace_hub.read_object_stream(params, object_sdk);
+            return this.namespace_hub.read_object_stream(params, object_sdk, response);
         }
 
         const get_from_cache = params.get_from_cache;
@@ -599,7 +600,7 @@ class NamespaceCache {
             }
         }
 
-        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
+        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk, response);
 
         this.stats_collector.update_cache_stats({
             bucket_name: params.bucket,

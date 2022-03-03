@@ -194,81 +194,12 @@ module.exports = {
                 }
             }
         },
+
         //lifecycle rules if exist
         lifecycle_configuration_rules: {
             type: 'array',
             items: {
-                type: 'object',
-                required: ['id', 'status'],
-                properties: {
-                    id: {
-                        type: 'string'
-                    },
-                    status: {
-                        type: 'string'
-                    },
-                    filter: {
-                        $ref: 'common_api#/definitions/bucket_lifecycle_filter'
-                    },
-                    expiration: {
-                        type: 'object',
-                        properties: {
-                            days: {
-                                type: 'integer'
-                            },
-                            date: {
-                                idate: true
-                            },
-                            expired_object_delete_marker: {
-                                type: 'boolean'
-                            }
-
-                        }
-                    },
-                    abort_incomplete_multipart_upload: {
-                        type: 'object',
-                        properties: {
-                            days_after_initiation: {
-                                type: 'integer'
-                            },
-                        }
-                    },
-                    transition: {
-                        type: 'object',
-                        properties: {
-                            date: {
-                                idate: true
-                            },
-                            storage_class: {
-                                type: 'string',
-                                enum: ['STANDARD_IA', 'GLACIER'],
-                            }
-                        }
-                    },
-                    noncurrent_version_expiration: {
-                        type: 'object',
-                        properties: {
-                            noncurrent_days: {
-                                type: 'integer'
-                            },
-                        }
-                    },
-                    noncurrent_version_transition: {
-                        type: 'object',
-                        properties: {
-                            noncurrent_days: {
-                                type: 'integer'
-                            },
-                            storage_class: {
-                                type: 'string',
-                                enum: ['STANDARD_IA', 'GLACIER'],
-                            }
-                        }
-                    },
-                    last_sync: {
-                        idate: true
-                    }
-                }
+                $ref: 'common_api#/definitions/bucket_lifecycle_rule'
             }
         },
         tagging: {

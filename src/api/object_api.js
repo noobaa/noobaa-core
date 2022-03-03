@@ -1118,11 +1118,11 @@ module.exports = {
             }
         },
 
-        delete_multiple_objects_by_prefix: {
+        delete_multiple_objects_by_filter: {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['bucket', 'prefix'],
+                required: ['bucket'],
                 properties: {
                     bucket: { $ref: 'common_api#/definitions/bucket_name' },
                     prefix: {
@@ -1130,6 +1130,18 @@ module.exports = {
                     },
                     create_time: {
                         idate: true,
+                    },
+                    filter_delete_markers: {
+                        type: 'boolean',
+                    },
+                    size_less: {
+                        type: 'integer'
+                    },
+                    size_greater: {
+                        type: 'integer'
+                    },
+                    tags: {
+                        $ref: 'common_api#/definitions/tagging'
                     },
                     limit: {
                         type: 'integer'

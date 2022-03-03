@@ -415,6 +415,9 @@ class MDStore {
      * @property {boolean} [latest_versions]
      * @property {boolean} [filter_delete_markers]
      * @property {number} [max_create_time]
+     * @property {number} [max_size]
+     * @property {number} [min_size]
+     * @property {Array<{ key: string; value: string; }>} [tagging]
      * @property {number} [skip]
      * @property {number} [limit]
      * @property {string} [sort]
@@ -435,6 +438,9 @@ class MDStore {
         latest_versions,
         filter_delete_markers,
         max_create_time,
+        max_size,
+        min_size,
+        tagging,
         skip,
         limit,
         sort,
@@ -447,6 +453,18 @@ class MDStore {
         let delete_marker;
         if (filter_delete_markers === true) delete_marker = null;
         else if (filter_delete_markers === false) delete_marker = true;
+        let size_filter;
+        if (max_size) {
+            size_filter = {
+                $lt: max_size,
+                $exists: true,
+            };
+        } else if (min_size) {
+            size_filter = {
+                $gt: min_size,
+                $exists: true,
+            };
+        }
         const query = compact({
             bucket: bucket_id,
             key: key,
@@ -456,19 +474,21 @@ class MDStore {
                 $lt: new Date(moment.unix(max_create_time).toISOString()),
                 $exists: true
             } : undefined,
+            tagging: tagging ? {
+                $all: tagging,
+            } : undefined,
+            size: size_filter,
             upload_started: typeof upload_mode === 'boolean' ? {
                 $exists: upload_mode
             } : undefined,
             version_past,
-            delete_marker
+            delete_marker,
         });
 
         const completed_query = _.omit(query, 'upload_started');
         completed_query.upload_started = { $exists: false };
         const uploading_query = _.omit(query, 'upload_started');
         uploading_query.upload_started = { $exists: true };
-
-        dbg.log0('find_objects:', query);
 
         const [objects, non_paginated, completed, uploading] = await Promise.all([
             this._objects.find(query, {

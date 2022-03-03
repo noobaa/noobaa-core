@@ -456,7 +456,6 @@ async function complete_object_upload(req) {
             `\nUpload duration: ${upload_duration}.` +
             `\nUpload speed: ${upload_speed}/sec.`,
     });
-
     return {
         etag: set_updates.etag,
         version_id: MDStore.instance().get_object_version_id(set_updates),
@@ -940,18 +939,25 @@ async function delete_multiple_objects(req) {
  * DELETE_MULTIPLE_OBJECTS
  *
  */
-async function delete_multiple_objects_by_prefix(req) {
+async function delete_multiple_objects_by_filter(req) {
     load_bucket(req, { include_deleting: true });
-    dbg.log1(`delete_multiple_objects_by_prefix: bucket=${req.bucket.name} prefix=${req.params.prefix}`);
+    dbg.log1(`delete_multiple_objects_by_filter: bucket=${req.bucket.name} filter=${util.inspect(req.rpc_params)}`);
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     const bucket_id = req.bucket._id;
     // TODO: change it to perform changes in batch. Won't scale.
-    const { objects } = await MDStore.instance().find_objects({
+    const query = {
         bucket_id,
         key,
         max_create_time: req.rpc_params.create_time,
+        tagging: req.rpc_params.tags,
+        filter_delete_markers: req.rpc_params.filter_delete_markers,
+        max_size: req.rpc_params.size_less,
+        min_size: req.rpc_params.size_greater,
         limit: req.rpc_params.limit,
-    });
+    };
+
+    const { objects } = await MDStore.instance().find_objects(query);
+
     await delete_multiple_objects(_.assign(req, {
         rpc_params: {
             bucket: req.bucket.name,
@@ -2028,7 +2034,7 @@ exports.update_object_md = update_object_md;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
-exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
+exports.delete_multiple_objects_by_filter = delete_multiple_objects_by_filter;
 // listing
 exports.list_objects = list_objects;
 exports.list_uploads = list_uploads;

@@ -19,7 +19,7 @@ const stats_collector = require('./endpoint_stats_collector');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
-// const RpcError = require('../rpc/rpc_error');
+const RpcError = require('../rpc/rpc_error');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
     timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
@@ -300,7 +300,6 @@ class NamespaceFS {
              *  key: string,
              *  common_prefix: boolean,
              *  stat?: fs.Stats,
-             *  fs_xattr?: object
              * }} Result
              */
 
@@ -471,13 +470,8 @@ class NamespaceFS {
                 if (r.common_prefix) return;
                 const entry_path = path.join(this.bucket_path, r.key);
                 //If entry is outside of bucket, returns stat of symbolic link
-                if (await this._is_path_in_bucket_boundaries(fs_context, entry_path)) {
-                    r.stat = await nb_native().fs.stat(fs_context, entry_path);
-                } else {
-                    r.stat = await nb_native().fs.lstat(fs_context, entry_path);
-                }
-                // This is done to get the MD5 for the response, should find a more efficient way
-                // r.fs_xattr = config.NSFS_CALCULATE_MD5 ? await this._get_fs_xattr_from_path(fs_context, entry_path) : undefined;
+                const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
             }));
             const res = {
                 objects: [],
@@ -489,7 +483,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    res.objects.push(this._get_object_info(bucket, r.key, r.stat, r.fs_xattr));
+                    res.objects.push(this._get_object_info(bucket, r.key, r.stat));
                 }
                 if (res.is_truncated) {
                     res.next_marker = r.key;
@@ -511,24 +505,17 @@ class NamespaceFS {
     /////////////////
 
     async read_object_md(params, object_sdk) {
-        let file;
         const fs_context = this.prepare_fs_context(object_sdk);
         try {
             const file_path = this._get_file_path(params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
-            file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
-            const stat = await file.stat(fs_context);
+            const stat = await nb_native().fs.stat(fs_context, file_path);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
-            const fs_xattr = await file.getxattr(fs_context);
-            await file.close(fs_context);
-            file = null;
-            return this._get_object_info(params.bucket, params.key, stat, fs_xattr);
+            return this._get_object_info(params.bucket, params.key, stat);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
-        } finally {
-            if (file) await file.close(fs_context);
         }
     }
 
@@ -711,7 +698,7 @@ class NamespaceFS {
                     await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
                     await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
                     try {
-                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path, fs_xattr);
+                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
                         if (same_inode) return same_inode;
                         // Doing a hard link.
                         await nb_native().fs.link(fs_context, source_file_path, upload_path);
@@ -727,9 +714,6 @@ class NamespaceFS {
                         async () => this._upload_stream(params, this.bucket_path, file_path, open_mode, fs_context,
                             object_sdk.rpc_client, fs_xattr)
                     );
-                    // TODO use file xattr to store md5_b64 xattr, etc.
-                    const stat = await nb_native().fs.stat(fs_context, file_path);
-                    return { etag: this._get_etag(stat, fs_xattr) };
                 }
             } else {
                 const open_mode = 'w';
@@ -741,7 +725,7 @@ class NamespaceFS {
                     await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
                     await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
                     try {
-                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path, fs_xattr);
+                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
                         if (same_inode) return same_inode;
                         // Doing a hard link.
                         await nb_native().fs.link(fs_context, source_file_path, upload_path);
@@ -758,12 +742,13 @@ class NamespaceFS {
                             fs_xattr)
                     );
                 }
-                // TODO use file xattr to store md5_b64 xattr, etc.
-                const stat = await nb_native().fs.stat(fs_context, upload_path);
                 await this._move_to_dest(fs_context, upload_path, file_path);
                 if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(upload_path));
-                return { etag: this._get_etag(stat, fs_xattr) };
             }
+            const stat = await nb_native().fs.stat(fs_context, file_path);
+            const upload_info = this._get_upload_info(stat);
+            this._verify_encryption(params.encryption, upload_info.encryption);
+            return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -792,20 +777,20 @@ class NamespaceFS {
 
     // Comparing both device and inode number (st_dev and st_ino returned by stat) 
     // will tell you whether two different file names refer to the same thing.
-    // If so, we will return the etag of the file_path
-    async _is_same_inode(fs_context, source_file_path, file_path, fs_xattr) {
+    // If so, we will return the etag and encryption info of the file_path
+    async _is_same_inode(fs_context, source_file_path, file_path) {
         try {
             dbg.log2('NamespaceFS: checking _is_same_inode');
             const file_path_stat = await nb_native().fs.stat(fs_context, file_path);
             const file_path_inode = file_path_stat.ino.toString();
             const file_path_device = file_path_stat.dev.toString();
-            const source_file_stat = await nb_native().fs.stat(fs_context, source_file_path);
+            const source_file_stat = await nb_native().fs.stat(fs_context, source_file_path, { skip_user_xattr: true });
             const source_file_inode = source_file_stat.ino.toString();
             const source_file_device = source_file_stat.dev.toString();
             dbg.log2('NamespaceFS: file_path_inode:', file_path_inode, 'source_file_inode:', source_file_inode,
                 'file_path_device:', file_path_device, 'source_file_device:', source_file_device);
             if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
-                return { etag: this._get_etag(file_path_stat, fs_xattr) };
+                return this._get_upload_info(file_path_stat);
             }
         } catch (e) {
             dbg.log2('NamespaceFS: _is_same_inode got an error', e);
@@ -982,12 +967,14 @@ class NamespaceFS {
             await this._load_multipart(params, fs_context);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
-            const fs_xattr = await buffers_pool_sem.surround_count(
+            await buffers_pool_sem.surround_count(
                 config.NSFS_BUF_SIZE,
                 async () => this._upload_stream(params, upload_path, '', open_mode, fs_context, object_sdk.rpc_client)
             );
             const stat = await nb_native().fs.stat(fs_context, upload_path);
-            return { etag: this._get_etag(stat, fs_xattr) };
+            const upload_info = this._get_upload_info(stat);
+            this._verify_encryption(params.encryption, upload_info.encryption);
+            return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -1007,12 +994,10 @@ class NamespaceFS {
                     const num = Number(e.name.slice('part-'.length));
                     const part_path = path.join(params.mpu_path, e.name);
                     const stat = await nb_native().fs.stat(fs_context, part_path);
-                    const fs_xattr =
-                        config.NSFS_CALCULATE_MD5 ? await this._get_fs_xattr_from_path(fs_context, part_path) : undefined;
                     return {
                         num,
                         size: stat.size,
-                        etag: this._get_etag(stat, fs_xattr),
+                        etag: this._get_etag(stat),
                         last_modified: new Date(stat.mtime),
                     };
                 })
@@ -1045,10 +1030,7 @@ class NamespaceFS {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(fs_context, part_path);
                 read_file = await nb_native().fs.open(fs_context, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
-                // Assuming that a every multipart upload object uses the same NSFS_CALCULATE_MD5 configuration
-                const fs_xattr = MD5Async ? await read_file.getxattr(fs_context) : undefined;
-                // TODO: Should we seperate to two cases and save the open if we do not use NSFS_CALCULATE_MD5?
-                if (etag !== this._get_etag(part_stat, fs_xattr)) {
+                if (etag !== this._get_etag(part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, part_path, part_stat, params }));
                 }
                 let read_pos = 0;
@@ -1082,11 +1064,13 @@ class NamespaceFS {
             if (fs_xattr) await write_file.replacexattr(fs_context, fs_xattr);
             if (config.NSFS_TRIGGER_FSYNC) await write_file.fsync(fs_context);
             const stat = await write_file.stat(fs_context);
+            const upload_info = this._get_upload_info(stat);
+            this._verify_encryption(params.encryption, upload_info.encryption);
             await write_file.close(fs_context);
             write_file = null;
             await this._move_to_dest(fs_context, upload_path, file_path);
             if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
-            return { etag: this._get_etag(stat, fs_xattr) };
+            return upload_info;
         } catch (err) {
             dbg.error(err);
             throw this._translate_object_error_codes(err);
@@ -1280,14 +1264,18 @@ class NamespaceFS {
      * @param {fs.Stats} stat 
      * @returns {string}
      */
-    _get_etag(stat, fs_xattr) {
-        const xattr_etag = this._etag_from_fs_xattr(fs_xattr);
+    _get_etag(stat) {
+        const xattr_etag = this._etag_from_fs_xattr(stat.xattr);
         if (xattr_etag) return xattr_etag;
         // IMPORTANT NOTICE - we must return an etag that contains a dash!
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
         const ident_str = 'inode-' + stat.ino.toString() + '-mtime-' + stat.mtimeMs.toString();
         return ident_str;
+    }
+
+    _is_gpfs(fs_account_config) {
+        return Boolean(fs_account_config.backend === 'GPFS' && nb_native().fs.gpfs);
     }
 
     _etag_from_fs_xattr(xattr) {
@@ -1300,8 +1288,9 @@ class NamespaceFS {
      * @param {string} key 
      * @returns {nb.ObjectInfo}
      */
-    _get_object_info(bucket, key, stat, fs_xattr) {
-        const etag = this._get_etag(stat, fs_xattr);
+    _get_object_info(bucket, key, stat) {
+        const etag = this._get_etag(stat);
+        const encryption = this._get_encryption_info(stat);
         return {
             obj_id: etag,
             bucket,
@@ -1315,8 +1304,8 @@ class NamespaceFS {
             is_latest: true,
             delete_marker: false,
             tag_count: 0,
-            xattr: to_xattr(fs_xattr),
-            encryption: undefined,
+            encryption,
+            xattr: to_xattr(stat.xattr),
             lock_settings: undefined,
             md5_b64: undefined,
             num_parts: undefined,
@@ -1324,6 +1313,35 @@ class NamespaceFS {
             stats: undefined,
             tagging: undefined,
         };
+    }
+
+    _get_upload_info(stat) {
+        const etag = this._get_etag(stat);
+        const encryption = this._get_encryption_info(stat);
+        return {
+            etag,
+            encryption
+        };
+    }
+
+    _get_encryption_info(stat) {
+        // Currently encryption is supported only on top of GPFS, otherwise we will return undefined
+        return stat.xattr['gpfs.Encryption'] ? {
+            algorithm: 'AES256',
+            kms_key_id: '',
+            context_b64: '',
+            key_md5_b64: '',
+            key_b64: '',
+        } : undefined;
+    }
+
+    // This function verifies the user didn't ask for SSE-S3 Encryption, when Encryption is not supported by the FS
+    _verify_encryption(user_encryption, fs_encryption) {
+        if (user_encryption && user_encryption.algorithm === 'AES256' && !fs_encryption) {
+            dbg.error('upload_object: User requested encryption but encryption not supported for FS');
+            throw new RpcError('SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR',
+                'Encryption not supported by the FileSystem');
+        }
     }
 
     _translate_object_error_codes(err) {

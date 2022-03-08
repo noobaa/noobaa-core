@@ -250,17 +250,25 @@ class NamespaceBlob {
 
             this._check_valid_xattr(params);
             try {
-                const { new_stream, md5_buf } = await azure_storage.calc_body_md5(params.source_stream);
+                const { new_stream, md5_buf } = azure_storage.calc_body_md5(params.source_stream);
+                const headers = {
+                    blobContentType: params.content_type,
+                };
+                Object.defineProperty(headers, "blobContentMD5", {
+                    get: () => md5_buf()
+                });
+
                 obj = await blob_client.uploadStream(
                     new_stream.pipe(count_stream),
                     params.size,
-                    undefined, {
+                    undefined,
+                    {
                         metadata: params.xattr,
-                        blobHTTPHeaders: {
-                            blobContentType: params.content_type,
-                            blobContentMD5: md5_buf // TODO: check that before & after the change the MD5 was uploaded 
-                        }
-                    });
+                        blobHTTPHeaders: headers
+                    }
+                );
+                obj.contentMD5 = md5_buf();
+
             } catch (err) {
                 this._translate_error_code(err);
                 dbg.warn('NamespaceBlob.upload_object:', inspect(err));

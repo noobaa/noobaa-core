@@ -140,7 +140,7 @@ class NamespaceBlob {
             dbg.warn('NamespaceBlob.read_object_md:', inspect(err));
             object_sdk.rpc_client.pool.update_issues_report({
                 namespace_resource_id: this.namespace_resource_id,
-                error_code: err.code,
+                error_code: err.code || (err.details && err.details.errorCode) || 'InternalError',
                 time: Date.now(),
             });
             throw err;
@@ -274,7 +274,7 @@ class NamespaceBlob {
                 dbg.warn('NamespaceBlob.upload_object:', inspect(err));
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
-                    error_code: err.code,
+                    error_code: err.code || (err.details && err.details.errorCode) || 'InternalError',
                     time: Date.now(),
                 });
                 throw err;
@@ -449,7 +449,7 @@ class NamespaceBlob {
             } catch (err) {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
-                    error_code: err.code,
+                    error_code: err.code || (err.details && err.details.errorCode) || 'InternalError',
                     time: Date.now(),
                 });
                 throw err;
@@ -647,8 +647,8 @@ class NamespaceBlob {
     }
 
     _translate_error_code(err) {
-        if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
-        if (err.code === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
+        if (err.code || (err.details && err.details.errorCode) === 'BlobNotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code || (err.details && err.details.errorCode) === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
     }
 
     //////////

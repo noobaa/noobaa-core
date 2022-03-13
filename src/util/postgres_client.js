@@ -194,8 +194,11 @@ async function log_query(pg_client, query, tag, millitook, should_explain) {
 
 function convert_sort(sort) {
     return mongo_to_pg.convertSort('data', sort)
-        // fix _id refs to text references (->> instead of ->) refer
+        // fix all json columns refs to text references (->> instead of ->) refer
         .replace("data->'_id'", "data->>'_id'")
+        .replace("data->'bucket'", "data->>'bucket'")
+        .replace("data->'key'", "data->>'key'")
+        .replace("data->'version_past'", "data->>'version_past'")
         // remove NULLS LAST or NULLS FIRST
         .replace(/ NULLS LAST| NULLS FIRST/g, "");
 }

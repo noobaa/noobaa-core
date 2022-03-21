@@ -106,6 +106,7 @@ module.exports = [
         },
         options: {
             unique: false,
+            name: "aggregate_by_create_dates",
             partialFilterExpression: {
                 create_time: { $exists: true }
             }
@@ -118,6 +119,7 @@ module.exports = [
         },
         options: {
             unique: false,
+            name: "aggregate_by_delete_dates",
             partialFilterExpression: {
                 deleted: { $exists: true }
             }

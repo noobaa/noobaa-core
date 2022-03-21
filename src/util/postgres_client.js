@@ -194,10 +194,32 @@ async function log_query(pg_client, query, tag, millitook, should_explain) {
 
 function convert_sort(sort) {
     return mongo_to_pg.convertSort('data', sort)
-        // fix _id refs to text references (->> instead of ->) refer
+        // fix all json columns refs to text references (->> instead of ->) refer
         .replace("data->'_id'", "data->>'_id'")
+        .replace("data->'bucket'", "data->>'bucket'")
+        .replace("data->'key'", "data->>'key'")
+        .replace("data->'version_past'", "data->>'version_past'")
         // remove NULLS LAST or NULLS FIRST
         .replace(/ NULLS LAST| NULLS FIRST/g, "");
+}
+
+// temporary solution in oredr to make md-aggregator map-reduce queries to hit the index
+// will use a sql function to convert between the two and we will changes values range to ::timestamp instead of ::jsonb
+function convert_timestamps(where_clause) {
+    if (where_clause.includes('data->\'deleted\'')) {
+        where_clause = where_clause.replace(/data->'deleted'/g, 'to_ts(data->>\'deleted\')');
+        where_clause += ' AND data ? \'deleted\'::text';
+    }
+    if (where_clause.includes('data->\'create_time\'')) {
+        where_clause = where_clause.replace(/data->'create_time'/g, 'to_ts(data->>\'create_time\')');
+        where_clause += ' AND data ? \'create_time\'::text';
+    }
+    const ts_regex = /\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z)/g;
+    const timestamps = where_clause.match(ts_regex) || [];
+    for (const ts of timestamps) {
+        where_clause = where_clause.replace(ts + '"\'::jsonb', ts + '"\'::timestamp');
+    }
+    return where_clause;
 }
 
 
@@ -541,7 +563,11 @@ class PostgresTable {
                         dbg.log0(`creating index ${index_name} in table ${this.name}`);
                         const col_arr = [];
                         _.forIn(fields, (value, key) => {
-                            col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+                            if (index_name.startsWith('aggregate') && (key === 'deleted' || key === 'create_time')) {
+                                col_arr.push(`to_ts(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+                            } else {
+                                col_arr.push(`(data->>'${key}') ${value > 0 ? 'ASC' : 'DESC'}`);
+                            }
                         });
                         const col_idx = `(${col_arr.join(',')})`;
                         const uniq = options.unique ? 'UNIQUE' : '';
@@ -801,7 +827,8 @@ class PostgresTable {
         let mr_q;
         let query_string;
         try {
-            query_string = `SELECT * FROM ${this.name} WHERE ${mongo_to_pg('data', encode_json(this.schema, options.query), {disableContainmentQuery: true})}`;
+            const where_clause = convert_timestamps(mongo_to_pg('data', encode_json(this.schema, options.query)));
+            query_string = `SELECT * FROM ${this.name} WHERE ${where_clause}`;
             mr_q = `SELECT _id, SUM(value) AS value FROM ${func}($$${query_string}$$) GROUP BY _id`;
             const res = await this.single_query(mr_q);
             return res.rows;
@@ -1088,6 +1115,7 @@ class PostgresTable {
     }
 
     async _upsert(query, update, options) {
+        await this.init_promise;
         const MAX_RETRIES = 5;
         let retries = 0;
         // eslint-disable-next-line no-constant-condition
@@ -1353,8 +1381,8 @@ class PostgresClient extends EventEmitter {
     }
 
     async _init_collections(pool) {
-        await Promise.all(this.tables.map(async table => table._create_table(pool)));
         await this._load_sql_functions(pool);
+        await Promise.all(this.tables.map(async table => table._create_table(pool)));
     }
 
     validate(table_name, doc, warn) {

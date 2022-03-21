@@ -35,6 +35,7 @@ module.exports = [{
         },
         options: {
             unique: false,
+            name: "aggregate_by_delete_dates",
             partialFilterExpression: {
                 deleted: { $exists: true }
             }

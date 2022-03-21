@@ -83,6 +83,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
  */
 async function create_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
         validate_bucket_creation(req);
 
         let tiering_policy;
@@ -840,6 +841,7 @@ async function delete_bucket_and_objects(req) {
  */
 async function delete_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
         var bucket = find_bucket(req);
         // TODO before deleting tier and tiering_policy need to check they are not in use
         let tiering_policy = bucket.tiering;

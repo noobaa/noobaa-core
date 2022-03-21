@@ -110,8 +110,10 @@ function decode_chunked_upload(source_stream) {
     // Previously were implemented using callback with error
     // Latest implementation of pipeline is async so chaining .catch would behave the same way as callback errors
     // We are not waiting for the pipeline to end like previously
-    stream_utils.pipeline([source_stream, decoder])
+    stream_utils.pipeline([source_stream, decoder], true)
         .catch(err => console.warn('decode_chunked_upload: pipeline error', err.stack || err));
+
+    decoder.on('error', err1 => dbg.error('s3_utils: error occured on stream ChunkedContentDecoder: ', err1));
     return decoder;
 }
 

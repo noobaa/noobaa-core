@@ -83,6 +83,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
  */
 async function create_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
         validate_bucket_creation(req);
 
         let tiering_policy;
@@ -830,6 +831,7 @@ async function delete_bucket_and_objects(req) {
  */
 async function delete_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
+        req.load_auth();
         var bucket = find_bucket(req);
         // TODO before deleting tier and tiering_policy need to check they are not in use
         let tiering_policy = bucket.tiering;
@@ -1083,7 +1085,7 @@ function get_bucket_lifecycle_configuration_rules(req) {
  * GET_CLOUD_BUCKETS
  *
  */
- function get_cloud_buckets(req) {
+function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
     return P.fcall(async function() {
             var connection = cloud_utils.find_cloud_connection(
@@ -1165,9 +1167,9 @@ function get_bucket_lifecycle_configuration_rules(req) {
                         agent: http_utils.get_unsecured_agent(connection.endpoint)
                     }
                 });
-               const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-               return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
                     .then(data => data.Buckets.map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
                     ));

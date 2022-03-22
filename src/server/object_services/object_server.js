@@ -157,6 +157,27 @@ async function put_object_tagging(req) {
 
 /**
  *
+ * put_object_property
+ *
+ */
+async function put_object_property(req) {
+    throw_if_maintenance(req);
+    load_bucket(req);
+    const obj = await find_object_md(req);
+    const info = get_object_info(obj);
+
+    await MDStore.instance().update_object_by_id(
+        obj._id, req.rpc_params.update, undefined, undefined
+    );
+
+    return {
+        version_id: info.version_id
+    };
+}
+
+
+/**
+ *
  * get_object_tagging
  *
  */
@@ -456,7 +477,6 @@ async function complete_object_upload(req) {
             `\nUpload duration: ${upload_duration}.` +
             `\nUpload speed: ${upload_speed}/sec.`,
     });
-
     return {
         etag: set_updates.etag,
         version_id: MDStore.instance().get_object_version_id(set_updates),
@@ -940,9 +960,9 @@ async function delete_multiple_objects(req) {
  * DELETE_MULTIPLE_OBJECTS
  *
  */
-async function delete_multiple_objects_by_prefix(req) {
+async function delete_multiple_objects_by_filter(req) {
     load_bucket(req, { include_deleting: true });
-    dbg.log1(`delete_multiple_objects_by_prefix: bucket=${req.bucket.name} prefix=${req.params.prefix}`);
+    dbg.log0(`delete_multiple_objects_by_filter: bucket=${req.bucket.name} filter=${util.inspect(req.rpc_params)}`);
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     const bucket_id = req.bucket._id;
     // TODO: change it to perform changes in batch. Won't scale.
@@ -950,8 +970,12 @@ async function delete_multiple_objects_by_prefix(req) {
         bucket_id,
         key,
         max_create_time: req.rpc_params.create_time,
+        max_size: req.rpc_params.size_less,
+        min_size: req.rpc_params.size_greater,
         limit: req.rpc_params.limit,
     });
+    dbg.log0(`delete_multiple_objects_by_filter found: bucket=${req.bucket.name} filter=${util.inspect(req.rpc_params)} objects=${util.inspect(objects)}`);
+
     await delete_multiple_objects(_.assign(req, {
         rpc_params: {
             bucket: req.bucket.name,
@@ -2028,7 +2052,7 @@ exports.update_object_md = update_object_md;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
-exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
+exports.delete_multiple_objects_by_filter = delete_multiple_objects_by_filter;
 // listing
 exports.list_objects = list_objects;
 exports.list_uploads = list_uploads;
@@ -2043,6 +2067,7 @@ exports.read_s3_ops_counters = read_s3_ops_counters;
 exports.reset_s3_ops_counters = reset_s3_ops_counters;
 exports.check_quota = check_quota;
 exports.update_endpoint_stats = update_endpoint_stats;
+exports.put_object_property = put_object_property;
 exports.put_object_tagging = put_object_tagging;
 exports.get_object_tagging = get_object_tagging;
 exports.delete_object_tagging = delete_object_tagging;

@@ -219,6 +219,9 @@ module.exports = {
                 expiration: {
                     $ref: 'common_api#/definitions/bucket_lifecycle_rule_expiration'
                 },
+                last_sync: {
+                    idate: true
+                },
                 /*
                 abort_incomplete_multipart_upload: {
                     type: 'object',

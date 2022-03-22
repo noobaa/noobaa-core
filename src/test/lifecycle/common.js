@@ -46,6 +46,115 @@ function date_lifecycle_configuration(Bucket, Key) {
         },
     };
 }
+exports.date_lifecycle_configuration = date_lifecycle_configuration;
+
+function date_lifecycle_configuration_and_tags(Bucket, Prefix, tagging) {
+    const now = new Date(Date.now());
+    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const Tags = tagging.map((e, _) => ({Key: e.key, Value: e.value}));
+
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                Expiration: {
+                    Date: midnight.toISOString(),
+                },
+                Filter: {
+                    And: {
+                        Tags,
+                        Prefix,
+                    }
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.date_lifecycle_configuration_and_tags = date_lifecycle_configuration_and_tags;
+
+function size_less_lifecycle_configuration(Bucket, ObjectSizeLessThan) {
+    const now = new Date(Date.now());
+    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                Expiration: {
+                    Date: midnight.toISOString(),
+                },
+                Filter: {
+                    ObjectSizeLessThan,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.size_less_lifecycle_configuration = size_less_lifecycle_configuration;
+
+function size_less_days_lifecycle_configuration(Bucket, ObjectSizeLessThan, Days) {
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                Expiration: {
+                    Days,
+                },
+                Filter: {
+                    ObjectSizeLessThan,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.size_less_days_lifecycle_configuration = size_less_days_lifecycle_configuration;
+
+function tag_days_lifecycle_configuration(Bucket, Days, tag) {
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                Expiration: {
+                    Days,
+                },
+                Filter: {
+                    Tag: {
+                        Key: tag.key,
+                        Value: tag.value,
+                    },
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.tag_days_lifecycle_configuration = tag_days_lifecycle_configuration;
+
+function size_gt_lt_lifecycle_configuration(Bucket, gt, lt) {
+    const now = new Date(Date.now());
+    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                Expiration: {
+                    Date: midnight.toISOString(),
+                },
+                Filter: {
+                    ObjectSizeLessThan: lt,
+                    ObjectSizeGreaterThan: gt
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.size_gt_lt_lifecycle_configuration = size_gt_lt_lifecycle_configuration;
+
 
 function days_lifecycle_configuration(Bucket, Key) {
     return {

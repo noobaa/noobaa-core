@@ -13,8 +13,8 @@ const fs = require('fs');
 const argv = require('minimist')(process.argv);
 const path = require('path');
 
-const XATTR = argv.fsync || true;
-const FSYNC = argv.xattr || true;
+const XATTR = argv.xattr || true;
+const FSYNC = argv.fsync || true;
 const PARTS = Number(argv.parts) || 1000;
 const CONCURRENCY = Number(argv.concurrency) || 20;
 const CHUNK = Number(argv.chunk) || 16 * 1024;
@@ -91,14 +91,16 @@ async function hash_target() {
             `DataOriginMD5=${content_md5}`,
         );
         assert.strictEqual(content_md5, write_hash);
-        assert.strictEqual(chunk_fs.digest, content_md5);
-        assert.strictEqual(chunk_fs.digest, write_hash);
+        if (config.NSFS_CALCULATE_MD5) {
+            assert.strictEqual(chunk_fs.digest, content_md5);
+            assert.strictEqual(chunk_fs.digest, write_hash);
+        }
     });
 }
 
-async function file_target() {
+async function file_target(chunk_size = CHUNK, parts = PARTS) {
     fs.mkdirSync(F_PREFIX);
-    await P.map_with_concurrency(CONCURRENCY, Array(PARTS).fill(), async () => {
+    await P.map_with_concurrency(CONCURRENCY, Array(parts).fill(), async () => {
         let target_file;
         const data = crypto.randomBytes(PART_SIZE);
         const content_md5 = crypto.createHash('md5').update(data).digest('hex');
@@ -107,8 +109,8 @@ async function file_target() {
             target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, F_TARGET, 'w', get_umasked_mode(config.BASE_MODE_FILE));
             // Using async generator function in order to push data in small chunks
             const source_stream = stream.Readable.from(async function*() {
-                for (let i = 0; i < data.length; i += CHUNK) {
-                    yield data.slice(i, i + CHUNK);
+                for (let i = 0; i < data.length; i += chunk_size) {
+                    yield data.slice(i, i + chunk_size);
                 }
             }());
             const chunk_fs = new ChunkFS({
@@ -134,8 +136,10 @@ async function file_target() {
                 `DataOriginMD5=${content_md5}`,
             );
             assert.strictEqual(content_md5, write_hash);
-            assert.strictEqual(chunk_fs.digest, content_md5);
-            assert.strictEqual(chunk_fs.digest, write_hash);
+            if (config.NSFS_CALCULATE_MD5) {
+                assert.strictEqual(chunk_fs.digest, content_md5);
+                assert.strictEqual(chunk_fs.digest, write_hash);
+            }
             // Leave parts on error
             fs.rmSync(F_TARGET);
         } finally {

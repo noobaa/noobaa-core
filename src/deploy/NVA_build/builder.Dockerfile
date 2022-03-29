@@ -10,7 +10,7 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ENV container docker
 # RUN dnf --enablerepo=PowerTools install -y -q nasm && \
 #     dnf clean all
-RUN dnf update -y -q && \
+RUN dnf update -y -q --nobest && \
     dnf clean all
 RUN dnf install -y -q wget unzip which vim python2 python3 && \
     dnf group install -y -q "Development Tools" && \

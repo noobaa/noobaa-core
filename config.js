@@ -556,6 +556,7 @@ assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
 
 config.NSFS_BUF_SIZE = 8 * 1024 * 1024;
 config.NSFS_BUF_POOL_MEM_LIMIT = config.BUFFERS_MEM_LIMIT;
+config.NSFS_DEFAULT_IOV_MAX = 1024; // see IOV_MAX in https://man7.org/linux/man-pages/man0/limits.h.0p.html
 
 // the temporary path for uploads and other internal files
 config.NSFS_TEMP_DIR_NAME = '.noobaa-nsfs';

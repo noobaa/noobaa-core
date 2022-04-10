@@ -4,6 +4,7 @@
 #include "../util/napi.h"
 #include "../util/os.h"
 #include "../util/buf.h"
+#include "./gpfs_fcntl.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -33,6 +34,8 @@ namespace noobaa
 {
 
 DBG_INIT(0);
+
+static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
 const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
@@ -1384,6 +1387,18 @@ void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
+
+    const char* env_p = std::getenv("GPFS_DL_PATH");
+    if (env_p != NULL) {
+        LOG("FS::GPFS GPFS_DL_PATH=" << env_p);
+        uv_lib_t *lib = (uv_lib_t*) malloc(sizeof(uv_lib_t));
+        if (uv_dlopen(env_p, lib)) {
+            PANIC("Error: %s\n" << uv_dlerror(lib));
+        }
+        if (uv_dlsym(lib, "gpfs_fcntl", (void **) &dlsym_gpfs_fcntl)) {
+            PANIC("Error: %s\n" << uv_dlerror(lib));
+        }
+    }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
     exports_fs["lstat"] = Napi::Function::New(env, api<LStat>);

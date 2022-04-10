@@ -85,8 +85,8 @@ mocha.describe('replication configuration validity tests', function() {
         ], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
 
-        assert.ok(res[0].rule_id === 'rule-1' && res[0].destination_bucket.unwrap() === bucket1 && res[0].filter.prefix === '');
-        assert.ok(res[1].rule_id === 'rule-2' && res[1].destination_bucket.unwrap() === first_bucket && res[1].filter.prefix === 'ab');
+        assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === bucket1 && res.rules[0].filter.prefix === '');
+        assert.ok(res.rules[1].rule_id === 'rule-2' && res.rules[1].destination_bucket.unwrap() === first_bucket && res.rules[1].filter.prefix === 'ab');
     });
 
     mocha.it('put_replication 4 - valid', async function() {
@@ -94,13 +94,13 @@ mocha.describe('replication configuration validity tests', function() {
             { rule_id: 'rule-1', destination_bucket: first_bucket, filter: { prefix: '' } }
         ], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
-        assert.ok(res[0].rule_id === 'rule-1' && res[0].destination_bucket.unwrap() === first_bucket && res[0].filter.prefix === '');
+        assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket && res.rules[0].filter.prefix === '');
     });
 
     mocha.it('put_replication 5 - valid', async function() {
         await put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket }], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
-        assert.ok(res[0].rule_id === 'rule-1' && res[0].destination_bucket.unwrap() === first_bucket);
+        assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
     });
 
     mocha.it('put_replication - same rule_id - should fail ', async function() {
@@ -112,7 +112,7 @@ mocha.describe('replication configuration validity tests', function() {
 
     mocha.it('get_bucket_replication ', async function() {
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
-        assert.ok(res[0].rule_id === 'rule-1' && res[0].destination_bucket.unwrap() === first_bucket);
+        assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
     });
 
     mocha.it('delete bucket replication ', async function() {
@@ -154,7 +154,7 @@ mocha.describe('replication collection tests', function() {
         await P.all(_.map(buckets, async bucket_name => {
             await put_replication(bucket_name, [{ rule_id: 'rule-1', destination_bucket: first_bucket }], false);
             const res = await rpc_client.bucket.get_bucket_replication({ name: bucket_name });
-            assert.ok(res[0].rule_id === 'rule-1' && res[0].destination_bucket.unwrap() === first_bucket);
+            assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
         }));
     });
 
@@ -167,7 +167,7 @@ mocha.describe('replication collection tests', function() {
             assert.ok(err.rpc_code === 'NO_REPLICATION_ON_BUCKET');
         }
         const repl_buck2 = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
-        assert.ok(repl_buck2[0].rule_id === 'rule-1' && repl_buck2[0].destination_bucket.unwrap() === first_bucket);
+        assert.ok(repl_buck2.rules[0].rule_id === 'rule-1' && repl_buck2.rules[0].destination_bucket.unwrap() === first_bucket);
         replication_policy_id = (await rpc_client.bucket.read_bucket({ name: bucket2 })).replication_policy_id;
         try {
             const replication = await replication_store.get_replication_by_id(replication_policy_id);
@@ -193,7 +193,7 @@ mocha.describe('replication collection tests', function() {
         await P.all(_.map(buckets, async bucket_name => {
             await put_replication(bucket_name, [{ rule_id: 'rule-2', destination_bucket: first_bucket }], false);
             const res = await rpc_client.bucket.get_bucket_replication({ name: bucket_name });
-            assert.ok(res[0].rule_id === 'rule-2' && res[0].destination_bucket.unwrap() === first_bucket);
+            assert.ok(res.rules[0].rule_id === 'rule-2' && res.rules[0].destination_bucket.unwrap() === first_bucket);
         }));
     });
 
@@ -201,8 +201,8 @@ mocha.describe('replication collection tests', function() {
         await put_replication(bucket1, [{ rule_id: 'rule-3', destination_bucket: first_bucket }], false);
         const repl_buck1 = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         const repl_buck2 = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
-        assert.ok(repl_buck1[0].rule_id === 'rule-3');
-        assert.ok(repl_buck2[0].rule_id === 'rule-2');
+        assert.ok(repl_buck1.rules[0].rule_id === 'rule-3');
+        assert.ok(repl_buck2.rules[0].rule_id === 'rule-2');
 
         const repl1 = ((await rpc_client.bucket.read_bucket({ name: bucket1 })).replication_policy_id);
         const repl2 = ((await rpc_client.bucket.read_bucket({ name: bucket2 })).replication_policy_id);
@@ -213,8 +213,8 @@ mocha.describe('replication collection tests', function() {
         await put_replication(bucket2, [{ rule_id: 'rule-3', destination_bucket: first_bucket }], false);
         const repl_buck1 = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         const repl_buck2 = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
-        assert.ok(repl_buck1[0].rule_id === 'rule-3');
-        assert.ok(repl_buck2[0].rule_id === 'rule-3');
+        assert.ok(repl_buck1.rules[0].rule_id === 'rule-3');
+        assert.ok(repl_buck2.rules[0].rule_id === 'rule-3');
 
         const repl1 = ((await rpc_client.bucket.read_bucket({ name: bucket1 })).replication_policy_id);
         const repl2 = ((await rpc_client.bucket.read_bucket({ name: bucket2 })).replication_policy_id);
@@ -729,7 +729,7 @@ mocha.describe('replication pagination tests', function() {
 
 async function put_replication(bucket_name, replication_policy, should_fail) {
     try {
-        await rpc_client.bucket.put_bucket_replication({ name: bucket_name, replication_policy });
+        await rpc_client.bucket.put_bucket_replication({ name: bucket_name, replication_policy: { rules: replication_policy } });
         if (should_fail) {
             assert.fail(`put_bucket_replication should fail but it passed`);
         }

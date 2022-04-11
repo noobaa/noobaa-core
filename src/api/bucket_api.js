@@ -604,6 +604,9 @@ module.exports = {
             }
         },
 
+        //
+        // https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html
+        //
         set_bucket_lifecycle_configuration_rules: {
             method: 'PUT',
             params: {
@@ -613,71 +616,7 @@ module.exports = {
                     rules: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['id', 'filter', 'status', 'expiration'],
-                            properties: {
-                                id: {
-                                    type: 'string'
-                                },
-                                status: {
-                                    type: 'string'
-                                },
-                                filter: {
-                                    $ref: 'common_api#/definitions/bucket_lifecycle_filter'
-                                },
-                                expiration: {
-                                    type: 'object',
-                                    properties: {
-                                        days: {
-                                            type: 'integer'
-                                        },
-                                        date: {
-                                            idate: true
-                                        },
-                                        expired_object_delete_marker: {
-                                            type: 'boolean'
-                                        }
-                                    }
-                                },
-                                abort_incomplete_multipart_upload: {
-                                    type: 'object',
-                                    properties: {
-                                        days_after_initiation: {
-                                            type: 'integer'
-                                        },
-                                    }
-                                },
-                                transition: {
-                                    type: 'object',
-                                    properties: {
-                                        date: {
-                                            idate: true
-                                        },
-                                        storage_class: {
-                                            $ref: '#/definitions/storage_class_enum'
-                                        }
-                                    }
-                                },
-                                noncurrent_version_expiration: {
-                                    type: 'object',
-                                    properties: {
-                                        noncurrent_days: {
-                                            type: 'integer'
-                                        },
-                                    }
-                                },
-                                noncurrent_version_transition: {
-                                    type: 'object',
-                                    properties: {
-                                        noncurrent_days: {
-                                            type: 'integer'
-                                        },
-                                        storage_class: {
-                                            $ref: '#/definitions/storage_class_enum'
-                                        }
-                                    }
-                                },
-                            }
+                            $ref: 'common_api#/definitions/bucket_lifecycle_rule'
                         },
                     }
                 }
@@ -698,75 +637,7 @@ module.exports = {
             reply: {
                 type: 'array',
                 items: {
-                    type: 'object',
-                    required: ['id', 'filter', 'status', 'expiration'],
-                    properties: {
-                        id: {
-                            type: 'string'
-                        },
-                        status: {
-                            type: 'string'
-                        },
-                        filter: {
-                            $ref: 'common_api#/definitions/bucket_lifecycle_filter'
-                        },
-                        last_sync: {
-                            idate: true
-                        },
-                        expiration: {
-                            type: 'object',
-                            properties: {
-                                days: {
-                                    type: 'integer'
-                                },
-                                date: {
-                                    idate: true
-                                },
-                                expired_object_delete_marker: {
-                                    type: 'boolean'
-                                }
-
-                            }
-                        },
-                        abort_incomplete_multipart_upload: {
-                            type: 'object',
-                            properties: {
-                                days_after_initiation: {
-                                    type: 'integer'
-                                },
-                            }
-                        },
-                        transition: {
-                            type: 'object',
-                            properties: {
-                                date: {
-                                    idate: true
-                                },
-                                storage_class: {
-                                    $ref: '#/definitions/storage_class_enum'
-                                }
-                            }
-                        },
-                        noncurrent_version_expiration: {
-                            type: 'object',
-                            properties: {
-                                noncurrent_days: {
-                                    type: 'integer'
-                                },
-                            }
-                        },
-                        noncurrent_version_transition: {
-                            type: 'object',
-                            properties: {
-                                noncurrent_days: {
-                                    type: 'integer'
-                                },
-                                storage_class: {
-                                    $ref: '#/definitions/storage_class_enum'
-                                }
-                            }
-                        },
-                    },
+                    $ref: 'common_api#/definitions/bucket_lifecycle_rule'
                 }
             },
             auth: {

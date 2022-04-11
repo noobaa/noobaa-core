@@ -132,6 +132,14 @@ function handle_ops_encoding(schema, val) {
 
     let obj = {};
 
+    // handle $all
+    if (val.$all) {
+        obj.$all = [];
+        for (const item of val.$all) {
+            obj.$all.push(encode_json(schema, item));
+        }
+    }
+
     // handle $in
     if (val.$in) {
         obj.$in = [];
@@ -142,14 +150,14 @@ function handle_ops_encoding(schema, val) {
 
     // handle $push
     if (val.$push) {
-        obj = { '$push': {} };
+        obj.$push = {};
         for (const key of Object.keys(val.$push)) {
             obj.$push[key] = encode_json(schema.items, val.$push[key]);
         }
     }
     // handle $set
     if (val.$set) {
-        obj = { '$set': {} };
+        obj.$set = {};
         for (const key of Object.keys(val.$set)) {
             obj.$set[key] = encode_json(schema.properties && schema.properties[key], val.$set[key]);
         }
@@ -742,10 +750,34 @@ class PostgresTable {
 
     async find(query, options = {}) {
 
+        function isObject(v) {
+            return (typeof v === 'object' && !Array.isArray(v) && v !== null);
+        }
+        /*
+         * for $all operator to work correctly arrayFields argument should be used:
+         *      https://github.com/thomas4019/mongo-query-to-postgres-jsonb#arrayfields
+         * incorporating array fields in the options object:
+         *      https://github.com/thomas4019/mongo-query-to-postgres-jsonb/blob/e0bb65eafc39458da30e4fc3c5f47ffb5d509fcc/index.js#L280
+         * test example:
+         *      https://github.com/thomas4019/mongo-query-to-postgres-jsonb/blob/e0bb65eafc39458da30e4fc3c5f47ffb5d509fcc/test/filter.js#L229
+         */
+        function calculateOptionsAndArrayFields(q) {
+            const ops = [ '$all' ];
+            const l = [];
+            for (const p of Object.keys(q)) {
+                for (const o of ops) {
+                    if (isObject(q[p]) && q[p][o]) {
+                        l.push(p);
+                    }
+                }
+            }
+            return { disableContainmentQuery: true, arrays: l };
+        }
+
         const sql_query = {};
         sql_query.select = options.projection ? mongo_to_pg.convertSelect('data', options.projection) : '*';
         const encoded_query = encode_json(this.schema, query);
-        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', encoded_query, { disableContainmentQuery: true });
+        sql_query.where = !_.isEmpty(query) && mongo_to_pg('data', encoded_query, calculateOptionsAndArrayFields(query));
 
         sql_query.order_by = options.sort && convert_sort(options.sort);
         sql_query.limit = options.limit;

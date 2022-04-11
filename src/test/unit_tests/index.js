@@ -95,3 +95,6 @@ require('./test_sts');
 
 // UPGRADE
 // require('./test_postgres_upgrade'); // TODO currently working with mongo -> once changing to postgres - need to uncomment  
+
+// Lifecycle
+require('./test_lifecycle');

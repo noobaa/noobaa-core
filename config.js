@@ -326,7 +326,7 @@ config.DEFAULT_S3_AUTH_METHOD = {
 // LIFECYCLE CONFIG //
 //////////////////////
 
-config.LIFECYCLE_INTERVAL = 15 * 60 * 1000;
+config.LIFECYCLE_INTERVAL = 8 * 60 * 60 * 1000; // 8h
 
 //////////////////////////
 // STATISTICS_COLLECTOR //

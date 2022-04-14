@@ -453,18 +453,7 @@ class MDStore {
         let delete_marker;
         if (filter_delete_markers === true) delete_marker = null;
         else if (filter_delete_markers === false) delete_marker = true;
-        let size_filter;
-        if (max_size) {
-            size_filter = {
-                $lt: max_size,
-                $exists: true,
-            };
-        } else if (min_size) {
-            size_filter = {
-                $gt: min_size,
-                $exists: true,
-            };
-        }
+
         const query = compact({
             bucket: bucket_id,
             key: key,
@@ -477,7 +466,12 @@ class MDStore {
             tagging: tagging ? {
                 $all: tagging,
             } : undefined,
-            size: size_filter,
+            size: (max_size || min_size) ?
+                compact({
+                    $gt: min_size,
+                    $lt: max_size,
+                    $exists: true,
+                }) : undefined,
             upload_started: typeof upload_mode === 'boolean' ? {
                 $exists: upload_mode
             } : undefined,

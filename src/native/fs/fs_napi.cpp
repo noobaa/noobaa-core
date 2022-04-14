@@ -35,7 +35,8 @@ namespace noobaa
 
 DBG_INIT(0);
 
-static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
+int (*gpfs_linkat)(gpfs_file_t fileDesc, const char *oldpath,
+                   gpfs_file_t newdirfd, const char *newpath, int flags);
 
 const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
@@ -45,6 +46,7 @@ const static std::map<std::string, int> flags_to_case = {
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },
     { "w", O_TRUNC | O_CREAT | O_WRONLY },
+    { "wt", O_RDWR | __O_TMPFILE },
     { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "w+", O_TRUNC | O_CREAT | O_RDWR },
@@ -755,6 +757,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::writev>("writev"),
                 InstanceMethod<&FileWrap::setxattr>("setxattr"),
                 InstanceMethod<&FileWrap::getxattr>("getxattr"),
+                InstanceMethod<&FileWrap::linkfileat>("linkfileat"),
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
             }));
@@ -780,6 +783,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value writev(const Napi::CallbackInfo& info);
     Napi::Value setxattr(const Napi::CallbackInfo& info);
     Napi::Value getxattr(const Napi::CallbackInfo& info);
+    Napi::Value linkfileat(const Napi::CallbackInfo& info);
     Napi::Value stat(const Napi::CallbackInfo& info);
     Napi::Value fsync(const Napi::CallbackInfo& info);
 };
@@ -988,6 +992,38 @@ struct FileSetxattr : public FSWrapWorker<FileWrap>
                 return;
             }
         }
+    }
+};
+
+struct linkFileAt : public FSWrapWorker<FileWrap>
+{
+    std::string _path;
+    std::string _filepath;
+    int _dirfd;
+    int _rc_res;
+
+
+    linkFileAt(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        _path = info[1].As<Napi::String>();
+        _filepath = info[2].As<Napi::String>();
+        _dirfd = _wrap->_fd;
+    }
+    virtual void Work()
+    {
+        _rc_res = gpfs_linkat(_dirfd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH);
+        if (_rc_res) {
+            DBG0("linkFileAt error FS::FD " << DVAL(_dirfd) << DVAL(_rc_res));
+            SetSyscallError();
+            return;
+        }
+    }
+    virtual void OnOK()
+    {
+        DBG1("IBM::linkFileAt::OnOK: " << DVAL(_rc_res));
+        Napi::Env env = Env();
+        _deferred.Resolve(Napi::Number::New(env, _rc_res));
     }
 };
 
@@ -1214,6 +1250,12 @@ FileWrap::getxattr(const Napi::CallbackInfo& info)
 }
 
 Napi::Value
+FileWrap::linkfileat(const Napi::CallbackInfo& info)
+{
+    return api<linkFileAt>(info);
+}
+
+Napi::Value
 FileWrap::stat(const Napi::CallbackInfo& info)
 {
     return api<FileStat>(info);
@@ -1387,17 +1429,17 @@ void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
+    uv_lib_t *lib = (uv_lib_t*) malloc(sizeof(uv_lib_t));
 
-    const char* env_p = std::getenv("GPFS_DL_PATH");
-    if (env_p != NULL) {
+    if(const char* env_p = std::getenv("GPFS_DL_PATH")) {
         LOG("FS::GPFS GPFS_DL_PATH=" << env_p);
-        uv_lib_t *lib = (uv_lib_t*) malloc(sizeof(uv_lib_t));
         if (uv_dlopen(env_p, lib)) {
             PANIC("Error: %s\n" << uv_dlerror(lib));
         }
-        if (uv_dlsym(lib, "gpfs_fcntl", (void **) &dlsym_gpfs_fcntl)) {
+        if (uv_dlsym(lib, "gpfs_linkat", (void **) &gpfs_linkat)) {
             PANIC("Error: %s\n" << uv_dlerror(lib));
         }
+        exports_fs["temp_file"] = Napi::Function::New(env, api<Linkat>);
     }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);

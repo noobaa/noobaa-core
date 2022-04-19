@@ -21,7 +21,6 @@ const util = require('util');
 const http = require('http');
 const https = require('https');
 const express = require('express');
-const express_favicon = require('serve-favicon');
 const express_compress = require('compression');
 const express_morgan_logger = require('morgan');
 const express_proxy = require('express-http-proxy');
@@ -86,7 +85,7 @@ async function start_web_server() {
     try {
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
-        // with the http services like /fe and /version
+        // with the http services like /version
         var http_server = http.createServer(app);
         server_rpc.rpc.register_ws_transport(http_server);
         await P.ninvoke(http_server, 'listen', http_port);
@@ -114,7 +113,6 @@ app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'frontend/dist/assets', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
@@ -305,28 +303,6 @@ function cache_control(seconds) {
     };
 }
 
-function handle_upgrade(req, res, next) {
-    return getVersion(req.url)
-        .then(({ status }) => {
-            if (status === 404) { //Currently 404 marks during upgrade
-                const filePath = path.join(rootdir, 'frontend', 'dist', 'upgrade.html');
-                res.sendFile(filePath);
-            } else if (status.toString().startsWith(5)) { //5xx, our own error on RPC (read system) or any other express internal error
-                const filePath = path.join(rootdir, 'frontend', 'dist', 'error.html');
-                res.sendFile(filePath);
-            } else {
-                return next();
-            }
-        });
-}
-
-function serve_fe(filename) {
-    const filePath = path.join(rootdir, 'frontend', 'dist', filename);
-    return (req, res) => {
-        res.sendFile(filePath);
-    };
-}
-
 app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
@@ -336,14 +312,7 @@ app.use('/public/license-info', license_info.serve_http);
 app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 
 // Serve the new frontend (management console)
-app.use('/fe/assets', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
-app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
-app.get('/fe', handle_upgrade, serve_fe('index.html'));
-app.get('/fe/debug', handle_upgrade, serve_fe('debug.html'));
-app.use('/fe/download', serve_fe('download.html'));
-app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
-app.get('/fe/**/', handle_upgrade, serve_fe('index.html'));
-app.use('/', express.static(path.join(rootdir, 'public')));
+// app.use('/', express.static(path.join(rootdir, 'public')));
 
 // error handlers should be last
 // roughly based on express.errorHandler from connect's errorHandler.js

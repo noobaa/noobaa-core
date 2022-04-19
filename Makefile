@@ -135,17 +135,6 @@ noobaa: base
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
 
-verify-fe-lib: builder
-	@echo "\033[1;Verifying Frontend Library $(CONTAINER_ENGINE) build.\033[0m"
-	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/FrontendLib.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t frontend-lib . $(REDIRECT_STDOUT)
-	@echo "\033[1;32mFrontend Library build verified.\033[0m"
-.PHONY: verify-fe-lib
-
-fe-test: base
-	@echo "\033[1;34mRunning frontend tests.\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) noobaa-base npm run test --prefix ./frontend
-.PHONY: fe-test
-
 # This rule builds a container image that includes developer tools
 # which allows to build and debug the project.
 nbdev:

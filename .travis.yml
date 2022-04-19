@@ -34,13 +34,6 @@ matrix:
         - make tester ${NO_CACHE} ${SUPPRESS_LOGS} || exit 1
         - make test ${SUPPRESS_LOGS}
 
-    - language: generic
-
-      name: "Frontend Library Build Test"
-
-      script:
-        - make verify-fe-lib
-
     - language: node_js
       node_js:
         - "14"

@@ -15,10 +15,6 @@ We're happy to get your input on the project. Please consider the following befo
      - Expected Behavior - What did you expect to happen  
      - Steps to reproduce - How can the issue be reproduced so a fix can be verified  
      - Add screenshots or log parts which can be helpful to investigate the issue  
-     - For issues related to the GUI (FE) please provide the FE dump package which can be obtained by  
-       - Reproduce the issue in your browser  
-       - Open dev tools and go to console  
-       - run nb.utils.dumpAppLog(), save the gz file and upload it as part of the bug  
 
 #### Issue Labels
 Issue labels are divided into several categories:  
@@ -49,9 +45,7 @@ Issue labels are divided into several categories:
 ---MISSING---
 
 #### Coding Style
-The /src and the /frontend code trees have a different coding style.
-
 
 ---MISSING---
 
-You can run eslint to verify various coding style patterns (.eslintrc exists both in the project root and in the /frontend root)
+You can run eslint to verify various coding style patterns.

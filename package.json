@@ -94,7 +94,7 @@
     "linux-blockutils": "0.2.0",
     "lodash": "4.17.21",
     "mime": "3.0.0",
-    "minimist": "1.2.5",
+    "minimist": "1.2.6",
     "moment": "2.29.1",
     "moment-timezone": "0.5.34",
     "mongo-query-to-postgres-jsonb": "0.2.14",

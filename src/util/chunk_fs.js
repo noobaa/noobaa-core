@@ -62,6 +62,8 @@ class ChunkFS extends stream.Transform {
         this._flush_buffers(callback);
     }
 
+    // callback will be passed only at the end of the stream by _flush()
+    // while this function is called without callback during _transform() and returns a promise.
     async _flush_buffers(callback) {
         try {
             if (this.q_buffers.length) {
@@ -78,7 +80,10 @@ class ChunkFS extends stream.Transform {
             }
         } catch (error) {
             console.error('ChunkFS _flush_buffers failed', this.q_size, this._total_num_buffers, error);
-            return callback(error);
+            if (callback) {
+                return callback(error);
+            }
+            throw error;
         }
     }
 }

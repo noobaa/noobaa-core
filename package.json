@@ -104,6 +104,7 @@
     "ncp": "2.0.0",
     "net-ping": "1.2.3",
     "node-addon-api": "4.2.0",
+    "node-abort-controller": "3.0.1",
     "node-df": "0.1.4",
     "node-gyp": "8.4.0",
     "performance-now": "2.1.0",

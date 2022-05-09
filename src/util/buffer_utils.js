@@ -190,7 +190,7 @@ class BuffersPool {
      * }>}
      */
     async get_buffer() {
-        dbg.log1('BufferPool.get_buffer', this);
+        dbg.log1('BufferPool.get_buffer: sem value', this.sem._value, 'waiting_value', this.sem._waiting_value, 'buffers length', this.buffers.length);
         let buffer = null;
         let warning_timer;
         // Lazy allocation of buffers pool, first cycle will take up buffers

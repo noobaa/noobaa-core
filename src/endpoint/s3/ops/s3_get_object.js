@@ -11,6 +11,7 @@ const http_utils = require('../../../util/http_utils');
  */
 async function get_object(req, res) {
 
+    req.object_sdk.setup_abort_controller(req, res);
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
@@ -100,20 +101,13 @@ async function get_object(req, res) {
         }
     }
 
-    let read_stream;
-
-    // on http disconnection close the read stream to stop from buffering more data
-    req.on('aborted', () => {
-        dbg.log0('request aborted:', req.path);
-        if (read_stream && read_stream.close) read_stream.close();
-    });
-    res.on('error', err => {
-        dbg.log0('response error:', err, req.path);
-        if (read_stream && read_stream.close) read_stream.close();
-    });
-
-    read_stream = await req.object_sdk.read_object_stream(params, res);
+    const read_stream = await req.object_sdk.read_object_stream(params, res);
     if (read_stream) {
+        // if read_stream supports closing, then we handle abort cases such as http disconnection
+        // by calling the close method to stop it from buffering more data which will go to waste.
+        if (read_stream.close) {
+            req.object_sdk.add_abort_handler(() => read_stream.close());
+        }
         read_stream.on('error', err => {
             dbg.log0('read stream error:', err, req.path);
             res.destroy(err);

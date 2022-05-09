@@ -10,8 +10,8 @@ const events = require('events');
  * @param {stream.Writable} writable 
  * @returns {Promise}
  */
-async function wait_drain(writable) {
-    return events.once(writable, 'drain');
+async function wait_drain(writable, options) {
+    return events.once(writable, 'drain', options);
 }
 
 const wait_finished = util.promisify(stream.finished);

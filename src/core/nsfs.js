@@ -93,45 +93,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.warn(WARNINGS);
         console.log('nsfs: setting up ...', { fs_root, http_port, https_port });
 
-        const noop = /** @type {any} */ () => {
-            // TODO
-        };
-
-        const bs = new BucketSpaceFS({ fs_root });
-        const object_sdk = new ObjectSDK(null, null, null);
-
-        // resolve namespace and bucketspace
-        const namespaces = {};
-        object_sdk._get_bucketspace = () => bs;
-        object_sdk._get_bucket_namespace = async bucket_name => {
-            const existing_ns = namespaces[bucket_name];
-            if (existing_ns) return existing_ns;
-            const ns_fs = new NamespaceFS({
-                bucket_path: fs_root + '/' + bucket_name,
-                bucket_id: '000000000000000000000000',
-                namespace_resource_id: undefined
-            });
-            namespaces[bucket_name] = ns_fs;
-            return ns_fs;
-        };
-
-        object_sdk.get_auth_token = noop;
-        object_sdk.set_auth_token = noop;
-        object_sdk.authorize_request_account = noop;
-        object_sdk.read_bucket_sdk_website_info = noop;
-        object_sdk.read_bucket_sdk_namespace_info = noop;
-        object_sdk.read_bucket_sdk_caching_info = noop;
-        object_sdk.read_bucket_sdk_policy_info = noop;
-        object_sdk.read_bucket_usage_info = noop;
-        object_sdk.requesting_account = {
-            nsfs_account_config: fs_config
-        };
-
         const endpoint = require('../endpoint/endpoint');
         await endpoint.start_endpoint({
             http_port,
             https_port,
-            init_request_sdk: (req, res) => { req.object_sdk = object_sdk; },
+            init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config),
         });
 
         console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
@@ -141,6 +107,43 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.error('nsfs: exit on error', err.stack || err);
         process.exit(2);
     }
+}
+
+function init_request_sdk(req, res, fs_root, fs_config) {
+    const noop = /** @type {any} */ () => {
+        // TODO
+    };
+
+    const bs = new BucketSpaceFS({ fs_root });
+    const object_sdk = new ObjectSDK(null, null, null);
+
+    // resolve namespace and bucketspace
+    const namespaces = {};
+    object_sdk._get_bucketspace = () => bs;
+    object_sdk._get_bucket_namespace = async bucket_name => {
+        const existing_ns = namespaces[bucket_name];
+        if (existing_ns) return existing_ns;
+        const ns_fs = new NamespaceFS({
+            bucket_path: fs_root + '/' + bucket_name,
+            bucket_id: '000000000000000000000000',
+            namespace_resource_id: undefined
+        });
+        namespaces[bucket_name] = ns_fs;
+        return ns_fs;
+    };
+
+    object_sdk.get_auth_token = noop;
+    object_sdk.set_auth_token = noop;
+    object_sdk.authorize_request_account = noop;
+    object_sdk.read_bucket_sdk_website_info = noop;
+    object_sdk.read_bucket_sdk_namespace_info = noop;
+    object_sdk.read_bucket_sdk_caching_info = noop;
+    object_sdk.read_bucket_sdk_policy_info = noop;
+    object_sdk.read_bucket_usage_info = noop;
+    object_sdk.requesting_account = {
+        nsfs_account_config: fs_config
+    };
+    req.object_sdk = object_sdk;
 }
 
 exports.main = main;

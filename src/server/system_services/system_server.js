@@ -716,12 +716,6 @@ function delete_system(req) {
     });
 }
 
-function log_frontend_stack_trace(req) {
-    return P.fcall(() => {
-        dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
-    });
-}
-
 /**
  *
  * LIST_SYSTEMS
@@ -1647,7 +1641,6 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;
 

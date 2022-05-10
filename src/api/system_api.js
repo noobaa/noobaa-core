@@ -242,25 +242,6 @@ module.exports = {
             }
         },
 
-        log_frontend_stack_trace: {
-            doc: 'Add frontend stack trace to logs',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['stack_trace'],
-                properties: {
-                    stack_trace: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {},
-                    },
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         add_role: {
             doc: 'Add role',
             method: 'POST',

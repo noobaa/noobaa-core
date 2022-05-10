@@ -618,7 +618,6 @@ interface APIClient {
     readonly cluster_internal: APIGroup;
     readonly server_inter_process: APIGroup;
     readonly hosted_agents: APIGroup;
-    readonly frontend_notifications: APIGroup;
     readonly func: APIGroup;
     readonly func_node: APIGroup;
     readonly replication: APIGroup;

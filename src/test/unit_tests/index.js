@@ -90,6 +90,7 @@ require('./test_namespace_auth');
 require('./test_encryption');
 require('./test_bucket_replication');
 require('./test_sts');
+require('./test_cloud_utils');
 // require('./test_tiering_upload');
 //require('./test_s3_worm');
 

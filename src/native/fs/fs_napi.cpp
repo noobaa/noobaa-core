@@ -19,6 +19,7 @@
 #include <uv.h>
 #include <sys/xattr.h>
 #include <vector>
+#include <limits.h>
 
 #ifdef __APPLE__
     #include <sys/param.h>
@@ -1380,6 +1381,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["S_IFMT"] = Napi::Number::New(env, S_IFMT);
     exports_fs["S_IFDIR"] = Napi::Number::New(env, S_IFDIR);
     exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
+    exports_fs["PLATFORM_IOV_MAX"] = Napi::Number::New(env, IOV_MAX);
 
     exports_fs["set_debug_level"] = Napi::Function::New(env, set_debug_level);
 

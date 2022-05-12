@@ -26,6 +26,8 @@ class ChunkFS extends stream.Transform {
         this.rpc_client = rpc_client;
         this.namespace_resource_id = namespace_resource_id;
         this._total_num_buffers = 0;
+        const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
+        this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
     }
 
     async _transform(chunk, encoding, callback) {
@@ -44,8 +46,9 @@ class ChunkFS extends stream.Transform {
                 const buf = (available_size < chunk.length) ? chunk.slice(0, available_size) : chunk;
                 this.q_buffers.push(buf);
                 this.q_size += buf.length;
-                // Should flush when equals, but added greater than just in case
-                if (this.q_size >= config.NSFS_BUF_SIZE) await this._flush_buffers();
+                // Should flush when num of chunks equals to max iov which is the limit according to https://linux.die.net/man/2/writev
+                // or when q_size equals to config.NSFS_BUF_SIZE, but added greater than just in case
+                if (this.q_buffers.length === this.iov_max || this.q_size >= config.NSFS_BUF_SIZE) await this._flush_buffers();
                 chunk = (available_size < chunk.length) ? chunk.slice(available_size) : null;
             }
             return callback();
@@ -59,6 +62,8 @@ class ChunkFS extends stream.Transform {
         this._flush_buffers(callback);
     }
 
+    // callback will be passed only at the end of the stream by _flush()
+    // while this function is called without callback during _transform() and returns a promise.
     async _flush_buffers(callback) {
         try {
             if (this.q_buffers.length) {
@@ -75,7 +80,10 @@ class ChunkFS extends stream.Transform {
             }
         } catch (error) {
             console.error('ChunkFS _flush_buffers failed', this.q_size, this._total_num_buffers, error);
-            return callback(error);
+            if (callback) {
+                return callback(error);
+            }
+            throw error;
         }
     }
 }

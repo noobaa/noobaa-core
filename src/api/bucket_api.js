@@ -1376,21 +1376,41 @@ module.exports = {
 
 
         replication_policy: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['destination_bucket', 'rule_id'],
-                properties: {
-                    destination_bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    rule_id: { type: 'string' },
-                    filter: {
+            type: 'object',
+            required: ['rules'],
+            properties: {
+                rules: {
+                    type: 'array',
+                    items: {
                         type: 'object',
+                        required: ['destination_bucket', 'rule_id'],
                         properties: {
-                            prefix: { type: 'string' },
-                            // s3 support also tag or and operator of 2 tags/ tag and prefix 
+                            destination_bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                            rule_id: { type: 'string' },
+                            filter: {
+                                type: 'object',
+                                properties: {
+                                    prefix: { type: 'string' },
+                                    // s3 support also tag or and operator of 2 tags/ tag and prefix 
+                                }
+                            }
                         }
                     }
-                }
+                },
+                log_replication_info: {
+                    type: 'object',
+                    required: ['logs_location'],
+                    properties: {
+                        logs_location: {
+                            type: 'object',
+                            required: ['logs_bucket'],
+                            properties: {
+                                logs_bucket: { type: 'string' },
+                                prefix: { type: 'string' }
+                            }
+                        }
+                    }
+                },
             }
         },
     }

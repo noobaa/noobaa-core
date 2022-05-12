@@ -39,6 +39,27 @@ module.exports = {
                         }
                     }
                 }
+            },
+        },
+        aws_log_replication_info: {
+            type: 'object',
+            required: ['logs_location'],
+            properties: {
+                logs_location: {
+                    type: 'object',
+                    required: ['logs_bucket'],
+                    properties: {
+                        logs_bucket: { type: 'string' },
+                        prefix: { type: 'string' }
+                    }
+                },
+                log_marker: {
+                    type: 'object',
+                    required: ['continuation_token'],
+                    properties: {
+                        continuation_token: { type: 'string' }
+                    }
+                }
             }
         },
     }

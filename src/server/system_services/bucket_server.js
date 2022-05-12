@@ -1932,10 +1932,20 @@ async function get_bucket_replication(req) {
     if (!replication_id) throw new RpcError('NO_REPLICATION_ON_BUCKET');
 
     const replication = await replication_store.instance().get_replication_by_id(replication_id);
-    const bucket_names_replication = _.map(replication, rule =>
-        ({ ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name }));
+    const bucket_names_replication = _.map(replication, rule => {
+        let named_rule = { ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name };
+        delete named_rule.rule_status;
+        return named_rule;
+    });
 
-    return bucket_names_replication;
+    const res = {
+        rules: bucket_names_replication
+    };
+    if (replication.aws_log_replication_info) {
+        res.log_replication_info.logs_location = replication.aws_log_replication_info.logs_location;
+    }
+
+    return res;
 }
 
 async function delete_bucket_replication(req) {
@@ -1957,7 +1967,7 @@ async function delete_bucket_replication(req) {
 }
 
 function validate_replication(req) {
-    const replication_rules = req.rpc_params.replication_policy;
+    const replication_rules = req.rpc_params.replication_policy.rules;
     // num of rules in configuration must be in defined limits
     if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
         replication_rules.length < 1) throw new RpcError('INVALID_REPLICATION_POLICY', 'Number of rules is invalid');
@@ -1977,6 +1987,7 @@ function validate_replication(req) {
         pref_by_dst_bucket[destination_bucket] = pref_by_dst_bucket[destination_bucket] || [];
         pref_by_dst_bucket[destination_bucket].push((filter && filter.prefix) || '');
     }
+
     // all rule_ids must be different
     if (new Set(rule_ids).size < replication_rules.length) throw new RpcError('INVALID_REPLICATION_POLICY', 'All rule ids must be unique');
 
@@ -1998,13 +2009,28 @@ function validate_replication(req) {
 }
 
 function normalize_replication(req) {
-    const replication_rules = req.rpc_params.replication_policy;
+    const replication_rules = req.rpc_params.replication_policy.rules;
 
-    const validated_replication = replication_rules.map(rule => {
+    const validated_replication_rules = replication_rules.map(rule => {
         const { destination_bucket } = rule;
         const dst_bucket = req.system.buckets_by_name && req.system.buckets_by_name[destination_bucket.unwrap()];
         return { ...rule, destination_bucket: dst_bucket._id };
     });
+
+
+    let { log_replication_info } = req.rpc_params.replication_policy;
+    if (log_replication_info && !log_replication_info.logs_location.logs_bucket) {
+        const logs_bucket = find_bucket(req);
+        const logs_bucket_info = get_bucket_info({ bucket: logs_bucket });
+        log_replication_info.logs_location.logs_bucket = logs_bucket_info.namespace.write_resource.resource.connection.target_bucket;
+    }
+
+    const validated_replication = {
+        rules: validated_replication_rules,
+        aws_log_replication_info: log_replication_info
+    };
+
+
     return validated_replication;
 }
 

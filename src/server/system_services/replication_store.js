@@ -22,10 +22,11 @@ class ReplicationStore {
     }
 
     async insert_replication(item) {
+        item = _.omitBy(item, _.isNil);
         dbg.log0(`insert_replication`, item);
         const record = {
             _id: new mongodb.ObjectId(),
-            rules: item,
+            ...item
         };
         this._replicationconfigs.validate(record);
         await this._replicationconfigs.insertOne(record);
@@ -33,11 +34,12 @@ class ReplicationStore {
     }
 
     async update_replication(item, replication_id) {
+        item = _.omitBy(item, _.isNil);
         dbg.log0(`update_replication`, item);
         const parsed_id = db_client.instance().parse_object_id(replication_id);
         const record = {
             _id: parsed_id,
-            rules: item,
+            ...item
         };
 
         this._replicationconfigs.validate(record);
@@ -46,7 +48,7 @@ class ReplicationStore {
             deleted: null
         }, {
             $set: {
-                rules: item,
+                ...item
             },
         });
         return parsed_id;
@@ -83,7 +85,6 @@ class ReplicationStore {
         this._replicationconfigs.validate(ans.value, 'warn');
         return ans;
     }
-
 
     async find_rules_updated_longest_time_ago() {
         dbg.log0('find_rules_updated_longest_time_ago: ');

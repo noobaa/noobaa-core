@@ -1302,7 +1302,7 @@ async function claim_bucket(req) {
         try {
             validate_bucket_creation(req);
         } catch (err) {
-            dbg.log0('claim_bucket failed validating bucket', err);
+            dbg.error('claim_bucket failed validating bucket', err);
             throw err;
         }
         try {
@@ -1314,7 +1314,7 @@ async function claim_bucket(req) {
                 auth_token: req.auth_token
             });
         } catch (err) {
-            dbg.log0('claim_bucket failed creating bucket', err);
+            dbg.error('claim_bucket failed creating bucket', err);
             throw err;
         }
     }
@@ -1343,7 +1343,7 @@ async function claim_bucket(req) {
         };
         return ret;
     } catch (err) {
-        dbg.log0('claim_bucket failed creating account', err);
+        dbg.error('claim_bucket failed creating account', err);
         if (req.rpc_params.create_bucket) {
             await server_rpc.client.bucket.delete_bucket({
                 name: req.rpc_params.name

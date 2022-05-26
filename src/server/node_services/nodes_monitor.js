@@ -1550,7 +1550,7 @@ class NodesMonitor extends EventEmitter {
     async _test_nodes_validity(item) {
         if (item.node.deleted) return;
         if (!item.node_from_store) return;
-        dbg.log0('_test_nodes_validity::', item.node.name);
+        dbg.log1('_test_nodes_validity::', item.node.name);
 
         try {
             await Promise.all([

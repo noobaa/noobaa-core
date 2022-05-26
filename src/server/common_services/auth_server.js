@@ -56,8 +56,10 @@ function create_auth(req) {
 
             // consider email not found the same as bad password to avoid phishing attacks.
             target_account = system_store.get_account_by_email(email);
-            dbg.log0('credentials account not found', email, system_name);
-            if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials not found');
+            if (!target_account) {
+                dbg.log0('credentials account not found', email, system_name);
+                throw new RpcError('UNAUTHORIZED', 'credentials not found');
+            }
 
             // when password is not provided it means we want to give authorization
             // by the currently authorized to another specific account instead of
@@ -67,8 +69,10 @@ function create_auth(req) {
             return P.resolve()
                 .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
                 .then(match => {
-                    dbg.log0('password mismatch', email, system_name);
-                    if (!match) throw new RpcError('UNAUTHORIZED', 'credentials not found');
+                    if (!match) {
+                        dbg.log0('password mismatch', email, system_name);
+                        throw new RpcError('UNAUTHORIZED', 'credentials not found');
+                    }
                     // authentication passed!
                     // so this account is the authenticated_account
                     authenticated_account = target_account;

@@ -80,6 +80,8 @@ async function start_endpoint(options = {}) {
         dbg.log0('Configured Virtual Hosts:', virtual_hosts);
         dbg.log0('Configured Location Info:', location_info);
 
+        process.on('warning', e => dbg.warn(e.stack));
+
         let internal_rpc_client;
 
         let init_request_sdk = options.init_request_sdk;

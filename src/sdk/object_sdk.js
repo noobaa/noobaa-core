@@ -92,7 +92,7 @@ class ObjectSDK {
             const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
             return bucket.namespace ? bucket.namespace.caching : undefined;
         } catch (error) {
-            dbg.log0('read_bucket_sdk_caching_info error', error);
+            dbg.error('read_bucket_sdk_caching_info error', error);
         }
     }
 

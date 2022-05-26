@@ -839,7 +839,7 @@ class NodesMonitor extends EventEmitter {
     _run() {
         if (!this._started) return;
         return this._run_serial.surround(() => {
-            dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
+            dbg.log1('_run:', this._map_node_id.size, 'nodes in queue');
             let next = 0;
             const queue = Array.from(this._map_node_id.values());
             const concur = Math.min(queue.length, RUN_NODE_CONCUR);
@@ -866,7 +866,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()
-            .then(() => dbg.log0('_run_node:', item.node.name))
+            .then(() => dbg.log1('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
             .then(() => { //If internal or cloud resource, cut down initializing time (in update_rpc_config)
                 if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
@@ -1037,7 +1037,7 @@ class NodesMonitor extends EventEmitter {
     _get_agent_info(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
-        dbg.log0('_get_agent_info:', item.node.name);
+        dbg.log1('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
             address: url.format({
                 protocol: 'wss',
@@ -1150,7 +1150,7 @@ class NodesMonitor extends EventEmitter {
                 counter += 1;
             }
             this._map_node_name.set(String(updates.name), item);
-            dbg.log0('_get_agent_info: set node name', item.node.name, 'to', updates.name);
+            dbg.log1('_get_agent_info: set node name', item.node.name, 'to', updates.name);
             item.new_host = !this._map_host_id.get(updates.host_id);
             if (!item.added_host) {
                 if (!item.new_host) {
@@ -1167,7 +1167,7 @@ class NodesMonitor extends EventEmitter {
             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
             // on first call to get_agent_info enable\disable the node according to the configuration
             let should_start_service = this._should_enable_agent(info, agent_config);
-            dbg.log0(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
+            dbg.log1(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
             if (!should_start_service) {
                 item.node.decommissioned = Date.now();
                 item.node.decommissioning = item.node.decommissioned;
@@ -1476,7 +1476,7 @@ class NodesMonitor extends EventEmitter {
 
         const start = Date.now();
 
-        dbg.log0('_test_network_to_server::', item.node.name);
+        dbg.log1('_test_network_to_server::', item.node.name);
         return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
                 this.n2n_client.agent.test_network_perf({
                     source: this.n2n_agent.rpc_address,
@@ -1492,7 +1492,7 @@ class NodesMonitor extends EventEmitter {
                 this._set_need_update.add(item);
                 item.node.latency_to_server = js_utils.array_push_keep_latest(
                     item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
-                dbg.log0('_test_network_to_server:: Succeeded in sending n2n rpc to ',
+                dbg.log1('_test_network_to_server:: Succeeded in sending n2n rpc to ',
                     item.node.name, 'took', took);
                 req.connection.close();
 
@@ -1517,7 +1517,7 @@ class NodesMonitor extends EventEmitter {
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.map_one_by_one(items_without_issues, item_without_issues => {
-                dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                dbg.log1('_test_network_perf::', item.node.name, item.io_detention,
                     item.node.rpc_address, item_without_issues.node.rpc_address);
                 return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
                     this.client.agent.test_network_perf_to_peer({
@@ -1533,7 +1533,7 @@ class NodesMonitor extends EventEmitter {
                 );
             })
             .then(() => {
-                dbg.log0('_test_network_perf:: success in test', item.node.name);
+                dbg.log1('_test_network_perf:: success in test', item.node.name);
                 if (item.n2n_errors &&
                     Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
                     item.n2n_errors = 0;
@@ -1550,7 +1550,7 @@ class NodesMonitor extends EventEmitter {
     async _test_nodes_validity(item) {
         if (item.node.deleted) return;
         if (!item.node_from_store) return;
-        dbg.log0('_test_nodes_validity::', item.node.name);
+        dbg.log1('_test_nodes_validity::', item.node.name);
 
         try {
             await Promise.all([
@@ -1584,7 +1584,7 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name,
+        dbg.log1('_get_detention_test_nodes::', item.node.name,
             _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
@@ -2467,7 +2467,7 @@ class NodesMonitor extends EventEmitter {
         );
         if (!root_item) {
             // if for some reason root node not found, take the first one.
-            dbg.log0(`could not find node for root path, taking the first in the list. drives = ${host_nodes.map(item => item.node.drives[0])}`);
+            dbg.log1(`could not find node for root path, taking the first in the list. drives = ${host_nodes.map(item => item.node.drives[0])}`);
             root_item = host_nodes[0];
         }
         const host_item = _.clone(root_item);
@@ -3391,7 +3391,7 @@ class NodesMonitor extends EventEmitter {
 
     test_node_network(req) {
         const { rpc_params } = req;
-        dbg.log0('test_node_network:', rpc_params);
+        dbg.log1('test_node_network:', rpc_params);
         this._throw_if_not_started_and_loaded();
         const item = this._get_node({
             rpc_address: rpc_params.source

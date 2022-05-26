@@ -168,11 +168,11 @@ async function refresh_pool_alloc(pool, force) {
             group.last_refresh = Date.now();
             group.promise = null;
             group.latency_groups = res.latency_groups;
-            dbg.log0('refresh_pool_alloc: updated pool', pool.name,
+            dbg.log1('refresh_pool_alloc: updated pool', pool.name,
                 'nodes', _.map(_.flatMap(group.latency_groups, 'nodes'), 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
                 if (_.includes(pool_set, String(pool._id))) {
-                    dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
+                    dbg.log1('invalidate alloc_group_by_pool_set for', pool_set,
                         'on change to pool', pool._id);
                     delete alloc_group_by_pool_set[pool_set];
                 }

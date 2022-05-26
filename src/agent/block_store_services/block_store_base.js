@@ -301,7 +301,7 @@ class BlockStoreBase {
 
     async delete_blocks(req) {
         const block_ids = req.rpc_params.block_ids;
-        dbg.log0('delete_blocks', block_ids, 'node', this.node_name);
+        dbg.log1('delete_blocks', block_ids, 'node', this.node_name);
         this.block_cache.multi_invalidate_keys(block_ids);
         return this.block_modify_lock.surround_keys(
             block_ids.map(block_id => String(block_id)),

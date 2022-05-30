@@ -290,6 +290,7 @@ class PgTransaction {
 
     release() {
         if (this.pg_client) {
+            this.pg_client.removeAllListeners('error');
             this.pg_client.release();
             this.pg_client = null;
         }

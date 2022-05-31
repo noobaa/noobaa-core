@@ -179,7 +179,7 @@ class NamespaceS3 {
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
             object_sdk.rpc_client.pool.update_issues_report({
                 namespace_resource_id: this.namespace_resource_id,
-                error_code: err.code,
+                error_code: String(err.code),
                 time: Date.now(),
             });
             throw err;
@@ -292,7 +292,7 @@ class NamespaceS3 {
             } catch (err) {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
-                    error_code: err.code,
+                    error_code: String(err.code),
                     time: Date.now(),
                 });
                 throw err;
@@ -386,7 +386,7 @@ class NamespaceS3 {
             } catch (err) {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
-                    error_code: err.code,
+                    error_code: String(err.code),
                     time: Date.now(),
                 });
                 throw err;

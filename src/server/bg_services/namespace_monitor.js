@@ -81,7 +81,7 @@ class NamespaceMonitor {
         if (!err.code) return;
         await this.client.pool.update_issues_report({
             namespace_resource_id: nsr._id,
-            error_code: err.code,
+            error_code: String(err.code),
             time: Date.now(),
             monitoring: true
         }, {

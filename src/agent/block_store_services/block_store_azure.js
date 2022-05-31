@@ -194,7 +194,7 @@ class BlockStoreAzure extends BlockStoreBase {
 
                     const data_size = Number(info_arg.contentLength);
                     const noobaablockmd = info_arg.metadata.noobaablockmd || info_arg.metadata.noobaa_block_md;
-                    dbg.log0('block_store_azure._delete_blocks info: data_size: ', data_size, 'noobaablockmd: ', noobaablockmd);
+                    dbg.log1('block_store_azure._delete_blocks info: data_size: ', data_size, 'noobaablockmd: ', noobaablockmd);
 
                     const md_size = (noobaablockmd && noobaablockmd.length) || 0;
                     deleted_storage.size -= (data_size + md_size);

@@ -48,23 +48,5 @@ module.exports = {
             }
         },
 
-        upload_fe_dump: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name', 'dump'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    dump: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        }
     }
 };

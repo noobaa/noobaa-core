@@ -251,18 +251,8 @@ function add_member_to_cluster_invoke(req, my_address) {
                 return MongoCtrl.add_mongo_monitor_program();
             }
         })
-        .then(() => Dispatcher.instance().publish_fe_notifications({
-                secret: req.rpc_params.secret,
-                result: true
-            }, 'add_memeber_to_cluster') //send notification API on newly added member
-        )
         .catch(err => {
             console.error(`Caught err in add_member_to_cluster_invoke ${err}`);
-            return Dispatcher.instance().publish_fe_notifications({
-                secret: req.rpc_params.secret,
-                result: false,
-                reason: err.toString()
-            }, 'add_memeber_to_cluster');
         })
         .then(() => {
             // do nothing. 

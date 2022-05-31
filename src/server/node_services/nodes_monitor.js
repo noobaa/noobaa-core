@@ -404,9 +404,6 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 this._dispatch_node_event(host_item, 'deleted',
                     `Node ${this._item_hostname(host_item)} in pool ${this._item_pool_name(host_item)} is successfully deleted`);
-                Dispatcher.instance().publish_fe_notifications({
-                    name: this._item_hostname(host_item) + '#' + host_item.node.host_sequence,
-                }, 'remove_host'); //send notification API on deleted member
                 if (!host_item.online) {
                     Dispatcher.instance().alert('INFO',
                         system_store.data.systems[0]._id,

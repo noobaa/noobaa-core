@@ -7,7 +7,6 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const AlertsLogStore = require('./alerts_log_store').AlertsLogStore;
-const server_rpc = require('../server_rpc');
 const nb_native = require('../../util/nb_native');
 const alerts_rules = require('./alerts_rules');
 const ActivityLogStore = require('../analytic_services/activity_log_store').ActivityLogStore;
@@ -126,7 +125,6 @@ class Dispatcher {
                             this.send_syslog({
                                 description: sensitive_alert
                             });
-                            return this.publish_fe_notifications({ ids: [res._id] }, 'alert');
                         });
                 }
                 dbg.log3('Suppressed', sensitive_alert);
@@ -139,8 +137,7 @@ class Dispatcher {
 
     update_alerts_state(req) {
         const { query, state } = req.rpc_params;
-        return AlertsLogStore.instance().update_alerts_state(req.system._id, query, state)
-            .then(() => this.publish_fe_notifications(req.rpc_params.query, 'alert'));
+        return AlertsLogStore.instance().update_alerts_state(req.system._id, query, state);
     }
 
     read_alerts(req) {
@@ -154,16 +151,6 @@ class Dispatcher {
                     time: alert_item.time.getTime(),
                     read: alert_item.read
                 };
-            }));
-    }
-
-    publish_fe_notifications(params, api) {
-        return P.resolve()
-            .then(ip => server_rpc.client.redirector.publish_fe_notifications({
-                request_params: params,
-                api_name: api
-            }, {
-                address: server_rpc.get_base_address(ip)
             }));
     }
 

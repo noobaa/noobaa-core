@@ -682,88 +682,79 @@ class NamespaceFS {
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
         await this._load_bucket(params, fs_account_config);
 
-        if (typeof nb_native().fs.temp_file === 'function') {
-          const file_path = this._get_file_path(params);
-          const open_mode = 'wt';
-          // Uploading to a temp file then we will rename it.
-          let fs_xattr = to_fs_xattr(params.xattr);
-          // dbg.log0('NamespaceFS.upload_object:', this.upload_path, '->', file_path);
-          try {
-              if (params.copy_source) {
-                  const upload_id = uuidv4();
-                  const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
-                  const source_file_path = path.join(this.bucket_path, params.copy_source.key);
-                  await this._check_path_in_bucket_boundaries(fs_account_config, file_path);
-                  await this._make_path_dirs(upload_path, fs_account_config);
-                  await this._check_path_in_bucket_boundaries(fs_account_config, source_file_path);
-                  await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
-                  try {
-                      const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr);
-                      if (same_inode) return same_inode;
-                      // Doing a hard link.
-                      await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
-                  } catch (e) {
-                      dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                      fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
-                  }
-              } else {
-                  // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
-                  // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                  fs_xattr = await buffers_pool_sem.surround_count(
-                      config.NSFS_BUF_SIZE,
-                      async () => this._upload_stream(params, this.bucket_path, file_path, open_mode, fs_account_config,
-                                                      object_sdk.rpc_client, fs_xattr)
-                  );
-              }
-              // TODO use file xattr to store md5_b64 xattr, etc.
-              const stat = await nb_native().fs.stat(fs_account_config, file_path);
-              return { etag: this._get_etag(stat, fs_xattr) };
-          } catch (err) {
-              this.run_update_issues_report(object_sdk, err);
-             throw this._translate_object_error_codes(err);
-          }
-      } else {
+        const can_use_temp_file = Boolean(fs_account_config.backend === 'GPFS' && nb_native().fs.gpfs);
         const file_path = this._get_file_path(params);
-        const open_mode = 'w';
-        // Uploading to a temp file then we will rename it. 
-        const upload_id = uuidv4();
-        const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
         let fs_xattr = to_fs_xattr(params.xattr);
-        // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
         try {
+            const upload_id = uuidv4();
+            const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
             await this._check_path_in_bucket_boundaries(fs_account_config, file_path);
-            await this._make_path_dirs(upload_path, fs_account_config);
-            if (params.copy_source) {
-                const source_file_path = path.join(this.bucket_path, params.copy_source.key);
-                await this._check_path_in_bucket_boundaries(fs_account_config, source_file_path);
-                await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
-                try {
-                    const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr);
-                    if (same_inode) return same_inode;
-                    // Doing a hard link.
-                    await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
-                } catch (e) {
-                    dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                    fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
+            if (can_use_temp_file) {
+                const open_mode = 'wt';
+                // dbg.log0('NamespaceFS.upload_object:', this.upload_path, '->', file_path);
+                if (params.copy_source) {
+                    const source_file_path = path.join(this.bucket_path, params.copy_source.key);
+                    await this._make_path_dirs(upload_path, fs_account_config);
+                    await this._check_path_in_bucket_boundaries(fs_account_config, source_file_path);
+                    await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
+                    try {
+                        const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr);
+                        if (same_inode) return same_inode;
+                        // Doing a hard link.
+                        await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
+                    } catch (e) {
+                        dbg.warn('NamespaceFS: COPY using link failed with:', e);
+                        fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
+                    }
+                } else {
+                    // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
+                    // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
+                    fs_xattr = await buffers_pool_sem.surround_count(
+                        config.NSFS_BUF_SIZE,
+                        async () => this._upload_stream(params, this.bucket_path, file_path, open_mode, fs_account_config,
+                                                        object_sdk.rpc_client, fs_xattr)
+                    );
+                    // TODO use file xattr to store md5_b64 xattr, etc.
+                    const stat = await nb_native().fs.stat(fs_account_config, file_path);
+                    return { etag: this._get_etag(stat, fs_xattr) };
                 }
             } else {
-                // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
-                // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                fs_xattr = await buffers_pool_sem.surround_count(
-                    config.NSFS_BUF_SIZE,
-                    async () => this._upload_stream(params, upload_path, file_path, open_mode, fs_account_config, object_sdk.rpc_client, fs_xattr)
-                );
+                const open_mode = 'w';
+                // Uploading to a temp file then we will rename it.
+                // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
+                await this._make_path_dirs(upload_path, fs_account_config);
+                if (params.copy_source) {
+                    const source_file_path = path.join(this.bucket_path, params.copy_source.key);
+                    await this._check_path_in_bucket_boundaries(fs_account_config, source_file_path);
+                    await this._fail_if_archived_or_sparse_file(fs_account_config, source_file_path);
+                    try {
+                        const same_inode = await this._is_same_inode(fs_account_config, source_file_path, file_path, fs_xattr);
+                        if (same_inode) return same_inode;
+                        // Doing a hard link.
+                        await nb_native().fs.link(fs_account_config, source_file_path, upload_path);
+                    } catch (e) {
+                        dbg.warn('NamespaceFS: COPY using link failed with:', e);
+                        fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_account_config, fs_xattr);
+                    }
+                } else {
+                    // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
+                    // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
+                    fs_xattr = await buffers_pool_sem.surround_count(
+                        config.NSFS_BUF_SIZE,
+                        async () => this._upload_stream(params, upload_path, file_path, open_mode, fs_account_config, object_sdk.rpc_client,
+                                                        fs_xattr)
+                    );
+                }
+                // TODO use file xattr to store md5_b64 xattr, etc.
+                const stat = await nb_native().fs.stat(fs_account_config, upload_path);
+                await this._move_to_dest(fs_account_config, upload_path, file_path);
+                if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
+                return { etag: this._get_etag(stat, fs_xattr) };
             }
-            // TODO use file xattr to store md5_b64 xattr, etc.
-            const stat = await nb_native().fs.stat(fs_account_config, upload_path);
-            await this._move_to_dest(fs_account_config, upload_path, file_path);
-            if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_account_config, path.dirname(upload_path));
-            return { etag: this._get_etag(stat, fs_xattr) };
         } catch (err) {
-            this.run_update_issues_report(object_sdk, err);
-            throw this._translate_object_error_codes(err);
+                this.run_update_issues_report(object_sdk, err);
+                throw this._translate_object_error_codes(err);
         }
-      }
     }
 
     async _move_to_dest(fs_account_config, source_path, dest_path) {
@@ -884,7 +875,16 @@ class NamespaceFS {
         let target_file;
         const { source_stream, md5_b64, key, bucket, upload_id } = params;
         try {
-            target_file = await nb_native().fs.open(fs_account_config, upload_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+            if (open_mode === 'wt') {
+                const dir_path = path.dirname(file_path);
+                dbg.log1('NamespaceFS.upload_stream:', file_path, dir_path, upload_path);
+                if (dir_path !== upload_path) {
+                    await this._make_path_dirs(file_path, fs_account_config);
+                }
+                target_file = await nb_native().fs.open(fs_account_config, dir_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+            } else {
+                target_file = await nb_native().fs.open(fs_account_config, upload_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+            }
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
             const chunk_fs = new ChunkFS({
                 target_file,
@@ -906,6 +906,10 @@ class NamespaceFS {
                 await target_file.setxattr(fs_account_config, fs_xattr);
             }
             if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_account_config);
+            dbg.log1('NamespaceFS.upload_stream:', open_mode, file_path, upload_path);
+            if (open_mode === 'wt') {
+                await target_file.linkfileat(fs_account_config, file_path);
+            }
             // Used for etag
             return fs_xattr;
         } catch (error) {
@@ -913,11 +917,7 @@ class NamespaceFS {
             throw error;
         } finally {
             try {
-            dbg.log0('NamespaceFS.upload_stream:', open_mode, file_path, upload_path);
-            if (typeof nb_native().fs.temp_file === 'function' && open_mode == 'wt') {
-                await target_file.linkfileat(fs_account_config, upload_path, file_path);
-            }
-            if (target_file) await target_file.close(fs_account_config);
+                if (target_file) await target_file.close(fs_account_config);
             } catch (err) {
                 dbg.warn('NamespaceFS: _upload_stream file close error', err);
             }
@@ -962,13 +962,16 @@ class NamespaceFS {
 
     async upload_multipart(params, object_sdk) {
         try {
+            // We can use 'wt' for open mode like we do for upload_object() when
+            // we figure out how to create multipart upload using temp files.
+            const open_mode = 'w';
             const fs_account_config = this.set_cur_fs_account_config(object_sdk);
             await this._load_multipart(params, fs_account_config);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
             const fs_xattr = await buffers_pool_sem.surround_count(
                 config.NSFS_BUF_SIZE,
-                async () => this._upload_stream(params, upload_path, fs_account_config, object_sdk.rpc_client)
+                async () => this._upload_stream(params, upload_path, '', open_mode, fs_account_config, object_sdk.rpc_client)
             );
             const stat = await nb_native().fs.stat(fs_account_config, upload_path);
             return { etag: this._get_etag(stat, fs_xattr) };

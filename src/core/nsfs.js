@@ -43,6 +43,7 @@ Options:
     --https_port <port>    (default 6443)           Set the S3 endpoint listening HTTPS port to serve.
     --uid <uid>            (default process uid)    Send requests to the Filesystem with uid.
     --gid <gid>            (default process gid)    Send requests to the Filesystem with gid.
+    --backend <fs>         (default "")             Set default backend fs "".
     --debug <level>        (default 0)              Increase debug level
 `;
 
@@ -75,13 +76,14 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
         const http_port = Number(argv.http_port) || 6001;
         const https_port = Number(argv.https_port) || 6443;
+        const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const fs_root = argv._[0];
         if (!fs_root) return print_usage();
 
         let fs_config = {
             uid: Number(argv.uid) || process.getuid(),
             gid: Number(argv.gid) || process.getgid(),
-            backend: '',
+            backend,
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
         };
 
@@ -91,7 +93,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
 
         console.warn(WARNINGS);
-        console.log('nsfs: setting up ...', { fs_root, http_port, https_port });
+        console.log('nsfs: setting up ...', { fs_root, http_port, https_port, backend });
 
         const endpoint = require('../endpoint/endpoint');
         await endpoint.start_endpoint({
@@ -124,6 +126,7 @@ function init_request_sdk(req, res, fs_root, fs_config) {
         const existing_ns = namespaces[bucket_name];
         if (existing_ns) return existing_ns;
         const ns_fs = new NamespaceFS({
+            fs_backend: fs_config.backend,
             bucket_path: fs_root + '/' + bucket_name,
             bucket_id: '000000000000000000000000',
             namespace_resource_id: undefined

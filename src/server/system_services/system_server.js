@@ -88,7 +88,7 @@ async function _init() {
             }
 
         } catch (err) {
-            dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+            dbg.error('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
         }
     }
 
@@ -713,12 +713,6 @@ function delete_system(req) {
         remove: {
             systems: [req.system._id]
         }
-    });
-}
-
-function log_frontend_stack_trace(req) {
-    return P.fcall(() => {
-        dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
     });
 }
 
@@ -1647,7 +1641,6 @@ exports.list_systems_int = list_systems_int;
 exports.add_role = add_role;
 exports.remove_role = remove_role;
 
-exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;
 

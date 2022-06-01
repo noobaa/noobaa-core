@@ -369,6 +369,9 @@ config.on_premise = {
     nva_part: "NVA_Upgrade.tgz"
 };
 
+// the threshold in ms for logging long running queries
+config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 10) || 5000;
+
 /*
   Central Stats Collection & Diagnostics
 */

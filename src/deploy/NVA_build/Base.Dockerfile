@@ -21,27 +21,14 @@ COPY ./binding.gyp .
 COPY ./src/native ./src/native/
 RUN npm run build:native
 
-######################################################################
-# Layers:
-#   Title: npm install the frontend
-#   Size: ~ 116 MB
-#   Cache: Rebuild when there is new package.json or package-lock.json 
-######################################################################
-COPY ./frontend/package*.json ./frontend/
-RUN cd frontend && \
-    npm install
-
 ##############################################################
 # Layers:
-#   Title: Copying the code and Building the frontend
+#   Title: Copying the code
 #   Size: ~ 131 MB
 #   Cache: Rebuild when changing any file which is copied
 ##############################################################
-COPY ./frontend/ ./frontend/
 COPY ./images/ ./images/
 COPY ./src/rpc/ ./src/rpc/
 COPY ./src/api/ ./src/api/
 COPY ./src/util/ ./src/util/
 COPY ./config.js ./
-RUN cd frontend && \
-    npm run build

@@ -94,7 +94,7 @@ run-single-test-postgres: tester
 	@echo "\033[1;34mCreating docker network\033[0m"
 	$(CONTAINER_ENGINE) network create noobaa-net || true
 	@echo "\033[1;34mRunning Postgres container\033[0m"
-	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" $(POSTGRES_IMAGE)
+	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" --env "LC_COLLATE=C" $(POSTGRES_IMAGE)
 	@echo "\033[1;34mRunning tests\033[0m"
 	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "PG_ENABLE_QUERY_LOG=true" --env "PG_EXPLAIN_QUERIES=true" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
 	@echo "\033[1;34mStopping/removing test container\033[0m"
@@ -111,7 +111,7 @@ test-postgres: tester
 	@echo "\033[1;34mCreating docker network\033[0m"
 	$(CONTAINER_ENGINE) network create noobaa-net || true
 	@echo "\033[1;34mRunning Postgres container\033[0m"
-	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" $(POSTGRES_IMAGE)
+	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" --env "LC_COLLATE=C" $(POSTGRES_IMAGE) 
 	@echo "\033[1;34mRunning tests\033[0m"
 	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" $(TESTER_TAG)
 	@echo "\033[1;34mStopping/removing test container\033[0m"
@@ -134,17 +134,6 @@ noobaa: base
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "\033[1;32mNooBaa done.\033[0m"
 .PHONY: noobaa
-
-verify-fe-lib: builder
-	@echo "\033[1;Verifying Frontend Library $(CONTAINER_ENGINE) build.\033[0m"
-	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/FrontendLib.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t frontend-lib . $(REDIRECT_STDOUT)
-	@echo "\033[1;32mFrontend Library build verified.\033[0m"
-.PHONY: verify-fe-lib
-
-fe-test: base
-	@echo "\033[1;34mRunning frontend tests.\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) noobaa-base npm run test --prefix ./frontend
-.PHONY: fe-test
 
 # This rule builds a container image that includes developer tools
 # which allows to build and debug the project.

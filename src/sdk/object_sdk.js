@@ -27,6 +27,7 @@ const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
 const config = require('../../config');
 const path = require('path');
+const { AbortController } = require('node-abort-controller');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -64,6 +65,56 @@ class ObjectSDK {
             this.bucketspace_fs = new BucketSpaceFS({ fs_root: process.env.BUCKETSPACE_FS });
         }
         this.requesting_account = undefined;
+        this.abort_controller = new AbortController();
+    }
+
+    /**
+     * setup_abort_controller adds event handlers to the http request and response,
+     * in order to handle aborting requests gracefully. The `abort_controller` member will
+     * be used to signal async flows that abort was detected.
+     * @see {@link https://nodejs.org/docs/latest/api/globals.html#class-abortcontroller}
+     * @param {import('http').IncomingMessage} req 
+     * @param {import('http').ServerResponse} res 
+     */
+    setup_abort_controller(req, res) {
+        res.once('error', err => {
+            dbg.log0('response error:', err, req.url);
+            this.abort_controller.abort(err);
+        });
+
+        req.once('error', err => {
+            dbg.log0('request error:', err, req.url);
+            this.abort_controller.abort(err);
+        });
+
+        // TODO: aborted event is being deprecated since nodejs 16
+        // https://nodejs.org/dist/latest-v16.x/docs/api/http.html#event-aborted recommends on listening to close event
+        // req.once('close', () => {
+        //     dbg.log0('request aborted1', req.url);
+
+        //     if (req.destroyed) {
+        //         dbg.log0('request aborted', req.url);
+        //         this.abort_controller.abort(new Error('request aborted ' + req.url));
+        //     }
+        // });
+
+        req.once('aborted', () => {
+            dbg.log0('request aborted', req.url);
+            this.abort_controller.abort(new Error('request aborted ' + req.url));
+        });
+    }
+
+    throw_if_aborted() {
+        if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+    }
+
+    add_abort_handler(handler) {
+        const s = this.abort_controller.signal;
+        if (s.aborted) {
+            setImmediate(handler);
+        } else {
+            s.addEventListener('abort', handler, { once: true });
+        }
     }
 
     /**
@@ -93,7 +144,7 @@ class ObjectSDK {
             const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
             return bucket.namespace ? bucket.namespace.caching : undefined;
         } catch (error) {
-            dbg.log0('read_bucket_sdk_caching_info error', error);
+            dbg.error('read_bucket_sdk_caching_info error', error);
         }
     }
 

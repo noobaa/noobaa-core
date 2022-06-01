@@ -27,7 +27,6 @@ RUN tar \
     config.js \
     .nvmrc \
     src/ \
-    frontend/dist/ \
     build/Release/ \
     node_modules/ 
 

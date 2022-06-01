@@ -540,13 +540,15 @@ class NamespaceFS {
     }
     */
 
+    // eslint-disable-next-line max-statements
     async read_object_stream(params, object_sdk, res) {
         let file;
         let buffer_pool_cleanup = null;
         const fs_account_config = this.set_cur_fs_account_config(object_sdk);
+        let file_path;
         try {
             await this._load_bucket(params, fs_account_config);
-            const file_path = this._get_file_path(params);
+            file_path = this._get_file_path(params);
             await this._check_path_in_bucket_boundaries(fs_account_config, file_path);
             await this._fail_if_archived_or_sparse_file(fs_account_config, file_path);
             file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
@@ -563,13 +565,17 @@ class NamespaceFS {
 
             let count = 1;
             for (let pos = start; pos < end;) {
+                object_sdk.throw_if_aborted();
 
                 // allocate or reuse buffer
-                const remain_size = Math.max(0, end - pos);
+                // TODO buffers_pool and the underlying semaphore should support abort signal
+                // to avoid sleeping inside the semaphore until the timeout while the request is already aborted.
                 const { buffer, callback } = await buffers_pool.get_buffer();
-                buffer_pool_cleanup = callback;
+                buffer_pool_cleanup = callback; // must be called ***IMMEDIATELY*** after get_buffer
+                object_sdk.throw_if_aborted();
 
                 // read from file
+                const remain_size = Math.max(0, end - pos);
                 const read_size = Math.min(buffer.length, remain_size);
 
                 // Update the read stats               
@@ -588,6 +594,7 @@ class NamespaceFS {
                     callback();
                     break;
                 }
+                object_sdk.throw_if_aborted();
                 const data = buffer.slice(0, bytesRead);
 
                 // update stats
@@ -602,29 +609,36 @@ class NamespaceFS {
                 if (drain_promise) {
                     await drain_promise;
                     drain_promise = null;
+                    object_sdk.throw_if_aborted();
                 }
 
                 // write the data out to response
                 buffer_pool_cleanup = null; // cleanup is now in the socket responsibility
                 const write_ok = res.write(data, null, callback);
                 if (!write_ok) {
-                    drain_promise = stream_utils.wait_drain(res);
+                    drain_promise = stream_utils.wait_drain(res, { signal: object_sdk.abort_controller.signal });
+                    drain_promise.catch(() => undefined); // this avoids UnhandledPromiseRejection
                 }
             }
 
             await file.close(fs_account_config);
             file = null;
+            object_sdk.throw_if_aborted();
+
             // wait for the last drain if pending.
             if (drain_promise) {
                 await drain_promise;
                 drain_promise = null;
+                object_sdk.throw_if_aborted();
             }
 
             // end the stream
             res.end();
-            await stream_utils.wait_finished(res);
 
-            dbg.log0('NamespaceFS: read_object_stream completed', {
+            await stream_utils.wait_finished(res, { signal: object_sdk.abort_controller.signal });
+            object_sdk.throw_if_aborted();
+
+            dbg.log0('NamespaceFS: read_object_stream completed file', file_path, {
                 num_bytes,
                 num_buffers,
                 avg_buffer: num_bytes / num_buffers,
@@ -635,17 +649,24 @@ class NamespaceFS {
             return null;
 
         } catch (err) {
+            dbg.log0('NamespaceFS: read_object_stream error file', file_path, err);
             throw this._translate_object_error_codes(err);
 
         } finally {
             try {
-                if (file) await file.close(fs_account_config);
+                if (file) {
+                    dbg.log0('NamespaceFS: read_object_stream finally closing file', file_path);
+                    await file.close(fs_account_config);
+                }
             } catch (err) {
                 dbg.warn('NamespaceFS: read_object_stream file close error', err);
             }
             try {
                 // release buffer back to pool if needed
-                if (buffer_pool_cleanup) buffer_pool_cleanup();
+                if (buffer_pool_cleanup) {
+                    dbg.log0('NamespaceFS: read_object_stream finally buffer_pool_cleanup', file_path);
+                    buffer_pool_cleanup();
+                }
             } catch (err) {
                 dbg.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
             }

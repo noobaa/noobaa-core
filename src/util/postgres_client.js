@@ -25,6 +25,7 @@ const mongo_functions = require('./mongo_functions');
 const { RpcError } = require('../rpc');
 const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
+const config = require('../../config');
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
@@ -181,7 +182,7 @@ let query_counter = 0;
 async function log_query(pg_client, query, tag, millitook, should_explain) {
     const log_obj = {
         tag,
-        took: millitook,
+        took: millitook.toFixed(1) + 'ms',
         query,
         clients_pool: { total: pg_client.totalCount, waiting: pg_client.waitingCount, idle: pg_client.idleCount },
         stack: (new Error()).stack.split('\n').slice(1),
@@ -198,7 +199,11 @@ async function log_query(pg_client, query, tag, millitook, should_explain) {
         }
     }
 
-    dbg.log0('QUERY_LOG:', JSON.stringify(log_obj));
+    if (millitook > config.LONG_DB_QUERY_THRESHOLD) {
+        dbg.warn(`QUERY_LOG: LONG QUERY (OVER ${config.LONG_DB_QUERY_THRESHOLD} ms `, JSON.stringify(log_obj));
+    } else {
+        dbg.log0('QUERY_LOG:', JSON.stringify(log_obj));
+    }
 }
 
 function convert_sort(sort) {
@@ -239,8 +244,9 @@ async function _do_query(pg_client, q, transaction_counter) {
         // dbg.log0(`postgres_client: ${tag}: ${q.text}`, util.inspect(q.values, { depth: 6 }));
         const millistart = time_utils.millistamp();
         const res = await pg_client.query(q);
-        const millitook = time_utils.millitook(millistart);
-        if (process.env.PG_ENABLE_QUERY_LOG === 'true') {
+        const milliend = time_utils.millistamp();
+        const millitook = milliend - millistart;
+        if (process.env.PG_ENABLE_QUERY_LOG === 'true' || millitook > config.LONG_DB_QUERY_THRESHOLD) {
             // noticed that some failures in explain are invalidating the transaction. 
             // myabe did something wrong but for now don't try to EXPLAIN the query when in transaction. 
             await log_query(pg_client, q, tag, millitook, /*should_explain*/ transaction_counter === 0);
@@ -346,6 +352,7 @@ class PgTransaction {
 
     release() {
         if (this.pg_client) {
+            this.pg_client.removeAllListeners('error');
             this.pg_client.release();
             this.pg_client = null;
         }
@@ -762,7 +769,7 @@ class PostgresTable {
          *      https://github.com/thomas4019/mongo-query-to-postgres-jsonb/blob/e0bb65eafc39458da30e4fc3c5f47ffb5d509fcc/test/filter.js#L229
          */
         function calculateOptionsAndArrayFields(q) {
-            const ops = [ '$all' ];
+            const ops = ['$all'];
             const l = [];
             for (const p of Object.keys(q)) {
                 for (const o of ops) {
@@ -1282,7 +1289,7 @@ class PostgresClient extends EventEmitter {
         try {
             pg_client = new Client({ ...this.new_pool_params, database: undefined });
             await pg_client.connect();
-            await pg_client.query(`CREATE DATABASE ${this.new_pool_params.database}`);
+            await pg_client.query(`CREATE DATABASE ${this.new_pool_params.database} WITH LC_COLLATE = 'C' TEMPLATE template0`);
         } catch (err) {
             if (err.code === '3D000') return;
             throw err;

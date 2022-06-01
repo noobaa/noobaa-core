@@ -32,41 +32,6 @@ module.exports = {
             }
         },
 
-        register_for_alerts: {
-            method: 'POST',
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        unregister_from_alerts: {
-            method: 'POST',
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        publish_fe_notifications: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['api_name'],
-                properties: {
-                    request_params: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    },
-                    api_name: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: false
-            }
-        }
-
     },
 
     definitions: {

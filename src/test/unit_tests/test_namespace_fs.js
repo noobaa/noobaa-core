@@ -16,6 +16,7 @@ const P = require('../../util/promise');
 const s3_utils = require('../../endpoint/s3/s3_utils');
 const config = require('../../../config');
 const fs = require('fs');
+const { AbortController } = require('node-abort-controller');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -31,6 +32,21 @@ const DEFAULT_FS_CONFIG = {
     warn_threshold_ms: 100,
 };
 
+function make_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            nsfs_account_config: {
+                uid: process.getuid(),
+                gid: process.getgid(),
+            }
+        },
+        abort_controller: new AbortController(),
+        throw_if_aborted() {
+            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        }
+    };
+}
+
 mocha.describe('namespace_fs', function() {
 
     const src_bkt = 'src';
@@ -42,8 +58,7 @@ mocha.describe('namespace_fs', function() {
     if (process.platform === MAC_PLATFORM) {
         tmp_fs_path = '/private/' + tmp_fs_path;
     }
-    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
-
+    const dummy_object_sdk = make_dummy_object_sdk();
     const ns_src_bucket_path = `./${src_bkt}`;
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
@@ -425,7 +440,7 @@ mocha.describe('nsfs_symlinks_validations', function() {
     const expected_dirs = ['d1', 'd2', 'd3/d3d1'];
     const expected_files = ['f1', 'f2', 'f3', 'd2/f4', 'd2/f5', 'd3/d3d1/f6'];
     const expected_links = [{ t: 'f1', n: 'lf1' }, { t: '/etc', n: 'ld2' }];
-    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
+    const dummy_object_sdk = make_dummy_object_sdk();
 
     const ns = new NamespaceFS({ bucket_path: bucket_full_path, bucket_id: '1', namespace_resource_id: undefined });
 
@@ -560,7 +575,7 @@ mocha.describe('namespace_fs copy object', function() {
     if (process.platform === MAC_PLATFORM) {
         tmp_fs_path = '/private/' + tmp_fs_path;
     }
-    const dummy_object_sdk = { requesting_account: { nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } } };
+    const dummy_object_sdk = make_dummy_object_sdk();
 
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 

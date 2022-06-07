@@ -9,9 +9,9 @@ const config = require('../../../config');
 const P = require('../../util/promise');
 const Semaphore = require('../../util/semaphore');
 const replication_store = require('../system_services/replication_store').instance();
-const auth_server = require('../common_services/auth_server');
 const cloud_utils = require('../../util/cloud_utils');
 const prom_reporting = require('../analytic_services/prometheus_reporting');
+const replication_utils = require('../utils/replication_utils');
 
 
 const PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS = {
@@ -79,7 +79,7 @@ class ReplicationScanner {
             const { replication_id, rule } = replication_id_and_rule;
             const status = { last_cycle_start: Date.now() };
 
-            const { src_bucket, dst_bucket } = this.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
+            const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
             if (!src_bucket || !dst_bucket) {
                 dbg.error('replication_scanner: can not find src_bucket or dst_bucket object', src_bucket, dst_bucket);
                 return;
@@ -95,8 +95,9 @@ class ReplicationScanner {
             let move_res;
             const keys_to_copy = Object.keys(keys_sizes_map_to_copy);
             if (keys_to_copy.length) {
-                const copy_type = this._get_copy_type();
-                move_res = await this.move_objects(copy_type, src_bucket.name, dst_bucket.name, keys_to_copy);
+                const copy_type = replication_utils.get_copy_type();
+                move_res = await replication_utils.move_objects(this._scanner_sem, this.client, copy_type, src_bucket.name, dst_bucket.name,
+                    keys_to_copy);
                 console.log('replication_scanner: scan move_res: ', move_res);
             }
 
@@ -169,37 +170,6 @@ class ReplicationScanner {
         };
     }
 
-    async move_objects(copy_type, src_bucket_name, dst_bucket_name, keys) {
-        try {
-            const res = await this._scanner_sem.surround_count(keys.length,
-                async () => {
-                    try {
-                        const res1 = await this.client.replication.move_objects_by_type({
-                            copy_type,
-                            src_bucket_name,
-                            dst_bucket_name,
-                            keys
-                        }, {
-                            auth_token: auth_server.make_auth_token({
-                                system_id: system_store.data.systems[0]._id,
-                                account_id: system_store.data.systems[0].owner._id,
-                                role: 'admin'
-                            })
-                        });
-                        return res1;
-                    } catch (err) {
-                        // no need to do retries, eventually the object will be uploaded
-                        // TODO: serious error codes with metrics (auth_failed, storage not exist etc)
-                        dbg.error('replication_server move_objects: error: ', err, src_bucket_name, dst_bucket_name, keys);
-                    }
-                });
-            return res;
-        } catch (err) {
-            dbg.error('replication_server move_objects: semaphore error:', err, err.stack);
-            // no need to handle semaphore errors, eventually the object will be uploaded
-        }
-    }
-
     async list_objects(bucket_name, prefix, continuation_token) {
         try {
             dbg.log1('replication_server list_objects: params:', bucket_name, prefix, continuation_token);
@@ -216,48 +186,6 @@ class ReplicationScanner {
             dbg.error('replication_server.list_objects: error:', err);
             throw err;
         }
-    }
-
-    async get_object_md(bucket_name, key) {
-        try {
-            dbg.log1('replication_server get_object_md: params:', bucket_name.unwrap(), key);
-            const head = await this.noobaa_connection.headObject({
-                Bucket: bucket_name.unwrap(),
-                Key: key,
-            }).promise();
-
-            dbg.log1('replication_server.get_object_md: finished successfully', head, head.Metadata);
-            return head.Metadata;
-        } catch (err) {
-            dbg.error('replication_server.get_object_md: error:', err);
-            throw err;
-        }
-    }
-
-    async check_data_or_md_changed(cur_src_key, src_bucket_name, dst_bucket_name, src_content, dst_content) {
-        // when object in dst bucket is more recent - we don't want to override it so we do not
-        // execute replication of object
-        const src_last_modified_recent = src_content.LastModified >= dst_content.LastModified;
-        if (!src_last_modified_recent) return false;
-
-        // data change - replicate the object
-        const data_change = src_content.Size !== dst_content.Size || src_content.ETag !== dst_content.ETag;
-        if (data_change) return true;
-
-        // md change - head objects and compare metadata, if metadata is different - copy object
-        const md_src = await this.get_object_md(src_bucket_name, cur_src_key);
-        const md_dst = await this.get_object_md(dst_bucket_name, cur_src_key);
-        dbg.log1('replication_server.check_data_or_md_changed md res:', md_src, md_dst);
-        if (!_.isEqual(md_src, md_dst)) return true;
-
-        // data and md is equal which means something else changed in src
-        // nothing to do 
-        return false;
-    }
-
-    _get_copy_type() {
-        // TODO: get copy type by src and dst buckets (for server side/other optimization)
-        return 'MIX';
     }
 
     // get_keys_diff finds the object keys that src bucket contains but dst bucket doesn't
@@ -301,8 +229,10 @@ class ReplicationScanner {
             const dst_content = dst_map[cur_src_key];
             dbg.log1('replication_server.get_keys_diff, case3: src_content', src_content, 'dst_content:', dst_content);
             if (dst_content) {
-                const should_copy = await this.check_data_or_md_changed(cur_src_key, src_bucket_name, dst_bucket_name,
-                    src_content, dst_content);
+                const src_md_info = await replication_utils.get_object_md(this.noobaa_connection, src_bucket_name, cur_src_key);
+                const dst_md_info = await replication_utils.get_object_md(this.noobaa_connection, dst_bucket_name, cur_src_key);
+
+                const should_copy = replication_utils.check_data_or_md_changed(src_md_info, dst_md_info);
                 if (should_copy) to_replicate_map[cur_src_key] = src_content.Size;
             } else {
                 to_replicate_map[cur_src_key] = src_content.Size;
@@ -330,20 +260,6 @@ class ReplicationScanner {
         };
         dbg.log0('_get_rule_status: ', status);
         return status;
-    }
-
-    find_src_and_dst_buckets(dst_bucket_id, replication_id) {
-        const ans = _.reduce(system_store.data.buckets, (acc, cur_bucket) => {
-            dbg.log1('find_src_and_dst_buckets1: ', cur_bucket._id, dst_bucket_id, cur_bucket.replication_policy_id, replication_id);
-            if (cur_bucket._id.toString() === dst_bucket_id.toString()) acc.dst_bucket = cur_bucket;
-            if (cur_bucket.replication_policy_id &&
-                (cur_bucket.replication_policy_id.toString() === replication_id.toString())) {
-                acc.src_bucket = cur_bucket;
-            }
-            return acc;
-        }, { src_bucket: undefined, dst_bucket: undefined });
-
-        return ans;
     }
 
     update_replication_prom_report(bucket_name, replication_policy_id, replication_status) {

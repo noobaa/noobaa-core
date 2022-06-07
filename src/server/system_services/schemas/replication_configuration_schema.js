@@ -41,26 +41,38 @@ module.exports = {
                 }
             },
         },
-        aws_log_replication_info: {
+        log_replication_info: {
             type: 'object',
-            required: ['logs_location'],
             properties: {
-                logs_location: {
+                status: {
                     type: 'object',
-                    required: ['logs_bucket'],
+                    required: ['last_cycle_end'],
                     properties: {
-                        logs_bucket: { type: 'string' },
-                        prefix: { type: 'string' }
+                        last_cycle_end: { idate: true }
                     }
                 },
-                log_marker: {
+                aws_log_replication_info: {
                     type: 'object',
-                    required: ['continuation_token'],
+                    required: ['logs_location'],
                     properties: {
-                        continuation_token: { type: 'string' }
+                        logs_location: {
+                            type: 'object',
+                            required: ['logs_bucket'],
+                            properties: {
+                                logs_bucket: { type: 'string' },
+                                prefix: { type: 'string' }
+                            }
+                        },
+                        log_marker: {
+                            type: 'object',
+                            required: ['continuation_token'],
+                            properties: {
+                                continuation_token: { type: 'string' }
+                            }
+                        }
                     }
                 }
-            }
+            },
         },
     }
 };

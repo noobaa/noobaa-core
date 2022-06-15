@@ -62,10 +62,10 @@ WARNING:
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(ARGUMENTS.trimLeft());
-    console.warn(OPTIONS.trimLeft());
-    console.warn(WARNINGS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(OPTIONS.trimStart());
+    console.warn(WARNINGS.trimStart());
     process.exit(1);
 }
 
@@ -103,6 +103,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         await endpoint.start_endpoint({
             http_port,
             https_port,
+            https_port_sts: -1,
+            metrics_port: -1,
             init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config, versioning),
         });
 

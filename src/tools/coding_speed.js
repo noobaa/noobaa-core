@@ -82,18 +82,20 @@ function main() {
                 parity_type: config.CHUNK_CODER_EC_PARITY_TYPE,
             } : null)
         },
-        cipher_key_b64
+        cipher_key_b64,
     });
 
     const decoder = new ChunkCoder({
         watermark: 20,
         concurrency: 20,
         coder: 'dec',
-        cipher_key_b64
+        chunk_coder_config: undefined,
+        cipher_key_b64,
     });
 
     const eraser = new ChunkEraser({
         watermark: 50,
+        erasures: undefined,
         save_data: 'original_data',
         verbose: argv.verbose,
     });
@@ -116,7 +118,9 @@ function main() {
         }
     });
 
-    let transforms = [input,
+    /** @type {stream.Stream[]} */
+    let transforms = [
+        input,
         splitter,
     ];
     if (argv.encode) {

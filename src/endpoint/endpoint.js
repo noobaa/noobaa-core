@@ -70,6 +70,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  http_port?: number;
  *  https_port?: number;
  *  https_port_sts?: number;
+ *  metrics_port?: number;
  *  init_request_sdk?: EndpointHandler;
  * }} EndpointOptions
  */
@@ -82,6 +83,7 @@ async function start_endpoint(options = {}) {
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
         const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
+        const metrics_port = options.metrics_port || Number(process.env.EP_METRICS_SERVER_PORT) || 7004;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
@@ -143,17 +145,25 @@ async function start_endpoint(options = {}) {
         const https_server = https.createServer(ssl_options, endpoint_request_handler);
         const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
 
-        dbg.log0('Starting HTTP', http_port);
-        await listen_http(http_port, http_server);
-        dbg.log0('Starting HTTPS', https_port);
-        await listen_http(https_port, https_server);
+        if (http_port > 0) {
+            dbg.log0('Starting HTTP', http_port);
+            await listen_http(http_port, http_server);
+        }
+        if (https_port > 0) {
+            dbg.log0('Starting HTTPS', https_port);
+            await listen_http(https_port, https_server);
+        }
         dbg.log0('S3 server started successfully');
 
-        dbg.log0('Starting HTTPS STS', https_port_sts);
-        await listen_http(https_port_sts, https_server_sts);
-        dbg.log0('STS server started successfully');
+        if (https_port_sts > 0) {
+            dbg.log0('Starting HTTPS STS', https_port_sts);
+            await listen_http(https_port_sts, https_server_sts);
+            dbg.log0('STS server started successfully');
+        }
 
-        await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
+        if (metrics_port > 0) {
+            await prom_reporting.start_server(metrics_port);
+        }
 
         if (internal_rpc_client) {
             // Register a bg monitor on the endpoint
@@ -162,9 +172,10 @@ async function start_endpoint(options = {}) {
                 client: internal_rpc_client,
                 should_monitor: nsr => Boolean(nsr.nsfs_config),
             }));
+
+            // Start a monitor to send periodic endpoint reports about endpoint usage.
+            start_monitor(internal_rpc_client, endpoint_group_id);
         }
-        // Start a monitor to send periodic endpoint reports about endpoint usage.
-        start_monitor(internal_rpc_client, endpoint_group_id);
 
     } catch (err) {
         handle_server_error(err);

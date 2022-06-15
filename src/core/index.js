@@ -39,8 +39,8 @@ ${Object.keys(CORE_COMMANDS).map(cmd => '    - ' + cmd).join('\n')}
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(COMMANDS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(COMMANDS.trimStart());
     process.exit(1);
 }
 

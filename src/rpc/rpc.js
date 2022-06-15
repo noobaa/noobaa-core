@@ -797,7 +797,7 @@ class RPC extends EventEmitter {
             method_api: api.$id,
             method_name: method.name,
             target: options.address,
-            request_params: js_utils.omit_symbol(params, RPC_BUFFERS),
+            request_params: js_utils.omit_symbol(params, RPC_BUFFERS) || {},
             [RPC_BUFFERS]: params && params[RPC_BUFFERS]
         };
 

@@ -384,28 +384,35 @@ class BlockStoreBase {
     }
 
     async test_store_perf({ count }) {
-        const reply = {};
-        const delay_ms = 200;
-        const data = crypto.randomBytes(1024);
-        const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE || 'sha1';
-        const block_md = {
-            id: '_test_store_perf',
-            digest_type,
-            digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
-        };
-        reply.write = await test_average_latency(count, delay_ms, async () => {
-            await this._write_block(block_md, data, { ignore_usage: true });
-            this._update_write_stats(data.length);
-        });
-        reply.read = await test_average_latency(count, delay_ms, async () => {
-            const block = await this._read_block(block_md);
-            if (block.data) this._update_read_stats(block.data.length);
-            this._verify_block(block_md, block.data, block.block_md);
-            if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
-        });
-        // cleanup old versions for block stores that have versioning enabled
-        if (this._delete_block_past_versions) await this._delete_block_past_versions(block_md);
-        return reply;
+        try {
+            const reply = {};
+            const delay_ms = 200;
+            const data = crypto.randomBytes(1024);
+            const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE || 'sha1';
+            const block_md = {
+                id: '_test_store_perf',
+                digest_type,
+                digest_b64: crypto.createHash(digest_type).update(data).digest('base64')
+            };
+            reply.write = await test_average_latency(count, delay_ms, async () => {
+                await this._write_block(block_md, data, { ignore_usage: true });
+                this._update_write_stats(data.length);
+            });
+            reply.read = await test_average_latency(count, delay_ms, async () => {
+                const block = await this._read_block(block_md);
+                if (block.data) this._update_read_stats(block.data.length);
+                this._verify_block(block_md, block.data, block.block_md);
+                if (!data.equals(block.data)) throw new Error('test_store_perf: unexpected data on read');
+            });
+            // cleanup old versions for block stores that have versioning enabled
+            if (this._delete_block_past_versions) await this._delete_block_past_versions(block_md);
+            return reply;
+        } catch (err) {
+            if (err.rpc_code !== 'AUTH_FAILED' && err.rpc_code !== 'STORAGE_NOT_EXIST') {
+                dbg.warn(`encountered unknown error in test_store_perf`, err);
+            }
+            throw err;
+        }
     }
 
     async test_store_validity() {

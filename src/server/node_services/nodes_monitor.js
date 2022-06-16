@@ -1395,7 +1395,7 @@ class NodesMonitor extends EventEmitter {
         try {
 
 
-            dbg.log1('running _test_store_perf::', item.node.name);
+            dbg.log0('running _test_store_perf::', item.node.name);
             const res = await P.timeout(AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.test_store_perf({
                     count: 5
@@ -1550,7 +1550,7 @@ class NodesMonitor extends EventEmitter {
     async _test_nodes_validity(item) {
         if (item.node.deleted) return;
         if (!item.node_from_store) return;
-        dbg.log1('_test_nodes_validity::', item.node.name);
+        dbg.log0('_test_nodes_validity::', item.node.name);
 
         try {
             await Promise.all([
@@ -1561,7 +1561,7 @@ class NodesMonitor extends EventEmitter {
 
             if (item.io_reported_errors &&
                 Date.now() - item.io_reported_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                dbg.log1('_test_nodes_validity:: io_reported_errors removed', item.node.name);
+                dbg.log0('_test_nodes_validity:: io_reported_errors removed', item.node.name);
                 item.io_reported_errors = 0;
             }
 

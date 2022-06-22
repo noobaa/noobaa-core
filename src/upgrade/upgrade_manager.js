@@ -144,7 +144,7 @@ async function run_upgrade() {
                     await script.run({ dbg, db_client, system_store, system_server });
                     this_upgrade.completed_scripts.push(script.file);
                 } catch (err) {
-                    dbg.log0(`failed running upgrade script ${script.file}`, err);
+                    dbg.error(`failed running upgrade script ${script.file}`, err);
                     this_upgrade.error = err.stack;
                     throw err;
                 }

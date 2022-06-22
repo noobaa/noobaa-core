@@ -57,6 +57,7 @@ ENV ENDPOINT_NODE_OPTIONS ''
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 
+RUN dnf install -y epel-release
 RUN dnf install -y -q bash \
     lsof \
     procps \
@@ -69,6 +70,7 @@ RUN dnf install -y -q bash \
     less \
     bash-completion \
     python3-setuptools \
+    jemalloc \
     xz && \
     dnf clean all
 
@@ -142,6 +144,9 @@ EXPOSE 8443
 EXPOSE 8444
 EXPOSE 27000
 EXPOSE 26050
+
+# Needs to be added only after installing jemalloc in dependencies section (our env section is before) - otherwise it will fail
+ENV LD_PRELOAD /usr/lib64/libjemalloc.so.2
 
 ###############
 # EXEC SETUP #

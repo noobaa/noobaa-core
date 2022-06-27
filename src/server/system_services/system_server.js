@@ -88,7 +88,7 @@ async function _init() {
             }
 
         } catch (err) {
-            dbg.log0('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+            dbg.error('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
         }
     }
 

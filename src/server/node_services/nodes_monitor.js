@@ -839,7 +839,7 @@ class NodesMonitor extends EventEmitter {
     _run() {
         if (!this._started) return;
         return this._run_serial.surround(() => {
-            dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
+            dbg.log1('_run:', this._map_node_id.size, 'nodes in queue');
             let next = 0;
             const queue = Array.from(this._map_node_id.values());
             const concur = Math.min(queue.length, RUN_NODE_CONCUR);
@@ -866,7 +866,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()
-            .then(() => dbg.log0('_run_node:', item.node.name))
+            .then(() => dbg.log1('_run_node:', item.node.name))
             .then(() => this._get_agent_info(item))
             .then(() => { //If internal or cloud resource, cut down initializing time (in update_rpc_config)
                 if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
@@ -935,11 +935,11 @@ class NodesMonitor extends EventEmitter {
                         alert = `The target ${storage_container} does not exist for cloud resource ${pool.name}`;
                     }
                     break;
-                case 'OFFLINE':
-                    alert = `Cloud resource ${pool.name} is offline`;
-                    break;
-                default:
-                    break;
+                    case 'OFFLINE':
+                        alert = `Cloud resource ${pool.name} is offline`;
+                        break;
+                    default:
+                        break;
                 }
 
                 if (alert) {
@@ -1037,7 +1037,7 @@ class NodesMonitor extends EventEmitter {
     _get_agent_info(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
-        dbg.log0('_get_agent_info:', item.node.name);
+        dbg.log1('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
             address: url.format({
                 protocol: 'wss',
@@ -1150,7 +1150,7 @@ class NodesMonitor extends EventEmitter {
                 counter += 1;
             }
             this._map_node_name.set(String(updates.name), item);
-            dbg.log0('_get_agent_info: set node name', item.node.name, 'to', updates.name);
+            dbg.log1('_get_agent_info: set node name', item.node.name, 'to', updates.name);
             item.new_host = !this._map_host_id.get(updates.host_id);
             if (!item.added_host) {
                 if (!item.new_host) {
@@ -1167,7 +1167,7 @@ class NodesMonitor extends EventEmitter {
             let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
             // on first call to get_agent_info enable\disable the node according to the configuration
             let should_start_service = this._should_enable_agent(info, agent_config);
-            dbg.log0(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
+            dbg.log1(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
             if (!should_start_service) {
                 item.node.decommissioned = Date.now();
                 item.node.decommissioning = item.node.decommissioned;
@@ -1270,121 +1270,156 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    _update_create_node_token(item) {
-        if (item.node.deleted) return;
-        if (!item.connection) return;
-        if (!item.node_from_store) return;
-        if (item.create_node_token) {
-            dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
-            return;
-        }
-        dbg.log0('node does not have a valid create_node_token. creating new one and sending to agent');
-        let auth_parmas = {
-            system_id: String(item.node.system),
-            account_id: system_store.data.get_by_id(item.node.system).owner._id,
-            role: 'create_node',
-        };
-        let token = auth_server.make_auth_token(auth_parmas);
-        dbg.log0(`new create_node_token: ${token}`);
+    async _update_create_node_token(item) {
+        try {
+            if (item.node.deleted) return;
+            if (!item.connection) return;
+            if (!item.node_from_store) return;
+            if (item.create_node_token) {
+                dbg.log2(`_update_create_node_token: node already has a valid create_node_token. item.create_node_token = ${item.create_node_token}`);
+                return;
+            }
+            dbg.log0('node does not have a valid create_node_token. creating new one and sending to agent');
+            let auth_parmas = {
+                system_id: String(item.node.system),
+                account_id: system_store.data.get_by_id(item.node.system).owner._id,
+                role: 'create_node',
+            };
+            let token = auth_server.make_auth_token(auth_parmas);
+            dbg.log0(`new create_node_token: ${token}`);
 
-        return P.timeout(AGENT_RESPONSE_TIMEOUT,
-            this.client.agent.update_create_node_token({
-                create_node_token: token
-            }, {
-                connection: item.connection
-            })
-        );
+            await P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.update_create_node_token({
+                    create_node_token: token
+                }, {
+                    connection: item.connection
+                })
+            );
+
+        } catch (err) {
+            dbg.warn('encountered an error in _update_create_node_token', err);
+            throw err;
+        }
 
     }
 
-    _update_rpc_config(item) {
+    async _update_rpc_config(item) {
         if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.agent_info) return;
         if (!item.node_from_store) return;
-        const system = system_store.data.get_by_id(item.node.system);
-        const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
-        const rpc_address = rpc_proto === 'n2n' ?
-            'n2n://' + item.node.peer_id :
-            rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 9999);
-        const rpc_config = {};
-        if (rpc_address !== item.agent_info.rpc_address) {
-            rpc_config.rpc_address = rpc_address;
-        }
-        // only update if the system defined a base address
-        // otherwise the agent is using the ip directly, so no update is needed
-        // don't update local agents which are using local host
 
-        const { routing_hint } = system_store.data.get_by_id(item.node.agent_config) || {};
-        const base_address = addr_utils.get_base_address(system.system_address, { hint: routing_hint }).toString();
-        const address_configured = system.system_address.some(addr => addr.service === 'noobaa-mgmt');
-        if (address_configured &&
-            !item.node.is_internal_node &&
-            !is_localhost(item.agent_info.base_address) &&
-            base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase()) {
-            rpc_config.base_address = base_address;
-        }
+        try {
+            const system = system_store.data.get_by_id(item.node.system);
+            const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
+            const rpc_address = rpc_proto === 'n2n' ?
+                'n2n://' + item.node.peer_id :
+                rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 9999);
+            const rpc_config = {};
+            if (rpc_address !== item.agent_info.rpc_address) {
+                rpc_config.rpc_address = rpc_address;
+            }
+            // only update if the system defined a base address
+            // otherwise the agent is using the ip directly, so no update is needed
+            // don't update local agents which are using local host
 
-        // make sure we don't modify the system's n2n_config
-        const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
-        const n2n_config = _.extend(null,
-            item.agent_info.n2n_config,
-            _.cloneDeep(system.n2n_config), { public_ips });
-        if (item.node.is_cloud_node) {
-            n2n_config.tcp_permanent_passive = {
-                port: config.CLOUD_AGENTS_N2N_PORT
-            };
-        }
-        if (item.node.is_mongo_node) {
-            n2n_config.tcp_permanent_passive = {
-                port: config.MONGO_AGENTS_N2N_PORT
-            };
-        }
-        if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
-            rpc_config.n2n_config = n2n_config;
-        }
-        // skip the update when no changes detected
-        if (_.isEmpty(rpc_config)) return;
-        dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
-        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+            const { routing_hint } = system_store.data.get_by_id(item.node.agent_config) || {};
+            const base_address = addr_utils.get_base_address(system.system_address, { hint: routing_hint }).toString();
+            const address_configured = system.system_address.some(addr => addr.service === 'noobaa-mgmt');
+            if (address_configured &&
+                !item.node.is_internal_node &&
+                !is_localhost(item.agent_info.base_address) &&
+                base_address.toLowerCase() !== item.agent_info.base_address.toLowerCase()) {
+                rpc_config.base_address = base_address;
+            }
+
+            // make sure we don't modify the system's n2n_config
+            const public_ips = item.node.public_ip ? [item.node.public_ip] : [];
+            const n2n_config = _.extend(null,
+                item.agent_info.n2n_config,
+                _.cloneDeep(system.n2n_config), { public_ips });
+            if (item.node.is_cloud_node) {
+                n2n_config.tcp_permanent_passive = {
+                    port: config.CLOUD_AGENTS_N2N_PORT
+                };
+            }
+            if (item.node.is_mongo_node) {
+                n2n_config.tcp_permanent_passive = {
+                    port: config.MONGO_AGENTS_N2N_PORT
+                };
+            }
+            if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
+                rpc_config.n2n_config = n2n_config;
+            }
+            // skip the update when no changes detected
+            if (_.isEmpty(rpc_config)) return;
+            dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
+            await P.timeout(AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.update_rpc_config(rpc_config, {
                     connection: item.connection
                 })
-            )
-            .then(() => {
-                _.extend(item.node, rpc_config);
-                this._set_need_update.add(item);
-            });
+            );
+
+            _.extend(item.node, rpc_config);
+            this._set_need_update.add(item);
+        } catch (err) {
+            dbg.warn('encountered an error in _update_rpc_config', err);
+            throw err;
+        }
+
     }
 
     async _test_store_validity(item) {
-        await P.timeout(AGENT_RESPONSE_TIMEOUT,
-            this.client.agent.test_store_validity(null, {
-                connection: item.connection
-            })
-        );
+        try {
+            await P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.test_store_validity(null, {
+                    connection: item.connection
+                })
+            );
+        } catch (err) {
+            // ignore "unkonown" errors for cloud resources - we don't want to put the node in detention in cases where we don't know what is the problem
+            // if there is a real issue, we will take it into account in report_error_on_node_blocks
+            if (this._is_cloud_node(item) && err.rpc_code !== 'AUTH_FAILED' && err.rpc_code !== 'STORAGE_NOT_EXIST') {
+                dbg.warn(`encountered an unknown error in _test_store_validity`, err);
+            } else {
+                dbg.log0(`encountered an error in _test_store_validity. `, err);
+                throw err;
+            }
+
+        }
     }
 
     async _test_store_perf(item) {
         const now = Date.now();
         if (item.last_store_perf_test && now < item.last_store_perf_test + STORE_PERF_TEST_INTERVAL) return;
+        try {
 
 
-        dbg.log0('running _test_store_perf::', item.node.name);
-        const res = await P.timeout(AGENT_RESPONSE_TIMEOUT,
-            this.client.agent.test_store_perf({
-                count: 5
-            }, {
-                connection: item.connection
-            })
-        );
-        item.last_store_perf_test = Date.now();
-        dbg.log0('_test_store_perf returned:', res);
-        this._set_need_update.add(item);
-        item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
-            item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
-        item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
-            item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
+            dbg.log1('running _test_store_perf::', item.node.name);
+            const res = await P.timeout(AGENT_RESPONSE_TIMEOUT,
+                this.client.agent.test_store_perf({
+                    count: 5
+                }, {
+                    connection: item.connection
+                })
+            );
+            item.last_store_perf_test = Date.now();
+            dbg.log0(`_test_store_perf for node ${item.node.name} returned:`, res);
+            this._set_need_update.add(item);
+            item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
+                item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
+            item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
+                item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
+        } catch (err) {
+            // ignore "unkonown" errors for cloud resources - we don't want to put the node in detention in cases where we don't know what is the problem
+            // if there is a real issue, we will take it into account in report_error_on_node_blocks
+            if (this._is_cloud_node(item) && err.rpc_code !== 'AUTH_FAILED' && err.rpc_code !== 'STORAGE_NOT_EXIST') {
+                dbg.warn(`encountered an unknown error in _test_store_perf. `, err);
+            } else {
+                dbg.log0(`encountered an error in _test_store_perf. `, err);
+                throw err;
+            }
+        }
     }
 
     async _test_store(item) {
@@ -1412,6 +1447,7 @@ class NodesMonitor extends EventEmitter {
             }
 
         } catch (err) {
+            dbg.warn('encountered an error in _test_store', err);
             if (err.rpc_code === 'STORAGE_NOT_EXIST' && !item.storage_not_exist) {
                 dbg.error('got STORAGE_NOT_EXIST error from node', item.node.name, err.message);
                 item.storage_not_exist = Date.now();
@@ -1440,7 +1476,7 @@ class NodesMonitor extends EventEmitter {
 
         const start = Date.now();
 
-        dbg.log0('_test_network_to_server::', item.node.name);
+        dbg.log1('_test_network_to_server::', item.node.name);
         return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
                 this.n2n_client.agent.test_network_perf({
                     source: this.n2n_agent.rpc_address,
@@ -1456,7 +1492,7 @@ class NodesMonitor extends EventEmitter {
                 this._set_need_update.add(item);
                 item.node.latency_to_server = js_utils.array_push_keep_latest(
                     item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
-                dbg.log0('_test_network_to_server:: Succeeded in sending n2n rpc to ',
+                dbg.log1('_test_network_to_server:: Succeeded in sending n2n rpc to ',
                     item.node.name, 'took', took);
                 req.connection.close();
 
@@ -1481,7 +1517,7 @@ class NodesMonitor extends EventEmitter {
 
         const items_without_issues = this._get_detention_test_nodes(item, config.NODE_IO_DETENTION_TEST_NODES);
         return P.map_one_by_one(items_without_issues, item_without_issues => {
-                dbg.log0('_test_network_perf::', item.node.name, item.io_detention,
+                dbg.log1('_test_network_perf::', item.node.name, item.io_detention,
                     item.node.rpc_address, item_without_issues.node.rpc_address);
                 return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
                     this.client.agent.test_network_perf_to_peer({
@@ -1497,7 +1533,7 @@ class NodesMonitor extends EventEmitter {
                 );
             })
             .then(() => {
-                dbg.log0('_test_network_perf:: success in test', item.node.name);
+                dbg.log1('_test_network_perf:: success in test', item.node.name);
                 if (item.n2n_errors &&
                     Date.now() - item.n2n_errors > config.NODE_IO_DETENTION_THRESHOLD) {
                     item.n2n_errors = 0;
@@ -1511,23 +1547,27 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _test_nodes_validity(item) {
+    async _test_nodes_validity(item) {
         if (item.node.deleted) return;
         if (!item.node_from_store) return;
-        dbg.log0('_test_nodes_validity::', item.node.name);
-        return P.resolve()
-            .then(() => Promise.all([
+        dbg.log1('_test_nodes_validity::', item.node.name);
+
+        try {
+            await Promise.all([
                 this._test_network_perf(item),
                 this._test_store(item),
                 this._test_network_to_server(item)
-            ]))
-            .then(() => {
-                if (item.io_reported_errors &&
-                    Date.now() - item.io_reported_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                    dbg.log0('_test_nodes_validity:: io_reported_errors removed', item.node.name);
-                    item.io_reported_errors = 0;
-                }
-            });
+            ]);
+
+            if (item.io_reported_errors &&
+                Date.now() - item.io_reported_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                dbg.log1('_test_nodes_validity:: io_reported_errors removed', item.node.name);
+                item.io_reported_errors = 0;
+            }
+
+        } catch (err) {
+            dbg.warn('encountered an error in _test_nodes_validity', err);
+        }
     }
 
 
@@ -1544,7 +1584,7 @@ class NodesMonitor extends EventEmitter {
             sort: 'shuffle'
         });
         const selected = _.take(list, limit);
-        dbg.log0('_get_detention_test_nodes::', item.node.name,
+        dbg.log1('_get_detention_test_nodes::', item.node.name,
             _.map(selected, 'node.name'), limit);
         return _.isUndefined(limit) ? list : selected;
     }
@@ -1884,6 +1924,33 @@ class NodesMonitor extends EventEmitter {
             0 : io_detention_time;
     }
 
+
+    _get_item_issues_reasons(item) {
+        try {
+            const reasons = [];
+            if (!item.online) reasons.push('node offline');
+            if (!item.trusted) reasons.push('node untrusted');
+            if (!item.node_from_store) reasons.push('node not stored yet');
+            if (!item.node.rpc_address) reasons.push('no rpc_address');
+            if (item.storage_not_exist) reasons.push(`target storage do not exist (${new Date(item.storage_not_exist)})`);
+            if (item.auth_failed) reasons.push(`failed to authenticate on target storage (${new Date(item.storage_not_exist)})`);
+            if (item.io_detention && item.n2n_errors) reasons.push(`in detention (n2n_errors at ${new Date(item.n2n_errors)})`);
+            if (item.io_detention && item.gateway_errors) reasons.push(`in detention (gateway_errors at ${new Date(item.gateway_errors)})`);
+            if (item.io_detention && item.io_test_errors) reasons.push(`in detention (io_test_errors at ${new Date(item.io_test_errors)})`);
+            if (item.io_detention && item.io_reported_errors) reasons.push(`in detention (io_reported_errors at ${new Date(item.io_reported_errors)})`);
+            if (item.storage_full) reasons.push(`storage is full (${new Date(item.storage_full)})`);
+            if (item.node.migrating_to_pool) reasons.push(`node migrating`);
+            if (item.node.decommissioning) reasons.push(`node decommissioning (${new Date(item.node.decommissioning)})`);
+            if (item.node.decommissioned) reasons.push(`node decommissioned (${new Date(item.node.decommissioned)})`);
+            if (item.node.deleting) reasons.push(`node in deleting state (${new Date(item.node.deleting)})`);
+            if (item.node.deleted) reasons.push(`node in deleted state (${new Date(item.node.deleted)})`);
+
+            return reasons.join(', ');
+        } catch (err) {
+            dbg.log0('got error in _get_item_issues_reasons', err);
+        }
+    }
+
     _get_item_has_issues(item) {
         const stat = !(
             item.online &&
@@ -1897,11 +1964,11 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleting &&
             !item.node.deleted);
         if (stat) {
-            dbg.log0_throttled(`${item.node.name} item has issues ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address}
-                ${item.io_detention} ${item.node.migrating_to_pool} ${item.node.decommissioning} ${item.node.decommissioned} ${item.node.deleting} ${item.node.deleted}`);
+            dbg.log0_throttled(`${item.node.name} item has issues. reasons: ${this._get_item_issues_reasons(item)}`);
         }
         return stat;
     }
+
 
     _get_item_readable(item) {
         const readable = Boolean(
@@ -1917,8 +1984,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleted
         );
         if (!readable) {
-            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
-                ${!item.auth_failed} ${!item.io_detention} ${!item.node.decommissioned} ${!item.node.deleting} ${!item.node.deleted}`);
+            dbg.log0_throttled(`${item.node.name} not readable. reasons: ${this._get_item_issues_reasons(item)}`);
         }
         return readable;
     }
@@ -1941,9 +2007,7 @@ class NodesMonitor extends EventEmitter {
         );
 
         if (!writable) {
-            dbg.log0_throttled(`${item.node.name} not readable ${item.online} ${item.trusted} ${item.node_from_store} ${item.node.rpc_address} ${!item.storage_not_exist}
-                ${!item.auth_failed} ${!item.io_detention} ${!item.storage_full} ${!item.node.migrating_to_pool} ${!item.node.decommissioning} ${!item.node.decommissioned}
-                ${!item.node.deleting} ${!item.node.deleted}`);
+            dbg.log0_throttled(`${item.node.name} not writable. reasons: ${this._get_item_issues_reasons(item)}`);
         }
         return writable;
     }
@@ -2403,7 +2467,7 @@ class NodesMonitor extends EventEmitter {
         );
         if (!root_item) {
             // if for some reason root node not found, take the first one.
-            dbg.log0(`could not find node for root path, taking the first in the list. drives = ${host_nodes.map(item => item.node.drives[0])}`);
+            dbg.log1(`could not find node for root path, taking the first in the list. drives = ${host_nodes.map(item => item.node.drives[0])}`);
             root_item = host_nodes[0];
         }
         const host_item = _.clone(root_item);
@@ -3327,7 +3391,7 @@ class NodesMonitor extends EventEmitter {
 
     test_node_network(req) {
         const { rpc_params } = req;
-        dbg.log0('test_node_network:', rpc_params);
+        dbg.log1('test_node_network:', rpc_params);
         this._throw_if_not_started_and_loaded();
         const item = this._get_node({
             rpc_address: rpc_params.source

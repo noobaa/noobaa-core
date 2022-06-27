@@ -281,7 +281,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 .filter(it => it.Key === key && !it.IsLatest)
                 .map(it => ({ Key: it.Key, VersionId: it.VersionId }));
             if (delete_list.length) {
-                dbg.log0('BlockStoreS3._delete_past_versions: target_bucket',
+                dbg.log1('BlockStoreS3._delete_past_versions: target_bucket',
                     this.cloud_info.target_bucket, 'delete_list', delete_list);
                 await this.s3cloud.deleteObjects({
                     Bucket: this.cloud_info.target_bucket,

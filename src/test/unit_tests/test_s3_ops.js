@@ -472,6 +472,7 @@ mocha.describe('s3_ops', function() {
                 }
             }).promise();
         });
+
         mocha.it('should list objects with text-file', async function() {
             // eslint-disable-next-line no-invalid-this
             this.timeout(60000);

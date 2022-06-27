@@ -88,7 +88,7 @@ test-postgres: tester
 	@echo "\033[1;34mCreating docker network\033[0m"
 	$(CONTAINER_ENGINE) network create noobaa-net || true
 	@echo "\033[1;34mRunning Postgres container\033[0m"
-	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" $(POSTGRES_IMAGE)
+	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRESQL_DATABASE=coretest" --env "POSTGRESQL_USER=noobaa" --env "POSTGRESQL_PASSWORD=noobaa" --env "LC_COLLATE=C" $(POSTGRES_IMAGE) 
 	@echo "\033[1;34mRunning tests\033[0m"
 	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" $(TESTER_TAG)
 

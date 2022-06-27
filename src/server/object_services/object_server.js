@@ -1858,14 +1858,14 @@ async function update_endpoint_stats(req) {
     const namespace_stats = req.rpc_params.namespace_stats || [];
     const bucket_counters = req.rpc_params.bucket_counters || [];
     await P.all([
-        P.map_with_concurrency(10, namespace_stats, stats =>
+        P.map_with_concurrency(5, namespace_stats, stats =>
             IoStatsStore.instance().update_namespace_resource_io_stats({
                 system: req.system._id,
                 namespace_resource_id: stats.namespace_resource_id,
                 stats: stats.io_stats
             })
         ),
-        P.map_with_concurrency(10, bucket_counters, counter =>
+        P.map_with_concurrency(5, bucket_counters, counter =>
             update_bucket_counters({ ...counter, system: req.system })
         )
     ]);
@@ -1933,7 +1933,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
                 `multipart num=${num} etag=${etag} etag_md5_b64=${etag_md5_b64} not found in group ${util.inspect(group)}`);
         }
         md5.update(Buffer.from(mp.md5_b64, 'base64'));
-        const mp_parts = parts_by_mp[mp._id.toHexString()];
+        const mp_parts = parts_by_mp[mp._id.toHexString()] || [];
         _complete_next_parts(mp_parts, context);
         used_multiparts.push(mp);
         for (const part of mp_parts) {

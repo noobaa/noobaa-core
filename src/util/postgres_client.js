@@ -290,6 +290,7 @@ class PgTransaction {
 
     release() {
         if (this.pg_client) {
+            this.pg_client.removeAllListeners('error');
             this.pg_client.release();
             this.pg_client = null;
         }
@@ -1001,6 +1002,7 @@ class PostgresTable {
     }
 
     async _upsert(query, update, options) {
+        await this.init_promise;
         const MAX_RETRIES = 5;
         let retries = 0;
         // eslint-disable-next-line no-constant-condition
@@ -1134,7 +1136,7 @@ class PostgresClient extends EventEmitter {
         try {
             pg_client = new Client({ ...this.new_pool_params, database: undefined });
             await pg_client.connect();
-            await pg_client.query(`CREATE DATABASE ${this.new_pool_params.database}`);
+            await pg_client.query(`CREATE DATABASE ${this.new_pool_params.database} WITH LC_COLLATE = 'C' TEMPLATE template0`);
         } catch (err) {
             if (err.code === '3D000') return;
             throw err;

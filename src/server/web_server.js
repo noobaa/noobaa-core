@@ -285,6 +285,30 @@ app.get('/version', (req, res) => getVersion(req.url)
     })
 );
 
+// LMLM TODO
+// Get the NSFS stats
+app.get('/metrics/nsfs_stats', async (req, res) => {
+    const { status, report } = mock_data();
+    res.send(report);
+    if (status !== 200) res.status(status);
+    res.end();
+});
+
+function mock_data() {
+    const gen1 = Math.random();
+    const gen2 = Math.random();
+    const min = Math.min(gen1, gen2);
+    const max = Math.max(gen1, gen2);
+    const avg = (min + max) / 2;
+    const amount = Math.floor(Math.random() * 100);
+    const failures = Math.floor(Math.random() * (amount - 0 + 1));
+    const report = `NooBaa_nsfs_create_bucket{min_time=${min.toFixed(6)},max_time=${max.toFixed(6)},avg=${avg.toFixed(6)},amount=${amount},failures=${failures}}`;
+    return {
+        status: 200,
+        report: report
+    };
+}
+
 ////////////
 // STATIC //
 ////////////

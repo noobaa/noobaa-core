@@ -150,9 +150,7 @@ if (config.PROMETHEUS_ENABLED) {
 }
 
 app.get('/', function(req, res) {
-    // Forward any query parameters
-    const [, query = ''] = req.url.split(/(?=\?)/);
-    return res.redirect(`/fe/${query}`);
+    return res.redirect(`/version`);
 });
 
 // Upgrade checks

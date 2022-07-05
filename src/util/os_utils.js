@@ -315,6 +315,10 @@ function get_disk_mount_points() {
         .then(drives => remove_linux_readonly_drives(drives))
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
+            if (IS_DOCKER) {
+                const storage_drives = _.filter(drives, drive => drive.mount === '/noobaa_storage');
+                if (storage_drives.length) return storage_drives;
+            }
             return _.filter(drives, drive => {
                 const { mount, drive_id } = drive;
                 if (IS_DOCKER && mount !== '/') return false;

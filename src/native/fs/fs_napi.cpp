@@ -37,6 +37,11 @@ DBG_INIT(0);
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
+static int (*dlsym_gpfs_linkat)(
+    gpfs_file_t fileDesc, const char *oldpath,
+    gpfs_file_t newdirfd, const char *newpath,
+    int flags) = 0;
+
 const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
     { "rs", O_RDONLY | O_SYNC },
@@ -45,6 +50,7 @@ const static std::map<std::string, int> flags_to_case = {
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },
     { "w", O_TRUNC | O_CREAT | O_WRONLY },
+    { "wt", O_RDWR | O_TMPFILE },
     { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "w+", O_TRUNC | O_CREAT | O_RDWR },
@@ -755,6 +761,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::writev>("writev"),
                 InstanceMethod<&FileWrap::setxattr>("setxattr"),
                 InstanceMethod<&FileWrap::getxattr>("getxattr"),
+                InstanceMethod<&FileWrap::linkfileat>("linkfileat"),
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
             }));
@@ -780,6 +787,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value writev(const Napi::CallbackInfo& info);
     Napi::Value setxattr(const Napi::CallbackInfo& info);
     Napi::Value getxattr(const Napi::CallbackInfo& info);
+    Napi::Value linkfileat(const Napi::CallbackInfo& info);
     Napi::Value stat(const Napi::CallbackInfo& info);
     Napi::Value fsync(const Napi::CallbackInfo& info);
 };
@@ -987,6 +995,28 @@ struct FileSetxattr : public FSWrapWorker<FileWrap>
                 SetSyscallError();
                 return;
             }
+        }
+    }
+};
+
+struct LinkFileAt : public FSWrapWorker<FileWrap>
+{
+    std::string _filepath;
+
+    LinkFileAt(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+    {
+        _filepath = info[1].As<Napi::String>();
+        Begin(XSTR() << "LinkFileAt " << DVAL(_wrap->_path) << DVAL(_wrap->_fd) << DVAL(_filepath));
+    }
+    virtual void Work()
+    {
+        // gpfs_linkat() is the same as Linux linkat() but we need a new function because 
+        // Linux will fail the linkat() if the file already exist and we want to replace it if it existed.
+        int r = dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH);
+        if (r) {
+            SetError(XSTR() << "FS::LinkFileAt::Execute: ERROR gpfs_linkat failed " << DVAL(r) << DVAL(_wrap->_fd) << DVAL(_filepath));
+            return;
         }
     }
 };
@@ -1214,6 +1244,12 @@ FileWrap::getxattr(const Napi::CallbackInfo& info)
 }
 
 Napi::Value
+FileWrap::linkfileat(const Napi::CallbackInfo& info)
+{
+    return api<LinkFileAt>(info);
+}
+
+Napi::Value
 FileWrap::stat(const Napi::CallbackInfo& info)
 {
     return api<FileStat>(info);
@@ -1388,16 +1424,25 @@ fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
 
-    const char* env_p = std::getenv("GPFS_DL_PATH");
-    if (env_p != NULL) {
-        LOG("FS::GPFS GPFS_DL_PATH=" << env_p);
+    if(const char* env_p = std::getenv("GPFS_DL_PATH")) {
         uv_lib_t *lib = (uv_lib_t*) malloc(sizeof(uv_lib_t));
+        LOG("FS::GPFS GPFS_DL_PATH=" << env_p);
         if (uv_dlopen(env_p, lib)) {
+            PANIC("Error: %s\n" << uv_dlerror(lib));
+        }
+        if (uv_dlsym(lib, "gpfs_linkat", (void **) &dlsym_gpfs_linkat)) {
             PANIC("Error: %s\n" << uv_dlerror(lib));
         }
         if (uv_dlsym(lib, "gpfs_fcntl", (void **) &dlsym_gpfs_fcntl)) {
             PANIC("Error: %s\n" << uv_dlerror(lib));
         }
+        auto gpfs = Napi::Object::New(env);
+        // for now we export an (empty) object, which can be checked to indicate that
+        // gpfs lib was loaded and its api's can be used.
+        // e.g: gpfs["version"] = Napi::String::New(env,  gpfs_get_version());
+        // e.g: gpfs["foo"] = Napi::Function::New(env, api<Foo>);
+        // gpfs.Freeze();
+        exports_fs["gpfs"] = gpfs;
     }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);

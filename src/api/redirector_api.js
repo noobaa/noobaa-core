@@ -49,9 +49,6 @@ module.exports = {
                 method_name: {
                     type: 'string'
                 },
-                stop_redirect: {
-                    type: 'boolean',
-                },
                 request_params: {
                     type: 'object',
                     additionalProperties: true,

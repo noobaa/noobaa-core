@@ -59,6 +59,9 @@ const copy_status_enum = {
     FALLBACK: 'FALLBACK'
 };
 
+const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
+const INTERNAL_XATTR = [XATTR_DIR_CONTENT, XATTR_PREV_VERSION_ID, XATTR_DELETE_MARKER];
+
 /**
  * @param {fs.Dirent} a 
  * @param {fs.Dirent} b 
@@ -141,7 +144,7 @@ function make_named_dirent(name) {
 
 function to_xattr(fs_xattr) {
     const xattr = _.mapKeys(fs_xattr, (val, key) =>
-        (key.startsWith(XATTR_USER_PREFIX) ? key.slice(XATTR_USER_PREFIX.length) : '')
+        (key.startsWith(XATTR_USER_PREFIX) && !INTERNAL_XATTR.includes(key) ? key.slice(XATTR_USER_PREFIX.length) : '')
     );
     // keys which do not start with prefix will all map to the empty string key, so we remove it once
     delete xattr[''];
@@ -369,27 +372,13 @@ class NamespaceFS {
                 const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
 
                 // dbg.log0(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
-
                 /**
-                 * @param {fs.Dirent} ent
+                 * @typedef {{
+                 *  key: string,
+                 *  common_prefix: boolean
+                 * }}
                  */
-                const process_entry = async ent => {
-
-                    // dbg.log0('process_entry', dir_key, ent.name);
-
-                    if (!ent.name.startsWith(prefix_ent) ||
-                        ent.name < marker_curr ||
-                        ent.name === this.get_bucket_tmpdir()) {
-                        return;
-                    }
-
-                    const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
-
-                    const r = {
-                        key: this._get_entry_key(dir_key, ent, isDir),
-                        common_prefix: isDir,
-                    };
-
+                const insert_entry_to_results_arr = async r => {
                     let pos;
                     if (results.length && r.key < results[results.length - 1].key) {
                         pos = _.sortedLastIndexBy(results, r, a => a.key);
@@ -417,6 +406,27 @@ class NamespaceFS {
                     }
                 };
 
+                /**
+                 * @param {fs.Dirent} ent
+                 */
+                const process_entry = async ent => {
+                    // dbg.log0('process_entry', dir_key, ent.name);
+                    if (!ent.name.startsWith(prefix_ent) ||
+                        ent.name < marker_curr ||
+                        ent.name === this.get_bucket_tmpdir() ||
+                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) {
+                        return;
+                    }
+
+                    const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
+
+                    const r = {
+                        key: this._get_entry_key(dir_key, ent, isDir),
+                        common_prefix: isDir,
+                    };
+                    await insert_entry_to_results_arr(r);
+                };
+
                 if (!(await this.check_access(fs_context, dir_path))) return;
 
                 try {
@@ -427,6 +437,14 @@ class NamespaceFS {
                         return;
                     }
                     throw err;
+                }
+
+                // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
+                // no delimiter OR prefix is the current directory entry
+                const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
+                if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
+                    const r = { key: dir_key, common_prefix: false };
+                    await insert_entry_to_results_arr(r);
                 }
 
                 if (cached_dir.sorted_entries) {
@@ -441,13 +459,13 @@ class NamespaceFS {
                     // to results array
                     if (marker_index) {
                         const prev_dir = sorted_entries[marker_index - 1];
-                        const prev_dir_name = path.join(prev_dir.name, '/');
+                        const prev_dir_name = prev_dir.name;
                         if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
                             if (!delimiter) {
                                 const isDir = await is_directory_or_symlink_to_directory(
-                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name));
+                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
                                 if (isDir) {
-                                    await process_dir(path.join(dir_key, prev_dir_name));
+                                    await process_dir(path.join(dir_key, prev_dir_name, '/'));
                                 }
                             }
                         }
@@ -537,11 +555,10 @@ class NamespaceFS {
     async read_object_md(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         try {
-            const file_path = await this._find_version_path(fs_context, params);
+            const file_path = await this._find_version_path(fs_context, params, true);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             const stat = await nb_native().fs.stat(fs_context, file_path);
-            if (isDirectory(stat)) throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
             this._throw_if_delete_marker(stat);
             return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null');
         } catch (err) {
@@ -578,6 +595,20 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+
+            // NOTE: don't move this code after the open
+            // this can lead to ENOENT failures due to file not exists when content size is 0
+            // if entry is a directory object and its content size = 0 - return empty response
+            const is_dir_content = this._is_directory_content(file_path, params.key);
+            if (is_dir_content) {
+                try {
+                    const md_path = this._get_file_md_path(params);
+                    const dir_stat = await nb_native().fs.stat(fs_context, md_path);
+                    if (dir_stat && dir_stat.xattr[XATTR_DIR_CONTENT] === '0') return null;
+                } catch (err) {
+                    dbg.log0('NamespaceFS: read_object_stream couldnt find dir content xattr', err);
+                }
+            }
 
             file = await nb_native().fs.open(
                 fs_context,
@@ -723,6 +754,12 @@ class NamespaceFS {
         let upload_params;
         try {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
+
+            if (this.empty_dir_content_flow(file_path, params)) {
+                const content_dir_info = await this._create_empty_dir_content(fs_context, params, file_path);
+                return content_dir_info;
+            }
+
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
 
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
@@ -816,9 +853,12 @@ class NamespaceFS {
     // if copy status is SAME_INODE - NO xattr replace/move_to_dest
     // if copy status is LINKED - NO xattr replace
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK) 
-    async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined, copy_res = undefined }) {
+    // target file can be undefined when it's a folder created and size is 0
+    async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
+            copy_res = undefined }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
+        const is_dir_content = this._is_directory_content(file_path, params.key);
 
         let stat = await target_file.stat(fs_context);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
@@ -839,7 +879,7 @@ class NamespaceFS {
                 const cur_ver_info = await this._get_version_info(fs_context, file_path);
                 fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, cur_ver_info, stat, params.key, fs_xattr);
             }
-            if (fs_xattr) await target_file.replacexattr(fs_context, fs_xattr);
+            if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
         }
         // fsync 
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
@@ -850,9 +890,28 @@ class NamespaceFS {
             if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(file_path));
         }
 
-        // calc response
-        // file path is empty in put part, upload path is empty in wt regular upload
+        // when object is a dir, xattr are set on the folder itself and the content is in .folder file
+        if (is_dir_content) await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size });
+
         stat = await nb_native().fs.stat(fs_context, file_path);
+        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        return upload_info;
+    }
+
+    async _create_empty_dir_content(fs_context, params, file_path) {
+        await this._make_path_dirs(file_path, fs_context);
+
+        const fs_xattr = to_fs_xattr(params.xattr);
+        await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params);
+        // when .folder exist and it's no upload flow - .folder should be deleted if it exists
+        try {
+           await nb_native().fs.unlink(fs_context, file_path);
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+            dbg.log0(`namespace_fs._create_empty_dir_content: dir object file ${config.NSFS_FOLDER_OBJECT_NAME} was already deleted`);
+        }
+        const dir_path = this._get_file_md_path(params);
+        const stat = await nb_native().fs.stat(fs_context, dir_path);
         const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
     }
@@ -1228,8 +1287,7 @@ class NamespaceFS {
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
             if (this._is_versioning_disabled()) {
-                await nb_native().fs.unlink(fs_context, file_path);
-                await this._delete_path_dirs(file_path, fs_context);
+                await this._delete_single_object(fs_context, file_path, params);
             } else if (this._is_versioning_enabled()) {
                 res = params.version_id ?
                     await this._delete_version_id(fs_context, file_path, params) :
@@ -1258,8 +1316,7 @@ class NamespaceFS {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
                         dbg.log0('NamespaceFS: delete_multiple_objects', file_path);
-                        await nb_native().fs.unlink(fs_context, file_path);
-                        await this._delete_path_dirs(file_path, fs_context);
+                        await this._delete_single_object(fs_context, file_path, { key });
                         res.push({ key });
                     } catch (err) {
                         res.push({ err_code: err.code, err_message: err.message });
@@ -1287,6 +1344,19 @@ class NamespaceFS {
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
+    }
+
+
+    async _delete_single_object(fs_context, file_path, params) {
+        try {
+            await nb_native().fs.unlink(fs_context, file_path);
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+        }
+        await this._delete_path_dirs(file_path, fs_context);
+        // when deleting the data of a directory object, we need to remove the directory dir object xattr 
+        // if the dir still exists - occurs when deleting dir while the dir still has entries in it
+        if (this._is_directory_content(file_path, params.key)) await this._clear_user_xattr(fs_context, this._get_file_md_path(params));
     }
 
     ///////////////////////
@@ -1377,9 +1447,16 @@ class NamespaceFS {
         // using normalize to get rid of multiple slashes in the middle of the path (but allows single trailing /)
         const p = path.normalize(path.join(this.bucket_path, key));
 
-        // when the key refers to a directory (trailing /) we append a unique entry name
+        // when the key refers to a directory (trailing /) we append a unique entry name 
         // so that we can upload/download the object content to that dir entry.
         return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
+    }
+
+    _get_file_md_path({ key }) {
+        const p = this._get_file_path({ key });
+        // when the key refers to a directory (trailing /) but we would like to return the md path 
+        // we return the parent directory of .folder
+        return this._is_directory_content(p, key) ? path.join(path.dirname(p), '/') : p;
     }
 
     _assign_md5_to_fs_xattr(md5_digest, fs_xattr) {
@@ -1402,6 +1479,12 @@ class NamespaceFS {
         return fs_xattr;
     }
 
+    /**
+     * 
+     * @param {*} fs_context - fs context using to check symbolic links
+     * @param {*} file_path - path to file
+     * @returns 
+     */
     // TODO: Can be changed to get MD5 attributes only
     async _get_fs_xattr_from_path(fs_context, file_path) {
         let file;
@@ -1424,9 +1507,74 @@ class NamespaceFS {
     }
 
     /**
+     * 
+     * @param {*} fs_context - fs context object
+     * @param {string} file_path - path to file
+     * @param {*} set - the xattr object to be set
+     * @param {*} clear - the xattr prefix to be cleared
+     * @returns {Promise<void>}
+     */
+    async set_fs_xattr_op(fs_context, file_path, set, clear) {
+        let file;
+        try {
+            file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            await file.replacexattr(fs_context, set, clear);
+            await file.close(fs_context);
+            file = null;
+        } catch (error) {
+            dbg.error('namespace_fs.handle_fs_xattr_op: failed with error: ', error, file_path);
+            throw this._translate_object_error_codes(error);
+        } finally {
+            if (file) await file.close(fs_context);
+        }
+    }
+
+    /**
+     * 
+     * @param {*} fs_context - fs context object
+     * @param {string} file_path - file to path to be xattr cleared
+     * @returns {Promise<void>}
+    */
+    async _clear_user_xattr(fs_context, file_path) {
+        try {
+            await this.set_fs_xattr_op(fs_context, file_path, undefined, XATTR_USER_PREFIX);
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+            dbg.log0(`namespace_fs._clear_user_xattr: dir ${file_path} was already deleted`);
+        }
+    }
+
+    /**
+     * 
+     * @param {*} fs_context - fs context object
+     * @param {object} fs_xattr - fs_xattr object to be set on a directory 
+     * @param {object} params - upload object params
+     * @returns {Promise<void>}
+     * assigns XATTR_DIR_CONTENT xattr to the fs_xattr object of the file and set to the directory
+     * existing xattr starting with XATTR_USER_PREFIX will be cleared
+    */
+    async _assign_dir_content_to_xattr(fs_context, fs_xattr, params) {
+        const dir_path = this._get_file_md_path(params);
+        fs_xattr = Object.assign(fs_xattr || {}, {
+            [XATTR_DIR_CONTENT]: params.size || 0
+        });
+        await this.set_fs_xattr_op(fs_context, dir_path, fs_xattr, XATTR_USER_PREFIX);
+    }
+
+    /**
+     * 
+     * @param {string} file_path - fs context object
+     * @param {string} key - fs_xattr object to be set on a directory 
+     * @returns {boolean} - describes if the file path describe a directory content
+    */
+    _is_directory_content(file_path, key) {
+        return (file_path && file_path.endsWith(config.NSFS_FOLDER_OBJECT_NAME)) && (key && key.endsWith('/'));
+    }
+
+    /**
      * @param {string} dir_key 
      * @param {fs.Dirent} ent 
-     * @returns {string} 
+     * @returns {string}
      */
     _get_entry_key(dir_key, ent, isDir) {
         if (ent.name === config.NSFS_FOLDER_OBJECT_NAME) return dir_key;
@@ -1720,6 +1868,12 @@ class NamespaceFS {
         // }
     // }
 
+    // when obj is a directory and size === 0 folder content (.folder) should not be created
+    empty_dir_content_flow(file_path, params) {
+        const is_dir_content = this._is_directory_content(file_path, params.key);
+        return is_dir_content && params.size === 0;
+    }
+
     //////////////////////////
     //// VERSIONING UTILS ////
     //////////////////////////
@@ -1796,8 +1950,8 @@ class NamespaceFS {
     // 1. if version exists in .versions/ folder - return its path
     // 2. else if version is latest version - return latest version path 
     // 3. throw ENOENT error
-    async _find_version_path(fs_context, { key, version_id }) {
-        const cur_ver_path = this._get_file_path({ key });
+    async _find_version_path(fs_context, { key, version_id }, return_md_path) {
+        const cur_ver_path = return_md_path ? this._get_file_md_path({ key }) : this._get_file_path({ key });
         if (!version_id) return cur_ver_path;
 
         this._throw_if_wrong_version_format(version_id);

@@ -5,6 +5,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const util = require('util');
+const path = require('path');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
@@ -23,6 +24,7 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = 'content_md5';
+const XATTR_DIR_CONTENT = 'user.dir_content';
 
 const MAC_PLATFORM = 'darwin';
 
@@ -150,18 +152,12 @@ mocha.describe('namespace_fs', function() {
         console.log(inspect(res));
     });
 
-    mocha.it('read_object_md fails on directory head', async function() {
-        try {
-            await ns_src.read_object_md({
-                bucket: src_bkt,
-                key: src_key.substr(0, src_key.lastIndexOf('/')),
-            }, dummy_object_sdk);
-            throw new Error('Should have failed on head of directory');
-        } catch (error) {
-            assert.strict.equal(error.message, 'NoSuchKey');
-            assert.strict.equal(error.code, 'ENOENT');
-            assert.strict.equal(error.rpc_code, 'NO_SUCH_OBJECT');
-        }
+    mocha.it('read_object_md succeed on directory head', async function() {
+        const res = await ns_src.read_object_md({
+            bucket: src_bkt,
+            key: src_key.substr(0, src_key.lastIndexOf('/')),
+        }, dummy_object_sdk);
+        console.log(inspect(res));
     });
 
     mocha.describe('read_object_stream', function() {
@@ -444,6 +440,478 @@ mocha.describe('namespace_fs', function() {
 
 });
 
+
+
+mocha.describe('namespace_fs folders tests', function() {
+    const src_bkt = 'src';
+    const upload_bkt = 'test_ns_uploads_object';
+    const mpu_bkt = 'test_ns_multipart_upload';
+    const md = { key1: 'val1', key2: 'val2' };
+    const md1 = { key123: 'val123', key234: 'val234' };
+    const user_md = _.mapKeys(md, (val, key) => 'user.' + key);
+    const user_md1 = _.mapKeys(md1, (val, key) => 'user.' + key);
+    const dir_content_md = { [XATTR_DIR_CONTENT]: 'true' };
+    const user_md_and_dir_content_xattr = { ...user_md, ...dir_content_md };
+    const user_md1_and_dir_content_xattr = { ...user_md1, ...dir_content_md };
+    let not_user_xattr = {};
+    let tmp_fs_path = '/tmp/test_namespace_fs';
+    if (process.platform === MAC_PLATFORM) {
+        tmp_fs_path = '/private' + tmp_fs_path;
+        not_user_xattr = { 'not_user_xattr1': 'not1', 'not_user_xattr2': 'not2' };
+    }
+    const dummy_object_sdk = make_dummy_object_sdk();
+    const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
+    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
+
+    mocha.before(async () => {
+        await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
+            fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
+    });
+    mocha.after(async () => {
+        await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
+            fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
+    });
+    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+
+    mocha.describe('folders xattr', function() {
+        const dir_1 = 'a/b/c/';
+        const upload_key_1 = dir_1 + 'upload_key_1/';
+        const upload_key_2 = 'my_dir/';
+        //const upload_key_2_copy = 'my_copy_dir/';
+        const upload_key_3 = 'my_dir_0_content/';
+        const upload_key_4 = 'my_dir2/';
+        const upload_key_5 = 'my_dir_mpu1/';
+        const upload_key_6 = 'my_dir_mpu2/';
+        const upload_key_4_full = path.join(upload_key_2, upload_key_4);
+        const obj_sizes_map = {
+            [upload_key_1]: 100,
+            [upload_key_2]: 100,
+            [upload_key_3]: 0,
+            [upload_key_4_full]: 100
+        };
+        const mpu_keys_and_size_map = {
+            [upload_key_5]: 100,
+            [upload_key_6]: 0
+        };
+        const a = 'a/';
+        const data = crypto.randomBytes(100);
+
+        mocha.before(async function() {
+            const stream1 = buffer_utils.buffer_to_read_stream(data);
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_1,
+                xattr: md,
+                source_stream: stream1,
+                size: obj_sizes_map[upload_key_1]
+            }, dummy_object_sdk);
+            const full_xattr = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_1);
+            assert.equal(Object.keys(full_xattr).length, 3);
+            assert.deepEqual(full_xattr, {
+                ...user_md_and_dir_content_xattr,
+                [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_1]
+            });
+
+            // a/ should not have dir_content xattr since it's not an object
+            const full_xattr1 = await get_xattr(ns_tmp_bucket_path + '/a/');
+            assert.equal(Object.keys(full_xattr1).length, 0);
+            assert.deepEqual(full_xattr1, {});
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+                xattr: md,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: obj_sizes_map[upload_key_2]
+            }, dummy_object_sdk);
+            const full_xattr2 = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_2);
+            assert.equal(Object.keys(full_xattr2).length, 3);
+            assert.deepEqual(full_xattr2, {
+                ...user_md_and_dir_content_xattr,
+                [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_2]
+            });
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_3,
+                xattr: md,
+                source_stream: buffer_utils.buffer_to_read_stream(undefined),
+                size: obj_sizes_map[upload_key_3]
+            }, dummy_object_sdk);
+            const full_xattr3 = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_3);
+            assert.equal(Object.keys(full_xattr3).length, 3);
+            assert.deepEqual(full_xattr3, {
+                ...user_md_and_dir_content_xattr,
+                [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3]
+            });
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_4_full,
+                xattr: md,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: obj_sizes_map[upload_key_4_full]
+            }, dummy_object_sdk);
+            const full_xattr4 = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_4_full);
+            assert.equal(Object.keys(full_xattr4).length, 3);
+            assert.deepEqual(full_xattr4, {
+                ...user_md_and_dir_content_xattr,
+                [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_4_full]
+            });
+            await P.all(Object.keys(mpu_keys_and_size_map).map(async key => {
+                const mpu_upload_id1 = await ns_tmp.create_object_upload({
+                    bucket: upload_bkt,
+                    key: key,
+                    xattr: mpu_keys_and_size_map[key] > 0 ? md : undefined,
+                }, dummy_object_sdk);
+
+                const put_part_res = await ns_tmp.upload_multipart({
+                    bucket: upload_bkt,
+                    key: key,
+                    num: 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(mpu_keys_and_size_map[key] > 0 ? data : undefined),
+                    size: mpu_keys_and_size_map[key],
+                    obj_id: mpu_upload_id1.obj_id
+                }, dummy_object_sdk);
+
+                await ns_tmp.complete_object_upload({
+                    bucket: upload_bkt,
+                    key: key,
+                    obj_id: mpu_upload_id1.obj_id,
+                    multiparts: [{ num: 1, etag: put_part_res.etag }]
+                }, dummy_object_sdk);
+                const p = path.join(ns_tmp_bucket_path, key);
+                const p1 = path.join(ns_tmp_bucket_path, key, config.NSFS_FOLDER_OBJECT_NAME);
+
+                const full_xattr_mpu = await get_xattr(p);
+                if (mpu_keys_and_size_map[key] > 0) {
+                    assert.equal(Object.keys(full_xattr_mpu).length, 3);
+                    assert.deepEqual(full_xattr_mpu, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    await fs_utils.file_must_exist(p1);
+                } else {
+                    assert.equal(Object.keys(full_xattr_mpu).length, 1);
+                    assert.deepEqual(full_xattr_mpu, { ...dir_content_md, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    await fs_utils.file_must_exist(p1); // On mpu we always create DIR_CONTENT_FILE, even if its size is 0
+                }
+            }));
+        });
+
+        mocha.it(`read folder object md full md`, async function() {
+            const get_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key_1,
+            }, dummy_object_sdk);
+            assert.equal(Object.keys(get_md_res.xattr).length, 2);
+            assert.deepEqual(get_md_res.xattr, md);
+            const full_xattr = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_1);
+            assert.equal(Object.keys(full_xattr).length, 3);
+            assert.deepEqual(full_xattr, {
+                ...user_md_and_dir_content_xattr,
+                [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_1]
+            });
+        });
+        // check copy works for dirs on master
+        // mocha.it(`copy object & read folder object md full md`, async function() {
+        //     const upload_res2 = await ns_tmp.upload_object({
+        //         bucket: upload_bkt,
+        //         key: upload_key_2_copy,
+        //         copy_source: { key: upload_key_2 }
+        //     }, dummy_object_sdk);
+        //     console.log('copy object with trailing / response', inspect(upload_res2));
+
+        //     const get_md_res = await ns_tmp.read_object_md({
+        //         bucket: upload_bkt,
+        //         key: upload_key_2_copy,
+        //     }, dummy_object_sdk);
+        //     console.log('copy object read folder object md ', inspect(get_md_res));
+
+        //     const full_xattr2 = await get_xattr(DEFAULT_FS_CONFIG, path.join(ns_tmp_bucket_path, upload_key_2_copy));
+        //     console.log('copy object full xattr ', inspect(full_xattr2));
+        //     assert.equal(Object.keys(full_xattr2).length, 3);
+        //     assert.deepEqual(full_xattr2, user_md_and_dir_content_xattr);
+
+        //     const p = path.join(ns_tmp_bucket_path, upload_key_2_copy, config.NSFS_FOLDER_OBJECT_NAME);
+        //     await fs_utils.file_must_exist(p);
+        // });
+
+        mocha.it(`override object & read folder object md full md`, async function() {
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk, read_res);
+            assert.equal(read_res.buffers.length, 1);
+            assert.equal(read_res.total_length, 100);
+
+            if (Object.keys(not_user_xattr).length) await set_xattr(DEFAULT_FS_CONFIG, ns_tmp_bucket_path + '/' + upload_key_2, not_user_xattr);
+
+            const new_size = 0;
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+                xattr: md1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: new_size
+            }, dummy_object_sdk);
+
+            const get_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk);
+            assert.ok(Object.keys(md1).every(md_cur => get_md_res.xattr[md_cur] !== undefined));
+            const full_xattr2 = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_2);
+            assert.deepEqual(full_xattr2, { ...user_md1_and_dir_content_xattr, [XATTR_DIR_CONTENT]: new_size, ...not_user_xattr });
+
+
+            const read_res1 = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk, read_res1);
+            assert.equal(read_res1.buffers.length, 0);
+            assert.equal(read_res1.total_length, 0);
+        });
+
+        mocha.it(`read folder object md full md`, async function() {
+            const get_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key_3,
+            }, dummy_object_sdk);
+            assert.equal(Object.keys(get_md_res.xattr).length, 2);
+            assert.deepEqual(get_md_res.xattr, md);
+            const full_xattr = await get_xattr(ns_tmp_bucket_path + '/' + upload_key_3);
+            assert.equal(Object.keys(full_xattr).length, 3);
+            assert.deepEqual(full_xattr, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+
+        });
+
+        mocha.it(`.folder of dir object of content of size > 0 - should exist`, async function() {
+            const p = path.join(ns_tmp_bucket_path, upload_key_1, config.NSFS_FOLDER_OBJECT_NAME);
+            await fs_utils.file_must_exist(p);
+        });
+
+        mocha.it(`read folder object - 0 content - should return empty file`, async function() {
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key_3,
+            }, dummy_object_sdk, read_res);
+            assert.equal(read_res.buffers.length, 0);
+            assert.equal(read_res.total_length, 0);
+        });
+
+        mocha.it(`.folder of dir object of content of size 0 - should not exist`, async function() {
+            const p = path.join(ns_tmp_bucket_path, upload_key_3, config.NSFS_FOLDER_OBJECT_NAME);
+            await fs_utils.file_must_not_exist(p);
+        });
+
+
+        mocha.it(`read folder object > 0 content - should return data`, async function() {
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key_1,
+            }, dummy_object_sdk, read_res);
+            assert.equal(read_res.buffers.length, 1);
+            assert.equal(read_res.total_length, 100);
+        });
+
+        mocha.it(`.folder of non directory object - should not exist`, async function() {
+            const p = path.join(ns_tmp_bucket_path, a, config.NSFS_FOLDER_OBJECT_NAME);
+            await fs_utils.file_must_not_exist(p);
+        });
+
+        mocha.it(`read folder object md missing md`, async function() {
+            const dir_path = ns_tmp_bucket_path + '/' + dir_1;
+            const get_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: dir_1,
+            }, dummy_object_sdk);
+            assert.equal(Object.keys(get_md_res.xattr).length, 0);
+            const full_xattr = await get_xattr(dir_path);
+            assert.equal(Object.keys(full_xattr).length, 0);
+        });
+
+        mocha.it(`put /a/b/c folder object md exists`, async function() {
+            const dir_path = ns_tmp_bucket_path + '/' + dir_1;
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: dir_1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: 0
+            }, dummy_object_sdk);
+            const full_xattr2 = await get_xattr(dir_path);
+            assert.equal(Object.keys(full_xattr2).length, 1);
+            assert.ok(full_xattr2[XATTR_DIR_CONTENT] !== undefined && full_xattr2[XATTR_DIR_CONTENT] === '0');
+
+            const get_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: dir_1,
+            }, dummy_object_sdk);
+            assert.equal(Object.keys(get_md_res.xattr).length, 0);
+            await fs_utils.file_must_not_exist(path.join(dir_path, config.NSFS_FOLDER_OBJECT_NAME));
+
+        });
+
+        mocha.it(`list objects md with delimiter`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({
+                bucket: upload_bkt,
+                delimiter: '/',
+            }, dummy_object_sdk);
+            assert.deepEqual(ls_obj_res.common_prefixes, [a, upload_key_2, upload_key_3, upload_key_5, upload_key_6]);
+        });
+
+        mocha.it(`list objects md with delimiter & prefix`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({
+                bucket: upload_bkt,
+                delimiter: '/',
+                prefix: upload_key_2
+            }, dummy_object_sdk);
+            assert.deepEqual(ls_obj_res.common_prefixes, [upload_key_2 + upload_key_4]);
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key), [upload_key_2]);
+
+        });
+
+        mocha.it(`list objects md`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, }, dummy_object_sdk);
+            console.log('list objects md 1 ', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.common_prefixes, []);
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key),
+                [dir_1, upload_key_1, upload_key_2, upload_key_4_full, upload_key_3, upload_key_5, upload_key_6]);
+        });
+
+        mocha.it(`list objects md key marker 1 - dir content`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, key_marker: dir_1 }, dummy_object_sdk);
+            console.log('list objects md key marker 1', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key),
+                [upload_key_1, upload_key_2, upload_key_4_full, upload_key_3, upload_key_5, upload_key_6]);
+            assert.deepEqual(ls_obj_res.common_prefixes, []);
+        });
+
+        mocha.it(`list objects md key marker 2`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, key_marker: 'a/b/c' }, dummy_object_sdk);
+            console.log('list objects md key marker 2', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key),
+                [dir_1, upload_key_1, upload_key_2, upload_key_4_full, upload_key_3, upload_key_5, upload_key_6]);
+            assert.deepEqual(ls_obj_res.common_prefixes, []);
+        });
+
+        mocha.it(`list objects md prefix 1`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, prefix: dir_1, delimiter: '/' }, dummy_object_sdk);
+            console.log('list objects md prefix 1', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key), [dir_1]);
+            assert.deepEqual(ls_obj_res.common_prefixes, [upload_key_1]);
+        });
+
+        mocha.it(`list objects md prefix 2`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, prefix: 'a/b/c', delimiter: '/' }, dummy_object_sdk);
+            console.log('list objects md prefix 2', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key), []);
+            assert.deepEqual(ls_obj_res.common_prefixes, [dir_1]);
+        });
+
+        mocha.it(`list objects md prefix 3 - not an object`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, prefix: 'a/b/', delimiter: '/' }, dummy_object_sdk);
+            console.log('list objects md prefix 3', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key), []);
+            assert.deepEqual(ls_obj_res.common_prefixes, [dir_1]);
+        });
+
+        mocha.it(`list objects md prefix 4`, async function() {
+            const ls_obj_res = await ns_tmp.list_objects({ bucket: upload_bkt, prefix: 'a/b', delimiter: '/' }, dummy_object_sdk);
+            console.log('list objects md prefix 4', inspect(ls_obj_res));
+            assert.deepEqual(ls_obj_res.objects.map(obj => obj.key), []);
+            assert.deepEqual(ls_obj_res.common_prefixes, ['a/b/']);
+        });
+
+        mocha.it('delete inner directory object /my-dir when exists /my-dir/my-dir2', async function() {
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_2,
+            }, dummy_object_sdk);
+
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_2);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const p2 = path.join(ns_tmp_bucket_path, upload_key_2, upload_key_4);
+            await fs_utils.file_must_exist(path.join(p2, config.NSFS_FOLDER_OBJECT_NAME));
+
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...not_user_xattr });
+
+            const full_xattr2 = await get_xattr(p2);
+            assert.deepEqual(full_xattr2, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_2] });
+
+        });
+
+        mocha.it('delete object content 0 - no .folder file', async function() {
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: upload_key_3, }, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            await fs_utils.file_must_not_exist(p1);
+        });
+
+        mocha.it('delete multiple objects /my-dir/my-dir2', async function() {
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_2);
+            const p2 = path.join(p1, upload_key_4);
+            const full_xattr1 = await get_xattr(p2);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_4_full] });
+            await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [upload_key_2 + upload_key_4, upload_key_2].map(key => ({ key })),
+            }, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(path.join(p2, config.NSFS_FOLDER_OBJECT_NAME));
+            await fs_utils.file_must_not_exist(p2);
+            await fs_utils.file_must_not_exist(p1);
+
+        });
+        mocha.it('delete multiple objects - a/b/c/', async function() {
+            const p1 = path.join(ns_tmp_bucket_path, dir_1);
+            await ns_tmp.delete_multiple_objects({
+                bucket: upload_bkt,
+                objects: [dir_1].map(key => ({ key })),
+            }, dummy_object_sdk);
+            await fs_utils.file_must_exist(p1);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, {});
+        });
+    });
+});
+
+// need to check how it behaves on master
+// mocha.it('delete object', async function() {
+//     const delete_res = await ns_tmp.delete_object({
+//         bucket: upload_bkt,
+//         key: 'my_dir',
+//     }, dummy_object_sdk);
+//     console.log('delete_object with trailing / (key 2) response', inspect(delete_res));
+// });
+
+async function get_xattr(file_path) {
+    const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, file_path);
+    return stat.xattr;
+}
+
+async function set_xattr(fs_account_config, file_path, fs_xattr) {
+    let file;
+    try {
+        file = await nb_native().fs.open(fs_account_config, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+        const full_xattr = await file.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
+        return full_xattr;
+    } catch (err) {
+        console.log('ERROR: test_namespace_fs set_xattr', err);
+        throw err;
+    } finally {
+        file.close(DEFAULT_FS_CONFIG, file_path);
+    }
+}
+
+
+function get_umasked_mode(mode) {
+    // eslint-disable-next-line no-bitwise
+    return mode & ~config.NSFS_UMASK;
+}
 mocha.describe('nsfs_symlinks_validations', function() {
 
     let tmp_fs_path = '/tmp/test_nsfs_symboliclinks';
@@ -474,10 +942,10 @@ mocha.describe('nsfs_symlinks_validations', function() {
         await P.all(_.map(expected_files, async file =>
             fs_utils.folder_delete(`${bucket_full_path}/${file}`)));
     });
-     mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
 
     mocha.describe('without_symlinks', function() {
-                mocha.it('without_symlinks:list iner dir', async function() {
+        mocha.it('without_symlinks:list iner dir', async function() {
             const res = await list_objects(ns, bucket, '/', 'd2/', dummy_object_sdk);
             assert.strictEqual(res.objects.length, 2, 'amount of files is not as expected');
         });
@@ -523,7 +991,7 @@ mocha.describe('nsfs_symlinks_validations', function() {
     });
 
     mocha.describe('by_symlinks', function() {
-                mocha.it('by_symlinks:list root dir', async function() {
+        mocha.it('by_symlinks:list root dir', async function() {
             const res = await list_objects(ns, bucket, '/', undefined, dummy_object_sdk);
             assert.strictEqual(res.objects.length, 4, 'amount of files is not as expected');
         });

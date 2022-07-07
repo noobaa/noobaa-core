@@ -468,14 +468,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                     await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
                 });
 
-            mocha.it('delete version id - fake id - should fail with NoSuchKey', async function() {
+            mocha.it('delete version id - fake id - nothing to remove', async function() {
                 const max_version1 = await find_max_version_past(full_path, key1, '');
-                try {
-                    await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'}).promise();
-                    assert.fail('delete object should have failed on ENOENT');
-                } catch (err) {
-                    assert.equal(err.code, 'NoSuchKey');
-                }
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'}).promise();
                 const max_version2 = await find_max_version_past(full_path, key1, '');
                 assert.equal(max_version1, max_version2);
             });

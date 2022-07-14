@@ -16,7 +16,7 @@ DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"
 # using a fixed version (commit) of ceph tests to avoid sudden changes. 
 # we should retest and update the version once in a while
-CEPH_TESTS_VERSION=5a8d0b8b0d2b474f04a097ca428304f7d682e7b0
+CEPH_TESTS_VERSION=952beb9ebd986ae78c04f76705e557353e2030ed
 if [ ! -d $DIRECTORY ]; then
     echo "Downloading Ceph S3 Tests..."
     git clone $CEPH_LINK

@@ -19,7 +19,7 @@ function usage(){
     echo "--image           -   The image to test"
     echo "--tester_image    -   The tester image to use"
     echo "--job_yaml        -   The job yaml file, (default: ./test_job.yaml)"
-	echo "--tests_list      -   The test list (.js) (default: ./pipeline_tests_list.j})"
+	echo "--tests_list      -   The test list (.js) (default: ./pipeline_tests_list.js)"
     echo "--concurrency     -   Set the number of test that runs in parallel (default: 1)"
     echo "--delete_on_fail  -   When set, will check if the test has failed. if so skip it's deletion"   
     echo "--wait            -   Should wait for job completion, (default: false)"

@@ -54,6 +54,10 @@ module.exports = {
         nsfs_config: {
             $ref: 'common_api#/definitions/nsfs_config'
         },
+        access_mode: {
+            type: 'string',
+            enum: ['READ_ONLY', 'READ_WRITE']
+        },
         issues_report: {
             type: 'array',
             items: {

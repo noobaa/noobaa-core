@@ -25,6 +25,7 @@ class NamespaceS3 {
         this.s3 = new AWS.S3(s3_params);
         this.bucket = String(this.s3.config.params.Bucket);
         this.rpc_client = rpc_client;
+        this.access_mode = s3_params.access_mode;
     }
 
     get_write_resource() {

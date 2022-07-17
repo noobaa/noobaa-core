@@ -262,6 +262,7 @@ class ObjectSDK {
                         bucket_path: process.env.NAMESPACE_FS + '/' + bucket.name,
                         bucket_id: String(bucket._id),
                         namespace_resource_id,
+                        access_mode: (bucket.namespace.write_resource && bucket.namespace.write_resource.resource.access_mode) || 'READ_WRITE',
                     }),
                     bucket,
                     valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
@@ -364,7 +365,8 @@ class ObjectSDK {
                     signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(ns_info.endpoint, ns_info.auth_method),
                     s3ForcePathStyle: true,
                     // computeChecksums: false, // disabled by default for performance
-                    httpOptions: { agent }
+                    httpOptions: { agent },
+                    access_mode: ns_info.access_mode
                 }
             });
         }
@@ -376,7 +378,8 @@ class ObjectSDK {
                 connection_string: cloud_utils.get_azure_new_connection_string(ns_info),
                 // Azure storage account name is stored as the access key.
                 account_name: ns_info.access_key.unwrap(),
-                account_key: ns_info.secret_key.unwrap()
+                account_key: ns_info.secret_key.unwrap(),
+                access_mode: ns_info.access_mode
             });
         }
         if (ns_info.fs_root_path) {
@@ -385,6 +388,7 @@ class ObjectSDK {
                 bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || ''),
                 bucket_id: String(bucket_id),
                 namespace_resource_id: ns_info.id,
+                access_mode: ns_info.access_mode
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

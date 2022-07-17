@@ -98,14 +98,15 @@ function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
     };
 }
 
-function new_namespace_resource_defaults(name, system_id, account_id, connection, nsfs_config) {
+function new_namespace_resource_defaults(name, system_id, account_id, connection, nsfs_config, access_mode) {
     return {
         _id: system_store.new_system_store_id(),
         system: system_id,
         account: account_id,
         name,
         connection,
-        nsfs_config
+        nsfs_config,
+        access_mode
     };
 }
 
@@ -247,10 +248,12 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
 }
 
 async function create_namespace_resource(req) {
+    req.rpc_params.access_mode = req.rpc_params.access_mode || 'READ_WRITE';
     const name = req.rpc_params.name;
     let namespace_resource;
     if (req.rpc_params.nsfs_config) {
-        namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config);
+        namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, undefined, req.rpc_params.nsfs_config,
+            req.rpc_params.access_mode);
         const already_used_by = system_store.data.namespace_resources.find(cur_nsr => cur_nsr.nsfs_config &&
             (cur_nsr.nsfs_config.fs_root_path === namespace_resource.nsfs_config.fs_root_path));
         if (already_used_by) {
@@ -270,7 +273,7 @@ async function create_namespace_resource(req) {
             cp_code: connection.cp_code || undefined,
             secret_key,
             endpoint_type: connection.endpoint_type || 'AWS'
-        }, _.isUndefined));
+        }, _.isUndefined), undefined, req.rpc_params.access_mode);
 
         const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
             connection: connection.name,
@@ -1068,7 +1071,8 @@ function get_namespace_resource_info(namespace_resource) {
         ...nsfs_info,
         name: namespace_resource.name,
         mode: calc_namespace_resource_mode(namespace_resource),
-        undeletable: check_namespace_resource_deletion(namespace_resource)
+        undeletable: check_namespace_resource_deletion(namespace_resource),
+        access_mode: namespace_resource.access_mode
     }, _.isUndefined);
     return info;
 }

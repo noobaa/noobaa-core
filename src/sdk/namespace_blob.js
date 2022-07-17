@@ -20,7 +20,7 @@ const schema_utils = require('../util/schema_utils');
  */
 class NamespaceBlob {
 
-    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name, account_key }) {
+    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name, account_key, access_mode }) {
         this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
@@ -32,6 +32,7 @@ class NamespaceBlob {
         this.account_name = account_name;
         this.account_key = account_key;
         this.container_client = azure_storage.get_container_client(this.blob, this.container);
+        this.access_mode = access_mode;
     }
 
     _get_blob_client(blob_name) {
@@ -261,8 +262,7 @@ class NamespaceBlob {
                 obj = await blob_client.uploadStream(
                     new_stream.pipe(count_stream),
                     params.size,
-                    undefined,
-                    {
+                    undefined, {
                         metadata: params.xattr,
                         blobHTTPHeaders: headers
                     }

@@ -2,6 +2,7 @@
 'use strict';
 
 const child_process = require('child_process');
+const nb_native = require('../util/nb_native');
 
 // catch process uncaught exceptions, and treat as a panic and exit after logging
 // since restarting the process is the most stable way of recovery
@@ -20,8 +21,9 @@ function panic(message, err) {
 const heapdump = require('heapdump');
 
 const memory_monitor_config = {
-    logging_threshold: (1024 + 512) * 1024 * 1024,
+    logging_threshold: (512) * 1024 * 1024,
     heapdump: null,
+    malloc_print: null,
 };
 
 setInterval(memory_monitor, 10000).unref();
@@ -36,17 +38,31 @@ function enable_heapdump(name, next_mb, step_mb) {
     return module.exports;
 }
 
+function enable_malloc_print(name, next_mb, step_mb) {
+    const c = memory_monitor_config;
+    c.malloc_print = {
+        name: name || 'node',
+        next: (next_mb || 512) * 1024 * 1024,
+        step: (step_mb || 256) * 1024 * 1024,
+    };
+    return module.exports;
+}
+
 function memory_monitor() {
     const m = process.memoryUsage();
     const c = memory_monitor_config;
     const h = c.heapdump;
-    const current = m.heapUsed;
+    const mp = c.malloc_print;
+    const current = m.rss;
     if (c.logging_threshold &&
         c.logging_threshold <= current) {
         const usage = (m.heapUsed / 1024 / 1024).toFixed(0);
         const total = (m.heapTotal / 1024 / 1024).toFixed(0);
         const resident = (m.rss / 1024 / 1024).toFixed(0);
-        console.log(`memory_monitor: heap ${usage} MB | total ${total} MB | resident ${resident} MB`);
+        const external = (m.external / 1024 / 1024).toFixed(0);
+        const array_buffers = (m.arrayBuffers / 1024 / 1024).toFixed(0);
+        console.log(`memory_monitor: heap ${usage} MB | total ${total} MB | resident ${resident} MB | ` +
+            `external ${external} MB | array_buffers ${array_buffers} MB`);
     }
     if (h && h.next && h.next <= current) {
         const size_mb = (current / 1024 / 1024).toFixed(0);
@@ -57,9 +73,17 @@ function memory_monitor() {
         const align = h.step - (increase % h.step);
         h.next += increase + align;
     }
+    if (mp && mp.next && mp.next <= current) {
+        console.log(`memory_monitor: writing jemalloc stats report`);
+        nb_native().malloc.print_stats();
+        const increase = current - mp.next;
+        const align = mp.step - (increase % mp.step);
+        mp.next += increase + align;
+    }
 }
 
 
 exports.panic = panic;
 exports.memory_monitor = memory_monitor;
 exports.enable_heapdump = enable_heapdump;
+exports.enable_malloc_print = enable_malloc_print;

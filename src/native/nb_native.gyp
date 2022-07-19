@@ -53,6 +53,7 @@
             'tools/b64_napi.cpp',
             'tools/ssl_napi.cpp',
             'tools/syslog_napi.cpp',
+            'tools/malloc_napi.cpp',
             # util
             'util/b64.h',
             'util/b64.cpp',

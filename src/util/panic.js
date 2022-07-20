@@ -27,6 +27,12 @@ const memory_monitor_config = {
 };
 
 setInterval(memory_monitor, 10000).unref();
+if (process.env.ENABLE_MALLOC_STATS === 'true') {
+    enable_malloc_print();
+}
+if (process.env.ENABLE_HEAPDUMP === 'true') {
+    enable_heapdump();
+}
 
 function enable_heapdump(name, next_mb, step_mb) {
     const c = memory_monitor_config;
@@ -35,17 +41,15 @@ function enable_heapdump(name, next_mb, step_mb) {
         next: (next_mb || 512) * 1024 * 1024,
         step: (step_mb || 256) * 1024 * 1024,
     };
-    return module.exports;
 }
 
 function enable_malloc_print(name, next_mb, step_mb) {
     const c = memory_monitor_config;
     c.malloc_print = {
         name: name || 'node',
-        next: (next_mb || 512) * 1024 * 1024,
-        step: (step_mb || 256) * 1024 * 1024,
+        next: (next_mb || 256) * 1024 * 1024,
+        step: (step_mb || 128) * 1024 * 1024,
     };
-    return module.exports;
 }
 
 function memory_monitor() {
@@ -53,7 +57,7 @@ function memory_monitor() {
     const c = memory_monitor_config;
     const h = c.heapdump;
     const mp = c.malloc_print;
-    const current = m.rss;
+    const current = Math.max(m.rss, m.heapTotal);
     if (c.logging_threshold &&
         c.logging_threshold <= current) {
         const usage = (m.heapUsed / 1024 / 1024).toFixed(0);
@@ -64,21 +68,17 @@ function memory_monitor() {
         console.log(`memory_monitor: heap ${usage} MB | total ${total} MB | resident ${resident} MB | ` +
             `external ${external} MB | array_buffers ${array_buffers} MB`);
     }
+    if (mp && mp.next && mp.next <= current) {
+        mp.next = current + mp.step - (current % mp.step);
+        console.log(`memory_monitor: writing jemalloc stats report`, current, mp.next);
+        nb_native().malloc.print_stats();
+    }
     if (h && h.next && h.next <= current) {
         const size_mb = (current / 1024 / 1024).toFixed(0);
         const snapshot_name = `heapdump-${h.name}-${process.pid}-${new Date().toISOString()}-${size_mb}MB.heapsnapshot`;
-        console.log(`memory_monitor: writing ${snapshot_name}`);
+        h.next = current + h.step - (current % h.step);
+        console.log(`memory_monitor: writing ${snapshot_name}`, current, h.next);
         heapdump.writeSnapshot(snapshot_name);
-        const increase = current - h.next;
-        const align = h.step - (increase % h.step);
-        h.next += increase + align;
-    }
-    if (mp && mp.next && mp.next <= current) {
-        console.log(`memory_monitor: writing jemalloc stats report`);
-        nb_native().malloc.print_stats();
-        const increase = current - mp.next;
-        const align = mp.step - (increase % mp.step);
-        mp.next += increase + align;
     }
 }
 

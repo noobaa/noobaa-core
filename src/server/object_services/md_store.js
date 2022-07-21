@@ -55,7 +55,7 @@ class MDStore {
             schema: data_block_schema,
             db_indexes: data_block_indexes,
         });
-        this._sequences = db_client.instance().define_collection({
+        this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
         });
     }
@@ -397,12 +397,7 @@ class MDStore {
      * @returns {Promise<number>}
      */
     async alloc_object_version_seq() {
-        // empty query, we maintain a single doc in this collection
-        const query = {};
-        const update = { $inc: { object_version_seq: 1 } };
-        const options = { upsert: true, returnOriginal: false };
-        let res = await this._sequences.findOneAndUpdate(query, update, options);
-        return res.value.object_version_seq;
+        return this._sequences.nextsequence();
     }
 
     /**

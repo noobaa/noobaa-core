@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client } = require('pg');
+const { MongoSequence } = require('./mongo_client');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -26,6 +27,7 @@ const { RpcError } = require('../rpc');
 const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
 const config = require('../../config');
+
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
@@ -506,6 +508,54 @@ class OrderedBulkOp extends BulkOp {
 
 }
 
+class PostgresSequence {
+    constructor(params) {
+        const { name, client } = params;
+        this.name = name;
+        this.client = client;
+    }
+
+    // Lazy migration of the old mongo style collection/table based
+    // sequences. If a table with the name matching the sequence one
+    // is found, then:
+    // - fetch the current sequence value from the collection
+    // - return the init value to be used for native sequence
+    // If no table is found, return 1 - clean install
+    async migrateFromMongoSequence(name, pool) {
+        const res = await _do_query(pool, {text: `SELECT count(*) FROM pg_tables WHERE tablename  = '${name}';`}, 0);
+        const count = Number(res.rows[0].count);
+        if (count === 0) {
+            dbg.log0(`Table ${name} not found, skipping sequence migration`);
+            return 1;
+        }
+        dbg.log0(`✅ Table ${name} is found, starting migration to native sequence`);
+        const mongoSeq = new MongoSequence({ name, client: this });
+        const start = await mongoSeq.nextsequence();
+
+        return start;
+    }
+
+    async _create(pool) {
+        try {
+            const start = await this.migrateFromMongoSequence(this.name, pool);
+            await _do_query(pool, {text: `CREATE SEQUENCE IF NOT EXISTS ${this.name} AS BIGINT START ${start};`}, 0);
+            if (start !== 1) {
+                await _do_query(pool, {text: `DROP table IF EXISTS ${this.name};`}, 0);
+                dbg.log0(`✅ Table ${this.name} is dropped, migration to native sequence is completed`);
+            }
+        } catch (err) {
+            dbg.error('PostgresSequence._create failed', err);
+            throw err;
+        }
+    }
+
+    async nextsequence() {
+        if (this.init_promise) await this.init_promise;
+        const q = { text: `SELECT nextval('${this.name}')` };
+        const res = await _do_query(this.client.pool, q, 0);
+        return res.rows[0].nextval;
+    }
+}
 
 // TODO: Hint for the index is ignored
 class PostgresTable {
@@ -1276,6 +1326,7 @@ class PostgresClient extends EventEmitter {
             if (pg_client) await pg_client.end();
         }
     }
+
     async createDatabase() {
         let pg_client;
         try {
@@ -1317,6 +1368,7 @@ class PostgresClient extends EventEmitter {
     constructor(params) {
         super();
         this.tables = [];
+        this.sequences = [];
         const postgres_port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
 
         // TODO: This need to move to another function
@@ -1399,6 +1451,20 @@ class PostgresClient extends EventEmitter {
         }
     }
 
+    define_sequence(params) {
+        if (_.find(this.sequences, s => s.name === params.name)) {
+            throw new Error('define_sequence: sequence already defined ' + params.name);
+        }
+        const seq = new PostgresSequence({ ...params, client: this });
+        this.sequences.push(seq);
+
+        if (this.pool) {
+            seq.init_promise = seq._create(this.pool).catch(_.noop); // TODO what is best to do when init_collection fails here?
+        }
+
+        return seq;
+    }
+
     define_collection(table_params) {
         if (_.find(this.tables, t => t.name === table_params.name)) {
             throw new Error('define_table: table already defined ' + table_params.name);
@@ -1417,6 +1483,7 @@ class PostgresClient extends EventEmitter {
     async _init_collections(pool) {
         await this._load_sql_functions(pool);
         await Promise.all(this.tables.map(async table => table._create_table(pool)));
+        await Promise.all(this.sequences.map(async seq => seq._create(pool)));
     }
 
     validate(table_name, doc, warn) {

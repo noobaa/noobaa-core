@@ -77,6 +77,21 @@ class MongoCollection {
     async stats() { return this._get_mongo_col().stats(); }
 }
 
+class MongoSequence {
+    constructor(col) {
+        this._collection = col.client.define_collection(col);
+    }
+
+    async nextsequence() {
+        // empty query, we maintain a single doc in this collection
+        const query = {};
+        const update = { $inc: { object_version_seq: 1 } };
+        const options = { upsert: true, returnOriginal: false };
+        let res = await this._collection.findOneAndUpdate(query, update, options);
+        return res.value.object_version_seq;
+    }
+}
+
 class MongoClient extends EventEmitter {
 
     /**
@@ -559,6 +574,10 @@ class MongoClient extends EventEmitter {
         return mongo_collection;
     }
 
+    define_sequence(params) {
+        return new MongoSequence({ ...params, client: this });
+    }
+
     db() {
         if (!this.mongo_client) throw new Error('mongo_client not connected');
         return this.mongo_client.db();
@@ -931,4 +950,5 @@ MongoClient._instance = undefined;
 
 // EXPORTS
 exports.MongoClient = MongoClient;
+exports.MongoSequence = MongoSequence;
 exports.instance = MongoClient.instance;

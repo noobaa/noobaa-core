@@ -1153,21 +1153,30 @@ struct RealPath : public FSWorker
 
     RealPath(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _full_path(0)
     {
         _path = info[1].As<Napi::String>();
         Begin(XSTR() << DVAL(_path));
     }
 
+    ~RealPath() {
+        if (_full_path) {
+            free(_full_path);
+            _full_path = 0;
+        }
+    }
+
     virtual void Work()
     {
+        // realpath called with resolved_path = NULL so it will malloc as needed for the result
+        // and we just need to make sure to capture this result and remember to free it on dtor.
         _full_path = realpath(_path.c_str(), NULL);
-        if (_full_path == NULL) SetSyscallError();
+        if (!_full_path) SetSyscallError();
     }
 
     virtual void OnOK()
     {
         DBG1("FS::RealPath::OnOK: " << DVAL(_path) << DVAL(_full_path));
-        
         Napi::Env env = Env();
         auto res = Napi::String::New(env, _full_path);
         _deferred.Resolve(res);

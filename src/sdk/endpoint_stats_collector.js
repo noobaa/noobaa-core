@@ -29,6 +29,7 @@ class EndpointStatsCollector {
     reset_all_stats() {
         this.namespace_stats = {};
         this.bucket_counters = {};
+        this.nsfs_counters = this._new_namespace_stats();
     }
 
     async _send_stats() {
@@ -113,6 +114,36 @@ class EndpointStatsCollector {
     update_bucket_write_counters({ bucket_name, key, content_type, }) {
         this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'write_count' });
         this._trigger_send_stats();
+    }
+
+    update_nsfs_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+        this.update_namespace_read_stats({ namespace_resource_id, bucket_name, size, count, is_err });
+        this.update_nsfs_read_counters({ size, count, is_err });
+    }
+
+    update_nsfs_read_counters({ size = 0, count = 0, is_err }) {
+        if (is_err) {
+            this.nsfs_counters.error_read_count += count;
+            this.nsfs_counters.error_read_bytes += size;
+        } else {
+            this.nsfs_counters.read_count += count;
+            this.nsfs_counters.read_bytes += size;
+        }
+    }
+
+    update_nsfs_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+        this.update_namespace_write_stats({ namespace_resource_id, bucket_name, size, count, is_err });
+        this.update_nsfs_write_counters({ size, count, is_err });
+    }
+
+    update_nsfs_write_counters({ size = 0, count = 0, is_err }) {
+        if (is_err) {
+            this.nsfs_counters.error_write_count += count;
+            this.nsfs_counters.error_write_bytes += size;
+        } else {
+            this.nsfs_counters.write_count += count;
+            this.nsfs_counters.write_bytes += size;
+        }
     }
 
     update_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, hit_count = 0, range_op = false }) {

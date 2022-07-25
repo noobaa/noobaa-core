@@ -50,7 +50,9 @@ const static std::map<std::string, int> flags_to_case = {
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },
     { "w", O_TRUNC | O_CREAT | O_WRONLY },
-    { "wt", O_RDWR | O_TMPFILE },
+    #ifdef O_TMPFILE
+        { "wt", O_RDWR | O_TMPFILE },
+    #endif
     { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "w+", O_TRUNC | O_CREAT | O_RDWR },

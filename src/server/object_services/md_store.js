@@ -181,7 +181,7 @@ class MDStore {
             upload_started: null,
         }, {
             hint: 'null_version_index',
-            sort: { bucket: 1, key: 1, version_enabled: 1 },
+            sort: { bucket: 1, key: 1 },
         });
     }
 
@@ -194,7 +194,7 @@ class MDStore {
             // partialFilterExpression:
             deleted: null,
         }, {
-            sort: { bucket: 1, key: 1, version_enabled: 1 },
+            sort: { bucket: 1, key: 1 },
         });
     }
 

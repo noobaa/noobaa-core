@@ -43,9 +43,12 @@ const ALERT_HIGH_TRESHOLD = 20;
 // If the process will always crash prior to reaching the required amount of cycles (full_cycle_ratio)
 // Also in case of failures with sending the phone home we won't perform the partial cycles
 // TODO: Maybe add some sort of a timeout mechanism to the failures in order to perform partial cycles?
-var current_cycle = 0;
-var last_partial_stats_requested = 0;
+let current_cycle = 0;
+let last_partial_stats_requested = 0;
 const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
+
+// Will hold the nsfs counters/metrics
+let nsfs_counters = _new_nsfs_stats();
 
 /*
  * Stats Collction API
@@ -1225,6 +1228,36 @@ async function _perform_partial_cycle() {
     });
 }
 
+async function update_nsfs_stats(req) {
+    dbg.log1(`update_nsfs_stats. nsfs_stats =`, req.rpc_params.nsfs_stats);
+    const _nsfs_counters = req.rpc_params.nsfs_stats || {};
+    //Go over the io_stats and count
+    for (const [key, value] of Object.entries(_nsfs_counters.io_stats)) {
+        nsfs_counters[key] += value;
+    }
+}
+
+
+function _new_nsfs_stats() {
+    return {
+        read_count: 0,
+        write_count: 0,
+        read_bytes: 0,
+        write_bytes: 0,
+        error_write_bytes: 0,
+        error_write_count: 0,
+        error_read_bytes: 0,
+        error_read_count: 0,
+    };
+}
+
+// Will return the current nsfs_counters and reset it.
+function get_nsfs_stats() {
+    const nsfs_stats = nsfs_counters;
+    nsfs_counters = _new_nsfs_stats();
+    return nsfs_stats;
+}
+
 // EXPORTS
 //stats getters
 exports.get_systems_stats = get_systems_stats;
@@ -1241,9 +1274,11 @@ exports.get_partial_providers_stats = get_partial_providers_stats;
 exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;
+exports.get_nsfs_stats = get_nsfs_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;
 exports.object_usage_scrubber = object_usage_scrubber;
 exports.send_stats = background_worker;
 exports.background_worker = background_worker;
+exports.update_nsfs_stats = update_nsfs_stats;

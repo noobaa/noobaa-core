@@ -143,6 +143,29 @@ module.exports = {
             }
         },
 
+        update_nsfs_stats: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                properties: {
+                    nsfs_stats: {
+                        type: 'object',
+                        properties: {
+                            namespace_resource_id: {
+                                objectid: true
+                            },
+                            io_stats: {
+                                $ref: 'common_api#/definitions/io_stats'
+                            }
+                        }
+                    },
+                }
+            },
+            auth: {
+                system: ['admin']
+            }
+        },
+
         get_partial_stats: {
             method: 'GET',
             params: {

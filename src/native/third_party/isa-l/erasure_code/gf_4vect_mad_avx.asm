@@ -103,7 +103,7 @@
  %define return rax
  %define return.w eax
 
- %define func(x) x:
+ %define func(x) x: endbranch
  %macro FUNC_SAVE 0
 	push	r12
  %endmacro
@@ -169,7 +169,7 @@ section .text
 %define xd4     xtmpl1
 
 align 16
-global gf_4vect_mad_avx:function
+mk_global gf_4vect_mad_avx, function
 func(gf_4vect_mad_avx)
 	FUNC_SAVE
 	sub	len, 16

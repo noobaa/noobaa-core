@@ -39,7 +39,7 @@
 #	trace - get simulator trace
 #	clean - remove object files
 
-version ?= 2.23.0
+version ?= 2.24.0
 
 
 

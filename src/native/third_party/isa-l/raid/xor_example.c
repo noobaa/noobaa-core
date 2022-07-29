@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	printf("XOR example\n");
 	for (i = 0; i < TEST_SOURCES + 1; i++) {
 		void *buf;
-		if (posix_memalign(&buf, 16, TEST_LEN)) {
+		if (posix_memalign(&buf, 32, TEST_LEN)) {
 			printf("alloc error: Fail");
 			return 1;
 		}
@@ -55,15 +55,15 @@ int main(int argc, char *argv[])
 			((char *)buffs[i])[j] = rand();
 
 	printf("Generate xor parity\n");
-	xor_gen_sse(TEST_SOURCES + 1, TEST_LEN, buffs);
+	xor_gen(TEST_SOURCES + 1, TEST_LEN, buffs);
 
 	printf("Check parity: ");
-	should_pass = xor_check_sse(TEST_SOURCES + 1, TEST_LEN, buffs);
+	should_pass = xor_check(TEST_SOURCES + 1, TEST_LEN, buffs);
 	printf("%s\n", should_pass == 0 ? "Pass" : "Fail");
 
 	printf("Find corruption: ");
 	((char *)buffs[TEST_SOURCES / 2])[TEST_LEN / 2] ^= 1;	// flip one bit
-	should_fail = xor_check_sse(TEST_SOURCES + 1, TEST_LEN, buffs);	//recheck
+	should_fail = xor_check(TEST_SOURCES + 1, TEST_LEN, buffs);	//recheck
 	printf("%s\n", should_fail != 0 ? "Pass" : "Fail");
 
 	return 0;

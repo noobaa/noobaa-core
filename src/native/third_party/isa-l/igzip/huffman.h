@@ -31,19 +31,40 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "igzip_lib.h"
+#include "unaligned.h"
 
+#if __x86_64__  || __i386__ || _M_X64 || _M_IX86
 #ifdef _MSC_VER
 # include <intrin.h>
 # define inline __inline
 #else
 # include <x86intrin.h>
 #endif
+#else
+# define inline __inline
+#endif //__x86_64__  || __i386__ || _M_X64 || _M_IX86
 
+/**
+ * @brief Calculate the bit offset of the msb.
+ * @param val 32-bit unsigned integer input
+ *
+ * @returns bit offset of msb starting at 1 for first bit
+ */
 static inline uint32_t bsr(uint32_t val)
 {
 	uint32_t msb;
-#ifdef __LZCNT__
-	msb = 16 - __lzcnt16(val);
+#if defined(_MSC_VER)
+	unsigned long ret = 0;
+	if (val != 0) {
+		_BitScanReverse(&ret, val);
+		msb = ret + 1;
+	}
+	else
+		msb = 0;
+#elif defined( __LZCNT__)
+	msb = 32 - __lzcnt32(val);
+#elif defined(__x86_64__) || defined(__aarch64__)
+	msb = (val == 0)? 0 : 32 - __builtin_clz(val);
 #else
 	for(msb = 0; val > 0; val >>= 1)
 		msb++;
@@ -51,13 +72,17 @@ static inline uint32_t bsr(uint32_t val)
 	return msb;
 }
 
-static inline uint32_t tzcnt(uint64_t val)
+static inline uint32_t tzbytecnt(uint64_t val)
 {
 	uint32_t cnt;
 
-#ifdef __x86_64__
+#ifdef __BMI__
+	cnt = __tzcnt_u64(val);
+	cnt = cnt / 8;
+#elif defined(__x86_64__) || defined(__aarch64__)
 
-	cnt = __builtin_ctzll(val) / 8;//__tzcnt_u64(val);
+	cnt = (val == 0)? 64 : __builtin_ctzll(val);
+	cnt = cnt / 8;
 
 #else
 	for(cnt = 8; val > 0; val <<= 8)
@@ -178,12 +203,41 @@ static inline uint32_t compute_hash(uint32_t data)
 	return _mm_crc32_u32(0, data);
 
 #else
+	uint64_t hash;
 	/* Use multiplication to create a hash, 0xBDD06057 is a prime number */
-	return ((uint64_t)data * 0xB2D06057) >> 16;
+	hash = data;
+	hash *= 0xB2D06057;
+	hash >>= 16;
+	hash *= 0xB2D06057;
+	hash >>= 16;
+
+	return hash;
 
 #endif /* __SSE4_2__ */
 }
 
+#define PROD1 0xFFFFE84B
+#define PROD2 0xFFFF97B1
+static inline uint32_t compute_hash_mad(uint32_t data)
+{
+	int16_t data_low;
+	int16_t data_high;
+
+	data_low = data;
+	data_high = data >> 16;
+	data = PROD1 * data_low + PROD2 * data_high;
+
+	data_low = data;
+	data_high = data >> 16;
+	data = PROD1 * data_low + PROD2 * data_high;
+
+	return data;
+}
+
+static inline uint32_t compute_long_hash(uint64_t data) {
+
+	return compute_hash(data >> 32)^compute_hash(data);
+}
 
 /**
  * @brief Returns how long str1 and str2 have the same symbols.
@@ -203,10 +257,68 @@ static inline int compare258(uint8_t * str1, uint8_t * str2, uint32_t max_length
 	loop_length = max_length & ~0x7;
 
 	for(count = 0; count < loop_length; count += 8){
-		test = *(uint64_t *) str1;
-		test ^= *(uint64_t *) str2;
+		test = load_u64(str1);
+		test ^= load_u64(str2);
 		if(test != 0)
-			return count + tzcnt(test);
+			return count + tzbytecnt(test);
+		str1 += 8;
+		str2 += 8;
+	}
+
+	switch(max_length % 8){
+
+	case 7:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 6:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 5:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 4:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 3:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 2:
+		if(*str1++ != *str2++)
+			return count;
+		count++;
+	case 1:
+		if(*str1 != *str2)
+			return count;
+		count++;
+	}
+
+	return count;
+}
+
+/**
+ * @brief Returns how long str1 and str2 have the same symbols.
+ * @param str1: First input string.
+ * @param str2: Second input string.
+ * @param max_length: length of the smaller string.
+ */
+static inline int compare(uint8_t * str1, uint8_t * str2, uint32_t max_length)
+{
+	uint32_t count;
+	uint64_t test;
+	uint64_t loop_length;
+
+	loop_length = max_length & ~0x7;
+
+	for(count = 0; count < loop_length; count += 8){
+		test = load_u64(str1);
+		test ^= load_u64(str2);
+		if(test != 0)
+			return count + tzbytecnt(test);
 		str1 += 8;
 		str2 += 8;
 	}

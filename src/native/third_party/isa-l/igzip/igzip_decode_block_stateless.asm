@@ -1,3 +1,32 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;  Copyright(c) 2011-2018 Intel Corporation All rights reserved.
+;
+;  Redistribution and use in source and binary forms, with or without
+;  modification, are permitted provided that the following conditions
+;  are met:
+;    * Redistributions of source code must retain the above copyright
+;      notice, this list of conditions and the following disclaimer.
+;    * Redistributions in binary form must reproduce the above copyright
+;      notice, this list of conditions and the following disclaimer in
+;      the documentation and/or other materials provided with the
+;      distribution.
+;    * Neither the name of Intel Corporation nor the names of its
+;      contributors may be used to endorse or promote products derived
+;      from this software without specific prior written permission.
+;
+;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+;  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+;  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+;  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+;  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+;  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+;  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+;  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+;  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+;  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 default rel
 
 %include "reg_sizes.asm"
@@ -12,9 +41,6 @@ default rel
 %define ISAL_DECODE_LONG_BITS 12
 %define ISAL_DECODE_SHORT_BITS 10
 
-%define MAX_LONG_CODE_LARGE (288 + (1 << (15 - ISAL_DECODE_LONG_BITS)))
-%define MAX_LONG_CODE_SMALL (32 + (1 << (15 - ISAL_DECODE_SHORT_BITS)))
-
 %define COPY_SIZE 16
 %define	COPY_LEN_MAX 258
 
@@ -25,6 +51,37 @@ default rel
 %include "stdmac.asm"
 
 extern rfc1951_lookup_table
+
+
+
+%define LARGE_SHORT_SYM_LEN 25
+%define LARGE_SHORT_SYM_MASK ((1 << LARGE_SHORT_SYM_LEN) - 1)
+%define LARGE_LONG_SYM_LEN 10
+%define LARGE_LONG_SYM_MASK ((1 << LARGE_LONG_SYM_LEN) - 1)
+%define LARGE_SHORT_CODE_LEN_OFFSET 28
+%define LARGE_LONG_CODE_LEN_OFFSET 10
+%define LARGE_FLAG_BIT_OFFSET 25
+%define LARGE_FLAG_BIT (1 << LARGE_FLAG_BIT_OFFSET)
+%define LARGE_SYM_COUNT_OFFSET 26
+%define LARGE_SYM_COUNT_LEN 2
+%define LARGE_SYM_COUNT_MASK ((1 << LARGE_SYM_COUNT_LEN) - 1)
+%define LARGE_SHORT_MAX_LEN_OFFSET 26
+
+%define SMALL_SHORT_SYM_LEN 9
+%define SMALL_SHORT_SYM_MASK ((1 << SMALL_SHORT_SYM_LEN) - 1)
+%define SMALL_LONG_SYM_LEN 9
+%define SMALL_LONG_SYM_MASK ((1 << SMALL_LONG_SYM_LEN) - 1)
+%define SMALL_SHORT_CODE_LEN_OFFSET 11
+%define SMALL_LONG_CODE_LEN_OFFSET 10
+%define SMALL_FLAG_BIT_OFFSET 10
+%define SMALL_FLAG_BIT (1 << SMALL_FLAG_BIT_OFFSET)
+
+%define DIST_SYM_OFFSET 0
+%define DIST_SYM_LEN 5
+%define DIST_SYM_MASK ((1 << DIST_SYM_LEN) - 1)
+%define DIST_SYM_EXTRA_OFFSET 5
+%define DIST_SYM_EXTRA_LEN 4
+%define DIST_SYM_EXTRA_MASK ((1 << DIST_SYM_EXTRA_LEN) - 1)
 
 ;; rax
 %define	tmp3		rax
@@ -45,6 +102,7 @@ extern rfc1951_lookup_table
 
 ;; rsi	arg2
 %define	tmp2		rsi
+%define next_sym_num	rsi
 %define	next_bits	rsi
 
 ;; rbx ; Saved
@@ -80,8 +138,9 @@ extern rfc1951_lookup_table
 start_out_mem_offset	equ	0
 read_in_mem_offset	equ	8
 read_in_length_mem_offset	equ	16
-gpr_save_mem_offset	equ	24
-stack_size		equ	3 * 8 + 8 * 8
+next_out_mem_offset	equ	24
+gpr_save_mem_offset	equ	32
+stack_size		equ	4 * 8 + 8 * 8
 
 %define	_dist_extra_bit_count	264
 %define	_dist_start		_dist_extra_bit_count + 1*32
@@ -90,6 +149,7 @@ stack_size		equ	3 * 8 + 8 * 8
 
 %ifidn __OUTPUT_FORMAT__, elf64
 %define arg0	rdi
+%define arg1	rsi
 
 %macro FUNC_SAVE 0
 %ifdef ALIGN_STACK
@@ -128,6 +188,8 @@ stack_size		equ	3 * 8 + 8 * 8
 
 %ifidn __OUTPUT_FORMAT__, win64
 %define arg0	rcx
+%define arg1	rdx
+
 %macro FUNC_SAVE 0
 %ifdef ALIGN_STACK
 	push	rbp
@@ -232,122 +294,183 @@ stack_size		equ	3 * 8 + 8 * 8
 %%end:
 %endm
 
+;; Clears all bits at index %%bit_count and above in %%next_bits
+;; May clobber rcx and %%bit_count
+%macro CLEAR_HIGH_BITS		3
+%define %%next_bits		%1
+%define %%bit_count		%2
+%define %%lookup_size		%3
+
+	sub	%%bit_count, 0x40 + %%lookup_size
+;; Extract the 15-DECODE_LOOKUP_SIZE bits beyond the first DECODE_LOOKUP_SIZE bits.
+%ifdef USE_HSWNI
+	and	%%bit_count, 0x1F
+	bzhi	%%next_bits, %%next_bits, %%bit_count
+%else
+%ifnidn %%bit_count, rcx
+	mov rcx, %%bit_count
+%endif
+	neg	rcx
+	shl	%%next_bits, cl
+	shr	%%next_bits, cl
+%endif
+
+%endm
+
 ;; Decode next symbol
 ;; Clobber rcx
-%macro decode_next		8
+%macro decode_next_lit_len	8
+%define	%%state			%1 ; State structure associated with compressed stream
+%define %%lookup_size		%2 ; Number of bits used for small lookup
+%define	%%state_offset		%3 ; Type of huff code, should be either LIT or DIST
+%define %%read_in		%4 ; Bits read in from compressed stream
+%define %%read_in_length	%5 ; Number of valid bits in read_in
+%define %%next_sym		%6 ; Returned symbols
+%define %%next_sym_num		%7 ; Returned symbols count
+%define	%%next_bits		%8
+
+	mov	%%next_sym_num, %%next_sym
+	mov	rcx, %%next_sym
+	shr	rcx, LARGE_SHORT_CODE_LEN_OFFSET
+	jz	invalid_symbol
+
+	and	%%next_sym_num, LARGE_SYM_COUNT_MASK << LARGE_SYM_COUNT_OFFSET
+	shr	%%next_sym_num, LARGE_SYM_COUNT_OFFSET
+
+	;; Check if symbol or hint was looked up
+	and	%%next_sym, LARGE_FLAG_BIT | LARGE_SHORT_SYM_MASK
+	test	%%next_sym, LARGE_FLAG_BIT
+	jz	%%end
+
+	shl	rcx, LARGE_SYM_COUNT_LEN
+	or	rcx, %%next_sym_num
+
+	;; Save length associated with symbol
+	mov	%%next_bits, %%read_in
+	shr	%%next_bits, %%lookup_size
+
+	;; Extract the bits beyond the first %%lookup_size bits.
+	CLEAR_HIGH_BITS %%next_bits, rcx, %%lookup_size
+
+	and	%%next_sym, LARGE_SHORT_SYM_MASK
+	add	%%next_sym, %%next_bits
+
+	;; Lookup actual next symbol
+	movzx	%%next_sym, word [%%state + LARGE_LONG_CODE_SIZE * %%next_sym + %%state_offset + LARGE_SHORT_CODE_SIZE * (1 << %%lookup_size)]
+	mov	%%next_sym_num, 1
+
+	;; Save length associated with symbol
+	mov	rcx, %%next_sym
+	shr	rcx, LARGE_LONG_CODE_LEN_OFFSET
+	jz	invalid_symbol
+	and	%%next_sym, LARGE_LONG_SYM_MASK
+
+%%end:
+;; Updated read_in to reflect the bits which were decoded
+	SHRX	%%read_in, %%read_in, rcx
+	sub	%%read_in_length, rcx
+%endm
+
+;; Decode next symbol
+;; Clobber rcx
+%macro decode_next_lit_len_with_load	8
 %define	%%state			%1 ; State structure associated with compressed stream
 %define %%lookup_size		%2 ; Number of bits used for small lookup
 %define	%%state_offset		%3
 %define %%read_in		%4 ; Bits read in from compressed stream
 %define %%read_in_length	%5 ; Number of valid bits in read_in
-%define %%next_sym		%6 ; Returned symobl
-%define %%next_bits		%7
-%define	%%next_bits2		%8
+%define %%next_sym		%6 ; Returned symbols
+%define %%next_sym_num		%7 ; Returned symbols count
+%define %%next_bits		%8
 
 	;; Lookup possible next symbol
 	mov	%%next_bits, %%read_in
 	and	%%next_bits, (1 << %%lookup_size) - 1
-	movzx	%%next_sym, word [%%state + %%state_offset + 2 * %%next_bits]
+	mov	%%next_sym %+ d, dword [%%state + %%state_offset + LARGE_SHORT_CODE_SIZE * %%next_bits]
 
-	;; Save length associated with symbol
-	mov	rcx, %%next_sym
-	shr	rcx, 9
-	jz	invalid_symbol
-
-	;; Check if symbol or hint was looked up
-	and	%%next_sym, 0x81FF
-	cmp	%%next_sym, 0x8000
-	jl	%%end
-
-	;; Decode next_sym using hint
-	mov	%%next_bits2, %%read_in
-
-	;; Extract the 15-DECODE_LOOKUP_SIZE bits beyond the first DECODE_LOOKUP_SIZE bits.
-%ifdef USE_HSWNI
-	and	rcx, 0x1F
-	bzhi	%%next_bits2, %%next_bits2, rcx
-%else
-	neg	rcx
-	shl	%%next_bits2, cl
-	shr	%%next_bits2, cl
-%endif
-	shr	%%next_bits2, %%lookup_size
-
-	add	%%next_bits2, %%next_sym
-
-	;; Lookup actual next symbol
-	movzx	%%next_sym, word [%%state + %%state_offset + 2 * %%next_bits2 + 2 *((1 << %%lookup_size) - 0x8000)]
-
-	;; Save length associated with symbol
-	mov	rcx, %%next_sym
-	shr	rcx, 9
-	jz	invalid_symbol
-	and	%%next_sym, 0x1FF
-%%end:
-	;; Updated read_in to reflect the bits which were decoded
-	sub	%%read_in_length, rcx
-	SHRX	%%read_in, %%read_in, rcx
+	decode_next_lit_len %%state, %%lookup_size, %%state_offset, %%read_in, %%read_in_length, %%next_sym, %%next_sym_num, %%next_bits
 %endm
-
 
 ;; Decode next symbol
 ;; Clobber rcx
-%macro decode_next2		7
+%macro decode_next_dist	8
 %define	%%state			%1 ; State structure associated with compressed stream
 %define %%lookup_size		%2 ; Number of bits used for small lookup
 %define	%%state_offset		%3 ; Type of huff code, should be either LIT or DIST
 %define %%read_in		%4 ; Bits read in from compressed stream
 %define %%read_in_length	%5 ; Number of valid bits in read_in
 %define %%next_sym		%6 ; Returned symobl
-%define	%%next_bits2		%7
-
-	;; Save length associated with symbol
-	mov	%%next_bits2, %%read_in
-	shr	%%next_bits2, %%lookup_size
+%define %%next_extra_bits	%7
+%define	%%next_bits		%8
 
 	mov	rcx, %%next_sym
-	shr	rcx, 9
-	jz	invalid_symbol
+	shr	rcx, SMALL_SHORT_CODE_LEN_OFFSET
+	jz	invalid_dist_symbol_ %+ %%next_sym
 
 	;; Check if symbol or hint was looked up
-	and	%%next_sym, 0x81FF
-	cmp	%%next_sym, 0x8000
-	jl	%%end
+	and	%%next_sym, SMALL_FLAG_BIT | SMALL_SHORT_SYM_MASK
+	test	%%next_sym, SMALL_FLAG_BIT
+	jz	%%end
+
+	;; Save length associated with symbol
+	mov	%%next_bits, %%read_in
+	shr	%%next_bits, %%lookup_size
 
 	;; Extract the 15-DECODE_LOOKUP_SIZE bits beyond the first %%lookup_size bits.
-	lea	%%next_sym, [%%state + 2 * %%next_sym]
-	sub	rcx, 0x40 + %%lookup_size
+	lea	%%next_sym, [%%state + SMALL_LONG_CODE_SIZE * %%next_sym]
 
-%ifdef USE_HSWNI
-	bzhi	%%next_bits2, %%next_bits2, rcx
-%else
-	;; Decode next_sym using hint
-	neg	rcx
-	shl	%%next_bits2, cl
-	shr	%%next_bits2, cl
-%endif
+	CLEAR_HIGH_BITS %%next_bits, rcx, %%lookup_size
 
 	;; Lookup actual next symbol
-	movzx	%%next_sym, word [%%next_sym + %%state_offset + 2 * %%next_bits2 + 2 * ((1 << %%lookup_size) - 0x8000)]
+	movzx	%%next_sym, word [%%next_sym + %%state_offset + SMALL_LONG_CODE_SIZE * %%next_bits + SMALL_SHORT_CODE_SIZE * (1 << %%lookup_size) - SMALL_LONG_CODE_SIZE * SMALL_FLAG_BIT]
 
 	;; Save length associated with symbol
 	mov	rcx, %%next_sym
-	shr	rcx, 9
-	jz	invalid_symbol
-	and	%%next_sym, 0x1FF
+	shr	rcx, SMALL_LONG_CODE_LEN_OFFSET
+	jz	invalid_dist_symbol_ %+ %%next_sym
+	and	%%next_sym, SMALL_SHORT_SYM_MASK
 
 %%end:
 	;; Updated read_in to reflect the bits which were decoded
 	SHRX	%%read_in, %%read_in, rcx
 	sub	%%read_in_length, rcx
+	mov	rcx, %%next_sym
+	shr	rcx, DIST_SYM_EXTRA_OFFSET
+	and	%%next_sym, DIST_SYM_MASK
 %endm
+
+;; Decode next symbol
+;; Clobber rcx
+%macro decode_next_dist_with_load	8
+%define	%%state			%1 ; State structure associated with compressed stream
+%define %%lookup_size		%2 ; Number of bits used for small lookup
+%define	%%state_offset		%3
+%define %%read_in		%4 ; Bits read in from compressed stream
+%define %%read_in_length	%5 ; Number of valid bits in read_in
+%define %%next_sym		%6 ; Returned symobl
+%define %%next_extra_bits	%7
+%define %%next_bits		%8
+
+	;; Lookup possible next symbol
+	mov	%%next_bits, %%read_in
+	and	%%next_bits, (1 << %%lookup_size) - 1
+	movzx	%%next_sym, word [%%state + %%state_offset + SMALL_SHORT_CODE_SIZE * %%next_bits]
+
+	decode_next_dist %%state, %%lookup_size, %%state_offset, %%read_in, %%read_in_length, %%next_sym, %%next_extra_bits, %%next_bits
+%endm
+
+[bits 64]
+default rel
+section .text
 
 global decode_huffman_code_block_stateless_ %+ ARCH
 decode_huffman_code_block_stateless_ %+ ARCH %+ :
+	endbranch
 
 	FUNC_SAVE
 
 	mov	state, arg0
+	mov	[rsp + start_out_mem_offset], arg1
 	lea	rfc_lookup, [rfc1951_lookup_table]
 
 	mov	read_in,[state + _read_in]
@@ -361,13 +484,6 @@ decode_huffman_code_block_stateless_ %+ ARCH %+ :
 
 	mov	dword [state + _copy_overflow_len], 0
 	mov	dword [state + _copy_overflow_dist], 0
-
-	mov	tmp3 %+ d, dword [state + _total_out]
-	add	tmp3 %+ d, dword [state + _dict_length]
-	sub	tmp3, next_out
-	neg	tmp3
-
-	mov	[rsp + start_out_mem_offset], tmp3
 
 	sub	end_out, OUT_BUFFER_SLOP
 	sub	end_in, IN_BUFFER_SLOP
@@ -383,7 +499,7 @@ decode_huffman_code_block_stateless_ %+ ARCH %+ :
 skip_load:
 	mov	tmp3, read_in
 	and	tmp3, (1 << ISAL_DECODE_LONG_BITS) - 1
-	movzx	next_sym, word [state + _lit_huff_code + 2 * tmp3]
+	mov	next_sym %+ d, dword [state + _lit_huff_code + LARGE_SHORT_CODE_SIZE * tmp3]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Main Loop
@@ -396,14 +512,17 @@ loop_block:
 	jg	end_loop_block_pre
 
 	;; Decode next symbol and reload the read_in buffer
-	decode_next2	state, ISAL_DECODE_LONG_BITS, _lit_huff_code, read_in, read_in_length, next_sym, tmp1
+	decode_next_lit_len	state, ISAL_DECODE_LONG_BITS, _lit_huff_code, read_in, read_in_length, next_sym, next_sym_num, tmp1
 
-	;; Save next_sym in next_sym2 so next_sym can be preloaded
-	mov	next_sym2, next_sym
+	;; Specutively write next_sym if it is a literal
+	mov	[next_out], next_sym
+	add	next_out, next_sym_num
+	lea	next_sym2, [8 * next_sym_num - 8]
+	SHRX	next_sym2, next_sym, next_sym2
 
 	;; Find index to specutively preload next_sym from
-	mov	tmp3, read_in
-	and	tmp3, (1 << ISAL_DECODE_LONG_BITS) - 1
+	mov	tmp3, (1 << ISAL_DECODE_LONG_BITS) - 1
+	and	tmp3, read_in
 
 	;; Start reloading read_in
 	mov	tmp1, [next_in]
@@ -411,15 +530,14 @@ loop_block:
 	or	read_in, tmp1
 
 	;; Specutively load data associated with length symbol
-	movzx	rcx, byte [rfc_lookup + _len_extra_bit_count + next_sym2 - 257]
-	movzx	repeat_length, word [rfc_lookup + _len_start + 2 * (next_sym2 - 257)]
+	lea	repeat_length, [next_sym2 - 254]
 
 	;; Test for end of block symbol
 	cmp	next_sym2, 256
 	je	end_symbol_pre
 
 	;; Specutively load next_sym for next loop if a literal was decoded
-	movzx	next_sym, word [state + _lit_huff_code + 2 * tmp3]
+	mov	next_sym %+ d, dword [state + _lit_huff_code + LARGE_SHORT_CODE_SIZE * tmp3]
 
 	;; Finish updating read_in_length for read_in
 	mov	tmp1, 64
@@ -429,50 +547,34 @@ loop_block:
 	lea	read_in_length, [read_in_length + 8 * tmp1]
 
 	;; Specultively load next dist code
-	SHRX	read_in_2, read_in, rcx
-	mov	next_bits2, read_in_2
-	and	next_bits2, (1 << ISAL_DECODE_SHORT_BITS) - 1
-	movzx	next_sym3, word [state + _dist_huff_code + 2 * next_bits2]
-
-	;; Specutively write next_sym2 if it is a literal
-	mov	[next_out], next_sym2
-	add	next_out, 1
+	mov	next_bits2, (1 << ISAL_DECODE_SHORT_BITS) - 1
+	and	next_bits2, read_in
+	movzx	next_sym3, word [state + _dist_huff_code + SMALL_SHORT_CODE_SIZE * next_bits2]
 
 	;; Check if next_sym2 is a literal, length, or end of block symbol
 	cmp	next_sym2, 256
 	jl	loop_block
 
 decode_len_dist:
-	;; Find length for length/dist pair
-	mov	next_bits, read_in
-
-	BZHI	next_bits, next_bits, rcx, tmp4
-	add	repeat_length, next_bits
-
-	;; Update read_in for the length extra bits which were read in
-	sub	read_in_length, rcx
+	;; Determine next_out after the copy is finished
+	lea	next_out, [next_out + repeat_length - 1]
 
 	;; Decode distance code
-	decode_next2 state, ISAL_DECODE_SHORT_BITS, _dist_huff_code, read_in_2, read_in_length, next_sym3, tmp2
+	decode_next_dist state, ISAL_DECODE_SHORT_BITS, _dist_huff_code, read_in, read_in_length, next_sym3, rcx, tmp2
 
-	movzx	rcx, byte [rfc_lookup + _dist_extra_bit_count + next_sym3]
 	mov	look_back_dist2 %+ d, [rfc_lookup + _dist_start + 4 * next_sym3]
 
-	;; Load distance code extra bits
-	mov	next_bits, read_in_2
-
-	;; Determine next_out after the copy is finished
-	add	next_out, repeat_length
-	sub	next_out, 1
+	; ;; Load distance code extra bits
+	mov	next_bits, read_in
 
 	;; Calculate the look back distance
 	BZHI	next_bits, next_bits, rcx, tmp4
-	SHRX	read_in_2, read_in_2, rcx
+	SHRX	read_in, read_in, rcx
 
 	;; Setup next_sym, read_in, and read_in_length for next loop
-	mov	read_in, read_in_2
-	and	read_in_2, (1 << ISAL_DECODE_LONG_BITS) - 1
-	movzx	next_sym, word [state + _lit_huff_code + 2 * read_in_2]
+	mov	read_in_2, (1 << ISAL_DECODE_LONG_BITS) - 1
+	and	read_in_2, read_in
+	mov	next_sym %+ d, dword [state + _lit_huff_code + LARGE_SHORT_CODE_SIZE * read_in_2]
 	sub	read_in_length, rcx
 
 	;; Copy distance in len/dist pair
@@ -537,40 +639,30 @@ end_loop_block:
 	inflate_in_small_load	next_in, end_in, read_in, read_in_length, tmp1, tmp2
 	mov	[rsp + read_in_mem_offset], read_in
 	mov	[rsp + read_in_length_mem_offset], read_in_length
+	mov	[rsp + next_out_mem_offset], next_out
 
-	decode_next state, ISAL_DECODE_LONG_BITS, _lit_huff_code, read_in, read_in_length, next_sym, tmp1, tmp2
+	decode_next_lit_len_with_load state, ISAL_DECODE_LONG_BITS, _lit_huff_code, read_in, read_in_length, next_sym, next_sym_num, tmp1
 
 	;; Check that enough input was available to decode symbol
 	cmp	read_in_length, 0
 	jl	end_of_input
+
+multi_symbol_start:
+	cmp	next_sym_num, 1
+	jg	decode_literal
 
 	cmp	next_sym, 256
 	jl	decode_literal
 	je	end_symbol
 
 decode_len_dist_2:
-	;; Load length exta bits
-	mov	next_bits, read_in
-
-	movzx	repeat_length, word [rfc_lookup + _len_start + 2 * (next_sym - 257)]
-	movzx	rcx, byte [rfc_lookup + _len_extra_bit_count + next_sym - 257]
-
-	;; Calculate repeat length
-	BZHI	next_bits, next_bits, rcx, tmp1
-	add	repeat_length, next_bits
-
-	;; Update read_in for the length extra bits which were read in
-	SHRX	read_in, read_in, rcx
-	sub	read_in_length, rcx
-
+	lea	repeat_length, [next_sym - 254]
 	;; Decode distance code
-	decode_next state, ISAL_DECODE_SHORT_BITS, _dist_huff_code, read_in, read_in_length, next_sym, tmp1, tmp2
+	decode_next_dist_with_load state, ISAL_DECODE_SHORT_BITS, _dist_huff_code, read_in, read_in_length, next_sym, rcx, tmp1
 
 	;; Load distance code extra bits
 	mov	next_bits, read_in
 	mov	look_back_dist %+ d, [rfc_lookup + _dist_start + 4 * next_sym]
-	movzx	rcx, byte [rfc_lookup + _dist_extra_bit_count + next_sym]
-
 
 	;; Calculate the look back distance and check for enough input
 	BZHI	next_bits, next_bits, rcx, tmp1
@@ -605,12 +697,19 @@ decode_literal:
 	jge	out_buffer_overflow_lit
 	add	next_out, 1
 	mov	byte [next_out - 1], next_sym %+ b
-	jmp	end_loop_block
+	sub	next_sym_num, 1
+	jz	end_loop_block
+	shr	next_sym, 8
+	jmp	multi_symbol_start
 
 ;; Set exit codes
 end_of_input:
 	mov	read_in, [rsp + read_in_mem_offset]
 	mov	read_in_length, [rsp + read_in_length_mem_offset]
+	mov	next_out, [rsp + next_out_mem_offset]
+	xor	tmp1, tmp1
+	mov	dword [state + _write_overflow_lits], tmp1 %+ d
+	mov	dword [state + _write_overflow_len], tmp1 %+ d
 	mov	rax, END_INPUT
 	jmp	end
 
@@ -630,38 +729,69 @@ out_buffer_overflow_repeat:
 	jmp	end
 
 out_buffer_overflow_lit:
-	mov	read_in, [rsp + read_in_mem_offset]
-	mov	read_in_length, [rsp + read_in_length_mem_offset]
+	mov	dword [state + _write_overflow_lits], next_sym %+ d
+	mov	dword [state + _write_overflow_len], next_sym_num %+ d
+	sub	next_sym_num, 1
+	shl	next_sym_num, 3
+	SHRX	next_sym, next_sym, next_sym_num
 	mov	rax, OUT_OVERFLOW
-	jmp	end
+	shr	next_sym_num, 3
+	cmp	next_sym, 256
+	jl	end
+	mov	dword [state + _write_overflow_len], next_sym_num %+ d
+	jg	decode_len_dist_2
+	jmp	end_state
 
 invalid_look_back_distance:
 	mov	rax, INVALID_LOOKBACK
 	jmp	end
 
+invalid_dist_symbol_ %+ next_sym:
+	cmp	read_in_length, next_sym
+	jl	end_of_input
+	jmp	invalid_symbol
+invalid_dist_symbol_ %+ next_sym3:
+	cmp	read_in_length, next_sym3
+	jl	end_of_input
 invalid_symbol:
 	mov	rax, INVALID_SYMBOL
 	jmp	end
 
 end_symbol_pre:
 	;; Fix up in buffer and out buffer to reflect the actual buffer
+	sub	next_out, 1
 	add	end_out, OUT_BUFFER_SLOP
 	add	end_in, IN_BUFFER_SLOP
 end_symbol:
+	xor	rax, rax
+end_state:
 	;;  Set flag identifying a new block is required
 	mov	byte [state + _block_state], ISAL_BLOCK_NEW_HDR
-	xor	rax, rax
+	cmp	dword [state + _bfinal], 0
+	je	end
+	mov	byte [state + _block_state], ISAL_BLOCK_INPUT_DONE
+
 end:
 	;; Save current buffer states
 	mov	[state + _read_in], read_in
 	mov	[state + _read_in_length], read_in_length %+ d
-	mov	[state + _next_out], next_out
+
+	;; Set avail_out
 	sub	end_out, next_out
 	mov	dword [state + _avail_out], end_out %+ d
-	sub	next_out, [rsp + start_out_mem_offset]
-	sub	next_out %+ d, [state + _dict_length]
-	mov	[state + _total_out], next_out %+ d
+
+	;; Set total_out
+	mov	tmp1, next_out
+	sub	tmp1, [state + _next_out]
+	add	[state + _total_out], tmp1 %+ d
+
+	;; Set next_out
+	mov	[state + _next_out], next_out
+
+	;; Set next_in
 	mov	[state + _next_in], next_in
+
+	;; Set avail_in
 	sub	end_in, next_in
 	mov	[state + _avail_in], end_in %+ d
 

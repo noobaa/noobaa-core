@@ -42,7 +42,7 @@
  %define arg5  r9
  %define tmp   r11
  %define return rax
- %define func(x) x:
+ %define func(x) x: endbranch
  %define FUNC_SAVE
  %define FUNC_RESTORE
 
@@ -56,11 +56,11 @@
  %define func(x) proc_frame x
  %macro FUNC_SAVE 0
 	alloc_stack	stack_size
-	save_xmm128	xmm6, 0*16
-	save_xmm128	xmm7, 1*16
-	save_xmm128	xmm13, 2*16
-	save_xmm128	xmm14, 3*16
-	save_xmm128	xmm15, 4*16
+	vmovdqa		[rsp + 0*16], xmm6
+	vmovdqa		[rsp + 1*16], xmm7
+	vmovdqa		[rsp + 2*16], xmm13
+	vmovdqa		[rsp + 3*16], xmm14
+	vmovdqa		[rsp + 4*16], xmm15
 	end_prolog
  %endmacro
 
@@ -111,7 +111,7 @@ section .text
 %define xtmp2c xmm7
 
 align 16
-global gf_vect_mul_avx:function
+mk_global gf_vect_mul_avx, function
 func(gf_vect_mul_avx)
 	FUNC_SAVE
 	mov	pos, 0

@@ -47,7 +47,7 @@ typedef struct gcm_vector {
 	uint64_t       Plen;       // length of our plaintext
 	//outputs of encryption
 	uint8_t*       C;          // same length as PT
-	uint8_t*       T;          // Authenication tag
+	uint8_t*       T;          // Authentication tag
 	uint8_t        Tlen;       // AT length can be 0 to 128bits
 } gcm_vector;
 

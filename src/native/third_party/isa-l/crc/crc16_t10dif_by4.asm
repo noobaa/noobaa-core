@@ -66,8 +66,9 @@ section .text
 %endif
 
 align 16
-global	crc16_t10dif_by4:function
+mk_global 	crc16_t10dif_by4, function
 crc16_t10dif_by4:
+	endbranch
 
 	; adjust the 16-bit initial_crc value, scale it to 32 bits
 	shl	arg1_low32, 16

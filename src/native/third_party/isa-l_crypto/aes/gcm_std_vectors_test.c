@@ -77,17 +77,17 @@ int test_gcm128_std_vectors(gcm_vector const *vector)
 
 	// Allocate space for the calculated ciphertext
 	ct_test = malloc(vector->Plen);
-	// Allocate space for the calculated ciphertext
+	// Allocate space for the plain text
 	pt_test = malloc(vector->Plen);
 	if ((ct_test == NULL) || (pt_test == NULL)) {
 		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
 		return 1;
 	}
 	IV_alloc_len = vector->IVlen;
-	// Allocate space for the calculated ciphertext
+	// Allocate space for the IV
 	IV_c = malloc(IV_alloc_len);
 	if (IV_c == NULL) {
-		fprintf(stderr, "Can't allocate ciphertext memory\n");
+		fprintf(stderr, "Can't allocate IV memory\n");
 		return 1;
 	}
 	memcpy(IV_c, vector->IV, vector->IVlen);
@@ -115,6 +115,7 @@ int test_gcm128_std_vectors(gcm_vector const *vector)
 			vector->A, vector->Alen, T_test, vector->Tlen);
 	OK |= check_data(pt_test, vector->C, vector->Plen,
 			 "ISA-L encrypted cypher text(in-place)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L encrypted tag T(in-place)");
 	memset(ct_test, 0, vector->Plen);
 	memset(T_test, 0, vector->Tlen);
 
@@ -176,17 +177,17 @@ int test_gcm256_std_vectors(gcm_vector const *vector)
 
 	// Allocate space for the calculated ciphertext
 	ct_test = malloc(vector->Plen);
-	// Allocate space for the calculated ciphertext
+	// Allocate space for the plain text
 	pt_test = malloc(vector->Plen);
 	if ((ct_test == NULL) || (pt_test == NULL)) {
 		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
 		return 1;
 	}
 	IV_alloc_len = vector->IVlen;
-	// Allocate space for the calculated ciphertext
+	// Allocate space for the IV
 	IV_c = malloc(IV_alloc_len);
 	if (IV_c == NULL) {
-		fprintf(stderr, "Can't allocate ciphertext memory\n");
+		fprintf(stderr, "Can't allocate IV memory\n");
 		return 1;
 	}
 	memcpy(IV_c, vector->IV, vector->IVlen);
@@ -216,6 +217,7 @@ int test_gcm256_std_vectors(gcm_vector const *vector)
 	OK |=
 	    check_data(pt_test, vector->C, vector->Plen,
 		       "ISA-L encrypted cypher text(in-place)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L encrypted tag T(in-place)");
 	memset(ct_test, 0, vector->Plen);
 	memset(T_test, 0, vector->Tlen);
 
@@ -260,6 +262,316 @@ int test_gcm256_std_vectors(gcm_vector const *vector)
 	return OK;
 }
 
+void aes_gcm_stream_enc_128(const struct gcm_key_data *key_data,
+			    struct gcm_context_data *context,
+			    uint8_t * out,
+			    uint8_t const *in,
+			    uint64_t len,
+			    uint8_t * iv,
+			    uint8_t const *aad,
+			    uint64_t aad_len, uint8_t * auth_tag, uint64_t auth_tag_len)
+{
+	aes_gcm_init_128(key_data, context, iv, aad, aad_len);
+	uint8_t test_sequence[] = { 1, 12, 22, 0, 1, 12, 16 };	//sum(test_sequence) > max_Plen in verctors
+	uint32_t i;
+	uint32_t offset = 0, dist;
+
+	for (i = 0; i < sizeof(test_sequence); i++) {
+		dist = test_sequence[i];
+		if (offset + dist > len)
+			break;
+		aes_gcm_enc_128_update(key_data, context, out + offset, in + offset, dist);
+		offset += dist;
+	}
+
+	aes_gcm_enc_128_update(key_data, context, out + offset, in + offset, len - offset);
+	aes_gcm_enc_128_finalize(key_data, context, auth_tag, auth_tag_len);
+}
+
+void aes_gcm_stream_dec_128(const struct gcm_key_data *key_data,
+			    struct gcm_context_data *context,
+			    uint8_t * out,
+			    uint8_t const *in,
+			    uint64_t len,
+			    uint8_t * iv,
+			    uint8_t const *aad,
+			    uint64_t aad_len, uint8_t * auth_tag, uint64_t auth_tag_len)
+{
+	aes_gcm_init_128(key_data, context, iv, aad, aad_len);
+	uint8_t test_sequence[] = { 1, 12, 22, 0, 1, 12, 16 };	//sum(test_sequence) > max_Plen in vectors
+	uint32_t i;
+	uint32_t offset = 0, dist;
+
+	for (i = 0; i < sizeof(test_sequence); i++) {
+		dist = test_sequence[i];
+		if (offset + dist > len)
+			break;
+		aes_gcm_dec_128_update(key_data, context, out + offset, in + offset, dist);
+		offset += dist;
+	}
+	aes_gcm_dec_128_update(key_data, context, out + offset, in + offset, len - offset);
+	aes_gcm_dec_128_finalize(key_data, context, auth_tag, auth_tag_len);
+
+}
+
+#if !defined(NT_LD) && !defined(NT_ST) && !defined(NT_LDST)
+int test_gcm128_std_stream_vectors(gcm_vector const *vector)
+{
+	struct gcm_key_data gkey;
+	struct gcm_context_data gctx;
+	int OK = 0;
+	// Temporary array for the calculated vectors
+	uint8_t *ct_test = NULL;
+	uint8_t *pt_test = NULL;
+	uint8_t *IV_c = NULL;
+	uint8_t *T_test = NULL;
+	uint8_t *T2_test = NULL;
+	uint64_t IV_alloc_len = 0;
+
+	// Allocate space for the calculated ciphertext
+	ct_test = malloc(vector->Plen);
+	// Allocate space for the plain text
+	pt_test = malloc(vector->Plen);
+	if ((ct_test == NULL) || (pt_test == NULL)) {
+		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
+		return 1;
+	}
+	IV_alloc_len = vector->IVlen;
+	// Allocate space for the IV
+	IV_c = malloc(IV_alloc_len);
+	if (IV_c == NULL) {
+		fprintf(stderr, "Can't allocate IV memory\n");
+		return 1;
+	}
+	memcpy(IV_c, vector->IV, vector->IVlen);
+
+	T_test = malloc(vector->Tlen);
+	T2_test = malloc(vector->Tlen);
+	if ((T_test == NULL) || (T2_test == NULL)) {
+		fprintf(stderr, "Can't allocate tag memory\n");
+		return 1;
+	}
+	// This is only required once for a given key
+	memset(gkey.expanded_keys, 0, sizeof(gkey.expanded_keys));
+	aes_gcm_pre_128(vector->K, &gkey);
+
+	////
+	// ISA-l Encrypt
+	////
+
+	aes_gcm_stream_enc_128(&gkey, &gctx, ct_test, vector->P, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(ct_test, vector->C, vector->Plen, "ISA-L encrypted cypher text (C)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L tag (T)");
+
+	// test of in-place encrypt
+	memcpy(pt_test, vector->P, vector->Plen);
+	aes_gcm_stream_enc_128(&gkey, &gctx, pt_test, pt_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(pt_test, vector->C, vector->Plen,
+			 "ISA-L encrypted cypher text(in-place)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L encrypted tag T(in-place)");
+	memset(ct_test, 0, vector->Plen);
+	memset(T_test, 0, vector->Tlen);
+
+	////
+	// ISA-l Decrypt
+	////
+	aes_gcm_stream_dec_128(&gkey, &gctx, pt_test, vector->C, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(pt_test, vector->P, vector->Plen, "ISA-L decrypted plain text (P)");
+	// GCM decryption outputs a 16 byte tag value that must be verified against the expected tag value
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L decrypted tag (T)");
+
+	// test in in-place decrypt
+	memcpy(ct_test, vector->C, vector->Plen);
+	aes_gcm_stream_dec_128(&gkey, &gctx, ct_test, ct_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(ct_test, vector->P, vector->Plen, "ISA-L plain text (P) - in-place");
+	OK |=
+	    check_data(T_test, vector->T, vector->Tlen, "ISA-L decrypted tag (T) - in-place");
+	// ISA-L enc -> ISA-L dec
+	aes_gcm_stream_enc_128(&gkey, &gctx, ct_test, vector->P, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	memset(pt_test, 0, vector->Plen);
+	aes_gcm_stream_dec_128(&gkey, &gctx, pt_test, ct_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T2_test, vector->Tlen);
+	OK |=
+	    check_data(pt_test, vector->P, vector->Plen,
+		       "ISA-L self decrypted plain text (P)");
+	OK |= check_data(T_test, T2_test, vector->Tlen, "ISA-L self decrypted tag (T)");
+
+	memset(pt_test, 0, vector->Plen);
+
+	if (NULL != ct_test)
+		free(ct_test);
+	if (NULL != pt_test)
+		free(pt_test);
+	if (NULL != IV_c)
+		free(IV_c);
+	if (NULL != T_test)
+		free(T_test);
+	if (NULL != T2_test)
+		free(T2_test);
+
+	return OK;
+}
+
+void aes_gcm_stream_enc_256(const struct gcm_key_data *key_data,
+			    struct gcm_context_data *context,
+			    uint8_t * out,
+			    uint8_t const *in,
+			    uint64_t len,
+			    uint8_t * iv,
+			    uint8_t const *aad,
+			    uint64_t aad_len, uint8_t * auth_tag, uint64_t auth_tag_len)
+{
+	aes_gcm_init_256(key_data, context, iv, aad, aad_len);
+	uint8_t test_sequence[] = { 1, 12, 22, 0, 1, 12, 16 };	//sum(test_sequence) > max_Plen in vectors
+	uint32_t i;
+	uint32_t offset = 0, dist;
+
+	for (i = 0; i < sizeof(test_sequence); i++) {
+		dist = test_sequence[i];
+		if (offset + dist > len)
+			break;
+		aes_gcm_enc_256_update(key_data, context, out + offset, in + offset, dist);
+		offset += dist;
+	}
+
+	aes_gcm_enc_256_update(key_data, context, out + offset, in + offset, len - offset);
+	aes_gcm_enc_256_finalize(key_data, context, auth_tag, auth_tag_len);
+
+}
+
+void aes_gcm_stream_dec_256(const struct gcm_key_data *key_data,
+			    struct gcm_context_data *context,
+			    uint8_t * out,
+			    uint8_t const *in,
+			    uint64_t len,
+			    uint8_t * iv,
+			    uint8_t const *aad,
+			    uint64_t aad_len, uint8_t * auth_tag, uint64_t auth_tag_len)
+{
+	aes_gcm_init_256(key_data, context, iv, aad, aad_len);
+	uint8_t test_sequence[] = { 1, 12, 22, 0, 1, 12, 16 };	//sum(test_sequence) > max_Plen in vectors
+	uint32_t i;
+	uint32_t offset = 0, dist;
+
+	for (i = 0; i < sizeof(test_sequence); i++) {
+		dist = test_sequence[i];
+		if (offset + dist > len)
+			break;
+		aes_gcm_dec_256_update(key_data, context, out + offset, in + offset, dist);
+		offset += dist;
+	}
+
+	aes_gcm_dec_256_update(key_data, context, out + offset, in + offset, len - offset);
+	aes_gcm_dec_256_finalize(key_data, context, auth_tag, auth_tag_len);
+
+}
+
+int test_gcm256_std_stream_vectors(gcm_vector const *vector)
+{
+	struct gcm_key_data gkey;
+	struct gcm_context_data gctx;
+	int OK = 0;
+	// Temporary array for the calculated vectors
+	uint8_t *ct_test = NULL;
+	uint8_t *pt_test = NULL;
+	uint8_t *IV_c = NULL;
+	uint8_t *T_test = NULL;
+	uint8_t *T2_test = NULL;
+	uint64_t IV_alloc_len = 0;
+
+	// Allocate space for the calculated ciphertext
+	ct_test = malloc(vector->Plen);
+	// Allocate space for the plain text
+	pt_test = malloc(vector->Plen);
+	if ((ct_test == NULL) || (pt_test == NULL)) {
+		fprintf(stderr, "Can't allocate ciphertext or plaintext memory\n");
+		return 1;
+	}
+	IV_alloc_len = vector->IVlen;
+	// Allocate space for the IV
+	IV_c = malloc(IV_alloc_len);
+	if (IV_c == NULL) {
+		fprintf(stderr, "Can't allocate IV memory\n");
+		return 1;
+	}
+	memcpy(IV_c, vector->IV, vector->IVlen);
+
+	T_test = malloc(vector->Tlen);
+	T2_test = malloc(vector->Tlen);
+	if (T_test == NULL) {
+		fprintf(stderr, "Can't allocate tag memory\n");
+		return 1;
+	}
+	// This is only required once for a given key
+	aes_gcm_pre_256(vector->K, &gkey);
+
+	////
+	// ISA-l Encrypt
+	////
+	memset(ct_test, 0, vector->Plen);
+	aes_gcm_stream_enc_256(&gkey, &gctx, ct_test, vector->P, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(ct_test, vector->C, vector->Plen, "ISA-L encrypted cypher text (C)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L tag (T)");
+
+	// test of in-place encrypt
+	memcpy(pt_test, vector->P, vector->Plen);
+	aes_gcm_stream_enc_256(&gkey, &gctx, pt_test, pt_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |=
+	    check_data(pt_test, vector->C, vector->Plen,
+		       "ISA-L encrypted cypher text(in-place)");
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L encrypted tag T(in-place)");
+	memset(ct_test, 0, vector->Plen);
+	memset(T_test, 0, vector->Tlen);
+
+	////
+	// ISA-l Decrypt
+	////
+	aes_gcm_stream_dec_256(&gkey, &gctx, pt_test, vector->C, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(pt_test, vector->P, vector->Plen, "ISA-L decrypted plain text (P)");
+	// GCM decryption outputs a 16 byte tag value that must be verified against the expected tag value
+	OK |= check_data(T_test, vector->T, vector->Tlen, "ISA-L decrypted tag (T)");
+
+	// test in in-place decrypt
+	memcpy(ct_test, vector->C, vector->Plen);
+	aes_gcm_stream_dec_256(&gkey, &gctx, ct_test, ct_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T_test, vector->Tlen);
+	OK |= check_data(ct_test, vector->P, vector->Plen, "ISA-L plain text (P) - in-place");
+	OK |=
+	    check_data(T_test, vector->T, vector->Tlen, "ISA-L decrypted tag (T) - in-place");
+	// ISA-L enc -> ISA-L dec
+	aes_gcm_stream_enc_256(&gkey, &gctx, ct_test, vector->P, vector->Plen,
+			       IV_c, vector->A, vector->Alen, T_test, vector->Tlen);
+	memset(pt_test, 0, vector->Plen);
+	aes_gcm_stream_dec_256(&gkey, &gctx, pt_test, ct_test, vector->Plen, IV_c,
+			       vector->A, vector->Alen, T2_test, vector->Tlen);
+	OK |=
+	    check_data(pt_test, vector->P, vector->Plen,
+		       "ISA-L self decrypted plain text (P)");
+	OK |= check_data(T_test, T2_test, vector->Tlen, "ISA-L self decrypted tag (T)");
+
+	if (NULL != ct_test)
+		free(ct_test);
+	if (NULL != pt_test)
+		free(pt_test);
+	if (NULL != IV_c)
+		free(IV_c);
+	if (NULL != T_test)
+		free(T_test);
+	if (NULL != T2_test)
+		free(T2_test);
+
+	return OK;
+}
+#endif
+
 int test_gcm_std_vectors(void)
 {
 	int const vectors_cnt = sizeof(gcm_vectors) / sizeof(gcm_vectors[0]);
@@ -288,6 +600,38 @@ int test_gcm_std_vectors(void)
 	return OK;
 }
 
+#if !defined(NT_LD) && !defined(NT_ST) && !defined(NT_LDST)
+/**
+ * Stream API test with standard vectors
+ */
+int test_gcm_std_strm_vectors(void)
+{
+	int const vectors_cnt = sizeof(gcm_vectors) / sizeof(gcm_vectors[0]);
+	int vect;
+	int OK = 0;
+
+	printf("AES-GCM standard test vectors stream api:\n");
+	for (vect = 0; (vect < vectors_cnt); vect++) {
+#ifdef DEBUG
+		printf("Standard vector stream api %d/%d"
+		       "  Keylen:%d IVlen:%d PTLen:%d AADlen:%d Tlen:%d\n",
+		       vect, vectors_cnt - 1, (int)gcm_vectors[vect].Klen,
+		       (int)gcm_vectors[vect].IVlen, (int)gcm_vectors[vect].Plen,
+		       (int)gcm_vectors[vect].Alen, (int)gcm_vectors[vect].Tlen);
+#else
+		printf(".");
+#endif
+		if (BITS_128 == gcm_vectors[vect].Klen)
+			OK |= test_gcm128_std_stream_vectors(&gcm_vectors[vect]);
+		else
+			OK |= test_gcm256_std_stream_vectors(&gcm_vectors[vect]);
+		if (0 != OK)
+			return OK;
+	}
+	printf("\n");
+	return OK;
+}
+#endif
 int main(int argc, char **argv)
 {
 	int errors = 0;
@@ -302,6 +646,9 @@ int main(int argc, char **argv)
 	printf("SEED: %d\n", seed);
 
 	errors += test_gcm_std_vectors();
+#if !defined(NT_LD) && !defined(NT_ST) && !defined(NT_LDST)
+	errors += test_gcm_std_strm_vectors();
+#endif
 
 	if (0 == errors)
 		printf("...Pass\n");

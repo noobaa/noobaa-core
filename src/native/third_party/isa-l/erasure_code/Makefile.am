@@ -1,5 +1,5 @@
 ########################################################################
-#  Copyright(c) 2011-2017 Intel Corporation All rights reserved.
+#  Copyright(c) 2011-2019 Intel Corporation All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
@@ -27,10 +27,13 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
+include erasure_code/aarch64/Makefile.am
+
+include erasure_code/ppc64le/Makefile.am
+
 lsrc         += erasure_code/ec_base.c
 
 lsrc_base_aliases += erasure_code/ec_base_aliases.c
-
 lsrc_x86_64  += \
 		erasure_code/ec_highlevel_func.c \
 		erasure_code/gf_vect_mul_sse.asm \
@@ -79,10 +82,14 @@ lsrc_x86_64  += \
 		erasure_code/gf_2vect_dot_prod_avx512.asm \
 		erasure_code/gf_3vect_dot_prod_avx512.asm \
 		erasure_code/gf_4vect_dot_prod_avx512.asm \
+		erasure_code/gf_5vect_dot_prod_avx512.asm \
+		erasure_code/gf_6vect_dot_prod_avx512.asm \
 		erasure_code/gf_vect_mad_avx512.asm \
 		erasure_code/gf_2vect_mad_avx512.asm \
 		erasure_code/gf_3vect_mad_avx512.asm \
-		erasure_code/gf_4vect_mad_avx512.asm
+		erasure_code/gf_4vect_mad_avx512.asm \
+		erasure_code/gf_5vect_mad_avx512.asm \
+		erasure_code/gf_6vect_mad_avx512.asm
 
 lsrc_x86_32  += \
 		erasure_code/ec_highlevel_func.c \
@@ -102,28 +109,16 @@ lsrc_x86_32  += \
 
 unit_tests32 += erasure_code/erasure_code_base_test \
 		erasure_code/erasure_code_test \
-		erasure_code/erasure_code_sse_test \
 		erasure_code/gf_vect_mul_test \
 		erasure_code/gf_vect_mul_base_test \
 		erasure_code/gf_vect_dot_prod_base_test \
-		erasure_code/gf_vect_dot_prod_test \
-		erasure_code/gf_vect_dot_prod_avx_test \
-		erasure_code/gf_vect_dot_prod_sse_test \
-		erasure_code/gf_2vect_dot_prod_sse_test \
-		erasure_code/gf_3vect_dot_prod_sse_test \
-		erasure_code/gf_4vect_dot_prod_sse_test
+		erasure_code/gf_vect_dot_prod_test
 
 perf_tests32 += erasure_code/gf_vect_mul_perf \
 		erasure_code/gf_vect_dot_prod_perf \
 		erasure_code/erasure_code_perf \
 		erasure_code/erasure_code_base_perf \
-		erasure_code/erasure_code_sse_perf \
-		erasure_code/gf_vect_dot_prod_1tbl \
-		erasure_code/gf_vect_dot_prod_avx_perf\
-		erasure_code/gf_vect_dot_prod_sse_perf\
-		erasure_code/gf_2vect_dot_prod_sse_perf \
-		erasure_code/gf_3vect_dot_prod_sse_perf \
-		erasure_code/gf_4vect_dot_prod_sse_perf
+		erasure_code/gf_vect_dot_prod_1tbl
 
 src_include += -I $(srcdir)/erasure_code
 extern_hdrs  += include/erasure_code.h \
@@ -138,38 +133,18 @@ check_tests  += erasure_code/gf_vect_mul_test \
 		erasure_code/gf_inverse_test \
 		erasure_code/erasure_code_update_test
 
-unit_tests   += erasure_code/gf_vect_mul_sse_test \
-		erasure_code/gf_vect_mul_avx_test \
+unit_tests   += \
 		erasure_code/gf_vect_mul_base_test \
-		erasure_code/gf_vect_dot_prod_sse_test \
-		erasure_code/gf_vect_dot_prod_avx_test \
-		erasure_code/gf_2vect_dot_prod_sse_test \
-		erasure_code/gf_3vect_dot_prod_sse_test \
-		erasure_code/gf_4vect_dot_prod_sse_test \
-		erasure_code/gf_5vect_dot_prod_sse_test \
-		erasure_code/gf_6vect_dot_prod_sse_test \
 		erasure_code/gf_vect_dot_prod_base_test \
 		erasure_code/gf_vect_dot_prod_test \
 		erasure_code/gf_vect_mad_test \
-		erasure_code/erasure_code_base_test \
-		erasure_code/erasure_code_sse_test
+		erasure_code/erasure_code_base_test
 
 perf_tests   += erasure_code/gf_vect_mul_perf \
-		erasure_code/gf_vect_mul_sse_perf \
-		erasure_code/gf_vect_mul_avx_perf \
-		erasure_code/gf_vect_dot_prod_sse_perf \
-		erasure_code/gf_vect_dot_prod_avx_perf \
-		erasure_code/gf_2vect_dot_prod_sse_perf \
-		erasure_code/gf_3vect_dot_prod_sse_perf \
-		erasure_code/gf_4vect_dot_prod_sse_perf \
-		erasure_code/gf_5vect_dot_prod_sse_perf \
-		erasure_code/gf_6vect_dot_prod_sse_perf \
 		erasure_code/gf_vect_dot_prod_perf \
 		erasure_code/gf_vect_dot_prod_1tbl \
-		erasure_code/gf_vect_mad_perf \
 		erasure_code/erasure_code_perf \
 		erasure_code/erasure_code_base_perf \
-		erasure_code/erasure_code_sse_perf \
 		erasure_code/erasure_code_update_perf
 
 other_tests  += erasure_code/gen_rs_matrix_limits

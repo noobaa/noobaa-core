@@ -221,9 +221,11 @@ int check_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx, gcm_v
 	free(T_test);
 	free(o_T_test);
 	free(IV_c);
-	free(pt_test);
-	free(ct_test);
-	free(o_ct_test);
+	if (vector->Plen != 0) {
+		aligned_free(pt_test);
+		aligned_free(ct_test);
+		aligned_free(o_ct_test);
+	}
 
 	return OK;
 }
@@ -298,7 +300,7 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 		aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break, stream,
 					  i - last_break);
 		if (i - last_break != 0)
-			free(stream);
+			aligned_free(stream);
 
 		if (rand() % 1024 == 0) {
 			length = rand() % 100;
@@ -344,7 +346,7 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 			aes_gcm_dec_128_update_nt(gkey, gctx, vector->P + last_break, stream,
 						  i - last_break);
 			if (i - last_break != 0)
-				free(stream);
+				aligned_free(stream);
 
 			if (rand() % 1024 == 0) {
 				length = rand() % 100;
@@ -381,9 +383,11 @@ int check_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	free(T_test);
 	free(o_T_test);
 	free(IV_c);
-	free(pt_test);
-	free(ct_test);
-	free(o_ct_test);
+	if (vector->Plen != 0) {
+		aligned_free(pt_test);
+		aligned_free(ct_test);
+		aligned_free(o_ct_test);
+	}
 	free(rand_data);
 
 	return OK;
@@ -457,7 +461,7 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 		aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break, stream,
 					  i - last_break);
 		if (i - last_break != 0)
-			free(stream);
+			aligned_free(stream);
 		last_break = i;
 		i = i + (length - start) / breaks;
 
@@ -495,7 +499,7 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 		aes_gcm_dec_128_update_nt(gkey, gctx, vector->P + last_break, stream,
 					  i - last_break);
 		if (i - last_break != 0)
-			free(stream);
+			aligned_free(stream);
 		last_break = i;
 		i = i + (length - start) / breaks;
 
@@ -519,6 +523,11 @@ int check_strm_vector2(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 		printf(" ISA-L->OpenSSL decryption failed Authentication\n");
 	OK |= (-1 == result);
 	free(rand_data);
+	if (vector->Plen != 0) {
+		free(pt_test);
+		free(ct_test);
+		aligned_free(o_ct_test);
+	}
 
 	return OK;
 }
@@ -591,7 +600,7 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 			aes_gcm_enc_128_update_nt(gkey, gctx, vector->C + last_break,
 						  stream + PAGE_LEN - (i - last_break),
 						  i - last_break);
-			free(stream);
+			aligned_free(stream);
 
 			if (rand() % 1024 == 0) {
 				length = rand() % 100;
@@ -637,7 +646,7 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 			aes_gcm_dec_128_update_nt(gkey, gctx, vector->P + last_break,
 						  stream + PAGE_LEN - (i - last_break),
 						  i - last_break);
-			free(stream);
+			aligned_free(stream);
 
 			if (rand() % 1024 == 0) {
 				length = rand() % 100;
@@ -674,9 +683,11 @@ int check_strm_vector_efence(struct gcm_key_data *gkey, struct gcm_context_data 
 	free(T_test);
 	free(o_T_test);
 	free(IV_c);
-	free(pt_test);
-	free(ct_test);
-	free(o_ct_test);
+	if (vector->Plen != 0) {
+		aligned_free(pt_test);
+		aligned_free(ct_test);
+		aligned_free(o_ct_test);
+	}
 	free(rand_data);
 
 	return OK;
@@ -776,9 +787,11 @@ int check_256_vector(struct gcm_key_data *gkey, struct gcm_context_data *gctx,
 	free(T_test);
 	free(o_T_test);
 	free(IV_c);
-	free(pt_test);
-	free(ct_test);
-	free(o_ct_test);
+	if (vector->Plen != 0) {
+		aligned_free(pt_test);
+		aligned_free(ct_test);
+		aligned_free(o_ct_test);
+	}
 
 	return OK;
 }
@@ -901,7 +914,7 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 		aes_gcm_dec_256_update_nt(gkey, gctx, vector->P + last_break, stream,
 					  i - last_break);
 		if (i - last_break != 0)
-			free(stream);
+			aligned_free(stream);
 
 		if (rand() % 1024 == 0) {
 			length = rand() % 100;
@@ -940,9 +953,11 @@ int check_256_strm_vector(struct gcm_key_data *gkey, struct gcm_context_data *gc
 	free(T_test);
 	free(o_T_test);
 	free(IV_c);
-	free(pt_test);
-	free(ct_test);
-	free(o_ct_test);
+	if (vector->Plen != 0) {
+		aligned_free(pt_test);
+		aligned_free(ct_test);
+		aligned_free(o_ct_test);
+	}
 
 	return OK;
 }
@@ -981,7 +996,7 @@ int test_gcm_strm_efence(void)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1023,13 +1038,13 @@ int test_gcm_strm_efence(void)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}
@@ -1076,7 +1091,7 @@ int test_gcm_strm_combinations(int test_len)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1119,13 +1134,13 @@ int test_gcm_strm_combinations(int test_len)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}
@@ -1169,7 +1184,7 @@ int test_gcm_combinations(void)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1212,13 +1227,13 @@ int test_gcm_combinations(void)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}
@@ -1262,7 +1277,7 @@ int test_gcm256_combinations(void)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1305,13 +1320,13 @@ int test_gcm256_combinations(void)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}
@@ -1358,7 +1373,7 @@ int test_gcm256_strm_combinations(int test_len)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1401,13 +1416,13 @@ int test_gcm256_strm_combinations(int test_len)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}
@@ -1627,9 +1642,9 @@ int test_gcm128_std_vectors(gcm_vector const *vector)
 	OK |= (-1 == result);
 	OK |= check_data(pt_test, vector->P, vector->Plen, "OSSL decrypted plain text (C)");
 	if (NULL != ct_test)
-		free(ct_test);
+		aligned_free(ct_test);
 	if (NULL != pt_test)
-		free(pt_test);
+		aligned_free(pt_test);
 	if (NULL != IV_c)
 		free(IV_c);
 	if (NULL != T_test)
@@ -1771,9 +1786,9 @@ int test_gcm256_std_vectors(gcm_vector const *vector)
 	OK |= (-1 == result);
 	OK |= check_data(pt_test, vector->P, vector->Plen, "OSSL decrypted plain text (C)");
 	if (NULL != ct_test)
-		free(ct_test);
+		aligned_free(ct_test);
 	if (NULL != pt_test)
-		free(pt_test);
+		aligned_free(pt_test);
 	if (NULL != IV_c)
 		free(IV_c);
 	if (NULL != T_test)
@@ -1852,7 +1867,7 @@ int test_gcm_strm_combinations2(int length, int start, int breaks)
 		if (test.Plen + offset != 0) {
 			posix_memalign((void **)&test.P, 64, test.Plen + offset);
 			posix_memalign((void **)&test.C, 64, test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			posix_memalign((void **)&test.P, 64, 16);
 			posix_memalign((void **)&test.C, 64, 16);
 		}
@@ -1895,13 +1910,13 @@ int test_gcm_strm_combinations2(int length, int start, int breaks)
 		test.A -= offset;
 		free(test.A);
 		test.C -= offset;
-		free(test.C);
+		aligned_free(test.C);
 		test.IV -= offset;
 		free(test.IV);
 		test.K -= offset;
 		free(test.K);
 		test.P -= offset;
-		free(test.P);
+		aligned_free(test.P);
 		test.T -= offset;
 		free(test.T);
 	}

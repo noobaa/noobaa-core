@@ -31,24 +31,36 @@ lsrc        += 	igzip/igzip.c \
 		igzip/hufftables_c.c \
 		igzip/igzip_base.c \
 		igzip/igzip_icf_base.c \
-		igzip/crc32_gzip_base.c \
+		igzip/adler32_base.c \
 		igzip/flatten_ll.c \
-		igzip/encode_df.c
+		igzip/encode_df.c \
+		igzip/igzip_icf_body.c
 
 lsrc_base_aliases += igzip/igzip_base_aliases.c igzip/proc_heap_base.c
 lsrc_x86_32       += igzip/igzip_base_aliases.c igzip/proc_heap_base.c
+lsrc_ppc64le      += igzip/igzip_base_aliases.c igzip/proc_heap_base.c
 
-lsrc_x86_64 +=  \
-		igzip/igzip_body_01.asm \
-		igzip/igzip_body_02.asm \
-		igzip/igzip_body_04.asm \
+lsrc_aarch64 +=	igzip/aarch64/igzip_inflate_multibinary_arm64.S  \
+		igzip/aarch64/igzip_multibinary_arm64.S	\
+		igzip/aarch64/igzip_isal_adler32_neon.S	\
+		igzip/aarch64/igzip_multibinary_aarch64_dispatcher.c \
+		igzip/aarch64/igzip_deflate_body_aarch64.S \
+		igzip/aarch64/igzip_deflate_finish_aarch64.S \
+		igzip/aarch64/isal_deflate_icf_body_hash_hist.S \
+		igzip/aarch64/isal_deflate_icf_finish_hash_hist.S \
+		igzip/aarch64/igzip_set_long_icf_fg.S \
+		igzip/aarch64/encode_df.S \
+		igzip/aarch64/isal_update_histogram.S \
+		igzip/aarch64/gen_icf_map.S \
+		igzip/aarch64/igzip_deflate_hash_aarch64.S \
+		igzip/aarch64/igzip_decode_huffman_code_block_aarch64.S \
+		igzip/proc_heap_base.c
+
+lsrc_x86_64 +=	igzip/igzip_body.asm \
 		igzip/igzip_finish.asm \
-		igzip/igzip_icf_body_01.asm \
-		igzip/igzip_icf_body_02.asm \
-		igzip/igzip_icf_body_04.asm \
+		igzip/igzip_icf_body_h1_gr_bt.asm \
 		igzip/igzip_icf_finish.asm \
 		igzip/rfc1951_lookup.asm \
-		igzip/crc32_gzip.asm igzip/detect_repeated_char.asm \
 		igzip/adler32_sse.asm \
 		igzip/adler32_avx2_4.asm \
 		igzip/igzip_multibinary.asm \
@@ -60,19 +72,21 @@ lsrc_x86_64 +=  \
 		igzip/encode_df_04.asm \
 		igzip/encode_df_06.asm \
 		igzip/proc_heap.asm \
-		igzip/igzip_deflate_hash.asm
+		igzip/igzip_deflate_hash.asm \
+		igzip/igzip_gen_icf_map_lh1_06.asm \
+		igzip/igzip_gen_icf_map_lh1_04.asm \
+		igzip/igzip_set_long_icf_fg_04.asm \
+		igzip/igzip_set_long_icf_fg_06.asm
 
 src_include += -I $(srcdir)/igzip
 extern_hdrs +=	include/igzip_lib.h
 
-pkginclude_HEADERS += include/types.h
-
 check_tests +=  igzip/igzip_rand_test
-unit_tests  +=  igzip/checksum32_funcs_test
+check_tests +=  igzip/igzip_wrapper_hdr_test
+check_tests +=  igzip/checksum32_funcs_test
 
-perf_tests  +=  igzip/igzip_perf
-
-other_tests +=  igzip/igzip_file_perf igzip/igzip_sync_flush_file_perf igzip/igzip_stateless_file_perf igzip/igzip_hist_perf
+other_tests +=  igzip/igzip_file_perf igzip/igzip_hist_perf
+other_tests +=  igzip/igzip_perf
 other_tests +=  igzip/igzip_semi_dyn_file_perf
 other_tests +=  igzip/igzip_build_hash_table_perf
 
@@ -80,7 +94,6 @@ other_src   += 	igzip/bitbuf2.asm  \
 		igzip/data_struct2.asm \
 		igzip/inflate_data_structs.asm \
 		igzip/igzip_body.asm \
-		igzip/igzip_icf_body.asm \
 		igzip/igzip_finish.asm \
 		igzip/lz0a_const.asm \
 		igzip/options.asm \
@@ -93,6 +106,7 @@ other_src   += 	igzip/bitbuf2.asm  \
 		include/reg_sizes.asm \
 		include/multibinary.asm \
 		include/test.h \
+		include/unaligned.h \
 		igzip/huffman.h \
 		igzip/igzip_level_buf_structs.h \
 		igzip/igzip_decode_block_stateless.asm \
@@ -100,7 +114,11 @@ other_src   += 	igzip/bitbuf2.asm  \
 		igzip/flatten_ll.h \
 		igzip/encode_df.h \
 		igzip/heap_macros.asm \
+		igzip/igzip_wrapper.h \
+		igzip/static_inflate.h \
 		igzip/igzip_checksums.h
+
+perf_tests  +=  igzip/adler32_perf
 
 examples    += 	igzip/igzip_example igzip/igzip_sync_flush_example
 
@@ -108,23 +126,19 @@ igzip_igzip_rand_test_LDADD = libisal.la
 
 # Include tools to make custom Huffman tables based on sample data
 other_tests += igzip/generate_custom_hufftables
+other_tests += igzip/generate_static_inflate
 other_src   += igzip/huff_codes.h
 lsrc        += igzip/huff_codes.c
 
 # Include tools and tests using the reference inflate
-other_tests += igzip/igzip_inflate_perf
 other_tests += igzip/igzip_inflate_test
-other_tests += igzip/igzip_fuzz_inflate
 lsrc   += igzip/igzip_inflate.c
 other_src   += igzip/checksum_test_ref.h
 
-igzip_inflate_perf: LDLIBS += -lz
-igzip_igzip_inflate_perf_LDADD = libisal.la
-igzip_igzip_inflate_perf_LDFLAGS = -lz
+igzip_perf: LDLIBS += -lz
+igzip_igzip_perf_LDADD = libisal.la
+igzip_igzip_perf_LDFLAGS = -lz
 igzip_inflate_test: LDLIBS += -lz
 igzip_igzip_inflate_test_LDADD = libisal.la
 igzip_igzip_inflate_test_LDFLAGS = -lz
 igzip_igzip_hist_perf_LDADD = libisal.la
-igzip_fuzz_inflate: LDLIBS += -lz
-igzip_igzip_fuzz_inflate_LDADD = libisal.la
-igzip_igzip_fuzz_inflate_LDFLAGS = -lz

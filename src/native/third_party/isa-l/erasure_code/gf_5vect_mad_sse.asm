@@ -107,7 +107,7 @@
  %define return rax
  %define return.w eax
 
- %define func(x) x:
+ %define func(x) x: endbranch
  %macro FUNC_SAVE 0
 	push	r12
 	push	r13
@@ -177,7 +177,7 @@ section .text
 
 
 align 16
-global gf_5vect_mad_sse:function
+mk_global gf_5vect_mad_sse, function
 func(gf_5vect_mad_sse)
 	FUNC_SAVE
 	sub	len, 16

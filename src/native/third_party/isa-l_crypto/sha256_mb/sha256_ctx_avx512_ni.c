@@ -37,7 +37,7 @@
 #endif
 
 /**
- *  sha256_ctx_avx512_ni related functions are aiming to utilize Canonlake.
+ *  sha256_ctx_avx512_ni related functions are aiming to utilize Canon Lake.
  *  Since SHANI is still slower than multibuffer for full lanes,
  *  sha256_ctx_mgr_init_avx512_ni and sha256_ctx_mgr_submit_avx512_ni are
  *  similare with their avx512 versions.

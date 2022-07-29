@@ -68,9 +68,9 @@ void print_histogram(struct isal_huff_histogram *histogram)
 int main(int argc, char *argv[])
 {
 	FILE *in;
-	unsigned char *inbuf, *outbuf;
-	int i, iterations, avail_in;
-	uint64_t infile_size, outbuf_size;
+	unsigned char *inbuf;
+	int iterations, avail_in;
+	uint64_t infile_size;
 	struct isal_huff_histogram histogram1, histogram2;
 
 	memset(&histogram1, 0, sizeof(histogram1));
@@ -92,7 +92,6 @@ int main(int argc, char *argv[])
 	 * (assuming some possible expansion on output size)
 	 */
 	infile_size = get_filesize(in);
-	outbuf_size = 2 * infile_size;
 
 	if (infile_size != 0)
 		iterations = RUN_MEM_SIZE / infile_size;
@@ -103,35 +102,28 @@ int main(int argc, char *argv[])
 		iterations = MIN_TEST_LOOPS;
 
 	inbuf = malloc(infile_size);
-	outbuf = malloc(outbuf_size);
 	if (inbuf == NULL) {
 		fprintf(stderr, "Can't allocate input buffer memory\n");
 		exit(0);
 	}
 
-	if (outbuf == NULL) {
-		fprintf(stderr, "Can't allocate output buffer memory\n");
-		exit(0);
-	}
-
 	avail_in = fread(inbuf, 1, infile_size, in);
 	if (avail_in != infile_size) {
+		free(inbuf);
 		fprintf(stderr, "Couldn't fit all of input file into buffer\n");
 		exit(0);
 	}
 
-	struct perf start, stop;
-	perf_start(&start);
-
-	for (i = 0; i < iterations; i++)
-		isal_update_histogram(inbuf, infile_size, &histogram1);
-	perf_stop(&stop);
-
-	printf("  file %s - in_size=%lu iter=%d\n", argv[1], infile_size, i);
-	printf("igzip_file: ");
-	perf_print(stop, start, (long long)infile_size * i);
+	struct perf start;
+	BENCHMARK(&start, BENCHMARK_TIME,
+		  isal_update_histogram(inbuf, infile_size, &histogram1));
+	printf("  file %s - in_size=%lu\n", argv[1], infile_size);
+	printf("igzip_hist_file: ");
+	perf_print(start, (long long)infile_size);
 
 	fclose(in);
 	fflush(0);
+	free(inbuf);
+
 	return 0;
 }

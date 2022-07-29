@@ -2,7 +2,7 @@
  * @file isal_multithread_perf.c
  * @brief It is used to verify high speed algorithm saturation issue
  * @details
- *	usage: taskset -c <cpu_indexs1,cpu_index2,...> isal_multithread_perf -m <algorithm name> -n <thread num>
+ *	usage: taskset -c <cpu_index1,cpu_index2,...> isal_multithread_perf -m <algorithm name> -n <thread num>
  *	eg: taskset -c 0-9,20-29 ./isal_multithread_perf -m md5_mb -n 10
  */
 

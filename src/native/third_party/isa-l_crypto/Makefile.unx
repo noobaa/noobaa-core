@@ -44,10 +44,16 @@ endif
 default: lib
 include $(foreach unit,$(units), $(unit)/Makefile.am)
 
+ifeq ($(arch),aarch64)
+include aes/aarch64/Makefile.am
+endif
 # Override individual lib names to make one inclusive library.
 lib_name := bin/isa-l_crypto.a
 
 include make.inc
 include tools/gen_nmake.mk
-
+ifeq ($(arch),aarch64)
+VPATH = . $(units) include aes
+else
 VPATH = . $(units) include
+endif

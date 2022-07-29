@@ -53,7 +53,7 @@
  %define PS 8
  %define LOG_PS 3
 
- %define func(x) x:
+ %define func(x) x: endbranch
  %macro FUNC_SAVE 0
 	push	r12
 	push	r13
@@ -187,7 +187,7 @@ section .text
 %define xp6    ymm7
 
 align 16
-global gf_6vect_dot_prod_avx2:function
+mk_global gf_6vect_dot_prod_avx2, function
 func(gf_6vect_dot_prod_avx2)
 	FUNC_SAVE
 	sub	len, 32

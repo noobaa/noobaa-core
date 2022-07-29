@@ -1,4 +1,5 @@
 LIBRARY  isa-l
+VERSION  2.30
 EXPORTS
 
 ec_encode_data_sse      @1
@@ -104,3 +105,13 @@ isal_deflate_set_dict           @100
 isal_deflate_reset              @101
 isal_inflate_set_dict           @102
 isal_inflate_reset              @103
+crc16_t10dif_copy               @104
+isal_read_gzip_header           @105
+isal_read_zlib_header           @106
+isal_write_gzip_header          @107
+isal_write_zlib_header          @108
+isal_zero_detect                @109
+isal_gzip_header_init           @110
+isal_adler32                    @111
+isal_deflate_process_dict       @112
+isal_deflate_reset_dict         @113

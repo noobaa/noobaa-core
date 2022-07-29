@@ -1,5 +1,5 @@
 ########################################################################
-#  Copyright(c) 2011-2015 Intel Corporation All rights reserved.
+#  Copyright(c) 2011-2018 Intel Corporation All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
@@ -39,13 +39,17 @@
 #	trace - get simulator trace
 #	clean - remove object files
 
-version ?= 2.20.0
+version ?= 2.30.0
 host_cpu ?= $(shell uname -m | sed -e 's/amd/x86_/')
 arch ?= $(shell uname | grep -v -e Linux -e BSD )
 
+# aarch64 cpu arch = aarch64
+ifeq ($(host_cpu)_$(arch),aarch64_)
+  arch = aarch64
+endif
+
 CC  = gcc
-AS  = yasm
-SIM = sde $(SIMFLAGS) --
+AS  = nasm
 AWK = awk
 
 DEBUG      = -g
@@ -71,13 +75,17 @@ ARFLAGS_win64 = -out:$@
 # arch=mingw build options
 ASFLAGS_mingw = -f win64
 ARFLAGS_mingw = cr $@
-LDFLAGS_mingw = -Wl,--force-exe-suffix
 
 LDFLAGS_so = -Wl,-soname,$(soname)
 
 ifeq ($(arch),mingw)
   CC=x86_64-w64-mingw32-gcc
   AR=x86_64-w64-mingw32-ar
+  AS=yasm
+  LDFLAGS += -Wl,--force-exe-suffix
+  SIM=wine
+  EXT=.exe
+  CLEANFILES+=*.exe
 endif
 
 # arch=noarch build options
@@ -86,9 +94,22 @@ ifeq ($(arch),noarch)
   host_cpu=base_aliases
 endif
 
+# arch=aarch64 build options
+ifeq ($(lib_debug),1)
+  ASFLAGS_aarch64 = -g -c
+else
+  ASFLAGS_aarch64 = -c
+endif
+
+ARFLAGS_aarch64 = cr $@
+ifeq ($(arch),aarch64)
+  AS=$(CC) -D__ASSEMBLY__
+  SIM=
+endif
+
 ASFLAGS_Darwin = -f macho64 --prefix=_
 ARFLAGS_Darwin = -r $@
-ifeq ($(arch),Darwin)
+ifeq ($(shell uname),Darwin)
   LDFLAGS_so =
   STRIP_gcc  =
 endif
@@ -98,15 +119,23 @@ CFLAGS   = $(CFLAGS_$(arch)) $(CFLAGS_$(CC)) $(DEBUG) -O2 $(DEFINES) $(INCLUDE)
 ASFLAGS  = $(ASFLAGS_$(arch)) $(ASFLAGS_$(CC)) $(DEBUG_$(AS)) $(DEFINES) $(INCLUDE)
 ARFLAGS  = $(ARFLAGS_$(arch))
 DEFINES += $(addprefix -D , $D)
+CLEANFILES += $(O) *.o *.a $(all_tests) $(bin_PROGRAMS) $(lib_name) $(so_lib_name) $(all_llvm_fuzz_tests)
+
+# set host_cpu=base_aliases for unsupported CPUs
+ifeq ($(filter aarch64 x86_%,$(host_cpu)),)
+  host_cpu=base_aliases
+endif
+
+other_tests += $(other_tests_$(host_cpu))
 
 lsrc += $(lsrc_$(host_cpu))
 O = bin
-lobj  += $(patsubst %.c,%.o,$(patsubst %.asm,%.o,$(lsrc) $(lsrc_intrinsic)))
+lobj  += $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(patsubst %.asm,%.o,$(lsrc) $(lsrc_intrinsic))))
 objs  = $(addprefix $(O)/,$(notdir $(lobj)))
 
 
 lib_name ?= isa-l.a
-default: lib slib
+default: lib slib progs
 
 # Defaults for windows build
 ifeq ($(arch),win64)
@@ -121,28 +150,67 @@ unit_testswin64 = $(unit_tests)
 exampleswin64 = $(examples)
 perf_testswin64 = $(perf_tests)
 
+
 # Build and run unit tests, performance tests, etc.
 all_tests = $(notdir $(sort $(perf_tests) $(check_tests) $(unit_tests) $(examples) $(other_tests)))
 all_unit_tests = $(notdir $(sort $(check_tests) $(unit_tests)))
 all_perf_tests = $(notdir $(sort $(perf_tests)))
 all_check_tests = $(notdir $(sort $(check_tests)))
+all_llvm_fuzz_tests = $(notdir $(sort $(llvm_fuzz_tests)))
 
 $(all_unit_tests): % : %.c $(lib_name)
 $(all_perf_tests): % : %.c $(lib_name)
 $(sort $(notdir $(examples))): % : %.c $(lib_name)
 $(sort $(notdir $(other_tests))): % : %.c $(lib_name)
 
+$(all_llvm_fuzz_tests): FUZZLINK = -lFuzzer
+$(all_llvm_fuzz_tests): CFLAGS += -fsanitize-coverage=trace-pc-guard -fsanitize=address
+$(all_llvm_fuzz_tests): CXXFLAGS += -fsanitize-coverage=trace-pc-guard -fsanitize=address
+$(all_llvm_fuzz_tests): % : %.o $(lib_name)
+	$(CXX) $(CXXFLAGS)  $^ $(LDLIBS) $(FUZZLINK) -o $@
+
+
+# Check for modern as
+test-as = $(shell hash printf && printf $(3) > $(2) && $(AS) $(ASFLAGS) ${tmpf} -o /dev/null 2> /dev/null && echo $(1) || echo $(4))
+as_4  := "pblendvb xmm2, xmm1;"
+as_6  := "vinserti32x8 zmm0, ymm1, 1;"
+as_10 := "vpcompressb zmm0 {k1}, zmm1;"
+
+tmpf := $(shell mktemp)
+as_feature_level := $(call test-as, 4,  $(tmpf), $(as_4),  $(as_feature_level))
+as_feature_level := $(call test-as, 6,  $(tmpf), $(as_6),  $(as_feature_level))
+as_feature_level := $(call test-as, 10, $(tmpf), $(as_10), $(as_feature_level))
+tmpf := $(shell rm ${tmpf})
+
+ifneq ($(findstring $(as_feature_level),6 10),)
+  D_HAVE_AS_KNOWS_AVX512_y := -DHAVE_AS_KNOWS_AVX512
+endif
+
+CFLAGS  += -DAS_FEATURE_LEVEL=$(as_feature_level) $(D_HAVE_AS_KNOWS_AVX512_y)
+ASFLAGS += -DAS_FEATURE_LEVEL=$(as_feature_level) $(D_HAVE_AS_KNOWS_AVX512_y)
+
+
+# Check for pthreads
+have_threads ?= $(shell printf "\#include <pthread.h>\nint main(void){return 0;}\n" | $(CC) -x c - -o /dev/null -lpthread && echo y )
+THREAD_LD_$(have_threads) := -lpthread
+THREAD_CFLAGS_$(have_threads) := -DHAVE_THREADS
+
+progs: $(bin_PROGRAMS)
+$(bin_PROGRAMS): CFLAGS += -DVERSION=\"$(version)\"
+$(bin_PROGRAMS): LDLIBS += $(THREAD_LD_y)
+$(bin_PROGRAMS): CFLAGS += $(THREAD_CFLAGS_y)
 sim test trace: $(addsuffix .run,$(all_unit_tests))
 perf: $(addsuffix .run,$(all_perf_tests))
 check: $(addsuffix .run,$(all_check_tests))
 ex:   $(notdir $(examples))
 all: lib $(all_tests)
 other: $(notdir $(other_tests))
+llvm_fuzz_tests: $(all_llvm_fuzz_tests)
 tests: $(all_unit_tests)
 perfs: $(all_perf_tests)
 checks: $(all_check_tests)
-check test perf: SIM=
-trace: SIMFLAGS = -debugtrace
+trace: SIM=sde -debugtrace --
+sim: SIM=sde --
 check test sim:
 	@echo Finished running $@
 
@@ -151,22 +219,35 @@ $(O): ; mkdir -p $(O)
 
 # Build rule to run tests
 $(addsuffix .run,$(all_tests)): %.run : %
-	$(SIM) ./$<
+	$(SIM) ./$<$(EXT)
 	@echo Completed run: $<
 
 # Other build rules
 msg = $(if $(DEBUG),DEBUG) $(patsubst 32,32-bit,$(host_cpu)) $D
 
+# yasm/nasm assembly files
 $(O)/%.o: %.asm
 	@echo "  ---> Building $< $(msg)"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
+# gcc assembly files
+$(O)/%.o: $(host_cpu)/%.S
+	@echo "  ---> Building $< $(msg)"
+	@$(AS) $(ASFLAGS) -o $@ $<
+
+$(O)/%.o   : $(host_cpu)/%.c
+	@echo "  ---> Building $< $(msg)"
+	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 $(O)/%.o %.o: %.c
 	@echo "  ---> Building $< $(msg)"
 	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 $(all_tests):
 	@echo "  ---> Building Test $@ $(msg)"
+	@$(LINK.o) $(CFLAGS)  $^ $(LDLIBS) -o $@
+
+$(bin_PROGRAMS): % : %_cli.c $(lib_name)
+	@echo "  ---> Building Programs $@ $(msg)"
 	@$(LINK.o) $(CFLAGS)  $^ $(LDLIBS) -o $@
 
 
@@ -185,7 +266,9 @@ endif
 $(lib_name): $(objs)
 	@echo "  ---> Creating Lib $@"
 	@$(AR) $(ARFLAGS) $^
+ifneq ($(lib_debug),1)
 	@$(STRIP_$(CC))
+endif
 
 
 # Target for shared lib
@@ -196,12 +279,15 @@ soname      = $(so_lib_inst).$(word 1, $(subst ., ,$(version)))
 
 slib: $(so_lib_name)
 aobjs  += $(addprefix $(O)/,$(patsubst %.asm,%.o,$(filter %.asm,$(notdir $(lsrc) $(lsrc_intrinsic)))))
+aobjs  += $(addprefix $(O)/,$(patsubst %.S,%.o,$(filter %.S,$(notdir $(lsrc) $(lsrc_intrinsic)))))
 shared_objs  += $(addprefix $(O)/shared_ver_,$(patsubst %.c,%.o,$(filter %.c,$(notdir $(lsrc) $(lsrc_intrinsic)))))
 
 $(O)/shared_ver_%.o: %.c
 	@echo "  ---> Building shared $< $(msg)"
 	@$(COMPILE.c) $(OUTPUT_OPTION) $<
-
+$(O)/shared_ver_%.o: $(host_cpu)/%.c
+	@echo "  ---> Building shared $< $(msg)"
+	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 ifneq ($(lib_debug),1)
  $(so_lib_name): DEBUG_$(AS)=
  $(so_lib_name): DEBUG=
@@ -220,6 +306,11 @@ $(so_lib_name): $(shared_objs) $(aobjs)
 isa-l.h:
 	@echo 'Building $@'
 	@echo ''			>> $@
+	@echo '/**'                     >> $@
+	@echo ' *  @file isa-l.h'       >> $@
+	@echo ' *  @brief Include for ISA-L library' >> $@
+	@echo ' */'                     >> $@
+	@echo ''                        >> $@
 	@echo '#ifndef _ISAL_H_'	>> $@
 	@echo '#define _ISAL_H_'	>> $@
 	@echo ''			>> $@
@@ -235,9 +326,10 @@ isa-l.h:
 
 # Target for install
 prefix = /usr/local
-install_dirs = $(prefix)/lib $(prefix)/include/isa-l
+man1dir ?= $(prefix)/share/man/man1
+install_dirs = $(prefix)/lib $(prefix)/include/isa-l $(prefix)/bin $(man1dir)
 $(install_dirs): ; mkdir -p $@
-install: $(sort $(extern_hdrs)) | $(install_dirs) $(lib_name) $(so_lib_name) isa-l.h
+install: $(sort $(extern_hdrs)) | $(install_dirs) $(lib_name) $(so_lib_name) isa-l.h $(bin_PROGRAMS)
 	install -m 644 $(lib_name) $(prefix)/lib/libisal.a
 	install -m 644 $^ $(prefix)/include/isa-l/.
 	install -m 664 isa-l.h $(prefix)/include/.
@@ -251,6 +343,8 @@ else
 	which libtool && libtool --mode=finish $(prefix)/lib || \
 	echo 'Lib installed at $(prefix)/lib. Run system-dependent programs to add shared lib path.'
 endif
+	install -m 774 $(bin_PROGRAMS) $(prefix)/bin/.
+	install -m 664 $(dist_man_MANS) $(man1dir)/.
 
 uninstall:
 	$(RM) $(prefix)/lib/libisal.a
@@ -260,6 +354,8 @@ uninstall:
 	$(RM) -r $(prefix)/include/isa-l
 	$(RM) $(prefix)/include/isa-l.h
 	$(RM) $(prefix)/lib/$(basename $(so_lib_inst)).dylib
+	$(RM) $(prefix)/bin/$(notdir $(bin_PROGRAMS))
+	$(RM) $(man1dir)/$(notdir $(dist_man_MANS))
 
 # Collect performance data
 rpt_name = perf_report_$(shell uname -n)_$(shell date +%y%m%d).perf
@@ -273,7 +369,7 @@ perf_report:
 
 clean:
 	@echo Cleaning up
-	@$(RM) -r $(O) *.o *.a $(all_tests) $(lib_name) $(so_lib_name)
+	@$(RM) -r $(CLEANFILES)
 
 
 doc: isa-l.h

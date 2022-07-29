@@ -99,33 +99,6 @@ void ec_encode_data(int len, int k, int rows, unsigned char *gftbls, unsigned ch
 		    unsigned char **coding);
 
 /**
- * @brief Generate or decode erasure codes on blocks of data.
- *
- * Arch specific version of ec_encode_data() with same parameters.
- * @requires SSE4.1
- */
-void ec_encode_data_sse(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
-			unsigned char **coding);
-
-/**
- * @brief Generate or decode erasure codes on blocks of data.
- *
- * Arch specific version of ec_encode_data() with same parameters.
- * @requires AVX
- */
-void ec_encode_data_avx(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
-			unsigned char **coding);
-
-/**
- * @brief Generate or decode erasure codes on blocks of data.
- *
- * Arch specific version of ec_encode_data() with same parameters.
- * @requires AVX2
- */
-void ec_encode_data_avx2(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
-			 unsigned char **coding);
-
-/**
  * @brief Generate or decode erasure codes on blocks of data, runs baseline version.
  *
  * Baseline version of ec_encode_data() with same parameters.
@@ -161,6 +134,127 @@ void ec_encode_data_update(int len, int k, int rows, int vec_i, unsigned char *g
 /**
  * @brief Generate update for encode or decode of erasure codes from single source.
  *
+ * Baseline version of ec_encode_data_update().
+ */
+
+void ec_encode_data_update_base(int len, int k, int rows, int vec_i, unsigned char *v,
+				unsigned char *data, unsigned char **dest);
+
+/**
+ * @brief GF(2^8) vector dot product, runs baseline version.
+ *
+ * Does a GF(2^8) dot product across each byte of the input array and a constant
+ * set of coefficients to produce each byte of the output. Can be used for
+ * erasure coding encode and decode. Function requires pre-calculation of a
+ * 32*vlen byte constant array based on the input coefficients.
+ *
+ * @param len    Length of each vector in bytes. Must be >= 16.
+ * @param vlen   Number of vector sources.
+ * @param gftbls Pointer to 32*vlen byte array of pre-calculated constants based
+ *               on the array of input coefficients. Only elements 32*CONST*j + 1
+ *               of this array are used, where j = (0, 1, 2...) and CONST is the
+ *               number of elements in the array of input coefficients. The
+ *               elements used correspond to the original input coefficients.
+ * @param src    Array of pointers to source inputs.
+ * @param dest   Pointer to destination data array.
+ * @returns none
+ */
+
+
+void gf_vect_dot_prod_base(int len, int vlen, unsigned char *gftbls,
+                        unsigned char **src, unsigned char *dest);
+
+/**
+ * @brief GF(2^8) vector dot product, runs appropriate version.
+ *
+ * Does a GF(2^8) dot product across each byte of the input array and a constant
+ * set of coefficients to produce each byte of the output. Can be used for
+ * erasure coding encode and decode. Function requires pre-calculation of a
+ * 32*vlen byte constant array based on the input coefficients.
+ *
+ * This function determines what instruction sets are enabled and
+ * selects the appropriate version at runtime.
+ *
+ * @param len    Length of each vector in bytes. Must be >= 32.
+ * @param vlen   Number of vector sources.
+ * @param gftbls Pointer to 32*vlen byte array of pre-calculated constants based
+ *               on the array of input coefficients.
+ * @param src    Array of pointers to source inputs.
+ * @param dest   Pointer to destination data array.
+ * @returns none
+ */
+
+void gf_vect_dot_prod(int len, int vlen, unsigned char *gftbls,
+                        unsigned char **src, unsigned char *dest);
+
+/**
+ * @brief GF(2^8) vector multiply accumulate, runs appropriate version.
+ *
+ * Does a GF(2^8) multiply across each byte of input source with expanded
+ * constant and add to destination array. Can be used for erasure coding encode
+ * and decode update when only one source is available at a time. Function
+ * requires pre-calculation of a 32*vec byte constant array based on the input
+ * coefficients.
+ *
+ * This function determines what instruction sets are enabled and selects the
+ * appropriate version at runtime.
+ *
+ * @param len    Length of each vector in bytes. Must be >= 64.
+ * @param vec    The number of vector sources or rows in the generator matrix
+ * 		 for coding.
+ * @param vec_i  The vector index corresponding to the single input source.
+ * @param gftbls Pointer to array of input tables generated from coding
+ * 		 coefficients in ec_init_tables(). Must be of size 32*vec.
+ * @param src    Array of pointers to source inputs.
+ * @param dest   Pointer to destination data array.
+ * @returns none
+ */
+
+void gf_vect_mad(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
+		 unsigned char *dest);
+
+/**
+ * @brief GF(2^8) vector multiply accumulate, baseline version.
+ *
+ * Baseline version of gf_vect_mad() with same parameters.
+ */
+
+void gf_vect_mad_base(int len, int vec, int vec_i, unsigned char *v, unsigned char *src,
+		      unsigned char *dest);
+
+// x86 only
+#if defined(__i386__) || defined(__x86_64__)
+
+/**
+ * @brief Generate or decode erasure codes on blocks of data.
+ *
+ * Arch specific version of ec_encode_data() with same parameters.
+ * @requires SSE4.1
+ */
+void ec_encode_data_sse(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
+			unsigned char **coding);
+
+/**
+ * @brief Generate or decode erasure codes on blocks of data.
+ *
+ * Arch specific version of ec_encode_data() with same parameters.
+ * @requires AVX
+ */
+void ec_encode_data_avx(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
+			unsigned char **coding);
+
+/**
+ * @brief Generate or decode erasure codes on blocks of data.
+ *
+ * Arch specific version of ec_encode_data() with same parameters.
+ * @requires AVX2
+ */
+void ec_encode_data_avx2(int len, int k, int rows, unsigned char *gftbls, unsigned char **data,
+			 unsigned char **coding);
+
+/**
+ * @brief Generate update for encode or decode of erasure codes from single source.
+ *
  * Arch specific version of ec_encode_data_update() with same parameters.
  * @requires SSE4.1
  */
@@ -187,16 +281,6 @@ void ec_encode_data_update_avx(int len, int k, int rows, int vec_i, unsigned cha
 
 void ec_encode_data_update_avx2(int len, int k, int rows, int vec_i, unsigned char *g_tbls,
 				unsigned char *data, unsigned char **coding);
-
-/**
- * @brief Generate update for encode or decode of erasure codes from single source.
- *
- * Baseline version of ec_encode_data_update().
- */
-
-void ec_encode_data_update_base(int len, int k, int rows, int vec_i, unsigned char *v,
-				unsigned char *data, unsigned char **dest);
-
 
 /**
  * @brief GF(2^8) vector dot product.
@@ -264,7 +348,7 @@ void gf_vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with two outputs.
  *
- * Vector dot product optimized to calculate two ouputs at a time. Does two
+ * Vector dot product optimized to calculate two outputs at a time. Does two
  * GF(2^8) dot products across each byte of the input array and two constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -286,7 +370,7 @@ void gf_2vect_dot_prod_sse(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with two outputs.
  *
- * Vector dot product optimized to calculate two ouputs at a time. Does two
+ * Vector dot product optimized to calculate two outputs at a time. Does two
  * GF(2^8) dot products across each byte of the input array and two constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -308,7 +392,7 @@ void gf_2vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with two outputs.
  *
- * Vector dot product optimized to calculate two ouputs at a time. Does two
+ * Vector dot product optimized to calculate two outputs at a time. Does two
  * GF(2^8) dot products across each byte of the input array and two constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -330,7 +414,7 @@ void gf_2vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with three outputs.
  *
- * Vector dot product optimized to calculate three ouputs at a time. Does three
+ * Vector dot product optimized to calculate three outputs at a time. Does three
  * GF(2^8) dot products across each byte of the input array and three constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -352,7 +436,7 @@ void gf_3vect_dot_prod_sse(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with three outputs.
  *
- * Vector dot product optimized to calculate three ouputs at a time. Does three
+ * Vector dot product optimized to calculate three outputs at a time. Does three
  * GF(2^8) dot products across each byte of the input array and three constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -374,7 +458,7 @@ void gf_3vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with three outputs.
  *
- * Vector dot product optimized to calculate three ouputs at a time. Does three
+ * Vector dot product optimized to calculate three outputs at a time. Does three
  * GF(2^8) dot products across each byte of the input array and three constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -396,7 +480,7 @@ void gf_3vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with four outputs.
  *
- * Vector dot product optimized to calculate four ouputs at a time. Does four
+ * Vector dot product optimized to calculate four outputs at a time. Does four
  * GF(2^8) dot products across each byte of the input array and four constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -418,7 +502,7 @@ void gf_4vect_dot_prod_sse(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with four outputs.
  *
- * Vector dot product optimized to calculate four ouputs at a time. Does four
+ * Vector dot product optimized to calculate four outputs at a time. Does four
  * GF(2^8) dot products across each byte of the input array and four constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -440,7 +524,7 @@ void gf_4vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with four outputs.
  *
- * Vector dot product optimized to calculate four ouputs at a time. Does four
+ * Vector dot product optimized to calculate four outputs at a time. Does four
  * GF(2^8) dot products across each byte of the input array and four constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -462,7 +546,7 @@ void gf_4vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with five outputs.
  *
- * Vector dot product optimized to calculate five ouputs at a time. Does five
+ * Vector dot product optimized to calculate five outputs at a time. Does five
  * GF(2^8) dot products across each byte of the input array and five constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -484,7 +568,7 @@ void gf_5vect_dot_prod_sse(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with five outputs.
  *
- * Vector dot product optimized to calculate five ouputs at a time. Does five
+ * Vector dot product optimized to calculate five outputs at a time. Does five
  * GF(2^8) dot products across each byte of the input array and five constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -506,7 +590,7 @@ void gf_5vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with five outputs.
  *
- * Vector dot product optimized to calculate five ouputs at a time. Does five
+ * Vector dot product optimized to calculate five outputs at a time. Does five
  * GF(2^8) dot products across each byte of the input array and five constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -528,7 +612,7 @@ void gf_5vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with six outputs.
  *
- * Vector dot product optimized to calculate six ouputs at a time. Does six
+ * Vector dot product optimized to calculate six outputs at a time. Does six
  * GF(2^8) dot products across each byte of the input array and six constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -550,7 +634,7 @@ void gf_6vect_dot_prod_sse(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with six outputs.
  *
- * Vector dot product optimized to calculate six ouputs at a time. Does six
+ * Vector dot product optimized to calculate six outputs at a time. Does six
  * GF(2^8) dot products across each byte of the input array and six constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -572,7 +656,7 @@ void gf_6vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 /**
  * @brief GF(2^8) vector dot product with six outputs.
  *
- * Vector dot product optimized to calculate six ouputs at a time. Does six
+ * Vector dot product optimized to calculate six outputs at a time. Does six
  * GF(2^8) dot products across each byte of the input array and six constant
  * sets of coefficients to produce each byte of the outputs. Can be used for
  * erasure coding encode and decode. Function requires pre-calculation of a
@@ -590,79 +674,6 @@ void gf_6vect_dot_prod_avx(int len, int vlen, unsigned char *gftbls,
 
 void gf_6vect_dot_prod_avx2(int len, int vlen, unsigned char *gftbls,
 			unsigned char **src, unsigned char **dest);
-
-/**
- * @brief GF(2^8) vector dot product, runs baseline version.
- *
- * Does a GF(2^8) dot product across each byte of the input array and a constant
- * set of coefficients to produce each byte of the output. Can be used for
- * erasure coding encode and decode. Function requires pre-calculation of a
- * 32*vlen byte constant array based on the input coefficients.
- *
- * @param len    Length of each vector in bytes. Must be >= 16.
- * @param vlen   Number of vector sources.
- * @param gftbls Pointer to 32*vlen byte array of pre-calculated constants based
- *               on the array of input coefficients. Only elements 32*CONST*j + 1
- *               of this array are used, where j = (0, 1, 2...) and CONST is the
- *               number of elements in the array of input coefficients. The
- *               elements used correspond to the original input coefficients.
- * @param src    Array of pointers to source inputs.
- * @param dest   Pointer to destination data array.
- * @returns none
- */
-
-void gf_vect_dot_prod_base(int len, int vlen, unsigned char *gftbls,
-                        unsigned char **src, unsigned char *dest);
-
-/**
- * @brief GF(2^8) vector dot product, runs appropriate version.
- *
- * Does a GF(2^8) dot product across each byte of the input array and a constant
- * set of coefficients to produce each byte of the output. Can be used for
- * erasure coding encode and decode. Function requires pre-calculation of a
- * 32*vlen byte constant array based on the input coefficients.
- *
- * This function determines what instruction sets are enabled and
- * selects the appropriate version at runtime.
- *
- * @param len    Length of each vector in bytes. Must be >= 32.
- * @param vlen   Number of vector sources.
- * @param gftbls Pointer to 32*vlen byte array of pre-calculated constants based
- *               on the array of input coefficients.
- * @param src    Array of pointers to source inputs.
- * @param dest   Pointer to destination data array.
- * @returns none
- */
-
-void gf_vect_dot_prod(int len, int vlen, unsigned char *gftbls,
-                        unsigned char **src, unsigned char *dest);
-
-
-/**
- * @brief GF(2^8) vector multiply accumulate, runs appropriate version.
- *
- * Does a GF(2^8) multiply across each byte of input source with expanded
- * constant and add to destination array. Can be used for erasure coding encode
- * and decode update when only one source is available at a time. Function
- * requires pre-calculation of a 32*vec byte constant array based on the input
- * coefficients.
- *
- * This function determines what instruction sets are enabled and selects the
- * appropriate version at runtime.
- *
- * @param len    Length of each vector in bytes. Must be >= 32.
- * @param vec    The number of vector sources or rows in the generator matrix
- * 		 for coding.
- * @param vec_i  The vector index corresponding to the single input source.
- * @param gftbls Pointer to array of input tables generated from coding
- * 		 coefficients in ec_init_tables(). Must be of size 32*vec.
- * @param src    Array of pointers to source inputs.
- * @param dest   Pointer to destination data array.
- * @returns none
- */
-
-void gf_vect_mad(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
-		 unsigned char *dest);
 
 /**
  * @brief GF(2^8) vector multiply accumulate, arch specific version.
@@ -693,14 +704,6 @@ void gf_vect_mad_avx(int len, int vec, int vec_i, unsigned char *gftbls, unsigne
 void gf_vect_mad_avx2(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
 		      unsigned char *dest);
 
-/**
- * @brief GF(2^8) vector multiply accumulate, baseline version.
- *
- * Baseline version of gf_vect_mad() with same parameters.
- */
-
-void gf_vect_mad_base(int len, int vec, int vec_i, unsigned char *v, unsigned char *src,
-		      unsigned char *dest);
 
 /**
  * @brief GF(2^8) vector multiply with 2 accumulate.  SSE version.
@@ -854,6 +857,7 @@ void gf_6vect_mad_avx(int len, int vec, int vec_i, unsigned char *gftbls, unsign
 void gf_6vect_mad_avx2(int len, int vec, int vec_i, unsigned char *gftbls, unsigned char *src,
 		       unsigned char **dest);
 
+#endif
 
 /**********************************************************************
  * The remaining are lib support functions used in GF(2^8) operations.
@@ -922,7 +926,10 @@ void gf_gen_cauchy1_matrix(unsigned char *a, int m, int k);
 /**
  * @brief Invert a matrix in GF(2^8)
  *
- * @param in  input matrix
+ * Attempts to construct an n x n inverse of the input matrix. Returns non-zero
+ * if singular. Will always destroy input matrix in process.
+ *
+ * @param in  input matrix, destroyed by invert process
  * @param out output matrix such that [in] x [out] = [I] - identity matrix
  * @param n   size of matrix [nxn]
  * @returns 0 successful, other fail on singular input matrix

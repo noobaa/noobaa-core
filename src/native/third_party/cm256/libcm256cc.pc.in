@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/include
+
+Name: cm256cc library
+Description: Fast GF(256) Cauchy MDS Block Erasure Codec in C++
+Version: @VERSION@
+Cflags: -I${includedir}/ @CM256CC_PC_CFLAGS@
+Libs: -L${libdir} -lcm256cc
+Libs.private: @CM256CC_PC_LIBS@

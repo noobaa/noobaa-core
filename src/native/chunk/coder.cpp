@@ -58,18 +58,17 @@ _nb_align_up(int n, int align)
     return _nb_div_up(n, align) * align;
 }
 
+static CM256* cm256() {
+    static CM256* instance;
+    if (!instance) instance = new CM256();
+    return instance;
+}
+
 void
 nb_chunk_coder_init()
 {
-    cm256_init();
-#ifndef WIN32
-    // static inline unused functions from gf256.h
-    (void)gf256_add;
-    (void)gf256_mul;
-    (void)gf256_div;
-    (void)gf256_inv;
-    (void)gf256_div_mem;
-#endif
+    // TODO: assert true
+    cm256()->isInitialized();
 }
 
 void
@@ -529,8 +528,8 @@ _nb_erasure(struct NB_Coder_Chunk* chunk)
         ec_init_tables(k, m - k, &ec_matrix_encode[k * k], ec_table);
         ec_encode_data(chunk->frag_size, k, m - k, ec_table, ec_blocks, &ec_blocks[k]);
     } else if (parity_type == NB_Parity_Type::CM) {
-        cm256_encoder_params cm_params;
-        cm256_block cm_blocks[MAX_DATA_FRAGS];
+        CM256::cm256_encoder_params cm_params;
+        CM256::cm256_block cm_blocks[MAX_DATA_FRAGS];
         cm_params.BlockBytes = chunk->frag_size;
         cm_params.OriginalCount = chunk->data_frags;
         cm_params.RecoveryCount = chunk->parity_frags;
@@ -539,7 +538,7 @@ _nb_erasure(struct NB_Coder_Chunk* chunk)
             cm_blocks[i].Index = i;
             cm_blocks[i].Block = nb_bufs_merge(&f->block, 0);
         }
-        int encode_err = cm256_encode(cm_params, cm_blocks, parity_buf.data);
+        int encode_err = cm256()->cm256_encode(cm_params, cm_blocks, parity_buf.data);
         if (encode_err) {
             nb_chunk_error(
                 chunk,
@@ -846,11 +845,11 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
             _nb_ec_update_decoded_fragments(frags_map, k, m, out_len, out_bufs, chunk->frag_size);
 
         } else if (parity_type == NB_Parity_Type::CM) {
-            cm256_encoder_params cm_params;
+            CM256::cm256_encoder_params cm_params;
             cm_params.BlockBytes = chunk->frag_size;
             cm_params.OriginalCount = chunk->data_frags;
             cm_params.RecoveryCount = chunk->parity_frags;
-            cm256_block cm_blocks[MAX_DATA_FRAGS];
+            CM256::cm256_block cm_blocks[MAX_DATA_FRAGS];
             int next_parity = chunk->data_frags;
             for (int i = 0; i < chunk->data_frags; ++i) {
                 while (!frags_map[i]) {
@@ -866,7 +865,7 @@ _nb_derasure(struct NB_Coder_Chunk* chunk, struct NB_Coder_Frag** frags_map, int
                 }
                 cm_blocks[i].Block = nb_bufs_merge(&frags_map[i]->block, 0);
             }
-            int decode_err = cm256_decode(cm_params, cm_blocks);
+            int decode_err = cm256()->cm256_decode(cm_params, cm_blocks);
             if (decode_err) {
                 nb_chunk_error(
                     chunk,

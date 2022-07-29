@@ -1,12 +1,14 @@
-# cm256
-Fast GF(256) Cauchy MDS Block Erasure Codec in C
+# cm256cc
+Fast GF(256) Cauchy MDS Block Erasure Codec in C++
 
-cm256 is a simple library for erasure codes.  From given data it generates
+This is the rewrite in (as much as possible) clean C++ of [cm256](https://github.com/f4exb/cm256). In some contexts like Qt programs and plugins the original cm256 library does not work.
+
+cm256cc performance is on par or even better than cm256. This is particularly true for armv7 architecture (Raspberry Pi 2 and 3) and is the most significant with Raspberry Pi 2.
+
+cm256cc is a simple library for erasure codes.  From given data it generates
 redundant data that can be used to recover the originals.
 
-It is roughly 2x faster than Longhair, and CM256 supports input data that is not a multiple of 8 bytes.
-
-Currently only Visual Studio 2013 is supported, though other versions of MSVC may work.
+Currently only g++ is supported, other versions of MSVC than Visual Studio 2013 may work. Optimizations for both SSE3 (x86_64) and Neon (armv7) are available.
 
 The original data should be split up into equally-sized chunks.  If one of these chunks
 is erased, the redundant data can fill in the gap through decoding.
@@ -23,20 +25,39 @@ In this case up to 256 - 3 = 253 additional redundant packets can be generated.
 
 ##### Building: Quick Setup
 
-Include the cm256.* and gf256.* files in your project and consult the cm256.h header for usage.
+This is a classical cmake project. Make sure cmake and g++ is installed in your system. create a `build` directory and cd into it. If you install the library in a custom location say `opt/install/cm256cc` use the following command line for cmake:
 
+  - `cmake -Wno-dev -DCMAKE_INSTALL_PREFIX=/opt/install/cm256cc ..`
+  
+Result:
+
+  - Library will be installed as `/opt/install/cm256cc/lib/libcm256cc.so`
+  - Include files will be installed in `/opt/install/cm256cc/include/cm256cc`
+  - Binary test programs will be installed in `/opt/install/cm256cc/bin`
+
+##### Building: Use the library
+
+Include the cm256cc library in your project and cm256.h header in your program. Have a look at example programs `cm256_test.cpp`, `transmit.cpp`and `receive.cpp` in the `unit_test` folder for usage. Consult the `cm256.h header` for details on the encoding / decoding method.
+
+## Compilation
+
+This is a classical cmake project. You may install the software anywhere you like with the `-DCMAKE_INSTALL_PREFIX` definition on the cmake command line. 
+
+The cmake file will try to find the best compiler optimization options depending on the hardware you are compiling this project. This may not be suitable if you intend to distribute the software or include it in a distribution. In this case you can use the `-DENABLE_DISTRIBUTION=1` define on the command line to have just SSSE3 optimization for the x86 based systems and still NEON optimization for arm or arm64.
 
 ## Usage
 
 Documentation is provided in the header file [cm256.h](https://github.com/catid/cm256/raw/master/cm256.h).
 
-When your application starts up it should call `cm256_init()` to verify that the library is linked properly:
+When your application starts up it should call `isInitialized()` to verify that the library is constructed properly:
 
 ~~~
 	#include "cm256.h"
 
-	if (cm256_init()) {
-		// Wrong static library
+    CM256 cm256;
+
+	if (!cm256.isInitialized()) {
+		// library not initialized
 		exit(1);
 	}
 ~~~
@@ -48,12 +69,14 @@ Example usage:
 ~~~
 bool ExampleFileUsage()
 {
-    if (cm256_init())
-    {
+    CM256 cm256;
+
+    if (!cm256.isInitialized()) {
+        // library not initialized
         exit(1);
     }
 
-    cm256_encoder_params params;
+    CM256::cm256_encoder_params params;
 
     // Number of bytes per file block
     params.BlockBytes = 4321;
@@ -72,7 +95,7 @@ bool ExampleFileUsage()
     memset(originalFileData, 1, OriginalFileBytes);
 
     // Pointers to data
-    cm256_block blocks[256];
+    CM256::cm256_block blocks[256];
     for (int i = 0; i < params.OriginalCount; ++i)
     {
         blocks[i].Block = originalFileData + i * params.BlockBytes;
@@ -82,7 +105,7 @@ bool ExampleFileUsage()
     uint8_t* recoveryBlocks = new uint8_t[params.RecoveryCount * params.BlockBytes];
 
     // Generate recovery data
-    if (cm256_encode(params, blocks, recoveryBlocks))
+    if (cm256.cm256_encode(params, blocks, recoveryBlocks))
     {
         exit(1);
     }
@@ -90,7 +113,7 @@ bool ExampleFileUsage()
     // Initialize the indices
     for (int i = 0; i < params.OriginalCount; ++i)
     {
-        blocks[i].Index = cm256_get_original_block_index(params, i);
+        blocks[i].Index = CM256::cm256_get_original_block_index(params, i);
     }
 
     //// Simulate loss of data, subsituting a recovery block in its place ////
@@ -98,7 +121,7 @@ bool ExampleFileUsage()
     blocks[0].Index = cm256_get_recovery_block_index(params, 0); // First recovery block index
     //// Simulate loss of data, subsituting a recovery block in its place ////
 
-    if (cm256_decode(params, blocks))
+    if (cm256.cm256_decode(params, blocks))
     {
         exit(1);
     }
@@ -118,98 +141,6 @@ This API was designed to be flexible enough for UDP/IP-based file transfer where
 the blocks arrive out of order.
 
 
-#### Benchmark
-
-CM256 demonstrates similar encoding and (worst case) decoding performance:
-
-~~~
-Encoder: 1296 bytes k = 100 m = 1 : 5.55886 usec, 23314.1 MBps
-Decoder: 1296 bytes k = 100 m = 1 : 6.72915 usec, 19259.5 MBps
-Encoder: 1296 bytes k = 100 m = 2 : 17.2617 usec, 7507.93 MBps
-Decoder: 1296 bytes k = 100 m = 2 : 19.6023 usec, 6611.46 MBps
-Encoder: 1296 bytes k = 100 m = 3 : 30.4275 usec, 4259.31 MBps
-Decoder: 1296 bytes k = 100 m = 3 : 32.4755 usec, 3990.7 MBps
-Encoder: 1296 bytes k = 100 m = 4 : 40.6675 usec, 3186.82 MBps
-Decoder: 1296 bytes k = 100 m = 4 : 43.5932 usec, 2972.94 MBps
-Encoder: 1296 bytes k = 100 m = 5 : 51.7852 usec, 2502.64 MBps
-Decoder: 1296 bytes k = 100 m = 5 : 51.4926 usec, 2516.86 MBps
-Encoder: 1296 bytes k = 100 m = 6 : 62.6104 usec, 2069.94 MBps
-Decoder: 1296 bytes k = 100 m = 6 : 64.9509 usec, 1995.35 MBps
-Encoder: 1296 bytes k = 100 m = 7 : 76.3612 usec, 1697.2 MBps
-Decoder: 1296 bytes k = 100 m = 7 : 75.191 usec, 1723.61 MBps
-Encoder: 1296 bytes k = 100 m = 8 : 85.1384 usec, 1522.23 MBps
-Decoder: 1296 bytes k = 100 m = 8 : 83.0904 usec, 1559.75 MBps
-Encoder: 1296 bytes k = 100 m = 9 : 96.2561 usec, 1346.41 MBps
-Decoder: 1296 bytes k = 100 m = 9 : 95.3784 usec, 1358.8 MBps
-Encoder: 1296 bytes k = 100 m = 10 : 110.592 usec, 1171.87 MBps
-Decoder: 1296 bytes k = 100 m = 10 : 109.714 usec, 1181.25 MBps
-
-Encoder: 1296 bytes k = 100 m = 20 : 223.525 usec, 579.801 MBps
-Decoder: 1296 bytes k = 100 m = 20 : 209.481 usec, 618.671 MBps
-
-Encoder: 1296 bytes k = 100 m = 30 : 372.737 usec, 347.699 MBps
-Decoder: 1296 bytes k = 100 m = 30 : 322.707 usec, 401.603 MBps
-
-Encoder: 1296 bytes k = 100 m = 40 : 471.626 usec, 274.794 MBps
-Decoder: 1296 bytes k = 100 m = 40 : 434.762 usec, 298.094 MBps
-
-Encoder: 1296 bytes k = 100 m = 50 : 592.751 usec, 218.642 MBps
-Decoder: 1296 bytes k = 100 m = 50 : 545.939 usec, 237.389 MBps
-~~~
-(These performance numbers are out of date and not well calibrated - Decoding now takes the same time as encoding within a few microseconds thanks to the new matrix solver.)
-
-Longhair Library Results:
-
-Note that I hand-optimized the MemXOR.cpp implementation on this PC to run faster than what is available on github, so this is a fair comparison.
-
-~~~
-Encoded k=100 data blocks with m=1 recovery blocks in 4.09607 usec : 31640.1 MB/s
-+ Decoded 1 erasures in 5.85144 usec : 22148.4 MB/s
-Encoded k=100 data blocks with m=2 recovery blocks in 41.5452 usec : 3119.5 MB/s
-+ Decoded 2 erasures in 43.5931 usec : 2972.94 MB/s
-Encoded k=100 data blocks with m=3 recovery blocks in 80.7498 usec : 1604.96 MB/s
-+ Decoded 3 erasures in 86.6013 usec : 1496.51 MB/s
-Encoded k=100 data blocks with m=4 recovery blocks in 123.465 usec : 1049.69 MB/s
-+ Decoded 4 erasures in 127.854 usec : 1013.66 MB/s
-Encoded k=100 data blocks with m=5 recovery blocks in 76.9464 usec : 1684.29 MB/s
-+ Decoded 5 erasures in 88.6493 usec : 1461.94 MB/s
-Encoded k=100 data blocks with m=6 recovery blocks in 87.7717 usec : 1476.56 MB/s
-+ Decoded 6 erasures in 100.352 usec : 1291.45 MB/s
-Encoded k=100 data blocks with m=7 recovery blocks in 103.863 usec : 1247.8 MB/s
-+ Decoded 7 erasures in 127.269 usec : 1018.32 MB/s
-Encoded k=100 data blocks with m=8 recovery blocks in 118.784 usec : 1091.05 MB/s
-+ Decoded 8 erasures in 145.701 usec : 889.494 MB/s
-Encoded k=100 data blocks with m=9 recovery blocks in 146.871 usec : 882.406 MB/s
-+ Decoded 9 erasures in 158.574 usec : 817.284 MB/s
-Encoded k=100 data blocks with m=10 recovery blocks in 156.819 usec : 826.433 MB/s
-+ Decoded 10 erasures in 181.102 usec : 715.619 MB/s
-
-Encoded k=100 data blocks with m=20 recovery blocks in 282.039 usec : 459.511 MB/s
-+ Decoded 20 erasures in 370.103 usec : 350.172 MB/s
-
-Encoded k=100 data blocks with m=30 recovery blocks in 428.618 usec : 302.367 MB/s
-+ Decoded 30 erasures in 614.693 usec : 210.837 MB/s
-
-Encoded k=100 data blocks with m=40 recovery blocks in 562.323 usec : 230.472 MB/s
-+ Decoded 40 erasures in 855.188 usec : 151.546 MB/s
-
-Encoded k=100 data blocks with m=50 recovery blocks in 727.041 usec : 178.257 MB/s
-+ Decoded 50 erasures in 1181.11 usec : 109.727 MB/s
-~~~
-
-Results Discussion:
-
-For m=1 they are both running the same kind of code, so they're basically the same.
-
-For m=2 and m=3, CM256 is 2.5x faster.
-
-For m=4, CM256 is 3x faster in this case.  Longhair could use more tuning.  Back when I wrote it, the right time to switch to the Windowed decoder was at m=5, but on my new PC it seems like m=4 is a better time to do it.  CM256 only has one mode so it doesn't require any tuning for best performance.
-
-For m=5...30, CM256 performance is not quite 2x faster, maybe 1.7x or so.
-
-For m>30, CM256 is at least 2x faster.
-
-
 #### Comparisons with Other Libraries
 
 The approach taken in CM256 is similar to the Intel Storage Acceleration Library (ISA-L) available here:
@@ -225,5 +156,4 @@ ISA-L uses a O(N^3) Gaussian elimination solver for decoding.  The CM256 decoder
 
 #### Credits
 
-This software was written entirely by myself ( Christopher A. Taylor <mrcatid@gmail.com> ).  If you
-find it useful and would like to buy me a coffee, consider [tipping](https://www.gittip.com/catid/).
+This software was written entirely by Christopher A. Taylor <mrcatid@gmail.com> and converted to clean C++ code by myself Edouard M. Griffiths <f4exb06@gmail.com>.  

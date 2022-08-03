@@ -8,12 +8,10 @@ module.exports = [
     {
         // find_object_latest()
         // list_objects()
+        // note that version_past is always null here by partialFilterExpression.
         fields: {
             bucket: 1,
             key: 1,
-            // we include version_past as extra index field to separate from null_version_index.
-            // note that version_past is always null here by partialFilterExpression.
-            version_past: 1,
         },
         options: {
             name: 'latest_version_index',

@@ -179,14 +179,16 @@ class NamespaceFS {
      *  fs_backend?: string;
      *  bucket_id: string;
      *  namespace_resource_id?: string;
+     *  access_mode: string;
      * }} params
      */
-    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id }) {
+    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id, access_mode }) {
         dbg.log0('NamespaceFS: buffers_pool', buffers_pool);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
         this.namespace_resource_id = namespace_resource_id;
+        this.access_mode = access_mode;
     }
 
     set_cur_fs_account_config(object_sdk) {
@@ -712,7 +714,7 @@ class NamespaceFS {
                     fs_xattr = await buffers_pool_sem.surround_count(
                         config.NSFS_BUF_SIZE,
                         async () => this._upload_stream(params, this.bucket_path, file_path, open_mode, fs_account_config,
-                                                        object_sdk.rpc_client, fs_xattr)
+                            object_sdk.rpc_client, fs_xattr)
                     );
                     // TODO use file xattr to store md5_b64 xattr, etc.
                     const stat = await nb_native().fs.stat(fs_account_config, file_path);
@@ -742,7 +744,7 @@ class NamespaceFS {
                     fs_xattr = await buffers_pool_sem.surround_count(
                         config.NSFS_BUF_SIZE,
                         async () => this._upload_stream(params, upload_path, file_path, open_mode, fs_account_config, object_sdk.rpc_client,
-                                                        fs_xattr)
+                            fs_xattr)
                     );
                 }
                 // TODO use file xattr to store md5_b64 xattr, etc.
@@ -752,8 +754,8 @@ class NamespaceFS {
                 return { etag: this._get_etag(stat, fs_xattr) };
             }
         } catch (err) {
-                this.run_update_issues_report(object_sdk, err);
-                throw this._translate_object_error_codes(err);
+            this.run_update_issues_report(object_sdk, err);
+            throw this._translate_object_error_codes(err);
         }
     }
 

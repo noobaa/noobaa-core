@@ -105,6 +105,10 @@ module.exports = {
                     nsfs_config: {
                         $ref: 'common_api#/definitions/nsfs_config'
                     },
+                    access_mode: {
+                        type: 'string',
+                        enum: ['READ_ONLY', 'READ_WRITE']
+                    },
                     namespace_store: {
                         type: 'object',
                         required: ['name', 'namespace'],
@@ -568,6 +572,10 @@ module.exports = {
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
+                access_mode: {
+                    type: 'string',
+                    enum: ['READ_ONLY', 'READ_WRITE']
+                },
             }
         },
 
@@ -604,6 +612,10 @@ module.exports = {
                 },
                 fs_backend: {
                     $ref: 'common_api#/definitions/fs_backend'
+                },
+                access_mode: {
+                    type: 'string',
+                    enum: ['READ_ONLY', 'READ_WRITE']
                 },
             }
         },

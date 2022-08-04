@@ -34,7 +34,7 @@ class ChunkFS extends stream.Transform {
         try {
             if (this.MD5Async) await this.MD5Async.update(chunk);
             if (this.rpc_client) {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                stats_collector.instance(this.rpc_client).update_nsfs_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: chunk.length,
                     count: this.count

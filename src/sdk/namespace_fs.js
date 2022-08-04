@@ -581,7 +581,7 @@ class NamespaceFS {
                 const read_size = Math.min(buffer.length, remain_size);
 
                 // Update the read stats               
-                stats_collector.instance(object_sdk.rpc_client).update_namespace_read_stats({
+                stats_collector.instance(object_sdk.rpc_client).update_nsfs_read_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     bucket_name: params.bucket,
                     size: read_size,

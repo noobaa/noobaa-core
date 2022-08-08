@@ -38,7 +38,7 @@ async function get_bucket(req) {
     return {
         ListBucketResult: [{
                 Name: req.params.bucket,
-                Prefix: req.query.prefix || undefined,
+                Prefix: req.query.prefix,
                 Delimiter: req.query.delimiter || undefined,
                 MaxKeys: max_keys_received,
                 IsTruncated: reply.is_truncated,
@@ -50,7 +50,7 @@ async function get_bucket(req) {
                     NextContinuationToken: key_marker_to_cont_tok(
                         reply.next_marker, reply.objects, reply.is_truncated),
                 } : { // list_type v1
-                    Marker: req.query.marker,
+                    Marker: req.query.marker || '',
                     NextMarker: req.query.delimiter ? reply.next_marker : undefined,
                 }),
             },

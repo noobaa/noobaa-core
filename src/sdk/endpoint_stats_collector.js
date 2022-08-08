@@ -18,6 +18,7 @@ class EndpointStatsCollector {
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
         this.reset_all_stats();
+        this.nsfs_counters = this._new_namespace_stats();
         this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
@@ -29,10 +30,13 @@ class EndpointStatsCollector {
     reset_all_stats() {
         this.namespace_stats = {};
         this.bucket_counters = {};
-        this.nsfs_counters = this._new_namespace_stats();
     }
 
     async _send_stats() {
+        await P.all([this._send_endpoint_stats(), this._send_nsfs_stats()]);
+    }
+
+    async _send_endpoint_stats() {
         await P.delay_unblocking(SEND_STATS_DELAY);
         // clear this.send_stats to allow new updates to trigger another _send_stats
         this.send_stats = null;
@@ -45,6 +49,19 @@ class EndpointStatsCollector {
             // if update fails trigger _send_stats again
             dbg.error('failed on update_endpoint_stats. trigger_send_stats again', err);
             this._trigger_send_stats();
+        }
+    }
+
+    // _send_nsfs_stats will not retry update_nsfs_stats, We can send it in the next iteration.
+    async _send_nsfs_stats() {
+        const _nsfs_stats = { nsfs_stats: { io_stats: this.nsfs_counters } };
+        try {
+            await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
+                timeout: SEND_STATS_TIMEOUT
+            });
+            this.nsfs_counters = this._new_namespace_stats();
+        } catch (err) {
+            dbg.error('failed on update_nsfs_stats.', err);
         }
     }
 

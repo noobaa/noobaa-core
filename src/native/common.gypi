@@ -61,7 +61,7 @@
             [ 'OS=="mac"', {
                 'xcode_settings': {
                     # Reference - http://help.apple.com/xcode/mac/8.0/#/itcaec37c2a6
-                    'MACOSX_DEPLOYMENT_TARGET': '10.15',
+                    'MACOSX_DEPLOYMENT_TARGET': '12.4',
                     'CLANG_CXX_LIBRARY': 'libc++',
                     'CLANG_CXX_LANGUAGE_STANDARD': 'c++17', # -std=c++17
                     'GCC_C_LANGUAGE_STANDARD': 'c99', # -std=c99

@@ -8,6 +8,7 @@
             [ 'OS=="mac"', {
                 'xcode_settings': {
                     'WARNING_CFLAGS': ['<@(cflags_warnings)'],
+                     'OTHER_CFLAGS': ['-DUSE_SSSE3', '-msse4.1'],
                 },
             }],
             [ 'node_arch=="x64"', {

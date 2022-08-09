@@ -55,7 +55,7 @@ default rel
  %define b_d    r8d
  %define end    r13
 
- %define func(x) x:
+ %define func(x) x: endbranch
  %macro FUNC_SAVE 0
 	push	r12
 	push	r13
@@ -123,8 +123,11 @@ default rel
 %define yshuf0	ymm6
 %define yshuf1	ymm7
 
+[bits 64]
+default rel
+section .text
 
-global adler32_avx2_4:function
+mk_global adler32_avx2_4, function
 func(adler32_avx2_4)
 	FUNC_SAVE
 

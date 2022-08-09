@@ -31,7 +31,7 @@
                     '-Wno-cast-function-type',
                 ],
                 'cflags_c': [
-                    '-std=c99',
+                    '-std=gnu99', # c99 -> gnu99 to allow asm()
                 ],
                 'cflags_cc': [
                     '-std=c++17'

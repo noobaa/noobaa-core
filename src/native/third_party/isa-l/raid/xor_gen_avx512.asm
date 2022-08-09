@@ -47,7 +47,7 @@
  %define arg5  r9
  %define tmp   r11
  %define tmp3  arg4
- %define func(x) x:
+ %define func(x) x: endbranch
  %define return rax
  %define FUNC_SAVE
  %define FUNC_RESTORE
@@ -103,7 +103,7 @@ default rel
 section .text
 
 align 16
-global xor_gen_avx512:function
+mk_global  xor_gen_avx512, function
 func(xor_gen_avx512)
 	FUNC_SAVE
 	sub	vec, 2			;Keep as offset to last source

@@ -95,7 +95,7 @@ void aes_gcm_perf(void)
 	int i;
 
 	printf
-	    ("AES GCM performace parameters plain text length:%d; IV length:%d; ADD length:%d \n",
+	    ("AES GCM performance parameters plain text length:%d; IV length:%d; ADD length:%d \n",
 	     TEST_LEN, GCM_IV_LEN, AAD_LENGTH);
 
 	mk_rand_data(key128, sizeof(key128));

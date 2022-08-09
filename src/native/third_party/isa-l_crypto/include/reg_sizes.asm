@@ -351,8 +351,15 @@ section .note.GNU-stack noalloc noexec nowrite progbits
 section .text
 %endif
 %ifidn __OUTPUT_FORMAT__,elf64
+ %define __x86_64__
 section .note.GNU-stack noalloc noexec nowrite progbits
 section .text
+%endif
+%ifidn __OUTPUT_FORMAT__,win64
+ %define __x86_64__
+%endif
+%ifidn __OUTPUT_FORMAT__,macho64
+ %define __x86_64__
 %endif
 
 %ifdef __x86_64__

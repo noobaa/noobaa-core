@@ -37,10 +37,10 @@
 #endif
 
 /**
- *  sha1_ctx_avx512_ni related functions are aiming to utilize Canonlake.
+ *  sha1_ctx_avx512_ni related functions are aiming to utilize Canon Lake.
  *  Since SHANI is still slower than multibuffer for full lanes,
  *  sha1_ctx_mgr_init_avx512_ni and sha1_ctx_mgr_submit_avx512_ni are
- *  similare with their avx512 versions.
+ *  similar with their avx512 versions.
  *  sha1_ctx_mgr_flush_avx512_ni is different. It will call
  *  sha1_mb_mgr_flush_avx512_ni which would use shani when lanes are less
  *  than a threshold.

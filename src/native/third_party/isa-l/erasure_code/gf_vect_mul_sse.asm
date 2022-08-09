@@ -42,7 +42,7 @@
  %define arg5  r9
  %define tmp   r11
  %define return rax
- %define func(x) x:
+ %define func(x) x: endbranch
  %define FUNC_SAVE
  %define FUNC_RESTORE
 
@@ -112,7 +112,7 @@ section .text
 
 
 align 16
-global gf_vect_mul_sse:function
+mk_global gf_vect_mul_sse, function
 func(gf_vect_mul_sse)
 	FUNC_SAVE
 	mov	pos, 0

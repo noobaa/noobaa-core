@@ -1,3 +1,32 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;  Copyright(c) 2011-2018 Intel Corporation All rights reserved.
+;
+;  Redistribution and use in source and binary forms, with or without
+;  modification, are permitted provided that the following conditions
+;  are met:
+;    * Redistributions of source code must retain the above copyright
+;      notice, this list of conditions and the following disclaimer.
+;    * Redistributions in binary form must reproduce the above copyright
+;      notice, this list of conditions and the following disclaimer in
+;      the documentation and/or other materials provided with the
+;      distribution.
+;    * Neither the name of Intel Corporation nor the names of its
+;      contributors may be used to endorse or promote products derived
+;      from this software without specific prior written permission.
+;
+;  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+;  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+;  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+;  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+;  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+;  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+;  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+;  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+;  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+;  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 %include "reg_sizes.asm"
 %include "lz0a_const.asm"
 %include "data_struct2.asm"
@@ -84,6 +113,7 @@
 %define zbits		zmm12
 %define zbits_count	zmm13
 %define zoffset_mask	zmm14
+%define znotoffset_mask	zmm23
 
 %define zq_64		zmm15
 %define zlit_mask	zmm16
@@ -93,7 +123,6 @@
 %define zmax_write	zmm20
 %define zrot_perm	zmm21
 %define zq_8		zmm22
-%define zmin_write	zmm23
 
 %define VECTOR_SIZE 0x40
 %define VECTOR_LOOP_PROCESSED (2 * VECTOR_SIZE)
@@ -156,8 +185,12 @@ stack_size		equ	gpr_save_mem_size + xmm_save_mem_size + bitbuf_mem_size
 
 %endmacro
 
+default rel
+section .text
+
 global encode_deflate_icf_ %+ ARCH
 encode_deflate_icf_ %+ ARCH:
+	endbranch
 	FUNC_SAVE
 
 %ifnidn ptr, arg1
@@ -185,25 +218,28 @@ encode_deflate_icf_ %+ ARCH:
 	kmovq	k4, [k_mask_4]
 	kmovq	k5, [k_mask_5]
 
-	vmovdqa64 zoffset_mask, [offset_mask]
-	vmovdqa64 zlit_mask, [lit_mask]
-	vmovdqa64 zdist_mask, [dist_mask]
-	vmovdqa64 zlit_icr_mask, [lit_icr_mask]
-	vmovdqa64 zeb_icr_mask, [eb_icr_mask]
-	vmovdqa64 zmax_write, [max_write_d]
-	vmovdqa64 zq_64, [q_64]
 	vmovdqa64 zrot_perm, [rot_perm]
-	vmovdqa64 zq_8, [q_8]
-	vmovdqa64 zmin_write, [min_write_q]
+
+	vbroadcasti64x2 zq_64, [q_64]
+	vbroadcasti64x2 zq_8, [q_8]
+
+	vpbroadcastq zoffset_mask, [offset_mask]
+	vpternlogd znotoffset_mask, znotoffset_mask, zoffset_mask, 0x55
+
+	vpbroadcastd zlit_mask, [lit_mask]
+	vpbroadcastd zdist_mask, [dist_mask]
+	vpbroadcastd zlit_icr_mask, [lit_icr_mask]
+	vpbroadcastd zeb_icr_mask, [eb_icr_mask]
+	vpbroadcastd zmax_write, [max_write_d]
 
 	knotq	k6, k0
 	vmovdqu64	datas, [ptr]
-	vpandd	syms, datas, [lit_mask]
+	vpandd	syms, datas, zlit_mask
 	vpgatherdd codes_lookup1 {k6}, [hufftables + _lit_len_table + 4 * syms]
 
 	knotq	k7, k0
 	vpsrld	dsyms, datas, DIST_OFFSET
-	vpandd	dsyms, dsyms, [dist_mask]
+	vpandd	dsyms, dsyms, zdist_mask
 	vpgatherdd codes_lookup2 {k7}, [hufftables + _dist_table + 4 * dsyms]
 
 	vmovq	zbits %+ x, bits
@@ -270,12 +306,11 @@ encode_deflate_icf_ %+ ARCH:
 	vpaddq code_lens1, code_lens1, code_lens3
 
 	;; Determine total bits at end of each qword
-	kshiftlq k7, k3, 2
 	vpermq	zbits_count {k5}{z}, zrot_perm, code_lens1
 	vpaddq	code_lens2, zbits_count, code_lens1
 	vshufi64x2 zbits_count {k3}{z}, code_lens2, code_lens2, 0x90
 	vpaddq	code_lens2, code_lens2, zbits_count
-	vshufi64x2 zbits_count {k7}{z}, code_lens2, code_lens2, 0x40
+	vshufi64x2 zbits_count {k2}{z}, code_lens2, code_lens2, 0x40
 	vpaddq	code_lens2, code_lens2, zbits_count
 
 	;; Bit align quadwords
@@ -283,15 +318,16 @@ encode_deflate_icf_ %+ ARCH:
 	vpermq	zbits_count_q {k5}{z}, zrot_perm, zbits_count
 	vpsllvq	codes1, codes1, zbits_count_q
 
+	;; Check whether any of the last bytes overlap
+	vpcmpq k6 {k5}, code_lens1, zbits_count, 1
+
 	;; Get last byte in each qword
 	vpsrlq	code_lens2, code_lens2, 3
 	vpaddq	code_lens1, code_lens1, zbits_count_q
-	vpsrlq	code_lens1, code_lens1, 3
-	vpaddq	code_lens1, code_lens1, zq_8
-	vpshufb	codes3 {k4}{z}, codes1, code_lens1
+	vpandq	code_lens1, code_lens1, znotoffset_mask
+	vpsrlvq	codes3, codes1, code_lens1
 
-	;; Check whether any of the last bytes overlap
-	vpcmpq k6 {k5}, code_lens1, zmin_write, 0
+	;; Branch to handle overlapping last bytes
 	ktestd k6, k6
 	jnz .small_codes
 
@@ -551,52 +587,36 @@ encode_deflate_icf_ %+ ARCH:
 
 section .data
 	align 64
-max_write_d:
-	dd	0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c
-	dd	0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c, 0x1c
-min_write_q:
-	dq	0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08
-offset_mask:
-	dq	0x0000000000000007, 0x0000000000000007
-	dq	0x0000000000000007, 0x0000000000000007
-	dq	0x0000000000000007, 0x0000000000000007
-	dq	0x0000000000000007, 0x0000000000000007
-q_64:
-	dq	0x0000000000000040, 0x0000000000000000
-	dq	0x0000000000000040, 0x0000000000000000
-	dq	0x0000000000000040, 0x0000000000000000
-	dq	0x0000000000000040, 0x0000000000000000
-q_8 :
-	dq	0x0000000000000000, 0x0000000000000008
-	dq	0x0000000000000000, 0x0000000000000008
-	dq	0x0000000000000000, 0x0000000000000008
-	dq	0x0000000000000000, 0x0000000000000008
-lit_mask:
-	dd LIT_MASK, LIT_MASK, LIT_MASK, LIT_MASK
-	dd LIT_MASK, LIT_MASK, LIT_MASK, LIT_MASK
-	dd LIT_MASK, LIT_MASK, LIT_MASK, LIT_MASK
-	dd LIT_MASK, LIT_MASK, LIT_MASK, LIT_MASK
-dist_mask:
-	dd DIST_MASK, DIST_MASK, DIST_MASK, DIST_MASK
-	dd DIST_MASK, DIST_MASK, DIST_MASK, DIST_MASK
-	dd DIST_MASK, DIST_MASK, DIST_MASK, DIST_MASK
-	dd DIST_MASK, DIST_MASK, DIST_MASK, DIST_MASK
-lit_icr_mask:
-	dd 0x00ffffff, 0x00ffffff, 0x00ffffff, 0x00ffffff
-	dd 0x00ffffff, 0x00ffffff, 0x00ffffff, 0x00ffffff
-	dd 0x00ffffff, 0x00ffffff, 0x00ffffff, 0x00ffffff
-	dd 0x00ffffff, 0x00ffffff, 0x00ffffff, 0x00ffffff
-eb_icr_mask:
-	dd 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff
-	dd 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff
-	dd 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff
-	dd 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff
+;; 64 byte data
 rot_perm:
 	dq 0x00000007, 0x00000000, 0x00000001, 0x00000002
 	dq 0x00000003, 0x00000004, 0x00000005, 0x00000006
 
+;; 16 byte data
+q_64:
+	dq 0x0000000000000040, 0x0000000000000000
+q_8 :
+	dq 0x0000000000000000, 0x0000000000000008
+
+;; 8 byte data
+offset_mask:
+	dq 0x0000000000000007
+
+;; 4 byte data
+max_write_d:
+	dd 0x1c
+lit_mask:
+	dd LIT_MASK
+dist_mask:
+	dd DIST_MASK
+lit_icr_mask:
+	dd 0x00ffffff
+eb_icr_mask:
+	dd 0x000000ff
+
+;; k mask constants
 k_mask_1: dq 0x55555555
-k_mask_2: dq 0x11111111
+k_mask_2: dq 0xfffffff0
 k_mask_3: dq 0xfffffffc
 k_mask_4: dw 0x0101, 0x0101, 0x0101, 0x0101
 k_mask_5: dq 0xfffffffe

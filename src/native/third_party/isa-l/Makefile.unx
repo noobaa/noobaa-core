@@ -27,15 +27,30 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ########################################################################
 
-units     = erasure_code raid crc igzip
+units     = erasure_code raid crc igzip programs mem
 
 default: lib
 
+ifeq (,$(findstring crc,$(units)))
+ ifneq (,$(findstring igzip,$(units)))
+  override  units += crc
+ endif
+endif
+
 include $(foreach unit,$(units), $(unit)/Makefile.am)
+
+ifneq (,$(findstring igzip,$(units)))
+ include tests/fuzz/Makefile.am
+endif
+
+ifneq (,$(findstring erasure_code,$(units)))
+ include examples/ec/Makefile.am
+endif
 
 # Override individual lib names to make one inclusive library.
 lib_name := bin/isa-l.a
 
 include make.inc
+include tools/gen_nmake.mk
 
-VPATH = . $(units) include
+VPATH = . $(units) include tests/fuzz examples/ec

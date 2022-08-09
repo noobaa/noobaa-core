@@ -39,7 +39,6 @@ extern aes_cbc_dec_192_avx
 extern aes_cbc_dec_256_sse
 extern aes_cbc_dec_256_avx
 
-
 extern aes_cbc_enc_128_x4
 extern aes_cbc_enc_128_x8
 extern aes_cbc_enc_192_x4
@@ -47,17 +46,43 @@ extern aes_cbc_enc_192_x8
 extern aes_cbc_enc_256_x4
 extern aes_cbc_enc_256_x8
 
+%if (AS_FEATURE_LEVEL) >= 10
+extern aes_cbc_dec_128_vaes_avx512
+extern aes_cbc_dec_192_vaes_avx512
+extern aes_cbc_dec_256_vaes_avx512
+%endif
+
 %include "multibinary.asm"
 
 ;;;;
 ; instantiate aesni_cbc interfaces enc and dec
 ;;;;
-mbin_interface     aes_cbc_dec_128
-mbin_dispatch_init aes_cbc_dec_128, aes_cbc_dec_128_sse, aes_cbc_dec_128_avx, aes_cbc_dec_128_avx
-mbin_interface     aes_cbc_dec_192
-mbin_dispatch_init aes_cbc_dec_192, aes_cbc_dec_192_sse, aes_cbc_dec_192_avx, aes_cbc_dec_192_avx
-mbin_interface     aes_cbc_dec_256
-mbin_dispatch_init aes_cbc_dec_256, aes_cbc_dec_256_sse, aes_cbc_dec_256_avx, aes_cbc_dec_256_avx
+mbin_interface      aes_cbc_dec_128
+mbin_dispatch_init7 aes_cbc_dec_128, \
+	aes_cbc_dec_128_sse, \
+	aes_cbc_dec_128_sse, \
+	aes_cbc_dec_128_avx, \
+	aes_cbc_dec_128_avx, \
+	aes_cbc_dec_128_avx, \
+	aes_cbc_dec_128_vaes_avx512
+
+mbin_interface      aes_cbc_dec_192
+mbin_dispatch_init7 aes_cbc_dec_192, \
+	aes_cbc_dec_192_sse, \
+	aes_cbc_dec_192_sse, \
+	aes_cbc_dec_192_avx, \
+	aes_cbc_dec_192_avx, \
+	aes_cbc_dec_192_avx, \
+	aes_cbc_dec_192_vaes_avx512
+
+mbin_interface      aes_cbc_dec_256
+mbin_dispatch_init7 aes_cbc_dec_256, \
+	aes_cbc_dec_256_sse, \
+	aes_cbc_dec_256_sse, \
+	aes_cbc_dec_256_avx, \
+	aes_cbc_dec_256_avx, \
+	aes_cbc_dec_256_avx, \
+	aes_cbc_dec_256_vaes_avx512
 
 mbin_interface     aes_cbc_enc_128
 mbin_dispatch_init aes_cbc_enc_128, aes_cbc_enc_128_x4, aes_cbc_enc_128_x8, aes_cbc_enc_128_x8

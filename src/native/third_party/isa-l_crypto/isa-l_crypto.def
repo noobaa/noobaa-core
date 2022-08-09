@@ -1,5 +1,5 @@
 LIBRARY  isa-l_crypto
-VERSION  2.23
+VERSION  2.24
 EXPORTS
 
 sha1_ctx_mgr_init                      @1

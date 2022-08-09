@@ -101,6 +101,15 @@ msg+=$'Other tests build: Pass\n'
 
 $MAKE -f Makefile.unx clean
 
+# Std makefile run tests with NT_LDST
+test_start "extended_makefile_tests with NT_LDST"
+$MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S NT_LDST"
+time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S NT_LDST" $test_level
+test_end "extended_makefile_tests with NT_LDST" $?
+msg+=$'Std makefile tests: Pass\n'
+
+$MAKE -f Makefile.unx clean
+
 # noarch makefile run tests
 test_start "extended_makefile_tests"
 time $MAKE -f Makefile.unx -j $cpus $build_opt D="TEST_SEED=$S" \

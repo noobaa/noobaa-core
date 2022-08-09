@@ -48,7 +48,7 @@
  %endmacro
  %define SSTR SLDR
  %define PS 8
- %define func(x) x:
+ %define func(x) x: endbranch
  %define FUNC_SAVE
  %define FUNC_RESTORE
 %endif
@@ -106,7 +106,7 @@
 
  %define PS 4
  %define LOG_PS 2
- %define func(x) x:
+ %define func(x) x: endbranch
  %define arg(x) [ebp + PS*2 + PS*x]
 
  %define trans   ecx			;trans is for the variables in stack
@@ -194,7 +194,7 @@ section .text
 %define xp     xmm2
 
 align 16
-global gf_vect_dot_prod_sse:function
+mk_global gf_vect_dot_prod_sse, function
 func(gf_vect_dot_prod_sse)
 	FUNC_SAVE
 	SLDR 	len, len_m

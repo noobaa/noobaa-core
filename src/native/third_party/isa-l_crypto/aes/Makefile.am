@@ -51,6 +51,7 @@ lsrc_x86_64     += aes/cbc_dec_256_x4_sse.asm aes/cbc_dec_256_x8_avx.asm
 lsrc_x86_64     += aes/cbc_enc_128_x4_sb.asm aes/cbc_enc_128_x8_sb.asm
 lsrc_x86_64     += aes/cbc_enc_192_x4_sb.asm aes/cbc_enc_192_x8_sb.asm
 lsrc_x86_64     += aes/cbc_enc_256_x4_sb.asm aes/cbc_enc_256_x8_sb.asm
+lsrc_x86_64     += aes/cbc_dec_vaes_avx512.asm
 lsrc_x86_64     += aes/cbc_pre.c
 lsrc_x86_64     += aes/xts_aes_128_multibinary.asm
 lsrc_x86_64     += aes/XTS_AES_128_dec_sse.asm aes/XTS_AES_128_dec_expanded_key_sse.asm

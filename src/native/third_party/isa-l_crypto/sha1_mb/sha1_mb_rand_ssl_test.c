@@ -111,7 +111,7 @@ int main(void)
 		sha1_ctx_mgr_init(mgr);
 
 		for (i = 0; i < jobs; i++) {
-			// Ramdom buffer with ramdom len and contents
+			// Random buffer with random len and contents
 			lens[i] = rand() % (TEST_LEN);
 			rand_buffer(bufs[i], lens[i]);
 

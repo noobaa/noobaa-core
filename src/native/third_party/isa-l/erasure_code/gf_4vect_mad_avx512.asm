@@ -44,7 +44,7 @@
  %define arg5   r9
  %define tmp    r11
  %define return rax
- %define func(x) x:
+ %define func(x) x: endbranch
  %define FUNC_SAVE
  %define FUNC_RESTORE
 %endif
@@ -159,7 +159,7 @@ section .text
 %define xtmpl5    zmm23
 
 align 16
-global gf_4vect_mad_avx512:function
+mk_global gf_4vect_mad_avx512, function
 func(gf_4vect_mad_avx512)
 	FUNC_SAVE
 	sub	len, 64

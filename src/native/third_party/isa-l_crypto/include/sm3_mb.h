@@ -53,6 +53,7 @@ extern "C" {
 
 #define SM3_DIGEST_NWORDS		8	/* Word in SM3 is 32-bit */
 #define SM3_MAX_LANES			16
+#define SM3_X8_LANES                   8
 #define SM3_BLOCK_SIZE			64
 #define SM3_LOG2_BLOCK_SIZE			6
 #define SM3_PADLENGTHFIELD_SIZE		8

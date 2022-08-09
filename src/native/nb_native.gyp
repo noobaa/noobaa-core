@@ -10,6 +10,12 @@
                     'WARNING_CFLAGS': ['<@(cflags_warnings)'],
                 },
             }],
+            [ 'node_arch=="x64"', {
+                'cflags': ['-DUSE_SSSE3', '-mssse3']
+            }],
+            [ 'node_arch=="arm64"', {
+                'cflags': ['-DUSE_NEON']
+            }],
         ],
     },
 

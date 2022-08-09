@@ -46,7 +46,7 @@
  %define tmp   r11
  %define tmp3  arg4
  %define return rax
- %define func(x) x:
+ %define func(x) x: endbranch
  %define FUNC_SAVE
  %define FUNC_RESTORE
 %endif
@@ -122,7 +122,7 @@ default rel
 section .text
 
 align 16
-global pq_gen_sse:function
+mk_global  pq_gen_sse, function
 func(pq_gen_sse)
 	FUNC_SAVE
 	sub	vec, 3			;Keep as offset to last source

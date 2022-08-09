@@ -152,9 +152,9 @@ int test_gcm128_std_vectors_nt(gcm_vector const *vector)
 	memset(pt_test, 0, vector->Plen);
 
 	if (NULL != ct_test)
-		free(ct_test);
+		aligned_free(ct_test);
 	if (NULL != pt_test)
-		free(pt_test);
+		aligned_free(pt_test);
 	if (NULL != IV_c)
 		free(IV_c);
 	if (NULL != T_test)
@@ -255,9 +255,9 @@ int test_gcm256_std_vectors_nt(gcm_vector const *vector)
 	OK |= check_data(T_test, T2_test, vector->Tlen, "ISA-L self decrypted tag (T)");
 
 	if (NULL != ct_test)
-		free(ct_test);
+		aligned_free(ct_test);
 	if (NULL != pt_test)
-		free(pt_test);
+		aligned_free(pt_test);
 	if (NULL != IV_c)
 		free(IV_c);
 	if (NULL != T_test)

@@ -7,7 +7,6 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #   Size: ~ 613 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
-ENV container docker
 # RUN dnf --enablerepo=PowerTools install -y -q nasm && \
 #     dnf clean all
 RUN dnf update -y -q --nobest && \
@@ -45,7 +44,11 @@ RUN chmod +x ./install_nodejs.sh && \
 #   Size: ~ 43 MB
 ##############################################################
 RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/amd64/kubectl && \
+    if [ "$(uname -m)" = "aarch64" ]; \
+    then arch=arm64; \
+    else arch=amd64; \
+    fi && \
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/${arch}/kubectl && \
     chmod +x ./kubectl
 
 RUN mkdir -p /noobaa/src/

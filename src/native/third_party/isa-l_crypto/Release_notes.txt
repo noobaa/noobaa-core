@@ -1,5 +1,5 @@
 ================================================================================
-v2.23 Intel Intelligent Storage Acceleration Library Crypto Release Notes
+v2.24 Intel Intelligent Storage Acceleration Library Crypto Release Notes
 ================================================================================
 
 ================================================================================
@@ -55,6 +55,14 @@ v2.7
 ================================================================================
 3. CHANGE LOG & FEATURES ADDED
 ================================================================================
+v2.24
+
+* New optimized version of AES-CBC decode
+
+* New AVX2, 8 lane version of multi-buffer SM3
+
+* Added support for big-endian architectures
+
 v2.23
 
 * New optimized versions of block ciphers AES-GCM and AES-XTS.

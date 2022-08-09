@@ -987,7 +987,7 @@ int test_gcm_strm_efence(void)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}
@@ -1082,7 +1082,7 @@ int test_gcm_strm_combinations(int test_len)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}
@@ -1175,7 +1175,7 @@ int test_gcm_combinations(void)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}
@@ -1268,7 +1268,7 @@ int test_gcm256_combinations(void)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}
@@ -1364,7 +1364,7 @@ int test_gcm256_strm_combinations(int test_len)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}
@@ -1848,7 +1848,7 @@ int test_gcm_strm_combinations2(int length, int start, int breaks)
 		if (test.Plen + offset != 0) {
 			test.P = malloc(test.Plen + offset);
 			test.C = malloc(test.Plen + offset);
-		} else {	//This else clause is here becuase openssl 1.0.1k does not handle NULL pointers
+		} else {	//This else clause is here because openssl 1.0.1k does not handle NULL pointers
 			test.P = malloc(16);
 			test.C = malloc(16);
 		}

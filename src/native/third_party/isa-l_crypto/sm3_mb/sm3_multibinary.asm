@@ -36,6 +36,10 @@ extern sm3_ctx_mgr_init_base
 extern sm3_ctx_mgr_submit_base
 extern sm3_ctx_mgr_flush_base
 
+extern sm3_ctx_mgr_init_avx2
+extern sm3_ctx_mgr_submit_avx2
+extern sm3_ctx_mgr_flush_avx2
+
 %ifdef HAVE_AS_KNOWS_AVX512
  extern sm3_ctx_mgr_init_avx512
  extern sm3_ctx_mgr_submit_avx512
@@ -50,25 +54,25 @@ mbin_interface sm3_ctx_mgr_init
 mbin_interface sm3_ctx_mgr_submit
 mbin_interface sm3_ctx_mgr_flush
 
-
-;;; don't have imlement see/avx/avx2 yet
+;; have not imlement see/avx yet
 %ifdef HAVE_AS_KNOWS_AVX512
   mbin_dispatch_init6 sm3_ctx_mgr_init, sm3_ctx_mgr_init_base, \
-	sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_base, \
+	sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_base, sm3_ctx_mgr_init_avx2, \
 	sm3_ctx_mgr_init_avx512
   mbin_dispatch_init6 sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base, \
-	sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_base, \
+	sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_base, sm3_ctx_mgr_submit_avx2, \
 	sm3_ctx_mgr_submit_avx512
   mbin_dispatch_init6 sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base, \
-	sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_base, \
+	sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_base, sm3_ctx_mgr_flush_avx2, \
 	sm3_ctx_mgr_flush_avx512
 %else
-  mbin_dispatch_init2 sm3_ctx_mgr_init, sm3_ctx_mgr_init_base
-  mbin_dispatch_init2 sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base
-  mbin_dispatch_init2 sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base
+  mbin_dispatch_init sm3_ctx_mgr_init, sm3_ctx_mgr_init_base, \
+	sm3_ctx_mgr_init_base,sm3_ctx_mgr_init_avx2
+  mbin_dispatch_init sm3_ctx_mgr_submit, sm3_ctx_mgr_submit_base, \
+	sm3_ctx_mgr_submit_base,sm3_ctx_mgr_submit_avx2
+  mbin_dispatch_init sm3_ctx_mgr_flush, sm3_ctx_mgr_flush_base, \
+	sm3_ctx_mgr_flush_base,sm3_ctx_mgr_flush_avx2
 %endif
-
-
 
 ;;;       func  			core, ver, snum
 slversion sm3_ctx_mgr_init,  	00,   00, 2300

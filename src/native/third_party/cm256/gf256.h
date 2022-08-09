@@ -1,6 +1,5 @@
-/** \file
-    \brief GF(256) Main C API Header
-    \copyright Copyright (c) 2017 Christopher A. Taylor.  All rights reserved.
+/*
+    Copyright (c) 2015 Christopher A. Taylor.  All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are met:
@@ -10,7 +9,7 @@
     * Redistributions in binary form must reproduce the above copyright notice,
       this list of conditions and the following disclaimer in the documentation
       and/or other materials provided with the distribution.
-    * Neither the name of GF256 nor the names of its contributors may be
+    * Neither the name of CM256 nor the names of its contributors may be
       used to endorse or promote products derived from this software without
       specific prior written permission.
 
@@ -27,257 +26,211 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_GF256_H
-#define CAT_GF256_H
-
-/** \page GF256 GF(256) Math Module
-
-    This module provides efficient implementations of bulk
-    GF(2^^8) math operations over memory buffers.
-
-    Addition is done over the base field in GF(2) meaning
-    that addition is XOR between memory buffers.
-
-    Multiplication is performed using table lookups via
-    SIMD instructions.  This is somewhat slower than XOR,
-    but fast enough to not become a major bottleneck when
-    used sparingly.
-*/
+#ifndef GF256_H
+#define GF256_H
 
 #include <stdint.h> // uint32_t etc
-#include <cstring> // memcpy, memset
+#include <string.h> // memcpy, memset
+#include "export.h"
 
-/// Library header version
-#define GF256_VERSION 2
+// TBD: Fix the polynomial at one value and use precomputed tables here to
+// simplify the API for GF256.h version 2.  Avoids user data alignment issues.
 
-//------------------------------------------------------------------------------
-// Platform/Architecture
 
-#if defined(ANDROID) || defined(IOS) || defined(LINUX_ARM) || defined(__powerpc__) || defined(__s390__)
-    #define GF256_TARGET_MOBILE
-#endif // ANDROID
+//-----------------------------------------------------------------------------
+// Platform-Specific Definitions
+//
+// Edit these to port to your architecture
 
-#if defined(__AVX2__) || (defined (_MSC_VER) && _MSC_VER >= 1900)
-    #define GF256_TRY_AVX2 /* 256-bit */
-    #include <immintrin.h>
-    #define GF256_ALIGN_BYTES 32
-#else // __AVX2__
-    #define GF256_ALIGN_BYTES 16
-#endif // __AVX2__
+#if defined(USE_SSSE3)
 
-#if !defined(GF256_TARGET_MOBILE)
-    // Note: MSVC currently only supports SSSE3 but not AVX2
-    #include <tmmintrin.h> // SSSE3: _mm_shuffle_epi8
-    #include <emmintrin.h> // SSE2
-#endif // GF256_TARGET_MOBILE
-
-#if defined(HAVE_ARM_NEON_H)
-    #include <arm_neon.h>
-#endif // HAVE_ARM_NEON_H
-
-#if defined(GF256_TARGET_MOBILE)
-
-    #define GF256_ALIGNED_ACCESSES /* Inputs must be aligned to GF256_ALIGN_BYTES */
-
-# if defined(HAVE_ARM_NEON_H)
-    // Compiler-specific 128-bit SIMD register keyword
-    #define GF256_M128 uint8x16_t
-    #define GF256_TRY_NEON
-#else
-    #define GF256_M128 uint64_t
-# endif
-
-#else // GF256_TARGET_MOBILE
+#ifdef _MSC_VER
 
     // Compiler-specific 128-bit SIMD register keyword
     #define GF256_M128 __m128i
 
-#endif // GF256_TARGET_MOBILE
+    // Compiler-specific C++11 restrict keyword
+    #define GF256_RESTRICT_KW __restrict
 
-#ifdef GF256_TRY_AVX2
-    // Compiler-specific 256-bit SIMD register keyword
-    #define GF256_M256 __m256i
-#endif
+    // Compiler-specific force inline keyword
+    #define GF256_FORCE_INLINE __forceinline
 
-// Compiler-specific C++11 restrict keyword
-#define GF256_RESTRICT __restrict
+    // Compiler-specific alignment keyword
+    #define GF256_ALIGNED __declspec(align(16))
 
-// Compiler-specific force inline keyword
-#ifdef _MSC_VER
-    #define GF256_FORCE_INLINE inline __forceinline
+    // Compiler-specific SSE headers
+    #include <tmmintrin.h> // SSE3: _mm_shuffle_epi8
+    #include <emmintrin.h> // SSE2
+
 #else
-    #define GF256_FORCE_INLINE inline __attribute__((always_inline))
+
+    // Compiler-specific 128-bit SIMD register keyword
+    #define GF256_M128 __m128i
+
+    // Compiler-specific C++11 restrict keyword
+    #define GF256_RESTRICT_KW __restrict__
+
+    // Compiler-specific force inline keyword
+    #define GF256_FORCE_INLINE __attribute__((always_inline)) inline
+
+    // Compiler-specific alignment keyword
+    #define GF256_ALIGNED __attribute__((aligned(16)))
+
+    // Compiler-specific SSE headers
+    #include <x86intrin.h>
+
 #endif
 
-// Compiler-specific alignment keyword
-// Note: Alignment only matters for ARM NEON where it should be 16
-#ifdef _MSC_VER
-    #define GF256_ALIGNED __declspec(align(GF256_ALIGN_BYTES))
-#else // _MSC_VER
-    #define GF256_ALIGNED __attribute__((aligned(GF256_ALIGN_BYTES)))
-#endif // _MSC_VER
+#elif defined(USE_NEON)
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+    #include "sse2neon.h"
 
+    // Compiler-specific 128-bit SIMD register keyword
+    #define GF256_M128 __m128i
 
-//------------------------------------------------------------------------------
-// Portability
+    // Compiler-specific C++11 restrict keyword
+    #define GF256_RESTRICT_KW __restrict__
 
-/// Swap two memory buffers in-place
-extern void gf256_memswap(void * GF256_RESTRICT vx, void * GF256_RESTRICT vy, int bytes);
+    // Compiler-specific force inline keyword
+    #define GF256_FORCE_INLINE __attribute__((always_inline)) inline
 
+    // Compiler-specific alignment keyword
+    #define GF256_ALIGNED __attribute__((aligned(16)))
 
-//------------------------------------------------------------------------------
+#endif
+
+#if defined(NO_RESTRICT)
+    #define GF256_RESTRICT
+#else
+    #define GF256_RESTRICT GF256_RESTRICT_KW
+#endif
+
+//-----------------------------------------------------------------------------
 // GF(256) Context
+//
+// The context object stores tables required to perform library calculations.
+//
+// Usage Notes:
+// This struct should be aligned in memory, meaning that a pointer to it should
+// have the low 4 bits cleared.  To achieve this simply tag the gf256_ctx object
+// with the GF256_ALIGNED macro provided above.
 
 #ifdef _MSC_VER
     #pragma warning(push)
     #pragma warning(disable: 4324) // warning C4324: 'gf256_ctx' : structure was padded due to __declspec(align())
-#endif // _MSC_VER
+#endif
 
-/// The context object stores tables required to perform library calculations
-struct gf256_ctx
+class CM256CC_API gf256_ctx // 141,072 bytes
 {
-    /// We require memory to be aligned since the SIMD instructions benefit from
-    /// or require aligned accesses to the table data.
-    struct
-    {
-        GF256_ALIGNED GF256_M128 TABLE_LO_Y[256];
-        GF256_ALIGNED GF256_M128 TABLE_HI_Y[256];
-    } MM128;
-#ifdef GF256_TRY_AVX2
-    struct
-    {
-        GF256_ALIGNED GF256_M256 TABLE_LO_Y[256];
-        GF256_ALIGNED GF256_M256 TABLE_HI_Y[256];
-    } MM256;
-#endif // GF256_TRY_AVX2
+public:
+    gf256_ctx();
+    ~gf256_ctx();
 
-    /// Mul/Div/Inv/Sqr tables
-    uint8_t GF256_MUL_TABLE[256 * 256];
-    uint8_t GF256_DIV_TABLE[256 * 256];
-    uint8_t GF256_INV_TABLE[256];
-    uint8_t GF256_SQR_TABLE[256];
+    bool isInitialized() const { return initialized; }
 
-    /// Log/Exp tables
+    /** Performs "x[] += y[]" bulk memory XOR operation */
+    static void gf256_add_mem(void * GF256_RESTRICT vx, const void * GF256_RESTRICT vy, int bytes);
+    /** Performs "z[] += x[] + y[]" bulk memory operation */
+    static void gf256_add2_mem(void * GF256_RESTRICT vz, const void * GF256_RESTRICT vx, const void * GF256_RESTRICT vy, int bytes);
+    /** Performs "z[] = x[] + y[]" bulk memory operation */
+    static void gf256_addset_mem(void * GF256_RESTRICT vz, const void * GF256_RESTRICT vx, const void * GF256_RESTRICT vy, int bytes);
+    /** Swap two memory buffers in-place */
+    static void gf256_memswap(void * GF256_RESTRICT vx, void * GF256_RESTRICT vy, int bytes);
+
+    // return x + y
+    static GF256_FORCE_INLINE uint8_t gf256_add(const uint8_t x, const uint8_t y)
+    {
+        return x ^ y;
+    }
+
+    // return x * y
+    // For repeated multiplication by a constant, it is faster to put the constant in y.
+    GF256_FORCE_INLINE uint8_t gf256_mul(uint8_t x, uint8_t y)
+    {
+        return GF256_MUL_TABLE[((unsigned)y << 8) + x];
+    }
+
+    // return x / y
+    // Memory-access optimized for constant divisors in y.
+    GF256_FORCE_INLINE uint8_t gf256_div(uint8_t x, uint8_t y)
+    {
+        return GF256_DIV_TABLE[((unsigned)y << 8) + x];
+    }
+
+    // return 1 / x
+    GF256_FORCE_INLINE uint8_t gf256_inv(uint8_t x)
+    {
+        return GF256_INV_TABLE[x];
+    }
+
+    // This function generates each matrix element based on x_i, x_0, y_j
+    // Note that for x_i == x_0, this will return 1, so it is better to unroll out the first row.
+    GF256_FORCE_INLINE unsigned char getMatrixElement(const unsigned char x_i, const unsigned char x_0, const unsigned char y_j)
+    {
+        return gf256_div(gf256_add(y_j, x_0), gf256_add(x_i, y_j));
+    }
+
+    /** Performs "z[] = x[] * y" bulk memory operation */
+    void gf256_mul_mem(void * GF256_RESTRICT vz, const void * GF256_RESTRICT vx, uint8_t y, int bytes);
+    /** Performs "z[] += x[] * y" bulk memory operation */
+    void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y, const void * GF256_RESTRICT vx, int bytes);
+
+    /** Performs "x[] /= y" bulk memory operation */
+    GF256_FORCE_INLINE void gf256_div_mem(void * GF256_RESTRICT vz,
+                                                 const void * GF256_RESTRICT vx, uint8_t y, int bytes)
+    {
+        gf256_mul_mem(vz, vx, GF256_INV_TABLE[y], bytes); // Multiply by inverse
+    }
+
+    // Polynomial used
+    unsigned Polynomial;
+
+    // Log/Exp tables
     uint16_t GF256_LOG_TABLE[256];
     uint8_t GF256_EXP_TABLE[512 * 2 + 1];
 
-    /// Polynomial used
-    unsigned Polynomial;
+    // Mul/Div/Inv tables
+    uint8_t GF256_MUL_TABLE[256 * 256];
+    uint8_t GF256_DIV_TABLE[256 * 256];
+    uint8_t GF256_INV_TABLE[256];
+
+    // Muladd_mem tables
+    // We require memory to be aligned since the SIMD instructions benefit from
+    // aligned accesses to the MM256_* table data.
+    GF256_ALIGNED GF256_M128 MM256_TABLE_LO_Y[256];
+    GF256_ALIGNED GF256_M128 MM256_TABLE_HI_Y[256];
+
+private:
+    int gf256_init_();
+
+    void gf255_poly_init(int polynomialIndex); //!< Select which polynomial to use
+    void gf256_explog_init();                  //!< Construct EXP and LOG tables from polynomial
+    void gf256_muldiv_init();                  //!< Initialize MUL and DIV tables using LOG and EXP tables
+    void gf256_inv_init();                     //!< Initialize INV table using DIV table
+    void gf256_muladd_mem_init();              //!< Initialize the MM256 tables using gf256_mul()
+
+    static bool IsLittleEndian()
+    {
+        int x = 1;
+        char *y = (char *) &x;
+
+        return *y != 0;
+    }
+
+    //-----------------------------------------------------------------------------
+    // Generator Polynomial
+
+    // There are only 16 irreducible polynomials for GF(256)
+    static const int GF256_GEN_POLY_COUNT = 16;
+    static const uint8_t GF256_GEN_POLY[GF256_GEN_POLY_COUNT];
+    static const int DefaultPolynomialIndex = 3;
+
+    bool initialized;
 };
 
 #ifdef _MSC_VER
     #pragma warning(pop)
-#endif // _MSC_VER
-
-extern gf256_ctx GF256Ctx;
+#endif
 
 
-//------------------------------------------------------------------------------
-// Initialization
-
-/**
-    Initialize a context, filling in the tables.
-    
-    Thread-safety / Usage Notes:
-    
-    It is perfectly safe and encouraged to use a gf256_ctx object from multiple
-    threads.  The gf256_init() is relatively expensive and should only be done
-    once, though it will take less than a millisecond.
-    
-    The gf256_ctx object must be aligned to 16 byte boundary.
-    Simply tag the object with GF256_ALIGNED to achieve this.
-    
-    Example:
-       static GF256_ALIGNED gf256_ctx TheGF256Context;
-       gf256_init(&TheGF256Context, 0);
-    
-    Returns 0 on success and other values on failure.
-*/
-extern int gf256_init_(int version);
-#define gf256_init() gf256_init_(GF256_VERSION)
-
-
-//------------------------------------------------------------------------------
-// Math Operations
-
-/// return x + y
-static GF256_FORCE_INLINE uint8_t gf256_add(uint8_t x, uint8_t y)
-{
-    return (uint8_t)(x ^ y);
-}
-
-/// return x * y
-/// For repeated multiplication by a constant, it is faster to put the constant in y.
-static GF256_FORCE_INLINE uint8_t gf256_mul(uint8_t x, uint8_t y)
-{
-    return GF256Ctx.GF256_MUL_TABLE[((unsigned)y << 8) + x];
-}
-
-/// return x / y
-/// Memory-access optimized for constant divisors in y.
-static GF256_FORCE_INLINE uint8_t gf256_div(uint8_t x, uint8_t y)
-{
-    return GF256Ctx.GF256_DIV_TABLE[((unsigned)y << 8) + x];
-}
-
-/// return 1 / x
-static GF256_FORCE_INLINE uint8_t gf256_inv(uint8_t x)
-{
-    return GF256Ctx.GF256_INV_TABLE[x];
-}
-
-/// return x * x
-static GF256_FORCE_INLINE uint8_t gf256_sqr(uint8_t x)
-{
-    return GF256Ctx.GF256_SQR_TABLE[x];
-}
-
-
-//------------------------------------------------------------------------------
-// Bulk Memory Math Operations
-
-/// Performs "x[] += y[]" bulk memory XOR operation
-extern void gf256_add_mem(void * GF256_RESTRICT vx,
-                          const void * GF256_RESTRICT vy, int bytes);
-
-/// Performs "z[] += x[] + y[]" bulk memory operation
-extern void gf256_add2_mem(void * GF256_RESTRICT vz, const void * GF256_RESTRICT vx,
-                           const void * GF256_RESTRICT vy, int bytes);
-
-/// Performs "z[] = x[] + y[]" bulk memory operation
-extern void gf256_addset_mem(void * GF256_RESTRICT vz, const void * GF256_RESTRICT vx,
-                             const void * GF256_RESTRICT vy, int bytes);
-
-/// Performs "z[] = x[] * y" bulk memory operation
-extern void gf256_mul_mem(void * GF256_RESTRICT vz,
-                          const void * GF256_RESTRICT vx, uint8_t y, int bytes);
-
-/// Performs "z[] += x[] * y" bulk memory operation
-extern void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y,
-                             const void * GF256_RESTRICT vx, int bytes);
-
-/// Performs "x[] /= y" bulk memory operation
-static GF256_FORCE_INLINE void gf256_div_mem(void * GF256_RESTRICT vz,
-                                             const void * GF256_RESTRICT vx, uint8_t y, int bytes)
-{
-    // Multiply by inverse
-    gf256_mul_mem(vz, vx, y == 1 ? (uint8_t)1 : GF256Ctx.GF256_INV_TABLE[y], bytes);
-}
-
-
-//------------------------------------------------------------------------------
-// Misc Operations
-
-/// Swap two memory buffers in-place
-extern void gf256_memswap(void * GF256_RESTRICT vx, void * GF256_RESTRICT vy, int bytes);
-
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
-
-#endif // CAT_GF256_H
+#endif // GF256_H

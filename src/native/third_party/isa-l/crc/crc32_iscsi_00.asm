@@ -55,6 +55,9 @@ default rel
 	xor     rbx, rbx                ;; rbx = crc1 = 0;
 	xor     r10, r10                ;; r10 = crc2 = 0;
 
+	cmp 	len, %%bSize*3*2
+	jbe 	%%non_prefetch
+
  %assign i 0
  %rep %%bSize/8 - 1
   %if i < %%bSize*3/4
@@ -65,6 +68,18 @@ default rel
 	crc32   r10, qword [bufptmp+i + 2*%%bSize]  ;; update crc2
 	%assign i (i+8)
  %endrep
+ 	jmp %%next %+ %1
+
+%%non_prefetch:
+ %assign i 0
+ %rep %%bSize/8 - 1
+	crc32   rax, qword [bufptmp+i + 0*%%bSize]  ;; update crc0
+	crc32   rbx, qword [bufptmp+i + 1*%%bSize]  ;; update crc1
+	crc32   r10, qword [bufptmp+i + 2*%%bSize]  ;; update crc2
+	%assign i (i+8)
+ %endrep
+
+%%next %+ %1:
 	crc32   rax, qword [bufptmp+i + 0*%%bSize]  ;; update crc0
 	crc32   rbx, qword [bufptmp+i + 1*%%bSize]  ;; update crc1
 ; SKIP  ;crc32  r10, [bufptmp+i + 2*%%bSize]  ;; update crc2
@@ -138,8 +153,9 @@ default rel
 ;;;    crc_init = r8
 ;;;
 
-global  crc32_iscsi_00:function
+mk_global  crc32_iscsi_00, function
 crc32_iscsi_00:
+	endbranch
 
 %ifidn __OUTPUT_FORMAT__, elf64
 %define bufp            rdi
@@ -179,6 +195,9 @@ crc32_iscsi_00:
 
 	mov     rax, crc_init           ;; rax = crc_init;
 
+	cmp     len, 8
+	jb      less_than_8
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 1) ALIGN: ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -187,9 +206,6 @@ crc32_iscsi_00:
 	and     bufp, 7                 ;; calculate the unalignment
 					;; amount of the address
 	je      proc_block              ;; Skip if aligned
-
-	cmp     len, 8
-	jb      less_than_8
 
 	;;;; Calculate CRC of unaligned bytes of the buffer (if any) ;;;;
 	mov     rbx, [bufptmp]          ;; load a quadword from the buffer
@@ -297,19 +313,19 @@ do_return:
 less_than_8:
 	test    len,4
 	jz      less_than_4
-	crc32   eax, dword[bufptmp]
-	add     bufptmp,4
+	crc32   eax, dword[bufp]
+	add     bufp,4
 less_than_4:
 	test    len,2
 	jz      less_than_2
-	crc32   eax, word[bufptmp]
-	add     bufptmp,2
+	crc32   eax, word[bufp]
+	add     bufp,2
 less_than_2:
 	test    len,1
 	jz      do_return
-	crc32   rax, byte[bufptmp]
+	crc32   rax, byte[bufp]
 	pop     rbx
-	pop     bufptmp
+	pop     bufp
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -652,5 +668,5 @@ DD 0x2f2aa980,0xf24c623b,0x900b4807,0x4d6d83bc
 DD 0x54851c7f,0x89e3d7c4,0xeba4fdf8,0x36c23643
 
 ;;;       func            core, ver, snum
-slversion crc32_iscsi_00, 00,   03,  0014
+slversion crc32_iscsi_00, 00,   04,  0014
 

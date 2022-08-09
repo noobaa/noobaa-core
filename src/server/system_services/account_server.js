@@ -1055,8 +1055,11 @@ async function _check_azure_connection_internal(params) {
         if (err.code === 'AuthenticationFailed' &&
             err.authenticationerrordetail && err.authenticationerrordetail.indexOf('Request date header too old') > -1) {
             throw err_to_status(err, 'TIME_SKEW');
+        } else if (err.code === 'ENOTFOUND') {
+            throw err_to_status(err, 'UNKNOWN_FAILURE');
+        } else {
+            throw err_to_status(err, err.code === 'AuthenticationFailed' ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
         }
-        throw err_to_status(err, err.code === 'AuthenticationFailed' ? 'INVALID_CREDENTIALS' : 'INVALID_ENDPOINT');
     }
 
     let service_properties;

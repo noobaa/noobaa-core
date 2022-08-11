@@ -580,6 +580,9 @@ class NamespaceFS {
                 const remain_size = Math.max(0, end - pos);
                 const read_size = Math.min(buffer.length, remain_size);
 
+                //TODO: We probably have an issue with counting the bytes in the read 
+                // We need to find it and fix
+
                 // Update the read stats               
                 stats_collector.instance(object_sdk.rpc_client).update_nsfs_read_stats({
                     namespace_resource_id: this.namespace_resource_id,

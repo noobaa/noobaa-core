@@ -33,6 +33,7 @@ const db_client = require('../util/db_client');
 const system_store = require('./system_services/system_store').get_instance();
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 const account_server = require('./system_services/account_server');
+const stats_aggregator = require('./system_services/stats_aggregator');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 const http_utils = require('../util/http_utils');
@@ -284,6 +285,23 @@ app.get('/version', (req, res) => getVersion(req.url)
         res.end();
     })
 );
+
+
+// Get the NSFS stats
+app.get('/metrics/nsfs_stats', async (req, res) => {
+    const report = _create_nsfs_report();
+    res.send(report);
+    res.status(200).end();
+});
+
+function _create_nsfs_report() {
+    const nsfs_counters = stats_aggregator.get_nsfs_stats();
+    let nsfs_report = '';
+    for (const [key, value] of Object.entries(nsfs_counters)) {
+        nsfs_report += `NooBaa_nsfs_${key}: ${value}<br>`;
+    }
+    return nsfs_report;
+}
 
 ////////////
 // STATIC //

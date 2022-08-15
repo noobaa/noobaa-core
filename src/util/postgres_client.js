@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const util = require('util');
 const EventEmitter = require('events').EventEmitter;
 const { Pool, Client } = require('pg');
+const Cursor = require('pg-cursor');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -1425,6 +1426,44 @@ class PostgresClient extends EventEmitter {
     async _init_collections(pool) {
         await this._load_sql_functions(pool);
         await Promise.all(this.tables.map(async table => table._create_table(pool)));
+    }
+
+    async sql_query(pg_client, q) {
+        try {
+            return _do_query(pg_client || this.pool, q, 0);
+        } catch (err) {
+            dbg.error(`postgres_client: failed with error:`, err);
+            throw err;
+        }
+    }
+
+    async sql_query_batch(query, values, batch_size, batch_handler) {
+        let client;
+        try {
+            client = await this.pool.connect();
+            let cursor;
+            try {
+                cursor = client.query(new Cursor(query, values));
+                for (;;) {
+                    const rows = await cursor.read(batch_size);
+                    if (!rows.length) break;
+                    await batch_handler(rows);
+                }
+            } finally {
+                if (cursor) await cursor.close();
+            }
+        } finally {
+            if (client) client.release();
+        }
+    }
+
+    async drop_index(pg_client, table, index_short_name) {
+        try {
+            await _do_query(pg_client || this.pool, `DROP INDEX idx_btree_${table}_${index_short_name};`, 0);
+        } catch (err) {
+            if (err.code !== '42704') throw err; // allow "undefined_object" error
+            dbg.log0('drop_index: index was already dropped - ignoring...');
+        }
     }
 
     validate(table_name, doc, warn) {

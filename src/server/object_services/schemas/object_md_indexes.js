@@ -36,9 +36,6 @@ module.exports = [
         fields: {
             bucket: 1,
             key: 1,
-            // we include version_enabled as extra index field to separate from latest_version_index.
-            // note that version_enabled is always null here by partialFilterExpression.
-            version_enabled: 1,
         },
         options: {
             name: 'null_version_index',

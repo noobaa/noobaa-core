@@ -839,6 +839,45 @@ module.exports = {
             }
         },
 
+        op_stats: {
+            type: 'object',
+            properties: {
+                create_bucket: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_bucket: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                upload_object: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                delete_object: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+            }
+        },
+
+        op_stats_val: {
+            type: 'object',
+            properties: {
+                min_time: {
+                    type: 'integer'
+                },
+                max_time: {
+                    type: 'integer'
+                },
+                sum_time: {
+                    type: 'integer'
+                },
+                count: {
+                    type: 'integer'
+                },
+                error_count: {
+                    type: 'integer'
+                },
+            },
+        },
+
         bucket_name: {
             wrapper: SensitiveString,
         },

@@ -156,6 +156,9 @@ module.exports = {
                             },
                             io_stats: {
                                 $ref: 'common_api#/definitions/io_stats'
+                            },
+                            op_stats: {
+                                $ref: 'common_api#/definitions/op_stats'
                             }
                         }
                     },

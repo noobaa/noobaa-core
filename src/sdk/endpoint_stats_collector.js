@@ -17,8 +17,9 @@ class EndpointStatsCollector {
 
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
+        this.op_stats = {};
         this.reset_all_stats();
-        this.nsfs_counters = this._new_namespace_stats();
+        this.nsfs_io_counters = this._new_namespace_stats();
         this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
@@ -54,12 +55,18 @@ class EndpointStatsCollector {
 
     // _send_nsfs_stats will not retry update_nsfs_stats, We can send it in the next iteration.
     async _send_nsfs_stats() {
-        const _nsfs_stats = { nsfs_stats: { io_stats: this.nsfs_counters } };
+        const _nsfs_stats = {
+            nsfs_stats: {
+                io_stats: this.nsfs_io_counters,
+                op_stats: this.op_stats,
+            }
+        };
         try {
             await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
                 timeout: SEND_STATS_TIMEOUT
             });
-            this.nsfs_counters = this._new_namespace_stats();
+            this.nsfs_io_counters = this._new_namespace_stats();
+            this.op_stats = {};
         } catch (err) {
             dbg.error('failed on update_nsfs_stats.', err);
         }
@@ -123,6 +130,23 @@ class EndpointStatsCollector {
         counter[counter_key] += 1;
     }
 
+    update_ops_counters({ time, op_name, error = 0 }) {
+        this.op_stats[op_name] = this.op_stats[op_name] || {
+            min_time: time,
+            max_time: time,
+            sum_time: 0,
+            count: 0,
+            error_count: 0,
+        };
+        const ops_stats = this.op_stats[op_name];
+        ops_stats.min_time = Math.min(ops_stats.min_time, time);
+        ops_stats.max_time = Math.max(ops_stats.max_time, time);
+        ops_stats.sum_time += time;
+        ops_stats.count += 1;
+        ops_stats.error_count += error;
+        this._trigger_send_stats();
+    }
+
     update_bucket_read_counters({ bucket_name, key, content_type, }) {
         this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'read_count' });
         this._trigger_send_stats();
@@ -140,11 +164,11 @@ class EndpointStatsCollector {
 
     update_nsfs_read_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_counters.error_read_count += count;
-            this.nsfs_counters.error_read_bytes += size;
+            this.nsfs_io_counters.error_read_count += count;
+            this.nsfs_io_counters.error_read_bytes += size;
         } else {
-            this.nsfs_counters.read_count += count;
-            this.nsfs_counters.read_bytes += size;
+            this.nsfs_io_counters.read_count += count;
+            this.nsfs_io_counters.read_bytes += size;
         }
     }
 
@@ -155,11 +179,11 @@ class EndpointStatsCollector {
 
     update_nsfs_write_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_counters.error_write_count += count;
-            this.nsfs_counters.error_write_bytes += size;
+            this.nsfs_io_counters.error_write_count += count;
+            this.nsfs_io_counters.error_write_bytes += size;
         } else {
-            this.nsfs_counters.write_count += count;
-            this.nsfs_counters.write_bytes += size;
+            this.nsfs_io_counters.write_count += count;
+            this.nsfs_io_counters.write_bytes += size;
         }
     }
 

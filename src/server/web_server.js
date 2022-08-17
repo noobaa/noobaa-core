@@ -295,11 +295,25 @@ app.get('/metrics/nsfs_stats', async (req, res) => {
 });
 
 function _create_nsfs_report() {
-    const nsfs_counters = stats_aggregator.get_nsfs_stats();
     let nsfs_report = '';
+
+    const nsfs_counters = stats_aggregator.get_nsfs_io_stats();
+    // Building the report per io and value
     for (const [key, value] of Object.entries(nsfs_counters)) {
         nsfs_report += `NooBaa_nsfs_${key}: ${value}<br>`;
     }
+
+    const op_stats = stats_aggregator.get_op_stats();
+    // Building the report per op name key and value
+    for (const [op_name, obj] of Object.entries(op_stats)) {
+        nsfs_report += `<br>`;
+        for (const [key, value] of Object.entries(obj)) {
+            nsfs_report += `NooBaa_nsfs_${op_name}_${key}: ${value}<br>`;
+        }
+    }
+
+    dbg.log1(`_create_nsfs_report: nsfs_report ${nsfs_report}`);
+
     return nsfs_report;
 }
 

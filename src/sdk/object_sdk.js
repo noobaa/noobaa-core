@@ -555,9 +555,23 @@ class ObjectSDK {
     }
 
     async upload_object(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns);
-        const reply = await ns.upload_object(params, this);
+        const start_time = Date.now();
+        let reply;
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            if (params.copy_source) await this.fix_copy_source_params(params, ns);
+            reply = await ns.upload_object(params, this);
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `upload_object`,
+                error,
+            });
+        }
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
             bucket_name: params.bucket,
@@ -629,8 +643,22 @@ class ObjectSDK {
     ///////////////////
 
     async delete_object(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        return ns.delete_object(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            const reply = await ns.delete_object(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `delete_object`,
+                error,
+            });
+        }
     }
 
     async delete_multiple_objects(params) {
@@ -672,13 +700,41 @@ class ObjectSDK {
     }
 
     async create_bucket(params) {
-        const bs = this._get_bucketspace();
-        return bs.create_bucket(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const bs = this._get_bucketspace();
+            const reply = await bs.create_bucket(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `create_bucket`,
+                error,
+            });
+        }
     }
 
     async delete_bucket(params) {
-        const bs = this._get_bucketspace();
-        return bs.delete_bucket(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const bs = this._get_bucketspace();
+            const reply = await bs.delete_bucket(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `delete_bucket`,
+                error,
+            });
+        }
     }
 
     //////////////////////

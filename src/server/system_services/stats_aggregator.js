@@ -48,7 +48,9 @@ let last_partial_stats_requested = 0;
 const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
 
 // Will hold the nsfs counters/metrics
-let nsfs_counters = _new_nsfs_stats();
+let nsfs_io_counters = _new_nsfs_stats();
+// Will hold the op stats (op name, min/max/avg time, count, error count)
+let op_stats = {};
 
 /*
  * Stats Collction API
@@ -1231,12 +1233,49 @@ async function _perform_partial_cycle() {
 async function update_nsfs_stats(req) {
     dbg.log1(`update_nsfs_stats. nsfs_stats =`, req.rpc_params.nsfs_stats);
     const _nsfs_counters = req.rpc_params.nsfs_stats || {};
+    _update_io_stats(_nsfs_counters.io_stats);
+    _update_ops_stats(_nsfs_counters.op_stats);
+}
+
+function _update_io_stats(io_stats) {
     //Go over the io_stats and count
-    for (const [key, value] of Object.entries(_nsfs_counters.io_stats)) {
-        nsfs_counters[key] += value;
+    for (const [key, value] of Object.entries(io_stats)) {
+        nsfs_io_counters[key] += value;
     }
 }
 
+function _update_ops_stats(ops_stats) {
+    // Predefined op_names
+    const op_names = [`upload_object`, `delete_object`, `create_bucket`, `delete_bucket`];
+    //Go over the op_stats
+    for (const op_name of op_names) {
+        if (op_name in ops_stats) {
+            _set_op_stats(op_name, ops_stats[op_name]);
+        }
+    }
+}
+
+function _set_op_stats(op_name, stats) {
+    if (op_stats[op_name]) {
+        const new_count = op_stats[op_name].count + stats.count;
+        const old_sum_time = op_stats[op_name].avg_time_milisec * op_stats[op_name].count;
+        op_stats[op_name] = {
+            min_time_milisec: Math.min(op_stats[op_name].min_time_milisec, stats.min_time),
+            max_time_milisec: Math.max(op_stats[op_name].max_time_milisec, stats.max_time),
+            avg_time_milisec: Math.floor((old_sum_time + stats.sum_time) / new_count),
+            count: new_count,
+            error_count: op_stats[op_name].error_count + stats.error_count,
+        };
+    } else {
+        op_stats[op_name] = {
+            min_time_milisec: stats.min_time,
+            max_time_milisec: stats.max_time,
+            avg_time_milisec: Math.floor(stats.sum_time / stats.count),
+            count: stats.count,
+            error_count: stats.error_count,
+        };
+    }
+}
 
 function _new_nsfs_stats() {
     return {
@@ -1252,10 +1291,17 @@ function _new_nsfs_stats() {
 }
 
 // Will return the current nsfs_counters and reset it.
-function get_nsfs_stats() {
-    const nsfs_stats = nsfs_counters;
-    nsfs_counters = _new_nsfs_stats();
-    return nsfs_stats;
+function get_nsfs_io_stats() {
+    const nsfs_io_stats = nsfs_io_counters;
+    nsfs_io_counters = _new_nsfs_stats();
+    return nsfs_io_stats;
+}
+
+// Will return the current nsfs_counters and reset it.
+function get_op_stats() {
+    const nsfs_op_stats = op_stats;
+    op_stats = {};
+    return nsfs_op_stats;
 }
 
 // EXPORTS
@@ -1274,7 +1320,8 @@ exports.get_partial_providers_stats = get_partial_providers_stats;
 exports.get_partial_stats = get_partial_stats;
 exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;
-exports.get_nsfs_stats = get_nsfs_stats;
+exports.get_nsfs_io_stats = get_nsfs_io_stats;
+exports.get_op_stats = get_op_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;

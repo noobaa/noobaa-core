@@ -11,9 +11,9 @@ module.exports = [
         fields: {
             bucket: 1,
             key: 1,
-            // we include version_past as extra index field to separate from null_version_index.
+            // For MONGO deployments - we include version_past as extra index field to separate from null_version_index.
             // note that version_past is always null here by partialFilterExpression.
-            version_past: 1,
+            ...(process.env.DB_TYPE === 'postgres' ? {} : { version_past: 1 })
         },
         options: {
             name: 'latest_version_index',
@@ -36,9 +36,9 @@ module.exports = [
         fields: {
             bucket: 1,
             key: 1,
-            // we include version_enabled as extra index field to separate from latest_version_index.
+            // For MONGO deployments - we include version_enabled as extra index field to separate from latest_version_index.
             // note that version_enabled is always null here by partialFilterExpression.
-            version_enabled: 1,
+            ...(process.env.DB_TYPE === 'postgres' ? {} : { version_enabled: 1 })
         },
         options: {
             name: 'null_version_index',

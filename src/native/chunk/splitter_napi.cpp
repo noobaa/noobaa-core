@@ -11,6 +11,7 @@ namespace noobaa
 static Napi::Value _chunk_splitter(const Napi::CallbackInfo& info);
 static Napi::Value _splitter_finish(Napi::Env env, Splitter* splitter);
 static Napi::Value _splitter_result(Napi::Env env, Splitter* splitter);
+static void _free_splitter(Napi::Env env, Splitter* splitter);
 
 void
 splitter_napi(Napi::Env env, Napi::Object exports)
@@ -111,7 +112,7 @@ _chunk_splitter(const Napi::CallbackInfo& info)
             throw Napi::Error::New(info.Env(), "Invalid splitter config");
         }
         splitter = new Splitter(min_chunk, max_chunk, avg_chunk_bits, calc_md5, calc_sha256);
-        state["splitter"] = Napi::External<Splitter>::New(info.Env(), splitter);
+        state["splitter"] = Napi::External<Splitter>::New(info.Env(), splitter, _free_splitter);
     }
 
     auto buffers = info[1].As<Napi::Array>();
@@ -167,6 +168,12 @@ _splitter_result(Napi::Env env, Splitter* splitter)
         arr[i] = Napi::Number::New(env, split_points[i]);
     }
     return arr;
+}
+
+static void 
+_free_splitter(Napi::Env env, Splitter* splitter)
+{
+    delete splitter;
 }
 
 } // namespace noobaa

@@ -45,6 +45,10 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     dbg_conf.endpoint.map(module => dbg.set_module_level(dbg_conf.level, module));
 }
 
+const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
+const old_umask = process.umask(new_umask);
+dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
+
 /**
  * @typedef {http.IncomingMessage & {
  *  object_sdk?: ObjectSDK;

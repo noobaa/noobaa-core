@@ -22,7 +22,9 @@ class NamespaceMultipart {
         return this.write_ns;
     }
 
-
+    is_readonly_namespace() {
+        return false;
+    }
 
     /////////////////
     // OBJECT LIST //

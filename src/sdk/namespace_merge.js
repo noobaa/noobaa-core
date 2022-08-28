@@ -33,6 +33,13 @@ class NamespaceMerge {
         return bucket;
     }
 
+    is_readonly_namespace() {
+        if (!_.isEmpty(this.namespaces.write_resource)) {
+            return this.namespaces.write_resource.is_readonly_namespace();
+        }
+        return true;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////

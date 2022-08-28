@@ -40,6 +40,13 @@ class NamespaceCache {
         return this;
     }
 
+    is_readonly_namespace() {
+        if (this.namespace_hub.access_mode && this.namespace_hub.access_mode === 'READ_ONLY') {
+            return true;
+        }
+        return false;
+    }
+
     get_bucket() {
         return this.namespace_hub.get_bucket();
     }

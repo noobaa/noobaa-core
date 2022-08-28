@@ -11,9 +11,13 @@ then
     exit 1
 fi
 
-if [ "$(uname -m)" = "aarch64" ]
-then
+MACHINE=$(uname -m)
+if [ "$MACHINE" = "aarch64" ]; then
     ARCH="arm64"
+elif [ "$MACHINE" = "s390x" ]; then
+    ARCH="s390x"
+elif [ "$MACHINE" = "ppc64le" ]; then
+    ARCH="ppc64le"
 else
     ARCH="x64"
 fi

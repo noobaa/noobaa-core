@@ -37,6 +37,17 @@
 #endif
 
 //------------------------------------------------------------------------------
+// Detect host byte order.
+// This check works with GCC and LLVM; assume little-endian byte order when
+// using any other compiler.
+// The result is verified during initialization.
+//
+#if defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) \
+    && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define GF256_IS_BIG_ENDIAN
+#endif
+
+//------------------------------------------------------------------------------
 // Workaround for ARMv7 that doesn't provide vqtbl1_*
 // This comes from linux-raid (https://www.spinics.net/lists/raid/msg58403.html)
 //
@@ -588,7 +599,11 @@ static void gf256_mul_mem_init()
 //------------------------------------------------------------------------------
 // Initialization
 
-static unsigned char kLittleEndianTestData[4] = { 4, 3, 2, 1 };
+#ifdef GF256_IS_BIG_ENDIAN
+static unsigned char kEndianTestData[4] = { 1, 2, 3, 4 };
+#else
+static unsigned char kEndianTestData[4] = { 4, 3, 2, 1 };
+#endif
 
 union UnionType
 {
@@ -596,11 +611,11 @@ union UnionType
     char CharArray[4];
 };
 
-static bool IsLittleEndian()
+static bool IsExpectedEndian()
 {
     UnionType type;
     for (unsigned i = 0; i < 4; ++i)
-        type.CharArray[i] = kLittleEndianTestData[i];
+        type.CharArray[i] = kEndianTestData[i];
     return 0x01020304 == type.IntValue;
 }
 
@@ -614,8 +629,8 @@ extern "C" int gf256_init_(int version)
         return 0;
     Initialized = true;
 
-    if (!IsLittleEndian())
-        return -2; // Architecture is not supported (code won't work without mods).
+    if (!IsExpectedEndian())
+        return -2; // Unexpected byte order.
 
     gf256_architecture_init();
     gf256_poly_init(kDefaultPolynomialIndex);
@@ -803,9 +818,9 @@ extern "C" void gf256_add_mem(void * GF256_RESTRICT vx,
     const int offset = eight + four;
     switch (bytes & 3)
     {
-    case 3: x1[offset + 2] ^= y1[offset + 2];
-    case 2: x1[offset + 1] ^= y1[offset + 1];
-    case 1: x1[offset] ^= y1[offset];
+    case 3: x1[offset + 2] ^= y1[offset + 2]; // fall-thru
+    case 2: x1[offset + 1] ^= y1[offset + 1]; // fall-thru
+    case 1: x1[offset] ^= y1[offset]; // fall-thru
     default:
         break;
     }
@@ -923,9 +938,9 @@ extern "C" void gf256_add2_mem(void * GF256_RESTRICT vz, const void * GF256_REST
     const int offset = eight + four;
     switch (bytes & 3)
     {
-    case 3: z1[offset + 2] ^= x1[offset + 2] ^ y1[offset + 2];
-    case 2: z1[offset + 1] ^= x1[offset + 1] ^ y1[offset + 1];
-    case 1: z1[offset] ^= x1[offset] ^ y1[offset];
+    case 3: z1[offset + 2] ^= x1[offset + 2] ^ y1[offset + 2]; // fall-thru
+    case 2: z1[offset + 1] ^= x1[offset + 1] ^ y1[offset + 1]; // fall-thru
+    case 1: z1[offset] ^= x1[offset] ^ y1[offset]; // fall-thru
     default:
         break;
     }
@@ -1078,9 +1093,9 @@ extern "C" void gf256_addset_mem(void * GF256_RESTRICT vz, const void * GF256_RE
     const int offset = eight + four;
     switch (bytes & 3)
     {
-    case 3: z1[offset + 2] = x1[offset + 2] ^ y1[offset + 2];
-    case 2: z1[offset + 1] = x1[offset + 1] ^ y1[offset + 1];
-    case 1: z1[offset] = x1[offset] ^ y1[offset];
+    case 3: z1[offset + 2] = x1[offset + 2] ^ y1[offset + 2]; // fall-thru
+    case 2: z1[offset + 1] = x1[offset + 1] ^ y1[offset + 1]; // fall-thru
+    case 1: z1[offset] = x1[offset] ^ y1[offset]; // fall-thru
     default:
         break;
     }
@@ -1195,6 +1210,16 @@ extern "C" void gf256_mul_mem(void * GF256_RESTRICT vz, const void * GF256_RESTR
     while (bytes >= 8)
     {
         uint64_t * GF256_RESTRICT z8 = reinterpret_cast<uint64_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint64_t word = (uint64_t)table[x1[0]] << 56;
+        word |= (uint64_t)table[x1[1]] << 48;
+        word |= (uint64_t)table[x1[2]] << 40;
+        word |= (uint64_t)table[x1[3]] << 32;
+        word |= (uint64_t)table[x1[4]] << 24;
+        word |= (uint64_t)table[x1[5]] << 16;
+        word |= (uint64_t)table[x1[6]] << 8;
+        word |= (uint64_t)table[x1[7]];
+#else
         uint64_t word = table[x1[0]];
         word |= (uint64_t)table[x1[1]] << 8;
         word |= (uint64_t)table[x1[2]] << 16;
@@ -1203,6 +1228,7 @@ extern "C" void gf256_mul_mem(void * GF256_RESTRICT vz, const void * GF256_RESTR
         word |= (uint64_t)table[x1[5]] << 40;
         word |= (uint64_t)table[x1[6]] << 48;
         word |= (uint64_t)table[x1[7]] << 56;
+#endif
         *z8 = word;
 
         bytes -= 8, x1 += 8, z1 += 8;
@@ -1213,10 +1239,17 @@ extern "C" void gf256_mul_mem(void * GF256_RESTRICT vz, const void * GF256_RESTR
     if (four)
     {
         uint32_t * GF256_RESTRICT z4 = reinterpret_cast<uint32_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint32_t word = (uint32_t)table[x1[0]] << 24;
+        word |= (uint32_t)table[x1[1]] << 16;
+        word |= (uint32_t)table[x1[2]] << 8;
+        word |= (uint32_t)table[x1[3]];
+#else
         uint32_t word = table[x1[0]];
         word |= (uint32_t)table[x1[1]] << 8;
         word |= (uint32_t)table[x1[2]] << 16;
         word |= (uint32_t)table[x1[3]] << 24;
+#endif
         *z4 = word;
     }
 
@@ -1224,9 +1257,167 @@ extern "C" void gf256_mul_mem(void * GF256_RESTRICT vz, const void * GF256_RESTR
     const int offset = four;
     switch (bytes & 3)
     {
-    case 3: z1[offset + 2] = table[x1[offset + 2]];
-    case 2: z1[offset + 1] = table[x1[offset + 1]];
-    case 1: z1[offset] = table[x1[offset]];
+    case 3: z1[offset + 2] = table[x1[offset + 2]]; // fall-thru
+    case 2: z1[offset + 1] = table[x1[offset + 1]]; // fall-thru
+    case 1: z1[offset] = table[x1[offset]]; // fall-thru
+    default:
+        break;
+    }
+}
+
+extern "C" void gf256_mul_mem_inplace(void * GF256_RESTRICT vz, uint8_t y, int bytes)
+{
+    // Use a single if-statement to handle special cases
+    if (y <= 1)
+    {
+        if (y == 0)
+            memset(vz, 0, bytes);
+        return;
+    }
+
+    GF256_M128 * GF256_RESTRICT z16 = reinterpret_cast<GF256_M128 *>(vz);
+
+#if defined(GF256_TARGET_MOBILE)
+#if defined(GF256_TRY_NEON)
+    if (bytes >= 16 && CpuHasNeon)
+    {
+        // Partial product tables; see above
+        const GF256_M128 table_lo_y = vld1q_u8((uint8_t*)(GF256Ctx.MM128.TABLE_LO_Y + y));
+        const GF256_M128 table_hi_y = vld1q_u8((uint8_t*)(GF256Ctx.MM128.TABLE_HI_Y + y));
+
+        // clr_mask = 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
+        const GF256_M128 clr_mask = vdupq_n_u8(0x0f);
+
+        // Handle multiples of 16 bytes
+        do
+        {
+            // See above comments for details
+            GF256_M128 x0 = vld1q_u8((uint8_t*)z16);
+            GF256_M128 l0 = vandq_u8(x0, clr_mask);
+            x0 = vshrq_n_u8(x0, 4);
+            GF256_M128 h0 = vandq_u8(x0, clr_mask);
+            l0 = vqtbl1q_u8(table_lo_y, l0);
+            h0 = vqtbl1q_u8(table_hi_y, h0);
+            vst1q_u8((uint8_t*)z16, veorq_u8(l0, h0));
+
+            bytes -= 16, ++z16;
+        } while (bytes >= 16);
+    }
+#endif
+#else
+# if defined(GF256_TRY_AVX2)
+    if (bytes >= 32 && CpuHasAVX2)
+    {
+        // Partial product tables; see above
+        const GF256_M256 table_lo_y = _mm256_loadu_si256(GF256Ctx.MM256.TABLE_LO_Y + y);
+        const GF256_M256 table_hi_y = _mm256_loadu_si256(GF256Ctx.MM256.TABLE_HI_Y + y);
+
+        // clr_mask = 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
+        const GF256_M256 clr_mask = _mm256_set1_epi8(0x0f);
+
+        GF256_M256 * GF256_RESTRICT z32 = reinterpret_cast<GF256_M256 *>(vz);
+
+        // Handle multiples of 32 bytes
+        do
+        {
+            // See above comments for details
+            GF256_M256 x0 = _mm256_loadu_si256(z32);
+            GF256_M256 l0 = _mm256_and_si256(x0, clr_mask);
+            x0 = _mm256_srli_epi64(x0, 4);
+            GF256_M256 h0 = _mm256_and_si256(x0, clr_mask);
+            l0 = _mm256_shuffle_epi8(table_lo_y, l0);
+            h0 = _mm256_shuffle_epi8(table_hi_y, h0);
+            _mm256_storeu_si256(z32, _mm256_xor_si256(l0, h0));
+
+            bytes -= 32, ++z32;
+        } while (bytes >= 32);
+
+        z16 = reinterpret_cast<GF256_M128 *>(z32);
+    }
+# endif // GF256_TRY_AVX2
+    if (bytes >= 16 && CpuHasSSSE3)
+    {
+        // Partial product tables; see above
+        const GF256_M128 table_lo_y = _mm_loadu_si128(GF256Ctx.MM128.TABLE_LO_Y + y);
+        const GF256_M128 table_hi_y = _mm_loadu_si128(GF256Ctx.MM128.TABLE_HI_Y + y);
+
+        // clr_mask = 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
+        const GF256_M128 clr_mask = _mm_set1_epi8(0x0f);
+
+        // Handle multiples of 16 bytes
+        do
+        {
+            // See above comments for details
+            GF256_M128 x0 = _mm_loadu_si128(z16);
+            GF256_M128 l0 = _mm_and_si128(x0, clr_mask);
+            x0 = _mm_srli_epi64(x0, 4);
+            GF256_M128 h0 = _mm_and_si128(x0, clr_mask);
+            l0 = _mm_shuffle_epi8(table_lo_y, l0);
+            h0 = _mm_shuffle_epi8(table_hi_y, h0);
+            _mm_storeu_si128(z16, _mm_xor_si128(l0, h0));
+
+            bytes -= 16, ++z16;
+        } while (bytes >= 16);
+    }
+#endif
+
+    uint8_t * GF256_RESTRICT z1 = reinterpret_cast<uint8_t*>(z16);
+    const uint8_t * GF256_RESTRICT table = GF256Ctx.GF256_MUL_TABLE + ((unsigned)y << 8);
+
+    // Handle blocks of 8 bytes
+    while (bytes >= 8)
+    {
+        uint64_t * GF256_RESTRICT z8 = reinterpret_cast<uint64_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint64_t word = (uint64_t)table[z1[0]] << 56;
+        word |= (uint64_t)table[z1[1]] << 48;
+        word |= (uint64_t)table[z1[2]] << 40;
+        word |= (uint64_t)table[z1[3]] << 32;
+        word |= (uint64_t)table[z1[4]] << 24;
+        word |= (uint64_t)table[z1[5]] << 16;
+        word |= (uint64_t)table[z1[6]] << 8;
+        word |= (uint64_t)table[z1[7]];
+#else
+        uint64_t word = table[z1[0]];
+        word |= (uint64_t)table[z1[1]] << 8;
+        word |= (uint64_t)table[z1[2]] << 16;
+        word |= (uint64_t)table[z1[3]] << 24;
+        word |= (uint64_t)table[z1[4]] << 32;
+        word |= (uint64_t)table[z1[5]] << 40;
+        word |= (uint64_t)table[z1[6]] << 48;
+        word |= (uint64_t)table[z1[7]] << 56;
+#endif
+        *z8 = word;
+
+        bytes -= 8, z1 += 8;
+    }
+
+    // Handle a block of 4 bytes
+    const int four = bytes & 4;
+    if (four)
+    {
+        uint32_t * GF256_RESTRICT z4 = reinterpret_cast<uint32_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint32_t word = (uint32_t)table[z1[0]] << 24;
+        word |= (uint32_t)table[z1[1]] << 16;
+        word |= (uint32_t)table[z1[2]] << 8;
+        word |= (uint32_t)table[z1[3]];
+#else
+        uint32_t word = table[z1[0]];
+        word |= (uint32_t)table[z1[1]] << 8;
+        word |= (uint32_t)table[z1[2]] << 16;
+        word |= (uint32_t)table[z1[3]] << 24;
+#endif
+        *z4 = word;
+    }
+
+    // Handle single bytes
+    const int offset = four;
+    switch (bytes & 3)
+    {
+    case 3: z1[offset + 2] = table[z1[offset + 2]]; // fall-thru
+    case 2: z1[offset + 1] = table[z1[offset + 1]]; // fall-thru
+    case 1: z1[offset] = table[z1[offset]]; // fall-thru
     default:
         break;
     }
@@ -1406,6 +1597,16 @@ extern "C" void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y,
     while (bytes >= 8)
     {
         uint64_t * GF256_RESTRICT z8 = reinterpret_cast<uint64_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint64_t word = (uint64_t)table[x1[0]] << 56;
+        word |= (uint64_t)table[x1[1]] << 48;
+        word |= (uint64_t)table[x1[2]] << 40;
+        word |= (uint64_t)table[x1[3]] << 32;
+        word |= (uint64_t)table[x1[4]] << 24;
+        word |= (uint64_t)table[x1[5]] << 16;
+        word |= (uint64_t)table[x1[6]] << 8;
+        word |= (uint64_t)table[x1[7]];
+#else
         uint64_t word = table[x1[0]];
         word |= (uint64_t)table[x1[1]] << 8;
         word |= (uint64_t)table[x1[2]] << 16;
@@ -1414,6 +1615,7 @@ extern "C" void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y,
         word |= (uint64_t)table[x1[5]] << 40;
         word |= (uint64_t)table[x1[6]] << 48;
         word |= (uint64_t)table[x1[7]] << 56;
+#endif
         *z8 ^= word;
 
         bytes -= 8, x1 += 8, z1 += 8;
@@ -1424,10 +1626,17 @@ extern "C" void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y,
     if (four)
     {
         uint32_t * GF256_RESTRICT z4 = reinterpret_cast<uint32_t *>(z1);
+#ifdef GF256_IS_BIG_ENDIAN
+        uint32_t word = (uint32_t)table[x1[0]] << 24;
+        word |= (uint32_t)table[x1[1]] << 16;
+        word |= (uint32_t)table[x1[2]] << 8;
+        word |= (uint32_t)table[x1[3]];
+#else
         uint32_t word = table[x1[0]];
         word |= (uint32_t)table[x1[1]] << 8;
         word |= (uint32_t)table[x1[2]] << 16;
         word |= (uint32_t)table[x1[3]] << 24;
+#endif
         *z4 ^= word;
     }
 
@@ -1435,9 +1644,9 @@ extern "C" void gf256_muladd_mem(void * GF256_RESTRICT vz, uint8_t y,
     const int offset = four;
     switch (bytes & 3)
     {
-    case 3: z1[offset + 2] ^= table[x1[offset + 2]];
-    case 2: z1[offset + 1] ^= table[x1[offset + 1]];
-    case 1: z1[offset] ^= table[x1[offset]];
+    case 3: z1[offset + 2] ^= table[x1[offset + 2]]; // fall-thru
+    case 2: z1[offset + 1] ^= table[x1[offset + 1]]; // fall-thru
+    case 1: z1[offset] ^= table[x1[offset]]; // fall-thru
     default:
         break;
     }
@@ -1459,6 +1668,7 @@ extern "C" void gf256_memswap(void * GF256_RESTRICT vx, void * GF256_RESTRICT vy
 
     x16 += count;
     y16 += count;
+    bytes -= count * 8;
 #else
     GF256_M128 * GF256_RESTRICT x16 = reinterpret_cast<GF256_M128 *>(vx);
     GF256_M128 * GF256_RESTRICT y16 = reinterpret_cast<GF256_M128 *>(vy);
@@ -1507,9 +1717,9 @@ extern "C" void gf256_memswap(void * GF256_RESTRICT vx, void * GF256_RESTRICT vy
     uint8_t temp;
     switch (bytes & 3)
     {
-    case 3: temp = x1[offset + 2]; x1[offset + 2] = y1[offset + 2]; y1[offset + 2] = temp;
-    case 2: temp = x1[offset + 1]; x1[offset + 1] = y1[offset + 1]; y1[offset + 1] = temp;
-    case 1: temp = x1[offset]; x1[offset] = y1[offset]; y1[offset] = temp;
+    case 3: temp = x1[offset + 2]; x1[offset + 2] = y1[offset + 2]; y1[offset + 2] = temp; // fall-thru
+    case 2: temp = x1[offset + 1]; x1[offset + 1] = y1[offset + 1]; y1[offset + 1] = temp; // fall-thru
+    case 1: temp = x1[offset]; x1[offset] = y1[offset]; y1[offset] = temp; // fall-thru
     default:
         break;
     }

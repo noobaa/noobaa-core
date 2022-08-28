@@ -1,4 +1,4 @@
-FROM quay.io/centos/centos:stream8 
+FROM quay.io/centos/centos:stream8
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################
@@ -44,8 +44,13 @@ RUN chmod +x ./install_nodejs.sh && \
 #   Size: ~ 43 MB
 ##############################################################
 RUN stable_version=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt) && \
-    if [ "$(uname -m)" = "aarch64" ]; \
+    MACHINE=$(uname -m); \
+    if [ "$MACHINE" = "aarch64" ]; \
     then arch=arm64; \
+    elif [ "$MACHINE" = "s380x" ]; \
+    then arch=s390x; \
+    elif [ "$MACHINE" = "ppc64le" ]; \
+    then arch=ppc64le; \
     else arch=amd64; \
     fi && \
     curl -LO https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/linux/${arch}/kubectl && \

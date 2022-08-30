@@ -94,7 +94,7 @@
     "lodash": "4.17.21",
     "mime": "2.5.2",
     "minimist": "1.2.5",
-    "moment": "2.29.1",
+    "moment": "2.29.4",
     "moment-timezone": "0.5.33",
     "mongo-query-to-postgres-jsonb": "0.2.14",
     "mongodb": "3.6.11",

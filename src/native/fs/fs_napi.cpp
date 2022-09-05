@@ -191,15 +191,15 @@ struct FSWorker : public Napi::AsyncWorker
     void Begin(std::string desc)
     {
         _desc = desc;
-        DBG1("FS::FSWorker::Begin: " << _desc);
+        DBG0("FS::FSWorker::Begin: " << _desc);
     }
     virtual void Work() = 0;
     void Execute() override
     {
-        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
+        DBG0("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
         tx.set_user(_uid, _gid);
-        DBG1("FS::FSWorker::Execute_ROMY1: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
+        DBG0("FS::FSWorker::Execute_ROMY1: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
         auto end_time = std::chrono::high_resolution_clock::now();
@@ -207,14 +207,14 @@ struct FSWorker : public Napi::AsyncWorker
         if (_warn_threshold_ms && took_time > _warn_threshold_ms) {
             DBG0("FS::FSWorker::Execute: WARNING " << _desc << " took too long: " << took_time << " ms");
         } else {
-            DBG1("FS::FSWorker::Execute: " << _desc << " took: " << took_time << " ms");
+            DBG0("FS::FSWorker::Execute: " << _desc << " took: " << took_time << " ms");
         }
     }
     void SetSyscallError()
     {
         if (_errno) {
             int current_errno = errno;
-            DBG1("FS::FSWorker::SetSyscallError: errno already exists " << _desc << DVAL(_errno) << DVAL(current_errno));
+            DBG0("FS::FSWorker::SetSyscallError: errno already exists " << _desc << DVAL(_errno) << DVAL(current_errno));
         } else {
             _errno = errno;
             std::string errmsg = strerror(errno);

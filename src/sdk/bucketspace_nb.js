@@ -23,15 +23,19 @@ class BucketSpaceNB {
 
     async list_buckets(object_sdk) {
         const { buckets } = (await this.rpc_client.bucket.list_buckets());
-        const has_access_buckets = (await P.all(_.map(
-            buckets,
-            async bucket => {
-                const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
-                const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
-                    await this._has_access_to_nsfs_dir(ns, object_sdk) :
-                    object_sdk.has_non_nsfs_bucket_access(object_sdk.requesting_account, ns);
-                return has_access_to_bucket && bucket;
-            }))).filter(bucket => bucket);
+        let has_access_buckets = [];
+        for (let bucket of buckets) {
+            const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
+            const is_nsfs_bucket = object_sdk.is_nsfs_bucket(ns);
+            let has_access_to_bucket;
+            if (is_nsfs_bucket) {
+                has_access_to_bucket = await this._has_access_to_nsfs_dir(ns, object_sdk);
+            } else {
+                has_access_to_bucket = object_sdk.has_non_nsfs_bucket_access(object_sdk.requesting_account, ns);
+            }
+            if (has_access_to_bucket) has_access_buckets.push(bucket);
+        }
+        console.log('ROMY list_buckets: ', has_access_buckets);
         return { buckets: has_access_buckets };
     }
 

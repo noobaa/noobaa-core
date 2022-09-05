@@ -15,7 +15,7 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 const path = require('path');
 const _ = require('lodash');
 const P = require('../../util/promise');
-//const fs = require('fs');
+const fs = require('fs');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -56,9 +56,29 @@ mocha.describe('bucket operations - namespace_fs', function() {
             this.skip(); // eslint-disable-line no-invalid-this
         }
     });
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + '/new_s3_buckets_dir', 0o770));
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770));
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + other_bucket_path, 0o770));
+    mocha.before(async () => {
+        const pa = tmp_fs_root + '/new_s3_buckets_dir';
+        await fs_utils.create_fresh_path(pa, 0o770);
+        console.log('ROMY: created  path ', pa);
+        const stat1 = await fs.promises.stat(pa);
+        console.log('ROMY: stat of path ', pa, stat1);
+    }
+        );
+    mocha.before(async () => {
+        const pa = tmp_fs_root + bucket_path;
+        await fs_utils.create_fresh_path(pa, 0o770);
+        console.log('ROMY: created  path ', pa);
+        const stat1 = await fs.promises.stat(pa);
+        console.log('ROMY: stat of path ', pa, stat1);
+    });
+
+    mocha.before(async () => {
+        const pa = tmp_fs_root + other_bucket_path;
+        await fs_utils.create_fresh_path(pa, 0o770);
+        console.log('ROMY: created  path ', pa);
+        const stat1 = await fs.promises.stat(pa);
+        console.log('ROMY: stat of path ', pa, stat1);
+    });
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));
     mocha.it('read namespace resource before creation', async function() {
         try {

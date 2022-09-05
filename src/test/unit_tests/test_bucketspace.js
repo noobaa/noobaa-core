@@ -337,7 +337,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('list parts with wrong uid gid', async function() {
         // eslint-disable-next-line no-invalid-this
         this.timeout(600000);
-
+        console.log('ROMY_REVERT');
         const res1 = await s3_correct_uid.createMultipartUpload({
             Bucket: bucket_name,
             Key: 'ob1.txt'

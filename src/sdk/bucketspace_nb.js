@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
 const dbg = require('../util/debug_module')(__filename);
 const path = require('path');

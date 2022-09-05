@@ -4,6 +4,11 @@ name: Next Version Build
 on: 
   schedule:
     - cron: "0 12 * * 1"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to Build From - Optional'
+        required: false
 
 jobs:
   publish-image:

@@ -20,4 +20,4 @@ jobs:
           workflow: Manual Build Dispatch
           repo: noobaa/noobaa-core
           token: ${{ secrets.GHACCESSTOKEN }}
-          inputs: '{ "branch": "5.8", "tag": "alpha" }' 
+          inputs: '{ "branch": "5.11", "tag": "" }' 

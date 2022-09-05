@@ -55,7 +55,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             this.skip(); // eslint-disable-line no-invalid-this
         }
     });
-    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + '/new_s3_buckets_dir', 0o770));
+    mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + '/new_s3_buckets_dir', 0o777));
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770));
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root + other_bucket_path, 0o770));
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_root));

@@ -355,8 +355,6 @@ struct Statfs : public FSWorker
 struct CheckAccess : public FSWorker
 {
     std::string _path;
-    struct stat _stat_res;
-
     CheckAccess(const Napi::CallbackInfo& info)
         : FSWorker(info)
     {
@@ -366,10 +364,12 @@ struct CheckAccess : public FSWorker
         Begin(XSTR() << "CheckAccess " << DVAL(_path));
     }
     virtual void Work()
-    {
-        DBG0("FS::CheckAccess1 " << DVAL(_path));
-        int fd = open(_path.c_str(), O_RDONLY);
-        DBG0("FS::CheckAccess2 " << DVAL(_path) << DVAL(fd));
+    {   
+        DBG0("FS::CheckAccess0 " << DVAL(_path));
+        int fd = -1;
+        DBG0("FS::CheckAccess1 before" << DVAL(_path) << DVAL(fd));
+        fd = open(_path.c_str(), O_RDONLY);
+        DBG0("FS::CheckAccess2 after" << DVAL(_path) << DVAL(fd));
 
         if (fd < 0) {
             SetSyscallError();

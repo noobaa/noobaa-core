@@ -27,6 +27,15 @@ let new_account_params = {
     }
 };
 
+const get_s3_creds = () => ({
+        s3ForcePathStyle: true,
+        signatureVersion: 'v4',
+        computeChecksums: true,
+        s3DisableBodySigning: false,
+        region: 'us-east-1',
+        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+});
+
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
     const nsr = 'nsr';
@@ -41,14 +50,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
     let s3_correct_uid;
     let s3_correct_uid_default_nsr;
 
-    let s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-    };
     mocha.before(function() {
         if (process.getgid() !== 0 || process.getuid() !== 0) {
             coretest.log('No Root permissions found in env. Skipping test');
@@ -124,6 +125,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('Init S3 owner connection', async function() {
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -149,6 +151,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
         console.log(inspect(account_wrong_uid));
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = account_wrong_uid.access_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = account_wrong_uid.access_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -195,6 +198,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
         console.log(inspect(account_correct_uid));
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = account_correct_uid.access_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = account_correct_uid.access_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -235,6 +239,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 nsfs_only: false
             }
         });
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = account_s3_correct_uid1.access_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = account_s3_correct_uid1.access_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -268,6 +273,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 nsfs_only: false
             }
         });
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = account_s3_correct_uid.access_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = account_s3_correct_uid.access_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -294,6 +300,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         };
         const account_s3_incorrect_uid = await rpc_client.account.create_account(incorrect_params);
+        let s3_creds = get_s3_creds();
         s3_creds.accessKeyId = account_s3_incorrect_uid.access_keys[0].access_key.unwrap();
         s3_creds.secretAccessKey = account_s3_incorrect_uid.access_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
@@ -342,6 +349,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
             Bucket: bucket_name,
             Key: 'ob1.txt'
         }).promise();
+        console.log('list parts with wrong uid gid ROMY res1', res1);
+
         await s3_correct_uid.uploadPart({
             Bucket: bucket_name,
             Key: 'ob1.txt',

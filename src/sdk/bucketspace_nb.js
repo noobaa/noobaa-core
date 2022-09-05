@@ -215,6 +215,7 @@ class BucketSpaceNB {
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
             dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
+            dbg.log0('_has_access_to_nsfs_dir: checking access:11', ns.write_resource.resource.fs_root_path, ns.write_resource.path);
 
             await nb_native().fs.checkAccess({
                 uid: account.nsfs_account_config.uid,
@@ -222,6 +223,7 @@ class BucketSpaceNB {
                 backend: ns.write_resource.resource.fs_backend,
                 warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
             }, path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || ''));
+            dbg.log0('_has_access_to_nsfs_dir: checking access:12', ns.write_resource.resource.fs_root_path, ns.write_resource.path);
 
             return true;
         } catch (err) {

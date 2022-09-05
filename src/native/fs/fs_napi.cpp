@@ -361,11 +361,16 @@ struct CheckAccess : public FSWorker
         : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
+        DBG0("FS::CheckAccess1 begin " << DVAL(_path));
+
         Begin(XSTR() << "CheckAccess " << DVAL(_path));
     }
     virtual void Work()
     {
+        DBG0("FS::CheckAccess1 " << DVAL(_path));
         int fd = open(_path.c_str(), O_RDONLY);
+        DBG0("FS::CheckAccess2 " << DVAL(_path) << DVAL(fd));
+
         if (fd < 0) {
             SetSyscallError();
             return;

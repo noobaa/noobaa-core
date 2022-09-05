@@ -15,7 +15,7 @@ coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 const path = require('path');
 const _ = require('lodash');
 const P = require('../../util/promise');
-const fs = require('fs');
+//const fs = require('fs');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -485,9 +485,9 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 });
 
-function create_random_body() {
-    return Math.random().toString(36).slice(50);
-}
+// function create_random_body() {
+//     return Math.random().toString(36).slice(50);
+// }
 
 function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_response) {
     const bucket_names = s3_buckets_list_response.map(bucket => bucket.Name);
@@ -496,11 +496,11 @@ function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_respon
     return exist_checker && doesnt_exist_checker;
 }
 
-function object_in_list(res, key) {
-    const ans = res.Contents.find(obj => obj.Key === key);
-    console.log('object_in_list:', object_in_list);
-    return ans;
-}
+// function object_in_list(res, key) {
+//     const ans = res.Contents.find(obj => obj.Key === key);
+//     console.log('object_in_list:', object_in_list);
+//     return ans;
+// }
 
 async function update_account_nsfs_config(email, default_resource, allowed_buckets, new_nsfs_account_config, should_fail) {
     try {
@@ -522,7 +522,7 @@ async function update_account_nsfs_config(email, default_resource, allowed_bucke
         assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
     }
 }
-
+/*
 
 mocha.describe('list objects - namespace_fs', function() {
     const nsr = 'nsr1-list';
@@ -976,3 +976,4 @@ mocha.describe('nsfs account configurations', function() {
         }
     });
 });
+*/

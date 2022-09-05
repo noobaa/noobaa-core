@@ -33,7 +33,7 @@
 namespace noobaa
 {
 
-DBG_INIT(0);
+DBG_INIT(5);
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
@@ -199,6 +199,7 @@ struct FSWorker : public Napi::AsyncWorker
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
         tx.set_user(_uid, _gid);
+        DBG1("FS::FSWorker::Execute_ROMY1: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
         auto end_time = std::chrono::high_resolution_clock::now();

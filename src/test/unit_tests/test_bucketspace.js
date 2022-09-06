@@ -52,12 +52,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
     let s3_correct_uid;
     let s3_correct_uid_default_nsr;
 
-    // mocha.before(function() {
-    //     if (process.getgid() !== 0 || process.getuid() !== 0) {
-    //         coretest.log('No Root permissions found in env. Skipping test');
-    //         this.skip(); // eslint-disable-line no-invalid-this
-    //     }
-    // });
+    mocha.before(function() {
+        if (process.getgid() !== 0 || process.getuid() !== 0) {
+            coretest.log('No Root permissions found in env. Skipping test');
+            this.skip(); // eslint-disable-line no-invalid-this
+        }
+    });
     mocha.before(async () => {
         const pa = tmp_fs_root + '/new_s3_buckets_dir/';
         await fs_utils.create_fresh_path(pa, 0o770);

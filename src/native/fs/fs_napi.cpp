@@ -199,7 +199,7 @@ struct FSWorker : public Napi::AsyncWorker
         DBG0("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
         tx.set_user(_uid, _gid);
-        DBG0("FS::FSWorker::Execute_ROMY1: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
+        DBG0("FS::FSWorker::Execute_ROMY1: " << _desc  << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()) << DVAL(_backend));
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
         auto end_time = std::chrono::high_resolution_clock::now();

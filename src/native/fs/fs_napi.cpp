@@ -366,17 +366,24 @@ struct CheckAccess : public FSWorker
     virtual void Work()
     {   
         DBG0("FS::CheckAccess0 " << DVAL(_path));
-        int fd = -1;
-        DBG0("FS::CheckAccess1 before" << DVAL(_path) << DVAL(fd));
-        fd = open(_path.c_str(), O_RDONLY);
-        DBG0("FS::CheckAccess2 after" << DVAL(_path) << DVAL(fd));
-
-        if (fd < 0) {
+        //int fd = -1;
+        DBG0("FS::CheckAccess1 before" << DVAL(_path));
+        //fd = open(_path.c_str(), O_RDONLY);
+        DIR* dir;
+        dir = opendir(_path.c_str());
+        DBG0("FS::CheckAccess2 after" << DVAL(_path) << DVAL(dir));
+        if (dir == NULL) {
             SetSyscallError();
             return;
         }
-        int r = close(fd);
+        int r = closedir(dir);
         if (r) SetSyscallError();
+        // if (fd < 0) {
+        //     SetSyscallError();
+        //     return;
+        // }
+        // int r = close(fd);
+        // if (r) SetSyscallError();
     }
 };
 

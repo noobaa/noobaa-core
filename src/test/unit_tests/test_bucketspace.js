@@ -345,6 +345,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const list_ok = bucket_in_list([bucket_name], [], res.Buckets);
         assert.ok(list_ok);
     });
+
+    mocha.it('list buckets with wrong uid, gid 2', async function() {
+        const res = await s3_wrong_uid.listBuckets().promise();
+        console.log(inspect(res));
+        const list_ok = bucket_in_list(['first.bucket'], [bucket_name], res.Buckets);
+        assert.ok(list_ok);
+    });
     mocha.it('put object with out uid gid', async function() {
         try {
             const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();

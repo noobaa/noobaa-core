@@ -14,4 +14,4 @@ jobs:
         id: run-test
         run: |
           make tester || exit 1
-          docker run --cap-add=SETUID --cap-add=SETGID --user root --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1
+          docker run --cap-add=CAP_SETUID --cap-add=CAP_SETGID --user root --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1

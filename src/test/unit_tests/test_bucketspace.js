@@ -36,6 +36,8 @@ const get_s3_creds = () => ({
         httpOptions: { agent: new http.Agent({ keepAlive: false }) },
 });
 
+const wrong_uid = 8;
+const wrong_gid = 8;
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
     const nsr = 'nsr';
@@ -57,7 +59,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     //     }
     // });
     mocha.before(async () => {
-        const pa = tmp_fs_root + '/new_s3_buckets_dir';
+        const pa = tmp_fs_root + '/new_s3_buckets_dir/';
         await fs_utils.create_fresh_path(pa, 0o770);
         console.log('ROMY: created  path ', pa);
         const stat1 = await fs.promises.stat(pa);
@@ -65,7 +67,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     }
         );
     mocha.before(async () => {
-        const pa = tmp_fs_root + bucket_path;
+        const pa = tmp_fs_root + bucket_path + '/';
         await fs_utils.create_fresh_path(pa, 0o770);
         console.log('ROMY: created  path ', pa);
         const stat1 = await fs.promises.stat(pa);
@@ -73,7 +75,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.before(async () => {
-        const pa = tmp_fs_root + other_bucket_path;
+        const pa = tmp_fs_root + other_bucket_path + '/';
         await fs_utils.create_fresh_path(pa, 0o770);
         console.log('ROMY: created  path ', pa);
         const stat1 = await fs.promises.stat(pa);
@@ -92,7 +94,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             name: nsr,
             nsfs_config: {
                 fs_root_path: tmp_fs_root,
-                fs_backend: 'GPFS'
+                fs_backend: 'CEPH_FS'
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
@@ -164,8 +166,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_wrong_uid0@noobaa.com',
             name: 'account_wrong_uid0',
             nsfs_account_config: {
-                uid: 26041992,
-                gid: 26041992,
+                uid: wrong_uid,
+                gid: wrong_gid,
                 new_buckets_path: '/',
                 nsfs_only: false
             }
@@ -191,7 +193,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, allowed_buckets, should_fail: false },
             { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, allowed_buckets, should_fail: false },
             { nsfs_account_config: {}, default_resource, allowed_buckets, should_fail: true },
-            { nsfs_account_config: { uid: 26041992 }, default_resource, allowed_buckets, should_fail: false }
+            { nsfs_account_config: { uid: wrong_uid }, default_resource, allowed_buckets, should_fail: false }
         ];
         await P.all(_.map(arr, async item =>
             update_account_nsfs_config(email, item.default_resource, item.allowed_buckets, item.nsfs_account_config, item.should_fail)));
@@ -313,8 +315,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
             },
             default_resource: nsr,
             nsfs_account_config: {
-                uid: 26041992,
-                gid: 26041992,
+                uid: wrong_uid,
+                gid: wrong_gid,
                 new_buckets_path: '/new_s3_buckets_dir',
                 nsfs_only: false
             }
@@ -587,7 +589,7 @@ mocha.describe('list objects - namespace_fs', function() {
             name: nsr,
             nsfs_config: {
                 fs_root_path: tmp_fs_root,
-                fs_backend: 'GPFS'
+                fs_backend: 'CEPH_FS'
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
@@ -770,7 +772,7 @@ mocha.describe('nsfs account configurations', function() {
             name: nsr1,
             nsfs_config: {
                 fs_root_path: tmp_fs_root1,
-                fs_backend: 'GPFS'
+                fs_backend: 'CEPH_FS'
             }
         });
         const obj_nsr = { resource: nsr1, path: bucket_path };

@@ -219,13 +219,17 @@ class BucketSpaceNB {
         try {
             dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
             dbg.log0('_has_access_to_nsfs_dir: checking access:11', ns.write_resource.resource.fs_root_path, ns.write_resource.path);
-
-            await nb_native().fs.checkAccess({
+            const fs_account_config = {
                 uid: account.nsfs_account_config.uid,
                 gid: account.nsfs_account_config.gid,
                 backend: ns.write_resource.resource.fs_backend,
                 warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            }, path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || ''));
+            };
+            const path1 = path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || '', '/');
+            const stat_res = await nb_native().fs.stat(fs_account_config, path1);
+            dbg.log0('_has_access_to_nsfs_dir: stat_res', stat_res);
+
+            await nb_native().fs.checkAccess(fs_account_config, path1);
             dbg.log0('_has_access_to_nsfs_dir: checking access:12', ns.write_resource.resource.fs_root_path, ns.write_resource.path);
 
             return true;

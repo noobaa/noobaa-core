@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   run-unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -13,5 +13,5 @@ jobs:
       - name: Run Test
         id: run-test
         run: |
-          make test || exit 1
-          docker run --user root --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1
+          make tester || exit 1
+          docker run --cap-add=SETUID --cap-add=SETGID --user root --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1

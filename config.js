@@ -596,6 +596,11 @@ config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 //////////////////////////
 config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
+///////////////////////////////////////////
+//      PostgreSQL client pool size      //
+///////////////////////////////////////////
+config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

@@ -656,6 +656,7 @@ interface DBClient {
     get_db_name(): string;
 
     define_collection(params: object): DBCollection;
+    define_sequence(params: object): DBSequence;
     collection(name: string): DBCollection;
     validate(name: string, doc: object, warn?: 'warn'): object;
 
@@ -684,6 +685,10 @@ interface DBClient {
     check_entity_not_deleted(doc: object, entity: string): object;
     check_update_one(res: object, entity: string): void;
     make_object_diff(current: object, prev: object): object;
+}
+
+interface DBSequence {
+    nextsequence(): Promise<number>;
 }
 
 interface DBCollection {

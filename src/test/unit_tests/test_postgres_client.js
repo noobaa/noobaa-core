@@ -13,6 +13,7 @@ const _ = require('lodash');
 const wtf = require('wtfnode');
 const P = require('../../util/promise');
 // const { date } = require('azure-storage');
+const { MongoSequence } = require('../../util/mongo_client');
 
 
 const test_schema = {
@@ -199,7 +200,18 @@ mocha.describe('postgres_client', function() {
         assert.strictEqual(find_res.length, 1, 'number of inserted documents must be 1');
     });
 
-
+    mocha.it('should migrate from mongo sequence', async function() {
+        const name = 'testsequence';
+        if (!postgres_client.is_connected) await postgres_client.connect();
+        const mongoSeq = new MongoSequence({ name, client: postgres_client });
+        let start;
+        for (let i = 0; i < Math.floor(Math.random() * 100) + 1; i++) {
+            start = await mongoSeq.nextsequence();
+        }
+        const nativeSeq = postgres_client.define_sequence({name});
+        const nativestart = await nativeSeq.nextsequence();
+        assert.equal(start + 2, nativestart);
+    });
 
 
     // mocha.it('should find by sort order', async function() {

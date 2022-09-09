@@ -138,26 +138,13 @@ async function get_account_create_bucket_status(email) {
     }
 }
 
-function get_allowed_buckets(s3_access) {
-    if (s3_access === true) {
-        return {
-            full_permission: true,
-            permission_list: undefined
-        };
-    } else {
-        return undefined;
-    }
-}
-
 function set_account_details(has_login, account_name, email, s3_access) {
-    const allowed_buckets = get_allowed_buckets(s3_access);
     return {
         name: account_name,
         email,
         password: TEST_CFG.password,
         has_login,
         s3_access: TEST_CFG.s3_access,
-        allowed_buckets,
     };
 }
 
@@ -205,12 +192,10 @@ async function regenerate_s3Access(email) {
 
 async function edit_s3Access(email, s3_access) {
     console.log(`Editing account s3 access: ${email} with access to bucket ${s3_access}`);
-    const allowed_buckets = get_allowed_buckets(s3_access);
     try {
         await client.account.update_account_s3_access({
             email,
             s3_access,
-            allowed_buckets
         });
         await report.success('edit_s3Access');
     } catch (err) {
@@ -227,12 +212,10 @@ async function edit_bucket_creation(email, allow_bucket_creation) {
         console.log(`Disabling bucket creation for ${email}`);
     }
     const s3_access = true;
-    const allowed_buckets = get_allowed_buckets(s3_access);
     try {
         await client.account.update_account_s3_access({
             email,
             s3_access,
-            allowed_buckets,
             allow_bucket_creation
         });
         await report.success('edit_bucket_creation');

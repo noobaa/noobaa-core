@@ -155,7 +155,6 @@ async function main() {
                 check_indexes() { /*empty*/ },
                 rebuild() { /*empty*/ },
                 rebuild_accounts_by_email_lowercase() { /*empty*/ },
-                rebuild_allowed_buckets_links() { /*empty*/ },
                 rebuild_idmap() { /*empty*/ },
                 rebuild_indexes() { /*empty*/ },
                 rebuild_object_links() { /*empty*/ },

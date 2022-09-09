@@ -314,10 +314,6 @@ function check_event_permission(req) {
             if (typeof(bucket_name) === 'string') {
                 const bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name];
                 if (!bucket || bucket.deleting) throw new RpcError('UNAUTHORIZED', 'No such bucket');
-                const account = system_store.data.get_by_id(req.func.exec_account);
-                if (!auth_server.has_bucket_permission(bucket, account)) {
-                    throw new RpcError('UNAUTHORIZED', 'No bucket permission for trigger');
-                }
             }
         });
     }

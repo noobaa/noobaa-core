@@ -144,17 +144,6 @@ db.accounts.remove({
     }
 });
 
-// Update owner allowed_buckets to files bucket only
-db.accounts.update({
-    email: 'demo@noobaa.com'
-}, {
-    $set: {
-        allowed_buckets: {
-            full_permission: true
-        },
-        allow_bucket_creation: true
-    }
-});
 
 // Removing roles of the deleted accounts, except demo and support (which doesn't have a role)
 db.roles.remove({

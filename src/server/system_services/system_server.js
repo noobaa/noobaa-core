@@ -362,7 +362,6 @@ async function create_system(req) {
             has_login: false,
             s3_access: true,
             allow_bucket_creation: true,
-            allowed_buckets: { full_permission: true },
             roles: ['operator']
         }, auth);
 
@@ -425,7 +424,6 @@ async function _create_owner_account(
             account_id: account_id.toString(),
             new_system_id: system_id.toString(),
             default_resource: default_resource.toString(),
-            allowed_buckets: { full_permission: true },
         },
     });
     return { auth_token };

@@ -162,8 +162,44 @@ async function disable_accounts_s3_access(rpc_client, accounts_emails) {
     ));
 }
 
+/**
+ * generate_s3_policy generates S3 buket policy for the given principal
+ * 
+ * @param {string} principal - The principal to grant access to.
+ * @param {string} bucket - The bucket to grant access to.
+ * @param {Array<string>} action - The action to grant access to.
+ * @returns {{ 
+ *  policy: Record<string, any>,
+ *  params: { bucket: string, action: Array<string>, principal: string } 
+ * }}
+ */
+function generate_s3_policy(principal, bucket, action) {
+    return {
+        policy: {
+            version: '2012-10-17',
+            statement: [
+                {
+                    effect: 'allow',
+                    principal: [principal],
+                    action: action,
+                    resource: [
+                        `arn:aws:s3:::${bucket}/*`,
+                        `arn:aws:s3:::${bucket}`
+                    ]
+                }
+            ]
+        },
+        params: {
+            bucket,
+            action,
+            principal,
+        }
+    };
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
 exports.empty_and_delete_buckets = empty_and_delete_buckets;
 exports.disable_accounts_s3_access = disable_accounts_s3_access;
+exports.generate_s3_policy = generate_s3_policy;

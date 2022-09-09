@@ -51,7 +51,7 @@ mocha.describe('s3 worm', function() {
             region: 'us-east-1',
             httpOptions: { agent: new http.Agent({ keepAlive: false }) },
         };
-        const account = { has_login: false, s3_access: true, allowed_buckets: { full_permission: true } };
+        const account = { has_login: false, s3_access: true };
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         account.name = user_a;
         account.email = user_a;

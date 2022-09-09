@@ -149,7 +149,7 @@ class ObjectSDK {
     }
 
     async read_bucket_sdk_policy_info(name) {
-        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name }, 'cache_miss');
         const policy_info = {
             s3_policy: bucket.s3_policy,
             system_owner: bucket.system_owner,
@@ -208,13 +208,6 @@ class ObjectSDK {
             if (!this.has_non_nsfs_bucket_access(this.requesting_account, ns)) {
                 throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
             }
-
-            const bucket_allowed = _.get(this.requesting_account, 'allowed_buckets.full_permission', false) ||
-                _.find(
-                    _.get(this.requesting_account, 'allowed_buckets.permission_list') || [],
-                    name => name.unwrap() === bucket
-                );
-            if (!bucket_allowed) throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
         }
     }
 

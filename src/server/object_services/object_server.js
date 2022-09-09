@@ -1397,7 +1397,8 @@ function load_bucket(req, { include_deleting } = {}) {
     if (!bucket || (bucket.deleting && !include_deleting)) {
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
-    req.check_s3_bucket_permission(bucket);
+
+    // Don't check for permission here - assume authorized in the endpoint
     req.bucket = bucket;
 }
 

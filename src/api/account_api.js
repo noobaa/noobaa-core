@@ -33,9 +33,6 @@ module.exports = {
                     s3_access: {
                         type: 'boolean'
                     },
-                    allowed_buckets: {
-                        $ref: '#/definitions/allowed_buckets'
-                    },
                     default_resource: {
                         type: 'string',
                     },
@@ -61,9 +58,6 @@ module.exports = {
                             },
                             account_id: {
                                 type: 'string'
-                            },
-                            allowed_buckets: {
-                                $ref: '#/definitions/allowed_buckets'
                             },
                             default_resource: {
                                 type: 'string',
@@ -277,9 +271,6 @@ module.exports = {
                     email: { $ref: 'common_api#/definitions/email' },
                     s3_access: {
                         type: 'boolean'
-                    },
-                    allowed_buckets: {
-                        $ref: '#/definitions/allowed_buckets'
                     },
                     default_resource: {
                         type: 'string'
@@ -619,19 +610,6 @@ module.exports = {
                 has_s3_access: {
                     type: 'boolean'
                 },
-                allowed_buckets: {
-                    type: 'object',
-                    required: ['full_permission'],
-                    properties: {
-                        full_permission: {
-                            type: 'boolean'
-                        },
-                        permission_list: {
-                            type: 'array',
-                            items: { $ref: 'common_api#/definitions/bucket_name' },
-                        }
-                    }
-                },
                 role_config: {
                     $ref: 'common_api#/definitions/role_config'
                 },
@@ -734,20 +712,6 @@ module.exports = {
                     $ref: 'common_api#/definitions/nsfs_account_config'
                 }
             },
-        },
-
-        allowed_buckets: {
-            type: 'object',
-            required: ['full_permission'],
-            properties: {
-                full_permission: {
-                    type: 'boolean'
-                },
-                permission_list: {
-                    type: 'array',
-                    items: { $ref: 'common_api#/definitions/bucket_name' },
-                }
-            }
         },
 
         account_acl: {

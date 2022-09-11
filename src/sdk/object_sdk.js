@@ -419,6 +419,12 @@ class ObjectSDK {
         return this.rpc_client.options.auth_token;
     }
 
+    check_is_readonly_namespace(ns) {
+        if (ns.is_readonly_namespace()) {
+            throw new RpcError('UNAUTHORIZED', `Read Only namespace bucket`);
+        }
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -560,6 +566,7 @@ class ObjectSDK {
         let error = 0;
         try {
             const ns = await this._get_bucket_namespace(params.bucket);
+            this.check_is_readonly_namespace(ns);
             if (params.copy_source) await this.fix_copy_source_params(params, ns);
             reply = await ns.upload_object(params, this);
         } catch (e) {
@@ -587,6 +594,7 @@ class ObjectSDK {
 
     async create_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         const reply = await ns.create_object_upload(params, this);
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
@@ -599,6 +607,7 @@ class ObjectSDK {
 
     async upload_multipart(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         if (params.copy_source) await this.fix_copy_source_params(params, ns);
         return ns.upload_multipart(params, this);
     }
@@ -610,11 +619,13 @@ class ObjectSDK {
 
     async complete_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.complete_object_upload(params, this);
     }
 
     async abort_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.abort_object_upload(params, this);
     }
 
@@ -625,16 +636,19 @@ class ObjectSDK {
 
     async upload_blob_block(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.upload_blob_block(params, this);
     }
 
     async commit_blob_block_list(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.commit_blob_block_list(params, this);
     }
 
     async get_blob_block_lists(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.get_blob_block_lists(params, this);
     }
 
@@ -647,6 +661,7 @@ class ObjectSDK {
         let error = 0;
         try {
             const ns = await this._get_bucket_namespace(params.bucket);
+            this.check_is_readonly_namespace(ns);
             const reply = await ns.delete_object(params, this);
             return reply;
         } catch (e) {
@@ -663,6 +678,7 @@ class ObjectSDK {
 
     async delete_multiple_objects(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.delete_multiple_objects(params, this);
     }
 
@@ -672,11 +688,13 @@ class ObjectSDK {
 
     async put_object_tagging(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.put_object_tagging(params, this);
     }
 
     async delete_object_tagging(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.delete_object_tagging(params, this);
     }
 
@@ -913,6 +931,7 @@ class ObjectSDK {
 
     async put_object_acl(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
+        this.check_is_readonly_namespace(ns);
         return ns.put_object_acl(params, this);
     }
 }

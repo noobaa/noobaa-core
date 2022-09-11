@@ -46,6 +46,13 @@ class NamespaceS3 {
         return this.bucket;
     }
 
+    is_readonly_namespace() {
+        if (this.access_mode && this.access_mode === 'READ_ONLY') {
+            return true;
+        }
+        return false;
+    }
+
 
     /////////////////
     // OBJECT LIST //

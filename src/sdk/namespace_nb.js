@@ -48,6 +48,10 @@ class NamespaceNB {
         return bucket;
     }
 
+    is_readonly_namespace() {
+        return false;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////

@@ -132,6 +132,9 @@ class NamespaceMonitor {
                 Key: block_key
             }).promise();
         } catch (err) {
+            if (err.code === 'AccessDenied' && nsr.is_readonly_namespace()) {
+                return;
+            }
             dbg.log1('test_s3_resource: got error:', err);
             if (err.code !== 'NoSuchKey') throw err;
         }
@@ -157,6 +160,9 @@ class NamespaceMonitor {
             const container_client = conn.getContainerClient(target_bucket);
             await container_client.deleteBlob(block_key);
         } catch (err) {
+            if (err.code === 'InsufficientAccountPermissions' && nsr.is_readonly_namespace()) {
+                return;
+            }
             dbg.log1('test_blob_resource: got error:', err);
             if (err.code !== 'BlobNotFound') throw err;
         }

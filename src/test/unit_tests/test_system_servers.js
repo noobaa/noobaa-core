@@ -24,12 +24,15 @@ mocha.describe('system_servers', function() {
     const TIERING_POLICY = `${PREFIX}-tiering-policy`;
     const BUCKET = `${PREFIX}-bucket`;
     const NAMESPACE_BUCKET = `${PREFIX}-namespace-bucket`;
+    const NAMESPACE_BUCKET_SINGLE_NO_WR = `${PREFIX}-namespace-bucket-single-no-wr`;
+    const NAMESPACE_BUCKET_MERGE_NO_WR = `${PREFIX}-namespace-bucket-merge-no-wr`;
     const SYS1 = `${PREFIX}-${SYSTEM}-1`;
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const EMAIL2 = `${PREFIX}-${EMAIL}2`;
     const EMAIL3 = `${PREFIX}-${EMAIL}3`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
+    const NAMESPACE_RESOURCE_NAME_2 = `${PREFIX}-namespace-resource-2`;
     ///////////////
     //  ACCOUNT  //
     ///////////////
@@ -485,6 +488,7 @@ mocha.describe('system_servers', function() {
             target_bucket: BUCKET
         });
         const nsr = { resource: NAMESPACE_RESOURCE_NAME };
+        const nsr2 = { resource: NAMESPACE_RESOURCE_NAME_2 };
         await rpc_client.bucket.create_bucket({
             name: NAMESPACE_BUCKET,
             namespace: {
@@ -492,7 +496,21 @@ mocha.describe('system_servers', function() {
                 write_resource: nsr
             },
         });
+        await rpc_client.bucket.create_bucket({
+            name: NAMESPACE_BUCKET_SINGLE_NO_WR,
+            namespace: {
+                read_resources: [nsr]
+            },
+        });
+        await rpc_client.bucket.create_bucket({
+            name: NAMESPACE_BUCKET_MERGE_NO_WR,
+            namespace: {
+                read_resources: [nsr, nsr2]
+            },
+        });
         await rpc_client.bucket.delete_bucket({ name: NAMESPACE_BUCKET });
+        await rpc_client.bucket.delete_bucket({ name: NAMESPACE_BUCKET_SINGLE_NO_WR });
+        await rpc_client.bucket.delete_bucket({ name: NAMESPACE_BUCKET_MERGE_NO_WR });
         await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_NAME });
         await rpc_client.account.delete_external_connection({ connection_name: NAMESPACE_RESOURCE_CONNECTION });
     });

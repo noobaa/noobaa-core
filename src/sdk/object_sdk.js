@@ -273,7 +273,7 @@ class ObjectSDK {
                 if (bucket.namespace.caching) {
                     return {
                         ns: new NamespaceCache({
-                            namespace_hub: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource)),
+                            namespace_hub: this._setup_single_namespace(_.extend({}, bucket.namespace.read_resources[0])),
                             namespace_nb: this.namespace_nb,
                             active_triggers: bucket.active_triggers,
                             caching: bucket.namespace.caching,
@@ -282,9 +282,9 @@ class ObjectSDK {
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
                 }
-                if (bucket.namespace.write_resource && _.isEqual(bucket.namespace.read_resources, [bucket.namespace.write_resource])) {
+                if (this._is_single_namespace(bucket.namespace)) {
                     return {
-                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource), bucket._id),
+                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.read_resources[0]), bucket._id),
                         bucket,
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
@@ -311,7 +311,7 @@ class ObjectSDK {
 
     _setup_merge_namespace(bucket) {
         let rr = _.cloneDeep(bucket.namespace.read_resources);
-        let wr = this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
+        let wr = bucket.namespace.write_resource && this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
         if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.resource.endpoint_type)) {
             const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource.resource));
             wr = new NamespaceMultipart(
@@ -419,10 +419,20 @@ class ObjectSDK {
         return this.rpc_client.options.auth_token;
     }
 
-    check_is_readonly_namespace(ns) {
+    _check_is_readonly_namespace(ns) {
         if (ns.is_readonly_namespace()) {
             throw new RpcError('UNAUTHORIZED', `Read Only namespace bucket`);
         }
+    }
+
+    _is_single_namespace(ns_info) {
+        if (!ns_info.write_resource && ns_info.read_resources.length() === 1) {
+            return true;
+        }
+        if (ns_info.write_resource && _.isEqual(ns_info.read_resources, [ns_info.write_resource])) {
+            return true;
+        }
+        return false;
     }
 
     /////////////////
@@ -566,7 +576,7 @@ class ObjectSDK {
         let error = 0;
         try {
             const ns = await this._get_bucket_namespace(params.bucket);
-            this.check_is_readonly_namespace(ns);
+            this._check_is_readonly_namespace(ns);
             if (params.copy_source) await this.fix_copy_source_params(params, ns);
             reply = await ns.upload_object(params, this);
         } catch (e) {
@@ -594,7 +604,7 @@ class ObjectSDK {
 
     async create_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         const reply = await ns.create_object_upload(params, this);
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
@@ -607,7 +617,7 @@ class ObjectSDK {
 
     async upload_multipart(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         if (params.copy_source) await this.fix_copy_source_params(params, ns);
         return ns.upload_multipart(params, this);
     }
@@ -619,13 +629,13 @@ class ObjectSDK {
 
     async complete_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.complete_object_upload(params, this);
     }
 
     async abort_object_upload(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.abort_object_upload(params, this);
     }
 
@@ -636,19 +646,19 @@ class ObjectSDK {
 
     async upload_blob_block(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.upload_blob_block(params, this);
     }
 
     async commit_blob_block_list(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.commit_blob_block_list(params, this);
     }
 
     async get_blob_block_lists(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.get_blob_block_lists(params, this);
     }
 
@@ -661,7 +671,7 @@ class ObjectSDK {
         let error = 0;
         try {
             const ns = await this._get_bucket_namespace(params.bucket);
-            this.check_is_readonly_namespace(ns);
+            this._check_is_readonly_namespace(ns);
             const reply = await ns.delete_object(params, this);
             return reply;
         } catch (e) {
@@ -678,7 +688,7 @@ class ObjectSDK {
 
     async delete_multiple_objects(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.delete_multiple_objects(params, this);
     }
 
@@ -688,13 +698,13 @@ class ObjectSDK {
 
     async put_object_tagging(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.put_object_tagging(params, this);
     }
 
     async delete_object_tagging(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.delete_object_tagging(params, this);
     }
 
@@ -931,7 +941,7 @@ class ObjectSDK {
 
     async put_object_acl(params) {
         const ns = await this._get_bucket_namespace(params.bucket);
-        this.check_is_readonly_namespace(ns);
+        this._check_is_readonly_namespace(ns);
         return ns.put_object_acl(params, this);
     }
 }

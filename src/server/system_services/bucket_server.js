@@ -82,6 +82,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
  *
  */
 async function create_bucket(req) {
+    // eslint-disable-next-line max-statements
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
         req.load_auth();
         validate_bucket_creation(req);
@@ -176,6 +177,9 @@ async function create_bucket(req) {
             const wr_obj = req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name &&
                 req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
             const write_resource = wr_obj && { resource: wr_obj._id, path: req.rpc_params.namespace.write_resource.path };
+            if (!write_resource) {
+                dbg.log0('write resource was not provided, will create a readonly namespace bucket');
+            }
             if (req.rpc_params.namespace.read_resources &&
                 (!read_resources.length ||
                     (read_resources.length !== req.rpc_params.namespace.read_resources.length)
@@ -192,7 +196,8 @@ async function create_bucket(req) {
             };
 
             // reorder read resources so that the write resource is the first in the list
-            const ordered_read_resources = [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource));
+            const ordered_read_resources = write_resource ?
+                [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource)) : read_resources;
 
             bucket.namespace = {
                 read_resources: ordered_read_resources,
@@ -506,11 +511,11 @@ async function read_bucket_sdk_info(req) {
 
     if (bucket.namespace) {
         reply.namespace = {
-            write_resource: {
+            write_resource: bucket.namespace.write_resource ? {
                 resource: pool_server.get_namespace_resource_extended_info(
                     system.namespace_resources_by_name[bucket.namespace.write_resource.resource.name]),
                 path: bucket.namespace.write_resource.path,
-            },
+            } : undefined,
             read_resources: _.map(bucket.namespace.read_resources, rs =>
                 ({ resource: pool_server.get_namespace_resource_extended_info(rs.resource), path: rs.path })
             ),
@@ -1398,7 +1403,7 @@ function validate_bucket_creation(req) {
 
 function validate_nsfs_bucket(req) {
     // do not allow creation of 2 nsfs buckets on the same path - RPC 
-    if (req.rpc_params.namespace && req.system.namespace_resources_by_name) {
+    if (req.rpc_params.namespace && req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name) {
         const write_resource = req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
         const bucket_nsfs_config = write_resource && write_resource.nsfs_config;
         if (bucket_nsfs_config) {
@@ -1494,10 +1499,10 @@ function get_bucket_info({
             id: bucket.owner_account._id,
         } : undefined,
         namespace: bucket.namespace ? {
-            write_resource: {
+            write_resource: bucket.namespace.write_resource ? {
                 resource: pool_server.get_namespace_resource_info(bucket.namespace.write_resource.resource).name,
                 path: bucket.namespace.write_resource.path
-            },
+            } : undefined,
             read_resources: _.map(bucket.namespace.read_resources, rs =>
                 ({ resource: pool_server.get_namespace_resource_info(rs.resource).name, path: rs.path })
             ),
@@ -1892,7 +1897,7 @@ function validate_non_nsfs_bucket_creation(req) {
     dbg.log0('validate_non_nsfs_bucket_create_allowed:', nsfs_account_config, req.rpc_params.namespace);
     if (!nsfs_account_config || !nsfs_account_config.nsfs_only) return;
 
-    const nsr = req.rpc_params.namespace && req.system.namespace_resources_by_name &&
+    const nsr = req.rpc_params.namespace && req.rpc_params.namespace.write_resource && req.system.namespace_resources_by_name &&
         req.system.namespace_resources_by_name[req.rpc_params.namespace.write_resource.resource];
 
     dbg.log0('validate_non_nsfs_bucket_create_allowed: namespace_bucket_config', nsr && nsr.nsfs_config);

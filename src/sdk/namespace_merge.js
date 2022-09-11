@@ -34,10 +34,8 @@ class NamespaceMerge {
     }
 
     is_readonly_namespace() {
-        if (!_.isEmpty(this.namespaces.write_resource)) {
-            return this.namespaces.write_resource.is_readonly_namespace();
-        }
-        return true;
+        if (_.isUndefined(this.namespaces.write_resource)) return true;
+        return this.namespaces.write_resource.is_readonly_namespace();
     }
 
     /////////////////

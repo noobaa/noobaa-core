@@ -88,7 +88,6 @@ module.exports = {
             type: 'object',
             required: [
                 'read_resources',
-                'write_resource',
             ],
             properties: {
                 read_resources: {

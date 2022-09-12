@@ -77,6 +77,10 @@ jobs:
           docker login -u="${{ secrets.OCSDEVCIUSER }}" -p="${{ secrets.OCSDEVCITOKEN }}" quay.io
           docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.ocsdevlatest }} 
           docker push quay.io/${{ steps.prep.outputs.ocsdevlatest }}
+          
+      - name: Sleep for 180 seconds
+        run: sleep 180s
+        shell: bash
 
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

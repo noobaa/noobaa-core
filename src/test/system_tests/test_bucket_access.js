@@ -110,11 +110,41 @@ async function setup() {
     let account = account_by_name(system_info.accounts, full_access_user.email);
     full_access_user.access_keys = account.access_keys[0];
 
+    // replicate permission_list - loops over the permission_list and generates 
+    // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
+    await Promise.all(
+        full_access_user
+            .allowed_buckets
+            .permission_list
+            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+    );
+
     account = account_by_name(system_info.accounts, bucket1_user.email);
     bucket1_user.access_keys = account.access_keys[0];
 
+    // replicate permission_list - loops over the permission_list and generates 
+    // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
+    await Promise.all(
+        full_access_user
+            .allowed_buckets
+            .permission_list
+            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+    );
+
     account = account_by_name(system_info.accounts, no_access_user.email);
     no_access_user.access_keys = account.access_keys[0];
+
+    // replicate permission_list - loops over the permission_list and generates 
+    // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
+    await Promise.all(
+        full_access_user
+            .allowed_buckets
+            .permission_list
+            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+    );
 }
 
 function get_new_server(user) {
@@ -132,7 +162,6 @@ function get_new_server(user) {
 async function run_test() {
     await authenticate();
     await setup();
-    await test_list_buckets_returns_allowed_buckets();
     await test_bucket_write_allowed();
     await test_bucket_read_allowed();
     await test_bucket_list_allowed();
@@ -148,37 +177,6 @@ async function run_test() {
 
 /********************Tests:****************************/
 
-
-async function test_list_buckets_returns_allowed_buckets() {
-    let account;
-    let full_access_user_buckets = 0;
-    let bucket1_user_buckets = 0;
-    let server = get_new_server(full_access_user);
-
-    const system_info = await client.system.read_system();
-    account = account_by_name(system_info.accounts, full_access_user.email);
-    full_access_user_buckets = (account.allowed_buckets.permission_list || []).length;
-
-    account = account_by_name(system_info.accounts, bucket1_user.email);
-    bucket1_user_buckets = (account.allowed_buckets.permission_list || []).length;
-    let data = await server.listBuckets().promise();
-    assert(data.Buckets.length === full_access_user_buckets,
-        'expecting ' + full_access_user_buckets + ' buckets in the list, but got ' + data.Buckets.length);
-
-    let buckets = data.Buckets.map(bucket => bucket.Name);
-    assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-    assert(buckets.indexOf('bucket2') !== -1, 'expecting bucket2 to be in the list');
-
-    server = get_new_server(bucket1_user);
-    data = await server.listBuckets().promise();
-
-    assert(data.Buckets.length === bucket1_user_buckets,
-        'expecting ' + bucket1_user_buckets + ' bucket in the list, but got ' + data.Buckets.length);
-
-    buckets = data.Buckets.map(bucket => bucket.Name);
-    assert(buckets.indexOf('bucket1') !== -1, 'expecting bucket1 to be in the list');
-    console.log('test_list_buckets_returns_allowed_buckets PASSED');
-}
 
 async function test_bucket_write_allowed() {
     console.log(`Starting test_bucket_write_allowed`);
@@ -329,11 +327,10 @@ async function test_create_bucket_add_creator_permissions() {
         Bucket: unique_bucket_name
     };
     await server.createBucket(params).promise();
-    // check account server for permissions of full_access_user
-    const system_info = await client.system.read_system();
-    const allowed_buckets = account_by_name(system_info.accounts, full_access_user.email).allowed_buckets.permission_list;
-    const has_access = Boolean(allowed_buckets.find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
-    assert(has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
+
+    // Owners have full access to the bucket
+    const bucket = await client.bucket.read_bucket({ rpc_params: { name: unique_bucket_name } });
+    assert(bucket.owner_account.email.unwrap() === full_access_user.email, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
 }
 
 async function test_delete_bucket_deletes_permissions() {
@@ -342,22 +339,18 @@ async function test_delete_bucket_deletes_permissions() {
     const unique_bucket_name = 'bucket' + uuid();
 
     await server.createBucket({ Bucket: unique_bucket_name }).promise();
-    let system_info = await client.system.read_system();
 
-    let user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
-        .allowed_buckets
-        .permission_list
-        .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
+    let bucket = await client.bucket.read_bucket({ rpc_params: { name: unique_bucket_name } });
+    assert(bucket.owner_account.email.unwrap() === full_access_user.email, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
 
-    assert(user_has_access, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
     await server.deleteBucket({ Bucket: unique_bucket_name }).promise();
-    system_info = await client.system.read_system();
-    user_has_access = Boolean(account_by_name(system_info.accounts, full_access_user.email)
-        .allowed_buckets
-        .permission_list
-        .find(bucket_name => unique_bucket_name === bucket_name.unwrap()));
 
-    assert(!user_has_access, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);
+    try {
+        await client.bucket.read_bucket({ rpc_params: { name: unique_bucket_name } });
+        throw Error("the bucket must not exist");
+    } catch (error) {
+        assert(!error, 'expecting full_access_user to not have permissions to access ' + unique_bucket_name);
+    }
 }
 
 async function test_no_s3_access() {

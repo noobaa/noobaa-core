@@ -35,7 +35,7 @@ const anon_access_policy = {
     Statement: [{
         Effect: 'Allow',
         Principal: { AWS: "*" },
-        Action: ['s3:GetObject'],
+        Action: ['s3:GetObject', 's3:ListBucket'],
         Resource: [`arn:aws:s3:::*`]
     }]
 };
@@ -55,9 +55,6 @@ async function setup() {
     const account = {
         has_login: false,
         s3_access: true,
-        allowed_buckets: {
-            full_permission: true,
-        },
         default_resource: POOL_LIST[0].name
     };
     const admin_keys = (await rpc_client.account.read_account({
@@ -182,7 +179,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.deleteBucketPolicy({ // should work - owner can always delete the buckets policy
             Bucket: BKT,
         }).promise();
-        await s3_a.putBucketPolicy({ // user a have FC to bucket
+        await s3_owner.putBucketPolicy({ // s3_owner can set the policy
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         }).promise();
@@ -422,10 +419,11 @@ mocha.describe('s3_bucket_policy', function() {
                 Resource: [`arn:aws:s3:::${BKT_B}`]
             }]
         };
-        await s3_owner.putBucketPolicy({ // should work - system owner can always update the buckets policy
+        await s3_b.putBucketPolicy({ // should work - owner can update the buckets policy unless explicitly denied
             Bucket: BKT_B,
             Policy: JSON.stringify(policy)
         }).promise();
+
         await assert_throws_async(s3_b.listObjects({ // should fail - bucket owner cwas explicitly denied
             Bucket: BKT_B,
         }).promise());

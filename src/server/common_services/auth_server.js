@@ -595,26 +595,16 @@ function _prepare_auth_request(req) {
         dbg.log3('load auth system:', req.system && req.system._id);
     };
 
-    req.has_bucket_permission = function(bucket) {
-        return has_bucket_permission(bucket, req.account);
+    req.has_bucket_anonymous_permission = function(bucket, action, bucket_path) {
+        return has_bucket_anonymous_permission(bucket, action, bucket_path);
     };
 
-    req.has_bucket_anonymous_permission = function(bucket) {
-        return has_bucket_anonymous_permission(bucket);
-    };
-
-    req.check_bucket_permission = function(bucket) {
-        if (!req.has_bucket_permission(bucket)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
-    };
-
-    req.has_s3_bucket_permission = function(bucket) {
+    req.has_s3_bucket_permission = function(bucket, action, bucket_path) {
         // Since this method can be called both authorized and unauthorized
         // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
         // In case of anonymous function but with authentication flow we roll back to previous code and not return here
         if (req.auth_token && typeof req.auth_token === 'object') {
-            return req.has_bucket_permission(bucket);
+            return req.has_bucket_action_permission(bucket, action, bucket_path);
         }
         // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
         // There is nothing specific to bucket permissions for the management credentials
@@ -624,18 +614,21 @@ function _prepare_auth_request(req) {
         }
 
         if (options.anonymous === true) {
-            return req.has_bucket_anonymous_permission(bucket);
+            return req.has_bucket_anonymous_permission(bucket, action, bucket_path);
         }
 
         return false;
     };
 
-    req.check_s3_bucket_permission = function(bucket) {
-        if (!req.has_s3_bucket_permission(bucket)) {
+    req.check_bucket_action_permission = function(bucket, action, bucket_path) {
+        if (!has_bucket_action_permission(bucket, req.account, action, bucket_path)) {
             throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
         }
     };
 
+    req.has_bucket_action_permission = function(bucket, action, bucket_path) {
+        return has_bucket_action_permission(bucket, req.account, action, bucket_path);
+    };
 }
 
 function _get_auth_info(account, system, authorized_by, role, extra) {
@@ -660,38 +653,59 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
     return response;
 }
 
-function has_bucket_permission(bucket, account) {
-    return _.get(account, 'allowed_buckets.full_permission', false) ||
-        _.find(
-            _.get(account, 'allowed_buckets.permission_list') || [],
-            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-        );
+/**
+ * has_bucket_action_permission returns true if the requesting account has permission to perform
+ * the given action on the given bucket.
+ * 
+ * The evaluation takes into account
+ *  - the bucket's owner account
+ *  - the bucket claim owner
+ *  - the bucket policy
+ * @param {Record<string, any>} bucket requested bucket bucket
+ * @param {Record<string, any>} account requesting account
+ * @param {string} action s3 bucket action (lowercased only)
+ * @param {string} bucket_path s3 bucket path (must start from "/")
+ * @returns {boolean} true if the account has permission to perform the action on the bucket
+ */
+function has_bucket_action_permission(bucket, account, action, bucket_path = "") {
+    dbg.log0('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
+    const is_owner = (bucket.owner_account.email.unwrap() === account.email.unwrap()) ||
+        (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
+    const bucket_policy = bucket.s3_policy;
+
+    if (!bucket_policy) return is_owner;
+    if (!action) {
+        throw new Error('has_bucket_action_permission: action is required');
+    }
+
+    const result = s3_utils.has_bucket_policy_permission(
+        bucket_policy,
+        account.email.unwrap(),
+        action,
+        `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+    );
+
+    if (result === 'DENY') return false;
+    return is_owner || result === 'ALLOW';
 }
 
-// TODO: This should be changed to ACLs / Bucket Policy
-// Currently only supporting the following configuration
-// {
-//     "Version": "2012-10-17",
-//     "Statement": [{
-//         "Sid": "PublicReadForGetBucketObjects",
-//         "Effect": "Allow",
-//         "Principal": "*",
-//         "Action": ["s3:GetObject"],
-//         "Resource": ["arn:aws:s3:::example-bucket/*"]
-//     }]
-// }
-function has_bucket_anonymous_permission(bucket) {
+/**
+ * has_bucket_anonymous_permission returns true if the bucket is configured to serve anonymous requests
+ * and the action is allowed by the bucket policy.
+ * @param {Record<string, any>} bucket bucket
+ * @param {string} action s3 action (lowercased)
+ * @param {string} bucket_path bucket path
+ * @returns {boolean} true if the bucket is configured to serve anonymous requests
+ */
+function has_bucket_anonymous_permission(bucket, action, bucket_path = "") {
     const bucket_policy = bucket.s3_policy;
     if (!bucket_policy) return false;
     return s3_utils.has_bucket_policy_permission(
         bucket_policy,
         // Account is anonymous
         undefined,
-        // TODO: Simplistic check, canned ACL public reads should support the following ops:
-        // for bucket - ListBucket, ListBucketVersions, ListBucketMultipartUploads
-        // for object - GetObject, GetObjectVersion, GetObjectTorrent
-        `s3:getobject`,
-        `arn:aws:s3:::${bucket.name.unwrap()}/*`
+        action || `s3:getobject`,
+        `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
     ) === 'ALLOW';
 }
 
@@ -735,5 +749,5 @@ exports.create_access_key_auth = create_access_key_auth;
 // it reads and prepares the authorized info on the request (req.auth).
 exports.authorize = authorize;
 exports.make_auth_token = make_auth_token;
-exports.has_bucket_permission = has_bucket_permission;
+exports.has_bucket_action_permission = has_bucket_action_permission;
 exports.has_bucket_anonymous_permission = has_bucket_anonymous_permission;

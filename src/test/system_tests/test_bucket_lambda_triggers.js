@@ -47,10 +47,6 @@ let full_access_user = {
     password: 'master',
     has_login: true,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'bucket2', 'ns.external.bucket1']
-    },
     default_resource: POOL_NAME,
 };
 
@@ -60,10 +56,6 @@ let bucket1_user = {
     password: 'onlyb1',
     has_login: true,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'ns.external.bucket1']
-    },
     default_resource: POOL_NAME,
 };
 
@@ -324,11 +316,6 @@ async function run_test() {
 
         console.log(`Checking that multi delete triggers as should for ${b}`);
         await test_trigger_run_when_should_multi(bucket1_user, b, '/tmp/multi-file', '.dat', 10);
-        //removing trigger runner access to the bucket
-        await client.bucket.update_bucket_s3_access({
-            name: b,
-            allowed_accounts: ['full_access@noobaa.com']
-        });
         // should fail as bucket1_user was removed from bucket access and is the runner of the function
         await test_trigger_dont_run_when_shouldnt(full_access_user, '/tmp/file6.dat', b);
 

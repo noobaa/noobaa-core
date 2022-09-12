@@ -92,7 +92,7 @@ mocha.describe('STS tests', function() {
             signatureVersion: 'v4',
             s3DisableBodySigning: false,
         };
-        const account = { has_login: false, s3_access: true, allowed_buckets: { full_permission: true } };
+        const account = { has_login: false, s3_access: true };
         admin_keys = (await rpc_client.account.read_account({ email: EMAIL })).access_keys;
         sts_admin = new AWS.STS({
             ...sts_creds,
@@ -107,6 +107,15 @@ mocha.describe('STS tests', function() {
                 effect: 'allow',
                 principal: [user_c],
                 action: ['sts:AssumeRole'],
+            }]
+        };
+        const s3accesspolicy = {
+            version: '2012-10-17',
+            statement: [{
+                effect: 'allow',
+                principal: [user_a, user_b, user_c],
+                action: ['s3:*'],
+                resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
             }]
         };
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
@@ -138,6 +147,12 @@ mocha.describe('STS tests', function() {
             secretAccessKey: random_access_keys.secret_key.unwrap()
         });
         accounts = accounts.concat([user_a, user_b, user_c]);
+
+        // Allow all of the accounts full access over 'first.bucket'
+        await rpc_client.bucket.put_bucket_policy({
+            name: 'first.bucket',
+            policy: s3accesspolicy,
+        });
     });
 
     mocha.after(async function() {
@@ -449,7 +464,7 @@ mocha.describe('Session token tests', function() {
             signatureVersion: 'v4',
             s3DisableBodySigning: false,
         };
-        const account_defaults = { has_login: false, s3_access: true, allowed_buckets: { full_permission: true } };
+        const account_defaults = { has_login: false, s3_access: true };
 
         for (let account of accounts) {
             account.access_keys = (await rpc_client.account.create_account({
@@ -488,6 +503,25 @@ mocha.describe('Session token tests', function() {
                 assume_role_policy: policy
             }
         }));
+
+        const s3accesspolicy = {
+            version: '2012-10-17',
+            statement: [{
+                effect: 'allow',
+                principal: [alice2],
+                action: ['s3:*'],
+                resource: [
+                    'arn:aws:s3:::first.bucket/*',
+                    'arn:aws:s3:::first.bucket',
+                ]
+            }]
+        };
+
+        // Allow all of the accounts full access over 'first.bucket'
+        await rpc_client.bucket.put_bucket_policy({
+            name: 'first.bucket',
+            policy: s3accesspolicy,
+        });
     });
 
     mocha.it('user b assume role of user a - default expiry - list s3 - should be allowed', async function() {
@@ -717,7 +751,7 @@ mocha.describe('Assume role policy tests', function() {
             action: ['sts:AssumeRole'],
         }]
     };
-    const account_defaults = { has_login: false, s3_access: true, allowed_buckets: { full_permission: true } };
+    const account_defaults = { has_login: false, s3_access: true };
 
     mocha.it('create account with role policy - missing role_config', async function() {
         const empty_role_config = {};

@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 500]*/
+/*eslint max-lines-per-function: ["error", 600]*/
 'use strict';
 
 
@@ -16,15 +16,13 @@ const path = require('path');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const fs = require('fs');
+const test_utils = require('../system_tests/test_utils');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 let new_account_params = {
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: true
-    }
 };
 
 // currently will pass only when running locally
@@ -131,6 +129,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.it('list buckets without uid, gid', async function() {
+        // Give s3_owner access to the required buckets
+        await Promise.all(
+          ["first.bucket"]
+            .map(bucket => test_utils.generate_s3_policy(EMAIL, bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_owner.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list(['first.bucket'], [bucket_name], res.Buckets);
@@ -155,6 +164,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
         s3_wrong_uid = new AWS.S3(s3_creds);
     });
     mocha.it('list buckets with wrong uid, gid', async function() {
+        // Give s3_wrong_uid access to the required buckets
+        await Promise.all(
+          ["first.bucket"]
+            .map(bucket => test_utils.generate_s3_policy('account_wrong_uid0@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_wrong_uid.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list(['first.bucket'], [bucket_name], res.Buckets);
@@ -164,14 +184,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const email = 'account_wrong_uid0@noobaa.com';
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
-        const allowed_buckets = account.allowed_buckets;
-        const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, allowed_buckets, should_fail: false },
-            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, allowed_buckets, should_fail: false },
-            { nsfs_account_config: {}, default_resource, allowed_buckets, should_fail: true },
-            { nsfs_account_config: { uid: 26041992 }, default_resource, allowed_buckets, should_fail: false }
+        const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, should_fail: false },
+            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: false },
+            { nsfs_account_config: {}, default_resource, should_fail: true },
+            { nsfs_account_config: { uid: 26041992 }, default_resource, should_fail: false }
         ];
         await P.all(_.map(arr, async item =>
-            update_account_nsfs_config(email, item.default_resource, item.allowed_buckets, item.nsfs_account_config, item.should_fail)));
+            update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail)));
     });
     mocha.it('list namespace resources after creation', async function() {
         await rpc_client.create_auth_token({
@@ -208,9 +227,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 email: 'account_s3_correct_uid1@noobaa.com',
                 name: 'account_s3_correct_uid1',
                 s3_access: true,
-                allowed_buckets: {
-                    full_permission: true
-                },
                 default_resource: nsr
             });
             assert.fail(inspect(res));
@@ -224,9 +240,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_correct_uid1@noobaa.com',
             name: 'account_s3_correct_uid1',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: process.getuid(),
@@ -257,9 +270,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_correct_uid@noobaa.com',
             name: 'account_s3_correct_uid',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: process.getuid(),
@@ -282,9 +292,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             email: 'account_s3_incorrect_uid@noobaa.com',
             name: 'account_s3_incorrect_uid',
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             default_resource: nsr,
             nsfs_account_config: {
                 uid: 26041992,
@@ -311,6 +318,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.it('list buckets with uid, gid', async function() {
+        // Give s3_correct_uid access to the required buckets
+        await Promise.all(
+          [bucket_name]
+            .map(bucket => test_utils.generate_s3_policy('account_correct_uid@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_correct_uid.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name], [], res.Buckets);
@@ -338,6 +356,18 @@ mocha.describe('bucket operations - namespace_fs', function() {
         // eslint-disable-next-line no-invalid-this
         this.timeout(600000);
 
+        // Give s3_correct_uid access to the required buckets
+        await Promise.all(
+          [bucket_name]
+            .map(bucket => test_utils.generate_s3_policy('account_correct_uid@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
+
         const res1 = await s3_correct_uid.createMultipartUpload({
             Bucket: bucket_name,
             Key: 'ob1.txt'
@@ -359,6 +389,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('put object with correct uid gid', async function() {
+        // Give s3_correct_uid access to the required buckets
+        await Promise.all(
+          [bucket_name + '-s3']
+            .map(bucket => test_utils.generate_s3_policy('account_correct_uid@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
         assert.ok(res && res.ETag);
     });
@@ -480,6 +521,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
+        // Give s3_correct_uid_default_nsr access to the required buckets
+        await Promise.all(
+            [bucket_name + '-other1', bucket_name]
+                .map(bucket => test_utils.generate_s3_policy('account_s3_correct_uid@noobaa.com', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name }).promise();
         await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-other1' }).promise();
     });
@@ -502,13 +554,12 @@ function object_in_list(res, key) {
     return ans;
 }
 
-async function update_account_nsfs_config(email, default_resource, allowed_buckets, new_nsfs_account_config, should_fail) {
+async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail) {
     try {
         await rpc_client.account.update_account_s3_access({
             email,
             s3_access: true,
             default_resource,
-            allowed_buckets,
             nsfs_account_config: new_nsfs_account_config
         });
         if (should_fail) {
@@ -651,6 +702,17 @@ mocha.describe('list objects - namespace_fs', function() {
     });
 
     mocha.it('put object 1 with uid gid - 5', async function() {
+        await Promise.all(
+          [bucket_name]
+            .map(bucket => test_utils.generate_s3_policy('account_wrong_uid_list@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
+
         let res = await s3_uid5.putObject({ Bucket: bucket_name, Key: 'only5_1', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
         console.log(inspect(res));
         res = await s3_uid5.putObject({ Bucket: bucket_name, Key: 'dir1/only5_2', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
@@ -666,16 +728,49 @@ mocha.describe('list objects - namespace_fs', function() {
         assert.ok(stat1.mode === 16888 && stat2.mode === 33272);
     });
     mocha.it('list object - with correct uid gid - 5', async function() {
+        await Promise.all(
+          [bucket_name]
+            .map(bucket => test_utils.generate_s3_policy('account_wrong_uid_list@noobaa.com', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
+
         const res = await s3_uid5.listObjects({ Bucket: bucket_name }).promise();
         assert.ok(object_in_list(res, 'dir1/only5_2') && object_in_list(res, 'only5_1'));
     });
 
     mocha.it('list object - with correct uid gid - 6', async function() {
+        await Promise.all(
+            [bucket_name]
+              .map(bucket => test_utils.generate_s3_policy('account_correct_uid_list1@noobaa.com', bucket, ["s3:*"]))
+              .map(generated =>
+                rpc_client.bucket.put_bucket_policy({
+                  name: generated.params.bucket,
+                  policy: generated.policy,
+                })
+              )
+        );
+
         const res = await s3_uid6.listObjects({ Bucket: bucket_name }).promise();
         assert.ok(!object_in_list(res, 'dir1/only5_2') && object_in_list(res, 'only5_1'));
     });
 
     mocha.it('list object - with correct uid gid - 26041993', async function() {
+        await Promise.all(
+            [bucket_name]
+              .map(bucket => test_utils.generate_s3_policy('account_correct_uid_list@noobaa.com', bucket, ["s3:*"]))
+              .map(generated =>
+                rpc_client.bucket.put_bucket_policy({
+                  name: generated.params.bucket,
+                  policy: generated.policy,
+                })
+              )
+        );
+
         const res = await s3_uid26041993.listObjects({ Bucket: bucket_name }).promise();
         assert.ok(!object_in_list(res, 'dir1/only5_2') && object_in_list(res, 'only5_1'));
     });
@@ -707,6 +802,7 @@ async function put_and_delete_objects(s3_account, bucket, key, body, should_fail
 }
 
 mocha.describe('nsfs account configurations', function() {
+    this.timeout(10000); // eslint-disable-line no-invalid-this
     const nsr1 = 'nsr1';
     const nsr2 = 'nsr2';
     const bucket_name1 = 'src-bucket1';
@@ -821,6 +917,17 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket allowed non nsfs buckets - default pool', async function() {
         const s3_account = accounts.account1;
         await s3_account.createBucket({ Bucket: regular_bucket_name[0] }).promise();
+        // Give account access to the required buckets
+        await Promise.all(
+          [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]]
+            .map(bucket => test_utils.generate_s3_policy('account1@noobaa.io', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]], [], res.Buckets);
@@ -831,6 +938,17 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account3;
         await s3_account.createBucket({ Bucket: regular_bucket_name[1] }).promise();
+        // Give account access to the required buckets
+        await Promise.all(
+          [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]]
+            .map(bucket => test_utils.generate_s3_policy('account3@noobaa.io', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]], [], res.Buckets);
@@ -840,6 +958,17 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account_nsfs_only3;
         await s3_account.createBucket({ Bucket: regular_bucket_name[2] }).promise();
+        // Give account access to the required buckets
+        await Promise.all(
+          [bucket_name1, regular_bucket_name[2]]
+            .map(bucket => test_utils.generate_s3_policy('account_nsfs_only3@noobaa.io', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, regular_bucket_name[2]], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
@@ -884,6 +1013,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 list buckets allowed non nsfs buckets', async function() {
         const s3_account = accounts.account1;
+        // Give account access to the required buckets
+        await Promise.all(
+          [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2]
+            .map(bucket => test_utils.generate_s3_policy('account1@noobaa.io', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], [], res.Buckets);
@@ -893,6 +1033,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 list buckets allowed non nsfs buckets', async function() {
         const s3_account = accounts.account_nsfs_only1;
+        // Give account access to the required buckets
+        await Promise.all(
+          [bucket_name1]
+            .map(bucket => test_utils.generate_s3_policy('account_nsfs_only1@noobaa.io', bucket, ["s3:*"]))
+            .map(generated =>
+              rpc_client.bucket.put_bucket_policy({
+                name: generated.params.bucket,
+                policy: generated.policy,
+              })
+            )
+        );
         const res = await s3_account.listBuckets().promise();
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
@@ -905,6 +1056,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 object bucket using nsfs_only=false account - regular-bucket', async function() {
         const s3_account = accounts.account1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [regular_bucket_name[0]]
+                .map(bucket => test_utils.generate_s3_policy('account1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             regular_bucket_name[0],
             'allowed_key',
@@ -914,6 +1076,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object using nsfs_only=true account - first.bucket', async function() {
         const s3_account = accounts.account_nsfs_only1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [non_nsfs_bucket1]
+                .map(bucket => test_utils.generate_s3_policy('account_nsfs_only1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             non_nsfs_bucket1,
             'allowed_key12',
@@ -924,6 +1097,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object using nsfs_only=false account - second.bucket(s3 compatible namespace bucket)', async function() {
         const s3_account = accounts.account1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [non_nsfs_bucket2]
+                .map(bucket => test_utils.generate_s3_policy('account1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             non_nsfs_bucket2,
             'allowed_key',
@@ -933,6 +1117,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object using nsfs_only=true account - second.bucket(s3 compatible namespace bucket)', async function() {
         const s3_account = accounts.account_nsfs_only1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [non_nsfs_bucket2]
+                .map(bucket => test_utils.generate_s3_policy('account_nsfs_only1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             non_nsfs_bucket2,
             'allowed_key',
@@ -943,6 +1138,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object allowed non nsfs buckets - nsfs bucket', async function() {
         const s3_account = accounts.account1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [bucket_name1]
+                .map(bucket => test_utils.generate_s3_policy('account1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             bucket_name1,
             'allowed_key-nsfs1',
@@ -952,6 +1158,17 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put object allowed non nsfs buckets - nsfs bucket', async function() {
         const s3_account = accounts.account_nsfs_only1;
+        // Give account access to the required buckets
+        await Promise.all(
+            [bucket_name1]
+                .map(bucket => test_utils.generate_s3_policy('account_nsfs_only1@noobaa.io', bucket, ["s3:*"]))
+                .map(generated =>
+                    rpc_client.bucket.put_bucket_policy({
+                        name: generated.params.bucket,
+                        policy: generated.policy,
+                    })
+                )
+        );
         await put_and_delete_objects(s3_account,
             bucket_name1,
             'allowed_key-nsfs2',

@@ -56,10 +56,6 @@ const CEPH_TEST = {
         email: 'ceph.alt@noobaa.com',
         //password: 'ceph',
         has_login: false,
-        allowed_buckets: {
-            full_permission: false,
-            permission_list: []
-        },
         s3_access: true,
     },
     new_account_params_tenant: {
@@ -67,10 +63,6 @@ const CEPH_TEST = {
         email: 'ceph.tenant@noobaa.com',
         //password: 'ceph',
         has_login: false,
-        allowed_buckets: {
-            full_permission: false,
-            permission_list: []
-        },
         s3_access: true,
     }
 };

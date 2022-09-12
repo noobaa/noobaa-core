@@ -408,24 +408,6 @@ module.exports = {
             }
         },
 
-        update_bucket_s3_access: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['name', 'allowed_accounts'],
-                properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
-                    allowed_accounts: {
-                        type: 'array',
-                        items: { $ref: 'common_api#/definitions/account_name' },
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         export_bucket_bandwidth_usage: {
             method: 'GET',
             params: {
@@ -692,49 +674,6 @@ module.exports = {
                         type: 'string'
                     },
                 }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        claim_bucket: {
-            method: 'PUT',
-            required: ['name', 'email', 'create_bucket', 'namespace'],
-            params: {
-                type: 'object',
-                properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
-                    tiering: { $ref: 'common_api#/definitions/tiering_name' },
-                    email: { $ref: 'common_api#/definitions/email' },
-                    create_bucket: { type: 'boolean' },
-                    bucket_claim: { $ref: '#/definitions/bucket_claim' },
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['access_keys'],
-                properties: {
-                    access_keys: {
-                        $ref: 'common_api#/definitions/access_keys'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        delete_claim: {
-            method: 'PUT',
-            required: ['name', 'email', 'delete_bucket'],
-            params: {
-                type: 'object',
-                properties: {
-                    name: { $ref: 'common_api#/definitions/bucket_name' },
-                    email: { $ref: 'common_api#/definitions/email' },
-                    delete_bucket: { type: 'boolean' }
-                },
             },
             auth: {
                 system: 'admin'

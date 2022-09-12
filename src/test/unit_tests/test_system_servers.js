@@ -42,19 +42,21 @@ mocha.describe('system_servers', function() {
         const accounts_status = await rpc_client.account.accounts_status();
         await assert(accounts_status.has_accounts, 'has_accounts');
 
-        try {
-            await rpc_client.account.create_account({
-                name: EMAIL1,
-                email: EMAIL1,
-                has_login: false,
-                s3_access: true,
-                allow_bucket_creation: false
-            });
-        } catch (err) {
-            if (err.rpc_code !== 'BAD_REQUEST') {
-                throw err;
-            }
-        }
+        // We expect this to work now, because it is completely reasonable to
+        // have an account with no buckets.
+        // try {
+        //     await rpc_client.account.create_account({
+        //         name: EMAIL1,
+        //         email: EMAIL1,
+        //         has_login: false,
+        //         s3_access: true,
+        //         allow_bucket_creation: false
+        //     });
+        // } catch (err) {
+        //     if (err.rpc_code !== 'BAD_REQUEST') {
+        //         throw err;
+        //     }
+        // }
 
         await rpc_client.account.create_account({
             name: EMAIL1,
@@ -67,24 +69,6 @@ mocha.describe('system_servers', function() {
         await rpc_client.system.read_system();
         await rpc_client.account.delete_account({ email: EMAIL1 });
         await rpc_client.system.read_system();
-
-        await rpc_client.account.create_account({
-            name: EMAIL1,
-            email: EMAIL1,
-            has_login: false,
-            s3_access: true,
-            allow_bucket_creation: false,
-            allowed_buckets: {
-                full_permission: true,
-                permission_list: ['first.bucket']
-            },
-        });
-
-        await rpc_client.system.read_system();
-        await rpc_client.account.delete_account({ email: EMAIL1 });
-        await rpc_client.system.read_system();
-
-
     });
     mocha.it('setting up pools works', async function() {
         this.timeout(300000); // eslint-disable-line no-invalid-this
@@ -112,10 +96,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL1,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME
         });
         await rpc_client.system.read_system();
@@ -146,10 +126,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL1,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID,
@@ -163,10 +139,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL2,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
             nsfs_account_config: {
                 uid: UID + 1,
@@ -180,10 +152,6 @@ mocha.describe('system_servers', function() {
             email: EMAIL3,
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: false,
-                permission_list: []
-            },
             default_resource: DEFAULT_POOL_NAME,
         };
         try {

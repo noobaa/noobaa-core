@@ -125,9 +125,6 @@ mocha.describe('Encryption tests', function() {
             let new_account_params = {
                 has_login: false,
                 s3_access: true,
-                allowed_buckets: {
-                    full_permission: true
-                }
             };
             let i;
             for (i = 0; i < 20; i++) {
@@ -623,9 +620,6 @@ mocha.describe('Rotation tests', function() {
         let new_account_params = {
             has_login: false,
             s3_access: true,
-            allowed_buckets: {
-                full_permission: true
-            },
             email: 'account-after-disable-ststem',
             name: 'account-after-disable-ststem'
         };
@@ -991,9 +985,6 @@ async function populate_system(rpc_client) {
     let new_account_params = {
         has_login: false,
         s3_access: true,
-        allowed_buckets: {
-            full_permission: true
-        }
     };
     const external_connection = {
         auth_method: 'AWS_V2',
@@ -1055,9 +1046,6 @@ async function create_delete_external_connections(rpc_client) {
     let new_account_params = {
         has_login: false,
         s3_access: true,
-        allowed_buckets: {
-            full_permission: true
-        }
     };
     const external_connection = {
         auth_method: 'AWS_V2',

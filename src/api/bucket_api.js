@@ -1083,7 +1083,6 @@ module.exports = {
                     type: 'object',
                     required: [
                         'read_resources',
-                        'write_resource',
                     ],
                     properties: {
                         read_resources: {
@@ -1356,7 +1355,7 @@ module.exports = {
 
         namespace_bucket_config: {
             type: 'object',
-            required: ['write_resource', 'read_resources'],
+            required: ['read_resources'],
             properties: {
                 write_resource: {
                     $ref: '#/definitions/namespace_resource_config'

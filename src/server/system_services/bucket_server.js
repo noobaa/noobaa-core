@@ -185,7 +185,7 @@ async function create_bucket(req) {
                 )) {
                 throw new RpcError('INVALID_READ_RESOURCES');
             }
-            if (req.rpc_params.namespace.write_resource && !write_resource) {
+            if (req.rpc_params.namespace.write_resource.resource && !write_resource) {
                 throw new RpcError('INVALID_WRITE_RESOURCES');
             }
 

@@ -218,9 +218,8 @@ async function authorize_request_policy(req) {
     const account = await req.object_sdk.rpc_client.account.read_account({});
     const is_system_owner = account.email.unwrap() === system_owner.unwrap();
 
-    // system owner by design can always change bucket policy
-    // bucket owner and bucket claim owner has FC ACL by design - so no need to check bucket policy
-    if (is_system_owner && req.op_name.endsWith('bucket_policy')) return;
+    // @TODO: System owner as a construct should be removed - Temporary
+    if (is_system_owner) return;
 
     const is_owner = (function() {
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;

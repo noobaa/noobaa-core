@@ -658,6 +658,8 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  * the given action on the given bucket.
  * 
  * The evaluation takes into account
+ *  @TODO: System owner as a construct needs to be removed 
+ *  - system owner must be able to access all buckets 
  *  - the bucket's owner account
  *  - the bucket claim owner
  *  - the bucket policy
@@ -669,6 +671,10 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  */
 function has_bucket_action_permission(bucket, account, action, bucket_path = "") {
     dbg.log0('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
+
+    // If the system owner account wants to access the bucket, allow it
+    if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;
+
     const is_owner = (bucket.owner_account.email.unwrap() === account.email.unwrap()) ||
         (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
     const bucket_policy = bucket.s3_policy;

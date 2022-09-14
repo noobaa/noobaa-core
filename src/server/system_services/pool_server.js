@@ -1156,6 +1156,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key,
+        access_mode: namespace_resource.access_mode
     };
     const nsfs_info = namespace_resource.nsfs_config && {
         fs_root_path: namespace_resource.nsfs_config.fs_root_path,

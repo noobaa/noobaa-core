@@ -266,6 +266,7 @@ async function create_namespace_resource(req) {
             connection.secret_key, req.account.master_key_id._id);
 
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
+            aws_sts_arn: connection.aws_sts_arn,
             endpoint: connection.endpoint,
             target_bucket: req.rpc_params.target_bucket,
             access_key: connection.access_key,
@@ -1156,7 +1157,8 @@ function get_namespace_resource_extended_info(namespace_resource) {
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key,
-        access_mode: namespace_resource.access_mode
+        access_mode: namespace_resource.access_mode,
+        aws_sts_arn: namespace_resource.connection.aws_sts_arn || undefined,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
         fs_root_path: namespace_resource.nsfs_config.fs_root_path,

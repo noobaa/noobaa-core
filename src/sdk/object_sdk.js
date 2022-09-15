@@ -329,6 +329,7 @@ class ObjectSDK {
     }
 
     _setup_single_namespace(namespace_resource_config, bucket_id) {
+
         const ns_info = namespace_resource_config.resource;
         if (ns_info.endpoint_type === 'NOOBAA') {
             if (ns_info.target_bucket) {
@@ -337,7 +338,8 @@ class ObjectSDK {
                 return this.namespace_nb;
             }
         }
-        if (ns_info.endpoint_type === 'AWS' ||
+        if (ns_info.endpoint_type === 'AWSSTS' ||
+            ns_info.endpoint_type === 'AWS' ||
             ns_info.endpoint_type === 'S3_COMPATIBLE' ||
             ns_info.endpoint_type === 'FLASHBLADE' ||
             ns_info.endpoint_type === 'IBM_COS') {
@@ -352,6 +354,7 @@ class ObjectSDK {
                 s3_params: {
                     params: { Bucket: ns_info.target_bucket },
                     endpoint: ns_info.endpoint,
+                    aws_sts_arn: ns_info.aws_sts_arn,
                     accessKeyId: ns_info.access_key.unwrap(),
                     secretAccessKey: ns_info.secret_key.unwrap(),
                     // region: 'us-east-1', // TODO needed?

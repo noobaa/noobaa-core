@@ -512,7 +512,6 @@ async function read_bucket_sdk_info(req) {
             should_create_underlying_storage: bucket.namespace.should_create_underlying_storage
         };
     }
-
     return reply;
 }
 
@@ -1075,7 +1074,7 @@ function get_cloud_buckets(req) {
                         agent: http_utils.get_unsecured_agent(connection.endpoint)
                     }
                 });
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWSSTS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
                     .then(data => data.Buckets.map(bucket =>

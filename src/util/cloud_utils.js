@@ -13,6 +13,7 @@ const SensitiveString = require('./sensitive_string');
 const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/oidc-token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
 const defaultSTSCredsValidity = 3600;
+
 function find_cloud_connection(account, conn_name) {
     let conn = (account.sync_credentials_cache || [])
         .filter(sync_conn => sync_conn.name === conn_name)[0];
@@ -24,8 +25,9 @@ function find_cloud_connection(account, conn_name) {
 
     return conn;
 }
+
 async function createSTSS3Client(params, additionalParams) {
-   const creds = await generate_aws_sts_creds(params, additionalParams.RoleSessionName);
+    const creds = await generate_aws_sts_creds(params, additionalParams.RoleSessionName);
     return new AWS.S3({
         credentials: creds,
         region: params.region,
@@ -45,15 +47,15 @@ async function generate_aws_sts_creds(params, roleSessionName) {
         WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
         DurationSeconds: defaultSTSCredsValidity
     }).promise());
-        if (_.isEmpty(creds.Credentials)) {
+    if (_.isEmpty(creds.Credentials)) {
         dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
         throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
-        }
-        return new AWS.Credentials(
-            creds.Credentials.AccessKeyId,
-            creds.Credentials.SecretAccessKey,
-            creds.Credentials.SessionToken
-        );
+    }
+    return new AWS.Credentials(
+        creds.Credentials.AccessKeyId,
+        creds.Credentials.SecretAccessKey,
+        creds.Credentials.SessionToken
+    );
 }
 
 function get_signed_url(params) {

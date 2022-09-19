@@ -14,4 +14,4 @@ jobs:
         id: run-test
         run: |
           make test || exit 1
-          docker run --user root --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1
+          docker run --privileged --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1

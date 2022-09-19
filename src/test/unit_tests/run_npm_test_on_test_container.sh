@@ -48,7 +48,7 @@ do
                         command=${*}
                         command_array=(${command})
                         shift ${#command_array[@]};;
-        -s|--single)    command="./node_modules/mocha/bin/mocha src/test/unit_tests/${2}"
+        -s|--single)    command="./node_modules/mocha/bin/mocha.js src/test/unit_tests/${2}"
                         shift 2;;
         *)              usage;;
     esac

@@ -55,7 +55,7 @@ COPY .eslintrc.js /root/node_modules/noobaa-core
 COPY .eslintignore /root/node_modules/noobaa-core
 
 # Making mocha accessible 
-RUN ln -s /root/node_modules/noobaa-core/node_modules/mocha/bin/mocha /usr/local/bin
+RUN ln -s /root/node_modules/noobaa-core/node_modules/mocha/bin/mocha.js /usr/local/bin
 
 ENV SPAWN_WRAP_SHIM_ROOT /data
 RUN mkdir -p /data && \

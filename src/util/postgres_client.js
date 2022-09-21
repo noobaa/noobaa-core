@@ -529,16 +529,20 @@ class PostgresSequence {
             return 1;
         }
         dbg.log0(`✅ Table ${name} is found, starting migration to native sequence`);
-        const mongoSeq = new MongoSequence({ name, client: this });
+        const mongoSeq = new MongoSequence({ name, client: this.client });
         const start = await mongoSeq.nextsequence();
 
         return start;
     }
 
+    seqname() {
+        return this.name + "native";
+    }
+
     async _create(pool) {
         try {
             const start = await this.migrateFromMongoSequence(this.name, pool);
-            await _do_query(pool, {text: `CREATE SEQUENCE IF NOT EXISTS ${this.name} AS BIGINT START ${start};`}, 0);
+            await _do_query(pool, {text: `CREATE SEQUENCE IF NOT EXISTS ${this.seqname()} AS BIGINT START ${start};`}, 0);
             if (start !== 1) {
                 await _do_query(pool, {text: `DROP table IF EXISTS ${this.name};`}, 0);
                 dbg.log0(`✅ Table ${this.name} is dropped, migration to native sequence is completed`);
@@ -551,7 +555,7 @@ class PostgresSequence {
 
     async nextsequence() {
         if (this.init_promise) await this.init_promise;
-        const q = { text: `SELECT nextval('${this.name}')` };
+        const q = { text: `SELECT nextval('${this.seqname()}')` };
         const res = await _do_query(this.client.pool, q, 0);
         return res.rows[0].nextval;
     }

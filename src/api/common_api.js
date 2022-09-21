@@ -854,6 +854,21 @@ module.exports = {
                 delete_object: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
+                list_objects: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                head_object: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                initiate_multipart: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                upload_part: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                complete_object_upload: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
             }
         },
 

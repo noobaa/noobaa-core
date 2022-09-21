@@ -436,8 +436,22 @@ class ObjectSDK {
     /////////////////
 
     async list_objects(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        return ns.list_objects(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            const reply = await ns.list_objects(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `list_objects`,
+                error,
+            });
+        }
     }
 
     async list_uploads(params) {
@@ -455,8 +469,22 @@ class ObjectSDK {
     /////////////////
 
     async read_object_md(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        return ns.read_object_md(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            const reply = await ns.read_object_md(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `head_object`,
+                error,
+            });
+        }
     }
 
     async read_object_stream(params, res) {
@@ -599,9 +627,23 @@ class ObjectSDK {
     /////////////////////////////
 
     async create_object_upload(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        this._check_is_readonly_namespace(ns);
-        const reply = await ns.create_object_upload(params, this);
+        const start_time = Date.now();
+        let reply;
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            reply = await ns.create_object_upload(params, this);
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `initiate_multipart`,
+                error,
+            });
+        }
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
             bucket_name: params.bucket,
@@ -612,10 +654,24 @@ class ObjectSDK {
     }
 
     async upload_multipart(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        this._check_is_readonly_namespace(ns);
-        if (params.copy_source) await this.fix_copy_source_params(params, ns);
-        return ns.upload_multipart(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            if (params.copy_source) await this.fix_copy_source_params(params, ns);
+            const reply = ns.upload_multipart(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `upload_part`,
+                error,
+            });
+        }
     }
 
     async list_multiparts(params) {
@@ -624,9 +680,23 @@ class ObjectSDK {
     }
 
     async complete_object_upload(params) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        this._check_is_readonly_namespace(ns);
-        return ns.complete_object_upload(params, this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            this._check_is_readonly_namespace(ns);
+            const reply = await ns.complete_object_upload(params, this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `complete_object_upload`,
+                error,
+            });
+        }
     }
 
     async abort_object_upload(params) {

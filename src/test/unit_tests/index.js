@@ -99,3 +99,6 @@ require('./test_cloud_utils');
 
 // Lifecycle
 require('./test_lifecycle');
+
+// MD Sequence
+require('./test_mdsequence');

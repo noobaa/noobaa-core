@@ -139,9 +139,11 @@ class EndpointStatsCollector {
             error_count: 0,
         };
         const ops_stats = this.op_stats[op_name];
-        ops_stats.min_time = Math.min(ops_stats.min_time, time);
-        ops_stats.max_time = Math.max(ops_stats.max_time, time);
-        ops_stats.sum_time += time;
+        if (error === 0) {
+            ops_stats.min_time = Math.min(ops_stats.min_time, time);
+            ops_stats.max_time = Math.max(ops_stats.max_time, time);
+            ops_stats.sum_time += time;
+        }
         ops_stats.count += 1;
         ops_stats.error_count += error;
         this._trigger_send_stats();

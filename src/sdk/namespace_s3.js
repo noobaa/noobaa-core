@@ -8,6 +8,7 @@ const util = require('util');
 const dbg = require('../util/debug_module')(__filename);
 const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
+const cloud_utils = require('../util/cloud_utils');
 const blob_translator = require('./blob_translator');
 const stats_collector = require('./endpoint_stats_collector');
 const config = require('../../config');
@@ -20,12 +21,19 @@ class NamespaceS3 {
 
     constructor({ namespace_resource_id, rpc_client, s3_params }) {
         this.namespace_resource_id = namespace_resource_id;
+        this.s3_params = s3_params;
         this.access_key = s3_params.accessKeyId;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
         this.bucket = String(this.s3.config.params.Bucket);
         this.rpc_client = rpc_client;
         this.access_mode = s3_params.access_mode;
+
+        if (this.s3_params.aws_sts_arn) {
+            this.additionalS3Params = {
+                RoleSessionName: 'block_store_operations'
+            };
+        }
     }
 
     get_write_resource() {
@@ -61,6 +69,7 @@ class NamespaceS3 {
     async list_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params));
 
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.listObjects({
             Bucket: this.bucket,
             Prefix: params.prefix,
@@ -82,6 +91,7 @@ class NamespaceS3 {
 
     async list_uploads(params, object_sdk) {
         dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.listMultipartUploads({
             Bucket: this.bucket,
@@ -106,6 +116,7 @@ class NamespaceS3 {
 
     async list_object_versions(params, object_sdk) {
         dbg.log0('NamespaceS3.list_object_versions:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.listObjectVersions({
             Bucket: this.bucket,
@@ -153,6 +164,7 @@ class NamespaceS3 {
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
+            if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -196,6 +208,7 @@ class NamespaceS3 {
 
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         return new Promise((resolve, reject) => {
             const request = {
                 Bucket: this.bucket,
@@ -247,6 +260,7 @@ class NamespaceS3 {
 
     async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         let res;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
@@ -334,6 +348,7 @@ class NamespaceS3 {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         const request = {
             Bucket: this.bucket,
@@ -407,6 +422,7 @@ class NamespaceS3 {
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.listParts({
             Bucket: this.bucket,
             Key: params.key,
@@ -430,6 +446,7 @@ class NamespaceS3 {
 
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.completeMultipartUpload({
             Bucket: this.bucket,
             Key: params.key,
@@ -449,6 +466,7 @@ class NamespaceS3 {
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.abortMultipartUpload({
             Bucket: this.bucket,
             Key: params.key,
@@ -464,6 +482,7 @@ class NamespaceS3 {
 
     async put_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.put_object_tagging:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const TagSet = params.tagging.map(tag => ({
             Key: tag.key,
@@ -486,6 +505,7 @@ class NamespaceS3 {
 
     async delete_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.deleteObjectTagging({
             Bucket: this.bucket,
             Key: params.key,
@@ -501,6 +521,7 @@ class NamespaceS3 {
 
     async get_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.getObjectTagging({
             Bucket: this.bucket,
             Key: params.key,
@@ -526,6 +547,7 @@ class NamespaceS3 {
 
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.getObjectAcl({
             Bucket: this.bucket,
@@ -543,6 +565,7 @@ class NamespaceS3 {
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.putObjectAcl({
             Bucket: this.bucket,
@@ -560,6 +583,7 @@ class NamespaceS3 {
 
     async delete_object(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_object:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.deleteObject({
             Bucket: this.bucket,
@@ -587,6 +611,7 @@ class NamespaceS3 {
 
     async delete_multiple_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_multiple_objects:', this.bucket, inspect(params));
+        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
 
         const res = await this.s3.deleteObjects({
             Bucket: this.bucket,

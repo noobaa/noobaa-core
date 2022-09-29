@@ -61,7 +61,7 @@ class NamespaceMonitor {
             try {
                 if (endpoint_type === 'NSFS') {
                     await this.test_nsfs_resource(nsr);
-                } else if (['AWS', 'S3_COMPATIBLE', 'IBM_COS'].includes(endpoint_type)) {
+                } else if (['AWS', 'AWSSTS', 'S3_COMPATIBLE', 'IBM_COS'].includes(endpoint_type)) {
                     await this.test_s3_resource(nsr);
                 } else if (endpoint_type === 'AZURE') {
                     await this.test_blob_resource(nsr);

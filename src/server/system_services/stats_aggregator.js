@@ -289,6 +289,7 @@ async function get_partial_providers_stats(req) {
     const provider_stats = {};
     const supported_cloud_types = [
         'AWS',
+        'AWSSTS',
         'AZURE',
         'S3_COMPATIBLE',
         'GOOGLE',
@@ -719,6 +720,12 @@ async function get_cloud_pool_stats(req) {
             cloud_pool_stats.cloud_pool_count += 1;
             switch (pool.cloud_pool_info.endpoint_type) {
                 case 'AWS':
+                    cloud_pool_stats.pool_target.amazon += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;
+                    }
+                    break;
+                case 'AWSSTS':
                     cloud_pool_stats.pool_target.amazon += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;

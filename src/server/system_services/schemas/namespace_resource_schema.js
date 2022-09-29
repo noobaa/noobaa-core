@@ -30,9 +30,12 @@ module.exports = {
             type: 'object',
             required: ['endpoint_type', 'endpoint', 'target_bucket', 'access_key', 'secret_key'],
             properties: {
+                aws_sts_arn: {
+                    type: 'string'
+                },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                    enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 auth_method: {
                     type: 'string',

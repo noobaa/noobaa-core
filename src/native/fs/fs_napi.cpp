@@ -151,6 +151,13 @@ set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
 
 }
 
+void 
+set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string work_name, double took_time, int error){
+    fs_worker_stats["name"] = Napi::String::New(env, work_name);
+    fs_worker_stats["took_time"] = Napi::Number::New(env, took_time);
+    fs_worker_stats["error"] = Napi::Number::New(env, error);
+}
+
 /**
  * FSWorker is a general async worker for our fs operations
  */
@@ -168,8 +175,11 @@ struct FSWorker : public Napi::AsyncWorker
     gid_t _gid;
     std::string _backend;
     std::string _desc;
+    std::string _work_name;
     int _errno;
     int _warn_threshold_ms;
+    double _took_time;
+    Napi::FunctionReference _report_fs_stats;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
@@ -180,17 +190,21 @@ struct FSWorker : public Napi::AsyncWorker
         , _gid(ThreadScope::orig_gid)
         , _errno(0)
         , _warn_threshold_ms(0)
+        , _took_time(0)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
-        Napi::Object config = info[0].As<Napi::Object>();
-        if (config.Has("uid")) _uid = config.Get("uid").ToNumber();
-        if (config.Has("gid")) _gid = config.Get("gid").ToNumber();
-        if (config.Has("backend")) _backend = config.Get("backend").ToString();
-        if (config.Has("warn_threshold_ms")) _warn_threshold_ms = config.Get("warn_threshold_ms").ToNumber();
+        Napi::Object fs_context = info[0].As<Napi::Object>();
+        if (fs_context.Has("uid")) _uid = fs_context.Get("uid").ToNumber();
+        if (fs_context.Has("gid")) _gid = fs_context.Get("gid").ToNumber();
+        if (fs_context.Has("backend")) _backend = fs_context.Get("backend").ToString();
+        if (fs_context.Has("warn_threshold_ms")) _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
+        if (fs_context.Has("report_fs_stats")) _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
+
     }
     void Begin(std::string desc)
     {
         _desc = desc;
+        _work_name = _desc.substr(0, _desc.find(" "));
         DBG1("FS::FSWorker::Begin: " << _desc);
     }
     virtual void Work() = 0;
@@ -202,11 +216,11 @@ struct FSWorker : public Napi::AsyncWorker
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
         auto end_time = std::chrono::high_resolution_clock::now();
-        double took_time = std::chrono::duration<double, std::milli>(end_time - start_time).count();
-        if (_warn_threshold_ms && took_time > _warn_threshold_ms) {
-            DBG0("FS::FSWorker::Execute: WARNING " << _desc << " took too long: " << took_time << " ms");
+        _took_time = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+        if (_warn_threshold_ms && _took_time > _warn_threshold_ms) {
+            DBG0("FS::FSWorker::Execute: WARNING " << _desc << " took too long: " << _took_time << " ms");
         } else {
-            DBG1("FS::FSWorker::Execute: " << _desc << " took: " << took_time << " ms");
+            DBG1("FS::FSWorker::Execute: " << _desc << " took: " << _took_time << " ms");
         }
     }
     void SetSyscallError()
@@ -223,12 +237,19 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void OnOK() override
     {
         DBG1("FS::FSWorker::OnOK: undefined " << _desc);
+        Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(Env().Undefined());
     }
     virtual void OnError(Napi::Error const& error) override
     {
         Napi::Env env = Env();
         DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 1);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         auto obj = error.Value();
         if (_errno) {
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
@@ -282,6 +303,9 @@ struct Stat : public FSWorker
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         set_stat_res(res, env, _stat_res);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
 
         _deferred.Resolve(res);
     }
@@ -312,6 +336,9 @@ struct LStat : public FSWorker
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         set_stat_res(res, env, _stat_res);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         
         _deferred.Resolve(res);
     }
@@ -342,6 +369,9 @@ struct Statfs : public FSWorker
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         set_statfs_res(res, env, _statfs_res);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
 
         _deferred.Resolve(res);
     }
@@ -409,7 +439,7 @@ struct Unlinkat : public FSWorker
         _dirfd = info[1].As<Napi::Number>();
         _path = info[2].As<Napi::String>();
         _flags = info[3].As<Napi::Number>();
-        Begin(XSTR() << DVAL(_path) << DVAL(_dirfd) << DVAL(_flags));
+        Begin(XSTR() << "Unlinkat " << DVAL(_path) << DVAL(_dirfd) << DVAL(_flags));
     }
     virtual void Work()
     {
@@ -430,7 +460,7 @@ struct Link : public FSWorker
     {
         _oldpath = info[1].As<Napi::String>();
         _newpath = info[2].As<Napi::String>();
-        Begin(XSTR() << DVAL(_oldpath) << DVAL(_newpath));
+        Begin(XSTR() << "Link " << DVAL(_oldpath) << DVAL(_newpath));
     }
     virtual void Work()
     {
@@ -460,7 +490,7 @@ struct Linkat : public FSWorker
         _newdirfd = info[3].As<Napi::Number>();
         _newpath = info[4].As<Napi::String>();
         _flags = info[5].As<Napi::Number>();
-        Begin(XSTR() << DVAL(_oldpath) << DVAL(_olddirfd) << DVAL(_newpath) << DVAL(_newdirfd) << DVAL(_flags));
+        Begin(XSTR() << "Linkat " << DVAL(_oldpath) << DVAL(_olddirfd) << DVAL(_newpath) << DVAL(_newdirfd) << DVAL(_flags));
     }
     virtual void Work()
     {
@@ -637,6 +667,10 @@ struct Readfile : public FSWorker
     {
         DBG1("FS::FSWorker::OnOK: Readfile " << DVAL(_path));
         auto buf = Napi::Buffer<uint8_t>::Copy(Env(), _data, _len);
+        Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(buf);
     }
 };
@@ -710,6 +744,10 @@ struct Readdir : public FSWorker
         //         index += 1;
         //     }
         // }
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
+
         _deferred.Resolve(res);
     }
 };
@@ -829,6 +867,10 @@ struct FileOpen : public FSWorker
         FileWrap* w = FileWrap::Unwrap(res);
         w->_path = _path;
         w->_fd = _fd;
+        Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
     }
 };
@@ -890,6 +932,9 @@ struct FileRead : public FSWrapWorker<FileWrap>
     {
         DBG1("FS::FSWorker::OnOK: FileRead " << DVAL(_wrap->_path));
         Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(Napi::Number::New(env, _br));
     }
 };
@@ -1201,6 +1246,9 @@ struct FileGetxattr : public FSWrapWorker<FileWrap>
         for (auto it = _md.begin(); it != _md.end(); ++it) {
             res.Set(it->first, it->second);
         }
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
     }
 };
@@ -1231,6 +1279,9 @@ struct FileStat : public FSWrapWorker<FileWrap>
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         set_stat_res(res, env, _stat_res);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         
         _deferred.Resolve(res);
     }
@@ -1266,7 +1317,7 @@ struct RealPath : public FSWorker
         , _full_path(0)
     {
         _path = info[1].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path));
+        Begin(XSTR() << "RealPath " << DVAL(_path));
     }
 
     ~RealPath() {
@@ -1289,6 +1340,9 @@ struct RealPath : public FSWorker
         DBG1("FS::RealPath::OnOK: " << DVAL(_path) << DVAL(_full_path));
         Napi::Env env = Env();
         auto res = Napi::String::New(env, _full_path);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
     }
 };
@@ -1304,7 +1358,7 @@ struct GetSingleXattr : public FSWorker
     {
         _path = info[1].As<Napi::String>();
         _key = info[2].As<Napi::String>();
-        Begin(XSTR() << DVAL(_path) << DVAL(_key));
+        Begin(XSTR() << "GetSingleXattr" << DVAL(_path) << DVAL(_key));
     }
 
     virtual void Work()
@@ -1345,6 +1399,9 @@ struct GetSingleXattr : public FSWorker
         DBG1("FS::GetSingleXattr::OnOK: " << DVAL(_path) << DVAL(_val));
         Napi::Env env = Env();
         auto res = Napi::String::New(env, _val);
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
     }
 };
@@ -1466,6 +1523,10 @@ struct DirOpen : public FSWorker
         DirWrap* w = DirWrap::Unwrap(res);
         w->_path = _path;
         w->_dir = _dir;
+        Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
     }
 };
@@ -1528,6 +1589,9 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
     virtual void OnOK()
     {
         Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         if (_eof) {
             _deferred.Resolve(env.Null());
         } else {

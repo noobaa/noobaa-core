@@ -13,11 +13,32 @@ const prom_report = require('../server/analytic_services/prometheus_reporting');
 const SEND_STATS_DELAY = 30000;
 const SEND_STATS_TIMEOUT = 20000;
 
+let global_fs_stats = {};
+
+function report_fs_stats(fs_worker_stats) {
+    const time_in_microsec = Math.floor(fs_worker_stats.took_time * 1000);
+    global_fs_stats[fs_worker_stats.name.toLowerCase()] = global_fs_stats[fs_worker_stats.name.toLowerCase()] || {
+        min_time: time_in_microsec,
+        max_time: time_in_microsec,
+        sum_time: 0,
+        count: 0,
+        error_count: 0,
+    };
+    const global_fs_stat = global_fs_stats[fs_worker_stats.name.toLowerCase()];
+    if (fs_worker_stats.error === 0) {
+        global_fs_stat.min_time = Math.min(global_fs_stat.min_time, time_in_microsec);
+        global_fs_stat.max_time = Math.max(global_fs_stat.max_time, time_in_microsec);
+        global_fs_stat.sum_time += time_in_microsec;
+    }
+    global_fs_stat.count += 1;
+    global_fs_stat.error_count += fs_worker_stats.error;
+}
 class EndpointStatsCollector {
 
     constructor(rpc_client) {
         this.rpc_client = rpc_client;
         this.op_stats = {};
+        this.fs_workers_stats = {};
         this.reset_all_stats();
         this.nsfs_io_counters = this._new_namespace_stats();
         this.prom_metrics_report = prom_report.get_endpoint_report();
@@ -59,6 +80,7 @@ class EndpointStatsCollector {
             nsfs_stats: {
                 io_stats: this.nsfs_io_counters,
                 op_stats: this.op_stats,
+                fs_workers_stats: this.fs_workers_stats,
             }
         };
         try {
@@ -67,6 +89,7 @@ class EndpointStatsCollector {
             });
             this.nsfs_io_counters = this._new_namespace_stats();
             this.op_stats = {};
+            this.fs_workers_stats = {};
         } catch (err) {
             dbg.error('failed on update_nsfs_stats.', err);
         }
@@ -131,6 +154,7 @@ class EndpointStatsCollector {
     }
 
     update_ops_counters({ time, op_name, error = 0 }) {
+        this._update_fs_worker_stats();
         this.op_stats[op_name] = this.op_stats[op_name] || {
             min_time: time,
             max_time: time,
@@ -147,6 +171,26 @@ class EndpointStatsCollector {
         ops_stats.count += 1;
         ops_stats.error_count += error;
         this._trigger_send_stats();
+    }
+
+    _update_fs_worker_stats() {
+        //Go over the fs_workers_stats and update
+        for (const [key, value] of Object.entries(global_fs_stats)) {
+            const fs_stat = this.fs_workers_stats[key] || {
+                min_time: value.min_time,
+                max_time: value.min_time,
+                sum_time: 0,
+                count: 0,
+                error_count: 0,
+            };
+            fs_stat.min_time = Math.min(fs_stat.min_time, value.min_time);
+            fs_stat.max_time = Math.max(fs_stat.max_time, value.max_time);
+            fs_stat.sum_time += value.sum_time;
+            fs_stat.count += value.count;
+            fs_stat.error_count += value.error_count;
+            this.fs_workers_stats[key] = fs_stat;
+        }
+        global_fs_stats = {};
     }
 
     update_bucket_read_counters({ bucket_name, key, content_type, }) {
@@ -249,3 +293,4 @@ EndpointStatsCollector._instance = null;
 // EXPORTS
 exports.EndpointStatsCollector = EndpointStatsCollector;
 exports.instance = EndpointStatsCollector.instance;
+exports.report_fs_stats = report_fs_stats;

@@ -314,6 +314,16 @@ function _create_nsfs_report() {
         }
     }
 
+    const fs_workers_stats = stats_aggregator.get_fs_workers_stats();
+    // Building the report per fs worker name key and value
+    for (const [fs_worker_name, obj] of Object.entries(fs_workers_stats)) {
+        nsfs_report += `<br>`;
+        for (const [key, value] of Object.entries(obj)) {
+            const metric = `NooBaa_nsfs_${fs_worker_name}_${key}`.toLowerCase();
+            nsfs_report += `${metric}: ${value}<br>`;
+        }
+    }
+
     dbg.log1(`_create_nsfs_report: nsfs_report ${nsfs_report}`);
 
     return nsfs_report;

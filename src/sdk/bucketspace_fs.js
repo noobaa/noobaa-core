@@ -27,7 +27,7 @@ class BucketSpaceFS {
 
     constructor({ fs_root }) {
         this.fs_root = fs_root;
-        this.fs_config_param = {
+        this.fs_context = {
             uid: process.getuid(),
             gid: process.getgid(),
             backend: '',
@@ -41,7 +41,7 @@ class BucketSpaceFS {
 
     async list_buckets() {
         try {
-            const entries = await nb_native().fs.readdir(this.fs_config_param, this.fs_root);
+            const entries = await nb_native().fs.readdir(this.fs_context, this.fs_root);
             const dirs_only = entries.filter(entree => isDirectory(entree));
             const buckets = dirs_only.map(e => ({ name: new SensitiveString(e.name) }));
             return { buckets };
@@ -59,7 +59,7 @@ class BucketSpaceFS {
             const { name } = params;
             const bucket_path = path.join(this.fs_root, name);
             console.log(`BucketSpaceFS: read_bucket ${bucket_path}`);
-            const bucket_dir_stat = await nb_native().fs.stat(this.fs_config_param, bucket_path);
+            const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_path);
             if (!isDirectory(bucket_dir_stat)) {
                 throw new S3Error(S3Error.NoSuchBucket);
             }
@@ -109,7 +109,7 @@ class BucketSpaceFS {
             console.log(`BucketSpaceFS: create_bucket ${bucket_path}`);
             // eslint-disable-next-line no-bitwise
             const unmask_mode = config.BASE_MODE_DIR & ~config.NSFS_UMASK;
-            await nb_native().fs.mkdir(this.fs_config_param, bucket_path, unmask_mode);
+            await nb_native().fs.mkdir(this.fs_context, bucket_path, unmask_mode);
         } catch (err) {
             if (err.code === 'ENOENT') {
                 console.error('BucketSpaceFS: root dir not found', err);
@@ -124,7 +124,7 @@ class BucketSpaceFS {
             const { name } = params;
             const bucket_path = path.join(this.fs_root, name);
             console.log(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
-            await nb_native().fs.rmdir(this.fs_config_param, bucket_path);
+            await nb_native().fs.rmdir(this.fs_context, bucket_path);
         } catch (err) {
             if (err.code === 'ENOENT') {
                 console.error('BucketSpaceFS: root dir not found', err);

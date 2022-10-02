@@ -875,6 +875,102 @@ module.exports = {
             }
         },
 
+        fs_workers_stats: {
+            type: 'object',
+            properties: {
+                stat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                lstat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                statfs: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                checkaccess: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                unlink: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                unlinkat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                link: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                linkat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                mkdir: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                rmdir: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                rename: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                writefile: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                readfile: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                readdir: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                fsync: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                fileopen: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                fileclose: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                fileread: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filewrite: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filewritev: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filereplacexattr: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                finkfileat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filegetxattr: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filestat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                filefsync: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                realpath: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                getsinglexattr: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                diropen: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                dirclose: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                dirreadentry: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+            }
+        },
+
         op_stats_val: {
             type: 'object',
             properties: {

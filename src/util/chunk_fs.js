@@ -15,13 +15,13 @@ const nb_native = require('./nb_native');
  */
 class ChunkFS extends stream.Transform {
 
-    constructor({ target_file, fs_account_config, rpc_client, namespace_resource_id }) {
+    constructor({ target_file, fs_context, rpc_client, namespace_resource_id }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
         this.MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
         this.target_file = target_file;
-        this.fs_account_config = fs_account_config;
+        this.fs_context = fs_context;
         this.count = 1;
         this.rpc_client = rpc_client;
         this.namespace_resource_id = namespace_resource_id;
@@ -71,7 +71,7 @@ class ChunkFS extends stream.Transform {
                 const buffers_to_write = this.q_buffers;
                 this.q_buffers = [];
                 this.q_size = 0;
-                await this.target_file.writev(this.fs_account_config, buffers_to_write);
+                await this.target_file.writev(this.fs_context, buffers_to_write);
                 // Hold the ref on the buffers from the JS side
                 this._total_num_buffers += buffers_to_write.length;
             }

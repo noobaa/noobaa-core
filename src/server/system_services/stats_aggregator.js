@@ -289,6 +289,7 @@ async function get_partial_providers_stats(req) {
     const provider_stats = {};
     const supported_cloud_types = [
         'AWS',
+        'AWSSTS',
         'AZURE',
         'S3_COMPATIBLE',
         'GOOGLE',
@@ -719,6 +720,12 @@ async function get_cloud_pool_stats(req) {
             cloud_pool_stats.cloud_pool_count += 1;
             switch (pool.cloud_pool_info.endpoint_type) {
                 case 'AWS':
+                    cloud_pool_stats.pool_target.amazon += 1;
+                    if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
+                        cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;
+                    }
+                    break;
+                case 'AWSSTS':
                     cloud_pool_stats.pool_target.amazon += 1;
                     if (!_.includes(OPTIMAL_MODES, pool_info.mode)) {
                         cloud_pool_stats.unhealthy_pool_target.amazon_unhealthy += 1;
@@ -1246,7 +1253,17 @@ function _update_io_stats(io_stats) {
 
 function _update_ops_stats(ops_stats) {
     // Predefined op_names
-    const op_names = [`upload_object`, `delete_object`, `create_bucket`, `delete_bucket`];
+    const op_names = [
+        `upload_object`,
+        `delete_object`,
+        `create_bucket`,
+        `delete_bucket`,
+        `list_objects`,
+        `head_object`,
+        `initiate_multipart`,
+        `upload_part`,
+        `complete_object_upload`
+    ];
     //Go over the op_stats
     for (const op_name of op_names) {
         if (op_name in ops_stats) {
@@ -1256,17 +1273,27 @@ function _update_ops_stats(ops_stats) {
 }
 
 function _set_op_stats(op_name, stats) {
+    //In the event of all of the same ops are failing (count = error_count) we will not masseur the op times
+    // As this is intended as a timing masseur and not a counter. 
     if (op_stats[op_name]) {
-        const new_count = op_stats[op_name].count + stats.count;
+        const count = op_stats[op_name].count + stats.count;
+        const error_count = op_stats[op_name].error_count + stats.error_count;
         const old_sum_time = op_stats[op_name].avg_time_milisec * op_stats[op_name].count;
+        //Min time and Max time are not being counted in the endpoint stat collector if it was error
+        const min_time_milisec = Math.min(op_stats[op_name].min_time_milisec, stats.min_time);
+        const max_time_milisec = Math.max(op_stats[op_name].max_time_milisec, stats.max_time);
+        // At this point, as we populate only when there is at least one successful op, there must be old_sum_time
+        const avg_time_milisec = Math.floor((old_sum_time + stats.sum_time) / (count - error_count));
         op_stats[op_name] = {
-            min_time_milisec: Math.min(op_stats[op_name].min_time_milisec, stats.min_time),
-            max_time_milisec: Math.max(op_stats[op_name].max_time_milisec, stats.max_time),
-            avg_time_milisec: Math.floor((old_sum_time + stats.sum_time) / new_count),
-            count: new_count,
-            error_count: op_stats[op_name].error_count + stats.error_count,
+            min_time_milisec,
+            max_time_milisec,
+            avg_time_milisec,
+            count,
+            error_count,
         };
-    } else {
+        // When it is the first time we populate the op_stats with op_name we do it 
+        // only if there are more successful ops than errors.
+    } else if (stats.count > stats.error_count) {
         op_stats[op_name] = {
             min_time_milisec: stats.min_time,
             max_time_milisec: stats.max_time,

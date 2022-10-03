@@ -54,7 +54,7 @@ class Dispatcher {
         var self = this;
         item.desc = new SensitiveString(item.desc);
         dbg.log0('Adding ActivityLog entry', item);
-        item.time = item.time || new Date();
+        item.time ||= new Date();
         return ActivityLogStore.instance().create(item)
             .then(() => {
                 if (!config.SEND_EVENTS_REMOTESYS) {

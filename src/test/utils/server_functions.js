@@ -21,7 +21,7 @@ function init_reporter(report_params) {
 
 //will create a system and check that the default account status is true.
 async function create_system(server_ip, port, protocol) {
-    protocol = protocol || 'wss';
+    protocol ||= 'wss';
     const rpc = api.new_rpc_from_base_address(`${protocol}://${server_ip}:${port}`, 'EXTERNAL');
     const client = rpc.new_client({});
     try {

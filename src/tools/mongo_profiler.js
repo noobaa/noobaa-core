@@ -52,7 +52,7 @@ for (var key of Object.keys(res)) {
 }
 
 function profify(p, sep) {
-    sep = sep || '';
+    sep ||= '';
     var max_line = 300;
     var s = '';
     var keys = Object.keys(p);

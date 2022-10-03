@@ -284,7 +284,7 @@ class SystemStoreData {
                     let map = context[index.name] || {};
                     context[index.name] = map;
                     if (index.val_array) {
-                        map[key] = map[key] || [];
+                        map[key] ||= [];
                         map[key].push(val);
                     } else if (key in map) {
                         dbg.error('SystemStoreData:', index.name,
@@ -336,7 +336,7 @@ class SystemStore extends EventEmitter {
      */
     static get_instance(options = {}) {
         const { standalone } = options;
-        SystemStore._instance = SystemStore._instance || new SystemStore({ standalone });
+        SystemStore._instance ||= new SystemStore({ standalone });
         return SystemStore._instance;
     }
 
@@ -750,7 +750,7 @@ class SystemStore extends EventEmitter {
     }
 
     make_changes_in_background(changes) {
-        this.bg_changes = this.bg_changes || {};
+        this.bg_changes ||= {};
         _.mergeWith(this.bg_changes, changes, (a, b) => {
             if (_.isArray(a) && _.isArray(b)) {
                 return a.concat(b);

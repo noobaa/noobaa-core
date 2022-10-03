@@ -606,7 +606,7 @@ class NamespaceCache {
             }
         }
 
-        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
+        tap_stream ||= await this._read_object_stream(params, object_sdk);
 
         this.stats_collector.update_cache_stats({
             bucket_name: params.bucket,

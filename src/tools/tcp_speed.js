@@ -14,11 +14,11 @@ require('../util/console_wrapper').original_console();
 // common
 argv.port = Number(argv.port) || 50505;
 argv.ssl = Boolean(argv.ssl);
-argv.forks = argv.forks || 1;
+argv.forks ||= 1;
 argv.frame = Boolean(argv.frame);
 // client
-argv.buf = argv.buf || 128 * 1024; // in Bytes
-argv.concur = argv.concur || 1;
+argv.buf ||= 128 * 1024; // in Bytes
+argv.concur ||= 1;
 // server
 argv.hash = argv.hash ? String(argv.hash) : '';
 

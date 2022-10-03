@@ -15,14 +15,14 @@ const size_units_mult = {
     GB: 1024 * 1024 * 1024
 };
 
-argv.sig = argv.sig || 's3';
-argv.time = argv.time || 0;
-argv.concur = argv.concur || 1;
-argv.forks = argv.forks || 1;
-argv.size = argv.size || 1;
-argv.size_units = argv.size_units || 'MB';
-argv.part_concur = argv.part_concur || 1;
-argv.part_size = argv.part_size || 5;
+argv.sig ||= 's3';
+argv.time ||= 0;
+argv.concur ||= 1;
+argv.forks ||= 1;
+argv.size ||= 1;
+argv.size_units ||= 'MB';
+argv.part_concur ||= 1;
+argv.part_size ||= 5;
 
 const data_size = argv.size * size_units_mult[argv.size_units];
 
@@ -69,9 +69,9 @@ if (argv.help) {
 
 if (argv.endpoint) {
     if (argv.endpoint === true) argv.endpoint = 'http://localhost';
-    argv.access_key = argv.access_key || '123';
-    argv.secret_key = argv.secret_key || 'abc';
-    argv.bucket = argv.bucket || 'first.bucket';
+    argv.access_key ||= '123';
+    argv.secret_key ||= 'abc';
+    argv.bucket ||= 'first.bucket';
 }
 
 http.globalAgent.keepAlive = true;

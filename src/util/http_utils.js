@@ -107,23 +107,23 @@ function parse_client_ip(req) {
 function get_md_conditions(req, prefix) {
     /** @type {MDConditions} */
     let cond;
-    prefix = prefix || '';
+    prefix ||= '';
     if (req.headers[prefix + 'if-modified-since']) {
-        cond = cond || {};
+        cond ||= {};
         cond.if_modified_since =
             (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
     }
     if (req.headers[prefix + 'if-unmodified-since']) {
-        cond = cond || {};
+        cond ||= {};
         cond.if_unmodified_since =
             (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
     }
     if (req.headers[prefix + 'if-match']) {
-        cond = cond || {};
+        cond ||= {};
         cond.if_match_etag = req.headers[prefix + 'if-match'];
     }
     if (req.headers[prefix + 'if-none-match']) {
-        cond = cond || {};
+        cond ||= {};
         cond.if_none_match_etag = req.headers[prefix + 'if-none-match'];
     }
     return cond;

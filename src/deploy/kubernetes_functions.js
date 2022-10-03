@@ -273,7 +273,7 @@ class KubernetesFunctions {
                     const pod = await this.kubectl_get('pod', pod_name);
                     ready = (pod.status.containerStatuses[0].ready);
                     if (additional_test) {
-                        ready = ready && additional_test();
+                        ready &&= additional_test();
                     }
                     if (!ready) {
                         throw new Error('not ready');

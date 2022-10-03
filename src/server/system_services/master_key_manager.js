@@ -37,7 +37,7 @@ class MasterKeysManager {
     }
 
     static get_instance() {
-        MasterKeysManager._instance = MasterKeysManager._instance || new MasterKeysManager();
+        MasterKeysManager._instance ||= new MasterKeysManager();
         return MasterKeysManager._instance;
     }
 

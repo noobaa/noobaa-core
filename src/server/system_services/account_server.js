@@ -991,7 +991,7 @@ async function _check_azure_connection_internal(params) {
         service_properties = await blob.getProperties();
     } catch (err) {
         dbg.warn(`got error on getServiceProperties with params`, _.omit(params, 'secret'), ` error: ${err}`);
-        err.code = err.code || (err.details && err.details.errorCode);
+        err.code ||= (err.details && err.details.errorCode);
         throw err_to_status(err, 'NOT_SUPPORTED');
     }
 

@@ -24,8 +24,8 @@ const {
         s3_ip = 'localhost',
 } = argv;
 
-argv.access_key = argv.access_key || '123';
-argv.secret_key = argv.secret_key || 'abc';
+argv.access_key ||= '123';
+argv.secret_key ||= 'abc';
 var rpc = api.new_rpc();
 var client = rpc.new_client({
     address: 'ws://' + mgmt_ip + ':' + mgmt_port

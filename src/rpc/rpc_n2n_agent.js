@@ -50,7 +50,7 @@ class RpcN2NAgent extends EventEmitter {
 
     constructor(options) {
         super();
-        options = options || {};
+        options ||= {};
 
         // we expect all n2n connections to register on the agent n2n_reset event
         this.setMaxListeners(100);

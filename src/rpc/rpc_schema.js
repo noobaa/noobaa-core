@@ -92,7 +92,7 @@ class RpcSchema {
                 method_api.api = api;
                 method_api.name = method_name;
                 method_api.fullname = api.$id + '#/methods/' + method_name;
-                method_api.method = method_api.method || 'POST';
+                method_api.method ||= 'POST';
                 assert(method_api.method in VALID_HTTP_METHODS,
                     'RPC: unexpected http method: ' +
                     method_api.method + ' for ' + method_api.fullname);

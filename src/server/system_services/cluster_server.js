@@ -128,7 +128,7 @@ function pre_add_member_to_cluster(req) {
             timeout: 60000 //60s
         }))
         .then(response => {
-            response = response || {};
+            response ||= {};
             if (response.result !== 'OKAY') throw new Error(`Verify join conditions check returned ${response.result}`);
             dbg.log0('validating succeeded, got this caller_address', response.caller_address);
             my_address = response.caller_address || os_utils.get_local_ipv4_ips()[0];
@@ -1241,7 +1241,7 @@ function _update_cluster_info(params) {
             }
         })
         .then(new_clustering => {
-            current_clustering = current_clustering || new_clustering;
+            current_clustering ||= new_clustering;
             var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
             update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
             update.owner_address = params.owner_address || current_clustering.owner_address;

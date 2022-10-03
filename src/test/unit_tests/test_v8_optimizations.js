@@ -33,7 +33,7 @@ const OPT_CODES = {
 
 function get_opt_status(func, caller) {
     // 2 calls are needed to go from uninitialized -> pre-monomorphic -> monomorphic
-    caller = caller || func;
+    caller ||= func;
     for (let i = 0; i < 10; ++i) caller();
     eval('%OptimizeFunctionOnNextCall(func)'); // eslint-disable-line no-eval
     for (let i = 0; i < 10; ++i) caller();

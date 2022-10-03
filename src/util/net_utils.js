@@ -27,7 +27,7 @@ async function ping(target, options) {
     // eslint-disable-next-line global-require
     const net_ping = require('net-ping');
 
-    options = options || DEFAULT_PING_OPTIONS;
+    options ||= DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
     let session = net_ping.createSession(options);
     let candidate_ip = url.parse(target).hostname || target;

@@ -716,10 +716,10 @@ class NodesMonitor extends EventEmitter {
         if (!_.isNumber(item.node.heartbeat)) {
             item.node.heartbeat = new Date(item.node.heartbeat).getTime() || 0;
         }
-        item.node.drives = item.node.drives || [];
-        item.node.latency_to_server = item.node.latency_to_server || [];
-        item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
-        item.node.latency_of_disk_write = item.node.latency_of_disk_write || [];
+        item.node.drives ||= [];
+        item.node.latency_to_server ||= [];
+        item.node.latency_of_disk_read ||= [];
+        item.node.latency_of_disk_write ||= [];
         item.node.storage = _.defaults(item.node.storage, {
             total: 0,
             free: 0,
@@ -859,7 +859,7 @@ class NodesMonitor extends EventEmitter {
 
     _run_node(item) {
         if (!this._started) return P.reject(new Error('monitor has not started'));
-        item._run_node_serial = item._run_node_serial || new Semaphore(1);
+        item._run_node_serial ||= new Semaphore(1);
         if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()
@@ -948,7 +948,7 @@ class NodesMonitor extends EventEmitter {
                         item.dispatched_cloud_alert = null;
                         this._cloud_node_alert(alert);
                     } else {
-                        item.dispatched_cloud_alert = item.dispatched_cloud_alert || now;
+                        item.dispatched_cloud_alert ||= now;
                     }
                 } else {
                     // no message. reset cloud alert indication
@@ -2180,8 +2180,8 @@ class NodesMonitor extends EventEmitter {
             act.stage.time.end = end_calc;
         }
 
-        act.time = act.time || {};
-        act.time.start = act.time.start || now;
+        act.time ||= {};
+        act.time.start ||= now;
         // TODO estimate all stages
         act.time.end = act.stage && act.stage.time.end;
         act.progress = progress_by_time(act.time, now);
@@ -2897,7 +2897,7 @@ class NodesMonitor extends EventEmitter {
             if (!pool) continue;
             let endpoint_type = _.get(pool, 'cloud_pool_info.endpoint_type') || 'OTHER';
             if (include_kubernetes && this._is_kubernetes_node({ node })) endpoint_type = 'KUBERNETES';
-            grouped_stats[endpoint_type] = grouped_stats[endpoint_type] || [];
+            grouped_stats[endpoint_type] ||= [];
             grouped_stats[endpoint_type].push(stat);
         }
 
@@ -3550,7 +3550,7 @@ class NodesMonitor extends EventEmitter {
             // because we don't need to put the node in detention
             if (block_report.rpc_code === 'NO_BLOCK_STORE_SPACE') continue; // TODO SYNC STORAGE SPACE WITH THE NODE...
             // mark the issue on the node
-            item.node.issues_report = item.node.issues_report || [];
+            item.node.issues_report ||= [];
             item.node.issues_report.push({
                 time: Date.now(),
                 action: block_report.action,

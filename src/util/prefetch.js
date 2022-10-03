@@ -20,7 +20,7 @@ class Prefetch {
      * }} options
      */
     constructor(options) {
-        options = options || {};
+        options ||= {};
         this.low_length = options.low_length || 100;
         this.high_length = options.high_length || 200;
         this.expiry_ms = options.expiry_ms; // default is no expiry
@@ -43,8 +43,8 @@ class Prefetch {
      */
     async fetch(min_count, max_count) {
         const items = [];
-        min_count = min_count || 1;
-        max_count = max_count || min_count;
+        min_count ||= 1;
+        max_count ||= min_count;
         await this._fetch(items, min_count, max_count);
         return items.length > 1 ? items : items[0];
     }

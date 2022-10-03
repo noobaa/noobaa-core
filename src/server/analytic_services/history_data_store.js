@@ -21,7 +21,7 @@ class HistoryDataStore {
     }
 
     static instance() {
-        HistoryDataStore._instance = HistoryDataStore._instance || new HistoryDataStore();
+        HistoryDataStore._instance ||= new HistoryDataStore();
         return HistoryDataStore._instance;
     }
 

@@ -4,7 +4,7 @@
 class LinkedList {
 
     constructor(name) {
-        name = name || '';
+        name ||= '';
         this.next = '_lln_' + name;
         this.prev = '_llp_' + name;
         this.head = '_llh_' + name;

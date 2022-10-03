@@ -227,7 +227,7 @@ class AgentCLI {
 
     update_ignored_drives(mount_points) {
         if (os_utils.IS_MAC) return mount_points; // skip rename in mac os
-        this.params.ignore_drives = this.params.ignore_drives || [];
+        this.params.ignore_drives ||= [];
         return P.map(mount_points, mount_point => {
             if (mount_point.temporary_drive) {
                 if (!_.find(this.params.ignore_drives, drive => drive === mount_point.drive_id)) {

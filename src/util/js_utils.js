@@ -22,7 +22,7 @@ const util = require('util');
  */
 function self_bind(object, method_desc) {
     if (!_.isString(method_desc)) {
-        method_desc = method_desc || _.functionsIn(object);
+        method_desc ||= _.functionsIn(object);
         _.each(method_desc, function(method) {
             self_bind(object, method);
         });
@@ -58,7 +58,7 @@ function array_push_all(array, items) {
 }
 
 function array_push_keep_latest(array, items, limit) {
-    array = array || [];
+    array ||= [];
     array_push_all(array, items);
     return array.length > limit ? array.slice(-limit) : array;
 }
@@ -128,8 +128,8 @@ function default_value(val, def_val) {
  * @param order should be 1 or -1
  */
 function sort_compare_by(key_getter, order) {
-    key_getter = key_getter || (item => item);
-    order = order || 1;
+    key_getter ||= (item => item);
+    order ||= 1;
     return function(item1, item2) {
         const key1 = key_getter(item1);
         const key2 = key_getter(item2);

@@ -75,7 +75,7 @@ class ReportsSummarizer {
             if (params.days) {
                 days += arg_to_days(params.days, 'days');
             }
-            days = days || 7;
+            days ||= 7;
             this.till = new Date();
             this.since = moment.utc(Date.now() - (days * DAY_IN_MS)).startOf('day').toDate();
             this.output_prefix = params.output_prefix;

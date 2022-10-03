@@ -20,9 +20,9 @@ const MB = 1024 * 1024;
 
 // test arguments
 // client/server/fcall mode
-argv.client = argv.client || false;
-argv.server = argv.server || false;
-argv.fcall = argv.fcall || false;
+argv.client ||= false;
+argv.server ||= false;
+argv.fcall ||= false;
 
 if (argv.help || (!argv.server && !argv.client && !argv.fcall)) {
     print_usage_and_exit(0);
@@ -39,36 +39,36 @@ if (argv.help || (!argv.server && !argv.client && !argv.fcall)) {
 }
 
 // time to run in seconds
-argv.time = argv.time || undefined;
+argv.time ||= undefined;
 // io concurrency
-argv.concur = argv.concur || 16;
+argv.concur ||= 16;
 // io size in bytes
 argv.wsize = _.isUndefined(argv.wsize) ? MB : argv.wsize;
-argv.rsize = argv.rsize || 0;
-argv.n2n = argv.n2n || false;
-argv.nconn = argv.nconn || 1;
+argv.rsize ||= 0;
+argv.n2n ||= false;
+argv.nconn ||= 1;
 argv.closeconn = Number(argv.closeconn) || 0;
 argv.addr = url.parse(argv.addr || '');
 argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
 argv.addr.hostname = argv.host || argv.addr.hostname || 'localhost';
 argv.addr.port = Number(argv.port) || argv.addr.port || 5656;
-argv.novalidation = argv.novalidation || false;
+argv.novalidation ||= false;
 
 // retry delay in seconds on failures
-argv.retry = argv.retry || undefined;
+argv.retry ||= undefined;
 const retry_ms = 1000 * (Number(argv.retry) || 0);
 
 let target_addresses;
 
 // debug level
-argv.debug = argv.debug || 0;
+argv.debug ||= 0;
 
 // profiling tools
 if (argv.leak && memwatch) {
     memwatch.on('leak', info => dbg.warn('LEAK', info));
 }
 let heapdiff;
-argv.heap = argv.heap || false;
+argv.heap ||= false;
 
 dbg.log('Arguments', argv);
 dbg.set_module_level(argv.debug, __dirname);

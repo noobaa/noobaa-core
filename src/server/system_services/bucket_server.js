@@ -1100,7 +1100,7 @@ function get_cloud_buckets(req) {
 async function add_bucket_lambda_trigger(req) {
     dbg.log0('add new bucket lambda trigger', req.rpc_params);
     const new_trigger = req.rpc_params;
-    new_trigger.func_version = new_trigger.func_version || '$LATEST';
+    new_trigger.func_version ||= '$LATEST';
     const bucket = find_bucket(req, req.rpc_params.bucket_name);
     await validate_trigger_update(bucket, new_trigger);
     const trigger = _.omitBy({
@@ -1154,7 +1154,7 @@ async function update_bucket_lambda_trigger(req) {
     dbg.log0('update bucket lambda trigger', req.rpc_params);
     const updates = _.pick(req.rpc_params, 'event_name', 'func_name', 'func_version', 'enabled', 'object_prefix', 'object_suffix', 'attempts');
     if (_.isEmpty(updates)) return;
-    updates.func_version = updates.func_version || '$LATEST';
+    updates.func_version ||= '$LATEST';
     var bucket = find_bucket(req, req.rpc_params.bucket_name);
     const trigger = _.find(bucket.lambda_triggers, trig => trig._id.toString() === req.rpc_params.id);
     if (!trigger) {
@@ -1465,7 +1465,7 @@ function _calc_metrics({
     _.each(bucket.tiering && bucket.tiering.tiers, tier_and_order => {
         const tier = tier_and_order.tier;
         const tier_extra_info = tier_server.get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, hosts_aggregate_pool);
-        has_any_pool_configured = has_any_pool_configured || tier_extra_info.has_any_pool_configured;
+        has_any_pool_configured ||= tier_extra_info.has_any_pool_configured;
         tiering_pools_used_agg.push(tier_extra_info.used_of_pools_in_tier || 0);
 
         const ccc = _.get(tier_and_order, 'tier.chunk_config.chunk_coder_config');
@@ -1802,7 +1802,7 @@ function validate_replication(req) {
         }
 
         rule_ids.push(rule_id);
-        pref_by_dst_bucket[destination_bucket] = pref_by_dst_bucket[destination_bucket] || [];
+        pref_by_dst_bucket[destination_bucket] ||= [];
         pref_by_dst_bucket[destination_bucket].push((filter && filter.prefix) || '');
     }
 

@@ -10,7 +10,7 @@ var stream = require('stream');
 class SliceReader extends stream.Readable {
 
     constructor(source, params) {
-        params = params || {};
+        params ||= {};
         super(params);
         this._source = source;
         this._pos = Number.isInteger(params.start) ? params.start : 0;

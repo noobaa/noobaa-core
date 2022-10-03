@@ -11,7 +11,7 @@ const bucket_stats_indexes = require('./bucket_stats_indexes');
 class BucketStatsStore {
 
     static instance(system) {
-        BucketStatsStore._instance = BucketStatsStore._instance || new BucketStatsStore();
+        BucketStatsStore._instance ||= new BucketStatsStore();
         return BucketStatsStore._instance;
     }
 

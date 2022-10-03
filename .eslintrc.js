@@ -6,11 +6,11 @@ module.exports = {
     // our environment is node.js with it's es6 extensions
     env: {
         node: true,
-        es2020: true,
+        es2021: true,
     },
 
     parserOptions: {
-        ecmaVersion: 11, // 2020
+        ecmaVersion: 12, // 2021
     },
 
 

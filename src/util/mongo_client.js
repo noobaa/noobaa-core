@@ -768,7 +768,7 @@ class MongoClient extends EventEmitter {
     }
 
     async wait_for_all_members(timeout) {
-        timeout = timeout || 2 * 60000; // default timeout 2 minutes
+        timeout ||= 2 * 60000; // default timeout 2 minutes
         let waiting_exhausted = false;
         try {
             await P.timeout(timeout, (async () => {

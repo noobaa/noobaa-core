@@ -15,7 +15,7 @@ if (process.argv[1]) {
 }
 
 function tcp_simultaneous_open(local_port, remote_port, attempts) {
-    attempts = attempts || 0;
+    attempts ||= 0;
     var conn = net.connect({
         port: remote_port,
         localPort: local_port

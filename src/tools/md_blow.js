@@ -14,15 +14,15 @@ const db_client = require('../util/db_client');
 const rpc = api.new_rpc();
 const client = rpc.new_client();
 
-argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo1';
-argv.system = argv.system || 'demo';
-argv.bucket = argv.bucket || 'first.bucket';
-argv.count = argv.count || 100;
-argv.chunks = argv.chunks || 128;
-argv.chunk_size = argv.chunk_size || 1024 * 1024;
-argv.concur = argv.concur || 20;
-argv.key = argv.key || ('md_blow-' + Date.now().toString(36));
+argv.email ||= 'demo@noobaa.com';
+argv.password ||= 'DeMo1';
+argv.system ||= 'demo';
+argv.bucket ||= 'first.bucket';
+argv.count ||= 100;
+argv.chunks ||= 128;
+argv.chunk_size ||= 1024 * 1024;
+argv.concur ||= 20;
+argv.key ||= ('md_blow-' + Date.now().toString(36));
 
 main();
 

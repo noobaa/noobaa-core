@@ -248,7 +248,7 @@ async function get_agent_install_conf(system, pool, account, routing_hint) {
 }
 
 async function create_namespace_resource(req) {
-    req.rpc_params.access_mode = req.rpc_params.access_mode || 'READ_WRITE';
+    req.rpc_params.access_mode ||= 'READ_WRITE';
     const name = req.rpc_params.name;
     let namespace_resource;
     if (req.rpc_params.nsfs_config) {
@@ -833,7 +833,7 @@ async function get_cloud_services_stats(req) {
     for (const acc of system_store.data.accounts) {
         if (acc.sync_credentials_cache) {
             acc.sync_credentials_cache.forEach(conn => {
-                all_services[conn.endpoint_type] = all_services[conn.endpoint_type] || {
+                all_services[conn.endpoint_type] ||= {
                     service: conn.endpoint_type,
                     read_bytes: 0,
                     read_count: 0,

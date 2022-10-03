@@ -11,7 +11,7 @@ const io_stats_indexes = require('./io_stats_indexes');
 class IoStatsStore {
 
     static instance(system) {
-        IoStatsStore._instance = IoStatsStore._instance || new IoStatsStore();
+        IoStatsStore._instance ||= new IoStatsStore();
         return IoStatsStore._instance;
     }
 

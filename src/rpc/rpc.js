@@ -51,7 +51,7 @@ class RPC extends EventEmitter {
      */
     constructor(options) {
         super();
-        options = options || {};
+        options ||= {};
         this._services = {};
         this._connection_by_address = new Map();
         this._address_to_url_cache = new Map();
@@ -87,7 +87,7 @@ class RPC extends EventEmitter {
      *
      */
     register_service(api, server, options) {
-        options = options || {};
+        options ||= {};
 
         dbg.log0('RPC register_service', api.$id);
 
@@ -123,7 +123,7 @@ class RPC extends EventEmitter {
     }
 
     replace_service(api, server, options) {
-        options = options || {};
+        options ||= {};
 
         dbg.log0('RPC replace_service', api.$id);
 
@@ -187,7 +187,7 @@ class RPC extends EventEmitter {
     async _request(api, method_api, params, options) {
         const req = new RpcRequest();
         try {
-            options = options || {};
+            options ||= {};
 
             // initialize the request
             req._new_request(api, method_api, params, options.auth_token);
@@ -585,7 +585,7 @@ class RPC extends EventEmitter {
             conn._ping_interval = setInterval(() => {
                 dbg.log4('RPC PING', conn.connid);
                 const reqid = conn._alloc_reqid();
-                conn._ping_reqid_set = conn._ping_reqid_set || new Set();
+                conn._ping_reqid_set ||= new Set();
                 conn._ping_reqid_set.add(reqid);
                 // TODO instead of setting the ping exhausted count so high we better start pings only once connected
                 if (conn._ping_reqid_set.size > config.RPC_PING_EXHAUSTED_COUNT) {
@@ -613,7 +613,7 @@ class RPC extends EventEmitter {
      */
     _reconnect(addr_url, reconn_backoff) {
         // use the previous backoff for delay
-        reconn_backoff = reconn_backoff || config.RECONN_BACKOFF_BASE;
+        reconn_backoff ||= config.RECONN_BACKOFF_BASE;
 
         const conn = this._get_connection(addr_url, 'called from reconnect');
         // increase the backoff for the new connection,

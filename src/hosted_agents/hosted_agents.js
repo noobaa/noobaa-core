@@ -21,7 +21,7 @@ const config = require('../../config');
 class HostedAgents {
 
     static instance() {
-        HostedAgents._instance = HostedAgents._instance || new HostedAgents();
+        HostedAgents._instance ||= new HostedAgents();
         return HostedAgents._instance;
     }
 

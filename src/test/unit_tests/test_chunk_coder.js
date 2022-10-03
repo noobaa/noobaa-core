@@ -291,7 +291,7 @@ async function test_stream({ erase, decode, generator, input_size, chunk_split_c
             highWaterMark: 50,
             transform(chunk, encoding, callback) {
                 this.count = (this.count || 0) + 1;
-                this.pos = this.pos || 0;
+                this.pos ||= 0;
                 // checking the position is continuous
                 assert.strictEqual(this.pos, chunk.pos);
                 this.pos += chunk.size;

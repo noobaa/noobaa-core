@@ -24,8 +24,8 @@ const FlattenStream = require('../util/flatten_stream');
 
 require('../util/console_wrapper').original_console();
 
-argv.forks = argv.forks || 1;
-argv.size = argv.size || 10240;
+argv.forks ||= 1;
+argv.size ||= 10240;
 argv.encode = (argv.encode !== false); // default is true, use --no-encode for false
 argv.decode = Boolean(argv.encode && argv.decode); // default is false, use --decode
 argv.erase = Boolean(argv.decode && (argv.erase !== false)); // default is true (if decode), use --no-erase for false

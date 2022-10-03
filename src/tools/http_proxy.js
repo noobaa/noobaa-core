@@ -23,7 +23,7 @@ if (require.main === module) {
 function main() {
     // eslint-disable-next-line global-require
     const argv = require('minimist')(process.argv);
-    argv.host = argv.host || 'localhost';
+    argv.host ||= 'localhost';
     argv.port = Number(argv.port) || 80;
     argv.port2 = Number(argv.port2) || 6001;
     proxy_port(argv.port, 'http://' + argv.host + ':' + argv.port2);

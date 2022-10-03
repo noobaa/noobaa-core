@@ -89,8 +89,8 @@ function create_auth(req) {
                 }
 
                 var account_arg = system_store.data.get_by_id(req.auth.account_id);
-                target_account = target_account || account_arg;
-                authenticated_account = authenticated_account || account_arg;
+                target_account ||= account_arg;
+                authenticated_account ||= account_arg;
 
             }
 
@@ -131,7 +131,7 @@ function create_auth(req) {
                     (role_name && _.includes(roles, role_name) &&
                         String(target_account._id) === String(authenticated_account._id))) {
                     // "system admin" can use any role
-                    role_name = role_name || 'admin';
+                    role_name ||= 'admin';
                 } else {
                     throw new RpcError('UNAUTHORIZED', 'account role not allowed');
                 }
@@ -731,7 +731,7 @@ function has_bucket_anonymous_permission(bucket, action, bucket_path = "") {
  */
 function make_auth_token(options) {
     var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 'authorized_by');
-    auth.authorized_by = auth.authorized_by || 'noobaa';
+    auth.authorized_by ||= 'noobaa';
 
     // don't incude keys if value is falsy, to minimize the token size
     auth = _.omitBy(auth, value => !value);

@@ -14,12 +14,12 @@ Object.setPrototypeOf(req, AWS.HttpRequest.prototype);
 delete req._;
 
 // set request defaults
-req.method = req.method || 'GET';
-req.path = req.path || '/';
-req.region = req.region || 'us-east-1';
-req.headers = req.headers || {};
-req.headers.Date = req.headers.Date || AWS.util.date.rfc822();
-req.credentials = req.credentials || {};
+req.method ||= 'GET';
+req.path ||= '/';
+req.region ||= 'us-east-1';
+req.headers ||= {};
+req.headers.Date ||= AWS.util.date.rfc822();
+req.credentials ||= {};
 req.credentials.accessKeyId = req.credentials.accessKeyId || req.access_key || '123';
 req.credentials.secretAccessKey = req.credentials.secretAccessKey || req.secret_key || 'abc';
 

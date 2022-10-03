@@ -16,16 +16,16 @@ https.globalAgent.keepAlive = true;
 
 if (argv.endpoint) {
     if (argv.endpoint === true) argv.endpoint = 'http://localhost';
-    argv.access_key = argv.access_key || '123';
-    argv.secret_key = argv.secret_key || 'abc';
+    argv.access_key ||= '123';
+    argv.secret_key ||= 'abc';
 }
-argv.bucket = argv.bucket || 'first.bucket';
-argv.dir = argv.dir || `capacity-test/${new Date().toISOString()}/`;
+argv.bucket ||= 'first.bucket';
+argv.dir ||= `capacity-test/${new Date().toISOString()}/`;
 argv.part_size = (argv.part_size || 8) * 1024 * 1024;
 argv.file_size = (argv.file_size || 128) * 1024 * 1024;
-argv.concur = argv.concur || 16;
-argv.count = argv.count || 1;
-argv.workers = argv.workers || 1;
+argv.concur ||= 16;
+argv.count ||= 1;
+argv.workers ||= 1;
 
 const speedometer = new Speedometer('Capacity Upload Speed');
 const s3 = new AWS.S3({

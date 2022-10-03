@@ -28,9 +28,9 @@ class AlertsLogStore {
 
     create(alert_log) {
         return P.resolve().then(async () => {
-            alert_log._id = alert_log._id || this.make_alert_log_id();
-            alert_log.time = alert_log.time || new Date();
-            alert_log.read = alert_log.read || false;
+            alert_log._id ||= this.make_alert_log_id();
+            alert_log.time ||= new Date();
+            alert_log.read ||= false;
 
             try {
                 this._alertslogs.validate(alert_log);

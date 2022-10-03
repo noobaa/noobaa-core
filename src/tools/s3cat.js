@@ -24,9 +24,9 @@ if (argv.presign && !_.isNumber(argv.presign)) {
 
 if (argv.endpoint) {
     if (argv.endpoint === true) argv.endpoint = 'http://localhost';
-    argv.access_key = argv.access_key || '123';
-    argv.secret_key = argv.secret_key || 'abc';
-    argv.bucket = argv.bucket || 'first.bucket';
+    argv.access_key ||= '123';
+    argv.secret_key ||= 'abc';
+    argv.bucket ||= 'first.bucket';
 }
 
 const s3 = new AWS.S3({
@@ -240,14 +240,14 @@ function upload_object() {
         (_.isString(argv.upload) && argv.upload) ||
         (_.isString(argv.put) && argv.put) ||
         '';
-    argv.size = argv.size || 1024;
-    argv.concur = argv.concur || 32;
-    argv.part_size = argv.part_size || 32;
+    argv.size ||= 1024;
+    argv.concur ||= 32;
+    argv.part_size ||= 32;
     let data_source;
     let data_size;
     let part_size = argv.part_size * 1024 * 1024;
     if (file_path) {
-        upload_key = upload_key || file_path + '-' + Date.now().toString(36);
+        upload_key ||= file_path + '-' + Date.now().toString(36);
         data_source = fs.createReadStream(file_path, {
             highWaterMark: part_size
         });
@@ -255,7 +255,7 @@ function upload_object() {
         console.log('Uploading', upload_key, 'from file', file_path,
             'of size', size_utils.human_size(data_size));
     } else {
-        upload_key = upload_key || 'upload-' + Date.now().toString(36);
+        upload_key ||= 'upload-' + Date.now().toString(36);
         data_size = argv.size * 1024 * 1024;
         data_source = argv.buf ?
             crypto.randomBytes(data_size) :

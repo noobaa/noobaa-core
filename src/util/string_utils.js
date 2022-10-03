@@ -101,12 +101,12 @@ function rolling_hash(str, roll_context) {
     // Basically for the string the string is (Ck, Cn-1, ... , C0)
     // this value is C0 + C1*A^1 + C2*A^2 + ... Ck*A^k mod N
     const c = roll_context;
-    c.w = c.w || 16;
-    c.a = c.a || 256;
-    c.n = c.n || 0xfe147c95;
-    c.pos = c.pos || 0;
-    c.hash = c.hash || 0;
-    c.window = c.window || [];
+    c.w ||= 16;
+    c.a ||= 256;
+    c.n ||= 0xfe147c95;
+    c.pos ||= 0;
+    c.hash ||= 0;
+    c.window ||= [];
     if (!c.a2w) {
         c.a2w = 1;
         for (let i = 0; i < c.w; ++i) {

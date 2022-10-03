@@ -460,7 +460,7 @@ function aggregate_by_content_type({
     if (ex_by_content_type) {
         // add stats of new uploads
         _.mergeWith(stats_by_content_type_obj, ex_by_content_type, (val_bigint, other) => {
-            val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
+            val_bigint ||= { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
             const other_bigint = {
                 count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
                 size: size_utils.json_to_bigint(_.get(other, 'size', 0))
@@ -474,7 +474,7 @@ function aggregate_by_content_type({
     if (de_by_content_type) {
         // decrement stats of deleted objects
         _.mergeWith(stats_by_content_type_obj, de_by_content_type, (val_bigint, other) => {
-            val_bigint = val_bigint || { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
+            val_bigint ||= { size: size_utils.BigInteger.zero, count: size_utils.BigInteger.zero };
             const other_bigint = {
                 count: size_utils.json_to_bigint(_.get(other, 'count', 0)),
                 size: size_utils.json_to_bigint(_.get(other, 'size', 0))

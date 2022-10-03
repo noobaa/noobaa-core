@@ -65,7 +65,7 @@ class NamespaceMerge {
         return this._ns_map(ns => ns.read_object_md(params, object_sdk)
                 .then(res => {
                     // save the ns in the response for optimizing read_object_stream
-                    res.ns = res.ns || ns;
+                    res.ns ||= ns;
                     return res;
                 }), EXCEPT_REASONS)
             .then(reply => {

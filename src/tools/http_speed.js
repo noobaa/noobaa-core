@@ -22,14 +22,14 @@ const size_units_mult = {
 // common
 argv.port = Number(argv.port) || 50505;
 argv.ssl = Boolean(argv.ssl);
-argv.forks = argv.forks || 1;
+argv.forks ||= 1;
 // client
 argv.client = argv.client === true ? 'localhost' : argv.client;
-argv.size = argv.size || 100;
-argv.size_units = argv.size_units || 'MB';
+argv.size ||= 100;
+argv.size_units ||= 'MB';
 const size_bytes = argv.size * (size_units_mult[argv.size_units] || 1);
 argv.buf = Math.min(argv.buf || 128 * 1024, size_bytes); // in Bytes
-argv.concur = argv.concur || 1;
+argv.concur ||= 1;
 // server
 argv.server = Boolean(argv.server);
 argv.hash = argv.hash ? String(argv.hash) : '';

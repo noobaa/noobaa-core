@@ -68,7 +68,7 @@ class LRUCache {
         if (!valid) {
             // keep the promise in the item to synchronize when getting
             // concurrent get requests that miss the cache
-            item.p = item.p || this._load_item(item, params);
+            item.p ||= this._load_item(item, params);
             await item.p;
         }
         return this.make_val(item.d, params);

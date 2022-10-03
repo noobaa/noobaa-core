@@ -18,9 +18,9 @@ const SERVICES_WAIT_IN_SECONDS = 30;
 //This was implemented to work on local servers only
 // The reason is that there is no component to control the services remotely
 // If there will be a component in the future just change the method control_services
-argv.ip = argv.ip || 'localhost';
-argv.access_key = argv.access_key || '123';
-argv.secret_key = argv.secret_key || 'abc';
+argv.ip ||= 'localhost';
+argv.access_key ||= '123';
+argv.secret_key ||= 'abc';
 var rpc = api.new_rpc();
 var client = rpc.new_client({
     address: 'ws://' + argv.ip + ':' + process.env.PORT

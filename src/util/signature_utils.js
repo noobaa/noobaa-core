@@ -316,21 +316,21 @@ function get_signature_from_auth_token(auth_token, secret_key) {
 }
 
 function authorize_client_request(req) {
-    req.port = req.port || 80;
-    req.host = req.host || 'localhost';
-    req.body = req.body || '';
-    req.key = req.key || 'first.key';
-    req.bucket = req.bucket || 'first.bucket';
-    req.method = req.method || 'GET';
-    req.region = req.region || 'us-east-1';
-    req.service = req.service || 's3';
-    req.access_key = req.access_key || '123';
-    req.secret_key = req.secret_key || 'abc';
+    req.port ||= 80;
+    req.host ||= 'localhost';
+    req.body ||= '';
+    req.key ||= 'first.key';
+    req.bucket ||= 'first.bucket';
+    req.method ||= 'GET';
+    req.region ||= 'us-east-1';
+    req.service ||= 's3';
+    req.access_key ||= '123';
+    req.secret_key ||= 'abc';
     req.credentials = { accessKeyId: req.access_key, secretAccessKey: req.secret_key };
     req.pathname = () => `/${req.bucket}/${req.key}`;
     req.search = () => (req.query ? '?' + AWS.util.queryParamsToString(req.query) : '');
     req.path = `${req.pathname()}${req.search()}`;
-    req.headers = req.headers || {};
+    req.headers ||= {};
     req.headers.Host = req.host;
     req.headers['Content-Length'] = req.body.length;
     req.headers['User-Agent'] = 'Smith';

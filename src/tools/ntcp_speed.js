@@ -3,7 +3,7 @@
 let Ntcp = require('../util/nb_native')().Ntcp;
 let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
-argv.size = argv.size || 1024 * 1024;
+argv.size ||= 1024 * 1024;
 argv.port = Number(argv.port) || 50505;
 let g_servers = [];
 let g_connections = [];

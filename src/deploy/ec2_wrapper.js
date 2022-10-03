@@ -363,9 +363,9 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     });
 
     //if no source file supplied, use a log from the machine
-    source = source || '/var/log/appstore.log';
-    bucket = bucket || 'first.bucket';
-    key = key || 'ec2_wrapper_test_upgrade.dat';
+    source ||= '/var/log/appstore.log';
+    bucket ||= 'first.bucket';
+    key ||= 'ec2_wrapper_test_upgrade.dat';
 
     var params = {
         Bucket: bucket,

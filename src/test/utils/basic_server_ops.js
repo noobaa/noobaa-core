@@ -161,7 +161,7 @@ function verify_upload_download(ip, path) {
 
 
 async function generate_random_file(size_mb, extension) {
-    extension = extension || '.dat';
+    extension ||= '.dat';
     let ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
     if (!extension.startsWith('.')) extension = '.' + extension;
     if (!ext_regex.test(extension)) throw new Error('bad extension');

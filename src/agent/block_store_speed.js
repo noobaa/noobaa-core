@@ -14,15 +14,15 @@ const { RPC_BUFFERS } = require('../rpc');
 
 dotenv.load();
 
-argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo1';
-argv.system = argv.system || 'demo';
-argv.address = argv.address || '';
-argv.forks = argv.forks || 1;
-argv.concur = argv.concur || 32;
-argv.count = argv.count || 256;
-argv.size = argv.size || config.CHUNK_SPLIT_AVG_CHUNK;
-argv.timeout = argv.timeout || 60000;
+argv.email ||= 'demo@noobaa.com';
+argv.password ||= 'DeMo1';
+argv.system ||= 'demo';
+argv.address ||= '';
+argv.forks ||= 1;
+argv.concur ||= 32;
+argv.count ||= 256;
+argv.size ||= config.CHUNK_SPLIT_AVG_CHUNK;
+argv.timeout ||= 60000;
 
 let block_index = 0;
 

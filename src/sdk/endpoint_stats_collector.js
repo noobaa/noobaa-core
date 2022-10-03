@@ -86,7 +86,7 @@ class EndpointStatsCollector {
     }
 
     update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
-        this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
+        this.namespace_stats[namespace_resource_id] ||= this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
             io_stats.error_read_count += count;
@@ -102,7 +102,7 @@ class EndpointStatsCollector {
     }
 
     update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
-        this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
+        this.namespace_stats[namespace_resource_id] ||= this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
         if (is_err) {
             io_stats.error_write_count += count;
@@ -120,7 +120,7 @@ class EndpointStatsCollector {
     _update_bucket_counter({ bucket_name, key, content_type, counter_key }) {
         content_type = content_type || mime.getType(key) || 'application/octet-stream';
         const accessor = `${bucket_name}#${content_type}`;
-        this.bucket_counters[accessor] = this.bucket_counters[accessor] || {
+        this.bucket_counters[accessor] ||= {
             bucket_name,
             content_type,
             read_count: 0,
@@ -131,7 +131,7 @@ class EndpointStatsCollector {
     }
 
     update_ops_counters({ time, op_name, error = 0 }) {
-        this.op_stats[op_name] = this.op_stats[op_name] || {
+        this.op_stats[op_name] ||= {
             min_time: time,
             max_time: time,
             sum_time: 0,

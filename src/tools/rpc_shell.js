@@ -14,10 +14,10 @@ var argv = require('minimist')(process.argv);
 var repl_srv;
 var rpcshell = new RPCShell();
 
-argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo1';
-argv.system = argv.system || 'demo';
-argv.options = argv.options || undefined;
+argv.email ||= 'demo@noobaa.com';
+argv.password ||= 'DeMo1';
+argv.system ||= 'demo';
+argv.options ||= undefined;
 
 function RPCShell() {
     this.rpc = api.new_rpc();
@@ -121,7 +121,7 @@ RPCShell.prototype.call = function(str_args) {
         args = str_args.split(' ');
         params = _.slice(args, 2).join('');
     }
-    params = params || '{}';
+    params ||= '{}';
 
     //Verify API name
     if (!args[0]) {

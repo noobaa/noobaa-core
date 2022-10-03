@@ -86,7 +86,7 @@ function fork(command, input_args, opts, ignore_rc) {
         let options = opts || {};
         let args = input_args || [];
         dbg.log0('fork:', command, args.join(' '), options, ignore_rc);
-        options.stdio = options.stdio || 'inherit';
+        options.stdio ||= 'inherit';
         var proc = child_process.fork(command, args, options);
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
@@ -120,10 +120,10 @@ function fork(command, input_args, opts, ignore_rc) {
  */
 function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
     return new Promise((resolve, reject) => {
-        options = options || {};
-        args = args || [];
+        options ||= {};
+        args ||= [];
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
-        options.stdio = options.stdio || 'inherit';
+        options.stdio ||= 'inherit';
         var proc = child_process.spawn(command, args, options);
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
@@ -286,7 +286,7 @@ function get_distro() {
 
 // calculate cpu)
 function calc_cpu_usage(current_cpus, previous_cpus) {
-    previous_cpus = previous_cpus || [{ times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0, } }];
+    previous_cpus ||= [{ times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0, } }];
     let previous_cpus_reduced = previous_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
         user: prev.user + curr.user,
         nice: prev.nice + curr.nice,

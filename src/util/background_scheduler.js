@@ -19,7 +19,7 @@ const dbg = require('./debug_module')(__filename);
 class Background_Scheduler {
 
     static get_instance() {
-        Background_Scheduler._instance = Background_Scheduler._instance || new Background_Scheduler();
+        Background_Scheduler._instance ||= new Background_Scheduler();
         return Background_Scheduler._instance;
     }
 

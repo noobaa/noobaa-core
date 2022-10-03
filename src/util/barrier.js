@@ -24,7 +24,7 @@ module.exports = Barrier;
  */
 function Barrier(options) {
     var self = this;
-    options = options || {};
+    options ||= {};
     self.max_length = options.max_length || 100;
     self.expiry_ms = options.expiry_ms || 1000; // default 1 second
     self.process = options.process;
@@ -90,7 +90,7 @@ Barrier.prototype.release = function() {
     // call the process function with the items list
     P.fcall(self.process, barrier.items)
         .then(function(res) {
-            res = res || [];
+            res ||= [];
             _.each(barrier.defers, function(defer, index) {
                 defer.resolve(res[index]);
             });

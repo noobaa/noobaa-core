@@ -7,7 +7,7 @@ const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 const argv = require('minimist')(process.argv);
 
-argv.forks = argv.forks || 1;
+argv.forks ||= 1;
 
 if (argv.forks > 1 && cluster.isMaster) {
     const master_speedometer = new Speedometer('Total Speed');

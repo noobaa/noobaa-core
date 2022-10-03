@@ -5,7 +5,7 @@ let dgram = require('dgram');
 let stun = require('../rpc/stun');
 let argv = require('minimist')(process.argv);
 
-argv.port = argv.port || 3478;
+argv.port ||= 3478;
 let socket = dgram.createSocket('udp4');
 socket.on('message', on_message);
 socket.on('listening', on_listening);

@@ -44,24 +44,24 @@ if (argv.help) {
     process.exit(0);
 }
 
-argv.dir = argv.dir || 'fs_speed_output';
-argv.time = argv.time || 10; // stop after X seconds
-argv.concur = argv.concur || 1;
-argv.forks = argv.forks || 1;
-argv.file_size = argv.file_size || 1024;
-argv.block_size = argv.block_size || 8;
-argv.file_size_units = argv.file_size_units || 'MB';
-argv.block_size_units = argv.block_size_units || 'MB';
+argv.dir ||= 'fs_speed_output';
+argv.time ||= 10; // stop after X seconds
+argv.concur ||= 1;
+argv.forks ||= 1;
+argv.file_size ||= 1024;
+argv.block_size ||= 8;
+argv.file_size_units ||= 'MB';
+argv.block_size_units ||= 'MB';
 argv.fsync = Boolean(argv.fsync);
-argv.mode = argv.mode || 'nsfs';
+argv.mode ||= 'nsfs';
 if (argv.mode === 'dd') {
-    argv.device = argv.device || '/dev/zero';
+    argv.device ||= '/dev/zero';
 } else {
     // flags that are ignored on dd mode
     // nvec larger than 1 will use writev instead of write
-    argv.nvec = argv.nvec || 1;
+    argv.nvec ||= 1;
     // generator value should be one that RandStream supports - 'crypto' | 'cipher' | 'fake' | 'zeros' | 'fill' | 'noinit'
-    argv.generator = argv.generator || 'zeros';
+    argv.generator ||= 'zeros';
 }
 
 Object.freeze(argv);

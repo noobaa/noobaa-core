@@ -8,7 +8,7 @@ const LinkedList = require('./linked_list');
 class WaitQueue {
 
     constructor(name) {
-        name = name || '';
+        name ||= '';
         this._name = '_wq_' + name;
         this._q = new LinkedList(name);
     }
@@ -19,7 +19,7 @@ class WaitQueue {
      * a manual wakup (not by queue order).
      */
     wait(item) {
-        item = item || {};
+        item ||= {};
         const defer = new P.Defer();
         item[this._name] = defer;
         this._q.push_back(item);
@@ -33,7 +33,7 @@ class WaitQueue {
      * That way we want to reject the item with an error in order to throw it out of the semaphore
      */
     wakeup(item, err) {
-        item = item || this._q.get_front();
+        item ||= this._q.get_front();
         if (!item) return;
         if (!this._q.remove(item)) return;
         const defer = item[this._name];

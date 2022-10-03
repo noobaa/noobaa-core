@@ -74,8 +74,8 @@ class S3OPS {
     async put_file_with_md5(bucket, file_name, data_size, multiplier) {
         try {
             this.validate_multiplier(multiplier);
-            bucket = bucket || 'first.bucket';
-            data_size = data_size || 50;
+            bucket ||= 'first.bucket';
+            data_size ||= 50;
 
             const actual_size = data_size * multiplier;
             const md5_stream = new_md5_stream();
@@ -104,7 +104,7 @@ class S3OPS {
 
     async server_side_copy_file_with_md5(source_bucket, source, destination_bucket, destination, versionid) {
         try {
-            destination_bucket = destination_bucket || 'first.bucket';
+            destination_bucket ||= 'first.bucket';
 
             let params = {
                 Bucket: destination_bucket,
@@ -144,7 +144,7 @@ class S3OPS {
 
     async upload_file_with_md5(bucket, file_name, data_size, parts_num, multiplier, overlook_error) {
         this.validate_multiplier(multiplier);
-        data_size = data_size || 50;
+        data_size ||= 50;
         const actual_size = data_size * multiplier;
         let part_size = Math.ceil(actual_size / parts_num);
         //Making sure that the part size is not less then 5MB.
@@ -740,7 +740,7 @@ class S3OPS {
     }
 
     async abort_multipart_upload(bucket, file_name, uploadId) {
-        bucket = bucket || 'first.bucket';
+        bucket ||= 'first.bucket';
         try {
             await this.s3.abortMultipartUpload({
                 Bucket: bucket,
@@ -773,7 +773,7 @@ class S3OPS {
      */
     async _multipart_upload_internal(bucket, file_name, data, part_size, overlook_error) {
         try {
-            bucket = bucket || 'first.bucket';
+            bucket ||= 'first.bucket';
             const md5_stream = new_md5_stream();
             const start_ts = Date.now();
 

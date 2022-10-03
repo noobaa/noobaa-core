@@ -650,15 +650,15 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
                 return _.extend({ pool_id: pool._id }, tiering_pools_status[tier._id].pools[pool._id]);
             }))
             .forEach(pool_status => {
-                info.any_rebuilds = info.any_rebuilds || _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.data_activities.length`);
+                info.any_rebuilds ||= _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.data_activities.length`);
                 const pool_num_nodes = _.get(nodes_aggregate_pool, `groups.${pool_status.pool_id}.storage_nodes.count`) || 0;
                 const pool_num_hosts = _.get(hosts_aggregate_pool, `groups.${pool_status.pool_id}.nodes.online`) || 0;
                 info.num_nodes_in_mirror_group += pool_num_nodes;
                 info.num_valid_nodes += (pool_status.num_nodes || 0);
                 info.num_valid_hosts += (pool_num_hosts || 0);
-                info.has_valid_pool = info.has_valid_pool || pool_status.valid_for_allocation;
-                info.has_internal_or_cloud_pool = info.has_internal_or_cloud_pool || (pool_status.resource_type !== 'HOSTS');
-                info.use_internal = info.use_internal || (pool_status.resource_type === 'INTERNAL');
+                info.has_valid_pool ||= pool_status.valid_for_allocation;
+                info.has_internal_or_cloud_pool ||= (pool_status.resource_type !== 'HOSTS');
+                info.use_internal ||= (pool_status.resource_type === 'INTERNAL');
             });
         if (info.has_valid_pool || ((info.num_valid_nodes || 0) >= required_valid_nodes)) info.mirrors_with_valid_pool += 1;
         if (info.num_nodes_in_mirror_group >= required_valid_nodes || info.has_internal_or_cloud_pool) info.mirrors_with_enough_nodes += 1;
@@ -673,8 +673,8 @@ function get_tier_extra_info(tier, tiering_pools_status, nodes_aggregate_pool, h
             Number.MAX_SAFE_INTEGER : info.num_valid_hosts;
         info.num_of_hosts = info.use_internal ? 0 : Math.min(existing_hosts_minimum, potential_new_hosts_minimum);
     });
-    info.num_of_nodes = info.num_of_nodes || 0;
-    info.num_of_hosts = info.num_of_hosts || 0;
+    info.num_of_nodes ||= 0;
+    info.num_of_hosts ||= 0;
     info.node_tolerance = ccc.parity_frags ?
         Math.max(info.num_of_nodes - ccc.parity_frags, 0) :
         Math.max(info.num_of_nodes - 1, 0);

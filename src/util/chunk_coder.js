@@ -29,7 +29,7 @@ class ChunkCoder extends stream.Transform {
         this.stream_promise = P.resolve();
         // using both local and global semaphore to avoid one stream overwhelming the global sem
         this.stream_sem = new Semaphore(concurrency);
-        ChunkCoder.global_sem = ChunkCoder.global_sem || new Semaphore(concurrency);
+        ChunkCoder.global_sem ||= new Semaphore(concurrency);
     }
 
     // Our goal here is to process chunks in concurrency.
@@ -49,7 +49,7 @@ class ChunkCoder extends stream.Transform {
     // - We return the chunk coder promise so that the semaphores will wait for it.
     _transform(chunk, encoding, callback) {
         this.stream_sem.surround(() => ChunkCoder.global_sem.surround(() => {
-                chunk.chunk_coder_config = chunk.chunk_coder_config || this.chunk_coder_config;
+                chunk.chunk_coder_config ||= this.chunk_coder_config;
                 if (this.cipher_key_b64) chunk.cipher_key_b64 = this.cipher_key_b64;
                 const chunk_promise = P.fromCallback(cb => nb_native().chunk_coder(this.coder, chunk, cb));
                 // TODO: Need to remove the cipher_key in case of SSE-C

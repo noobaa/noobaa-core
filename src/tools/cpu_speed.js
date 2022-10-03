@@ -9,9 +9,9 @@ const Speedometer = require('../util/speedometer');
 
 require('../util/console_wrapper').original_console();
 
-argv.forks = argv.forks || 1;
-argv.size = argv.size || (10 * 1024);
-argv.hash = argv.hash || 'sha256';
+argv.forks ||= 1;
+argv.size ||= (10 * 1024);
+argv.hash ||= 'sha256';
 
 if (argv.forks > 1 && cluster.isMaster) {
     const master_speedometer = new Speedometer('Total Speed');

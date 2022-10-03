@@ -187,7 +187,7 @@ init_endpoint() {
   fi
 
   cd /root/node_modules/noobaa-core/
-  run_internal_process node ./src/s3/s3rver_starter.js
+  run_internal_process node --unhandled-rejections=warn ./src/s3/s3rver_starter.js
 }
 
 init_noobaa_server() {

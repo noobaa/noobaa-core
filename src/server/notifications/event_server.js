@@ -54,7 +54,7 @@ function export_activity_log(req) {
 
             return fs.promises.writeFile(inner_path, out_lines.join('\n'), 'utf8');
         })
-        .then(() => out_path)
+        .then(() => ({out_path}))
         .catch(err => {
             dbg.error('received error when writing to audit csv file:', inner_path, err);
             throw err;

@@ -46,7 +46,7 @@
 #define H6 0x1f83d9abfb41bd6b
 #define H7 0x5be0cd19137e2179
 
-void sha512_single(const uint8_t * data, uint64_t digest[5]);
+void sha512_single(const uint8_t * data, uint64_t digest[]);
 
 void sha512_ref(uint8_t * input_data, uint64_t * digest, uint32_t len)
 {
@@ -126,7 +126,7 @@ void sha512_ref(uint8_t * input_data, uint64_t * digest, uint32_t len)
 	d += t1; \
 	h = t1 + t2;
 
-void sha512_single(const uint8_t * data, uint64_t digest[5])
+void sha512_single(const uint8_t * data, uint64_t digest[])
 {
 	/* Check these are all uint64_t */
 	uint64_t a, b, c, d, e, f, g, h, t1, t2;

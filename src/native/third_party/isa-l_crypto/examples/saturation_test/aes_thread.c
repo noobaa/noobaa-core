@@ -127,11 +127,12 @@ struct cbc_context {
 static int cbc_dec_pre(struct aes_context *p)
 {
 	struct cbc_context *pCtx = (struct cbc_context *)p;
+	int ret;
 
-	posix_memalign((void **)&pCtx->iv, 16, (CBC_IV_DATA_LEN));
-	posix_memalign((void **)&pCtx->key_data, 16, (sizeof(*pCtx->key_data)));
+	ret = posix_memalign((void **)&pCtx->iv, 16, (CBC_IV_DATA_LEN));
+	ret |= posix_memalign((void **)&pCtx->key_data, 16, (sizeof(*pCtx->key_data)));
 
-	if ((NULL == pCtx->iv) || (NULL == pCtx->key_data))
+	if ((0 != ret) || (NULL == pCtx->iv) || (NULL == pCtx->key_data))
 		return 1;
 
 	mk_rand_data(pCtx->key, sizeof(pCtx->key));

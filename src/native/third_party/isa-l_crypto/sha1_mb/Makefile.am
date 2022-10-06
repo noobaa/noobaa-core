@@ -71,6 +71,10 @@ lsrc_aarch64 += sha1_mb/sha1_ctx_base.c \
 		sha1_mb/aarch64/sha1_mb_x1_ce.S		\
 		sha1_mb/aarch64/sha1_mb_x2_ce.S		\
 		sha1_mb/aarch64/sha1_mb_mgr_ce.c	\
+		sha1_mb/aarch64/sha1_ctx_asimd.c	\
+		sha1_mb/aarch64/sha1_aarch64_x1.S	\
+		sha1_mb/aarch64/sha1_mb_asimd_x4.S	\
+		sha1_mb/aarch64/sha1_mb_mgr_asimd.c	\
 		sha1_mb/aarch64/sha1_mb_aarch64_dispatcher.c
 
 

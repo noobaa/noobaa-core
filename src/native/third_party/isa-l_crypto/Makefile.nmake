@@ -250,8 +250,8 @@ objs = \
 INCLUDES  = -I./ -Isha1_mb/ -Isha256_mb/ -Isha512_mb/ -Imd5_mb/ -Imh_sha1/ -Imh_sha1_murmur3_x64_128/ -Imh_sha256/ -Irolling_hash/ -Ism3_mb/ -Iaes/ -Iinclude/
 # Modern asm feature level, consider upgrading nasm/yasm before decreasing feature_level
 FEAT_FLAGS = -DHAVE_AS_KNOWS_AVX512 -DAS_FEATURE_LEVEL=10 -DHAVE_AS_KNOWS_SHANI
-CFLAGS_REL = -O2 -DNDEBUG /Z7 /MD /Gy
-CFLAGS_DBG = -Od -DDEBUG /Z7 /MDd
+CFLAGS_REL = -O2 -DNDEBUG /Z7 /Gy
+CFLAGS_DBG = -Od -DDEBUG /Z7
 LINKFLAGS  = -nologo -incremental:no -debug
 CFLAGS     = $(CFLAGS_REL) -nologo -D_USE_MATH_DEFINES $(FEAT_FLAGS) $(INCLUDES) $(D)
 AFLAGS     = -f win64 $(FEAT_FLAGS) $(INCLUDES) $(D)
@@ -439,27 +439,28 @@ clean:
 	-if exist isa-l_crypto.dll del isa-l_crypto.dll
 	-if exist isa-l_crypto.exp del isa-l_crypto.exp
 
+libcrypto.lib:
 sha1_mb_rand_test.exe: sha1_ref.obj
 sha1_mb_rand_update_test.exe: sha1_ref.obj
 sha1_mb_flush_test.exe: sha1_ref.obj
-sha1_mb_rand_ssl_test.exe:  libeay32.lib
-sha1_mb_vs_ossl_perf.exe:  libeay32.lib
-sha1_mb_vs_ossl_shortage_perf.exe:  libeay32.lib
+sha1_mb_rand_ssl_test.exe:  libcrypto.lib
+sha1_mb_vs_ossl_perf.exe:  libcrypto.lib
+sha1_mb_vs_ossl_shortage_perf.exe:  libcrypto.lib
 sha256_mb_rand_ssl_test.exe: sha256_ref.obj
 sha256_mb_rand_test.exe: sha256_ref.obj
 sha256_mb_rand_update_test.exe: sha256_ref.obj
 sha256_mb_flush_test.exe: sha256_ref.obj
-sha256_mb_rand_ssl_test.exe:  libeay32.lib
-sha256_mb_vs_ossl_perf.exe:  libeay32.lib
-sha256_mb_vs_ossl_shortage_perf.exe:  libeay32.lib
+sha256_mb_rand_ssl_test.exe:  libcrypto.lib
+sha256_mb_vs_ossl_perf.exe:  libcrypto.lib
+sha256_mb_vs_ossl_shortage_perf.exe:  libcrypto.lib
 sha512_mb_rand_test.exe: sha512_ref.obj
 sha512_mb_rand_update_test.exe: sha512_ref.obj
-sha512_mb_rand_ssl_test.exe:  libeay32.lib
-sha512_mb_vs_ossl_perf.exe:  libeay32.lib
+sha512_mb_rand_ssl_test.exe:  libcrypto.lib
+sha512_mb_vs_ossl_perf.exe:  libcrypto.lib
 md5_mb_rand_test.exe: md5_ref.obj
 md5_mb_rand_update_test.exe: md5_ref.obj
-md5_mb_rand_ssl_test.exe:  libeay32.lib
-md5_mb_vs_ossl_perf.exe:  libeay32.lib
+md5_mb_rand_ssl_test.exe:  libcrypto.lib
+md5_mb_vs_ossl_perf.exe:  libcrypto.lib
 mh_sha1_test.exe: mh_sha1_ref.obj
 mh_sha1_update_test.exe: mh_sha1_ref.obj
 mh_sha1_murmur3_x64_128_test.exe: mh_sha1_ref.obj murmur3_x64_128.obj
@@ -467,26 +468,26 @@ mh_sha1_murmur3_x64_128_update_test.exe: mh_sha1_ref.obj murmur3_x64_128.obj
 mh_sha1_murmur3_x64_128_perf.exe: mh_sha1_ref.obj murmur3_x64_128.obj
 mh_sha256_test.exe: mh_sha256_ref.obj
 mh_sha256_update_test.exe: mh_sha256_ref.obj
-sm3_mb_rand_ssl_test.exe:  libeay32.lib
+sm3_mb_rand_ssl_test.exe:  libcrypto.lib
 sm3_mb_rand_ssl_test.exe: sm3_test_helper.obj
-sm3_mb_rand_update_test.exe:  libeay32.lib
+sm3_mb_rand_update_test.exe:  libcrypto.lib
 sm3_mb_rand_update_test.exe: sm3_test_helper.obj
-sm3_mb_flush_test.exe:  libeay32.lib
+sm3_mb_flush_test.exe:  libcrypto.lib
 sm3_mb_flush_test.exe: sm3_test_helper.obj
-sm3_mb_rand_test.exe:  libeay32.lib
+sm3_mb_rand_test.exe:  libcrypto.lib
 sm3_mb_rand_test.exe: sm3_test_helper.obj
-sm3_mb_vs_ossl_perf.exe:  libeay32.lib
+sm3_mb_vs_ossl_perf.exe:  libcrypto.lib
 sm3_mb_vs_ossl_perf.exe: sm3_test_helper.obj
-sm3_mb_vs_ossl_shortage_perf.exe:  libeay32.lib
+sm3_mb_vs_ossl_shortage_perf.exe:  libcrypto.lib
 sm3_mb_vs_ossl_shortage_perf.exe: sm3_test_helper.obj
-cbc_ossl_perf.exe:  libeay32.lib
-cbc_std_vectors_random_test.exe:  libeay32.lib
-gcm_ossl_perf.exe:  libeay32.lib
-gcm_std_vectors_random_test.exe:  libeay32.lib
-gcm_nt_rand_test.exe:  libeay32.lib
-xts_128_enc_ossl_perf.exe:  libeay32.lib
-xts_128_dec_ossl_perf.exe:  libeay32.lib
-xts_128_rand_ossl_test.exe:  libeay32.lib
-xts_256_enc_ossl_perf.exe:  libeay32.lib
-xts_256_dec_ossl_perf.exe:  libeay32.lib
-xts_256_rand_ossl_test.exe:  libeay32.lib
+cbc_ossl_perf.exe:  libcrypto.lib
+cbc_std_vectors_random_test.exe:  libcrypto.lib
+gcm_ossl_perf.exe:  libcrypto.lib
+gcm_std_vectors_random_test.exe:  libcrypto.lib
+gcm_nt_rand_test.exe:  libcrypto.lib
+xts_128_enc_ossl_perf.exe:  libcrypto.lib
+xts_128_dec_ossl_perf.exe:  libcrypto.lib
+xts_128_rand_ossl_test.exe:  libcrypto.lib
+xts_256_enc_ossl_perf.exe:  libcrypto.lib
+xts_256_dec_ossl_perf.exe:  libcrypto.lib
+xts_256_rand_ossl_test.exe:  libcrypto.lib

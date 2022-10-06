@@ -107,7 +107,6 @@ int main(int argc, char **argv)
 	/* Initialise our cipher context, which can use same input vectors */
 	EVP_CIPHER_CTX *ctx;
 	ctx = EVP_CIPHER_CTX_new();
-	EVP_CIPHER_CTX_init(ctx);
 
 	/* Allocate space for input and output buffers */
 	pt = malloc(TEST_LEN);

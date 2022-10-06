@@ -66,7 +66,7 @@ void sm3_mb_mgr_init_sm(SM3_MB_JOB_MGR * state)
 	state->num_lanes_inuse = 0;
 	for (i = 0; i < SM3_MB_CE_MAX_LANES; i++) {
 		state->unused_lanes <<= 4;
-		state->unused_lanes |= i;
+		state->unused_lanes |= SM3_MB_CE_MAX_LANES - 1 - i;
 		state->lens[i] = i;
 		state->ldata[i].job_in_lane = 0;
 	}

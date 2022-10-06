@@ -73,13 +73,19 @@ int main(void)
 	unsigned char *buf_ptr[TEST_BUFS];
 	uint32_t lens[TEST_BUFS];
 	unsigned int joblen, jobs, t;
+	int ret;
 
 	printf("multibinary_sha512_update test, %d sets of %dx%d max: ", RANDOMS, TEST_BUFS,
 	       TEST_LEN);
 
 	srand(TEST_SEED);
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA512_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SHA512_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	sha512_ctx_mgr_init(mgr);
 
 	for (i = 0; i < TEST_BUFS; i++) {

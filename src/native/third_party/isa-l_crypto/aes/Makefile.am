@@ -73,6 +73,41 @@ lsrc_x86_64     += aes/XTS_AES_256_dec_expanded_key_vaes.asm
 lsrc_x86_64     += aes/XTS_AES_128_dec_expanded_key_vaes.asm
 
 lsrc_x86_32 	+= $(lsrc_x86_64)
+
+lsrc_aarch64 +=  aes/gcm_pre.c \
+                aes/aarch64/gcm_multibinary_aarch64.S       \
+                aes/aarch64/keyexp_multibinary_aarch64.S    \
+                aes/aarch64/gcm_aarch64_dispatcher.c        \
+                aes/aarch64/keyexp_aarch64_dispatcher.c     \
+                aes/aarch64/keyexp_128_aarch64_aes.S        \
+                aes/aarch64/keyexp_192_aarch64_aes.S        \
+                aes/aarch64/keyexp_256_aarch64_aes.S        \
+                aes/aarch64/aes_gcm_aes_finalize_128.S      \
+                aes/aarch64/aes_gcm_aes_init.S              \
+                aes/aarch64/aes_gcm_enc_dec_128.S           \
+                aes/aarch64/aes_gcm_precomp_128.S           \
+                aes/aarch64/aes_gcm_update_128.S            \
+                aes/aarch64/aes_gcm_aes_finalize_256.S      \
+                aes/aarch64/aes_gcm_consts.S                \
+                aes/aarch64/aes_gcm_enc_dec_256.S           \
+                aes/aarch64/aes_gcm_precomp_256.S           \
+                aes/aarch64/aes_gcm_update_256.S            \
+                aes/aarch64/xts_aarch64_dispatcher.c        \
+                aes/aarch64/xts_aes_128_dec.S               \
+                aes/aarch64/xts_aes_128_enc.S               \
+                aes/aarch64/xts_keyexp_aes_128_dec.S        \
+                aes/aarch64/xts_keyexp_aes_128_enc.S        \
+                aes/aarch64/xts_aes_256_dec.S               \
+                aes/aarch64/xts_aes_256_enc.S               \
+                aes/aarch64/xts_keyexp_aes_256_dec.S        \
+                aes/aarch64/xts_keyexp_aes_256_enc.S        \
+                aes/aarch64/xts_multibinary_aarch64.S       \
+                aes/cbc_pre.c                               \
+                aes/aarch64/cbc_multibinary_aarch64.S       \
+                aes/aarch64/cbc_aarch64_dispatcher.c        \
+                aes/aarch64/cbc_enc_aes.S                   \
+                aes/aarch64/cbc_dec_aes.S
+
 other_src   += include/multibinary.asm
 other_src   += include/test.h include/types.h include/reg_sizes.asm
 other_src   += aes/gcm_defines.asm

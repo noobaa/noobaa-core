@@ -26,19 +26,19 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-    .arch armv8-a+crypto
+.arch armv8-a+crypto
 
     .text
 /*
 Macros
 */
-
+#define NUM_ROUNDS(a) (7+(a)/32)
 .macro  declare_var_vector_reg name:req,reg:req
     q\name      .req    q\reg
     v\name      .req    v\reg
     s\name      .req    s\reg
 .endm
-.macro  round_128 off:req,rcon:req,export_dec_key
+.macro  round_128 off:req,rcon:req
     .if   \off == 0
         ldp     w_tmp2,w_tmp3,[key,8]
         ldp     w_tmp0,w_tmp1,[key]
@@ -46,10 +46,6 @@ Macros
         dup     vsrc.4s,w_tmp3
         stp     w_tmp2,w_tmp3,[exp_key_enc,8]
         stp     w_tmp0,w_tmp1,[exp_key_enc]
-        .ifnb   \export_dec_key
-            stp     w_tmp2,w_tmp3,[exp_key_dec, 8 + 16*10]
-            stp     w_tmp0,w_tmp1,[exp_key_dec, 16*10]
-        .endif
     .endif
         mov     w0,\rcon
         mov     vdest.16b,vzero.16b
@@ -62,15 +58,35 @@ Macros
         eor     w_tmp3,w_tmp2,w_tmp3
         stp     w_tmp0,w_tmp1,[exp_key_enc,KEY_LEN*\off+KEY_LEN]
         stp     w_tmp2,w_tmp3,[exp_key_enc,KEY_LEN*\off+8+KEY_LEN]
-        .ifnb   \export_dec_key
-            stp     w_tmp2,w_tmp3,[exp_key_dec,8 + KEY_LEN*10-KEY_LEN*\off]
-            stp     w_tmp0,w_tmp1,[exp_key_dec, KEY_LEN*10-KEY_LEN*\off]
-        .endif
     .if  \off != 10
         dup     vsrc.4s,w_tmp3
     .endif
 .endm
-
+.macro  export_dec_key  rounds:req,enc_key:req,dec_key:req
+    ldr     q0,[\enc_key]
+    ldr     q1,[\enc_key,(\rounds-1)*16]
+    str     q0,[\dec_key,(\rounds-1)*16]
+    str     q1,[\dec_key]
+    ldp     q0,q1,[\enc_key,1*16]
+    ldp     q2,q3,[\enc_key,(1+2)*16]
+    ldp     q4,q5,[\enc_key,(1+4)*16]
+    aesimc  v0.16b,v0.16b
+    aesimc  v1.16b,v1.16b
+    ldp     q6,q7,[\enc_key,(1+6)*16]
+    aesimc  v2.16b,v2.16b
+    aesimc  v3.16b,v3.16b
+    stp     q1,q0,[\dec_key,(\rounds-1-2)*16]
+    aesimc  v4.16b,v4.16b
+    aesimc  v5.16b,v5.16b
+    stp     q3,q2,[\dec_key,(\rounds-1-4)*16]
+    ldr     q0,[\enc_key,(1+8)*16]
+    aesimc  v6.16b,v6.16b
+    aesimc  v7.16b,v7.16b
+    stp     q5,q4,[\dec_key,(\rounds-1-6)*16]
+    aesimc  v0.16b,v0.16b
+    stp     q7,q6,[\dec_key,(\rounds-1-8)*16]
+    str     q0,[\dec_key,(\rounds-1-9)*16]
+.endm
 /**
     void aes_keyexp_128_aes(const uint8_t * key,
         uint8_t * exp_key_enc, uint8_t * exp_key_dec)
@@ -96,10 +112,12 @@ aes_keyexp_128_aes:
     .set    rcon,1
     .set    off,0
     .rept   10
-        round_128   off,rcon,1
+        round_128   off,rcon
         .set        off,off+1
         .set        rcon,(rcon << 1) ^ ((rcon >> 7) * 0x11b)
     .endr
+
+    export_dec_key  NUM_ROUNDS(128),exp_key_enc,exp_key_dec
     ret
     .size   aes_keyexp_128_aes, .-aes_keyexp_128_aes
     .global aes_keyexp_128_enc_aes

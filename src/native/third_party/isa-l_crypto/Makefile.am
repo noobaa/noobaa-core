@@ -41,17 +41,14 @@ include mh_sha1_murmur3_x64_128/Makefile.am
 include mh_sha256/Makefile.am
 include rolling_hash/Makefile.am
 include sm3_mb/Makefile.am
-
 if CPU_X86_64
 include aes/Makefile.am
 endif
-
 if CPU_X86_32
 include aes/Makefile.am
 endif
-
 if CPU_AARCH64
-include aes/aarch64/Makefile.am
+include aes/Makefile.am
 endif
 
 # LIB version info not necessarily the same as package version
@@ -112,22 +109,11 @@ test: $(addsuffix .run,$(unit_tests))
 	@echo Completed run: $<
 
 # Support for yasm/nasm
-if INTEL_CET_ENABLED
-  export CET_LD=$(LD)
-endif
 if USE_YASM
-if INTEL_CET_ENABLED
-  as_filter = ${srcdir}/tools/yasm-cet-filter.sh
-else
   as_filter = ${srcdir}/tools/yasm-filter.sh
 endif
-endif
 if USE_NASM
-if INTEL_CET_ENABLED
-  as_filter = ${srcdir}/tools/nasm-cet-filter.sh
-else
   as_filter = ${srcdir}/tools/nasm-filter.sh
-endif
 endif
 if CPU_AARCH64
   as_filter = $(CC) -D__ASSEMBLY__

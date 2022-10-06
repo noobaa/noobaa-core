@@ -54,8 +54,13 @@ int main(void)
 	uint32_t i, j, k, fail = 0;
 	unsigned char *bufs[TEST_BUFS];
 	struct user_data udata[TEST_BUFS];
+	int ret;
 
-	posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
 	md5_ctx_mgr_init(mgr);
 
 	printf("md5_large_test\n");

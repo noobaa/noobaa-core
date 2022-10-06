@@ -49,7 +49,12 @@ lsrc_aarch64 += $(lsrc_murmur)	\
 		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128.c \
 		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_finalize_base.c \
 		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_update_base.c \
-		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128_base_aliases.c
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_aarch64_dispatcher.c \
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_ce.c \
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_block_ce.S \
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_asimd.c \
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_block_asimd.S \
+		mh_sha1_murmur3_x64_128/aarch64/mh_sha1_murmur3_multibinary.S
 
 lsrc_base_aliases += $(lsrc_murmur)	\
 		mh_sha1_murmur3_x64_128/mh_sha1_murmur3_x64_128.c \

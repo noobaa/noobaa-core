@@ -49,6 +49,8 @@ lsrc_aarch64 += \
 		$(lsrc_mh_sha1_base) \
 		mh_sha1/aarch64/mh_sha1_multibinary.S \
 		mh_sha1/aarch64/mh_sha1_aarch64_dispatcher.c \
+		mh_sha1/aarch64/mh_sha1_block_asimd.S \
+		mh_sha1/aarch64/mh_sha1_asimd.c \
 		mh_sha1/aarch64/mh_sha1_block_ce.S \
 		mh_sha1/aarch64/mh_sha1_ce.c
 

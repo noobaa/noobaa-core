@@ -32,7 +32,7 @@
 /*
 Macros
 */
-
+#define NUM_ROUNDS(a) (7+(a)/32)
 .macro  declare_var_vector_reg name:req,reg:req
         q\name      .req    q\reg
         v\name      .req    v\reg
@@ -50,14 +50,6 @@ Macros
         stp     w_tmp0,w_tmp1,[exp_key_enc]
         stp     w_tmp4,w_tmp5,[exp_key_enc,16]
         stp     w_tmp2,w_tmp3,[exp_key_enc,8]
-
-        .ifnb   \export_dec_key
-            stp     w_tmp4,w_tmp5,[exp_key_dec, 16*(13-\off)]
-            stp     w_tmp6,w_tmp7,[exp_key_dec, 8 + 16*(13-\off)]
-            stp     w_tmp0,w_tmp1,[exp_key_dec, 16*(14-\off)]
-            stp     w_tmp2,w_tmp3,[exp_key_dec, 8 + 16*(14-\off)]
-        .endif
-
     .endif
         mov     w0,\rcon
         mov     vdest.16b,vzero.16b
@@ -82,24 +74,45 @@ Macros
         stp     w_tmp2,w_tmp3,[exp_key_enc,KEY_LEN*(\off+1)+8]
         stp     w_tmp4,w_tmp5,[exp_key_enc,KEY_LEN*(\off+1)+16]
         stp     w_tmp6,w_tmp7,[exp_key_enc,KEY_LEN*(\off+1)+24]
-        .ifnb   \export_dec_key
-            stp     w_tmp4,w_tmp5,[exp_key_dec, 16*(11-2*\off)]
-            stp     w_tmp6,w_tmp7,[exp_key_dec, 8 + 16*(11-2*\off)]
-            stp     w_tmp0,w_tmp1,[exp_key_dec, 16*(12-2*\off)]
-            stp     w_tmp2,w_tmp3,[exp_key_dec, 8 + 16*(12-2*\off)]
-        .endif
     .else
         stp     w_tmp0,w_tmp1,[exp_key_enc,KEY_LEN*(\off+1)]
         stp     w_tmp2,w_tmp3,[exp_key_enc,KEY_LEN*(\off+1)+8]
-        .ifnb   \export_dec_key
-            stp     w_tmp0,w_tmp1,[exp_key_dec, 16*(14-2*\off)]
-            stp     w_tmp2,w_tmp3,[exp_key_dec, 8 + 16*(14-2*\off)]
-        .endif
     .endif
+.endm
 
+.macro  export_dec_key  rounds:req,enc_key:req,dec_key:req
+    ldr     q0,[\enc_key]
+    ldr     q1,[\enc_key,(\rounds-1)*16]
+    str     q0,[\dec_key,(\rounds-1)*16]
+    str     q1,[\dec_key]
+    ldp     q0,q1,[\enc_key,1*16]
+    ldp     q2,q3,[\enc_key,(1+2)*16]
+    ldp     q4,q5,[\enc_key,(1+4)*16]
+    aesimc  v0.16b,v0.16b
+    aesimc  v1.16b,v1.16b
+    ldp     q6,q7,[\enc_key,(1+6)*16]
+    aesimc  v2.16b,v2.16b
+    aesimc  v3.16b,v3.16b
+    stp     q1,q0,[\dec_key,(\rounds-1-2)*16]
+    ldp     q0,q1,[\enc_key,(1+8)*16]
+    aesimc  v4.16b,v4.16b
+    aesimc  v5.16b,v5.16b
+    stp     q3,q2,[\dec_key,(\rounds-1-4)*16]
+    ldp     q2,q3,[\enc_key,(1+10)*16]
 
-
-
+    aesimc  v6.16b,v6.16b
+    aesimc  v7.16b,v7.16b
+    stp     q5,q4,[\dec_key,(\rounds-1-6)*16]
+    ldr     q4,[\enc_key,(1+12)*16]
+    aesimc  v0.16b,v0.16b
+    aesimc  v1.16b,v1.16b
+    stp     q7,q6,[\dec_key,(\rounds-1-8)*16]
+    aesimc  v2.16b,v2.16b
+    aesimc  v3.16b,v3.16b
+    stp     q1,q0,[\dec_key,(\rounds-1-10)*16]
+    aesimc  v4.16b,v4.16b
+    stp     q3,q2,[\dec_key,(\rounds-1-12)*16]
+    str     q4,[\dec_key,(\rounds-1-13)*16]
 .endm
 /**
     void aes_keyexp_256_aes(const uint8_t * key,
@@ -134,6 +147,7 @@ aes_keyexp_256_aes:
         .set        off,off+1
         .set        rcon,(rcon << 1) ^ ((rcon >> 7) * 0x11b)
     .endr
+    export_dec_key  NUM_ROUNDS(256),exp_key_enc,exp_key_dec
     ret
     .size   aes_keyexp_256_aes, .-aes_keyexp_256_aes
 

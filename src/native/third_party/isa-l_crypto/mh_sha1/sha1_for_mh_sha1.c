@@ -36,6 +36,12 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
+#if (__GNUC__ >= 11)
+# define OPT_FIX __attribute__ ((noipa))
+#else
+# define OPT_FIX
+#endif
+
 #define W(x) w[(x) & 15]
 
 #define step00_19(i,a,b,c,d,e) \
@@ -59,7 +65,7 @@
 	e += rol32(a,5) + F4(b,c,d) + 0xCA62C1D6 + W(i); \
 	b = rol32(b,30)
 
-void sha1_single_for_mh_sha1(const uint8_t * data, uint32_t digest[])
+static void OPT_FIX sha1_single_for_mh_sha1(const uint8_t * data, uint32_t digest[])
 {
 	uint32_t a, b, c, d, e;
 	uint32_t w[16] = { 0 };

@@ -94,7 +94,7 @@ uint32_t pick_rand_mask_in_range(int min_bits, int max_bits)
 
 	do {
 		mask = rand();
-#ifdef _MSC_VER
+#if defined(_WIN32) || defined(_WIN64)
 		mask = (mask << 16) ^ rand();
 #endif
 		ones = ones_in_mask(mask);

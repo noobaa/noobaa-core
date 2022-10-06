@@ -34,16 +34,19 @@
 #include "test.h"
 
 #include <openssl/evp.h>
+#include "ossl_helper.h"
 
-//#define CACHED_TEST
-#ifdef CACHED_TEST
+#ifndef GT_L3_CACHE
+# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#endif
+
+#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
 // Cached test, loop many times over small dataset
 # define TEST_LEN     8*1024
 # define TEST_LOOPS   400000
 # define TEST_TYPE_STR "_warm"
-#else
+#elif defined(COLD_TEST)
 // Uncached test.  Pull from large mem base.
-# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
 # define TEST_LEN     (2 * GT_L3_CACHE)
 # define TEST_LOOPS   50
 # define TEST_TYPE_STR "_cold"
@@ -65,19 +68,32 @@ void mk_rand_data(unsigned char *k1, unsigned char *k2, unsigned char *k3, unsig
 
 }
 
-static inline
-    int openssl_aes_128_xts_dec(EVP_CIPHER_CTX * ctx, unsigned char *key, unsigned char *iv,
-				unsigned char *ct, unsigned char *dt)
-{
-	int outlen, tmplen;
-	if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_xts(), NULL, key, iv))
-		printf("\n ERROR!! \n");
-	if (!EVP_DecryptUpdate(ctx, dt, &outlen, (const unsigned char *)ct, TEST_LEN))
-		printf("\n ERROR!! \n");
-	if (!EVP_DecryptFinal_ex(ctx, dt + outlen, &tmplen))
-		printf("\n ERROR!! \n");
+// To match openssl3 aes-xts size limits
 
-	return 0;
+static inline void matching_aes_128_xts_enc(uint8_t * k2, uint8_t * k1, uint8_t * tw,
+					    uint64_t len, const uint8_t * pt, uint8_t * ct)
+{
+	while (len > OSSL_XTS_MAX_LEN) {
+		XTS_AES_128_enc(k2, k1, tw, OSSL_XTS_MAX_LEN, pt, ct);
+		ct += OSSL_XTS_MAX_LEN;
+		pt += OSSL_XTS_MAX_LEN;
+		len -= OSSL_XTS_MAX_LEN;
+	}
+	XTS_AES_128_enc(k2, k1, tw, len, pt, ct);
+
+}
+
+static inline void matching_aes_128_xts_dec(uint8_t * k2, uint8_t * k1, uint8_t * tw,
+					    uint64_t len, const uint8_t * ct, uint8_t * pt)
+{
+	while (len > OSSL_XTS_MAX_LEN) {
+		XTS_AES_128_dec(k2, k1, tw, OSSL_XTS_MAX_LEN, ct, pt);
+		ct += OSSL_XTS_MAX_LEN;
+		pt += OSSL_XTS_MAX_LEN;
+		len -= OSSL_XTS_MAX_LEN;
+	}
+	XTS_AES_128_dec(k2, k1, tw, len, ct, pt);
+
 }
 
 int main(void)
@@ -113,9 +129,9 @@ int main(void)
 	}
 
 	/* Encrypt and compare decrypted output */
-	XTS_AES_128_enc(key2, key1, tinit, TEST_LEN, pt, ct);
-	XTS_AES_128_dec(key2, key1, tinit, TEST_LEN, ct, dt);
-	openssl_aes_128_xts_dec(ctx, keyssl, tinit, ct, refdt);
+	matching_aes_128_xts_enc(key2, key1, tinit, TEST_LEN, pt, ct);
+	matching_aes_128_xts_dec(key2, key1, tinit, TEST_LEN, ct, dt);
+	openssl_aes_128_xts_dec(ctx, keyssl, tinit, TEST_LEN, ct, refdt);
 	if (memcmp(dt, refdt, TEST_LEN)) {
 		printf("ISA-L and OpenSSL results don't match\n");
 		return -1;
@@ -124,7 +140,7 @@ int main(void)
 	/* Time ISA-L decryption */
 	perf_start(&start);
 	for (i = 0; i < TEST_LOOPS; i++)
-		XTS_AES_128_dec(key2, key1, tinit, TEST_LEN, ct, dt);
+		matching_aes_128_xts_dec(key2, key1, tinit, TEST_LEN, ct, dt);
 	perf_stop(&stop);
 	printf("aes_xts_128_dec" TEST_TYPE_STR ": ");
 	perf_print(stop, start, (long long)TEST_LEN * i);
@@ -132,7 +148,7 @@ int main(void)
 	/* Time OpenSSL decryption */
 	perf_start(&start);
 	for (i = 0; i < TEST_LOOPS; i++)
-		openssl_aes_128_xts_dec(ctx, keyssl, tinit, ct, refdt);
+		openssl_aes_128_xts_dec(ctx, keyssl, tinit, TEST_LEN, ct, refdt);
 	perf_stop(&stop);
 	printf("aes_xts_128_openssl_dec" TEST_TYPE_STR ": ");
 	perf_print(stop, start, (long long)TEST_LEN * i);

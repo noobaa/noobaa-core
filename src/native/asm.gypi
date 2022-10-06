@@ -29,6 +29,7 @@
                     }],
                 }],
                 [ 'node_arch=="arm64"', {
+                    'defines': ['NO_SVE2=1'],
                     'rules': [{
                         'rule_name': 'assemble',
                         'extension': 'S',
@@ -36,6 +37,7 @@
                         'action': [
                             'gcc',
                             '-D__ASSEMBLY__',
+                            '-DNO_SVE2=1',
                             '-O2',
                             '-c',
                             '<!@(for i in <(_include_dirs); do echo -I $i; done)',

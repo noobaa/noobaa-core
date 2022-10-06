@@ -54,8 +54,14 @@ int main(void)
 	uint32_t i, j, k, fail = 0;
 	unsigned char *bufs[TEST_BUFS];
 	struct user_data udata[TEST_BUFS];
+	int ret;
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	sha256_ctx_mgr_init(mgr);
 
 	printf("sha256_large_test\n");

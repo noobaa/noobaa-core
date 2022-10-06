@@ -107,9 +107,9 @@ default rel
 %define %%xtmp  %2
 %define %%xround_key    %3
 	vpshufd  %%xraw_key,  %%xraw_key, 11111111b
-	shufps  %%xtmp, %%xround_key, 00010000b
+	vshufps  %%xtmp, %%xround_key, 00010000b
 	vpxor    %%xround_key, %%xtmp
-	shufps  %%xtmp, %%xround_key, 10001100b
+	vshufps  %%xtmp, %%xround_key, 10001100b
 	vpxor    %%xround_key, %%xtmp
 	vpxor    %%xround_key,  %%xraw_key
 %endmacro
@@ -119,9 +119,9 @@ default rel
 %define %%xtmp  %2
 %define %%xround_key    %3
 	vpshufd  %%xraw_key,  %%xraw_key, 10101010b
-	shufps  %%xtmp, %%xround_key, 00010000b
+	vshufps  %%xtmp, %%xround_key, 00010000b
 	vpxor    %%xround_key, %%xtmp
-	shufps  %%xtmp, %%xround_key, 10001100b
+	vshufps  %%xtmp, %%xround_key, 10001100b
 	vpxor    %%xround_key, %%xtmp
 	vpxor    %%xround_key,  %%xraw_key
 %endmacro

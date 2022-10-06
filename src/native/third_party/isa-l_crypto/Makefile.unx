@@ -33,27 +33,25 @@ arch ?= $(shell uname | grep -v -e Linux -e BSD )
 
 units ?=sha1_mb sha256_mb sha512_mb md5_mb mh_sha1 mh_sha1_murmur3_x64_128 \
 	mh_sha256 rolling_hash sm3_mb
-ifneq ($(filter x86_%,$(host_cpu)),)
+
+
 ifneq ($(arch),noarch)
-units +=aes
+  ifneq ($(filter x86_%,$(host_cpu)),)
+    units +=aes
+  endif
+
+  ifeq ($(host_cpu)_$(arch),aarch64_)
+    arch = aarch64
+    units +=aes
+  endif
 endif
-endif
-ifeq ($(host_cpu)_$(arch),aarch64_)
-  arch = aarch64
-endif
+
 default: lib
 include $(foreach unit,$(units), $(unit)/Makefile.am)
 
-ifeq ($(arch),aarch64)
-include aes/aarch64/Makefile.am
-endif
 # Override individual lib names to make one inclusive library.
 lib_name := bin/isa-l_crypto.a
 
 include make.inc
 include tools/gen_nmake.mk
-ifeq ($(arch),aarch64)
-VPATH = . $(units) include aes
-else
 VPATH = . $(units) include
-endif

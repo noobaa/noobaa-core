@@ -37,6 +37,12 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
+#if (__GNUC__ >= 11)
+# define OPT_FIX __attribute__ ((noipa))
+#else
+# define OPT_FIX
+#endif
+
 #define H0 0x67452301
 #define H1 0xefcdab89
 #define H2 0x98badcfe
@@ -73,7 +79,7 @@
 	e += rol32(a,5) + F4(b,c,d) + 0xCA62C1D6 + W(i); \
 	b = rol32(b,30)
 
-void sha1_single(const uint8_t * data, uint32_t digest[]);
+static void OPT_FIX sha1_single(const uint8_t * data, uint32_t digest[]);
 
 void sha1_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t len)
 {

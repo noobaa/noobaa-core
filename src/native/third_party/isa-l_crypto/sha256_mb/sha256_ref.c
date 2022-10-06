@@ -37,6 +37,12 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
+#if (__GNUC__ >= 11)
+# define OPT_FIX __attribute__ ((noipa))
+#else
+# define OPT_FIX
+#endif
+
 #define H0 0x6a09e667
 #define H1 0xbb67ae85
 #define H2 0x3c6ef372
@@ -67,7 +73,7 @@
 	d += t1; \
 	h = t1 + t2;
 
-void sha256_single(const uint8_t * data, uint32_t digest[]);
+static void OPT_FIX sha256_single(const uint8_t * data, uint32_t digest[]);
 
 void sha256_ref(const uint8_t * input_data, uint32_t * digest, const uint32_t len)
 {

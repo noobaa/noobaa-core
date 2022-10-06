@@ -38,6 +38,12 @@
 #define inline __inline
 #endif
 
+#if (__GNUC__ >= 11)
+# define OPT_FIX __attribute__ ((noipa))
+#else
+# define OPT_FIX
+#endif
+
 #define F1(b,c,d) (d ^ (b & (c ^ d)))
 #define F2(b,c,d) (c ^ (d & (b ^ c)))
 #define F3(b,c,d) (b ^ c ^ d)
@@ -54,9 +60,9 @@
 	a = b + rol32(f, r);
 
 static void md5_init(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len);
-static uint32_t md5_update(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len);
-static void md5_final(MD5_HASH_CTX * ctx, uint32_t remain_len);
-static void md5_single(const void *data, uint32_t digest[4]);
+static void md5_update(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len);
+static void md5_final(MD5_HASH_CTX * ctx);
+static void OPT_FIX md5_single(const void *data, uint32_t digest[4]);
 static inline void hash_init_digest(MD5_WORD_T * digest);
 
 void md5_ctx_mgr_init_base(MD5_HASH_CTX_MGR * mgr)
@@ -66,7 +72,6 @@ void md5_ctx_mgr_init_base(MD5_HASH_CTX_MGR * mgr)
 MD5_HASH_CTX *md5_ctx_mgr_submit_base(MD5_HASH_CTX_MGR * mgr, MD5_HASH_CTX * ctx,
 				      const void *buffer, uint32_t len, HASH_CTX_FLAG flags)
 {
-	uint32_t remain_len;
 
 	if (flags & (~HASH_ENTIRE)) {
 		// User should not pass anything other than FIRST, UPDATE, or LAST
@@ -97,14 +102,14 @@ MD5_HASH_CTX *md5_ctx_mgr_submit_base(MD5_HASH_CTX_MGR * mgr, MD5_HASH_CTX * ctx
 	}
 
 	if (flags == HASH_LAST) {
-		remain_len = md5_update(ctx, buffer, len);
-		md5_final(ctx, remain_len);
+		md5_update(ctx, buffer, len);
+		md5_final(ctx);
 	}
 
 	if (flags == HASH_ENTIRE) {
 		md5_init(ctx, buffer, len);
-		remain_len = md5_update(ctx, buffer, len);
-		md5_final(ctx, remain_len);
+		md5_update(ctx, buffer, len);
+		md5_final(ctx);
 	}
 
 	return ctx;
@@ -133,45 +138,84 @@ static void md5_init(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len)
 	ctx->status = HASH_CTX_STS_PROCESSING;
 }
 
-static uint32_t md5_update(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len)
+static void md5_update(MD5_HASH_CTX * ctx, const void *buffer, uint32_t len)
 {
 	uint32_t remain_len = len;
 	uint32_t *digest = ctx->job.result_digest;
-	while (remain_len >= 64) {
-		md5_single(buffer, digest);
-		buffer = (void *)((uint8_t *) buffer + 64);
-		remain_len -= 64;
-		ctx->total_length += 64;
+
+	// Advance byte counter
+	ctx->total_length += len;
+
+	// If there is anything currently buffered in the extra blocks, append to it until it contains a whole block.
+	// Or if the user's buffer contains less than a whole block, append as much as possible to the extra block.
+	if ((ctx->partial_block_buffer_length) | (remain_len < MD5_BLOCK_SIZE)) {
+		// Compute how many bytes to copy from user buffer into extra block
+		uint32_t copy_len = MD5_BLOCK_SIZE - ctx->partial_block_buffer_length;
+		if (remain_len < copy_len) {
+			copy_len = remain_len;
+		}
+
+		if (copy_len) {
+			// Copy and update relevant pointers and counters
+			memcpy_fixedlen(&ctx->partial_block_buffer
+					[ctx->partial_block_buffer_length], buffer, copy_len);
+
+			ctx->partial_block_buffer_length += copy_len;
+			remain_len -= copy_len;
+			buffer = (void *)((uint8_t *) buffer + copy_len);
+		}
+		// The extra block should never contain more than 1 block here
+		assert(ctx->partial_block_buffer_length <= MD5_BLOCK_SIZE);
+
+		// If the extra block buffer contains exactly 1 block, it can be hashed.
+		if (ctx->partial_block_buffer_length >= MD5_BLOCK_SIZE) {
+			ctx->partial_block_buffer_length = 0;
+			md5_single(ctx->partial_block_buffer, digest);
+		}
+	}
+	// If the extra blocks are empty, begin hashing what remains in the user's buffer.
+	if (ctx->partial_block_buffer_length == 0) {
+		while (remain_len >= MD5_BLOCK_SIZE) {
+			md5_single(buffer, digest);
+			buffer = (void *)((uint8_t *) buffer + MD5_BLOCK_SIZE);
+			remain_len -= MD5_BLOCK_SIZE;
+		}
+
+	}
+
+	if (remain_len > 0) {
+		memcpy_fixedlen(&ctx->partial_block_buffer, buffer, remain_len);
+		ctx->partial_block_buffer_length = remain_len;
 	}
 
 	ctx->status = HASH_CTX_STS_IDLE;
-	ctx->incoming_buffer = buffer;
-	return remain_len;
+	return;
 }
 
-static void md5_final(MD5_HASH_CTX * ctx, uint32_t remain_len)
+static void md5_final(MD5_HASH_CTX * ctx)
 {
-	const void *buffer = ctx->incoming_buffer;
-	uint32_t i = remain_len, j;
-	uint8_t buf[128];
+	const void *buffer = ctx->partial_block_buffer;
+	uint32_t i = ctx->partial_block_buffer_length;
+	uint8_t buf[2 * MD5_BLOCK_SIZE];
 	uint32_t *digest = ctx->job.result_digest;
 
-	ctx->total_length += i;
 	memcpy(buf, buffer, i);
 	buf[i++] = 0x80;
-	for (j = i; j < 120; j++)
+	for (uint32_t j = i; j < (2 * MD5_BLOCK_SIZE); j++) {
 		buf[j] = 0;
+	}
 
-	if (i > 64 - 8)
-		i = 128;
-	else
-		i = 64;
+	if (i > MD5_BLOCK_SIZE - MD5_PADLENGTHFIELD_SIZE) {
+		i = 2 * MD5_BLOCK_SIZE;
+	} else {
+		i = MD5_BLOCK_SIZE;
+	}
 
 	*(uint64_t *) (buf + i - 8) = to_le64((uint64_t) ctx->total_length * 8);
 
 	md5_single(buf, digest);
-	if (i == 128) {
-		md5_single(buf + 64, digest);
+	if (i == 2 * MD5_BLOCK_SIZE) {
+		md5_single(buf + MD5_BLOCK_SIZE, digest);
 	}
 
 	ctx->status = HASH_CTX_STS_COMPLETE;

@@ -35,17 +35,20 @@
 // Set number of outstanding jobs
 #define TEST_BUFS SM3_MAX_LANES
 
-#ifdef CACHED_TEST
-// Loop many times over same data
-#  define TEST_LEN     4*1024
-#  define TEST_LOOPS   10000
-#  define TEST_TYPE_STR "_warm"
-#else
+#ifndef GT_L3_CACHE
+# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#endif
+
+#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
+// Cached test, loop many times over small dataset
+# define TEST_LEN     4*1024
+# define TEST_LOOPS   10000
+# define TEST_TYPE_STR "_warm"
+#elif defined(COLD_TEST)
 // Uncached test.  Pull from large mem base.
-#  define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
-#  define TEST_LEN     (GT_L3_CACHE / TEST_BUFS)
-#  define TEST_LOOPS   100
-#  define TEST_TYPE_STR "_cold"
+# define TEST_LEN     (GT_L3_CACHE / TEST_BUFS)
+# define TEST_LOOPS   100
+# define TEST_TYPE_STR "_cold"
 #endif
 
 #define TEST_MEM TEST_LEN * TEST_BUFS * TEST_LOOPS

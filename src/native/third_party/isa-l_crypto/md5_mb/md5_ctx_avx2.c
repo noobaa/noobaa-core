@@ -27,6 +27,16 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 
+#if defined(__clang__)
+# pragma clang attribute push (__attribute__((target("avx2"))), apply_to=function)
+#elif defined(__ICC)
+# pragma intel optimization_parameter target_arch=AVX2
+#elif defined(__ICL)
+# pragma [intel] optimization_parameter target_arch=AVX2
+#elif (__GNUC__ >= 5)
+# pragma GCC target("avx2")
+#endif
+
 #include "md5_mb.h"
 #include "memcpy_inline.h"
 
@@ -247,3 +257,7 @@ struct slver md5_ctx_mgr_submit_avx2_slver = { 0x0187, 0x02, 0x04 };
 
 struct slver md5_ctx_mgr_flush_avx2_slver_04020188;
 struct slver md5_ctx_mgr_flush_avx2_slver = { 0x0188, 0x02, 0x04 };
+
+#if defined(__clang__)
+# pragma clang attribute pop
+#endif

@@ -209,18 +209,13 @@ static SM3_HASH_CTX *sm3_ctx_mgr_resubmit(SM3_HASH_CTX_MGR * mgr, SM3_HASH_CTX *
 	return NULL;
 }
 
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define cpu_to_be32(v) (((v&0xff000000)>>24) | ((v&0xff0000)>>8) | ((v&0xff00)<<8) | ((v&0xff)<<24))
-#else
-#define cpu_to_be32(v)
-#endif
 static inline void hash_init_digest(SM3_WORD_T * digest)
 {
 	static const SM3_WORD_T hash_initial_digest[SM3_DIGEST_NWORDS] =
-	    { cpu_to_be32(0x7380166f), cpu_to_be32(0x4914b2b9),
-		cpu_to_be32(0x172442d7), cpu_to_be32(0xda8a0600),
-		cpu_to_be32(0xa96f30bc), cpu_to_be32(0x163138aa),
-		cpu_to_be32(0xe38dee4d), cpu_to_be32(0xb0fb0e4e)
+	    { to_be32(0x7380166f), to_be32(0x4914b2b9),
+		to_be32(0x172442d7), to_be32(0xda8a0600),
+		to_be32(0xa96f30bc), to_be32(0x163138aa),
+		to_be32(0xe38dee4d), to_be32(0xb0fb0e4e)
 	};
 	memcpy_fixedlen(digest, hash_initial_digest, sizeof(hash_initial_digest));
 }

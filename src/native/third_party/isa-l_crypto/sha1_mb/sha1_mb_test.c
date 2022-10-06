@@ -86,14 +86,90 @@ static uint32_t *expResultDigest[MSGS] = {
 	expResultDigest7
 };
 
+#define NUM_CHUNKS	4
+#define DATA_BUF_LEN	4096
+int non_blocksize_updates_test(SHA1_HASH_CTX_MGR * mgr)
+{
+	SHA1_HASH_CTX ctx_refer;
+	SHA1_HASH_CTX ctx_pool[NUM_CHUNKS];
+	SHA1_HASH_CTX *ctx = NULL;
+
+	const int update_chunks[NUM_CHUNKS] = { 32, 64, 128, 256 };
+	unsigned char data_buf[DATA_BUF_LEN];
+
+	memset(data_buf, 0xA, DATA_BUF_LEN);
+
+	// Init contexts before first use
+	hash_ctx_init(&ctx_refer);
+
+	ctx = sha1_ctx_mgr_submit(mgr, &ctx_refer, data_buf, DATA_BUF_LEN, HASH_ENTIRE);
+	if (ctx && ctx->error) {
+		return -1;
+	}
+	ctx = sha1_ctx_mgr_flush(mgr);
+	if ((ctx && ctx->error) || (ctx_refer.status != HASH_CTX_STS_COMPLETE)) {
+		return -1;
+	}
+
+	for (int c = 0; c < NUM_CHUNKS; c++) {
+		int chunk = update_chunks[c];
+		hash_ctx_init(&ctx_pool[c]);
+		for (int i = 0; i * chunk < DATA_BUF_LEN; i++) {
+			HASH_CTX_FLAG flags = HASH_UPDATE;
+			if (i == 0) {
+				flags = HASH_FIRST;
+			}
+			ctx = sha1_ctx_mgr_submit(mgr, &ctx_pool[c],
+						  data_buf + i * chunk, chunk, flags);
+			if (ctx && ctx->error) {
+				return -1;
+			}
+			ctx = sha1_ctx_mgr_flush(mgr);
+			if (ctx && ctx->error) {
+				return -1;
+			}
+		}
+	}
+
+	for (int c = 0; c < NUM_CHUNKS; c++) {
+		ctx = sha1_ctx_mgr_submit(mgr, &ctx_pool[c], NULL, 0, HASH_LAST);
+		if (ctx && ctx->error) {
+			return -1;
+		}
+		ctx = sha1_ctx_mgr_flush(mgr);
+		if (ctx && ctx->error) {
+			return -1;
+		}
+		if (ctx_pool[c].status != HASH_CTX_STS_COMPLETE) {
+			return -1;
+		}
+		for (int i = 0; i < SHA1_DIGEST_NWORDS; i++) {
+			if (ctx_refer.job.result_digest[i] != ctx_pool[c].job.result_digest[i]) {
+				printf
+				    ("sm3 calc error! chunk %d, digest[%d], (%d) != (%d)\n",
+				     update_chunks[c], i, ctx_refer.job.result_digest[i],
+				     ctx_pool[c].job.result_digest[i]);
+				return -2;
+			}
+		}
+	}
+	return 0;
+}
+
 int main(void)
 {
 	SHA1_HASH_CTX_MGR *mgr = NULL;
 	SHA1_HASH_CTX ctxpool[NUM_JOBS], *ctx = NULL;
 	uint32_t i, j, k, t, checked = 0;
 	uint32_t *good;
+	int ret;
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA1_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SHA1_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	sha1_ctx_mgr_init(mgr);
 
 	// Init contexts before first use
@@ -219,6 +295,12 @@ int main(void)
 	if (checked != NUM_JOBS) {
 		printf("only tested %d rather than %d\n", checked, NUM_JOBS);
 		return -1;
+	}
+
+	int rc = non_blocksize_updates_test(mgr);
+	if (rc) {
+		printf("multi updates test fail %d\n", rc);
+		return rc;
 	}
 
 	printf(" multibinary_sha1 test: Pass\n");

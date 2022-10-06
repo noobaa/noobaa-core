@@ -27,18 +27,17 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
     .arch armv8-a+crypto
-
     .text
 /*
 Macros
 */
-
+#define NUM_ROUNDS(a) (7+(a)/32)
 .macro  declare_var_vector_reg name:req,reg:req
         q\name      .req        q\reg
         v\name      .req        v\reg
         s\name      .req        s\reg
 .endm
-.macro  round_192 off:req,rcon:req,export_dec_key
+.macro  round_192 off:req,rcon:req
     .if   \off == 0
         ldp     w_tmp0,w_tmp1,[key]
         ldp     w_tmp2,w_tmp3,[key,8]
@@ -48,13 +47,6 @@ Macros
         stp     w_tmp0,w_tmp1,[exp_key_enc]
         stp     w_tmp4,w_tmp5,[exp_key_enc,16]
         stp     w_tmp2,w_tmp3,[exp_key_enc,8]
-
-        .ifnb   \export_dec_key
-            stp     w_tmp4,w_tmp5,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN-8]
-            stp     w_tmp0,w_tmp1,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN+8]
-            stp     w_tmp2,w_tmp3,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN+16]
-        .endif
-
     .endif
         mov     w0,\rcon
         mov     vdest.16b,vzero.16b
@@ -72,26 +64,40 @@ Macros
         stp     w_tmp0,w_tmp1,[exp_key_enc,KEY_LEN*(\off+1)]
         stp     w_tmp2,w_tmp3,[exp_key_enc,KEY_LEN*(\off+1)+8]
         stp     w_tmp4,w_tmp5,[exp_key_enc,KEY_LEN*(\off+1)+16]
-        .ifnb   \export_dec_key
-            .if (\off & 1) == 0
-                stp     w_tmp4,w_tmp5,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)+8]
-                stp     w_tmp0,w_tmp1,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)+24]
-                stp     w_tmp2,w_tmp3,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)]
-            .else
-                stp     w_tmp4,w_tmp5,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)-8]
-                stp     w_tmp0,w_tmp1,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)+8]
-                stp     w_tmp2,w_tmp3,[exp_key_dec, KEY_BUF_SIZE-KEY_LEN*(\off+2)+16]
-            .endif
-        .endif
     .else
         stp     w_tmp0,w_tmp1,[exp_key_enc,KEY_LEN*(\off+1)]
         stp     w_tmp2,w_tmp3,[exp_key_enc,KEY_LEN*(\off+1)+8]
-        .ifnb   \export_dec_key
-            stp     w_tmp0,w_tmp1,[exp_key_dec]
-            stp     w_tmp2,w_tmp3,[exp_key_dec,8]
-        .endif
     .endif
+.endm
 
+.macro  export_dec_key  rounds:req,enc_key:req,dec_key:req
+    ldr     q0,[\enc_key]
+    ldr     q1,[\enc_key,(\rounds-1)*16]
+    str     q0,[\dec_key,(\rounds-1)*16]
+    str     q1,[\dec_key]
+    ldp     q0,q1,[\enc_key,1*16]
+    ldp     q2,q3,[\enc_key,(1+2)*16]
+    ldp     q4,q5,[\enc_key,(1+4)*16]
+    aesimc  v0.16b,v0.16b
+    aesimc  v1.16b,v1.16b
+    ldp     q6,q7,[\enc_key,(1+6)*16]
+    aesimc  v2.16b,v2.16b
+    aesimc  v3.16b,v3.16b
+    stp     q1,q0,[\dec_key,(\rounds-1-2)*16]
+    ldp     q0,q1,[\enc_key,(1+8)*16]
+    aesimc  v4.16b,v4.16b
+    aesimc  v5.16b,v5.16b
+    stp     q3,q2,[\dec_key,(\rounds-1-4)*16]
+    aesimc  v6.16b,v6.16b
+    aesimc  v7.16b,v7.16b
+    stp     q5,q4,[\dec_key,(\rounds-1-6)*16]
+    ldr     q2,[\enc_key,(1+10)*16]
+    aesimc  v0.16b,v0.16b
+    aesimc  v1.16b,v1.16b
+    stp     q7,q6,[\dec_key,(\rounds-1-8)*16]
+    aesimc  v2.16b,v2.16b
+    stp     q1,q0,[\dec_key,(\rounds-1-10)*16]
+    str     q2,[\dec_key,(\rounds-1-11)*16]
 .endm
 /**
     void aes_keyexp_192_aes(const uint8_t * key,
@@ -101,7 +107,6 @@ Macros
     exp_key_enc .req    x1
     exp_key_dec .req    x2
     .equ        KEY_LEN,     (192/8)
-    .equ        KEY_BUF_SIZE,((7+KEY_LEN/4)*16)
     w_tmp0      .req    w3
     w_tmp1      .req    w4
     w_tmp2      .req    w5
@@ -121,10 +126,11 @@ aes_keyexp_192_aes:
     .set    rcon,1
     .set    off,0
     .rept   8
-        round_192   off,rcon,1
+        round_192   off,rcon
         .set        off,off+1
         .set        rcon,(rcon << 1) ^ ((rcon >> 7) * 0x11b)
     .endr
+    export_dec_key  NUM_ROUNDS(192),exp_key_enc,exp_key_dec
     ret
     .size       aes_keyexp_192_aes, .-aes_keyexp_192_aes
 

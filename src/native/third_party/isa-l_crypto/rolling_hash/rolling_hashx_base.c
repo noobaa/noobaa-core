@@ -32,7 +32,7 @@
 # define inline __inline
 #endif
 
-inline int floor_pow2(uint32_t in)
+static inline int floor_pow2(uint32_t in)
 {
 	uint32_t x = in;
 
@@ -43,7 +43,7 @@ inline int floor_pow2(uint32_t in)
 	return x;
 }
 
-inline uint32_t rol(uint32_t x, int i)
+static inline uint32_t rol(uint32_t x, int i)
 {
 	return x << i | x >> (8 * sizeof(x) - i);
 }

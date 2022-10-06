@@ -62,11 +62,17 @@ int main(void)
 	uint32_t lens[TEST_BUFS];
 	unsigned int jobs, t;
 	uint8_t *tmp_buf;
+	int ret;
 
 	printf("multibinary_sha256 test, %d sets of %dx%d max: ", RANDOMS, TEST_BUFS,
 	       TEST_LEN);
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SHA256_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	sha256_ctx_mgr_init(mgr);
 
 	srand(TEST_SEED);

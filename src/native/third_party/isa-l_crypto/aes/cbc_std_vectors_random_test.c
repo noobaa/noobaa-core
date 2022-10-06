@@ -245,22 +245,22 @@ int check_vector(struct cbc_vector *vector)
 int test_std_combinations(void)
 {
 	int const vectors_cnt = sizeof(cbc_vectors) / sizeof(cbc_vectors[0]);
-	int i;
+	int i, ret;
 	uint8_t *iv = NULL;
 
 	printf("AES CBC standard test vectors:");
 #ifdef CBC_VECTORS_VERBOSE
 	printf("\n");
 #endif
-	posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
-	if (NULL == iv)
+	ret = posix_memalign((void **)&iv, 16, (CBC_IV_DATA_LEN));
+	if ((0 != ret) || (NULL == iv))
 		return 1;
 
 	for (i = 0; (i < vectors_cnt); i++) {
 		struct cbc_vector vect = cbc_vectors[i];
 
-		posix_memalign((void **)&vect.KEYS, 16, (sizeof(*vect.KEYS)));
-		if (NULL == vect.KEYS)
+		ret = posix_memalign((void **)&vect.KEYS, 16, (sizeof(*vect.KEYS)));
+		if ((0 != ret) || (NULL == vect.KEYS))
 			return 1;
 		// IV data must be aligned to 16 byte boundary so move data in aligned buffer and change out the pointer
 		memcpy(iv, vect.IV, CBC_IV_DATA_LEN);
@@ -292,19 +292,19 @@ int test_std_combinations(void)
 int test_random_combinations(void)
 {
 	struct cbc_vector test;
-	int t;
+	int t, ret;
 
 	printf("AES CBC random test vectors:");
 #ifdef CBC_VECTORS_VERBOSE
 	fflush(0);
 #endif
 	test.IV = NULL;
-	posix_memalign((void **)&test.IV, 16, (CBC_IV_DATA_LEN));
-	if (NULL == test.IV)
+	ret = posix_memalign((void **)&test.IV, 16, (CBC_IV_DATA_LEN));
+	if ((0 != ret) || (NULL == test.IV))
 		return 1;
 	test.KEYS = NULL;
-	posix_memalign((void **)&test.KEYS, 16, (sizeof(*test.KEYS)));
-	if (NULL == test.KEYS)
+	ret = posix_memalign((void **)&test.KEYS, 16, (sizeof(*test.KEYS)));
+	if ((0 != ret) || (NULL == test.KEYS))
 		return 1;
 
 	for (t = 0; RANDOMS > t; t++) {

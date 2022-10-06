@@ -107,9 +107,9 @@ default rel
 %define	%%xtmp	%2
 %define	%%xround_key	%3
 	vpshufd	%%xraw_key,  %%xraw_key, 11111111b
-	shufps	%%xtmp, %%xround_key, 00010000b
+	vshufps	%%xtmp, %%xround_key, 00010000b
 	vpxor	%%xround_key, %%xtmp
-	shufps	%%xtmp, %%xround_key, 10001100b
+	vshufps	%%xtmp, %%xround_key, 10001100b
 	vpxor	%%xround_key, %%xtmp
 	vpxor	%%xround_key,  %%xraw_key
 %endmacro
@@ -989,8 +989,13 @@ XTS_AES_128_enc_vaes:
 
 
 %ifidn __OUTPUT_FORMAT__, win64
+%ifdef ALIGN_STACK
+	mov		ptr_plaintext, [rbp + 8 + 8*5]	; plaintext pointer
+	mov             ptr_ciphertext, [rbp + 8 + 8*6]	; ciphertext pointer
+%else
 	mov             ptr_plaintext, [rsp + VARIABLE_OFFSET + 8*5]	; plaintext pointer
 	mov             ptr_ciphertext, [rsp + VARIABLE_OFFSET + 8*6]	; ciphertext pointer
+%endif
 %endif
 
 	cmp		N_val, 128

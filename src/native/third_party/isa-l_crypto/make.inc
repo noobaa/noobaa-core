@@ -45,7 +45,6 @@ version ?= 2.24.0
 
 CC  = gcc
 AS  = nasm
-SIM = sde $(SIMFLAGS) --
 AWK = awk
 
 DEBUG      = -g
@@ -71,14 +70,16 @@ ARFLAGS_win64 = -out:$@
 # arch=mingw build options
 ASFLAGS_mingw = -f win64
 ARFLAGS_mingw = cr $@
-LDFLAGS_mingw = -Wl,--force-exe-suffix
 
 LDFLAGS_so = -Wl,-soname,$(soname)
 
 ifeq ($(arch),mingw)
   CC=x86_64-w64-mingw32-gcc
   AR=x86_64-w64-mingw32-ar
-  AS=yasm
+  LDFLAGS += -Wl,--force-exe-suffix
+  SIM=wine
+  EXT=.exe
+  CLEANFILES+=*.exe
 endif
 
 ASFLAGS_Darwin = -f macho64 --prefix=_
@@ -111,6 +112,7 @@ CFLAGS   = $(CFLAGS_$(arch)) $(CFLAGS_$(CC)) $(DEBUG) -O2 $(DEFINES) $(INCLUDE)
 ASFLAGS  = $(ASFLAGS_$(arch)) $(ASFLAGS_$(CC)) $(DEBUG_$(AS)) $(DEFINES) $(INCLUDE)
 ARFLAGS  = $(ARFLAGS_$(arch))
 DEFINES += $(addprefix -D , $D)
+CLEANFILES += $(O) *.o *.a $(all_tests) $(lib_name) $(so_lib_name)
 
 ifeq ($(filter aarch64 x86_%,$(host_cpu)),)
   host_cpu=base_aliases
@@ -177,8 +179,8 @@ other: $(notdir $(other_tests))
 tests: $(all_unit_tests)
 perfs: $(all_perf_tests)
 checks: $(all_check_tests)
-check test perf: SIM=
-trace: SIMFLAGS = -debugtrace
+trace: SIM=sde -debugtrace --
+sim: SIM=sde --
 check test sim:
 	@echo Finished running $@
 
@@ -187,7 +189,7 @@ $(O): ; mkdir -p $(O)
 
 # Build rule to run tests
 $(addsuffix .run,$(all_tests)): %.run : %
-	$(SIM) ./$<
+	$(SIM) ./$<$(EXT)
 	@echo Completed run: $<
 
 # Other build rules
@@ -330,7 +332,7 @@ perf_report:
 
 clean:
 	@echo Cleaning up
-	@$(RM) -r $(O) *.o *.a $(all_tests) $(lib_name) $(so_lib_name)
+	@$(RM) -r $(CLEANFILES)
 
 doc: isa-l_crypto.h
 	(cat Doxyfile; echo 'PROJECT_NUMBER=$(version)') | doxygen -

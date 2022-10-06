@@ -32,15 +32,18 @@
 #include "mh_sha1.h"
 #include "test.h"
 
-//#define CACHED_TEST
-#ifdef CACHED_TEST
-// Loop many times over same
+#ifndef GT_L3_CACHE
+# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#endif
+
+#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
+// Cached test, loop many times over small dataset
 # define TEST_LEN     16*1024
 # define TEST_LOOPS   20000
 # define TEST_TYPE_STR "_warm"
-#else
+#elif defined(COLD_TEST)
 // Uncached test.  Pull from large mem base.
-# define TEST_LEN     32*1024*1024
+# define TEST_LEN     (GT_L3_CACHE)
 # define TEST_LOOPS   100
 # define TEST_TYPE_STR "_cold"
 #endif

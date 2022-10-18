@@ -12,8 +12,7 @@ coretest.setup({ incomplete_rpc_coverage: 'show' });
 
 
 // // CORE
-// TODO: fix stat native timestamps - should be checked on Linux
-//require('./test_nb_native_fs');
+require('./test_nb_native_fs');
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
 require('./test_bucketspace');

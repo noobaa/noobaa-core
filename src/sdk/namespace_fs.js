@@ -846,7 +846,7 @@ class NamespaceFS {
                 fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
             }
             if (fs_xattr) {
-                await target_file.setxattr(fs_account_config, fs_xattr);
+                await target_file.replacexattr(fs_account_config, fs_xattr);
             }
             //Closing the source_file and target files
             await source_file.close(fs_account_config);
@@ -915,7 +915,7 @@ class NamespaceFS {
                 fs_xattr = this._assign_md5_to_fs_xattr(chunk_fs.digest, fs_xattr);
             }
             if (fs_xattr) {
-                await target_file.setxattr(fs_account_config, fs_xattr);
+                await target_file.replacexattr(fs_account_config, fs_xattr);
             }
             if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_account_config);
             dbg.log1('NamespaceFS.upload_stream:', open_mode, file_path, upload_path);
@@ -1078,7 +1078,7 @@ class NamespaceFS {
             const { xattr } = JSON.parse(create_params_buffer);
             let fs_xattr = to_fs_xattr(xattr);
             if (MD5Async) fs_xattr = this._assign_md5_to_fs_xattr(((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length, fs_xattr);
-            if (fs_xattr) await write_file.setxattr(fs_account_config, fs_xattr);
+            if (fs_xattr) await write_file.replacexattr(fs_account_config, fs_xattr);
             if (config.NSFS_TRIGGER_FSYNC) await write_file.fsync(fs_account_config);
             const stat = await write_file.stat(fs_account_config);
             await write_file.close(fs_account_config);

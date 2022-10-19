@@ -47,15 +47,23 @@ lsrc_aarch64 += aes/gcm_pre.c \
                 aes/aarch64/aes_gcm_consts.S                \
                 aes/aarch64/aes_gcm_enc_dec_256.S           \
                 aes/aarch64/aes_gcm_precomp_256.S           \
-                aes/aarch64/aes_gcm_update_256.S
+                aes/aarch64/aes_gcm_update_256.S            \
+                aes/cbc_pre.c                               \
+                aes/aarch64/cbc_multibinary_aarch64.S       \
+                aes/aarch64/cbc_aarch64_dispatcher.c        \
+                aes/aarch64/cbc_enc_aes.S                   \
+                aes/aarch64/cbc_dec_aes.S
 
 check_tests += aes/gcm_std_vectors_test
 check_tests += aes/gcm_nt_std_vectors_test
+check_tests += aes/cbc_std_vectors_test
 
 unit_tests  += aes/gcm_std_vectors_random_test
 unit_tests  += aes/gcm_nt_rand_test
+unit_tests  += aes/cbc_std_vectors_random_test
 
 perf_tests  += aes/gcm_ossl_perf
+perf_tests  += aes/cbc_ossl_perf
 
 examples += aes/gcm_simple_example
 

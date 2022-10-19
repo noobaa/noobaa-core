@@ -118,6 +118,7 @@ void *MB_THREAD_FUNC(void *arg)
 	uint64_t round = -1;
 	struct timeval start_tv, stop_tv;
 	long long secs = run_secs;
+	int ret;
 
 	HASH_CTX_MGR *mgr = NULL;
 	HASH_CTX *ctxpool = NULL, *ctx = NULL;
@@ -151,7 +152,11 @@ void *MB_THREAD_FUNC(void *arg)
 		hash_ctx_init(&ctxpool[i]);
 		ctxpool[i].user_data = (void *)((uint64_t) i);
 	}
-	posix_memalign((void *)&mgr, 16, sizeof(HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		goto out;
+	}
 	CTX_MGR_INIT(mgr);
 
 	printfv("Thread %i gets to wait\n", id);

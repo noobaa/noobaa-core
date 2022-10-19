@@ -34,6 +34,9 @@ DEFINE_INTERFACE_DISPATCHER(mh_sha1_update)
 	if (auxval & HWCAP_SHA1)
 		return PROVIDER_INFO(mh_sha1_update_ce);
 
+	if (auxval & HWCAP_ASIMD)
+		return PROVIDER_INFO(mh_sha1_update_asimd);
+
 	return PROVIDER_BASIC(mh_sha1_update);
 
 }
@@ -43,6 +46,9 @@ DEFINE_INTERFACE_DISPATCHER(mh_sha1_finalize)
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SHA1)
 		return PROVIDER_INFO(mh_sha1_finalize_ce);
+
+	if (auxval & HWCAP_ASIMD)
+		return PROVIDER_INFO(mh_sha1_finalize_asimd);
 
 	return PROVIDER_BASIC(mh_sha1_finalize);
 

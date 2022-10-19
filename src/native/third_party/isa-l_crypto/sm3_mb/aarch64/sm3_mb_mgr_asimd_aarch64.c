@@ -72,9 +72,7 @@ void sm3_mb_mgr_init_asimd(SM3_MB_JOB_MGR * state)
 
 static int sm3_mb_mgr_do_jobs(SM3_MB_JOB_MGR * state)
 {
-	int lane_idx, len, i, lanes;
-
-	int lane_idx_array[SM3_MAX_LANES];
+	int lane_idx, len, i;
 
 	if (state->num_lanes_inuse == 0) {
 		return -1;

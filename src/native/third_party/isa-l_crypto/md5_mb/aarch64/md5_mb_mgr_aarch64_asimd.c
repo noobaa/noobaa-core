@@ -72,9 +72,7 @@ void md5_mb_mgr_init_asimd(MD5_MB_JOB_MGR * state)
 
 static int md5_mb_mgr_do_jobs(MD5_MB_JOB_MGR * state)
 {
-	int lane_idx, len, i, lanes;
-
-	int lane_idx_array[MD5_MAX_LANES];
+	int lane_idx, len, i;
 
 	if (state->num_lanes_inuse == 0) {
 		return -1;

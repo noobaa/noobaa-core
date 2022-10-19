@@ -28,16 +28,24 @@
 **********************************************************************/
 #include <aarch64_multibinary.h>
 
+extern int sm3_mb_sve_max_lanes(void);
+static inline int use_sve(unsigned long auxval)
+{
+	return ((auxval & HWCAP_SVE) && (sm3_mb_sve_max_lanes() >= 8));
+}
+
 DEFINE_INTERFACE_DISPATCHER(sm3_ctx_mgr_submit)
 {
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SM3)
 		return PROVIDER_INFO(sm3_ctx_mgr_submit_sm);
+
+	if (use_sve(auxval))
+		return PROVIDER_INFO(sm3_ctx_mgr_submit_sve);
+
 	if (auxval & HWCAP_ASIMD)
 		return PROVIDER_INFO(sm3_ctx_mgr_submit_asimd);
-
 	return PROVIDER_BASIC(sm3_ctx_mgr_submit);
-
 }
 
 DEFINE_INTERFACE_DISPATCHER(sm3_ctx_mgr_init)
@@ -45,11 +53,13 @@ DEFINE_INTERFACE_DISPATCHER(sm3_ctx_mgr_init)
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SM3)
 		return PROVIDER_INFO(sm3_ctx_mgr_init_sm);
+
+	if (use_sve(auxval))
+		return PROVIDER_INFO(sm3_ctx_mgr_init_sve);
+
 	if (auxval & HWCAP_ASIMD)
 		return PROVIDER_INFO(sm3_ctx_mgr_init_asimd);
-
 	return PROVIDER_BASIC(sm3_ctx_mgr_init);
-
 }
 
 DEFINE_INTERFACE_DISPATCHER(sm3_ctx_mgr_flush)
@@ -57,9 +67,11 @@ DEFINE_INTERFACE_DISPATCHER(sm3_ctx_mgr_flush)
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SM3)
 		return PROVIDER_INFO(sm3_ctx_mgr_flush_sm);
+
+	if (use_sve(auxval))
+		return PROVIDER_INFO(sm3_ctx_mgr_flush_sve);
+
 	if (auxval & HWCAP_ASIMD)
 		return PROVIDER_INFO(sm3_ctx_mgr_flush_asimd);
-
 	return PROVIDER_BASIC(sm3_ctx_mgr_flush);
-
 }

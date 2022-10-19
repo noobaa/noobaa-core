@@ -13,6 +13,7 @@ INPUT                  = isa-l_crypto.h \
 			 include \
 			 README.md \
 			 CONTRIBUTING.md \
+			 SECURITY.md \
 			 Release_notes.txt
 
 EXCLUDE                = include/test.h include/memcpy_inline.h include/intrinreg.h include/endian_helper.h

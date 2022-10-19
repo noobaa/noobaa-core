@@ -89,15 +89,6 @@
   */
  void sha1_for_mh_sha1(const uint8_t * input_data, uint32_t * digest, const uint32_t len);
 
- /**
-  * @brief Calculate sha1 digest of blocks which size is SHA1_BLOCK_SIZE
-  *
-  * @param data   Pointer to data buffer containing the input message.
-  * @param digest Pointer to sha1 digest.
-  * @returns None
-  */
- void sha1_single_for_mh_sha1(const uint8_t * data, uint32_t digest[]);
-
  /*******************************************************************
   * mh_sha1 API internal function prototypes
   * Multiple versions of Update and Finalize functions are supplied which use

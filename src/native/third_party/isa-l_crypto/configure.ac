@@ -62,6 +62,28 @@ AC_ARG_ENABLE([debug],
 AS_IF([test "x$enable_debug" = "xyes"], [
         AC_DEFINE(ENABLE_DEBUG, [1], [Debug messages.])
 ])
+
+if test x"$CPU" = x"aarch64"; then
+   AC_ARG_ENABLE([sve2],
+        AS_HELP_STRING([--disable-sve2], [disable usage of SVE2]),
+        , enable_sve2=yes)
+   if test "$enable_sve2" = "yes"; then
+      AC_MSG_CHECKING([whether compiler supports sve2])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                                         [asm(".arch armv8.2-a+sve2");])],
+                        [cc_support_sve2=yes],
+                        [cc_support_sve2=no])
+      if test x"$cc_support_sve2" = xyes ; then
+         AC_MSG_RESULT([yes])
+      else
+         AC_MSG_RESULT([no])
+         AC_MSG_ERROR([upgrade your compiler to support SVE2, or run \"./configure --disable-sve2\"])
+      fi
+   else
+	 AC_DEFINE(NO_SVE2, 1, [Define to 1 if the compiler does not supports SVE2.])
+   fi
+fi
+
 # If this build is for x86, look for yasm and nasm
 if test x"$is_x86" = x"yes"; then
 AC_MSG_CHECKING([whether Intel CET is enabled])
@@ -73,6 +95,9 @@ AC_TRY_COMPILE([],[
                   intel_cet_enabled=yes],
                  [AC_MSG_RESULT([no])
                   intel_cet_enabled=no])
+AS_IF([test "x$intel_cet_enabled" = "xyes"], [
+        AC_DEFINE(INTEL_CET_ENABLED, [1], [Intel CET enabled.])
+])
 
 
   # Pick an assembler yasm or nasm
@@ -296,8 +321,6 @@ else
   AM_CONDITIONAL(WITH_SHANI, test "x" = "y")
   AM_CONDITIONAL(DARWIN, test "x" = "y")
 fi
-
-AM_CONDITIONAL(INTEL_CET_ENABLED, [test x"$intel_cet_enabled" = x"yes"])
 
 # Check for header files
 AC_CHECK_HEADERS([limits.h stdint.h stdlib.h string.h])

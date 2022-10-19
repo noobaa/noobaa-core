@@ -30,9 +30,21 @@
 
 DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_submit)
 {
+
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SHA1)
 		return PROVIDER_INFO(sha1_ctx_mgr_submit_ce);
+
+	if (auxval & HWCAP_ASIMD) {
+		switch (get_micro_arch_id()) {
+		case MICRO_ARCH_ID(ARM, NEOVERSE_N1):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A57):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A72):	// fall through
+			return PROVIDER_INFO(sha1_ctx_mgr_submit_asimd);
+		default:
+			break;
+		}
+	}
 
 	return PROVIDER_BASIC(sha1_ctx_mgr_submit);
 
@@ -44,6 +56,17 @@ DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_init)
 	if (auxval & HWCAP_SHA1)
 		return PROVIDER_INFO(sha1_ctx_mgr_init_ce);
 
+	if (auxval & HWCAP_ASIMD) {
+		switch (get_micro_arch_id()) {
+		case MICRO_ARCH_ID(ARM, NEOVERSE_N1):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A57):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A72):	// fall through
+			return PROVIDER_INFO(sha1_ctx_mgr_init_asimd);
+		default:
+			break;
+		}
+	}
+
 	return PROVIDER_BASIC(sha1_ctx_mgr_init);
 
 }
@@ -53,6 +76,17 @@ DEFINE_INTERFACE_DISPATCHER(sha1_ctx_mgr_flush)
 	unsigned long auxval = getauxval(AT_HWCAP);
 	if (auxval & HWCAP_SHA1)
 		return PROVIDER_INFO(sha1_ctx_mgr_flush_ce);
+
+	if (auxval & HWCAP_ASIMD) {
+		switch (get_micro_arch_id()) {
+		case MICRO_ARCH_ID(ARM, NEOVERSE_N1):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A57):	// fall through
+		case MICRO_ARCH_ID(ARM, CORTEX_A72):	// fall through
+			return PROVIDER_INFO(sha1_ctx_mgr_flush_asimd);
+		default:
+			break;
+		}
+	}
 
 	return PROVIDER_BASIC(sha1_ctx_mgr_flush);
 

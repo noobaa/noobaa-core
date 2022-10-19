@@ -57,8 +57,14 @@ int main(void)
 	EVP_MD_CTX *md_ctx;
 	const EVP_MD *md;
 	unsigned int md_len;
+	int ret;
 
-	posix_memalign((void *)&mgr, 16, sizeof(SM3_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SM3_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	sm3_ctx_mgr_init(mgr);
 
 	printf("sm3_large_test\n");

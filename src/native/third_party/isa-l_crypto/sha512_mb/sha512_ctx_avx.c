@@ -27,6 +27,16 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 
+#if defined(__clang__)
+# pragma clang attribute push (__attribute__((target("avx"))), apply_to=function)
+#elif defined(__ICC)
+# pragma intel optimization_parameter target_arch=AVX
+#elif defined(__ICL)
+# pragma [intel] optimization_parameter target_arch=AVX
+#elif (__GNUC__ >= 5)
+# pragma GCC target("avx")
+#endif
+
 #include "sha512_mb.h"
 #include "memcpy_inline.h"
 #include "endian_helper.h"
@@ -253,3 +263,7 @@ struct slver sha512_ctx_mgr_submit_avx_slver = { 0x0167, 0x02, 0x02 };
 
 struct slver sha512_ctx_mgr_flush_avx_slver_02020168;
 struct slver sha512_ctx_mgr_flush_avx_slver = { 0x0168, 0x02, 0x02 };
+
+#if defined(__clang__)
+# pragma clang attribute pop
+#endif

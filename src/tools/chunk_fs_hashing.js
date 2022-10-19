@@ -122,7 +122,7 @@ async function file_target(chunk_size = CHUNK, parts = PARTS) {
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
             if (XATTR) {
-                await target_file.setxattr(
+                await target_file.replacexattr(
                     DEFAULT_FS_CONFIG,
                     assign_md5_to_fs_xattr(chunk_fs.digest, {})
                 );

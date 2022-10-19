@@ -24,17 +24,26 @@ Also see:
 * The [github wiki](https://github.com/intel/isa-l/wiki) covering isa-l and
   isa-l crypto.
 * [Contributing](CONTRIBUTING.md).
+* [Security Policy](SECURITY.md).
 
 Building ISA-L
 --------------
 
 ### Prerequisites
 
+x86_64:
 * Assembler: nasm v2.11.01 or later (nasm v2.13 or better suggested for building in AVX512 support)
   or yasm version 1.2.0 or later.
 * Compiler: gcc, clang, icc or VC compiler.
 * Make: GNU 'make' or 'nmake' (Windows).
 * Optional: Building with autotools requires autoconf/automake packages.
+
+aarch64:
+* Assembler: gas v2.34 or later.
+* Compiler: gcc v8 or later.
+* For gas v2.24~v2.34, sve2 instructions are not supported. To workaround it, sve2 optimization should be disabled by
+    * ./configure --disable-sve2
+    * make -f Makefile.unx DEFINES+=-DNO_SVE2=1
 
 ### Autotools
 To build and install the library with autotools it is usually sufficient to run:

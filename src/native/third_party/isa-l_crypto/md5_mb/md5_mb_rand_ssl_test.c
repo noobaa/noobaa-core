@@ -29,7 +29,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include "md5_mb.h"
 #include "endian_helper.h"
 
@@ -53,6 +53,19 @@ void rand_buffer(unsigned char *buf, const long buffer_size)
 		buf[i] = rand();
 }
 
+unsigned char md5_ossl(const uint8_t * d, unsigned long n, uint8_t * md)
+{
+	unsigned int tmplen;
+	EVP_MD_CTX *c;
+
+	c = EVP_MD_CTX_create();
+	EVP_DigestInit_ex(c, EVP_md5(), NULL);
+	EVP_DigestUpdate(c, d, n);
+	EVP_DigestFinal_ex(c, md, &tmplen);
+	EVP_MD_CTX_destroy(c);
+	return 1;
+}
+
 int main(void)
 {
 	MD5_HASH_CTX_MGR *mgr = NULL;
@@ -61,12 +74,18 @@ int main(void)
 	uint32_t i, j, fail = 0;
 	uint32_t lens[TEST_BUFS];
 	unsigned int jobs, t;
+	int ret;
 
 	printf("multibinary_md5 test, %d sets of %dx%d max: ", RANDOMS, TEST_BUFS, TEST_LEN);
 
 	srand(TEST_SEED);
 
-	posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
+
 	md5_ctx_mgr_init(mgr);
 
 	for (i = 0; i < TEST_BUFS; i++) {
@@ -83,7 +102,7 @@ int main(void)
 		ctxpool[i].user_data = (void *)((uint64_t) i);
 
 		// SSL test
-		MD5(bufs[i], TEST_LEN, digest_ssl[i]);
+		md5_ossl(bufs[i], TEST_LEN, digest_ssl[i]);
 
 		// sb_md5 test
 		md5_ctx_mgr_submit(mgr, &ctxpool[i], bufs[i], TEST_LEN, HASH_ENTIRE);
@@ -116,7 +135,7 @@ int main(void)
 			rand_buffer(bufs[i], lens[i]);
 
 			// Run SSL test
-			MD5(bufs[i], lens[i], digest_ssl[i]);
+			md5_ossl(bufs[i], lens[i], digest_ssl[i]);
 
 			// Run sb_md5 test
 			md5_ctx_mgr_submit(mgr, &ctxpool[i], bufs[i], lens[i], HASH_ENTIRE);

@@ -75,8 +75,13 @@ int main(void)
 	SHA1_HASH_CTX *p_job;
 	int i, checked = 0, failed = 0;
 	int n = sizeof(msgs) / sizeof(msgs[0]);
+	int ret;
 
-	posix_memalign((void *)&mgr, 16, sizeof(SHA1_HASH_CTX_MGR));
+	ret = posix_memalign((void *)&mgr, 16, sizeof(SHA1_HASH_CTX_MGR));
+	if ((ret != 0) || (mgr == NULL)) {
+		printf("posix_memalign failed test aborted\n");
+		return 1;
+	}
 	// Initialize multi-buffer manager
 	sha1_ctx_mgr_init(mgr);
 

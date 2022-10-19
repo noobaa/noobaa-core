@@ -37,7 +37,13 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-void md5_single(const uint8_t * data, uint32_t digest[4]);
+#if (__GNUC__ >= 11)
+# define OPT_FIX __attribute__ ((noipa))
+#else
+# define OPT_FIX
+#endif
+
+static void OPT_FIX md5_single(const uint8_t * data, uint32_t digest[4]);
 
 #define H0 0x67452301
 #define H1 0xefcdab89

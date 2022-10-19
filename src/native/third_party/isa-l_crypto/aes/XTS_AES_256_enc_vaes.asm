@@ -1174,8 +1174,13 @@ XTS_AES_256_enc_vaes:
 
 
 %ifidn __OUTPUT_FORMAT__, win64
+%ifdef ALIGN_STACK
+	mov		ptr_plaintext, [rbp + 8 + 8*5]	; plaintext pointer
+	mov             ptr_ciphertext, [rbp + 8 + 8*6]	; ciphertext pointer
+%else
 	mov             ptr_plaintext, [rsp + VARIABLE_OFFSET + 8*5]	; plaintext pointer
 	mov             ptr_ciphertext, [rsp + VARIABLE_OFFSET + 8*6]	; ciphertext pointer
+%endif
 %endif
 
 	cmp		N_val, 128

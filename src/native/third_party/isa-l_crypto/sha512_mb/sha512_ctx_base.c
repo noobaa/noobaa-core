@@ -70,8 +70,8 @@
 	h = t1 + t2;
 
 static void sha512_init(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len);
-static uint32_t sha512_update(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len);
-static void sha512_final(SHA512_HASH_CTX * ctx, uint32_t remain_len);
+static void sha512_update(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len);
+static void sha512_final(SHA512_HASH_CTX * ctx);
 static void sha512_single(const void *data, uint64_t digest[]);
 static inline void hash_init_digest(SHA512_WORD_T * digest);
 
@@ -83,8 +83,6 @@ SHA512_HASH_CTX *sha512_ctx_mgr_submit_base(SHA512_HASH_CTX_MGR * mgr, SHA512_HA
 					    const void *buffer, uint32_t len,
 					    HASH_CTX_FLAG flags)
 {
-	uint32_t remain_len;
-
 	if (flags & (~HASH_ENTIRE)) {
 		// User should not pass anything other than FIRST, UPDATE, or LAST
 		ctx->error = HASH_CTX_ERROR_INVALID_FLAGS;
@@ -114,14 +112,14 @@ SHA512_HASH_CTX *sha512_ctx_mgr_submit_base(SHA512_HASH_CTX_MGR * mgr, SHA512_HA
 	}
 
 	if (flags == HASH_LAST) {
-		remain_len = sha512_update(ctx, buffer, len);
-		sha512_final(ctx, remain_len);
+		sha512_update(ctx, buffer, len);
+		sha512_final(ctx);
 	}
 
 	if (flags == HASH_ENTIRE) {
 		sha512_init(ctx, buffer, len);
-		remain_len = sha512_update(ctx, buffer, len);
-		sha512_final(ctx, remain_len);
+		sha512_update(ctx, buffer, len);
+		sha512_final(ctx);
 	}
 
 	return ctx;
@@ -150,39 +148,78 @@ static void sha512_init(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len)
 	ctx->status = HASH_CTX_STS_PROCESSING;
 }
 
-static uint32_t sha512_update(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len)
+static void sha512_update(SHA512_HASH_CTX * ctx, const void *buffer, uint32_t len)
 {
 	uint32_t remain_len = len;
 	uint64_t *digest = ctx->job.result_digest;
 
-	while (remain_len >= SHA512_BLOCK_SIZE) {
-		sha512_single(buffer, digest);
-		buffer = (void *)((uint8_t *) buffer + SHA512_BLOCK_SIZE);
-		remain_len -= SHA512_BLOCK_SIZE;
-		ctx->total_length += SHA512_BLOCK_SIZE;
+	// Advance byte counter
+	ctx->total_length += len;
+
+	// If there is anything currently buffered in the extra blocks, append to it until it contains a whole block.
+	// Or if the user's buffer contains less than a whole block, append as much as possible to the extra block.
+	if ((ctx->partial_block_buffer_length) | (remain_len < SHA512_BLOCK_SIZE)) {
+		// Compute how many bytes to copy from user buffer into extra block
+		uint32_t copy_len = SHA512_BLOCK_SIZE - ctx->partial_block_buffer_length;
+		if (remain_len < copy_len) {
+			copy_len = remain_len;
+		}
+
+		if (copy_len) {
+			// Copy and update relevant pointers and counters
+			memcpy(&ctx->partial_block_buffer
+			       [ctx->partial_block_buffer_length], buffer, copy_len);
+
+			ctx->partial_block_buffer_length += copy_len;
+			remain_len -= copy_len;
+			buffer = (void *)((uint8_t *) buffer + copy_len);
+		}
+		// The extra block should never contain more than 1 block here
+		assert(ctx->partial_block_buffer_length <= SHA512_BLOCK_SIZE);
+
+		// If the extra block buffer contains exactly 1 block, it can be hashed.
+		if (ctx->partial_block_buffer_length >= SHA512_BLOCK_SIZE) {
+			ctx->partial_block_buffer_length = 0;
+			sha512_single(ctx->partial_block_buffer, digest);
+		}
 	}
+	// If the extra blocks are empty, begin hashing what remains in the user's buffer.
+	if (ctx->partial_block_buffer_length == 0) {
+		while (remain_len >= SHA512_BLOCK_SIZE) {
+			sha512_single(buffer, digest);
+			buffer = (void *)((uint8_t *) buffer + SHA512_BLOCK_SIZE);
+			remain_len -= SHA512_BLOCK_SIZE;
+		}
+
+	}
+
+	if (remain_len > 0) {
+		memcpy(&ctx->partial_block_buffer, buffer, remain_len);
+		ctx->partial_block_buffer_length = remain_len;
+	}
+
 	ctx->status = HASH_CTX_STS_IDLE;
-	ctx->incoming_buffer = buffer;
-	return remain_len;
+	return;
 }
 
-static void sha512_final(SHA512_HASH_CTX * ctx, uint32_t remain_len)
+static void sha512_final(SHA512_HASH_CTX * ctx)
 {
-	const void *buffer = ctx->incoming_buffer;
-	uint32_t i = remain_len, j;
+	const void *buffer = ctx->partial_block_buffer;
+	uint32_t i = ctx->partial_block_buffer_length;
 	uint8_t buf[2 * SHA512_BLOCK_SIZE];
 	uint64_t *digest = ctx->job.result_digest;
 
-	ctx->total_length += i;
 	memcpy(buf, buffer, i);
 	buf[i++] = 0x80;
-	for (j = i; j < (2 * SHA512_BLOCK_SIZE); j++)
+	for (uint32_t j = i; j < (2 * SHA512_BLOCK_SIZE); j++) {
 		buf[j] = 0;
+	}
 
-	if (i > SHA512_BLOCK_SIZE - SHA512_PADLENGTHFIELD_SIZE)
+	if (i > SHA512_BLOCK_SIZE - SHA512_PADLENGTHFIELD_SIZE) {
 		i = 2 * SHA512_BLOCK_SIZE;
-	else
+	} else {
 		i = SHA512_BLOCK_SIZE;
+	}
 
 	*(uint64_t *) (buf + i - 8) = to_be64((uint64_t) ctx->total_length * 8);
 

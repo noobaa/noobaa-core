@@ -299,4 +299,130 @@ static inline
 	return tmplen;
 }
 
+#define OSSL_XTS_MAX_LEN (1<<24)
+
+static inline int openssl_aes_128_xts_enc(EVP_CIPHER_CTX * ctx, unsigned char *key,
+					  unsigned char *iv, int len, unsigned char *pt,
+					  unsigned char *ct)
+{
+	int outlen, tmplen;
+
+	while (len > 0) {
+		int blocklen = (len > OSSL_XTS_MAX_LEN) ? OSSL_XTS_MAX_LEN : len;
+
+		if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_xts(), NULL, key, iv)) {
+			printf("\n ERROR ossl init\n");
+			return -1;
+		}
+
+		if (!EVP_EncryptUpdate(ctx, ct, &outlen, pt, blocklen)) {
+			printf("\n ERROR ossl update i %d\n", outlen);
+			return -1;
+		}
+		pt += outlen;
+		ct += outlen;
+		len -= outlen;
+
+		if (!EVP_EncryptFinal_ex(ctx, pt, &tmplen)) {
+			printf("\n ERROR ossl finalize\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static inline int openssl_aes_128_xts_dec(EVP_CIPHER_CTX * ctx, unsigned char *key,
+					  unsigned char *iv, int len, unsigned char *ct,
+					  unsigned char *dt)
+{
+	int outlen, tmplen;
+
+	while (len > 0) {
+		int blocklen = (len > OSSL_XTS_MAX_LEN) ? OSSL_XTS_MAX_LEN : len;
+
+		if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_xts(), NULL, key, iv)) {
+			printf("\n ERROR ossl init\n");
+			return -1;
+		}
+
+		if (!EVP_DecryptUpdate(ctx, dt, &outlen, ct, blocklen)) {
+			printf("\n ERROR ossl update i %d\n", outlen);
+			return -1;
+		}
+		dt += outlen;
+		ct += outlen;
+		len -= outlen;
+
+		if (!EVP_DecryptFinal_ex(ctx, dt, &tmplen)) {
+			printf("\n ERROR ossl finalize\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static inline int openssl_aes_256_xts_enc(EVP_CIPHER_CTX * ctx, unsigned char *key,
+					  unsigned char *iv, int len, unsigned char *pt,
+					  unsigned char *ct)
+{
+	int outlen, tmplen;
+
+	while (len > 0) {
+		int blocklen = (len > OSSL_XTS_MAX_LEN) ? OSSL_XTS_MAX_LEN : len;
+
+		if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv)) {
+			printf("\n ERROR ossl init\n");
+			return -1;
+		}
+
+		if (!EVP_EncryptUpdate(ctx, ct, &outlen, pt, blocklen)) {
+			printf("\n ERROR ossl update i %d\n", outlen);
+			return -1;
+		}
+		pt += outlen;
+		ct += outlen;
+		len -= outlen;
+
+		if (!EVP_EncryptFinal_ex(ctx, pt, &tmplen)) {
+			printf("\n ERROR ossl finalize\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static inline int openssl_aes_256_xts_dec(EVP_CIPHER_CTX * ctx, unsigned char *key,
+					  unsigned char *iv, int len, unsigned char *ct,
+					  unsigned char *dt)
+{
+	int outlen, tmplen;
+
+	while (len > 0) {
+		int blocklen = (len > OSSL_XTS_MAX_LEN) ? OSSL_XTS_MAX_LEN : len;
+
+		if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_xts(), NULL, key, iv)) {
+			printf("\n ERROR ossl init\n");
+			return -1;
+		}
+
+		if (!EVP_DecryptUpdate(ctx, dt, &outlen, ct, blocklen)) {
+			printf("\n ERROR ossl update i %d\n", outlen);
+			return -1;
+		}
+		dt += outlen;
+		ct += outlen;
+		len -= outlen;
+
+		if (!EVP_DecryptFinal_ex(ctx, dt, &tmplen)) {
+			printf("\n ERROR ossl finalize\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 #endif /* AES_OSSL_HELPER_H_ */

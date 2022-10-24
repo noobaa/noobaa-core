@@ -1262,7 +1262,8 @@ function _update_ops_stats(ops_stats) {
         `head_object`,
         `initiate_multipart`,
         `upload_part`,
-        `complete_object_upload`
+        `complete_object_upload`,
+        `read_object`
     ];
     //Go over the op_stats
     for (const op_name of op_names) {

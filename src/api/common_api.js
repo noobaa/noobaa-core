@@ -869,6 +869,9 @@ module.exports = {
                 complete_object_upload: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
+                read_object: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
             }
         },
 

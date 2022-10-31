@@ -522,7 +522,7 @@ class PostgresSequence {
     // - return the init value to be used for native sequence
     // If no table is found, return 1 - clean install
     async migrateFromMongoSequence(name, pool) {
-        const res = await _do_query(pool, {text: `SELECT count(*) FROM pg_tables WHERE tablename  = '${name}';`}, 0);
+        const res = await _do_query(pool, { text: `SELECT count(*) FROM pg_tables WHERE tablename  = '${name}';` }, 0);
         const count = Number(res.rows[0].count);
         if (count === 0) {
             dbg.log0(`Table ${name} not found, skipping sequence migration`);
@@ -542,9 +542,9 @@ class PostgresSequence {
     async _create(pool) {
         try {
             const start = await this.migrateFromMongoSequence(this.name, pool);
-            await _do_query(pool, {text: `CREATE SEQUENCE IF NOT EXISTS ${this.seqname()} AS BIGINT START ${start};`}, 0);
+            await _do_query(pool, { text: `CREATE SEQUENCE IF NOT EXISTS ${this.seqname()} AS BIGINT START ${start};` }, 0);
             if (start !== 1) {
-                await _do_query(pool, {text: `DROP table IF EXISTS ${this.name};`}, 0);
+                await _do_query(pool, { text: `DROP table IF EXISTS ${this.name};` }, 0);
                 dbg.log0(`✅ Table ${this.name} is dropped, migration to native sequence is completed`);
             }
         } catch (err) {
@@ -557,7 +557,7 @@ class PostgresSequence {
         if (this.init_promise) await this.init_promise;
         const q = { text: `SELECT nextval('${this.seqname()}')` };
         const res = await _do_query(this.client.pool, q, 0);
-        return res.rows[0].nextval;
+        return Number.parseInt(res.rows[0].nextval, 10);
     }
 }
 

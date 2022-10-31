@@ -170,12 +170,12 @@ class NamespaceMonitor {
 
     async test_nsfs_resource(nsr) {
         try {
-            const fs_config_param = {
+            const fs_context = {
                 backend: nsr.nsfs_config.fs_backend || '',
                 warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
             };
-            await nb_native().fs.readdir(fs_config_param, nsr.nsfs_config.fs_root_path);
-            const stat = await nb_native().fs.stat(fs_config_param, nsr.nsfs_config.fs_root_path);
+            await nb_native().fs.readdir(fs_context, nsr.nsfs_config.fs_root_path);
+            const stat = await nb_native().fs.stat(fs_context, nsr.nsfs_config.fs_root_path);
             //In the event of deleting the nsr.nsfs_config.fs_root_path in the FS side, 
             // The number of link will be 0, then we will throw ENOENT which translate to STORAGE_NOT_EXIST
             if (stat.nlink === 0) {

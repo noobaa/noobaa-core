@@ -152,26 +152,26 @@ async function write_nb_native(file_path) {
         highWaterMark: 2 * block_size,
         generator: argv.generator,
     });
-    const fs_account_config = {
+    const fs_context = {
         // uid: 666,
         // gid: 666,
         backend: 'GPFS',
         warn_threshold_ms: 1000,
     };
-    const file = await nb_native().fs.open(fs_account_config, file_path, 'w', 0x660);
+    const file = await nb_native().fs.open(fs_context, file_path, 'w', 0x660);
     for (let pos = 0; pos < file_size_aligned; pos += block_size) {
         const buf_start_time = Date.now();
         if (buf_start_time >= end_time) break;
         const buf = rand_stream.generator(block_size);
         if (argv.nvec > 1) {
-            await file.writev(fs_account_config, split_to_nvec(buf, argv.nvec));
+            await file.writev(fs_context, split_to_nvec(buf, argv.nvec));
         } else {
-            await file.write(fs_account_config, buf);
+            await file.write(fs_context, buf);
         }
         speedometer.update(block_size);
     }
-    if (argv.fsync) await file.fsync(fs_account_config);
-    await file.close(fs_account_config);
+    if (argv.fsync) await file.fsync(fs_context);
+    await file.close(fs_context);
 }
 
 async function write_node_fs(file_path) {

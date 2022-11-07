@@ -207,7 +207,13 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'string',
+                type: 'object',
+                required: ['out_path'],
+                properties: {
+                    out_path: {
+                        type: 'string'
+                    }
+                }
             },
             auth: {
                 system: 'admin',

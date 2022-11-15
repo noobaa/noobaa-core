@@ -587,6 +587,9 @@ config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
 // number of rename retries in case of deleted destination directory
 config.NSFS_RENAME_RETRIES = 3;
 
+// TODO: change it to true when all versioning PRs are in
+config.NSFS_VERSIONING_ENABLED = false;
+
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;

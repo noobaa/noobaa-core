@@ -24,6 +24,7 @@ require('../../util/fips');
 const config = require('../../../config.js');
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
+config.NSFS_VERSIONING_ENABLED = true;
 
 const dbg = require('../../util/debug_module')(__filename);
 const dbg_level =

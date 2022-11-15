@@ -49,6 +49,7 @@ mocha.describe('signature_utils', function() {
     add_tests_from(path.join(SIG_TEST_SUITE, 'cyberduck'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'rgw'), '.sreq');
 
     function add_tests_from(fname, extension) {
 

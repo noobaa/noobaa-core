@@ -1161,17 +1161,23 @@ class PostgresTable {
         // eslint-disable-next-line no-constant-condition
         while (true) {
             let pg_client;
+            let locked;
             try {
                 pg_client = await this.client.pool.connect();
                 let update_res = await this._updateOneWithClient(pg_client, query, update, options);
                 if (update_res.rowCount === 0) {
-                    // try to lock the advisory_lock_key for this table and insert the first doc
-                    let locked = await this.try_lock_table(pg_client);
+                    // try to lock the advisory_lock_key for this table, try update and insert the first doc if 0 docs updated
+                    locked = await this.try_lock_table(pg_client);
                     if (locked) {
-                        const data = { _id: this.client.generate_id() };
-                        await this.insertOne(data);
-                        update_res = await this.updateOne(data, update, options);
+                        // try update again to avoid race conditions
+                        update_res = await this._updateOneWithClient(pg_client, query, update, options);
+                        if (update_res.rowCount === 0) {
+                            const data = { _id: this.client.generate_id() };
+                            await this.insertOne(data);
+                            update_res = await this.updateOne(data, update, options);
+                        }
                         await this.unlock_table(pg_client);
+                        locked = false;
                     } else {
                         // lock was already taken which means that another call to findOneAndUpdate should have inserted.
                         // throw and retry
@@ -1192,7 +1198,11 @@ class PostgresTable {
                     throw err;
                 }
             } finally {
-                pg_client.release();
+                if (locked) {
+                    await this.unlock_table(pg_client);
+                    locked = false;
+                }
+                if (pg_client) pg_client.release();
             }
         }
     }

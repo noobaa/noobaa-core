@@ -1,9 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint max-lines-per-function: ['error', 650] */
 'use strict';
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-const { rpc_client, EMAIL, POOL_LIST } = coretest;
+const { rpc_client, EMAIL, POOL_LIST, anon_rpc_client } = coretest;
+const MDStore = require('../../server/object_services/md_store').MDStore;
 coretest.setup({ pools_to_create: POOL_LIST });
 
 const AWS = require('aws-sdk');
@@ -29,6 +31,7 @@ const user_b = 'bob';
 let s3_a;
 let s3_b;
 let s3_owner;
+let s3_anon;
 
 const anon_access_policy = {
     Version: '2012-10-17',
@@ -39,6 +42,10 @@ const anon_access_policy = {
         Resource: [`arn:aws:s3:::*`]
     }]
 };
+
+// core_test_store is a global object created with the intention
+// to store data between tests.
+const cross_test_store = {};
 
 async function setup() {
     const self = this; // eslint-disable-line no-invalid-this
@@ -79,6 +86,11 @@ async function setup() {
     s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
     s3_owner = new AWS.S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT }).promise();
+    s3_anon = new AWS.S3({
+        ...s3_creds,
+        accessKeyId: undefined,
+        secretAccessKey: undefined,
+    });
 }
 
 mocha.describe('s3_bucket_policy', function() {
@@ -457,5 +469,170 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.deleteBucketPolicy({ // should work - owner can always delete the buckets policy
             Bucket: BKT,
         }).promise();
+    });
+
+    mocha.it('anonymous user should be able to list bucket objects', async function() {
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_access_policy)
+        }).promise();
+
+        await s3_anon.makeUnauthenticatedRequest('listObjects', { Bucket: BKT }).promise();
+    });
+
+    mocha.it('anonymous user should not be able to list bucket objects when there is no policy', async function() {
+        await s3_owner.deleteBucketPolicy({
+            Bucket: BKT,
+        }).promise();
+
+        await assert_throws_async(s3_anon.makeUnauthenticatedRequest(
+            'listObjects',
+            { Bucket: BKT }
+        ).promise());
+    });
+
+    mocha.it('anonymous user should not be able to list bucket objects when policy doesn\'t allow', async function() {
+        const anon_deny_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'DENY',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:GetObject', 's3:ListBucket'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_deny_policy)
+        }).promise();
+
+        await assert_throws_async(s3_anon.makeUnauthenticatedRequest(
+            'listObjects',
+            { Bucket: BKT }
+        ).promise());
+    });
+
+    mocha.it('[RPC TEST]: anonymous user should not be able to read_object_md when not explicitly allowed', async function() {
+        // Ensure that the bucket has no policy
+        await s3_owner.deleteBucketPolicy({
+            Bucket: BKT,
+        }).promise();
+
+        await assert_throws_async(anon_rpc_client.object.read_object_md({
+            bucket: BKT,
+            key: KEY,
+        }), 'requesting account is not authorized to read the object');
+    });
+
+    mocha.it('[RPC TEST]: anonymous user should be able to read_object_md when explicitly allowed', async function() {
+        const anon_read_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_read_policy)
+        }).promise();
+
+        cross_test_store.obj = await anon_rpc_client.object.read_object_md({
+            bucket: BKT,
+            key: KEY,
+        });
+    });
+
+    mocha.it('[RPC TEST]: anonymous user should be able to read_object_md when explicitly allowed to access only specific key', async function() {
+        const anon_read_policy_2 = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*"},
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`]
+                },
+            ]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_read_policy_2)
+        }).promise();
+
+        cross_test_store.obj = await anon_rpc_client.object.read_object_md({
+            bucket: BKT,
+            key: KEY,
+        });
+    });
+
+
+    mocha.it('[RPC TEST]: anonymous user should not be able to read_object_mapping when not explicitly allowed', async function() {
+        // Ensure that the bucket has no policy
+        await s3_owner.deleteBucketPolicy({
+            Bucket: BKT,
+        }).promise();
+
+        await assert_throws_async(anon_rpc_client.object.read_object_mapping({
+            bucket: BKT,
+            key: KEY,
+            obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+        }), 'requesting account is not authorized to read the object');
+    });
+
+    mocha.it('[RPC TEST]: anonymous user should be able to read_object_mapping when explicitly allowed', async function() {
+        const anon_read_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_read_policy)
+        }).promise();
+
+        await anon_rpc_client.object.read_object_mapping({
+            bucket: BKT,
+            key: KEY,
+            obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+        });
+    });
+
+    mocha.it('[RPC TEST]: anonymous user should be able to read_object_mapping when explicitly allowed to access only specific key', async function() {
+        const anon_read_policy_2 = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*"
+                    },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`]
+                },
+            ]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(anon_read_policy_2)
+        }).promise();
+
+        await anon_rpc_client.object.read_object_mapping({
+            bucket: BKT,
+            key: KEY,
+            obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
+        });
     });
 });

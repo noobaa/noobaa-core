@@ -66,6 +66,7 @@ const rpc_client = server_rpc.rpc.new_client({
     auth_token: auth_server.make_auth_token({}),
     tracker: req => api_coverage.delete(req.srv),
 });
+const anon_rpc_client = server_rpc.rpc.new_client({});
 
 const SYSTEM = CORETEST;
 const EMAIL = `${CORETEST}@noobaa.com`;
@@ -665,6 +666,7 @@ exports.POOL_LIST = POOL_LIST;
 exports.PASSWORD = PASSWORD;
 exports.rpc_client = rpc_client;
 exports.new_rpc_client = new_rpc_client;
+exports.anon_rpc_client = anon_rpc_client;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
 exports.get_https_address_sts = get_https_address_sts;

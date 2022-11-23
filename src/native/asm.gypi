@@ -2,14 +2,14 @@
 {
     'conditions': [
 
-        [ 'node_arch=="x64"', {
-            'defines': ['HAVE_AS_KNOWS_AVX512', 'HAVE_AS_KNOWS_SHANI'],
-        }],
-
         # LINUX
         [ 'OS=="linux"', {
             'conditions': [
                 [ 'node_arch=="x64"', {
+                    'defines': [
+                        'HAVE_AS_KNOWS_AVX512',
+                        'HAVE_AS_KNOWS_SHANI',
+                    ],
                     'rules': [{
                         'rule_name': 'assemble',
                         'extension': 'asm',

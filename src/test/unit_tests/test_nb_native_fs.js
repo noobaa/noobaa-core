@@ -29,7 +29,7 @@ mocha.describe('nb_native fs', function() {
                 res2.birthtimeMs = res2.ctimeMs;
             }
             assert.deepStrictEqual(
-                res,
+                _.omit(res, 'xattr'), // we need to remove xattr from fs_napi response as the node JS stat doesn't return them
                 _.omitBy(res2, v => typeof v === 'function'),
             );
         });
@@ -38,7 +38,7 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('lstat', function() {
         mocha.it('works', async function() {
             const path = 'package.json';
-            const res = await nb_native().fs.lstat(DEFAULT_FS_CONFIG, path);
+            const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path, { use_lstat: true });
             const res2 = await fs.promises.stat(path);
             // birthtime in non mac platforms is ctime
             // https://nodejs.org/api/fs.html#statsbirthtime
@@ -47,7 +47,7 @@ mocha.describe('nb_native fs', function() {
                 res2.birthtimeMs = res2.ctimeMs;
             }
             assert.deepStrictEqual(
-                res,
+                _.omit(res, 'xattr'), // we need to remove xattr from fs_napi response as the node JS stat doesn't return them
                 _.omitBy(res2, v => typeof v === 'function'),
             );
         });
@@ -204,7 +204,7 @@ mocha.describe('nb_native fs', function() {
             const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
             const xattr_obj = { 'user.key': 'value' };
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
-            const xattr_res = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
             tmpfile.close(DEFAULT_FS_CONFIG);
             assert.deepEqual(xattr_obj, xattr_res);
         });
@@ -217,11 +217,11 @@ mocha.describe('nb_native fs', function() {
             const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
             const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
-            const xattr_res1 = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            const xattr_res1 = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
             const set_options = { 'user.key3': 'value3' };
             const clear_prefix = 'user.key1';
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, set_options, clear_prefix);
-            const xattr_res2 = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            const xattr_res2 = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
             tmpfile.close(DEFAULT_FS_CONFIG);
             assert.deepEqual(xattr_obj, xattr_res1);
             assert.deepEqual({ 'user.key2': 'value2', 'user.key3': 'value3' }, xattr_res2);
@@ -237,10 +237,10 @@ mocha.describe('nb_native fs', function() {
             const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
             const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
-            const xattr_res1 = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            const xattr_res1 = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
             const set_options = { 'user.key3': 'value3' };
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, set_options);
-            const xattr_res2 = await tmpfile.getxattr(DEFAULT_FS_CONFIG);
+            const xattr_res2 = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
             tmpfile.close(DEFAULT_FS_CONFIG);
             assert.deepEqual(xattr_obj, xattr_res1);
             assert.deepEqual({ ...xattr_obj, ...set_options }, xattr_res2);
@@ -263,6 +263,10 @@ mocha.describe('nb_native fs', function() {
         });
 
         mocha.it('get single not existing xattr', async function() {
+            let error_message = 'No data available';
+            if (process.platform === MAC_PLATFORM) {
+                error_message = 'Attribute not found';
+            }
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest${Date.now()}`;
             const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
@@ -274,9 +278,45 @@ mocha.describe('nb_native fs', function() {
             } catch (err) {
                 // err.code ENODATA not availble in libuv, comparing by err.message
                 // opened https://github.com/libuv/libuv/issues/3795 to track it
-                assert.equal(err.message, 'No data available');
+                assert.equal(err.message, error_message);
+            } finally {
+                tmpfile.close(DEFAULT_FS_CONFIG);
             }
+        });
+    });
+
+    mocha.describe('Stat with xattr', function() {
+        mocha.it('get xattr with FileWrap Stat', async function() {
+            const { open } = nb_native().fs;
+            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+            const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
+            await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
+            const stat_res = await tmpfile.stat(DEFAULT_FS_CONFIG);
             tmpfile.close(DEFAULT_FS_CONFIG);
+            assert.deepEqual(xattr_obj, stat_res.xattr);
+        });
+
+        mocha.it('get xattr with FS Stat', async function() {
+            const { open } = nb_native().fs;
+            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+            const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
+            await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
+            const stat_res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH);
+            tmpfile.close(DEFAULT_FS_CONFIG);
+            assert.deepEqual(xattr_obj, stat_res.xattr);
+        });
+
+        mocha.it('get xattr with FS Stat with only basic attributes', async function() {
+            const { open } = nb_native().fs;
+            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+            const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.content_md5': 'md5' };
+            await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
+            const stat_res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH, { skip_user_xattr: true });
+            tmpfile.close(DEFAULT_FS_CONFIG);
+            assert.deepEqual({ 'user.content_md5': 'md5' }, stat_res.xattr);
         });
     });
 });

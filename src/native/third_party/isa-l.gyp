@@ -93,7 +93,7 @@
                         'isa-l/erasure_code/ec_highlevel_func.c',
                         'isa-l/erasure_code/gf_vect_mul_sse.asm',
                         'isa-l/erasure_code/gf_vect_mul_avx.asm',
-                        'isa-l/erasure_code/gf_vect_dot_prod_sse.asm ',
+                        'isa-l/erasure_code/gf_vect_dot_prod_sse.asm',
                         'isa-l/erasure_code/gf_vect_dot_prod_avx.asm',
                         'isa-l/erasure_code/gf_vect_dot_prod_avx2.asm',
                         'isa-l/erasure_code/gf_2vect_dot_prod_sse.asm',

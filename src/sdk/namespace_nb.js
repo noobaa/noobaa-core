@@ -12,6 +12,8 @@ const EXCEPT_REASONS = [
     'NO_SUCH_OBJECT'
 ];
 
+const object_id_regex = /^[0-9a-fA-F]{24}$/;
+
 /**
  * NamespaceNB maps objects using the noobaa bucket_api and object_api
  * and calls object_io to perform dedup, compression, encryption,
@@ -204,7 +206,6 @@ class NamespaceNB {
     abort_object_upload(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const upload_id = params.obj_id;
-        const object_id_regex = RegExp(/^[0-9a-fA-F]{24}$/);
         if (!upload_id || !object_id_regex.test(upload_id)) throw new S3Error(S3Error.NoSuchUpload);
         return object_sdk.rpc_client.object.abort_object_upload(params);
     }

@@ -46,7 +46,8 @@ const VALID_BUCKET_NAME_REGEXP =
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
-
+const qm_regex = /\?/g;
+const ar_regex = /\*/g;
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
     let now = Date.now();
@@ -377,7 +378,7 @@ function _validate_s3_policy(policy, bucket_name) {
         }
         for (const resource of statement.resource) {
             const resource_bucket_part = resource.split('/')[0];
-            const resource_regex = RegExp(`^${resource_bucket_part.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
+            const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
             if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }

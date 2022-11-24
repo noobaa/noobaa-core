@@ -15,6 +15,7 @@ const request_promise = util.promisify(request);
 
 var test_file = '/tmp/test_upgrade';
 let rpc_validation_disabled = false;
+const ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
@@ -162,7 +163,6 @@ function verify_upload_download(ip, path) {
 
 async function generate_random_file(size_mb, extension) {
     extension = extension || '.dat';
-    let ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
     if (!extension.startsWith('.')) extension = '.' + extension;
     if (!ext_regex.test(extension)) throw new Error('bad extension');
     var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + extension;

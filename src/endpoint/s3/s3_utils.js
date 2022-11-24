@@ -29,6 +29,7 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 });
 
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
+const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:putanalyticsconfiguration" },
@@ -196,7 +197,6 @@ function parse_sse_c(req, copy_source) {
 
     if (algorithm !== 'AES256') throw new S3Error(S3Error.InvalidEncryptionAlgorithmError);
 
-    const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
     if (!key_b64 || !base64_regex.test(key_b64)) throw new S3Error(S3Error.InvalidDigest);
 
     if (!key_md5_b64 || !base64_regex.test(key_md5_b64)) throw new S3Error(S3Error.InvalidDigest);
@@ -616,6 +616,8 @@ function has_bucket_policy_permission(policy, account, method, arn_path) {
     return 'IMPLICIT_DENY';
 }
 
+const qm_regex = /\?/g;
+const ar_regex = /\*/g;
 function _is_statements_fit(statements, account, method, arn_path) {
     for (const statement of statements) {
         let action_fit = false;
@@ -634,7 +636,7 @@ function _is_statements_fit(statements, account, method, arn_path) {
             }
         }
         for (const resource of statement.resource) {
-            const resource_regex = RegExp(`^${resource.replace(/\?/g, '.?').replace(/\*/g, '.*')}$`);
+            const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
             dbg.log0('bucket_policy: resource fit?', resource_regex, arn_path);
             if (resource_regex.test(arn_path)) {
                 resource_fit = true;

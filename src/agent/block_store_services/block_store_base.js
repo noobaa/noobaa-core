@@ -12,6 +12,7 @@ const LRUCache = require('../../util/lru_cache');
 const KeysLock = require('../../util/keys_lock');
 const time_utils = require('../../util/time_utils');
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
+const hex_str_regex = /^[0-9a-fA-F]+$/;
 
 function _new_monitring_stats() {
     return {
@@ -27,8 +28,6 @@ function _new_monitring_stats() {
 }
 
 function get_block_internal_dir(block_id) {
-
-    let hex_str_regex = /^[0-9a-fA-F]+$/;
     let internal_dir = hex_str_regex.test(block_id) ?
         block_id.substring(block_id.length - 3) + '.blocks' :
         'other.blocks';

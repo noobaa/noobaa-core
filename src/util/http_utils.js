@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
+/* eslint-disable no-control-regex */
 
 const _ = require('lodash');
 const ip = require('ip');
@@ -66,7 +67,7 @@ const no_proxy_list =
 
 
 const parse_xml_to_js = xml2js.parseStringPromise;
-
+const non_printable_regexp = /[\x00-\x1F]/;
 
 function parse_url_query(req) {
     req.originalUrl = req.url;
@@ -497,7 +498,7 @@ function check_headers(req, options) {
         // test for non printable characters
         // 403 is required for unreadable headers
         // eslint-disable-next-line no-control-regex
-        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+        if (non_printable_regexp.test(val) || non_printable_regexp.test(key)) {
             dbg.warn('Invalid header characters', key, val);
             if (key.startsWith('x-amz-meta-')) {
                 throw new options.ErrorClass(options.error_invalid_argument);
@@ -511,7 +512,7 @@ function check_headers(req, options) {
         // test for non printable characters
         // 403 is required for unreadable query
         // eslint-disable-next-line no-control-regex
-        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+        if (non_printable_regexp.test(val) || non_printable_regexp.test(key)) {
             dbg.warn('Invalid query characters', key, val);
             if (key !== 'marker') {
                 throw new options.ErrorClass(options.error_invalid_argument);

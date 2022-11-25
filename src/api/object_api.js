@@ -746,7 +746,10 @@ module.exports = {
                     }
                 }
             },
-            auth: { system: ['admin', 'user'] }
+            auth: {
+                system: ['admin', 'user'],
+                anonymous: true,
+            }
         },
 
         list_object_versions: {

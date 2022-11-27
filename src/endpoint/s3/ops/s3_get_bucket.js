@@ -46,7 +46,7 @@ async function get_bucket(req) {
                 ...(list_type === '2' ? {
                     ContinuationToken: cont_tok,
                     StartAfter: start_after,
-                    KeyCount: reply.objects.length,
+                    KeyCount: reply.objects.length + reply.common_prefixes.length,
                     NextContinuationToken: key_marker_to_cont_tok(
                         reply.next_marker, reply.objects, reply.is_truncated),
                 } : { // list_type v1

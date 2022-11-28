@@ -8,6 +8,10 @@ const assert = require('assert');
 const coretest = require('./coretest');
 const fs_utils = require('../../util/fs_utils');
 const NamespaceFS = require('../../sdk/namespace_fs');
+const crypto = require('crypto');
+const buffer_utils = require('../../util/buffer_utils');
+const util = require('util');
+const path = require('path');
 
 const MAC_PLATFORM = 'darwin';
 
@@ -53,10 +57,7 @@ mocha.describe('namespace_fs - versioning', function() {
 
     mocha.it('set bucket versioning - Enabled - should fail - no permissions', async function() {
         try {
-            await ns_tmp.set_bucket_versioning({
-                name: bucket_name,
-                versioning: 'ENABLED'
-            }, dummy_object_sdk_no_nsfs_permissions);
+            await ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk_no_nsfs_permissions);
             assert.fail(`put bucket versioning succeeded for account without permissions`);
         } catch (err) {
             assert.equal(err.rpc_code, 'UNAUTHORIZED');
@@ -65,10 +66,7 @@ mocha.describe('namespace_fs - versioning', function() {
 
     mocha.it('set bucket versioning - Enabled - should fail - no nsfs config', async function() {
         try {
-            await ns_tmp.set_bucket_versioning({
-                name: bucket_name,
-                versioning: 'ENABLED'
-            }, dummy_object_sdk_no_nsfs_config);
+            await ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk_no_nsfs_config);
             assert.fail(`put bucket versioning succeeded for account without permissions`);
         } catch (err) {
             assert.equal(err.rpc_code, 'UNAUTHORIZED');
@@ -76,9 +74,50 @@ mocha.describe('namespace_fs - versioning', function() {
     });
 
     mocha.it('set bucket versioning - Enabled', async function() {
-        await ns_tmp.set_bucket_versioning({
-            name: bucket_name,
-            versioning: 'ENABLED'
+        await ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk);
+    });
+
+    mocha.it('upload object - Enabled', async function() {
+        const file_key = 'file1.txt';
+        const data = crypto.randomBytes(100);
+        const source = buffer_utils.buffer_to_read_stream(data);
+        const upload_res = await ns_tmp.upload_object({
+            bucket: bucket_name,
+            key: file_key,
+            source_stream: source
         }, dummy_object_sdk);
+        console.log('upload_object response', util.inspect(upload_res));
+    });
+
+    mocha.it('safe move posix - Enabled - should fail, retry, success', async function() {
+        const file_key = 'file1.txt';
+        const from_path = path.join(ns_tmp_bucket_path, file_key);
+        const to_path = path.join(ns_tmp_bucket_path, file_key + '_mtime-1-ino-2');
+        const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
+        const upload_res = await ns_tmp.safe_move_posix(
+            dummy_object_sdk.requesting_account.nsfs_account_config,
+            from_path,
+            to_path,
+            fake_mtime_ino
+        );
+        console.log('upload_object response', util.inspect(upload_res));
+    });
+
+    mocha.it('safe move posix - Enabled - should fail', async function() {
+        const file_key2 = 'file2.txt';
+        const from_path = path.join(ns_tmp_bucket_path, file_key2);
+        const to_path = path.join(ns_tmp_bucket_path, file_key2 + '_mtime-1-ino-2');
+        const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
+        try {
+            await ns_tmp.safe_move_posix(
+                dummy_object_sdk.requesting_account.nsfs_account_config,
+                from_path,
+                to_path,
+                fake_mtime_ino
+            );
+        assert.fail(`safe_move_posix succeeded but should have failed`);
+        } catch (err) {
+            assert.equal(err.code, 'ENOENT');
+        }
     });
 });

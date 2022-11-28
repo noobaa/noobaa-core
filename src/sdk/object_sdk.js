@@ -565,6 +565,12 @@ class ObjectSDK {
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
             params.copy_source.obj_id = source_md.obj_id;
             params.copy_source.version_id = source_md.version_id;
+            if (source_ns instanceof NamespaceFS) {
+                params.copy_source.nsfs_copy_fallback = () => {
+                    this._populate_nsfs_copy_fallback({ source_params, source_ns, params });
+                    params.copy_source = null;
+                };
+            }
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
@@ -585,10 +591,7 @@ class ObjectSDK {
 
             // if the source namespace is NSFS then we need to pass the read_object_stream the read_stream
             if (source_ns instanceof NamespaceFS) {
-                const read_stream = new stream.PassThrough();
-                source_ns.read_object_stream(source_params, this, read_stream)
-                    .catch(err => read_stream.emit('error', err));
-                params.source_stream = read_stream;
+                this._populate_nsfs_copy_fallback({ source_params, source_ns, params });
             } else {
                 params.source_stream = await source_ns.read_object_stream(source_params, this);
             }
@@ -599,6 +602,16 @@ class ObjectSDK {
             // reset the copy_source param
             params.copy_source = null;
         }
+    }
+
+    // nsfs copy_object & server side copy consisted of link and a fallback to 
+    // read stream and then upload stream
+    // nsfs copy object when can't server side copy - fallback directly 
+    _populate_nsfs_copy_fallback({ source_ns, params, source_params }) {
+        const read_stream = new stream.PassThrough();
+        source_ns.read_object_stream(source_params, this, read_stream)
+            .catch(err => read_stream.emit('error', err));
+        params.source_stream = read_stream;
     }
 
     // TODO: Does not work when source namespace is s3 (s3 sdk head-object doesn't return TagCount). Issue #5341.

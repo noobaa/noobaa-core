@@ -971,6 +971,12 @@ module.exports = {
                 dirreadentry: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
+                safelink: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
+                safeunlink: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                }
             }
         },
 

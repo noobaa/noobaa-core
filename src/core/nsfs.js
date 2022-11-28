@@ -11,6 +11,7 @@ if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
 const config = require('../../config');
+config.NSFS_VERSIONING_ENABLED = true;
 const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
@@ -40,12 +41,13 @@ Arguments:
 const OPTIONS = `
 Options:
 
-    --http_port <port>     (default 6001)           Set the S3 endpoint listening HTTP port to serve.
-    --https_port <port>    (default 6443)           Set the S3 endpoint listening HTTPS port to serve.
-    --uid <uid>            (default process uid)    Send requests to the Filesystem with uid.
-    --gid <gid>            (default process gid)    Send requests to the Filesystem with gid.
-    --backend <fs>         (default "")             Set default backend fs "".
-    --debug <level>        (default 0)              Increase debug level
+    --http_port <port>                      (default 6001)           Set the S3 endpoint listening HTTP port to serve.
+    --https_port <port>                     (default 6443)           Set the S3 endpoint listening HTTPS port to serve.
+    --uid <uid>                             (default process uid)    Send requests to the Filesystem with uid.
+    --gid <gid>                             (default process gid)    Send requests to the Filesystem with gid.
+    --backend <fs>                          (default "")             Set default backend fs "".
+    --debug <level>                         (default 0)              Increase debug level
+    --versioning <ENABLED|SUSPENDED>        (default DISABLED)       Enable/suspend versioning
 `;
 
 const WARNINGS = `
@@ -80,6 +82,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const fs_root = argv._[0];
         if (!fs_root) return print_usage();
+        const versioning = argv.versioning || 'DISABLED';
 
         let fs_config = {
             uid: Number(argv.uid) || process.getuid(),
@@ -100,7 +103,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         await endpoint.start_endpoint({
             http_port,
             https_port,
-            init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config),
+            init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config, versioning),
         });
 
         console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
@@ -112,7 +115,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-function init_request_sdk(req, res, fs_root, fs_config) {
+function init_request_sdk(req, res, fs_root, fs_config, versioning) {
     const noop = /** @type {any} */ () => {
         // TODO
     };
@@ -130,7 +133,9 @@ function init_request_sdk(req, res, fs_root, fs_config) {
             fs_backend: fs_config.backend,
             bucket_path: fs_root + '/' + bucket_name,
             bucket_id: '000000000000000000000000',
-            namespace_resource_id: undefined
+            namespace_resource_id: undefined,
+            access_mode: undefined,
+            versioning,
         });
         namespaces[bucket_name] = ns_fs;
         return ns_fs;

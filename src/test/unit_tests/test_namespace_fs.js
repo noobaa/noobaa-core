@@ -608,15 +608,14 @@ mocha.describe('namespace_fs copy object', function() {
             console.log('upload_object response', inspect(upload_res));
         });
 
-        mocha.it('copy, read of a small object copy', async function() {
-            const copy_res = await ns_tmp.upload_object({
+        mocha.it('copy, read of a small object copy - link flow', async function() {
+            const params = {
                 bucket: upload_bkt,
                 key: copy_key_1,
                 xattr: copy_xattr,
-                copy_source: {
-                    key: upload_key,
-                }
-            }, dummy_object_sdk);
+                copy_source: { key: upload_key }
+            };
+            const copy_res = await ns_tmp.upload_object(params, dummy_object_sdk);
             console.log('upload_object (copy) response', inspect(copy_res));
 
             const read_res = buffer_utils.write_stream();
@@ -636,24 +635,18 @@ mocha.describe('namespace_fs copy object', function() {
         });
 
         mocha.it('copy, read of the small object twice to the same file name', async function() {
-            let copy_res = await ns_tmp.upload_object({
+            const params = {
                 bucket: upload_bkt,
                 key: copy_key_1,
                 xattr: copy_xattr,
                 copy_source: {
                     key: upload_key,
                 }
-            }, dummy_object_sdk);
+            };
+            let copy_res = await ns_tmp.upload_object(params, dummy_object_sdk);
             console.log('upload_object: copy twice (1) to the same file name response', inspect(copy_res));
 
-            copy_res = await ns_tmp.upload_object({
-                bucket: upload_bkt,
-                key: copy_key_1,
-                xattr: copy_xattr,
-                copy_source: {
-                    key: upload_key,
-                }
-            }, dummy_object_sdk);
+            copy_res = await ns_tmp.upload_object(params, dummy_object_sdk);
             console.log('upload_object: copy twice (2) to the same file name response', inspect(copy_res));
 
             const read_res = buffer_utils.write_stream();
@@ -670,33 +663,6 @@ mocha.describe('namespace_fs copy object', function() {
                 key: copy_key_1,
             }, dummy_object_sdk);
             console.log('delete_object: copy twice to the same file name response', inspect(delete_copy_res));
-        });
-
-        mocha.it('copy, read of the small object without using link', async function() {
-            const copy_res = await ns_tmp.upload_object({
-                bucket: upload_bkt,
-                key: copy_key_1,
-                xattr: copy_xattr,
-                copy_source: {
-                    key: upload_key,
-                }
-            }, dummy_object_sdk);
-            console.log('upload_object: copy without using link response', inspect(copy_res));
-
-            const read_res = buffer_utils.write_stream();
-            await ns_tmp.read_object_stream({
-                bucket: upload_bkt,
-                key: copy_key_1,
-            }, dummy_object_sdk, read_res);
-            console.log('read_object_stream: copy without using link response', inspect(read_res));
-            const read_data = read_res.join();
-            assert.strictEqual(Buffer.compare(read_data, data), 0);
-
-            const delete_copy_res = await ns_tmp.delete_object({
-                bucket: upload_bkt,
-                key: copy_key_1,
-            }, dummy_object_sdk);
-            console.log('delete_object: copy without using link response', inspect(delete_copy_res));
         });
 
         mocha.after(async function() {

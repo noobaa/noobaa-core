@@ -154,7 +154,7 @@ const static std::map<std::string, int> flags_to_case = {
 };
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
-const static std::vector<std::string> USER_XATTRS{ "user.content_md5" };
+const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id" };
 
 struct Entry
 {
@@ -218,11 +218,17 @@ set_stat_res(Napi::Object res, Napi::Env env, struct stat& stat_res, XattrMap& x
     double ctimeMs = (double(1e3) * stat_res.st_ctimespec.tv_sec) + (double(1e-6) * stat_res.st_ctimespec.tv_nsec);
     double mtimeMs = (double(1e3) * stat_res.st_mtimespec.tv_sec) + (double(1e-6) * stat_res.st_mtimespec.tv_nsec);
     double birthtimeMs = (double(1e3) * stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * stat_res.st_birthtimespec.tv_nsec);
+    double atimeNs = (double(1e9) * stat_res.st_atimespec.tv_sec) + stat_res.st_atimespec.tv_nsec;
+    double ctimeNs = (double(1e9) * stat_res.st_ctimespec.tv_sec) + stat_res.st_ctimespec.tv_nsec;
+    double mtimeNs = (double(1e9) * stat_res.st_mtimespec.tv_sec) + stat_res.st_mtimespec.tv_nsec;
 #else
     double atimeMs = (double(1e3) * stat_res.st_atim.tv_sec) + (double(1e-6) * stat_res.st_atim.tv_nsec);
     double ctimeMs = (double(1e3) * stat_res.st_ctim.tv_sec) + (double(1e-6) * stat_res.st_ctim.tv_nsec);
     double mtimeMs = (double(1e3) * stat_res.st_mtim.tv_sec) + (double(1e-6) * stat_res.st_mtim.tv_nsec);
     double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
+    double atimeNs = (double(1e9) * stat_res.st_atim.tv_sec) + stat_res.st_atim.tv_nsec;
+    double ctimeNs = (double(1e9) * stat_res.st_ctim.tv_sec) + stat_res.st_ctim.tv_nsec;
+    double mtimeNs = (double(1e9) * stat_res.st_mtim.tv_sec) + stat_res.st_mtim.tv_nsec;
 #endif
 
     res["atimeMs"] = Napi::Number::New(env, atimeMs);
@@ -233,6 +239,11 @@ set_stat_res(Napi::Object res, Napi::Env env, struct stat& stat_res, XattrMap& x
     res["mtime"] = Napi::Date::New(env, uint64_t(round(mtimeMs)));
     res["ctime"] = Napi::Date::New(env, uint64_t(round(ctimeMs)));
     res["birthtime"] = Napi::Date::New(env, uint64_t(round(birthtimeMs)));
+
+    // high resolution times
+    res["atimeNsBigint"] = Napi::BigInt::New(env, int64_t(round(atimeNs)));
+    res["ctimeNsBigint"] = Napi::BigInt::New(env, int64_t(round(ctimeNs)));
+    res["mtimeNsBigint"] = Napi::BigInt::New(env, int64_t(round(mtimeNs)));
 
     auto xattr = Napi::Object::New(env);
     res["xattr"] = xattr;
@@ -271,6 +282,22 @@ set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string wor
     fs_worker_stats["name"] = Napi::String::New(env, work_name);
     fs_worker_stats["took_time"] = Napi::Number::New(env, took_time);
     fs_worker_stats["error"] = Napi::Number::New(env, error);
+}
+
+bool
+cmp_ver_id(int64_t link_expected_mtime, int64_t link_expected_inode, struct stat& _stat_res)
+{
+    // extract actual stat ino and mtime
+    int64_t stat_actual_ino = _stat_res.st_ino;
+    #ifdef __APPLE__
+        auto actual_mtime_sec = _stat_res.st_mtimespec.tv_sec;
+        auto actual_mtime_nsec = _stat_res.st_mtimespec.tv_nsec;
+    #else
+        auto actual_mtime_sec = _stat_res.st_mtim.tv_sec;
+        auto actual_mtime_nsec = _stat_res.st_mtim.tv_nsec;
+    #endif
+    auto actual_mtimeNs = int64_t(round((double(1e9) * actual_mtime_sec)) + actual_mtime_nsec);
+    return link_expected_mtime == actual_mtimeNs && link_expected_inode == stat_actual_ino;
 }
 
 static int
@@ -712,6 +739,87 @@ struct Rmdir : public FSWorker
     virtual void Work()
     {
         SYSCALL_OR_RETURN(rmdir(_path.c_str()));
+    }
+};
+
+
+/**
+ * SafeLink is an fs op
+ * 1. link
+ * 2. check if the target has the expected version 
+ *   2.1. if yes - return
+ *   2.2. else - unlink and retry
+ */
+struct SafeLink : public FSWorker
+{
+    std::string _link_from;
+    std::string _link_to;
+    int64_t _link_expected_mtime;
+    int64_t _link_expected_inode;
+    SafeLink(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _link_from = info[1].As<Napi::String>();
+        _link_to = info[2].As<Napi::String>();
+        // TODO: handle lossless
+        bool lossless = true;
+        _link_expected_mtime = info[3].As<Napi::BigInt>().Int64Value(&lossless);
+        _link_expected_inode = info[4].As<Napi::Number>().Int64Value();
+        Begin(XSTR() << "SafeLink " << DVAL(_link_from.c_str()) << DVAL(_link_to.c_str()) << DVAL(_link_expected_mtime) << DVAL(_link_expected_inode));
+    }
+    virtual void Work()
+    {   
+        SYSCALL_OR_RETURN(link(_link_from.c_str(), _link_to.c_str()));
+        struct stat _stat_res;
+        SYSCALL_OR_RETURN(stat(_link_to.c_str(), &_stat_res));
+        if (cmp_ver_id(_link_expected_mtime, _link_expected_inode, _stat_res) == true) return;
+        SYSCALL_OR_RETURN(unlink(_link_to.c_str()));
+        DBG0("FS::SafeLink::Execute: ERROR link target doesn't match the expected inode + mtime" << DVAL(_link_to) 
+            << DVAL(_link_expected_mtime) << DVAL(_link_expected_inode));
+        SetError(XSTR() << "FS::SafeLink ERROR link target doesn't match expected inode and mtime");
+
+    }
+};
+
+/**
+ * SafeUnlink is an fs op
+ *  1. mv to tmp file
+ *  2. check if the tmp file has the expected inode + mtime
+ *   2.1. if yes - unlink
+ *   2.2. else - mv back to source path and retry
+ */
+struct SafeUnlink : public FSWorker
+{
+    std::string _to_unlink;
+    std::string _mv_to;
+    int64_t _unlink_expected_mtime;
+    int64_t _unlink_expected_inode;
+    SafeUnlink(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _to_unlink = info[1].As<Napi::String>();
+        _mv_to = info[2].As<Napi::String>();
+        if (info.Length() > 4 && !info[3].IsUndefined() && !info[4].IsUndefined()) { 
+            // TODO: handle lossless
+            bool lossless = true;
+            _unlink_expected_mtime = info[3].As<Napi::BigInt>().Int64Value(&lossless);
+            _unlink_expected_inode = info[4].As<Napi::Number>().Int64Value();
+        }
+        Begin(XSTR() << "SafeUnlink " << DVAL(_to_unlink) << DVAL(_mv_to) << DVAL(_unlink_expected_mtime) << DVAL(_unlink_expected_inode));
+    }
+    virtual void Work()
+    {
+        SYSCALL_OR_RETURN(rename(_to_unlink.c_str(), _mv_to.c_str()));
+        struct stat _stat_res;
+        SYSCALL_OR_RETURN(stat(_mv_to.c_str(), &_stat_res));
+        if (cmp_ver_id(_unlink_expected_mtime, _unlink_expected_inode, _stat_res) == true){
+            SYSCALL_OR_RETURN(unlink(_mv_to.c_str()));
+            return;
+        }
+        SYSCALL_OR_RETURN(rename(_mv_to.c_str(), _to_unlink.c_str()));
+        DBG0("FS::SafeUnlink::Execute: ERROR unlink target doesn't match the expected inode + mtime, retry" <<  DVAL(_to_unlink) 
+            << DVAL(_unlink_expected_mtime) << DVAL(_unlink_expected_inode));
+        SetError(XSTR() << "FS::SafeUnlink ERROR unlink target doesn't match expected inode and mtime");
     }
 };
 
@@ -1352,6 +1460,7 @@ struct GetSingleXattr : public FSWorker
     }
 };
 
+
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
 {
@@ -1597,12 +1706,14 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
     exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);
+    exports_fs["safe_unlink"] = Napi::Function::New(env, api<SafeUnlink>);
     exports_fs["rename"] = Napi::Function::New(env, api<Rename>);
     exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>);
     exports_fs["rmdir"] = Napi::Function::New(env, api<Rmdir>);
     exports_fs["writeFile"] = Napi::Function::New(env, api<Writefile>);
     exports_fs["readFile"] = Napi::Function::New(env, api<Readfile>);
     exports_fs["readdir"] = Napi::Function::New(env, api<Readdir>);
+    exports_fs["safe_link"] = Napi::Function::New(env, api<SafeLink>);
     exports_fs["link"] = Napi::Function::New(env, api<Link>);
     exports_fs["linkat"] = Napi::Function::New(env, api<Linkat>);
     exports_fs["fsync"] = Napi::Function::New(env, api<Fsync>);

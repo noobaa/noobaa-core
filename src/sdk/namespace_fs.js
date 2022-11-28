@@ -13,6 +13,7 @@ const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
+const size_utils = require('../util/size_utils');
 const ChunkFS = require('../util/chunk_fs');
 const stats_collector = require('./endpoint_stats_collector');
 // const http_utils = require('../util/http_utils');
@@ -35,6 +36,27 @@ const buffers_pool = new buffer_utils.BuffersPool({
 const XATTR_USER_PREFIX = 'user.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
+const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
+const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
+//const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
+const HIDDEN_VERSIONS_PATH = '.versions';
+
+const versioning_status_enum = {
+    VER_ENABLED: 'ENABLED',
+    VER_SUSPENDED: 'SUSPENDED',
+    VER_DISABLED: 'DISABLED'
+};
+
+// describes the status of the copy that was done, default is fallback
+// LINKED = the file was linked on the server side
+// IS_SAME_INODE = source and target are the same inode, nothing to copy
+// FALLBACK = will be reported when link on server side copy failed
+// or on non server side copy
+const copy_status_enum = {
+    LINKED: 'LINKED',
+    SAME_INODE: 'SAME_INODE',
+    FALLBACK: 'FALLBACK'
+};
 
 /**
  * @param {fs.Dirent} a 
@@ -161,7 +183,7 @@ const dir_cache = new LRUCache({
     },
     validate: async ({ stat }, { dir_path, fs_context }) => {
         const new_stat = await nb_native().fs.stat(fs_context, dir_path);
-        return (new_stat.ino === stat.ino && new_stat.mtimeMs === stat.mtimeMs);
+        return (new_stat.ino === stat.ino && new_stat.mtimeNsBigint === stat.mtimeNsBigint);
     },
     item_usage: ({ usage }, dir_path) => usage,
     max_usage: config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE,
@@ -190,7 +212,7 @@ class NamespaceFS {
         this.bucket_id = bucket_id;
         this.namespace_resource_id = namespace_resource_id;
         this.access_mode = access_mode;
-        this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || 'DISABLED';
+        this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || versioning_status_enum.VER_DISABLED;
     }
 
     prepare_fs_context(object_sdk) {
@@ -224,7 +246,7 @@ class NamespaceFS {
         const is_server_side_copy = other instanceof NamespaceFS &&
             other.bucket_path === this.bucket_path &&
             other.fs_backend === this.fs_backend && //Check that the same backend type
-            params.xattr_copy; // TODO, DO we need to hard link at TaggingDirective 'REPLACE'?
+            params.xattr_copy; // TODO, DO we need to hard link at MetadataDirective 'REPLACE'?
         dbg.log2('NamespaceFS: is_server_side_copy:', is_server_side_copy);
         dbg.log2('NamespaceFS: other instanceof NamespaceFS:', other instanceof NamespaceFS,
             'other.bucket_path:', other.bucket_path, 'this.bucket_path:', this.bucket_path,
@@ -509,12 +531,12 @@ class NamespaceFS {
     async read_object_md(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         try {
-            const file_path = this._get_file_path(params);
+            const file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             const stat = await nb_native().fs.stat(fs_context, file_path);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
-            return this._get_object_info(params.bucket, params.key, stat);
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -526,7 +548,7 @@ class NamespaceFS {
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
-            const file_path = this._get_file_path(params);
+            const file_path = this._find_version_path(fs_context, params);
             return fs.createReadStream(file_path, {
                 highWaterMark: config.NSFS_BUF_SIZE,
                 start: Number.isInteger(params.start) ? params.start : undefined,
@@ -547,7 +569,7 @@ class NamespaceFS {
         let file_path;
         try {
             await this._load_bucket(params, fs_context);
-            file_path = this._get_file_path(params);
+            file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._fail_if_archived_or_sparse_file(fs_context, file_path);
             file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
@@ -683,87 +705,246 @@ class NamespaceFS {
     async upload_object(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_bucket(params, fs_context);
-
-        const can_use_temp_file = Boolean(fs_context.backend === 'GPFS' && nb_native().fs.gpfs);
+        const open_mode = this._is_gpfs(fs_context) ? 'wt' : 'w';
         const file_path = this._get_file_path(params);
-        let fs_xattr = to_fs_xattr(params.xattr);
+        let upload_params;
         try {
-            const upload_id = uuidv4();
-            const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
-            if (can_use_temp_file) {
-                const open_mode = 'wt';
-                // dbg.log0('NamespaceFS.upload_object:', this.upload_path, '->', file_path);
-                if (params.copy_source) {
-                    const source_file_path = path.join(this.bucket_path, params.copy_source.key);
-                    await this._make_path_dirs(upload_path, fs_context);
-                    await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
-                    await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
-                    try {
-                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
-                        if (same_inode) return same_inode;
-                        // Doing a hard link.
-                        await nb_native().fs.link(fs_context, source_file_path, upload_path);
-                    } catch (e) {
-                        dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                        fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_context, fs_xattr);
-                    }
-                } else {
-                    // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
-                    // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                    fs_xattr = await buffers_pool_sem.surround_count(
-                        config.NSFS_BUF_SIZE,
-                        async () => this._upload_stream(params, this.bucket_path, file_path, open_mode, fs_context,
-                            object_sdk.rpc_client, fs_xattr)
-                    );
-                }
-            } else {
-                const open_mode = 'w';
-                // Uploading to a temp file then we will rename it.
-                // dbg.log0('NamespaceFS.upload_object:', upload_path, '->', file_path);
-                await this._make_path_dirs(upload_path, fs_context);
-                if (params.copy_source) {
-                    const source_file_path = path.join(this.bucket_path, params.copy_source.key);
-                    await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
-                    await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
-                    try {
-                        const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
-                        if (same_inode) return same_inode;
-                        // Doing a hard link.
-                        await nb_native().fs.link(fs_context, source_file_path, upload_path);
-                    } catch (e) {
-                        dbg.warn('NamespaceFS: COPY using link failed with:', e);
-                        fs_xattr = await this._copy_stream(source_file_path, upload_path, fs_context, fs_xattr);
-                    }
-                } else {
-                    // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
-                    // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                    fs_xattr = await buffers_pool_sem.surround_count(
-                        config.NSFS_BUF_SIZE,
-                        async () => this._upload_stream(params, upload_path, file_path, open_mode, fs_context, object_sdk.rpc_client,
-                            fs_xattr)
-                    );
-                }
-                await this._move_to_dest(fs_context, upload_path, file_path);
-                if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(upload_path));
+            upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
+
+            if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
+            // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
+            // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
+                upload_params.digest = await buffers_pool_sem.surround_count(
+                    config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
             }
-            const stat = await nb_native().fs.stat(fs_context, file_path);
-            const upload_info = this._get_upload_info(stat);
-            this._verify_encryption(params.encryption, upload_info.encryption);
+            const upload_info = await this._finish_upload(upload_params);
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
+        } finally {
+            try {
+                if (upload_params && upload_params.target_file) await upload_params.target_file.close(fs_context);
+            } catch (err) {
+                dbg.warn('NamespaceFS: upload_object file close error', err);
+            }
         }
     }
 
-    async _move_to_dest(fs_context, source_path, dest_path) {
+    // creates upload_path if needed
+    // on copy will call try_copy_file() or fallback
+    // and opens upload_path (if exists) or file_path
+    // returns upload params - params that are passed to the called functions in upload_object
+    async _start_upload(fs_context, object_sdk, file_path, params, open_mode) {
+        let upload_path;
+        // upload path is needed only when open_mode is w / for copy
+        if (open_mode === 'w' || params.copy_source) {
+            const upload_id = uuidv4();
+            upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
+            await this._make_path_dirs(upload_path, fs_context);
+        }
+        let open_path = upload_path || file_path;
+
+        let copy_res = params.copy_source && (await this._try_copy_file(fs_context, params, file_path, upload_path));
+        if (copy_res) {
+            if (copy_res === copy_status_enum.FALLBACK) {
+                params.copy_source.nsfs_copy_fallback();
+            } else {
+                // open file after copy link/same inode should use read open mode
+                open_mode = 'r';
+                if (copy_res === copy_status_enum.SAME_INODE) open_path = file_path;
+            }
+        }
+        const target_file = await this._open_file(fs_context, open_path, open_mode);
+        return { fs_context, params, object_sdk, open_mode, file_path, upload_path, target_file, copy_res };
+    }
+
+    // opens open_path on POSIX, and on GPFS it will open open_path parent folder
+    async _open_file(fs_context, open_path, open_mode) {
+        if (open_mode === 'wt') {
+            open_path = path.dirname(open_path);
+            dbg.log1('NamespaceFS._open_file: wt creating dirs', open_path, this.bucket_path);
+            if (open_path !== this.bucket_path) await this._make_path_dirs(open_path, fs_context);
+        }
+        dbg.log0('NamespaceFS._open_file:', open_path);
+        return nb_native().fs.open(fs_context, open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+    }
+
+    // on server side copy - 
+    // 1. check if source and target is same inode and return if do nothing if true, status is SAME_INODE
+    // 2. else we try link - on link success, status is LINKED
+    // 3. if link failed - status is fallback - read the stream from the source and upload it as regular upload
+    // on non server side copy - we will immediatly do the fallback
+    async _try_copy_file(fs_context, params, file_path, upload_path) {
+        const source_file_path = await this._find_version_path(fs_context, params.copy_source);
+        await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
+        await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
+        let res = copy_status_enum.FALLBACK;
+        if (this._is_versioning_disabled()) {
+            try {
+                // indicates a retry situation in which the source and target point to the same inode
+                const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
+                if (same_inode) return copy_status_enum.SAME_INODE;
+                // Doing a hard link.
+                await nb_native().fs.link(fs_context, source_file_path, upload_path);
+                res = copy_status_enum.LINKED;
+            } catch (e) {
+                dbg.warn('NamespaceFS: COPY using link failed with:', e);
+            }
+        }
+        return res;
+    }
+
+    // on put part - file path is equal to upload path 
+    // put part upload should NOT contain -  versioning & move to dest steps
+    // if copy status is SAME_INODE - NO xattr replace/move_to_dest
+    // if copy status is LINKED - NO xattr replace
+    // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK) 
+    async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined, copy_res = undefined }) {
+        const part_upload = file_path === upload_path;
+        const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
+
+        let fs_xattr;
+        // handle xattr
+        if (!params.copy_source || !params.xattr_copy) {
+            fs_xattr = to_fs_xattr(params.xattr);
+            if (digest) {
+                const { md5_b64, key, bucket, upload_id } = params;
+                if (md5_b64) {
+                    const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
+                    if (md5_hex !== digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest }));
+                }
+                fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
+            }
+            if (!part_upload && this._is_versioning_enabled()) {
+                fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, file_path, target_file, fs_xattr);
+            }
+            if (fs_xattr) await target_file.replacexattr(fs_context, fs_xattr);
+        }
+        // fsync 
+        if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
+        dbg.log1('NamespaceFS.upload_stream:', open_mode, file_path, upload_path);
+
+        let stat = await target_file.stat(fs_context);
+        this._verify_encryption(params.encryption, this._get_encryption_info(stat));
+
+        if (!same_inode && !part_upload) {
+            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, { key: params.key });
+            if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(file_path));
+        }
+
+        // calc response
+        // file path is empty in put part, upload path is empty in wt regular upload
+        stat = await nb_native().fs.stat(fs_context, file_path);
+        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        return upload_info;
+    }
+
+    // this function handles best effort of files move in posix file systems
+    // 1. safe_link
+    // 2. create tmp file
+    // 2. safe_unlink
+    async safe_move_posix(fs_context, from_path, to_path, { mtimeNsBigint, ino }) {
+        // retry safe linking a file in case of parallel put/delete of the source path
+        await this._wrap_safe_op_with_retries(
+            nb_native().fs.safe_link,
+            { fs_context, from_path, to_path, mtimeNsBigint, ino },
+            config.NSFS_RENAME_RETRIES,
+            'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime'
+        );
+
+        const upload_id = uuidv4();
+        const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'versions', upload_id);
+        await this._make_path_dirs(upload_path, fs_context);
+
+        // retry safe unlinking a file in case of parallel put/delete of the source path
+        await this._wrap_safe_op_with_retries(
+            nb_native().fs.safe_unlink,
+            { fs_context, from_path, to_path: upload_path, mtimeNsBigint, ino },
+            config.NSFS_RENAME_RETRIES,
+            'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime'
+        );
+    }
+
+    async _wrap_safe_op_with_retries(handler, { fs_context, from_path, to_path, mtimeNsBigint, ino }, retries_num, err_msg) {
+        let retries = retries_num;
+        for (;;) {
+            try {
+                dbg.log1('Namespace_fs.wrap_safe_with_retries: ', handler, fs_context, from_path, to_path, mtimeNsBigint, ino);
+                await handler(fs_context, from_path, to_path, mtimeNsBigint, ino);
+                break;
+            } catch (err) {
+                retries -= 1;
+                if (retries <= 0) throw err;
+                if (err.message !== err_msg) throw err;
+                // stat and extract mtimeNsBigint & ino again
+                const stat = (await nb_native().fs.stat(fs_context, from_path));
+                mtimeNsBigint = stat.mtimeNsBigint;
+                ino = stat.ino;
+                dbg.warn(`NamespaceFS: Retrying safe_move_posix ${err_msg.split(' ')[0]} retries=${retries}` +
+                    ` from_path=${from_path} to_path=${to_path}`, err);
+            }
+        }
+    }
+
+    // 1. get old version_id if exists
+    // 2. if old version exists - 
+    //    2.1 create .versions/ if it doesnt exist
+    //    2.2 move old version (existing latest) to .versions/
+    // 3. move new version to dest (key path)
+    async _move_to_dest_ver_enabled(fs_context, source_path, dest_path, { key }) {
+
+        const cur_ver_info = await this._get_version_info(fs_context, dest_path);
+        if (cur_ver_info) {
+            const versioned_path = this._get_version_path(key, cur_ver_info.version_id_str);
+            await this._make_path_dirs(versioned_path, fs_context);
+            await this.safe_move_posix(fs_context, dest_path, versioned_path, cur_ver_info);
+        } else {
+            dbg.log1('NamespaceFS._move_to_dest_ver_enabled old version doesnt exist - creating first version of object');
+        }
+
+        const new_ver_info = await this._get_version_info(fs_context, source_path);
+        if (!new_ver_info) throw new Error('NamespaceFS._move_to_dest_ver_enabled - upload file doesnt exist');
+        await this.safe_move_posix(fs_context, source_path, dest_path, new_ver_info);
+    }
+
+    async _move_to_dest_ver_enabled_gpfs() {
+        throw new Error('TODO');
+    }
+
+    async _move_to_dest_ver_suspended() {
+        throw new Error('TODO');
+    }
+
+    async _move_to_dest_ver_suspended_gpfs() {
+        throw new Error('TODO');
+    }
+
+    // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
+    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, versioning_options) {
         let retries = config.NSFS_RENAME_RETRIES;
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
                 await this._make_path_dirs(dest_path, fs_context);
-                await nb_native().fs.rename(fs_context, source_path, dest_path);
+                if (this._is_versioning_disabled()) {
+                    if (open_mode === 'wt') {
+                        await target_file.linkfileat(fs_context, dest_path);
+                    } else {
+                        await nb_native().fs.rename(fs_context, source_path, dest_path);
+                    }
+                } else if (this._is_versioning_enabled()) {
+                    if (open_mode === 'wt') {
+                        await this._move_to_dest_ver_enabled_gpfs();
+                    } else {
+                        await this._move_to_dest_ver_enabled(fs_context, source_path, dest_path, versioning_options);
+                    }
+                } else if (open_mode === 'wt') {
+                        await this._move_to_dest_ver_suspended_gpfs();
+                } else {
+                    await this._move_to_dest_ver_suspended();
+                }
                 break;
             } catch (err) {
                 retries -= 1;
@@ -792,7 +973,7 @@ class NamespaceFS {
             dbg.log2('NamespaceFS: file_path_inode:', file_path_inode, 'source_file_inode:', source_file_inode,
                 'file_path_device:', file_path_device, 'source_file_device:', source_file_device);
             if (file_path_inode === source_file_inode && file_path_device === source_file_device) {
-                return this._get_upload_info(file_path_stat);
+                return file_path_stat;
             }
         } catch (e) {
             dbg.log2('NamespaceFS: _is_same_inode got an error', e);
@@ -800,127 +981,27 @@ class NamespaceFS {
         }
     }
 
-    async _copy_stream(source_file_path, upload_path, fs_context, fs_xattr) {
-        let target_file;
-        let source_file;
-        let buffer_pool_cleanup = null;
-        try {
-            let MD5Async =
-                config.NSFS_CALCULATE_MD5 && !(fs_xattr && fs_xattr[XATTR_MD5_KEY]) ? new (nb_native().crypto.MD5Async)() : undefined;
-            //Opening the source and target files
-            source_file = await nb_native().fs.open(fs_context, source_file_path);
-            target_file = await nb_native().fs.open(fs_context, upload_path, 'w');
-            //Reading the source_file and writing into the target_file
-            let read_pos = 0;
-
-            for (;;) {
-                const { buffer, callback } = await buffers_pool.get_buffer();
-                buffer_pool_cleanup = callback;
-                const bytesRead = await source_file.read(fs_context, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
-                if (!bytesRead) {
-                    buffer_pool_cleanup = null;
-                    callback();
-                    break;
-                }
-                read_pos += bytesRead;
-                const data = buffer.slice(0, bytesRead);
-                if (MD5Async) await MD5Async.update(data);
-                await target_file.write(fs_context, data);
-                // Returns the buffer to pool to avoid starvation
-                buffer_pool_cleanup = null;
-                callback();
-            }
-            if (MD5Async) {
-                fs_xattr = this._assign_md5_to_fs_xattr((await MD5Async.digest()).toString('hex'), fs_xattr);
-            }
-            if (fs_xattr) {
-                await target_file.replacexattr(fs_context, fs_xattr);
-            }
-            //Closing the source_file and target files
-            await source_file.close(fs_context);
-            source_file = null;
-            if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
-            await target_file.close(fs_context);
-            target_file = null;
-            // Used for etag
-            return fs_xattr;
-        } catch (e) {
-            dbg.error('Failed to copy object', e);
-            throw e;
-        } finally {
-            try {
-                // release buffer back to pool if needed
-                if (buffer_pool_cleanup) buffer_pool_cleanup();
-            } catch (err) {
-                dbg.warn('NamespaceFS: upload_object - copy_source buffer pool cleanup error', err);
-            }
-            try {
-                if (source_file) await source_file.close(fs_context);
-            } catch (err) {
-                dbg.warn('NamespaceFS: upload_object - copy_source source_file close error', err);
-            }
-            try {
-                if (target_file) await target_file.close(fs_context);
-            } catch (err) {
-                dbg.warn('NamespaceFS: upload_object - copy_source target_file close error', err);
-            }
-        }
-    }
-
     // Allocated config.NSFS_BUF_SIZE in Semaphore but in fact we can take up more inside
     // This is due to MD5 calculation and data buffers
     // Can be finetuned further on if needed and inserting the Semaphore logic inside
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
-    async _upload_stream(params, upload_path, file_path, open_mode, fs_context, rpc_client, fs_xattr) {
-        let target_file;
-        const { source_stream, md5_b64, key, bucket, upload_id } = params;
+    async _upload_stream({ fs_context, params, target_file, object_sdk }) {
+        const { source_stream } = params;
         try {
-            if (open_mode === 'wt') {
-                const dir_path = path.dirname(file_path);
-                dbg.log1('NamespaceFS.upload_stream:', file_path, dir_path, upload_path);
-                if (dir_path !== upload_path) {
-                    await this._make_path_dirs(file_path, fs_context);
-                }
-                target_file = await nb_native().fs.open(fs_context, dir_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
-            } else {
-                target_file = await nb_native().fs.open(fs_context, upload_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
-            }
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
             const chunk_fs = new ChunkFS({
                 target_file,
                 fs_context,
-                rpc_client,
+                rpc_client: object_sdk.rpc_client,
                 namespace_resource_id: this.namespace_resource_id
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
-            if (chunk_fs.digest) {
-                if (md5_b64) {
-                    const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
-                    if (md5_hex !== chunk_fs.digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest: chunk_fs.digest }));
-                }
-                fs_xattr = this._assign_md5_to_fs_xattr(chunk_fs.digest, fs_xattr);
-            }
-            if (fs_xattr) {
-                await target_file.replacexattr(fs_context, fs_xattr);
-            }
-            if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
-            dbg.log1('NamespaceFS.upload_stream:', open_mode, file_path, upload_path);
-            if (open_mode === 'wt') {
-                await target_file.linkfileat(fs_context, file_path);
-            }
-            // Used for etag
-            return fs_xattr;
+            return chunk_fs.digest;
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
-        } finally {
-            try {
-                if (target_file) await target_file.close(fs_context);
-            } catch (err) {
-                dbg.warn('NamespaceFS: _upload_stream file close error', err);
-            }
         }
     }
 
@@ -961,25 +1042,31 @@ class NamespaceFS {
     }
 
     async upload_multipart(params, object_sdk) {
+        // We can use 'wt' for open mode like we do for upload_object() when
+        // we figure out how to create multipart upload using temp files.
+        const open_mode = 'w';
+        const fs_context = this.prepare_fs_context(object_sdk);
+        let target_file;
         try {
-            // We can use 'wt' for open mode like we do for upload_object() when
-            // we figure out how to create multipart upload using temp files.
-            const open_mode = 'w';
-            const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_multipart(params, fs_context);
             const upload_path = path.join(params.mpu_path, `part-${params.num}`);
             // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
-            await buffers_pool_sem.surround_count(
-                config.NSFS_BUF_SIZE,
-                async () => this._upload_stream(params, upload_path, '', open_mode, fs_context, object_sdk.rpc_client)
-            );
-            const stat = await nb_native().fs.stat(fs_context, upload_path);
-            const upload_info = this._get_upload_info(stat);
-            this._verify_encryption(params.encryption, upload_info.encryption);
+            target_file = await this._open_file(fs_context, upload_path, open_mode);
+            const upload_params = { fs_context, params, object_sdk, upload_path, open_mode, target_file, file_path: upload_path };
+
+            await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
+
+            const upload_info = await this._finish_upload(upload_params);
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
+        } finally {
+            try {
+                if (target_file) await target_file.close(fs_context);
+            } catch (err) {
+                dbg.warn('NamespaceFS: _upload_stream file close error', err);
+            }
         }
     }
 
@@ -1016,9 +1103,10 @@ class NamespaceFS {
 
     async complete_object_upload(params, object_sdk) {
         let read_file;
-        let write_file;
+        let target_file;
         let buffer_pool_cleanup = null;
         const fs_context = this.prepare_fs_context(object_sdk);
+        const open_mode = 'w';
         try {
             let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
@@ -1027,11 +1115,12 @@ class NamespaceFS {
             const file_path = this._get_file_path(params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             const upload_path = path.join(params.mpu_path, 'final');
-            write_file = await nb_native().fs.open(fs_context, upload_path, 'w', get_umasked_mode(config.BASE_MODE_FILE));
+            target_file = await this._open_file(fs_context, upload_path, open_mode);
+            const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
                 const part_stat = await nb_native().fs.stat(fs_context, part_path);
-                read_file = await nb_native().fs.open(fs_context, part_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+                read_file = await this._open_file(fs_context, part_path, undefined);
                 if (etag !== this._get_etag(part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, part_path, part_stat, params }));
                 }
@@ -1047,7 +1136,7 @@ class NamespaceFS {
                     }
                     read_pos += bytesRead;
                     const data = buffer.slice(0, bytesRead);
-                    await write_file.write(fs_context, data);
+                    await target_file.write(fs_context, data);
                     // Returns the buffer to pool to avoid starvation
                     buffer_pool_cleanup = null;
                     callback();
@@ -1060,24 +1149,19 @@ class NamespaceFS {
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload')
             );
-            const { xattr } = JSON.parse(create_params_buffer);
-            let fs_xattr = to_fs_xattr(xattr);
-            if (MD5Async) fs_xattr = this._assign_md5_to_fs_xattr(((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length, fs_xattr);
-            if (fs_xattr) await write_file.replacexattr(fs_context, fs_xattr);
-            if (config.NSFS_TRIGGER_FSYNC) await write_file.fsync(fs_context);
-            const stat = await write_file.stat(fs_context);
-            const upload_info = this._get_upload_info(stat);
-            this._verify_encryption(params.encryption, upload_info.encryption);
-            await write_file.close(fs_context);
-            write_file = null;
-            await this._move_to_dest(fs_context, upload_path, file_path);
+            upload_params.params.xattr = (JSON.parse(create_params_buffer)).xattr;
+            upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
+
+            const upload_info = await this._finish_upload(upload_params);
+            await target_file.close(fs_context);
+            target_file = null;
             if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
             return upload_info;
         } catch (err) {
             dbg.error(err);
             throw this._translate_object_error_codes(err);
         } finally {
-            await this.complete_object_upload_finally(buffer_pool_cleanup, read_file, write_file, fs_context);
+            await this.complete_object_upload_finally(buffer_pool_cleanup, read_file, target_file, fs_context);
         }
     }
 
@@ -1116,6 +1200,7 @@ class NamespaceFS {
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
+            // TODO: impl version id and call _find_version_path instead of get_file_path
             const file_path = this._get_file_path(params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             dbg.log0('NamespaceFS: delete_object', file_path);
@@ -1132,6 +1217,7 @@ class NamespaceFS {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
             for (const { key } of params.objects) {
+                // TODO: impl version id and call _find_version_path instead of get_file_path
                 const file_path = this._get_file_path({ key });
                 await this._check_path_in_bucket_boundaries(fs_context, file_path);
                 dbg.log0('NamespaceFS: delete_multiple_objects', file_path);
@@ -1225,7 +1311,7 @@ class NamespaceFS {
     // INTERNALS //
     ///////////////
 
-    _get_file_path({ key }) {
+    _get_file_path({key}) {
         // not allowing keys with dots follow by slash which can be treated as relative paths and "leave" the bucket_path
         // We are not using `path.isAbsolute` as path like '/../..' will return true and we can still "leave" the bucket_path
         if (key.includes('./')) throw new Error('Bad relative path key ' + key);
@@ -1242,6 +1328,16 @@ class NamespaceFS {
         // TODO: Assign content_md5_mtime
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_MD5_KEY]: md5_digest
+        });
+        return fs_xattr;
+    }
+
+    async _assign_versions_to_fs_xattr(fs_context, cur_ver_path, new_ver_file, fs_xattr) {
+        const cur_ver_info = await this._get_version_info(fs_context, cur_ver_path);
+        const new_ver_stat = await new_ver_file.stat(fs_context);
+        fs_xattr = Object.assign(fs_xattr || {}, {
+            [XATTR_VERSION_ID]: this._get_version_id_by_stat(new_ver_stat),
+            [XATTR_PREV_VERSION_ID]: cur_ver_info && cur_ver_info.version_id_str
         });
         return fs_xattr;
     }
@@ -1278,7 +1374,6 @@ class NamespaceFS {
     }
 
     /**
-     * @param {fs.Stats} stat 
      * @returns {string}
      */
     _get_etag(stat) {
@@ -1287,12 +1382,11 @@ class NamespaceFS {
         // IMPORTANT NOTICE - we must return an etag that contains a dash!
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
-        const ident_str = 'inode-' + stat.ino.toString() + '-mtime-' + stat.mtimeMs.toString();
-        return ident_str;
+        return this._get_version_id_by_stat(stat);
     }
 
-    _is_gpfs(fs_account_config) {
-        return Boolean(fs_account_config.backend === 'GPFS' && nb_native().fs.gpfs);
+    _is_gpfs(fs_context) {
+        return Boolean(fs_context.backend === 'GPFS' && nb_native().fs.gpfs);
     }
 
     _etag_from_fs_xattr(xattr) {
@@ -1305,9 +1399,10 @@ class NamespaceFS {
      * @param {string} key 
      * @returns {nb.ObjectInfo}
      */
-    _get_object_info(bucket, key, stat) {
+    _get_object_info(bucket, key, stat, return_version_id) {
         const etag = this._get_etag(stat);
         const encryption = this._get_encryption_info(stat);
+        const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
         return {
             obj_id: etag,
             bucket,
@@ -1317,7 +1412,7 @@ class NamespaceFS {
             create_time: stat.mtime.getTime(),
             content_type: mime.getType(key) || 'application/octet-stream',
             // temp:
-            version_id: '1',
+            version_id: version_id,
             is_latest: true,
             delete_marker: false,
             tag_count: 0,
@@ -1332,12 +1427,13 @@ class NamespaceFS {
         };
     }
 
-    _get_upload_info(stat) {
+    _get_upload_info(stat, version_id) {
         const etag = this._get_etag(stat);
         const encryption = this._get_encryption_info(stat);
         return {
             etag,
-            encryption
+            encryption,
+            version_id
         };
     }
 
@@ -1559,6 +1655,82 @@ class NamespaceFS {
         //     dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
         //     throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
         // }
+    }
+    //////////////////////////
+    //// VERSIONING UTILS ////
+    //////////////////////////
+
+    _is_versioning_enabled() {
+        return this.versioning === versioning_status_enum.VER_ENABLED;
+    }
+
+    _is_versioning_disabled() {
+        return this.versioning === versioning_status_enum.VER_DISABLED;
+    }
+
+    _get_version_id_by_stat({ino, mtimeNsBigint}) {
+        // TODO: GPFS might require generation number to be added to version_id
+        return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
+    }
+
+    // 1. if version_id_str is null version - nothing to extract
+    // 2. else extract the mtime and ino or fail for invalid version_id_str
+    // version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
+    // returns mtimeNsBigint, ino (inode_number)
+    _extract_version_info_from_xattr(version_id_str) {
+        if (version_id_str === 'null') return;
+        const arr = version_id_str.split('mtime-').join('').split('-ino-');
+        if (arr.length < 2) throw new Error('Invalid version_id_string, cannot extract version info');
+        return { mtimeNsBigint: size_utils.string_to_bigint(arr[0], 36), ino: parseInt(arr[1], 36) };
+    }
+
+    _get_version_id_by_xattr(stat) {
+       return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
+    }
+
+    // returns version path of the form bucket_path/dir/.versions/{key}_{version_id}
+    _get_version_path(key, version_id) {
+        const key_version = path.basename(key) + (version_id ? '_' + version_id : '');
+        return path.normalize(path.join(this.bucket_path, path.dirname(key), HIDDEN_VERSIONS_PATH, key_version));
+    }
+
+
+    // this function returns the following version information -
+    // version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
+    // mtimeNsBigint - modified timestmap in bigint - last time the content of the file was modified
+    // ino - refers to the data stored in a particular location
+    // if version xattr contains version info - return info by xattr
+    // else - it's a null version - return stat
+    async _get_version_info(fs_context, version_path) {
+        try {
+            const stat = await nb_native().fs.stat(fs_context, version_path, { skip_user_xattr: true });
+            dbg.log1('NamespaceFS._get_version_info stat ', stat);
+
+            const version_id_str = this._get_version_id_by_xattr(stat);
+            const ver_info_by_xattr = this._extract_version_info_from_xattr(version_id_str);
+            return { ...(ver_info_by_xattr || stat), version_id_str };
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+            dbg.warn('NamespaceFS._get_version_info version doesn\'t exist', err);
+        }
+        // if stat failed, undefined will return
+    }
+
+    // 1. if version exists in .versions/ folder - return its path
+    // 2. else if version is latest version - return latest version path 
+    // 3. throw ENOENT error
+    async _find_version_path(fs_context, { key, version_id }) {
+        const cur_ver_path = this._get_file_path({ key });
+        if (!version_id) return cur_ver_path;
+
+        const versioned_path = this._get_version_path(key, version_id);
+        const version_info = await this._get_version_info(fs_context, versioned_path);
+        if (version_info) return versioned_path;
+        dbg.log1('NamespaceFS._find_version_path: version doesn\'t exist in .versions/, fallback to parent folder');
+
+        const cur_ver_info = await this._get_version_info(fs_context, cur_ver_path);
+        if (cur_ver_info && cur_ver_info.version_id_str === version_id) return cur_ver_path;
+        throw new RpcError('NO_SUCH_OBJECT', 'version doesn\'t exist');
     }
 }
 

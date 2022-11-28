@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 600]*/
+/*eslint max-lines-per-function: ["error", 700]*/
 'use strict';
 
 
@@ -12,11 +12,13 @@ const coretest = require('./coretest');
 const { rpc_client, EMAIL, PASSWORD, SYSTEM } = coretest;
 const fs_utils = require('../../util/fs_utils');
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+const { stat } = require('../../util/nb_native')().fs;
 const path = require('path');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const fs = require('fs');
 const test_utils = require('../system_tests/test_utils');
+const config = require('../../../config');
 const MAC_PLATFORM = 'darwin';
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -24,6 +26,13 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 let new_account_params = {
     has_login: false,
     s3_access: true,
+};
+
+const DEFAULT_FS_CONFIG = {
+    uid: process.getuid(),
+    gid: process.getgid(),
+    backend: '',
+    warn_threshold_ms: 100,
 };
 
 // currently will pass only when running locally
@@ -421,6 +430,76 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.strictEqual(err.code, 'AccessDenied');
         }
     });
+
+    mocha.it('copy objects with correct uid gid - same inode', async function() {
+        // same inode check fails if MD5 xattr doesn't exist
+        config.NSFS_CALCULATE_MD5 = true;
+        const key = 'ob11.txt';
+        const source_key = key;
+        const put_res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: source_key, Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+        assert.ok(put_res && put_res.ETag);
+        await s3_correct_uid.copyObject({ Bucket: bucket_name + '-s3', Key: key, CopySource: bucket_name + `-s3/${source_key}` }).promise();
+        config.NSFS_CALCULATE_MD5 = false;
+
+        const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
+        const stat1 = await fs.promises.stat(p);
+        const p_source = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', source_key);
+        const stat_source = await fs.promises.stat(p_source);
+
+        assert.equal(stat1.nlink, 1);
+        assert.deepEqual(stat1, stat_source);
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key }).promise();
+    });
+
+    mocha.it('copy objects with correct uid gid - non server side copy - fallback', async function() {
+        const key = 'ob22.txt';
+        const source_key = 'ob1.txt';
+        await s3_correct_uid.copyObject({ Bucket: bucket_name + '-s3',
+            Key: key,
+            CopySource: bucket_name + `-s3/${source_key}`,
+            MetadataDirective: 'REPLACE',
+            Metadata: { 'new_xattr': 'new_xattr_val' } }).promise();
+
+        const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
+        const stat1 = await stat(DEFAULT_FS_CONFIG, p);
+
+        const p_source = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', source_key);
+        const stat_source = await stat(DEFAULT_FS_CONFIG, p_source);
+
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob22.txt' }).promise();
+
+        assert.equal(stat1.nlink, 1);
+        assert.notEqual(stat1.ino, stat_source.ino);
+        assert.notEqual(stat1.mtimeMs, stat_source.mtimeMs);
+        assert.equal(stat1.xattr['user.new_xattr'], 'new_xattr_val');
+        assert.deepEqual(_.omit(stat1.xattr, 'user.new_xattr'), stat_source.xattr);
+    });
+
+    mocha.it('copy objects with correct uid gid - link', async function() {
+        const key = 'ob2.txt';
+        const source_key = 'ob1.txt';
+        await s3_correct_uid.copyObject({
+            Bucket: bucket_name + '-s3',
+            Key: key,
+            CopySource: bucket_name + `-s3/${source_key}`,
+            Metadata: {'wont_replace': 'wont'} }).promise();
+
+        const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
+        const stat1 = await stat(DEFAULT_FS_CONFIG, p);
+
+        const p_source = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', source_key);
+        const stat_source = await stat(DEFAULT_FS_CONFIG, p_source);
+
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key }).promise();
+
+        assert.equal(stat1.nlink, 2);
+        assert.equal(stat1.ino, stat_source.ino);
+        assert.equal(stat1.mtimeMs, stat_source.mtimeMs);
+        assert.deepEqual(stat1.xattr, stat_source.xattr);
+        assert.equal(stat1.xattr['user.wont_replace'], undefined);
+
+    });
+
     mocha.it('list objects with wrong uid gid', async function() {
         try {
             const res = await s3_wrong_uid.listObjects({ Bucket: bucket_name + '-s3' }).promise();
@@ -904,17 +983,17 @@ mocha.describe('nsfs account configurations', function() {
             account_nsfs_only3: { default_resource: nsr1, nsfs_only: true }
         };
         for (const name of Object.keys(names_and_default_resources)) {
-            let config = names_and_default_resources[name];
+            let config1 = names_and_default_resources[name];
             let cur_account = await rpc_client.account.create_account({
                 ...new_account_params,
                 email: `${name}@noobaa.io`,
                 name: name,
-                default_resource: config.default_resource,
+                default_resource: config1.default_resource,
                 nsfs_account_config: {
                     uid: process.getuid(),
                     gid: process.getgid(),
                     new_buckets_path: '/',
-                    nsfs_only: config.nsfs_only
+                    nsfs_only: config1.nsfs_only
                 }
             });
             s3_creds.accessKeyId = cur_account.access_keys[0].access_key.unwrap();

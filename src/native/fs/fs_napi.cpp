@@ -1,33 +1,111 @@
 /* Copyright (C) 2016 NooBaa */
 #include "../util/b64.h"
+#include "../util/buf.h"
 #include "../util/common.h"
 #include "../util/napi.h"
 #include "../util/os.h"
-#include "../util/buf.h"
 #include "./gpfs_fcntl.h"
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <map>
 #include <math.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/xattr.h>
 #include <thread>
 #include <typeinfo>
 #include <unistd.h>
 #include <uv.h>
-#include <sys/xattr.h>
 #include <vector>
-#include <stdlib.h>
-#include <limits.h>
 
 #ifdef __APPLE__
-    #include <sys/param.h>
-    #include <sys/mount.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 #else
-    #include <sys/statfs.h>
+#include <sys/statfs.h>
+#endif
+
+#define ROUNDUP(X, Y) ((Y) * (((X) + (Y)-1) / (Y)))
+
+// Should total to 256 (sizeof(buffer) 212 + sizeof(header) 16 + sizeof(payload) 28)
+#define GPFS_XATTR_BUFFER_SIZE 212
+#define GPFS_BACKEND "GPFS"
+#define GPFS_XATTR_PREFIX "gpfs"
+#define GPFS_DOT_ENCRYPTION_EA "Encryption"
+#define GPFS_ENCRYPTION_XATTR_NAME GPFS_XATTR_PREFIX "." GPFS_DOT_ENCRYPTION_EA
+
+// This macro should be used after openning a file
+// it will autoclose the file using AutoCloser and will throw an error in case of failures
+#define CHECK_OPEN_FD(fd)        \
+    AutoCloser closer(this, fd); \
+    do {                         \
+        if (fd < 0) {            \
+            SetSyscallError();   \
+            return;              \
+        }                        \
+    } while (0)
+
+// This macro should be used when we want to verify a file is open inside a wrapper function
+// it won't autoclose and will throw an error in case of the fd is not open
+#define CHECK_WRAP_FD(fd)                                                       \
+    do {                                                                        \
+        if (fd < 0) {                                                           \
+            SetError(XSTR() << _desc << ": ERROR not opened " << _wrap->_path); \
+            return;                                                             \
+        }                                                                       \
+    } while (0)
+
+// This macro should be used after calling any syscall/gpfs-syscall that uses errno
+// in case of failures - it will throw the errno using SetSyscallError
+#define SYSCALL_OR_RETURN(x)   \
+    do {                       \
+        int r = (x);           \
+        if (r) {               \
+            SetSyscallError(); \
+            return;            \
+        }                      \
+    } while (0)
+
+// This macro should be used after calling any gpfs-fcntl which doesn't use errno
+// It will handle error which number will be saved under gpfs_error
+#define GPFS_FCNTL_OR_RETURN(x)                                              \
+    do {                                                                     \
+        int gpfs_error = 0;                                                  \
+        int r = (x);                                                         \
+        if (r) {                                                             \
+            if (gpfs_error) {                                                \
+                SetError(XSTR() << "GPFS FCNTL error:" << DVAL(gpfs_error)); \
+            } else {                                                         \
+                SetSyscallError();                                           \
+            }                                                                \
+            return;                                                          \
+        }                                                                    \
+    } while (0)
+
+// This macro should be used when calling fstat in case we want to validate
+// no race condition happened changing the fd during the function run
+#define CHECK_CTIME_CHANGE(fd, stat_res, path)                    \
+    do {                                                          \
+        auto start_ctime = stat_res.st_ctime;                     \
+        SYSCALL_OR_RETURN(fstat(fd, &stat_res));                  \
+        auto end_ctime = stat_res.st_ctime;                       \
+        if (start_ctime != end_ctime) {                           \
+            SetError(XSTR() << "FileStat: " << DVAL(path)         \
+                            << " cancelled due to ctime change"); \
+        }                                                         \
+    } while (0)
+
+#ifdef __APPLE__
+#define flistxattr(a, b, c) ::flistxattr(a, b, c, 0)
+#define getxattr(a, b, c, d) ::getxattr(a, b, c, d, 0, 0)
+#define fgetxattr(a, b, c, d) ::fgetxattr(a, b, c, d, 0, 0)
+#define fsetxattr(a, b, c, d, e) ::fsetxattr(a, b, c, d, e, 0)
+#define fremovexattr(a, b) ::fremovexattr(a, b, 0)
 #endif
 
 namespace noobaa
@@ -35,12 +113,12 @@ namespace noobaa
 
 DBG_INIT(0);
 
+typedef std::map<std::string, std::string> XattrMap;
+
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
 static int (*dlsym_gpfs_linkat)(
-    gpfs_file_t fileDesc, const char *oldpath,
-    gpfs_file_t newdirfd, const char *newpath,
-    int flags) = 0;
+    gpfs_file_t fileDesc, const char* oldpath, gpfs_file_t newdirfd, const char* newpath, int flags) = 0;
 
 const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
@@ -50,9 +128,9 @@ const static std::map<std::string, int> flags_to_case = {
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },
     { "w", O_TRUNC | O_CREAT | O_WRONLY },
-    #ifdef O_TMPFILE
-        { "wt", O_RDWR | O_TMPFILE },
-    #endif
+#ifdef O_TMPFILE
+    { "wt", O_RDWR | O_TMPFILE },
+#endif
     { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
     { "w+", O_TRUNC | O_CREAT | O_RDWR },
@@ -70,6 +148,9 @@ const static std::map<std::string, int> flags_to_case = {
     { "sa+", O_APPEND | O_CREAT | O_RDWR | O_SYNC },
 };
 
+const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
+const static std::vector<std::string> USER_XATTRS{ "user.content_md5" };
+
 struct Entry
 {
     std::string name;
@@ -77,6 +158,30 @@ struct Entry
     uint8_t type;
 };
 
+struct gpfsRequest_t
+{
+    gpfsFcntlHeader_t header;
+    gpfsGetSetXAttr_t payload;
+    char buffer[GPFS_XATTR_BUFFER_SIZE];
+};
+
+void
+build_gpfs_get_ea_request(gpfsRequest_t* reqP, std::string key)
+{
+    int nameLen = key.size();
+    int bufLen = sizeof(reqP->buffer);
+    memset(reqP->buffer, 0, bufLen);
+
+    reqP->header.totalLength = sizeof(*reqP);
+    reqP->header.fcntlVersion = GPFS_FCNTL_CURRENT_VERSION;
+    reqP->payload.structLen = reqP->header.totalLength - sizeof(reqP->header);
+    reqP->payload.structType = GPFS_FCNTL_GET_XATTR;
+    reqP->payload.nameLen = nameLen;
+    // bufferLen is the size of buffer - roundingup of the attribute name to 8 chars
+    reqP->payload.bufferLen = bufLen - ROUNDUP(nameLen, 8);
+    reqP->payload.flags = GPFS_FCNTL_XATTRFLAG_NONE;
+    memcpy(&reqP->payload.buffer[0], key.c_str(), nameLen);
+}
 
 template <typename T>
 static Napi::Value
@@ -89,7 +194,7 @@ api(const Napi::CallbackInfo& info)
 }
 
 void
-set_stat_res(Napi::Object res, Napi::Env env, struct stat &stat_res)
+set_stat_res(Napi::Object res, Napi::Env env, struct stat& stat_res, XattrMap& xattr_res)
 {
     res["dev"] = Napi::Number::New(env, stat_res.st_dev);
     res["ino"] = Napi::Number::New(env, stat_res.st_ino);
@@ -102,18 +207,18 @@ set_stat_res(Napi::Object res, Napi::Env env, struct stat &stat_res)
     res["blksize"] = Napi::Number::New(env, stat_res.st_blksize);
     res["blocks"] = Napi::Number::New(env, stat_res.st_blocks);
 
-    // https://nodejs.org/dist/latest-v14.x/docs/api/fs.html#fs_stat_time_values
-    #ifdef __APPLE__
-        double atimeMs = (double(1e3) * stat_res.st_atimespec.tv_sec) + (double(1e-6) * stat_res.st_atimespec.tv_nsec);
-        double ctimeMs = (double(1e3) * stat_res.st_ctimespec.tv_sec) + (double(1e-6) * stat_res.st_ctimespec.tv_nsec);
-        double mtimeMs = (double(1e3) * stat_res.st_mtimespec.tv_sec) + (double(1e-6) * stat_res.st_mtimespec.tv_nsec);
-        double birthtimeMs = (double(1e3) * stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * stat_res.st_birthtimespec.tv_nsec);
-    #else
-        double atimeMs = (double(1e3) * stat_res.st_atim.tv_sec) + (double(1e-6) * stat_res.st_atim.tv_nsec);
-        double ctimeMs = (double(1e3) * stat_res.st_ctim.tv_sec) + (double(1e-6) * stat_res.st_ctim.tv_nsec);
-        double mtimeMs = (double(1e3) * stat_res.st_mtim.tv_sec) + (double(1e-6) * stat_res.st_mtim.tv_nsec);
-        double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
-    #endif
+// https://nodejs.org/dist/latest-v14.x/docs/api/fs.html#fs_stat_time_values
+#ifdef __APPLE__
+    double atimeMs = (double(1e3) * stat_res.st_atimespec.tv_sec) + (double(1e-6) * stat_res.st_atimespec.tv_nsec);
+    double ctimeMs = (double(1e3) * stat_res.st_ctimespec.tv_sec) + (double(1e-6) * stat_res.st_ctimespec.tv_nsec);
+    double mtimeMs = (double(1e3) * stat_res.st_mtimespec.tv_sec) + (double(1e-6) * stat_res.st_mtimespec.tv_nsec);
+    double birthtimeMs = (double(1e3) * stat_res.st_birthtimespec.tv_sec) + (double(1e-6) * stat_res.st_birthtimespec.tv_nsec);
+#else
+    double atimeMs = (double(1e3) * stat_res.st_atim.tv_sec) + (double(1e-6) * stat_res.st_atim.tv_nsec);
+    double ctimeMs = (double(1e3) * stat_res.st_ctim.tv_sec) + (double(1e-6) * stat_res.st_ctim.tv_nsec);
+    double mtimeMs = (double(1e3) * stat_res.st_mtim.tv_sec) + (double(1e-6) * stat_res.st_mtim.tv_nsec);
+    double birthtimeMs = ctimeMs; // Posix doesn't have birthtime
+#endif
 
     res["atimeMs"] = Napi::Number::New(env, atimeMs);
     res["ctimeMs"] = Napi::Number::New(env, ctimeMs);
@@ -124,10 +229,15 @@ set_stat_res(Napi::Object res, Napi::Env env, struct stat &stat_res)
     res["ctime"] = Napi::Date::New(env, uint64_t(round(ctimeMs)));
     res["birthtime"] = Napi::Date::New(env, uint64_t(round(birthtimeMs)));
 
+    auto xattr = Napi::Object::New(env);
+    res["xattr"] = xattr;
+    for (auto it = xattr_res.begin(); it != xattr_res.end(); ++it) {
+        xattr.Set(it->first, it->second);
+    }
 }
 
 void
-set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
+set_statfs_res(Napi::Object res, Napi::Env env, struct statfs& statfs_res)
 {
     res["type"] = Napi::Number::New(env, statfs_res.f_type);
     res["bsize"] = Napi::Number::New(env, statfs_res.f_bsize);
@@ -136,7 +246,7 @@ set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
     res["bavail"] = Napi::Number::New(env, statfs_res.f_bavail);
     res["files"] = Napi::Number::New(env, statfs_res.f_files);
     res["ffree"] = Napi::Number::New(env, statfs_res.f_ffree);
-    // Linux, SunOS, HP-UX, 4.4BSD have a system call statfs() that returns a struct statfs (defined in <sys/vfs.h>) 
+    // Linux, SunOS, HP-UX, 4.4BSD have a system call statfs() that returns a struct statfs (defined in <sys/vfs.h>)
     // containing a fsid_t f_fsid, where fsid_t is defined as struct { int val[2]; }.
     // so it's an array of two integers
     // For now commenting out res["fsid"] as we cant use Napi::Number on it
@@ -144,18 +254,84 @@ set_statfs_res(Napi::Object res, Napi::Env env, struct statfs &statfs_res)
     // res["fsid"] = Napi::Number::New(env, statfs_res.f_fsid);
     res["flags"] = Napi::Number::New(env, statfs_res.f_flags);
 
-    #ifndef __APPLE__   
-        res["namelen"] = Napi::Number::New(env, statfs_res.f_namelen);
-        res["frsize"] = Napi::Number::New(env, statfs_res.f_frsize);
-    #endif
-
+#ifndef __APPLE__
+    res["namelen"] = Napi::Number::New(env, statfs_res.f_namelen);
+    res["frsize"] = Napi::Number::New(env, statfs_res.f_frsize);
+#endif
 }
 
-void 
-set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string work_name, double took_time, int error){
+void
+set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string work_name, double took_time, int error)
+{
     fs_worker_stats["name"] = Napi::String::New(env, work_name);
     fs_worker_stats["took_time"] = Napi::Number::New(env, took_time);
     fs_worker_stats["error"] = Napi::Number::New(env, error);
+}
+
+static int
+get_single_user_xattr(int fd, std::string key, std::string& value)
+{
+    ssize_t value_len = fgetxattr(fd, key.c_str(), NULL, 0);
+    if (value_len == -1) return -1;
+    if (value_len > 0) {
+        Buf val(value_len);
+        value_len = fgetxattr(fd, key.c_str(), val.cdata(), value_len);
+        if (value_len == -1) return -1;
+        value = std::string(val.cdata(), value_len);
+    } else if (value_len == 0) {
+        value = "";
+    }
+    return 0;
+}
+
+static int
+get_fd_xattr(int fd, XattrMap& xattr, bool skip_user_xattr)
+{
+    if (skip_user_xattr) { // we won't list the attributes just return the prefefined list
+        for (auto const& key : USER_XATTRS) {
+            std::string value;
+            int r = get_single_user_xattr(fd, key, value);
+            if (r) return r;
+            xattr[key] = value;
+        }
+    } else {
+        ssize_t buf_len = flistxattr(fd, NULL, 0);
+        if (buf_len <= 0) return buf_len;
+        Buf buf(buf_len);
+        buf_len = flistxattr(fd, buf.cdata(), buf_len);
+        // No xattr, nothing to do
+        if (buf_len <= 0) return buf_len;
+        while (buf.length()) {
+            std::string key(buf.cdata());
+            std::string value;
+            int r = get_single_user_xattr(fd, key, value);
+            if (r) return r;
+            xattr[key] = value;
+            buf.slice(key.size() + 1, buf.length());
+        }
+    }
+    return 0;
+}
+
+static int
+get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
+{
+    for (auto const& key : GPFS_XATTRS) {
+        gpfsRequest_t gpfsGetXattrRequest;
+        build_gpfs_get_ea_request(&gpfsGetXattrRequest, key);
+        int r = dlsym_gpfs_fcntl(fd, &gpfsGetXattrRequest);
+        if (r) return r; // errno is set
+        gpfs_error = gpfsGetXattrRequest.payload.errReasonCode;
+        if (gpfs_error == GPFS_FCNTL_ERR_NONE) {
+            int name_len = gpfsGetXattrRequest.payload.nameLen;
+            int buffer_len = gpfsGetXattrRequest.payload.bufferLen;
+            xattr[key] = std::string(gpfsGetXattrRequest.buffer[ROUNDUP(name_len, 8)], buffer_len);
+        } else if (gpfs_error != GPFS_FCNTL_ERR_NO_ATTR) {
+            LOG("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
+            return gpfs_error;
+        }
+    }
+    return 0;
 }
 
 /**
@@ -199,7 +375,6 @@ struct FSWorker : public Napi::AsyncWorker
         if (fs_context.Has("backend")) _backend = fs_context.Get("backend").ToString();
         if (fs_context.Has("warn_threshold_ms")) _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
         if (fs_context.Has("report_fs_stats")) _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
-
     }
     void Begin(std::string desc)
     {
@@ -234,27 +409,44 @@ struct FSWorker : public Napi::AsyncWorker
             SetError(errmsg);
         }
     }
+    void ReportWorkerStats(int error)
+    {
+        Napi::Env env = Env();
+        auto fs_worker_stats = Napi::Object::New(env);
+        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, error);
+        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
+    }
     virtual void OnOK() override
     {
         DBG1("FS::FSWorker::OnOK: undefined " << _desc);
-        Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(Env().Undefined());
+        ReportWorkerStats(0);
     }
     virtual void OnError(Napi::Error const& error) override
     {
         Napi::Env env = Env();
         DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 1);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
+        ReportWorkerStats(1);
         auto obj = error.Value();
         if (_errno) {
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
         }
         _deferred.Reject(obj);
+    }
+};
+
+struct AutoCloser
+{
+    FSWorker* _worker;
+    int _fd;
+    AutoCloser(FSWorker* worker, int fd)
+        : _worker(worker), _fd(fd) {}
+    ~AutoCloser()
+    {
+        if (_fd) {
+            int r = close(_fd);
+            if (r) _worker->SetSyscallError();
+        }
     }
 };
 
@@ -284,63 +476,53 @@ struct FSWrapWorker : public FSWorker
 struct Stat : public FSWorker
 {
     std::string _path;
+    bool _use_lstat = false;
+    bool _skip_user_xattr = false;
     struct stat _stat_res;
+    XattrMap _xattr;
 
     Stat(const Napi::CallbackInfo& info)
         : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
+        if ((int)info.Length() == 3) {
+            Napi::Object options = info[2].As<Napi::Object>();
+            if (options.Has("use_lstat")) _use_lstat = options.Get("use_lstat").ToBoolean();
+            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+        }
         Begin(XSTR() << "Stat " << DVAL(_path));
     }
     virtual void Work()
     {
-        int r = stat(_path.c_str(), &_stat_res);
-        if (r) SetSyscallError();
+        int flags = O_RDONLY; // This default will be used only for none-lstat cases
+        // using O_PATH (MAC - O_SYMLINK) with O_NOFOLLOW allow us to open the symlink itself
+        // instead of openning the file it links to https://man7.org/linux/man-pages/man7/symlink.7.html
+#ifdef __APPLE__
+        if (_use_lstat) flags = O_SYMLINK | O_NOFOLLOW;
+#else
+        if (_use_lstat) flags = O_PATH | O_NOFOLLOW;
+#endif
+        int fd = open(_path.c_str(), flags);
+        CHECK_OPEN_FD(fd);
+        SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
+        // With O_PATH The file itself is not opened, and other file operations (e.g., fgetxattr(2) - in our case),
+        // fail with the error EBADF. https://man7.org/linux/man-pages/man2/open.2.html
+        if (!_use_lstat) {
+            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+            if (_backend == GPFS_BACKEND) {
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+            }
+        }
+        CHECK_CTIME_CHANGE(fd, _stat_res, _path);
     }
     virtual void OnOK()
     {
-        DBG1("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));    
+        DBG1("FS::Stat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
-        set_stat_res(res, env, _stat_res);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-
+        set_stat_res(res, env, _stat_res, _xattr);
         _deferred.Resolve(res);
-    }
-};
-
-/**
- * LStat is an fs op
- */
-struct LStat : public FSWorker
-{
-    std::string _path;
-    struct stat _stat_res;
-
-    LStat(const Napi::CallbackInfo& info)
-        : FSWorker(info)
-    {
-        _path = info[1].As<Napi::String>();
-        Begin(XSTR() << "LStat " << DVAL(_path));
-    }
-    virtual void Work()
-    {
-        int r = lstat(_path.c_str(), &_stat_res);
-        if (r) SetSyscallError();
-    }
-    virtual void OnOK()
-    {
-        DBG1("FS::LStat::OnOK: " << DVAL(_path) << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
-        Napi::Env env = Env();
-        auto res = Napi::Object::New(env);
-        set_stat_res(res, env, _stat_res);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-        
-        _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -360,8 +542,7 @@ struct Statfs : public FSWorker
     }
     virtual void Work()
     {
-        int r = statfs(_path.c_str(), &_statfs_res);
-        if (r) SetSyscallError();
+        SYSCALL_OR_RETURN(statfs(_path.c_str(), &_statfs_res));
     }
     virtual void OnOK()
     {
@@ -369,14 +550,10 @@ struct Statfs : public FSWorker
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
         set_statfs_res(res, env, _statfs_res);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
-
 
 /**
  * CheckAccess is an fs op
@@ -384,7 +561,6 @@ struct Statfs : public FSWorker
 struct CheckAccess : public FSWorker
 {
     std::string _path;
-    struct stat _stat_res;
 
     CheckAccess(const Napi::CallbackInfo& info)
         : FSWorker(info)
@@ -395,12 +571,7 @@ struct CheckAccess : public FSWorker
     virtual void Work()
     {
         int fd = open(_path.c_str(), O_RDONLY);
-        if (fd < 0) {
-            SetSyscallError();
-            return;
-        }
-        int r = close(fd);
-        if (r) SetSyscallError();
+        CHECK_OPEN_FD(fd);
     }
 };
 
@@ -418,8 +589,7 @@ struct Unlink : public FSWorker
     }
     virtual void Work()
     {
-        int r = unlink(_path.c_str());
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(unlink(_path.c_str()));
     }
 };
 
@@ -443,8 +613,7 @@ struct Unlinkat : public FSWorker
     }
     virtual void Work()
     {
-        int r = unlinkat(_dirfd, _path.c_str(), _flags);
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(unlinkat(_dirfd, _path.c_str(), _flags));
     }
 };
 
@@ -464,8 +633,7 @@ struct Link : public FSWorker
     }
     virtual void Work()
     {
-        int r = link(_oldpath.c_str(), _newpath.c_str());
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(link(_oldpath.c_str(), _newpath.c_str()));
     }
 };
 
@@ -494,8 +662,7 @@ struct Linkat : public FSWorker
     }
     virtual void Work()
     {
-        int r = linkat(_olddirfd, _oldpath.c_str(), _newdirfd, _newpath.c_str(), _flags);
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(linkat(_olddirfd, _oldpath.c_str(), _newdirfd, _newpath.c_str(), _flags));
     }
 };
 
@@ -518,8 +685,7 @@ struct Mkdir : public FSWorker
     }
     virtual void Work()
     {
-        int r = mkdir(_path.c_str(), _mode);
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(mkdir(_path.c_str(), _mode));
     }
 };
 
@@ -537,8 +703,7 @@ struct Rmdir : public FSWorker
     }
     virtual void Work()
     {
-        int r = rmdir(_path.c_str());
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(rmdir(_path.c_str()));
     }
 };
 
@@ -558,8 +723,7 @@ struct Rename : public FSWorker
     }
     virtual void Work()
     {
-        int r = rename(_old_path.c_str(), _new_path.c_str());
-        if (r == -1) SetSyscallError();
+        SYSCALL_OR_RETURN(rename(_old_path.c_str(), _new_path.c_str()));
     }
 };
 
@@ -588,10 +752,7 @@ struct Writefile : public FSWorker
     virtual void Work()
     {
         int fd = open(_path.c_str(), O_TRUNC | O_CREAT | O_WRONLY, _mode);
-        if (fd < 0) {
-            SetSyscallError();
-            return;
-        }
+        CHECK_OPEN_FD(fd);
 
         ssize_t len = write(fd, _data, _len);
         if (len < 0) {
@@ -599,9 +760,6 @@ struct Writefile : public FSWorker
         } else if ((size_t)len != _len) {
             SetError(XSTR() << "Writefile: partial write error " << DVAL(len) << DVAL(_len));
         }
-
-        int r = close(fd);
-        if (r) SetSyscallError();
     }
 };
 
@@ -631,19 +789,10 @@ struct Readfile : public FSWorker
     virtual void Work()
     {
         int fd = open(_path.c_str(), O_RDONLY);
-        if (fd < 0) {
-            SetSyscallError();
-            return;
-        }
+        CHECK_OPEN_FD(fd);
 
         struct stat stat_res;
-        int r = fstat(fd, &stat_res);
-        if (r) {
-            SetSyscallError();
-            r = close(fd);
-            if (r) SetSyscallError(); // Report only
-            return;
-        }
+        SYSCALL_OR_RETURN(fstat(fd, &stat_res));
 
         _len = stat_res.st_size;
         _data = new uint8_t[_len];
@@ -659,19 +808,14 @@ struct Readfile : public FSWorker
             remain -= len;
             p += len;
         }
-
-        r = close(fd);
-        if (r) SetSyscallError();
     }
     virtual void OnOK()
     {
         DBG1("FS::FSWorker::OnOK: Readfile " << DVAL(_path));
-        auto buf = Napi::Buffer<uint8_t>::Copy(Env(), _data, _len);
         Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
+        auto buf = Napi::Buffer<uint8_t>::Copy(env, _data, _len);
         _deferred.Resolve(buf);
+        ReportWorkerStats(0);
     }
 };
 
@@ -744,11 +888,8 @@ struct Readdir : public FSWorker
         //         index += 1;
         //     }
         // }
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -767,22 +908,10 @@ struct Fsync : public FSWorker
     virtual void Work()
     {
         int fd = open(_path.c_str(), 0);
-        if (fd < 0) {
-            SetSyscallError();
-            return;
-        }
-
-        int rs = fsync(fd);
-        if (rs) {
-            SetSyscallError();
-            return;
-        }
-
-        int rc = close(fd);
-        if (rc) SetSyscallError();
+        CHECK_OPEN_FD(fd);
+        SYSCALL_OR_RETURN(fsync(fd));
     }
 };
-
 
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
@@ -800,7 +929,6 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::write>("write"),
                 InstanceMethod<&FileWrap::writev>("writev"),
                 InstanceMethod<&FileWrap::replacexattr>("replacexattr"),
-                InstanceMethod<&FileWrap::getxattr>("getxattr"),
                 InstanceMethod<&FileWrap::linkfileat>("linkfileat"),
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
@@ -826,7 +954,6 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value write(const Napi::CallbackInfo& info);
     Napi::Value writev(const Napi::CallbackInfo& info);
     Napi::Value replacexattr(const Napi::CallbackInfo& info);
-    Napi::Value getxattr(const Napi::CallbackInfo& info);
     Napi::Value linkfileat(const Napi::CallbackInfo& info);
     Napi::Value stat(const Napi::CallbackInfo& info);
     Napi::Value fsync(const Napi::CallbackInfo& info);
@@ -867,11 +994,8 @@ struct FileOpen : public FSWorker
         FileWrap* w = FileWrap::Unwrap(res);
         w->_path = _path;
         w->_fd = _fd;
-        Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -917,11 +1041,7 @@ struct FileRead : public FSWrapWorker<FileWrap>
     virtual void Work()
     {
         int fd = _wrap->_fd;
-        std::string path = _wrap->_path;
-        if (fd < 0) {
-            SetError(XSTR() << "FS::FileRead::Execute: ERROR not opened " << path);
-            return;
-        }
+        CHECK_WRAP_FD(fd);
         _br = pread(fd, _buf + _offset, _len, _pos);
         if (_br < 0) {
             SetSyscallError();
@@ -932,10 +1052,8 @@ struct FileRead : public FSWrapWorker<FileWrap>
     {
         DBG1("FS::FSWorker::OnOK: FileRead " << DVAL(_wrap->_path));
         Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(Napi::Number::New(env, _br));
+        ReportWorkerStats(0);
     }
 };
 
@@ -956,11 +1074,7 @@ struct FileWrite : public FSWrapWorker<FileWrap>
     virtual void Work()
     {
         int fd = _wrap->_fd;
-        std::string path = _wrap->_path;
-        if (fd < 0) {
-            SetError(XSTR() << "FS::FileWrite::Execute: ERROR not opened " << path);
-            return;
-        }
+        CHECK_WRAP_FD(fd);
         // TODO: Switch to pwrite when needed
         ssize_t bw = write(fd, _buf, _len);
         if (bw < 0) {
@@ -996,11 +1110,7 @@ struct FileWritev : public FSWrapWorker<FileWrap>
     virtual void Work()
     {
         int fd = _wrap->_fd;
-        std::string path = _wrap->_path;
-        if (fd < 0) {
-            SetError(XSTR() << "FS::FileWritev::Execute: ERROR not opened " << path);
-            return;
-        }
+        CHECK_WRAP_FD(fd);
         ssize_t bw = writev(fd, iov_vec.data(), iov_vec.size());
         if (bw < 0) {
             SetSyscallError();
@@ -1015,53 +1125,25 @@ struct FileWritev : public FSWrapWorker<FileWrap>
  * TODO: Not atomic and might cause partial updates of MD
  * need to be tested
  */
-int
+static int
 clear_xattr(int fd, std::string _prefix)
 {
-
-    #ifdef __APPLE__
-        ssize_t buf_len = flistxattr(fd, NULL, 0, 0);
-    #else
-        ssize_t buf_len = flistxattr(fd, NULL, 0);
-    #endif
-
-    // No xattr, nothing to do  
+    ssize_t buf_len = flistxattr(fd, NULL, 0);
+    // No xattr, nothing to do
     if (buf_len == 0) return 0;
-
-    if (buf_len == -1) {
-        return -1;
-    }
-
+    if (buf_len == -1) return -1;
     Buf buf(buf_len);
-
-    #ifdef __APPLE__
-        buf_len = flistxattr(fd, buf.cdata(), buf_len, 0);
-    #else
-        buf_len = flistxattr(fd, buf.cdata(), buf_len);
-    #endif
-
-    // No xattr, nothing to do  
+    buf_len = flistxattr(fd, buf.cdata(), buf_len);
+    // No xattr, nothing to do
     if (buf_len == 0) return 0;
-
-    if (buf_len == -1) {
-        return -1;
-    }
-
+    if (buf_len == -1) return -1;
     while (buf.length()) {
         std::string key(buf.cdata());
         // remove xattr only if its key starts with prefix
-        if (key.rfind(_prefix, 0) == 0){
-            #ifdef __APPLE__
-                ssize_t value_len = fremovexattr(fd, key.c_str(), 0);
-            #else
-                ssize_t value_len = fremovexattr(fd, key.c_str());
-            #endif
-            
-            if (value_len == -1) {
-                return -1;
-            }
+        if (key.rfind(_prefix, 0) == 0) {
+            ssize_t value_len = fremovexattr(fd, key.c_str());
+            if (value_len == -1) return -1;
         }
-
         buf.slice(key.size() + 1, buf.length());
     }
     return 0;
@@ -1072,7 +1154,7 @@ clear_xattr(int fd, std::string _prefix)
  */
 struct FileReplacexattr : public FSWrapWorker<FileWrap>
 {
-    std::map<std::string, std::string> _md;
+    XattrMap _xattr;
     std::string _prefix;
     FileReplacexattr(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
@@ -1084,7 +1166,7 @@ struct FileReplacexattr : public FSWrapWorker<FileWrap>
             for (uint32_t i = 0; i < keys.Length(); ++i) {
                 auto key = keys.Get(i).ToString().Utf8Value();
                 auto value = md.Get(key).ToString().Utf8Value();
-                _md[key] = value;
+                _xattr[key] = value;
             }
         }
         if (info.Length() > 2 && !info[2].IsUndefined()) {
@@ -1097,24 +1179,12 @@ struct FileReplacexattr : public FSWrapWorker<FileWrap>
         int fd = _wrap->_fd;
 
         if (_prefix != "") {
-            auto r_clear = clear_xattr(fd, _prefix);
-            if (r_clear == -1){
-                SetSyscallError();
-                return;
-            }
+            SYSCALL_OR_RETURN(clear_xattr(fd, _prefix));
         }
 
-        for (auto it = _md.begin(); it != _md.end(); ++it) {
-            #ifdef __APPLE__
-                auto r = fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0, 0);
-            #else
-                auto r = fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0);
-            #endif
-            if (r == -1) {
-                SetSyscallError();
-                return;
-            }
-        }        
+        for (auto it = _xattr.begin(); it != _xattr.end(); ++it) {
+            SYSCALL_OR_RETURN(fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0));
+        }
     }
 };
 
@@ -1130,160 +1200,46 @@ struct LinkFileAt : public FSWrapWorker<FileWrap>
     }
     virtual void Work()
     {
-        // gpfs_linkat() is the same as Linux linkat() but we need a new function because 
+        // gpfs_linkat() is the same as Linux linkat() but we need a new function because
         // Linux will fail the linkat() if the file already exist and we want to replace it if it existed.
-        int r = dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH);
-        if (r) {
-            SetError(XSTR() << "FS::LinkFileAt::Execute: ERROR gpfs_linkat failed " << DVAL(r) << DVAL(_wrap->_fd) << DVAL(_filepath));
-            return;
-        }
-    }
-};
-
-struct FileGetxattr : public FSWrapWorker<FileWrap>
-{
-    std::map<std::string, std::string> _md;
-    FileGetxattr(const Napi::CallbackInfo& info)
-        : FSWrapWorker<FileWrap>(info)
-    {
-        Begin(XSTR() << "FileGetxattr " << DVAL(_wrap->_path));
-    }
-    virtual void Work()
-    {
-        int fd = _wrap->_fd;
-        // Serves as a "lock" mechanism when reading the xattrs of a file
-        // Since this is non atomic operation, we abort if ctime of file changed
-        struct stat stat_res;
-        auto r = fstat(fd, &stat_res);
-        if (r) {
-            SetSyscallError();
-            return;
-        }
-        auto start_ctime = stat_res.st_ctime;
-
-        #ifdef __APPLE__
-            ssize_t buf_len = flistxattr(fd, NULL, 0, 0);
-        #else
-            ssize_t buf_len = flistxattr(fd, NULL, 0);
-        #endif
-
-        // No xattr, nothing to do  
-        if (buf_len == 0) return;
-
-        if (buf_len == -1) {
-            SetSyscallError();
-            return;
-        }
-
-        Buf buf(buf_len);
-
-        #ifdef __APPLE__
-            buf_len = flistxattr(fd, buf.cdata(), buf_len, 0);
-        #else
-            buf_len = flistxattr(fd, buf.cdata(), buf_len);
-        #endif
-
-        // No xattr, nothing to do  
-        if (buf_len == 0) return;
-
-        if (buf_len == -1) {
-            SetSyscallError();
-            return;
-        }
-
-        while (buf.length()) {
-            std::string key(buf.cdata());
-
-            #ifdef __APPLE__
-                ssize_t value_len = fgetxattr(fd, key.c_str(), NULL, 0, 0, 0);
-            #else
-                ssize_t value_len = fgetxattr(fd, key.c_str(), NULL, 0);
-            #endif
-
-            if (value_len == -1) {
-                SetSyscallError();
-                return;
-            }
-
-            if (value_len > 0) {
-                Buf val(value_len);
-
-                #ifdef __APPLE__
-                    value_len = fgetxattr(fd, key.c_str(), val.cdata(), value_len, 0, 0);
-                #else
-                    value_len = fgetxattr(fd, key.c_str(), val.cdata(), value_len);
-                #endif
-
-                if (value_len == -1) {
-                    SetSyscallError();
-                    return;
-                }
-                
-                _md[key] = std::string(val.cdata(), value_len);
-            } else if (value_len == 0) {
-                _md[key] = "";
-            }
-
-            buf.slice(key.size() + 1, buf.length());
-        }
-
-        r = fstat(fd, &stat_res);
-        if (r) {
-            SetSyscallError();
-            return;
-        }
-        auto end_ctime = stat_res.st_ctime;
-        if (start_ctime != end_ctime) {
-            // Cancel on ctime change due to non atomic nature of this call
-            SetError(XSTR() << "FileGetxattr: " << DVAL(_wrap->_path) << " cancelled due to ctime change");
-        }
-    }
-    virtual void OnOK()
-    {
-        DBG1("FS::FSWorker::OnOK: FileGetxattr " << DVAL(_wrap->_path));
-        Napi::Env env = Env();
-        Napi::Object res = Napi::Object::New(env);
-        for (auto it = _md.begin(); it != _md.end(); ++it) {
-            res.Set(it->first, it->second);
-        }
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-        _deferred.Resolve(res);
+        SYSCALL_OR_RETURN(dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
     }
 };
 
 struct FileStat : public FSWrapWorker<FileWrap>
 {
     struct stat _stat_res;
+    XattrMap _xattr;
+    bool _skip_user_xattr = false;
 
     FileStat(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
     {
+        if ((int)info.Length() == 2) {
+            Napi::Object options = info[1].As<Napi::Object>();
+            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+        }
         Begin(XSTR() << "FileStat " << DVAL(_wrap->_path));
     }
     virtual void Work()
     {
         int fd = _wrap->_fd;
-        std::string path = _wrap->_path;
-        if (fd < 0) {
-            SetError(XSTR() << "FS::FileStat::Execute: ERROR not opened " << path);
-            return;
+        CHECK_WRAP_FD(fd);
+        SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
+        SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+        if (_backend == GPFS_BACKEND) {
+            GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }
-        int r = fstat(fd, &_stat_res);
-        if (r) SetSyscallError();
+        CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
     }
     virtual void OnOK()
     {
         DBG1("FS::FileStat::OnOK: FileStat " << DVAL(_stat_res.st_ino) << DVAL(_stat_res.st_size));
         Napi::Env env = Env();
         auto res = Napi::Object::New(env);
-        set_stat_res(res, env, _stat_res);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
-        
+        set_stat_res(res, env, _stat_res, _xattr);
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -1297,13 +1253,8 @@ struct FileFsync : public FSWrapWorker<FileWrap>
     virtual void Work()
     {
         int fd = _wrap->_fd;
-        std::string path = _wrap->_path;
-        if (fd < 0) {
-            SetError(XSTR() << "FS::FileFsync::Execute: ERROR not opened " << path);
-            return;
-        }
-        int r = fsync(fd);
-        if (r) SetSyscallError();
+        CHECK_WRAP_FD(fd);
+        SYSCALL_OR_RETURN(fsync(fd));
     }
 };
 
@@ -1320,7 +1271,8 @@ struct RealPath : public FSWorker
         Begin(XSTR() << "RealPath " << DVAL(_path));
     }
 
-    ~RealPath() {
+    ~RealPath()
+    {
         if (_full_path) {
             free(_full_path);
             _full_path = 0;
@@ -1340,10 +1292,8 @@ struct RealPath : public FSWorker
         DBG1("FS::RealPath::OnOK: " << DVAL(_path) << DVAL(_full_path));
         Napi::Env env = Env();
         auto res = Napi::String::New(env, _full_path);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -1363,11 +1313,7 @@ struct GetSingleXattr : public FSWorker
 
     virtual void Work()
     {
-        #ifdef __APPLE__
-            ssize_t value_len = getxattr(_path.c_str(), _key.c_str(), NULL, 0, 0, 0);
-        #else
-            ssize_t value_len = getxattr(_path.c_str(), _key.c_str(), NULL, 0);
-        #endif
+        ssize_t value_len = getxattr(_path.c_str(), _key.c_str(), NULL, 0);
 
         if (value_len == -1) {
             SetSyscallError();
@@ -1376,13 +1322,7 @@ struct GetSingleXattr : public FSWorker
 
         if (value_len > 0) {
             Buf val(value_len);
-
-            #ifdef __APPLE__
-                value_len = getxattr(_path.c_str(), _key.c_str(), val.cdata(), value_len, 0, 0);
-            #else
-                value_len = getxattr(_path.c_str(), _key.c_str(), val.cdata(), value_len);
-            #endif
-
+            value_len = getxattr(_path.c_str(), _key.c_str(), val.cdata(), value_len);
             if (value_len == -1) {
                 SetSyscallError();
                 return;
@@ -1399,10 +1339,8 @@ struct GetSingleXattr : public FSWorker
         DBG1("FS::GetSingleXattr::OnOK: " << DVAL(_path) << DVAL(_val));
         Napi::Env env = Env();
         auto res = Napi::String::New(env, _val);
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -1437,12 +1375,6 @@ FileWrap::replacexattr(const Napi::CallbackInfo& info)
 }
 
 Napi::Value
-FileWrap::getxattr(const Napi::CallbackInfo& info)
-{
-    return api<FileGetxattr>(info);
-}
-
-Napi::Value
 FileWrap::linkfileat(const Napi::CallbackInfo& info)
 {
     return api<LinkFileAt>(info);
@@ -1461,7 +1393,7 @@ FileWrap::fsync(const Napi::CallbackInfo& info)
 }
 
 /**
- * 
+ *
  */
 struct DirWrap : public Napi::ObjectWrap<DirWrap>
 {
@@ -1523,11 +1455,8 @@ struct DirOpen : public FSWorker
         DirWrap* w = DirWrap::Unwrap(res);
         w->_path = _path;
         w->_dir = _dir;
-        Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         _deferred.Resolve(res);
+        ReportWorkerStats(0);
     }
 };
 
@@ -1568,30 +1497,27 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
         }
         struct dirent* e = 0;
 
-        // loop to skip parent and current directories 
-        do { 
-            // need to set errno before the call to readdir() to detect between EOF and error 
-            errno = 0; 
-            e = readdir(dir); 
-        } while (e && (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)); 
-        if (e) { 
-            _entry.name = std::string(e->d_name); 
-            _entry.ino = e->d_ino; 
-            _entry.type = e->d_type; 
-        } else { 
-            if (errno) { 
-                SetSyscallError(); 
-            } else { 
-                _eof = true; 
+        // loop to skip parent and current directories
+        do {
+            // need to set errno before the call to readdir() to detect between EOF and error
+            errno = 0;
+            e = readdir(dir);
+        } while (e && (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0));
+        if (e) {
+            _entry.name = std::string(e->d_name);
+            _entry.ino = e->d_ino;
+            _entry.type = e->d_type;
+        } else {
+            if (errno) {
+                SetSyscallError();
+            } else {
+                _eof = true;
             }
         }
     }
     virtual void OnOK()
     {
         Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, 0);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
         if (_eof) {
             _deferred.Resolve(env.Null());
         } else {
@@ -1601,6 +1527,7 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
             res["type"] = Napi::Number::New(env, _entry.type);
             _deferred.Resolve(res);
         }
+        ReportWorkerStats(0);
     }
 };
 
@@ -1629,18 +1556,24 @@ void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
-
-    if(const char* env_p = std::getenv("GPFS_DL_PATH")) {
-        uv_lib_t *lib = (uv_lib_t*) malloc(sizeof(uv_lib_t));
-        LOG("FS::GPFS GPFS_DL_PATH=" << env_p);
-        if (uv_dlopen(env_p, lib)) {
-            PANIC("Error: %s\n" << uv_dlerror(lib));
+    const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
+    if (gpfs_dl_path != NULL) {
+        uv_lib_t* lib = (uv_lib_t*)malloc(sizeof(uv_lib_t));
+        LOG("FS::GPFS GPFS_DL_PATH=" << gpfs_dl_path);
+        if (uv_dlopen(gpfs_dl_path, lib)) {
+            PANIC("Error: %s\n"
+                << uv_dlerror(lib));
         }
-        if (uv_dlsym(lib, "gpfs_linkat", (void **) &dlsym_gpfs_linkat)) {
-            PANIC("Error: %s\n" << uv_dlerror(lib));
+        if (uv_dlsym(lib, "gpfs_linkat", (void**)&dlsym_gpfs_linkat)) {
+            PANIC("Error: %s\n"
+                << uv_dlerror(lib));
         }
-        if (uv_dlsym(lib, "gpfs_fcntl", (void **) &dlsym_gpfs_fcntl)) {
-            PANIC("Error: %s\n" << uv_dlerror(lib));
+        if (uv_dlsym(lib, "gpfs_fcntl", (void**)&dlsym_gpfs_fcntl)) {
+            PANIC("Error: %s\n"
+                << uv_dlerror(lib));
+        }
+        if (sizeof(struct gpfsRequest_t) != 256) {
+            PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
         }
         auto gpfs = Napi::Object::New(env);
         // for now we export an (empty) object, which can be checked to indicate that
@@ -1652,7 +1585,6 @@ fs_napi(Napi::Env env, Napi::Object exports)
     }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);
-    exports_fs["lstat"] = Napi::Function::New(env, api<LStat>);
     exports_fs["statfs"] = Napi::Function::New(env, api<Statfs>);
     exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);

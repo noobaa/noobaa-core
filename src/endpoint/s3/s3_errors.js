@@ -536,6 +536,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_RANGE: S3Error.InvalidRange,
     INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
     INTERNAL_ERROR: S3Error.InternalError,
+    SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
 });
 
 exports.S3Error = S3Error;

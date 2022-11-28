@@ -10,8 +10,6 @@ if (argv.log_file) {
 }
 dbg.set_process_name('test_ceph_s3');
 
-const _ = require('lodash');
-const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const api = require('../../api');
 
@@ -66,7 +64,7 @@ async function ceph_test_setup() {
     let system = await client.system.read_system();
     const internal_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
     console.log(internal_pool);
-    try{
+    try {
         await client.account.create_account({
             ...CEPH_TEST.new_account_params,
             default_resource: internal_pool.name
@@ -76,8 +74,7 @@ async function ceph_test_setup() {
             ...CEPH_TEST.new_account_params_tenant,
             default_resource: internal_pool.name
         });
-    }
-    catch(err){
+    } catch (err) {
         console.log("Failed to create account or tenant, assuming they were already created and continuing. ", err.message);
     }
     system = await client.system.read_system();

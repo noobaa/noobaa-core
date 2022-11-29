@@ -442,6 +442,11 @@ S3Error.UserKeyMustBeSpecified = Object.freeze({
     message: 'The bucket POST must contain the specified field name. If it is specified, check the order of the fields.',
     http_code: 400,
 });
+S3Error.NoSuchTagSet = Object.freeze({
+    code: 'NoSuchTagSet',
+    message: 'The tag provided is not found.',
+    http_code: 404,
+});
 
 
 
@@ -537,6 +542,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_OBJECT_STATE: S3Error.InvalidObjectState,
     INTERNAL_ERROR: S3Error.InternalError,
     SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
+    NO_SUCH_TAG: S3Error.NoSuchTagSet,
 });
 
 exports.S3Error = S3Error;

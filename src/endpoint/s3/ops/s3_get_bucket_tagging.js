@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const { RpcError } = require('../../../rpc');
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETtagging.html
  */
@@ -18,6 +19,9 @@ function format_tagging_response(tag_set) {
             Value: tag.value
         }
     })) : [];
+    if (!tags_array.length) {
+        throw new RpcError('NO_SUCH_TAG', 'Tagging not found');
+    }
     return {
         Tagging: {
             TagSet: tags_array

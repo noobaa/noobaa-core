@@ -7,6 +7,7 @@ const nb_native = require('../util/nb_native');
 const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const config = require('../../config.js');
+const NamespaceFS = require('./namespace_fs');
 
 /**
  * @implements {nb.BucketSpace}
@@ -93,7 +94,11 @@ class BucketSpaceNB {
     // BUCKET VERSIONING //
     ///////////////////////
 
-    async set_bucket_versioning(params) {
+    async set_bucket_versioning(params, object_sdk) {
+        const ns = await object_sdk._get_bucket_namespace(params.name);
+        if (ns instanceof NamespaceFS) {
+            await ns.set_bucket_versioning(params.versioning, object_sdk);
+        }
         return this.rpc_client.bucket.update_bucket({
             name: params.name,
             versioning: params.versioning

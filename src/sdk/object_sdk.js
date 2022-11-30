@@ -256,6 +256,7 @@ class ObjectSDK {
                         bucket_id: String(bucket._id),
                         namespace_resource_id,
                         access_mode: (bucket.namespace.write_resource && bucket.namespace.write_resource.resource.access_mode) || 'READ_WRITE',
+                        versioning: bucket.bucket_info.versioning,
                     }),
                     bucket,
                     valid_until: time + (100 * 356 * 24 * 3600 * 1000), // 100 years
@@ -277,7 +278,8 @@ class ObjectSDK {
                 }
                 if (this._is_single_namespace(bucket.namespace)) {
                     return {
-                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.read_resources[0]), bucket._id),
+                        ns: this._setup_single_namespace(_.extend({}, bucket.namespace.read_resources[0]), bucket._id,
+                            { versioning: bucket.bucket_info.versioning }),
                         bucket,
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
                     };
@@ -328,7 +330,7 @@ class ObjectSDK {
         });
     }
 
-    _setup_single_namespace(namespace_resource_config, bucket_id) {
+    _setup_single_namespace(namespace_resource_config, bucket_id, options) {
 
         const ns_info = namespace_resource_config.resource;
         if (ns_info.endpoint_type === 'NOOBAA') {
@@ -384,7 +386,8 @@ class ObjectSDK {
                 bucket_path: path.join(namespace_resource_config.resource.fs_root_path, namespace_resource_config.path || ''),
                 bucket_id: String(bucket_id),
                 namespace_resource_id: ns_info.id,
-                access_mode: ns_info.access_mode
+                access_mode: ns_info.access_mode,
+                versioning: options && options.versioning,
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside
@@ -870,7 +873,7 @@ class ObjectSDK {
 
     async set_bucket_versioning(params) {
         const bs = this._get_bucketspace();
-        return bs.set_bucket_versioning(params);
+        return bs.set_bucket_versioning(params, this);
     }
 
     ////////////////////

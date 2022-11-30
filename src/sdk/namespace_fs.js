@@ -180,15 +180,17 @@ class NamespaceFS {
      *  bucket_id: string;
      *  namespace_resource_id?: string;
      *  access_mode: string;
+     *  versioning: 'DISABLED' | 'SUSPENDED' | 'ENABLED';
      * }} params
      */
-    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id, access_mode }) {
+    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id, access_mode, versioning }) {
         dbg.log0('NamespaceFS: buffers_pool', buffers_pool);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
         this.namespace_resource_id = namespace_resource_id;
         this.access_mode = access_mode;
+        this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || 'DISABLED';
     }
 
     prepare_fs_context(object_sdk) {
@@ -1138,6 +1140,21 @@ class NamespaceFS {
             }
             // TODO return deletion reponse per key
             return params.objects.map(() => ({}));
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
+    }
+
+    ///////////////////////
+    // OBJECT VERSIONING //
+    ///////////////////////
+
+    async set_bucket_versioning(versioning, object_sdk) {
+        if (!config.NSFS_VERSIONING_ENABLED) throw new RpcError('BAD_REQUEST', 'nsfs versioning is unsupported');
+        try {
+            const fs_context = this.prepare_fs_context(object_sdk);
+            await nb_native().fs.checkAccess(fs_context, this.bucket_path);
+            this.versioning = versioning;
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }

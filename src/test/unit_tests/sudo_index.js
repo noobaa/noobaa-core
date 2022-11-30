@@ -14,6 +14,8 @@ coretest.setup({ incomplete_rpc_coverage: 'show' });
 // // CORE
 require('./test_nb_native_fs');
 require('./test_namespace_fs');
+require('./test_nsfs_versioning');
 require('./test_ns_list_objects');
 require('./test_bucketspace');
+require('./test_bucketspace_versioning');
 

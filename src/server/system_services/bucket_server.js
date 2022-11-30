@@ -589,8 +589,8 @@ function get_bucket_changes_versioning(req, bucket, update_request, single_bucke
     if (update_request.versioning === 'DISABLED') {
         throw new RpcError('BAD_REQUEST', 'Cannot set versioning to DISABLED');
     }
-    if (bucket.namespace) {
-        throw new RpcError('BAD_REQUEST', 'Cannot set versioning on namespace buckets');
+    if (bucket.namespace && !bucket.namespace.write_resource.resource.nsfs_config) {
+        throw new RpcError('BAD_REQUEST', 'Cannot set versioning on non nsfs namespace buckets');
     }
 
     single_bucket_update.versioning = update_request.versioning;

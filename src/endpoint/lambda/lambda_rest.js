@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
+/* eslint-disable no-control-regex */
 
 const _ = require('lodash');
 
@@ -21,6 +22,7 @@ const RPC_ERRORS_TO_LAMBDA = Object.freeze({
 });
 
 const LAMBDA_OPS = load_ops();
+const non_printable_regexp = /[\x00-\x1F]/;
 
 async function lambda_rest(req, res) {
     try {
@@ -89,7 +91,7 @@ function check_headers(req) {
         // test for non printable characters
         // 403 is required for unreadable headers
         // eslint-disable-next-line no-control-regex
-        if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
+        if (non_printable_regexp.test(val) || non_printable_regexp.test(key)) {
             dbg.warn('Invalid header characters', key, val);
             if (key !== 'expect') {
                 throw new LambdaError(LambdaError.AccessDenied);

@@ -1,0 +1,5 @@
+HEAD /awsnsbucket/bucket-head%2Flc-test-obj HTTP/1.1
+Host: 127.0.0.1
+X-Amz-Content-SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Authorization: AWS4-HMAC-SHA256 Credential=123/20221206/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=10edb5e15be2934bae5bf19caceebedaedd0aba1184ffb600c151ec243866051
+X-Amz-Date: 20221206T084553Z

@@ -201,7 +201,7 @@ const HEADERS_MAP_FOR_AWS_SDK = {
 
 function _aws_request(req, region, service) {
     const v2_signature = _.isUndefined(region) && _.isUndefined(service);
-    const u = url.parse(req.originalUrl, true);
+    const u = url.parse(req.originalUrl.replace(/%2F/g, '/'), true);
     const pathname = service === 's3' ?
         u.pathname :
         path.normalize(decodeURI(u.pathname));

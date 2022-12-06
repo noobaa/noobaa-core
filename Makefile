@@ -66,7 +66,7 @@ builder: assert-container-engine
 
 base: builder
 	@echo "\033[1;34mStarting Base $(CONTAINER_ENGINE) build.\033[0m"
-	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build $(CPUSET) --build-arg BUILD_S3SELECT -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "\033[1;32mBase done.\033[0m"
 .PHONY: base

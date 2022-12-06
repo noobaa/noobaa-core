@@ -80,6 +80,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     post_object: { regular: "s3:putobject" },
     post_object_uploadId: { regular: "s3:putobject" },
     post_object_uploads: { regular: "s3:putobject" },
+    post_object_select: { regular: "s3:selectobjectcontent" },
 
     put_bucket_accelerate: { regular: "s3:putaccelerateconfiguration" },
     put_bucket_acl: { regular: "s3:putbucketacl" },

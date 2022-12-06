@@ -1,0 +1,3 @@
+[submodule "s3select"]
+	path = submodules/s3select
+	url = https://github.com/ceph/s3select

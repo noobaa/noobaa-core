@@ -648,6 +648,25 @@ function _is_statements_fit(statements, account, method, arn_path) {
     return false;
 }
 
+function get_response_field_encoder(req) {
+    const encoding_type = req.query['encoding-type'];
+    if ((typeof encoding_type === 'undefined') || (encoding_type === null)) return response_field_encoder_none;
+    if (encoding_type.toLowerCase() === 'url') return response_field_encoder_url;
+    dbg.warn('Invalid encoding-type', encoding_type);
+    throw new S3Error(S3Error.InvalidEncodingType);
+}
+
+function response_field_encoder_none(value) {
+    return value;
+}
+
+/** 
+* Using URLSearchParams to encode the string as x-www-form-urlencoded
+* with plus (+) instead of spaces (and not %20 as encodeURIComponent() does)
+*/
+function response_field_encoder_url(value) {
+    return new URLSearchParams({ 'a': value }).toString().slice(2); // slice the leading 'a='
+}
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
@@ -678,3 +697,4 @@ exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
+exports.get_response_field_encoder = get_response_field_encoder;

@@ -41,7 +41,9 @@ class S3Error extends Error {
 
 // See http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 
-
+//////////////////////////////////////////
+// Errors documented in AWS error pages //
+//////////////////////////////////////////
 S3Error.AccessDenied = Object.freeze({
     code: 'AccessDenied',
     message: 'Access Denied',
@@ -448,8 +450,6 @@ S3Error.NoSuchTagSet = Object.freeze({
     http_code: 404,
 });
 
-
-
 /////////////////////////////////////
 // Errors for generic HTTP replies //
 /////////////////////////////////////
@@ -506,6 +506,11 @@ S3Error.ObjectLockConfigurationNotFoundError = Object.freeze({
     message: 'Object Lock configuration does not exist for this bucket',
     http_code: 404,
 });
+S3Error.InvalidEncodingType = Object.freeze({
+    code: 'InvalidArgument',
+    message: 'Invalid Encoding Method specified in Request',
+    http_code: 400,
+});
 
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
@@ -543,6 +548,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INTERNAL_ERROR: S3Error.InternalError,
     SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
     NO_SUCH_TAG: S3Error.NoSuchTagSet,
+    INVALID_ENCODING_TYPE: S3Error.InvalidEncodingType,
 });
 
 exports.S3Error = S3Error;

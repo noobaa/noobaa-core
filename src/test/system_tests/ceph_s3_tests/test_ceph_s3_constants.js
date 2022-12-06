@@ -8,6 +8,7 @@ const S3_CEPH_TEST_STEMS = [
     's3tests.functional.test_s3_website.',
     's3tests.tests.test_realistic.',
     's3tests_boto3.functional.test_headers.',
+    's3tests_boto3.functional.test_s3select.',
     's3tests_boto3.functional.test_s3.',
     's3tests_boto3.fuzz.test.test_fuzzer.',
     's3tests_boto3.functional.test_s3_website.',

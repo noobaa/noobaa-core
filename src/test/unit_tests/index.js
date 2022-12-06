@@ -60,6 +60,7 @@ require('./test_namespace_fs');
 require('./test_ns_list_objects');
 require('./test_bucketspace');
 require('./test_chunk_fs');
+require('./test_s3select');
 
 // // SERVERS
 require('./test_agent');

@@ -86,6 +86,11 @@ async function post_object_select(req, res) {
     const s3select = new S3SelectStream(select_args);
     dbg.log3("select_args = ", select_args);
 
+    s3select.on('error', err => {
+        dbg.error("s3select error:", err, ", for path = ", req.path);
+        res.end(S3SelectStream.error_message);
+    });
+
     //pipe s3select result into http result
     stream_utils.pipeline([s3select, res], true /*res is a write stream, no need for resume*/);
 
@@ -95,13 +100,9 @@ async function post_object_select(req, res) {
     if (read_stream) {
         // if read_stream supports closing, then we handle abort cases such as http disconnection
         // by calling the close method to stop it from buffering more data which will go to waste.
-        req.object_sdk.add_abort_handler(() => {
-            read_stream.destroy(new Error('abort read stream'));
-        });
-        read_stream.on('error', err => {
-            dbg.error('read stream error:', err, req.path);
-            res.destroy(err);
-        });
+        if (read_stream.close) {
+            req.object_sdk.add_abort_handler(() => read_stream.close());
+        }
         //in other cases, we need to pipe the read stream ourselves
         stream_utils.pipeline([read_stream, s3select], true /*no need to resume s3select*/);
     }

@@ -1004,13 +1004,17 @@ function get_cloud_buckets(req) {
                     cloud_utils.get_azure_new_connection_string(connection));
                 const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO,
-                        blob_svc.listContainers().byPage({ maxPageSize: 100 }).next())
-                    .then(iterator => {
-                        const response = iterator.value;
-                        return response.containerItems.map(entry =>
-                            _inject_usage_to_cloud_bucket(entry.name, connection.endpoint, used_cloud_buckets));
-                    });
+                return P.timeout(EXTERNAL_BUCKET_LIST_TO, (async function() {
+                    const result = [];
+                    for await (const response of blob_svc.listContainers().byPage({ maxPageSize: 100 })) {
+                        if (response.containerItems) {
+                            for (const container of response.containerItems) {
+                                result.push(_inject_usage_to_cloud_bucket(container.name, connection.endpoint, used_cloud_buckets));
+                            }
+                        }
+                    }
+                    return result;
+                }()));
             } else if (connection.endpoint_type === 'NET_STORAGE') {
                 let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);

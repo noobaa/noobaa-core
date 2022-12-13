@@ -11,12 +11,13 @@ const assert = require('assert');
 const coretest = require('./coretest');
 const { rpc_client, EMAIL, PASSWORD, SYSTEM } = coretest;
 const fs_utils = require('../../util/fs_utils');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const path = require('path');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const fs = require('fs');
 const test_utils = require('../system_tests/test_utils');
+const MAC_PLATFORM = 'darwin';
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -29,7 +30,7 @@ let new_account_params = {
 mocha.describe('bucket operations - namespace_fs', function() {
     const nsr = 'nsr';
     const bucket_name = 'src-bucket';
-    const tmp_fs_root = '/tmp/test_bucket_namespace_fs';
+    const tmp_fs_root = get_tmp_path_by_os('/tmp/test_bucket_namespace_fs');
     const bucket_path = '/src';
     const other_bucket_path = '/src1';
     let account_wrong_uid;
@@ -69,7 +70,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
             name: nsr,
             nsfs_config: {
                 fs_root_path: tmp_fs_root,
-                fs_backend: 'GPFS'
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
@@ -461,6 +461,25 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.strictEqual(err.code, 'AccessDenied');
         }
     });
+    mocha.it('delete account by uid, gid - account has buckets - should fail', async function() {
+        await s3_correct_uid_default_nsr.createBucket({ Bucket: 'bucket-to-delete123' }).promise();
+        try {
+            await rpc_client.account.delete_account({ email: 'account_s3_correct_uid@noobaa.com' });
+            assert.fail(`delete account succeeded for account that has buckets`);
+        } catch (err) {
+            assert.equal(err.rpc_code, 'FORBIDDEN');
+        }
+
+        try {
+            await rpc_client.account.delete_account_by_property({ nsfs_account_config: { uid: process.getuid(), gid: process.getgid() } });
+            assert.fail(`delete account succeeded for account that has buckets`);
+        } catch (err) {
+            assert.equal(err.rpc_code, 'FORBIDDEN');
+        }
+       await s3_correct_uid_default_nsr.deleteBucket({ Bucket: 'bucket-to-delete123' }).promise();
+
+    });
+
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
         const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();
         console.log(inspect(res));
@@ -578,7 +597,7 @@ async function update_account_nsfs_config(email, default_resource, new_nsfs_acco
 mocha.describe('list objects - namespace_fs', function() {
     const nsr = 'nsr1-list';
     const bucket_name = 'bucket-to-list1';
-    const tmp_fs_root = '/tmp/test_bucket_namespace_fs1';
+    const tmp_fs_root = get_tmp_path_by_os('/tmp/test_bucket_namespace_fs1');
     const bucket_path = '/bucket';
     let s3_uid5;
     let s3_uid26041993;
@@ -609,7 +628,6 @@ mocha.describe('list objects - namespace_fs', function() {
             name: nsr,
             nsfs_config: {
                 fs_root_path: tmp_fs_root,
-                fs_backend: 'GPFS'
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
@@ -808,7 +826,7 @@ mocha.describe('nsfs account configurations', function() {
     const non_nsfs_bucket1 = 'first.bucket';
     const non_nsfs_bucket2 = 'second.bucket';
     const nsr2_connection = 'nsr2_connection';
-    const tmp_fs_root1 = '/tmp/test_bucket_namespace_fs2';
+    const tmp_fs_root1 = get_tmp_path_by_os('/tmp/test_bucket_namespace_fs2');
     const bucket_path = '/nsfs_accounts';
     const accounts = {}; // {account_name : s3_account_object...}
     const regular_bucket_name = ['regular-bucket', 'regular-bucket1', 'regular-bucket2'];
@@ -836,7 +854,6 @@ mocha.describe('nsfs account configurations', function() {
             name: nsr1,
             nsfs_config: {
                 fs_root_path: tmp_fs_root1,
-                fs_backend: 'GPFS'
             }
         });
         const obj_nsr = { resource: nsr1, path: bucket_path };
@@ -1192,3 +1209,8 @@ mocha.describe('nsfs account configurations', function() {
         }
     });
 });
+
+function get_tmp_path_by_os(_path) {
+    return process.platform === MAC_PLATFORM ? '/private/' + _path : _path;
+}
+

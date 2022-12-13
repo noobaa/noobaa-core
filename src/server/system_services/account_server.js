@@ -649,24 +649,7 @@ async function get_account_usage(req) {
  */
 function delete_account(req) {
     let account_to_delete = system_store.get_account_by_email(req.rpc_params.email);
-    if (!account_to_delete) {
-        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
-    }
-    if (account_to_delete.is_support) {
-        throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
-    }
-    if (String(account_to_delete._id) === String(req.system.owner._id)) {
-        throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
-    }
-    if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
-        throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
-    }
-    for (const bucket of system_store.data.buckets) {
-        if (system_store.has_same_id(bucket.owner_account, account_to_delete)) {
-            dbg.log2('bucket', bucket.name.unwrap(), 'id is equal to the account id');
-            throw new RpcError('UNAUTHORIZED', 'Cannot delete account that is owner of buckets');
-        }
-    }
+    _verify_can_delete_account(req, account_to_delete);
 
     let roles_to_delete = system_store.data.roles
         .filter(
@@ -718,22 +701,7 @@ function delete_account_by_property(req) {
     let roles_to_delete = [];
     let accounts_to_delete = system_store.get_accounts_by_nsfs_account_config(req.rpc_params.nsfs_account_config)
         .map(account_to_delete => {
-            if (!account_to_delete) {
-                throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
-            }
-            if (account_to_delete.is_support) {
-                throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
-            }
-            if (String(account_to_delete._id) === String(req.system.owner._id)) {
-                throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
-            }
-            if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
-                throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
-            }
-            if (system_store.data.buckets.find(b => String(b.owner_account) === String(account_to_delete._id))) {
-                throw new RpcError('UNAUTHORIZED', 'Cannot delete account that is owner of buckets');
-            }
-
+            _verify_can_delete_account(req, account_to_delete);
             roles_to_delete = roles_to_delete.concat(system_store.data.roles
                 .filter(
                     role => String(role.account._id) === String(account_to_delete._id)
@@ -1512,6 +1480,26 @@ function _list_connection_usage(account, credentials) {
     return _.concat(cloud_pool_usage, namespace_resource_usage);
 }
 
+function _verify_can_delete_account(req, account_to_delete) {
+    if (!account_to_delete) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (account_to_delete.is_support) {
+        throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
+    }
+    if (String(account_to_delete._id) === String(req.system.owner._id)) {
+        throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
+    }
+    if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
+        throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
+    }
+    for (const bucket of system_store.data.buckets) {
+        if (system_store.has_same_id(bucket.owner_account, account_to_delete)) {
+            dbg.log2('bucket', bucket.name.unwrap(), 'id is equal to the account id');
+            throw new RpcError('FORBIDDEN', 'Cannot delete account that is owner of buckets');
+        }
+    }
+}
 
 // EXPORTS
 exports.create_account = create_account;

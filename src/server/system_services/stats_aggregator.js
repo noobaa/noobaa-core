@@ -1258,13 +1258,14 @@ function _update_ops_stats(ops_stats) {
         `upload_object`,
         `delete_object`,
         `create_bucket`,
+        `list_buckets`,
         `delete_bucket`,
         `list_objects`,
         `head_object`,
+        `read_object`,
         `initiate_multipart`,
         `upload_part`,
         `complete_object_upload`,
-        `read_object`
     ];
     //Go over the op_stats
     for (const op_name of op_names) {
@@ -1275,44 +1276,9 @@ function _update_ops_stats(ops_stats) {
 }
 
 function _update_fs_stats(fs_stats) {
-    // Predefined fsworker_names
-    const fsworker_names = [
-        `stat`,
-        `lstat`,
-        `statfs`,
-        `checkaccess`,
-        `unlink`,
-        `unlinkat`,
-        `link`,
-        `linkat`,
-        `mkdir`,
-        `rmdir`,
-        `rename`,
-        `writefile`,
-        `readfile`,
-        `readdir`,
-        `fsync`,
-        `fileopen`,
-        `fileclose`,
-        `fileread`,
-        `filewrite`,
-        `filewritev`,
-        `filereplacexattr`,
-        `finkfileat`,
-        `filegetxattr`,
-        `filestat`,
-        `filefsync`,
-        `realpath`,
-        `getsinglexattr`,
-        `diropen`,
-        `dirclose`,
-        `dirreadentry`,
-    ];
     //Go over the fs_stats
-    for (const fsworker_name of fsworker_names) {
-        if (fsworker_name in fs_stats) {
-            _set_fs_workers_stats(fsworker_name, fs_stats[fsworker_name]);
-        }
+    for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
+        _set_fs_workers_stats(fsworker_name, stat);
     }
 }
 

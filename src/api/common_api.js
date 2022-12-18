@@ -845,6 +845,9 @@ module.exports = {
                 create_bucket: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
+                list_buckets: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
                 delete_bucket: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
@@ -860,6 +863,9 @@ module.exports = {
                 head_object: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
+                read_object: {
+                    $ref: 'common_api#/definitions/op_stats_val'
+                },
                 initiate_multipart: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
@@ -867,9 +873,6 @@ module.exports = {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
                 complete_object_upload: {
-                    $ref: 'common_api#/definitions/op_stats_val'
-                },
-                read_object: {
                     $ref: 'common_api#/definitions/op_stats_val'
                 },
             }

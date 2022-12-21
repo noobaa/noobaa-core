@@ -26,34 +26,36 @@ async function get_bucket_uploads(req) {
         limit: Math.min(max_keys_received, 1000),
     });
 
+    const field_encoder = s3_utils.get_response_field_encoder(req);
+
     return {
         ListMultipartUploadsResult: [{
-                'Bucket': req.params.bucket,
-                'Prefix': req.query.prefix,
-                'Delimiter': req.query.delimiter,
-                'MaxUploads': max_keys_received,
-                'KeyMarker': req.query['key-marker'],
-                'UploadIdMarker': req.query['upload-id-marker'],
-                'IsTruncated': reply.is_truncated,
-                'NextKeyMarker': reply.next_marker,
-                'NextUploadIdMarker': reply.next_upload_id_marker,
-                'Encoding-Type': req.query['encoding-type'],
-            },
-            _.map(reply.objects, obj => ({
-                Upload: {
-                    Key: obj.key,
-                    UploadId: obj.obj_id,
-                    Initiated: s3_utils.format_s3_xml_date(obj.upload_started),
-                    Initiator: s3_utils.DEFAULT_S3_USER,
-                    Owner: s3_utils.DEFAULT_S3_USER,
-                    StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
-                }
-            })),
-            _.map(reply.common_prefixes, prefix => ({
-                CommonPrefixes: {
-                    Prefix: prefix || ''
-                }
-            }))
+            Bucket: req.params.bucket,
+            Prefix: field_encoder(req.query.prefix),
+            Delimiter: field_encoder(req.query.delimiter),
+            MaxUploads: max_keys_received,
+            KeyMarker: field_encoder(req.query['key-marker']),
+            UploadIdMarker: req.query['upload-id-marker'],
+            IsTruncated: reply.is_truncated,
+            NextKeyMarker: field_encoder(reply.next_marker),
+            NextUploadIdMarker: reply.next_upload_id_marker,
+            EncodingType: req.query['encoding-type'],
+        },
+        _.map(reply.objects, obj => ({
+            Upload: {
+                Key: field_encoder(obj.key),
+                UploadId: obj.obj_id,
+                Initiated: s3_utils.format_s3_xml_date(obj.upload_started),
+                Initiator: s3_utils.DEFAULT_S3_USER,
+                Owner: s3_utils.DEFAULT_S3_USER,
+                StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
+            }
+        })),
+        _.map(reply.common_prefixes, prefix => ({
+            CommonPrefixes: {
+                Prefix: field_encoder(prefix) || ''
+            }
+        }))
         ]
     };
 }

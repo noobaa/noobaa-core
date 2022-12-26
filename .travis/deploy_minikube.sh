@@ -15,7 +15,7 @@ set -x
 # https://github.com/jaegertracing/jaeger-operator/blob/master/.travis/setupMinikube.sh
 
 export MINIKUBE_VERSION=v1.8.2
-export KUBERNETES_VERSION=v1.17.3
+export KUBERNETES_VERSION=v1.23.12
 
 source /etc/os-release
 

@@ -300,6 +300,46 @@ async function delete_bucket_tagging(req) {
 }
 
 
+/*
+ * Bucket Logging functions
+ */
+
+async function put_bucket_logging(req) {
+    dbg.log0('put_bucket_logging:', req.rpc_params);
+    const bucket = find_bucket(req);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                logging: req.rpc_params.logging
+            }]
+        }
+    });
+}
+
+async function get_bucket_logging(req) {
+    dbg.log0('get_bucket_logging:', req.rpc_params);
+    const bucket = find_bucket(req);
+    return {
+        logging: bucket.logging,
+    };
+}
+
+async function delete_bucket_logging(req) {
+    dbg.log0('delete_bucket_logging:', req.rpc_params);
+    const bucket = find_bucket(req);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { logging: 1 }
+            }]
+        }
+    });
+}
+
+/******************************/
+
 async function get_bucket_encryption(req) {
     dbg.log0('get_bucket_encryption:', req.rpc_params);
     const bucket = find_bucket(req);
@@ -1355,6 +1395,7 @@ function get_bucket_info({
         versioning: bucket.versioning,
         object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
         tagging: bucket.tagging,
+        logging: bucket.logging,
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,
         website: bucket.website,
@@ -1887,6 +1928,10 @@ exports.check_for_lambda_permission_issue = check_for_lambda_permission_issue;
 exports.delete_bucket_tagging = delete_bucket_tagging;
 exports.put_bucket_tagging = put_bucket_tagging;
 exports.get_bucket_tagging = get_bucket_tagging;
+
+exports.put_bucket_logging = put_bucket_logging;
+exports.get_bucket_logging = get_bucket_logging;
+exports.delete_bucket_logging = delete_bucket_logging;
 
 exports.delete_bucket_encryption = delete_bucket_encryption;
 exports.put_bucket_encryption = put_bucket_encryption;

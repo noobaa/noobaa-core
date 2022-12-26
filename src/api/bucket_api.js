@@ -781,6 +781,74 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        put_bucket_logging: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['source_bucket', 'log_bucket', 'log_prefix'],
+                properties: {
+                    source_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    log_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    log_prefix: {
+                        type: 'string',
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_logging: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['source_bucket'],
+                properties: {
+                    source_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        get_bucket_logging: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['source_bucket'],
+                properties: {
+                    source_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    source_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    log_bucket: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    log_prefix: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {
@@ -805,6 +873,7 @@ module.exports = {
                 versioning: { $ref: '#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                logging: {$ref: '#/definitions/logging'},
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
@@ -994,6 +1063,22 @@ module.exports = {
                 namespace: {
                     type: 'string',
                 }
+            }
+        },
+
+        logging: {
+            type: 'object',
+            required: ['source_bucket', 'log_bucket', 'log_prefix'],
+            properties: {
+                source_bucket: {
+                    $ref: 'common_api#/definitions/bucket_name',
+                },
+                log_bucket: {
+                    $ref: 'common_api#/definitions/bucket_name',
+                },
+                log_prefix: {
+                    type: 'string',
+                },
             }
         },
 

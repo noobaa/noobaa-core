@@ -1,0 +1,31 @@
+# "This pod allows us to go into the pod and run a Ceph s3 test"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noobaa-tester
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      noobaa-tester: deployment
+  template:
+    metadata:
+      labels:
+        app: noobaa
+        noobaa-tester: deployment
+    spec:
+      serviceAccountName: noobaa
+      containers:
+        - name: noobaa-tester
+          image: noobaa-tester:s3-tests
+          resources:
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+          command:
+            - /bin/bash
+            - -c
+            - "while true; do sleep 10; done;"
+          envFrom:
+            - secretRef:
+                name: noobaa-admin

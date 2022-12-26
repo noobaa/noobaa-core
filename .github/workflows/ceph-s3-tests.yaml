@@ -1,0 +1,80 @@
+name: ceph-s3-tests
+on: 
+  workflow_dispatch:
+  schedule:
+    - cron: "00 22,1 * * *" # Runs every day at 22:00 and 1:00 UTC
+
+jobs:
+  ceph-s3-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout noobaa-core
+        uses: actions/checkout@v3
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+
+      - name: Deploy minikube
+        run: |
+         cd ./noobaa-core
+         sudo bash ./.travis/deploy_minikube.sh
+
+      - name: Build noobaa tester
+        run: |
+         cd ./noobaa-core
+         make tester TESTER_TAG=noobaa-tester:s3-tests
+         docker tag noobaa:latest noobaa-core:s3-tests
+
+      - name: Checkout noobaa-operator
+        uses: actions/checkout@v3
+        with:
+          repository: 'noobaa/noobaa-operator'
+          path: 'noobaa-operator'
+
+      - name: Change settings for k8s and minikube
+        run: |
+          sudo mv /root/.kube /root/.minikube $HOME
+          sudo chown -R $USER $HOME/.kube $HOME/.minikube
+          sed "s/root/home\/$USER/g" $HOME/.kube/config > tmp; mv tmp $HOME/.kube/config
+
+      - name: Build operator
+        run: |
+         cd ./noobaa-operator
+         make all
+
+      - name: Install noobaa system
+        run: |
+         cd ./noobaa-operator
+         ./build/_output/bin/noobaa-operator crd create
+         ./build/_output/bin/noobaa-operator operator install
+         ./build/_output/bin/noobaa-operator system create  \
+         --db-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+         --core-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+         --endpoint-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+         --noobaa-image='noobaa-core:s3-tests'
+         ./build/_output/bin/noobaa-operator status
+
+      - name: Run Ceph s3-tests
+        run: |
+          set -x
+          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=3m
+          # we added th sleep since the test pool is in phase ready and condition available
+          # but the test pool storage is not ready yet, see issue:
+          # https://github.com/noobaa/noobaa-operator/issues/1007
+          sleep 3m
+          cd ./noobaa-core
+          kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
+          kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=30m || TIMEOUT=true
+          kubectl logs job/noobaa-tests-s3 --tail 10000 -f
+          if kubectl logs job/noobaa-tests-s3 | grep -q "Ceph Test Failed:"; then
+            echo "At least one test failed!"
+            exit 1
+          fi
+          if [ ${TIMEOUT} ]; then
+            echo "Timed out waiting for the condition on jobs/noobaa-tests-s3"
+            exit 1
+          fi
+          if kubectl logs job/noobaa-tests-s3 | grep -q "ran 0 tests"; then
+            echo "The s3 tests did not run!"
+            exit 1
+          fi

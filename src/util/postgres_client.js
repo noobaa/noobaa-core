@@ -797,29 +797,21 @@ class PostgresTable {
         let mr_q;
         sql_query.where = mongo_to_pg('data', encode_json(this.schema, options.query), { disableContainmentQuery: true });
         sql_query.order_by = options.sort && convert_sort(options.sort);
-        sql_query.limit = options.limit;
-        let query_string = `SELECT * FROM ${this.name} WHERE ${sql_query.where}`;
-        if (sql_query.order_by) {
-            query_string += ` ORDER BY ${sql_query.order_by}`;
-        }
-        if (sql_query.limit) {
-            query_string += ` LIMIT ${sql_query.limit}`;
-        }
+        sql_query.limit = options.limit || 1000;
         try {
-            mr_q = `SELECT _id, json_agg(value) FROM map_common_prefixes('${options.scope.prefix || ''}', '${options.scope.delimiter || ''}', $$${query_string}$$) GROUP BY _id`;
+            mr_q = `SELECT _id, value FROM map_common_prefixes('${options.scope.prefix || ''}', '${options.scope.delimiter || ''}', $$${sql_query.where}$$, $$${sql_query.order_by}$$, ${sql_query.limit})`;
             const res = await this.single_query(mr_q);
             return res.rows.map(row => {
                 const r_row = { _id: row._id };
-                if (row.json_agg[0] === null) {
-                    // TODO: I know that the isn't beautiful and we have array of nulls
-                    return _.defaults(r_row, { value: row.json_agg.length });
+                if (row.value === null) {
+                    return _.defaults(r_row, { value: 1 });
                 } else {
                     // _id is unique per object
-                    return _.defaults(r_row, { value: decode_json(this.schema, row.json_agg[0]) });
+                    return _.defaults(r_row, { value: decode_json(this.schema, row.value) });
                 }
             });
         } catch (err) {
-            dbg.error('mapReduceListObjects failed', options, query_string, mr_q, err);
+            dbg.error('mapReduceListObjects failed', options, mr_q, err);
             throw err;
         }
     }

@@ -1,9 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 550]*/
 'use strict';
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 
 const system_store = require('../../server/system_services/system_store').get_instance();
 const auth_server = require('../../server/common_services/auth_server');
@@ -812,6 +813,39 @@ mocha.describe('Rotation tests', function() {
                     await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
                 }
             }));
+        });
+
+        [true, false].forEach(update => {
+            mocha.it(`rotate root key test - UPDATE:${update} env root secret`, async function() {
+                this.timeout(600000); // eslint-disable-line no-invalid-this
+                await system_store.load();
+                // collect old data
+                const old_noobaa_root_secret = process.env.NOOBAA_ROOT_SECRET;
+                const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+                const master_key_id = system_store_system.master_key_id._id;
+                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                // rotating root key with new secret
+                await rpc_client.system.rotate_root_key({new_root_key: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='});
+                // if update - setting the correct root secret before emulating restart
+                if (update) process.env.NOOBAA_ROOT_SECRET = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=';
+                system_store.master_key_manager.is_initialized = false;
+                system_store.master_key_manager.resolved_master_keys_by_id = {};
+                await system_store.load();
+                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+                await is_master_key_disabled(master_key_id, false);
+                // encrypted keys be equal - if root secret was updated correctly
+                if (update) {
+                    assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+                    const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+                    const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+                    compare_secrets(secrets, system_store_account.master_key_id._id);
+                } else {
+                    assert.notStrictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+                }
+                // revert the system to use the initial root_key
+                await rpc_client.system.rotate_root_key({new_root_key: old_noobaa_root_secret});
+                if (update) process.env.NOOBAA_ROOT_SECRET = old_noobaa_root_secret;
+            });
         });
 });
 // TODO: 

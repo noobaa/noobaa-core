@@ -115,6 +115,20 @@ module.exports = {
             }
         },
 
+        rotate_root_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['new_root_key'],
+                properties: {
+                    new_root_key: { $ref: 'common_api#/definitions/secret_enc_key' },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         rotate_master_key: {
             method: 'PUT',
             params: {

@@ -86,7 +86,10 @@ mocha.describe('ssl_utils', function() {
             x.key = x.key.slice(0, 500) + '!' + x.key.slice(501);
 
             assert.throws(() => ssl_utils.verify_ssl_certificate(x),
-                /^Error: error:09091064:PEM routines:PEM_read_bio_ex:bad base64 decode$/);
+                process.version.startsWith('v16') ?
+                    /^Error: error:09091064:PEM routines:PEM_read_bio_ex:bad base64 decode$/ :
+                    /^Error: error:1E08010C:DECODER routines::unsupported$/
+            );
             assert.throws(() => x509_verify(x),
                 /^Error: Private key PEM decode failed$/);
         });
@@ -100,7 +103,10 @@ mocha.describe('ssl_utils', function() {
             x.cert = x.cert.slice(0, 500) + '!' + x.cert.slice(501);
 
             assert.throws(() => ssl_utils.verify_ssl_certificate(x),
-                /^Error: error:09091064:PEM routines:PEM_read_bio_ex:bad base64 decode$/);
+                process.version.startsWith('v16') ?
+                    /^Error: error:09091064:PEM routines:PEM_read_bio_ex:bad base64 decode$/ :
+                    /^Error: error:04800064:PEM routines::bad base64 decode$/
+            );
             assert.throws(() => x509_verify(x),
                 /^Error: X509 PEM decode failed$/);
         });
@@ -116,8 +122,12 @@ mocha.describe('ssl_utils', function() {
             // replace the key with another valid key
             x.key = other.key;
 
-            assert.throws(() => ssl_utils.verify_ssl_certificate(x),
-                /^Error: error:0B080074:x509 certificate routines:X509_check_private_key:key values mismatch$/);
+            assert.throws(
+                () => ssl_utils.verify_ssl_certificate(x),
+                process.version.startsWith('v16') ?
+                    /^Error: error:0B080074:x509 certificate routines:X509_check_private_key:key values mismatch$/ :
+                    /^Error: error:05800074:x509 certificate routines::key values mismatch$/
+            );
             assert.throws(() => x509_verify(x),
                 /^Error: X509 verify failed$/);
         });

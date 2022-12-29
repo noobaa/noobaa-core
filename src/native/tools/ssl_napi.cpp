@@ -452,9 +452,9 @@ _nb_x509_verify(napi_env env, napi_callback_info info)
     switch (EVP_PKEY_base_id(issuer_private_key)) {
     case EVP_PKEY_RSA:
     case EVP_PKEY_RSA2: {
-        RSA* rsa = EVP_PKEY_get1_RSA(issuer_private_key);
-        int rc = RSA_check_key(rsa);
-        RSA_free(rsa);
+        EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(issuer_private_key, NULL);
+        int rc = EVP_PKEY_check(ctx);
+        EVP_PKEY_CTX_free(ctx);
         if (rc != 1) {
             napi_throw_error(env, 0, "RSA check key failed");
             return 0;

@@ -283,6 +283,17 @@ mocha.describe('nb_native fs', function() {
                 tmpfile.close(DEFAULT_FS_CONFIG);
             }
         });
+
+        mocha.it('stat -  not existing xattr', async function() {
+            const { open } = nb_native().fs;
+            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+            const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
+            await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);
+            const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH, { skip_user_xattr: true });
+            tmpfile.close(DEFAULT_FS_CONFIG);
+            console.log(res);
+        });
     });
 
     mocha.describe('Stat with xattr', function() {

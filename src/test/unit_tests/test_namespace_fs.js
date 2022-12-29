@@ -233,18 +233,18 @@ mocha.describe('namespace_fs', function() {
     });
 
     mocha.describe('Get/Head object', function() {
-        const nsr = 'versioned-nsr';
-        const bucket_name = 'versioned-bucket';
-        const disabled_bucket_name = 'disabled-bucket';
-        let tmp_fs_root = '/tmp/test_namespace_fs';
+        const nsr = 'get-head-versioned-nsr';
+        const bucket_name = 'get-head-versioned-bucket';
+        const disabled_bucket_name = 'get-head-disabled-bucket';
+        let tmp_fs_root = '/tmp/test_namespace_fs_get_head';
         if (process.platform === MAC_PLATFORM) {
             tmp_fs_root = '/private/' + tmp_fs_root;
         }
 
-        const bucket_path = '/bucket';
+        const bucket_path = '/get-head-bucket';
         const vesion_dir = '/.versions';
         const full_path = tmp_fs_root + bucket_path;
-        const disabled_bucket_path = '/disabled_bucket';
+        const disabled_bucket_path = '/get-head-disabled_bucket';
         const disabled_full_path = tmp_fs_root + disabled_bucket_path;
         const version_dir_path = full_path + vesion_dir;
         let file_pointer;
@@ -263,6 +263,8 @@ mocha.describe('namespace_fs', function() {
         const key_version = en_version_key + '_' + en_version_key_v1;
 
         mocha.before(async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(300000);
             if (process.getgid() !== 0 || process.getuid() !== 0) {
                 console.log('No Root permissions found in env. Skipping test');
                 this.skip(); // eslint-disable-line no-invalid-this
@@ -338,7 +340,7 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.after(async () => {
-            //fs_utils.folder_delete(tmp_fs_root);
+            fs_utils.folder_delete(tmp_fs_root);
             for (let email of accounts) {
                 await rpc_client.account.delete_account({ email });
             }

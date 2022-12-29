@@ -22,12 +22,17 @@
 #include <unistd.h>
 #include <uv.h>
 #include <vector>
+#include <errno.h>
 
 #ifdef __APPLE__
 #include <sys/mount.h>
 #include <sys/param.h>
 #else
 #include <sys/statfs.h>
+#endif
+
+#ifndef __APPLE__
+#define ENOATTR ENODATA
 #endif
 
 #define ROUNDUP(X, Y) ((Y) * (((X) + (Y)-1) / (Y)))
@@ -291,7 +296,10 @@ get_fd_xattr(int fd, XattrMap& xattr, bool skip_user_xattr)
         for (auto const& key : USER_XATTRS) {
             std::string value;
             int r = get_single_user_xattr(fd, key, value);
-            if (r) return r;
+            if (r) {
+                if (errno == ENOATTR) continue;
+                return r;
+            }
             xattr[key] = value;
         }
     } else {

@@ -128,7 +128,7 @@
   "devDependencies": {
     "@types/lodash": "4.14.192",
     "@types/mongodb": "3.6.20",
-    "@types/node": "16.11.68",
+    "@types/node": "18.11.18",
     "@types/pg": "8.6.6",
     "@types/request": "2.48.8",
     "eslint": "8.14.0",

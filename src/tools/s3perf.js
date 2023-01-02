@@ -294,6 +294,7 @@ function print_usage() {
     console.log(`
 Usage:
   --help                 show this usage
+  --time <sec>           running time in seconds (0 seconds by default)
   --head <key>           head key name
   --get <key>            get key name (key can be omitted)
   --put <key>            put (single) to key (key can be omitted)

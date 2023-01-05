@@ -5,7 +5,6 @@
  *
  */
 'use strict';
-
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const fs = require('fs');
@@ -51,6 +50,7 @@ const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
 let nsfs_io_counters = _new_nsfs_stats();
 // Will hold the op stats (op name, min/max/avg time, count, error count)
 let op_stats = {};
+let fs_workers_stats = {};
 
 /*
  * Stats Collction API
@@ -1240,8 +1240,9 @@ async function _perform_partial_cycle() {
 async function update_nsfs_stats(req) {
     dbg.log1(`update_nsfs_stats. nsfs_stats =`, req.rpc_params.nsfs_stats);
     const _nsfs_counters = req.rpc_params.nsfs_stats || {};
-    _update_io_stats(_nsfs_counters.io_stats);
-    _update_ops_stats(_nsfs_counters.op_stats);
+    if (_nsfs_counters.io_stats) _update_io_stats(_nsfs_counters.io_stats);
+    if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
+    if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
 }
 
 function _update_io_stats(io_stats) {
@@ -1257,18 +1258,27 @@ function _update_ops_stats(ops_stats) {
         `upload_object`,
         `delete_object`,
         `create_bucket`,
+        `list_buckets`,
         `delete_bucket`,
         `list_objects`,
         `head_object`,
+        `read_object`,
         `initiate_multipart`,
         `upload_part`,
-        `complete_object_upload`
+        `complete_object_upload`,
     ];
     //Go over the op_stats
     for (const op_name of op_names) {
         if (op_name in ops_stats) {
             _set_op_stats(op_name, ops_stats[op_name]);
         }
+    }
+}
+
+function _update_fs_stats(fs_stats) {
+    //Go over the fs_stats
+    for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
+        _set_fs_workers_stats(fsworker_name, stat);
     }
 }
 
@@ -1304,6 +1314,36 @@ function _set_op_stats(op_name, stats) {
     }
 }
 
+function _set_fs_workers_stats(fsworker_name, stats) {
+    if (fs_workers_stats[fsworker_name]) {
+        const count = fs_workers_stats[fsworker_name].count + stats.count;
+        const error_count = fs_workers_stats[fsworker_name].error_count + stats.error_count;
+        const old_sum_time = fs_workers_stats[fsworker_name].avg_time_microsec * fs_workers_stats[fsworker_name].count;
+        //Min time and Max time are not being counted in the namespace_fs if it was error
+        const min_time_microsec = Math.min(fs_workers_stats[fsworker_name].min_time_microsec, stats.min_time);
+        const max_time_microsec = Math.max(fs_workers_stats[fsworker_name].max_time_microsec, stats.max_time);
+        // At this point, as we populate only when there is at least one successful fsworker, there must be old_sum_time
+        const avg_time_microsec = Math.floor((old_sum_time + stats.sum_time) / (count - error_count));
+        fs_workers_stats[fsworker_name] = {
+            min_time_microsec,
+            max_time_microsec,
+            avg_time_microsec,
+            count,
+            error_count,
+        };
+        // When it is the first time we populate the fs_workers_stats with fsworker_name we do it 
+        // only if there are more successful ops than errors.
+    } else if (stats.count > stats.error_count) {
+        fs_workers_stats[fsworker_name] = {
+            min_time_microsec: stats.min_time,
+            max_time_microsec: stats.max_time,
+            avg_time_microsec: Math.floor(stats.sum_time / stats.count),
+            count: stats.count,
+            error_count: stats.error_count,
+        };
+    }
+}
+
 function _new_nsfs_stats() {
     return {
         read_count: 0,
@@ -1317,18 +1357,25 @@ function _new_nsfs_stats() {
     };
 }
 
-// Will return the current nsfs_counters and reset it.
+// Will return the current nsfs_io_counters and reset it.
 function get_nsfs_io_stats() {
     const nsfs_io_stats = nsfs_io_counters;
     nsfs_io_counters = _new_nsfs_stats();
     return nsfs_io_stats;
 }
 
-// Will return the current nsfs_counters and reset it.
+// Will return the current op_stats and reset it.
 function get_op_stats() {
     const nsfs_op_stats = op_stats;
     op_stats = {};
     return nsfs_op_stats;
+}
+
+// Will return the current fs_workers_stats and reset it.
+function get_fs_workers_stats() {
+    const nsfs_fs_workers_stats = fs_workers_stats;
+    fs_workers_stats = {};
+    return nsfs_fs_workers_stats;
 }
 
 // EXPORTS
@@ -1349,6 +1396,7 @@ exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
 exports.get_object_usage_stats = get_object_usage_stats;
 exports.get_nsfs_io_stats = get_nsfs_io_stats;
 exports.get_op_stats = get_op_stats;
+exports.get_fs_workers_stats = get_fs_workers_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;

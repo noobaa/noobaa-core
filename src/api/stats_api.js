@@ -159,7 +159,11 @@ module.exports = {
                             },
                             op_stats: {
                                 $ref: 'common_api#/definitions/op_stats'
+                            },
+                            fs_workers_stats: {
+                                $ref: 'common_api#/definitions/fs_workers_stats'
                             }
+
                         }
                     },
                 }

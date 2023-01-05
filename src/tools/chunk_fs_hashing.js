@@ -40,7 +40,7 @@ const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 
 class TargetHash {
     constructor() {
-      this.hash = crypto.createHash('md5');
+        this.hash = crypto.createHash('md5');
     }
     digest() {
         return this.hash.digest('hex');
@@ -77,7 +77,7 @@ async function hash_target() {
         const target = new TargetHash();
         const chunk_fs = new ChunkFS({
             target_file: target,
-            fs_account_config: DEFAULT_FS_CONFIG,
+            fs_context: DEFAULT_FS_CONFIG,
             rpc_client: DUMMY_RPC,
             namespace_resource_id: 'MajesticSloth'
         });
@@ -115,14 +115,14 @@ async function file_target(chunk_size = CHUNK, parts = PARTS) {
             }());
             const chunk_fs = new ChunkFS({
                 target_file,
-                fs_account_config: DEFAULT_FS_CONFIG,
+                fs_context: DEFAULT_FS_CONFIG,
                 rpc_client: DUMMY_RPC,
                 namespace_resource_id: 'MajesticSloth'
             });
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
             if (XATTR) {
-                await target_file.setxattr(
+                await target_file.replacexattr(
                     DEFAULT_FS_CONFIG,
                     assign_md5_to_fs_xattr(chunk_fs.digest, {})
                 );

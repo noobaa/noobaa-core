@@ -488,8 +488,22 @@ class ObjectSDK {
     }
 
     async read_object_stream(params, res) {
-        const ns = await this._get_bucket_namespace(params.bucket);
-        const reply = await ns.read_object_stream(params, this, res);
+        const start_time = Date.now();
+        let reply;
+        let error = 0;
+        try {
+            const ns = await this._get_bucket_namespace(params.bucket);
+            reply = await ns.read_object_stream(params, this, res);
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `read_object`,
+                error,
+            });
+        }
         // update bucket counters
         stats_collector.instance(this.internal_rpc_client).update_bucket_read_counters({
             bucket_name: params.bucket,
@@ -784,8 +798,22 @@ class ObjectSDK {
     ////////////
 
     async list_buckets() {
-        const bs = this._get_bucketspace();
-        return bs.list_buckets(this);
+        const start_time = Date.now();
+        let error = 0;
+        try {
+            const bs = this._get_bucketspace();
+            const reply = bs.list_buckets(this);
+            return reply;
+        } catch (e) {
+            error = 1;
+            throw e;
+        } finally {
+            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+                time: Date.now() - start_time,
+                op_name: `list_buckets`,
+                error,
+            });
+        }
     }
 
     async read_bucket(params) {

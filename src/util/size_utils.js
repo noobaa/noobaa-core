@@ -349,6 +349,18 @@ function human_offset(offset) {
     return sign + res || '0';
 }
 
+/**
+ * take a String that represent a bigint number in base 'base' and convert it to Bigint
+ */
+function string_to_bigint(str, base) {
+    let res = 0n;
+    const arr = str.split('');
+    for (const char of arr) {
+        res = BigInt(parseInt(char, base)) + (BigInt(base) * res);
+    }
+    return res;
+}
+
 
 exports.BigInteger = BigInteger;
 exports.bigint_to_json = bigint_to_json;
@@ -366,6 +378,7 @@ exports.reduce_maximum = reduce_maximum;
 exports.reduce_sum = mongo_functions.reduce_sum;
 exports.human_size = human_size;
 exports.human_offset = human_offset;
+exports.string_to_bigint = string_to_bigint;
 exports.KILOBYTE = KILOBYTE;
 exports.MEGABYTE = MEGABYTE;
 exports.GIGABYTE = GIGABYTE;

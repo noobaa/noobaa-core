@@ -6,6 +6,7 @@ const fs = require('fs');
 const mocha = require('mocha');
 const assert = require('assert');
 const nb_native = require('../../util/nb_native');
+const fs_utils = require('../../util/fs_utils');
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
@@ -29,7 +30,7 @@ mocha.describe('nb_native fs', function() {
                 res2.birthtimeMs = res2.ctimeMs;
             }
             assert.deepStrictEqual(
-                _.omit(res, 'xattr'), // we need to remove xattr from fs_napi response as the node JS stat doesn't return them
+                _.omit(res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeSec, mtimeNsec from fs_napi response as the node JS stat doesn't return them
                 _.omitBy(res2, v => typeof v === 'function'),
             );
         });
@@ -47,7 +48,7 @@ mocha.describe('nb_native fs', function() {
                 res2.birthtimeMs = res2.ctimeMs;
             }
             assert.deepStrictEqual(
-                _.omit(res, 'xattr'), // we need to remove xattr from fs_napi response as the node JS stat doesn't return them
+                _.omit(res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeSec, mtimeNsec from fs_napi response as the node JS stat doesn't return them
                 _.omitBy(res2, v => typeof v === 'function'),
             );
         });
@@ -330,4 +331,85 @@ mocha.describe('nb_native fs', function() {
             assert.deepEqual({ 'user.content_md5': 'md5' }, stat_res.xattr);
         });
     });
+
+
+    mocha.describe('Safe link/unlink', function() {
+        mocha.it('safe link - success', async function() {
+            const { safe_link } = nb_native().fs;
+            const PATH1 = `/tmp/safe_link${Date.now()}_1`;
+            const PATH2 = `/tmp/safe_link${Date.now()}_2`;
+            await create_file(PATH1);
+            const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+            console.log('link success - stat res: ', res1);
+            await safe_link(DEFAULT_FS_CONFIG, PATH1, PATH2, res1.mtimeNsBigint, res1.ino);
+            const res2 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH2);
+            assert.deepEqual(res1.ino, res2.ino);
+            assert.deepEqual(res1.mtimeNsBigint, res2.mtimeNsBigint);
+            await fs_utils.file_delete(PATH1);
+            await fs_utils.file_delete(PATH2);
+        });
+
+
+        mocha.it('safe link - failure', async function() {
+            const { safe_link } = nb_native().fs;
+            const PATH1 = `/tmp/safe_link${Date.now()}_1`;
+            const PATH2 = `/tmp/safe_link${Date.now()}_2`;
+            await create_file(PATH1);
+            const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+            console.log('link failure - stat res: ', res1);
+            const fake_ino = 12345678;
+
+            try {
+                await safe_link(DEFAULT_FS_CONFIG, PATH1, PATH2, res1.mtimeNsBigint, fake_ino);
+                await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH2);
+                await fs_utils.file_delete(PATH2);
+                assert.fail('should have failed');
+            } catch (err) {
+                const actual_err_msg = err.message;
+                assert.ok(actual_err_msg === 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime');
+            }
+            await fs_utils.file_delete(PATH1);
+        });
+
+        mocha.it('safe unlink - success', async function() {
+            const { safe_unlink } = nb_native().fs;
+            const PATH1 = `/tmp/safe_unlink${Date.now()}_1`;
+            const tmp_mv_path = `/tmp/safe_unlink${Date.now()}_rand`;
+            await create_file(PATH1);
+            const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+            await safe_unlink(DEFAULT_FS_CONFIG, PATH1, tmp_mv_path, res1.mtimeNsBigint, res1.ino);
+            try {
+                await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+                await fs_utils.file_delete(PATH1);
+                assert.fail('file should be deleted');
+            } catch (err) {
+                await fs_utils.file_must_not_exist(PATH1);
+                assert.equal(err.code, 'ENOENT');
+            }
+        });
+
+        mocha.it('safe unlink - failure', async function() {
+            const { safe_unlink } = nb_native().fs;
+            const PATH1 = `/tmp/safe_unlink${Date.now()}_1`;
+            const tmp_mv_path = `/tmp/safe_unlink${Date.now()}_rand`;
+            await create_file(PATH1);
+            const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+            const fake_mtime_sec = 12345678;
+            try {
+                await safe_unlink(DEFAULT_FS_CONFIG, PATH1, tmp_mv_path, BigInt(fake_mtime_sec), res1.ino);
+                assert.fail('file should have not been deleted');
+            } catch (err) {
+                assert.equal(err.message, 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime');
+                const res2 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+                // file should still exist
+                assert.equal(res1.ino.toString(), res2.ino.toString());
+                await fs_utils.file_must_exist(PATH1);
+                await fs_utils.file_delete(PATH1);
+            }
+        });
+    });
 });
+
+function create_file(file_path) {
+    return fs.promises.appendFile(file_path, file_path + '\n');
+}

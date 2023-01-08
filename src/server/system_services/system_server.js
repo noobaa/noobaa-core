@@ -1284,6 +1284,23 @@ async function _get_endpoint_groups() {
 
 /**
  *
+ * ROTATE ROOT KEY
+ *
+ */
+async function rotate_root_key(req) {
+    const new_root_key = req.rpc_params.new_root_key;
+    const mkm = system_store.master_key_manager;
+    await P.all(_.map(system_store.data.systems, async function(system) {
+        const reencrypted = mkm._reencrypt_master_key_by_root(system.master_key_id._id, new_root_key);
+        await upsert_master_key({
+            _id: system.master_key_id._id,
+            update: { cipher_key: reencrypted }
+        });
+    }));
+}
+
+/**
+ *
  * ROTATE MASTER KEY
  *
  */
@@ -1650,6 +1667,7 @@ exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;
 
+exports.rotate_root_key = rotate_root_key;
 exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;

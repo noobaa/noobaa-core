@@ -409,7 +409,7 @@ class SystemStore extends EventEmitter {
                     this.last_update_time = since;
                 }
 
-                await this.master_key_manager.load_root_key();
+                this.master_key_manager.load_root_key();
                 let new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();

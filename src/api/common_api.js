@@ -725,6 +725,8 @@ module.exports = {
             }
         },
 
+        secret_enc_key: { wrapper: SensitiveString },
+
         ip_range: {
             type: 'object',
             required: ['start', 'end'],

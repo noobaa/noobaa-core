@@ -58,19 +58,23 @@ class MasterKeysManager {
         return this.resolved_master_keys_by_id[ROOT_KEY];
     }
 
-    async load_root_key() {
+    load_root_key() {
         if (this.is_initialized) return;
         const { NOOBAA_ROOT_SECRET } = process.env;
         if (!NOOBAA_ROOT_SECRET) throw new Error('NON_EXISTING_ROOT_KEY');
+        this._update_root_key(NOOBAA_ROOT_SECRET);
+        this.is_initialized = true;
+    }
+
+    _update_root_key(new_root_key) {
         const r_key = {
             _id: ROOT_KEY,
-            cipher_key: Buffer.from(NOOBAA_ROOT_SECRET, 'base64'),
+            cipher_key: Buffer.from(new_root_key, 'base64'),
             cipher_type: "aes-256-gcm",
             description: "Root Master Key",
             disabled: false
         };
         this.resolved_master_keys_by_id[ROOT_KEY] = r_key;
-        this.is_initialized = true;
     }
 
     /**
@@ -161,6 +165,19 @@ class MasterKeysManager {
         if (!decrypted_mkey) throw new Error('NO_SUCH_KEY');
         const reencrypted_mkey = this.encrypt_buffer_with_master_key_id(decrypted_mkey.cipher_key, new_father_m_key_id);
         return reencrypted_mkey;
+    }
+
+    /**
+     * 
+     * @param {String} m_key_id 
+     * @param {SensitiveString} new_root_key 
+     * @returns {Object}  
+     */
+    _reencrypt_master_key_by_root(m_key_id, new_root_key) {
+        const decrypted_mkey = this.get_master_key_by_id(m_key_id); // returns the decrypted m_key
+        if (!decrypted_mkey) throw new Error('NO_SUCH_KEY');
+        this._update_root_key(new_root_key.unwrap()); // update ROOT_KEY with new secret provided
+        return this.encrypt_buffer_with_master_key_id(decrypted_mkey.cipher_key, ROOT_KEY);
     }
 
     /**

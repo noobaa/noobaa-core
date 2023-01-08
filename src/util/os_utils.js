@@ -591,16 +591,13 @@ function is_folder_permissions_set(current_path) {
 }
 
 function read_server_secret() {
-    if (process.env.SERVER_SECRET) {
-        return process.env.SERVER_SECRET;
-    } else {
-        // in kubernetes we must have SERVER_SECRET loaded from a kubernetes secret
-        if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
-            throw new Error('SERVER_SECRET env variable not found. it must exist when running in kubernetes');
-        }
-        // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
-        return '12345678';
+    if (config.SERVER_SECRET) return config.SERVER_SECRET;
+    // in kubernetes we must have SERVER_SECRET loaded from a kubernetes secret
+    if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') {
+        throw new Error('server_secret mounted to a file was not found. it must exist when running in kubernetes');
     }
+    // for all non kubernetes platforms (docker, local, etc.) return a dummy secret
+    return '12345678';
 }
 
 function is_supervised_env() {

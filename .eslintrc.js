@@ -1,16 +1,22 @@
+/* Copyright (C) 2016 NooBaa */
+'use strict';
+
+const CURRENT_YEAR = new Date().getFullYear();
+
 module.exports = {
 
     // prevent from looking up other config files in containing folders
     root: true,
 
-    // our environment is node.js with it's es6 extensions
+    // Our environment is node.js
     env: {
         node: true,
-        es2020: true,
+        es2022: true,
     },
 
+    // See https://eslint.org/docs/latest/user-guide/configuring/language-options#specifying-environments
     parserOptions: {
-        ecmaVersion: 11, // 2020
+        ecmaVersion: 13, // es2022
     },
 
 
@@ -24,6 +30,7 @@ module.exports = {
     // we turn ON all of eslint rules by extending eslint:all
     // we selectively override the rules we want to remove or change.
     // See http://eslint.org/docs/user-guide/configuring#using-eslintall
+
     extends: 'eslint:all',
 
     rules: {
@@ -49,17 +56,18 @@ module.exports = {
 
         // verify every file contains our copyright header
         'header/header': ['error', 'block', [{
-            template: " Copyright (C) 2020 NooBaa ",
+            template: ` Copyright (C) ${CURRENT_YEAR} NooBaa `,
             pattern: " Copyright \\(C\\) 20\\d{2} NooBaa ",
         }]],
 
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['error', 'as-needed'],
 
+        // See: https://eslint.org/docs/latest/rules/brace-style
         'brace-style': ['error', '1tbs', { allowSingleLine: true }],
 
         // maximum number of code paths in a function
-        // TODO eslint complexity should be reduced to ~10 instead of 30
+        // TODO eslint complexity should be reduced to ~10 instead of 35
         'complexity': ['error', 35],
 
         // must use self=this and not any other alternatives
@@ -88,7 +96,7 @@ module.exports = {
         'max-lines-per-function': ['error', 400],
 
         // prefer small number of params to functions, otherwise send object
-        // TODO eslint max-params per function should be reduced to ~4 instead of 6
+        // TODO eslint max-params per function should be reduced to ~4 instead of 7
         'max-params': ['error', 7],
 
         // max statements in function

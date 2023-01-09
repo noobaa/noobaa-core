@@ -10,7 +10,7 @@ const P = require('../../util/promise');
 //const report_schema = require('./report_schema'); //NBNB TODO add schema verification
 require('../../util/dotenv').load();
 
-const REMOTE_MONGO_URL = 'mongodb://reporter:4*pRw3-vZb@ds139841.mlab.com:39841/test_reports';
+const REMOTE_MONGO_URL = 'mongodb://reporter:4*pRw3-vZb@ds139841.mlab.com:39841/test_reports'; // gitleaks:allow
 const REMOTE_MONGO_CONFIG = {
     promiseLibrary: P,
     reconnectTries: -1,

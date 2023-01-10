@@ -40,13 +40,14 @@ const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
 //const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
 const HIDDEN_VERSIONS_PATH = '.versions';
+const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
 
 const versioning_status_enum = {
     VER_ENABLED: 'ENABLED',
     VER_SUSPENDED: 'SUSPENDED',
     VER_DISABLED: 'DISABLED'
 };
-
+const version_format = /^[a-z0-9]+$/;
 // describes the status of the copy that was done, default is fallback
 // LINKED = the file was linked on the server side
 // IS_SAME_INODE = source and target are the same inode, nothing to copy
@@ -507,7 +508,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    res.objects.push(this._get_object_info(bucket, r.key, r.stat));
+                    res.objects.push(this._get_object_info(bucket, r.key, r.stat, 'null'));
                 }
                 if (res.is_truncated) {
                     res.next_marker = r.key;
@@ -536,7 +537,8 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             const stat = await nb_native().fs.stat(fs_context, file_path);
             if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
-            return this._get_object_info(params.bucket, params.key, stat, params.version_id);
+            this._throw_if_delete_marker(stat);
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null');
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -572,6 +574,8 @@ class NamespaceFS {
             file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._fail_if_archived_or_sparse_file(fs_context, file_path);
+            const stat = await nb_native().fs.stat(fs_context, file_path);
+            this._throw_if_delete_marker(stat);
             file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
 
             const start = Number(params.start) || 0;
@@ -1723,6 +1727,7 @@ class NamespaceFS {
         const cur_ver_path = this._get_file_path({ key });
         if (!version_id) return cur_ver_path;
 
+        this._throw_if_wrong_version_format(version_id);
         const versioned_path = this._get_version_path(key, version_id);
         const version_info = await this._get_version_info(fs_context, versioned_path);
         if (version_info) return versioned_path;
@@ -1731,6 +1736,28 @@ class NamespaceFS {
         const cur_ver_info = await this._get_version_info(fs_context, cur_ver_path);
         if (cur_ver_info && cur_ver_info.version_id_str === version_id) return cur_ver_path;
         throw new RpcError('NO_SUCH_OBJECT', 'version doesn\'t exist');
+    }
+
+    _throw_if_delete_marker(stat) {
+        if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
+            const xattr_delete_marker = stat.xattr[XATTR_DELETE_MARKER];
+            if (xattr_delete_marker) {
+                throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
+            }
+        }
+    }
+
+    _throw_if_wrong_version_format(version_id) {
+        if (version_id === 'null') {
+            return;
+        }
+        const v_parts = version_id.split('-');
+        if (v_parts[0] !== 'mtime' || v_parts[2] !== 'ino') {
+            throw new RpcError('BAD_REQUEST', 'Bad Request');
+        }
+        if (!version_format.test(v_parts[1]) || !version_format.test(v_parts[3])) {
+            throw new RpcError('BAD_REQUEST', 'Bad Request');
+        }
     }
 }
 

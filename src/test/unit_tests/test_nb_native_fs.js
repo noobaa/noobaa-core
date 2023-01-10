@@ -366,7 +366,8 @@ mocha.describe('nb_native fs', function() {
                 assert.fail('should have failed');
             } catch (err) {
                 const actual_err_msg = err.message;
-                assert.ok(actual_err_msg === 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime');
+                assert.equal(actual_err_msg, 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime');
+                await fs_utils.file_must_exist(PATH1);
             }
             await fs_utils.file_delete(PATH1);
         });
@@ -378,14 +379,8 @@ mocha.describe('nb_native fs', function() {
             await create_file(PATH1);
             const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
             await safe_unlink(DEFAULT_FS_CONFIG, PATH1, tmp_mv_path, res1.mtimeNsBigint, res1.ino);
-            try {
-                await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
-                await fs_utils.file_delete(PATH1);
-                assert.fail('file should be deleted');
-            } catch (err) {
-                await fs_utils.file_must_not_exist(PATH1);
-                assert.equal(err.code, 'ENOENT');
-            }
+            await fs_utils.file_must_not_exist(PATH1);
+            await fs_utils.file_delete(PATH1);
         });
 
         mocha.it('safe unlink - failure', async function() {
@@ -401,10 +396,12 @@ mocha.describe('nb_native fs', function() {
             } catch (err) {
                 assert.equal(err.message, 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime');
                 const res2 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
-                // file should still exist
+                // source file & target file should still exist
                 assert.equal(res1.ino.toString(), res2.ino.toString());
                 await fs_utils.file_must_exist(PATH1);
+                await fs_utils.file_must_exist(tmp_mv_path);
                 await fs_utils.file_delete(PATH1);
+                await fs_utils.file_delete(tmp_mv_path);
             }
         });
     });

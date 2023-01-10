@@ -78,12 +78,13 @@ In order to support best effort on scale of these scenarios, for POSIX file syst
 #### safe unlink
 
 ```
-1. mv path unique_tmp_path
-2. stat_res_tmp = stat unique_tmp_path
-3. if stat_res1.inode_number != stat_res2.inode_number OR stat_res1.mtimeMs != stat_res2.mtimeMs - 
-    3.1. mv unique_tmp_path path
-    3.2. retry
-4. else - unlink unique_tmp_path
+1. stat_res1 = stat path
+2. mv path unique_tmp_path
+3. stat_res2 = stat unique_tmp_path
+4. if stat_res1.inode_number != stat_res2.inode_number OR stat_res1.mtimeMs != stat_res2.mtimeMs - 
+    4.1. link unique_tmp_path path
+    4.2. retry
+5. else - unlink unique_tmp_path
 ```
 
 ## OUT OF SCOPE

@@ -182,8 +182,8 @@ function human_addr(addr) {
 }
 
 function ssl_key() {
-    return `-----BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAx1dRbX6F9q7V56EmMGlhuksnqXPcQM4cL/FfwQG/15CPG8Mp
+    return `-----BEGIN RSA PRIVATE KEY-----\n` + // gitleaks:allow
+`MIIEpAIBAAKCAQEAx1dRbX6F9q7V56EmMGlhuksnqXPcQM4cL/FfwQG/15CPG8Mp
 3bEPIOSGvbhaDiTgisAJ5sKhIfI7Ac5BQpps8Y9YJQDhIr4hXkFFjZ7nu2t/KxbC
 g4S/9+p+USySt9zsr+ER0W3k69G7pHcngLbiuUkJMz9ku4Zq2iDBmZLvO+H98Wwk
 u5udx0yuAq0rvM24JE4dBRTk57bOmBp9L6R6AhZKh9q8YigXwtoB2JKy5pCxu8Jj

@@ -50,7 +50,7 @@ class ReportsSummarizer {
 
     constructor(params) {
         this.init_params(params);
-        this.connection_string = 'mongodb://summarizer:T3st1ng1sFun!@ds139841.mlab.com:39841/test_reports';
+        this.connection_string = 'mongodb://summarizer:T3st1ng1sFun!@ds139841.mlab.com:39841/test_reports'; // gitleaks:allow
     }
 
     async init() {

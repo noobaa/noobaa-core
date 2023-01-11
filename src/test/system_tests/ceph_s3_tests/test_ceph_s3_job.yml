@@ -1,0 +1,22 @@
+# "This job runs all Ceph s3 tests"
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: noobaa-tests-s3
+spec:
+  template:
+    spec:
+      containers:
+      - name: noobaa-tests-s3
+        image: noobaa-tester:s3-tests
+        command: 
+            - /bin/bash
+            - -c
+            - "cd /root/node_modules/noobaa-core/; ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_and_run_s3_tests.sh"
+        envFrom:
+          - secretRef:
+              name: noobaa-admin
+      restartPolicy: Never
+  completions: 1
+  parallelism: 1
+  backoffLimit: 0

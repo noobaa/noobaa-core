@@ -9,8 +9,9 @@ else
     NOOBAA_DIR=${1}
 fi
 
-mkdir -p /${NOOBAA_DIR}/src/test/system_tests/
-cd /${NOOBAA_DIR}/src/test/system_tests/
+CEPH_S3_TESTS_PATH="src/test/system_tests/ceph_s3_tests"
+mkdir -p /${NOOBAA_DIR}/${CEPH_S3_TESTS_PATH}
+cd /${NOOBAA_DIR}/${CEPH_S3_TESTS_PATH}
 
 DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"

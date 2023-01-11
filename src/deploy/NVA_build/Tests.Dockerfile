@@ -36,8 +36,8 @@ WORKDIR /root/node_modules/noobaa-core/
 #   Size: ~ 83.9 MB
 #
 ##############################################################
-RUN ./src/test/system_tests/ceph_s3_tests_deploy.sh $(pwd)
-RUN cd ./src/test/system_tests/s3-tests/ && \
+RUN ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_deploy.sh $(pwd)
+RUN cd ./src/test/system_tests/ceph_s3_tests/s3-tests/ && \
     ./bootstrap
 
 ##############################################################

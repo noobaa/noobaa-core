@@ -45,6 +45,7 @@ async function get_object(req, res) {
         obj_id: object_md.obj_id,
         bucket: req.params.bucket,
         key: req.params.key,
+        version_id: req.query.versionId,
         content_type: object_md.content_type,
         noobaa_trigger_agent,
         md_conditions,

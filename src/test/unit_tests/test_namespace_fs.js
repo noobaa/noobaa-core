@@ -1,4 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
+/*eslint max-lines-per-function: ["error", 700]*/
 'use strict';
 
 
@@ -17,7 +18,9 @@ const s3_utils = require('../../endpoint/s3/s3_utils');
 const config = require('../../../config');
 const fs = require('fs');
 const { AbortController } = require('node-abort-controller');
-
+const coretest = require('./coretest');
+const { rpc_client } = coretest;
+const nsfs_versioning = require('./test_bucketspace_versioning.js');
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 // TODO: In order to verify validity add content_md5_mtime as well
@@ -159,7 +162,7 @@ mocha.describe('namespace_fs', function() {
             }, dummy_object_sdk, out);
             const res = out.join().toString();
             assert.strict.equal(res.slice(13, 28), '(C) 2020 NooBaa');
-            assert.strict.equal(res.slice(37, 43), 'strict');
+            assert.strict.equal(res.slice(34, 40), 'eslint');
         });
 
         mocha.it('read range', async function() {
@@ -226,6 +229,319 @@ mocha.describe('namespace_fs', function() {
                 key: upload_key,
             }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
+        });
+    });
+
+    mocha.describe('Get/Head object', function() {
+        const nsr = 'versioned-nsr';
+        const bucket_name = 'versioned-bucket';
+        const disabled_bucket_name = 'disabled-bucket';
+        let tmp_fs_root = '/tmp/test_namespace_fs';
+        if (process.platform === MAC_PLATFORM) {
+            tmp_fs_root = '/private/' + tmp_fs_root;
+        }
+
+        const bucket_path = '/bucket';
+        const vesion_dir = '/.versions';
+        const full_path = tmp_fs_root + bucket_path;
+        const disabled_bucket_path = '/disabled_bucket';
+        const disabled_full_path = tmp_fs_root + disabled_bucket_path;
+        const version_dir_path = full_path + vesion_dir;
+        let file_pointer;
+        const versionID_1 = 'mtime-12a345b-ino-c123d45';
+        const versionID_2 = 'mtime-e56789f-ino-h56g789';
+        const versionID_3 = 'mtime-1i357k9-ino-13l57j9';
+        let s3_client;
+        let s3_admin;
+        let accounts = [];
+        const dis_version_key = 'dis_version';
+        const dis_version_body = 'AAAAA';
+        const en_version_key = 'en_version';
+        const en_version_body = 'BBBBB';
+        const en_version_key_v1 = versionID_2;
+        const en_version_body_v1 = 'CCCCC';
+        const key_version = en_version_key + '_' + en_version_key_v1;
+
+        mocha.before(async function() {
+            if (process.getgid() !== 0 || process.getuid() !== 0) {
+                console.log('No Root permissions found in env. Skipping test');
+                this.skip(); // eslint-disable-line no-invalid-this
+            }
+            // create paths
+            await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+            await fs_utils.create_fresh_path(full_path, 0o770);
+            await fs_utils.file_must_exist(full_path);
+            await fs_utils.create_fresh_path(version_dir_path, 0o770);
+            await fs_utils.file_must_exist(version_dir_path);
+            await fs_utils.create_fresh_path(disabled_full_path, 0o770);
+            await fs_utils.file_must_exist(disabled_full_path);
+            // export dir as a bucket
+            await rpc_client.pool.create_namespace_resource({
+                name: nsr,
+                nsfs_config: {
+                    fs_root_path: tmp_fs_root,
+                }
+            });
+            const obj_nsr = { resource: nsr, path: bucket_path };
+            await rpc_client.bucket.create_bucket({
+                name: bucket_name,
+                namespace: {
+                    read_resources: [obj_nsr],
+                    write_resource: obj_nsr
+                }
+            });
+
+            const disabled_nsr = { resource: nsr, path: disabled_bucket_path };
+            await rpc_client.bucket.create_bucket({
+            name: disabled_bucket_name,
+            namespace: {
+                read_resources: [disabled_nsr],
+                write_resource: disabled_nsr
+            }
+        });
+
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-1',
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:*'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+            };
+            // create accounts
+            let res = await nsfs_versioning.generate_nsfs_account({ admin: true });
+            s3_admin = nsfs_versioning.generate_s3_client(res.access_key, res.secret_key);
+            await s3_admin.putBucketPolicy({
+                Bucket: bucket_name,
+                Policy: JSON.stringify(policy)
+            }).promise();
+            await s3_admin.putBucketPolicy({
+                Bucket: disabled_bucket_name,
+                Policy: JSON.stringify(policy)
+            }).promise();
+            // create nsfs account
+            res = await nsfs_versioning.generate_nsfs_account();
+            s3_client = nsfs_versioning.generate_s3_client(res.access_key, res.secret_key);
+            accounts.push(res.email);
+            // create a file in version disabled bucket
+            await create_object(`${disabled_full_path}/${dis_version_key}`, dis_version_body, 'null');
+            // create a file after when versioning not enabled
+            await create_object(`${full_path}/${dis_version_key}`, dis_version_body, 'null');
+            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+            assert.equal(bucket_ver.Status, 'Enabled');
+            // create base file after versioning enabled
+            file_pointer = await create_object(`${full_path}/${en_version_key}`, en_version_body, versionID_1);
+        });
+
+        mocha.after(async () => {
+            //fs_utils.folder_delete(tmp_fs_root);
+            for (let email of accounts) {
+                await rpc_client.account.delete_account({ email });
+            }
+        });
+
+        mocha.it('get object, versioning not enabled - should return latest object', async function() {
+            const res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
+            assert.equal(res.Body, dis_version_body);
+        });
+
+        mocha.it('get object, versioning not enabled, version id specified - should return NoSuchKey', async function() {
+            try {
+                await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                    assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('get object, file created before the version is enabled - should return latest object', async function() {
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key}).promise();
+            assert.equal(res.Body, dis_version_body);
+        });
+
+        mocha.it('get object, file created before the version is enabled, version id specified - should return ENOENT', async function() {
+            try {
+                    await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                    assert.fail('Should fail');
+            } catch (err) {
+                    assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('get object, with version enabled, no version id specified - should return latest object', async function() {
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
+            assert.equal(res.Body, en_version_body);
+        });
+
+        mocha.it('get object, with version enabled, with version id specified and matching with main file - should return latest object', async function() {
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1}).promise();
+            assert.equal(res.Body, en_version_body);
+        });
+
+        mocha.it('get object, with version enabled, with version id specified and not matching with main file - should return $VersionId object', async function() {
+            create_object(`${version_dir_path}/${key_version}`, en_version_body_v1, versionID_2);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+            assert.equal(res.Body, en_version_body_v1);
+        });
+
+        mocha.it('get object, with version enabled, with version id specified and versioned object not present - should return NoSuchKey', async function() {
+            try {
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('get object, with version enabled, with wrong version id specified - should return Bad Request', async function() {
+            try {
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: 'ctime-12-ino-12a'}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'BadRequest');
+            }
+        });
+
+        mocha.it('head object, version not enabled - should return latest object md', async function() {
+            try {
+                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
+                assert.ok('Expected latest head object returned');
+            } catch (err) {
+                assert.fail('Latest head object not found');
+            }
+        });
+
+        mocha.it('head object, version not enabled, version specified - should return object NotFound', async function() {
+            try {
+                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NotFound');
+            }
+        });
+
+        mocha.it('head object, file created before the version is enabled - should return latest object md', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key}).promise();
+                assert.ok('Expected latest head object returned');
+            } catch (err) {
+                assert.fail('Latest head object not found');
+            }
+        });
+
+        mocha.it('head object, file created before the version is enabled, version specified - should return NotFound', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                assert.ok('Expected latest head object returned');
+            } catch (err) {
+                assert.equal(err.code, 'NotFound');
+            }
+        });
+
+        mocha.it('head object, with version enabled, no version id specified - should return latest object md', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                assert.ok('Expected latest head object returned');
+            } catch (err) {
+                assert.fail(`Failed with an error: ${err.code}`);
+            }
+        });
+
+        mocha.it('head object, with version enabled, with version id specified and matching with main file - should return latest object md', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1}).promise();
+                assert.ok('Expected latest head object returned');
+            } catch (err) {
+                assert.fail(`Failed with an error: ${err.code}`);
+            }
+        });
+
+        mocha.it('head object, with version enabled, with version id specified and not matching with main file - should return $VersionId object md', async function() {
+            create_object(`${version_dir_path}/${key_version}`, en_version_body_v1, versionID_2);
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+                assert.ok('Expected versioned object returned');
+            } catch (err) {
+                assert.fail(`Failed with an error: ${err.code}`);
+            }
+        });
+
+        mocha.it('head object, with version enabled, versioned object not created - should return NotFound', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NotFound');
+            }
+        });
+
+        mocha.it('head object, with version enabled, wrong version id specified - should return NotFound', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NotFound');
+            }
+        });
+        mocha.it('Put object when version disbled and do put on the same object when version enabled - get object should return versioned object', async function() {
+            let res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
+            assert.equal(res.Body, dis_version_body);
+            const version_obj_path = disabled_full_path + '/.versions';
+            const version_key = dis_version_key + '_null';
+            const version_body = 'DDDDD';
+            await s3_client.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: disabled_bucket_name }).promise();
+            assert.equal(bucket_ver.Status, 'Enabled');
+            // May be below 3 steps can be replaced with put_object() to create versioned object
+            await fs_utils.create_fresh_path(version_obj_path, 0o770);
+            await fs_utils.file_must_exist(version_obj_path);
+            await create_object(`${version_obj_path}/${version_key}`, version_body, 'null');
+            res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: 'null'}).promise();
+            assert.equal(res.Body, version_body);
+        });
+
+        mocha.it('get object, with version enabled, delete marker placed on latest object - should return NoSuchKey', async function() {
+            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            try {
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('get object, with version enabled, delete marker placed on latest object, version id specified - should return the version object', async function() {
+            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+            assert.equal(res.Body, en_version_body_v1);
+        });
+
+        mocha.it('head object, with version enabled, delete marked xattr placed on latest object - should return ENOENT', async function() {
+            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.code, 'NotFound');
+            }
+        });
+
+        mocha.it('head object, with version enabled, delete marked xattr placed on latest object, version id specified - should return the version object', async function() {
+            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+                assert.ok('Expected versioned object returned');
+            } catch (err) {
+                assert.fail(`Failed with an error: ${err.code}`);
+            }
         });
     });
 
@@ -729,4 +1045,14 @@ async function read_object_stream(ns, bucket, file_key, dummy_object_sdk) {
 
 function create_file(file_path) {
     return fs.promises.appendFile(file_path, file_path + '\n');
+}
+
+async function create_object(object_path, data, version_id) {
+    const target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, object_path, 'w+');
+    await fs.promises.writeFile(object_path, data);
+    if (version_id !== 'null') {
+        const xattr_version_id = { 'user.version_id': `${version_id}` };
+        await target_file.replacexattr(DEFAULT_FS_CONFIG, xattr_version_id);
+    }
+    return target_file;
 }

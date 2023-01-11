@@ -473,3 +473,6 @@ async function generate_nsfs_account(options = {}) {
         email: `${random_name}@noobaa.com`
     };
 }
+
+exports.generate_nsfs_account = generate_nsfs_account;
+exports.generate_s3_client = generate_s3_client;

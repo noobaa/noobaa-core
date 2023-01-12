@@ -1,8 +1,5 @@
-name: ceph-s3-tests
-on: 
-  workflow_dispatch:
-  schedule:
-    - cron: "00 22,1 * * *" # Runs every day at 22:00 and 1:00 UTC
+name: Ceph S3 Tests
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   ceph-s3-tests:
@@ -48,7 +45,7 @@ jobs:
          ./build/_output/bin/noobaa-operator crd create
          ./build/_output/bin/noobaa-operator operator install
          ./build/_output/bin/noobaa-operator system create  \
-         --db-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+         --db-resources='{ "limits": {"cpu": "200m","memory": "2G"}, "requests": {"cpu": "200m","memory": "2G"}}' \
          --core-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
          --endpoint-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
          --noobaa-image='noobaa-core:s3-tests'
@@ -66,6 +63,8 @@ jobs:
           kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
           kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=30m || TIMEOUT=true
           kubectl logs job/noobaa-tests-s3 --tail 10000 -f
+          echo "K8S Events"
+          kubectl get events --sort-by='.metadata.creationTimestamp' -A
           if kubectl logs job/noobaa-tests-s3 | grep -q "Ceph Test Failed:"; then
             echo "At least one test failed!"
             exit 1

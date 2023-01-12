@@ -816,7 +816,7 @@ struct SafeUnlink : public FSWorker
             SYSCALL_OR_RETURN(unlink(_mv_to.c_str()));
             return;
         }
-        SYSCALL_OR_RETURN(rename(_mv_to.c_str(), _to_unlink.c_str()));
+        SYSCALL_OR_RETURN(link(_mv_to.c_str(), _to_unlink.c_str()));
         DBG0("FS::SafeUnlink::Execute: ERROR unlink target doesn't match the expected inode + mtime, retry" <<  DVAL(_to_unlink) 
             << DVAL(_unlink_expected_mtime) << DVAL(_unlink_expected_inode));
         SetError(XSTR() << "FS::SafeUnlink ERROR unlink target doesn't match expected inode and mtime");

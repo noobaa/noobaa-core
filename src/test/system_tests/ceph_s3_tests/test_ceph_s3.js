@@ -86,7 +86,9 @@ async function run_all_tests() {
     }
     tests_list = tests_list.split('\n');
     testing_status.total = tests_list.length;
-    await P.map(_.times(argv.concurrency || DEFAULT_NUMBER_OF_WORKERS), test_worker); //number of concurrent workers is set in the argument of times
+    const number_of_workers = argv.concurrency || DEFAULT_NUMBER_OF_WORKERS;
+    console.info('Number of workers (concurrency):', number_of_workers);
+    await P.map(_.times(number_of_workers), test_worker);
     console.log('Finished Running Ceph S3 Tests');
 }
 

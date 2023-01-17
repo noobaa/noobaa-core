@@ -85,8 +85,8 @@ class ReplicationScanner {
                 return;
             }
             const prefix = (rule.filter && rule.filter.prefix) || '';
-            const cur_src_cont_token = (rule.status && rule.status.src_cont_token) || '';
-            const cur_dst_cont_token = (rule.status && rule.status.dst_cont) || '';
+            const cur_src_cont_token = (rule.rule_status && rule.rule_status.src_cont_token) || '';
+            const cur_dst_cont_token = (rule.rule_status && rule.rule_status.dst_cont_token) || '';
 
             const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await this.list_buckets_and_compare(src_bucket.name,
                 dst_bucket.name, prefix, cur_src_cont_token, cur_dst_cont_token);

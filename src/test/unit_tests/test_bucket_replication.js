@@ -798,29 +798,126 @@ async function put_object(s3_owner, bucket_name, key, optional_body) {
     console.log('put_object: ', util.inspect(res));
 }
 
-async function list_objects(s3_owner, bucket_name) {
-    const res = await s3_owner.listObjects({ Bucket: bucket_name }).promise();
-    console.log('list_objects: ', util.inspect(res));
-    return res;
-}
 
 async function delete_object(s3_owner, bucket_name, key) {
     const res = await s3_owner.deleteObject({ Bucket: bucket_name, Key: key }).promise();
     console.log('delete_object: ', util.inspect(res));
 }
+
+// The function lists *all* objects in a given bucket, including buckets that have more than 1k objs
+async function list_all_objs_in_bucket(s3owner, bucket, prefix) {
+    let isTruncated = true;
+    let marker;
+    const elements = [];
+    while (isTruncated) {
+      let params = { Bucket: bucket };
+      if (prefix) params.Prefix = prefix;
+      if (marker) params.Marker = marker;
+        const response = await s3owner.listObjects(params).promise();
+        elements.push.apply(elements, response.Contents);
+        isTruncated = response.IsTruncated;
+        if (isTruncated) {
+          marker = response.Contents.slice(-1)[0].Key;
+        }
+    }
+    return elements;
+  }
+
 async function list_objects_and_wait(s3_owner, bucket, expected_num_of_objects) {
     let res;
     for (let retries = 1; retries <= 3; retries++) {
         try {
-            res = await list_objects(s3_owner, bucket);
+            res = await list_all_objs_in_bucket(s3_owner, bucket);
             console.log('list_objects_and_wait: ', res);
-            assert.deepStrictEqual(res.Contents.length, expected_num_of_objects);
-            console.log(`list_objects contents: expected: ${expected_num_of_objects} actual: ${res.Contents.length} ${res.Contents}`);
-            return res.Contents;
+            assert.deepStrictEqual(res.length, expected_num_of_objects);
+            console.log(`list_objects contents: expected: ${expected_num_of_objects} actual: ${res.length} ${res}`);
+            return res;
         } catch (e) {
-            console.log(`waiting for replications of bucket: ${bucket}, response: ${util.inspect(res)} `); //num of retries: ${retries}`);
+            console.log(`waiting for replications of bucket: ${bucket}, response: ${res} `); //num of retries: ${retries}`);
             if (retries === 3) throw e;
             await P.delay(2 * 1000);
         }
     }
 }
+
+mocha.describe('Replication pagination test', function() {
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(60000);
+    const obj_amount = 11;
+    const src_bucket = 'src-bucket';
+    const target_bucket = 'target-bucket';
+    const buckets = [src_bucket, target_bucket];
+    let s3_owner;
+    let scanner;
+    let s3_creds = {
+        s3ForcePathStyle: true,
+        signatureVersion: 'v4',
+        computeChecksums: true,
+        s3DisableBodySigning: false,
+        region: 'us-east-1',
+        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+    };
+    let src_bucket_keys = [];
+    let target_bucket_keys = [];
+    mocha.before('init scanner & populate buckets', async function() {
+        process.env.REPLICATION_MAX_KEYS = "6";
+        // create buckets
+        await P.all(_.map(buckets, async bucket_name => {
+            await rpc_client.bucket.create_bucket({ name: bucket_name });
+        }));
+        await put_replication(src_bucket, [
+            { rule_id: '11obj-replication-rule', destination_bucket: target_bucket, filter: { prefix: '' } }
+        ], false);
+        const admin_account = await rpc_client.account.read_account({ email: EMAIL });
+        const admin_keys = admin_account.access_keys;
+
+        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
+        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.endpoint = coretest.get_http_address();
+        s3_owner = new AWS.S3(s3_creds);
+
+        // populate source bucket
+        for (let i = 0; i < obj_amount; i++) {
+            let key = create_random_body();
+            src_bucket_keys.push(key);
+            await put_object(s3_owner, src_bucket, key);
+        }
+
+        cloud_utils.set_noobaa_s3_connection = () => {
+            console.log('setting connection to coretest endpoint and access key');
+            return s3_owner;
+        };
+        // init scanner
+        scanner = new ReplicationScanner({
+            name: 'replication_scanner',
+            client: rpc_client
+        });
+        scanner.noobaa_connection = s3_owner; // needed when not calling batch
+    });
+
+    mocha.after('delete buckets', async function() {
+        await P.all(_.map(buckets, async bucket_name => {
+            for (let i = 0; i < src_bucket_keys.length; i++) {
+                await delete_object(s3_owner, bucket_name, src_bucket_keys[i]);
+            }
+            for (let i = 0; i < target_bucket_keys.length; i++) {
+                await delete_object(s3_owner, bucket_name, target_bucket_keys[i]);
+            }
+            await rpc_client.bucket.delete_bucket({ name: bucket_name });
+            // Revert the replication scanner's 
+            delete process.env.REPLICATION_MAX_KEYS;
+        }));
+    });
+
+    // Pagination test
+    mocha.it('Testing bucket replication pagination with 11 objects', async function() {
+        // Copy the first 6
+        await scanner.run_batch();
+        // Make sure that only 6 were copied
+        await list_objects_and_wait(s3_owner, target_bucket, 6);
+        // Copy the remaining 5
+        await scanner.run_batch();
+        // Make sure all 11 objects were replicated
+        await list_objects_and_wait(s3_owner, target_bucket, obj_amount);
+    });
+});

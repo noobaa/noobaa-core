@@ -4,6 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   ceph-s3-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout noobaa-core
         uses: actions/checkout@v3
@@ -27,6 +28,10 @@ jobs:
         with:
           repository: 'noobaa/noobaa-operator'
           path: 'noobaa-operator'
+         # Freeze the version of operator
+         # to avoid a failed run due to code changes in the operator repo.
+         # Need to update the commit once in a while
+          ref: 28960d4dbbba612d1a3e53245791076c11632b60
 
       - name: Change settings for k8s and minikube
         run: |
@@ -63,8 +68,6 @@ jobs:
           kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
           kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=30m || TIMEOUT=true
           kubectl logs job/noobaa-tests-s3 --tail 10000 -f
-          echo "K8S Events"
-          kubectl get events --sort-by='.metadata.creationTimestamp' -A
           if kubectl logs job/noobaa-tests-s3 | grep -q "Ceph Test Failed:"; then
             echo "At least one test failed!"
             exit 1
@@ -77,3 +80,18 @@ jobs:
             echo "The s3 tests did not run!"
             exit 1
           fi
+
+      - name: Collect logs
+        if: ${{ failure() }}         
+        run: |
+         set -x
+         echo "K8S Events"
+         kubectl get events --sort-by='.metadata.creationTimestamp' -A
+         cd ./noobaa-operator
+         ./build/_output/bin/noobaa-operator diagnose --db-dump --dir=ceph-s3-tests-logs
+      - name: Save logs
+        if: ${{ failure() }}    
+        uses: actions/upload-artifact@v3
+        with:
+          name: ceph-s3-tests-logs
+          path: noobaa-operator/ceph-s3-tests-logs

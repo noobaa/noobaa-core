@@ -1,0 +1,45 @@
+name: Releaser
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'The base branch to release from'
+        required: true 
+      sync_operator_repository:
+        description: "Sync operator repository"
+        required: false
+        default: "noobaa-operator"
+
+permissions:
+  contents: write
+
+jobs:
+  releaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set branch
+        run: echo "BRANCH=${{ github.event.inputs.base_branch }}" >> $GITHUB_ENV
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ env.BRANCH }}
+      - name: Fetch all tags
+        run: git fetch --force --tags
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: .nvmrc
+      - name: Release NooBaa Core Image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHACTION_GH_PAT }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          OCI_ORG: ${{ secrets.OCI_ORG }}
+          BASE_BRANCH: "${{ github.event.inputs.base_branch }}"
+        run: |
+          git config --global user.email "github-action@noobaa.io"
+          git config --global user.name "NooBaa GitHub Action"
+
+          bash tools/releaser.sh --oci-org $OCI_ORG --sync-operator-repository ${{ github.event.inputs.sync_operator_repository }} --gh-org noobaa 

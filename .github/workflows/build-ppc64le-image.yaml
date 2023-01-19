@@ -1,8 +1,9 @@
 name: Build ppc64le image
-on: [ push, pull_request ]
+on: [ push, pull_request, pull_request_review ]
 
 jobs:
   build-ppc64le-image:
+    if: "contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run')"
     runs-on: ubuntu-22.04
     env:
       # For multiplatform use list like:

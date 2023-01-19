@@ -1,0 +1,38 @@
+name: Set Label Tests Run on PR
+
+on: [workflow_call]
+
+# Run only when non draft AND approved PR, OR run in any state if allow_tests_run label has been s et
+jobs:
+  setlabel:
+    name: Check if Should Set Label
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Check Draft || Non-Approved
+        id: setlabelifneeded
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run') }}
+        run: |
+          echo "::warning NBNB starting setlabelifneeded"
+          if [[ ${{ github.event.pull_request.draft }} == true ]]; then 
+            echo "::warning NBNB is draft -> false"
+            echo ::set-output name=shouldlabel::"false"
+          elif [[ "${{ github.event.review.state }}" != "approved" ]]; then
+            echo "::warning NBNB is not approved -> false"
+            echo ::set-output name=shouldlabel::"false"
+          else
+            echo "::warning NBNB not draft, yes approved -> true"
+            echo ::set-output name=shouldlabel::"true"
+          fi
+      - uses: actions/github-script@v6
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run') }}
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ["Allow-Tests-Run"]
+            })
+          

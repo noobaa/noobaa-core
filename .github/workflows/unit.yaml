@@ -1,10 +1,21 @@
 name: Unit Tests
 
 # Run on each new PR and each new push to existing PR
-on: [push, pull_request]
+#on: [push, pull_request, pull_request_review]
+on:
+  pull_request:
+     types: [opened, reopened, labeled, converted_to_draft, ready_for_review]
+  pull_request_review:
+      types: [edited, submitted]
 
 jobs:
+  check-label:
+    name: Check if tests shuld run
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run') }}
+    uses: ./.github/workflows/label_run_tests.yaml
+  
   run-unit-tests:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run') }}
     runs-on: ubuntu-latest
     steps:
       - name: checkout

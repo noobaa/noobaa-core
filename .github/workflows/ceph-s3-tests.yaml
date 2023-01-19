@@ -1,8 +1,9 @@
 name: Ceph S3 Tests
-on: [push, pull_request, workflow_dispatch]
+on: [push, pull_request, pull_request_review, workflow_dispatch]
 
 jobs:
   ceph-s3-tests:
+    if: "contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run')"
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

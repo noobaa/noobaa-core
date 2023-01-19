@@ -1,0 +1,41 @@
+name: Verify Tests Run on PR
+
+on:
+  workflow_call:
+    outputs:
+      isAffected:
+        description: "Check if PR is non draft and approved, or tests label was set"
+        value: ${{ jobs.shouldRun.outputs.shouldRun }}
+
+# Run only when non draft AND approved PR, OR run in any state if allow_tests_run label has been s et
+jobs:
+  shouldrun:
+    name: Check if should run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Tests Label
+        id: checklabel
+        if: contains(github.event.pull_request.labels.*.name, 'Allow-Tests-Run')
+        run: |
+          echo "::warning NBNB checking label -> true"
+          echo "::set-output name=haslabel::true"
+
+      - name: Check Draft || Non-Approved
+        id: checkdraft
+        run: |
+          echo "::warning NBNB starting outputs.haslabel is ${{ steps.checklabel.outputs.haslabel }}"
+          if [[ ${{ steps.checklabel.outputs.haslabel }} == true ]]; then
+            echo "::warning NBNB has label yes -> true"
+            echo ::set-output name=shouldrun::"true"
+          else
+            if [[ ${{ github.event.pull_request.draft }} == true ]]; then 
+              echo "::warning NBNB is draft -> false"
+              echo ::set-output name=shouldrun::"false"
+            elif [[ "${{ github.event.review.state }}" != "approved" ]]; then
+              echo "::warning NBNB is not approved -> false"
+              echo ::set-output name=shouldrun::"false"
+            else
+              echo "::warning NBNB not draft, yes approved -> true"
+              echo ::set-output name=shouldrun::"true"
+            fi
+          fi

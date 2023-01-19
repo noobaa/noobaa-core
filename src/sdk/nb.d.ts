@@ -929,6 +929,7 @@ interface NativeFile {
     replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
     linkfileat(fs_context: NativeFSContext): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;
+    fd(fs_context: NativeFSContext): Promise<number>;
 }
 
 interface NativeDir {

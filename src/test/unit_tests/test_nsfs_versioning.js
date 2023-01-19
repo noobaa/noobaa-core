@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
-const fs = require('fs');
 const test_utils = require('../system_tests/test_utils');
 
 const MAC_PLATFORM = 'darwin';
@@ -92,17 +91,17 @@ mocha.describe('namespace_fs - versioning', function() {
         const from_path = path.join(ns_tmp_bucket_path, file_key);
         const to_path = path.join(ns_tmp_bucket_path, file_key + '_mtime-1-ino-2');
         const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
-        const stat1 = await fs.promises.stat(from_path);
-        const upload_res = await ns_tmp.safe_move_posix(
-            dummy_object_sdk.requesting_account.nsfs_account_config,
-            from_path,
-            to_path,
-            fake_mtime_ino
-        );
-        console.log('upload_object response', util.inspect(upload_res));
-        const stat2 = await fs.promises.stat(to_path);
-        assert.equal(stat1.ino, stat2.ino);
-        await fs_utils.file_must_not_exist(from_path);
+        try {
+            await ns_tmp.safe_move_posix(
+                dummy_object_sdk.requesting_account.nsfs_account_config,
+                from_path,
+                to_path,
+                fake_mtime_ino
+            );
+            assert.fail(`safe_move_posix succeeded but should have failed`);
+        } catch (err) {
+            assert.equal(err.message, 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime');
+        }
     });
 
     mocha.it('safe move posix - Enabled - should fail', async function() {
@@ -117,9 +116,10 @@ mocha.describe('namespace_fs - versioning', function() {
                 to_path,
                 fake_mtime_ino
             );
-        assert.fail(`safe_move_posix succeeded but should have failed`);
+            assert.fail(`safe_move_posix succeeded but should have failed`);
         } catch (err) {
             assert.equal(err.code, 'ENOENT');
         }
     });
 });
+

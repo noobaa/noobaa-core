@@ -125,6 +125,12 @@ static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 static int (*dlsym_gpfs_linkat)(
     gpfs_file_t fileDesc, const char* oldpath, gpfs_file_t newdirfd, const char* newpath, int flags) = 0;
 
+static int (*dlsym_gpfs_linkatif)(
+    gpfs_file_t fileDesc, const char* oldpath, gpfs_file_t newdirfd, const char* newpath, int flags, gpfs_file_t replace_fd) = 0;
+
+static int (*dlsym_gpfs_unlinkat)(
+    gpfs_file_t fileDesc, const char* path, gpfs_file_t fd) = 0;
+
 const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
     { "rs", O_RDONLY | O_SYNC },
@@ -1145,8 +1151,10 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::writev>("writev"),
                 InstanceMethod<&FileWrap::replacexattr>("replacexattr"),
                 InstanceMethod<&FileWrap::linkfileat>("linkfileat"),
+                InstanceMethod<&FileWrap::unlinkfileat>("unlinkfileat"),
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
+                InstanceAccessor<&FileWrap::getfd>("fd"),
             }));
         constructor.SuppressDestruct();
     }
@@ -1170,8 +1178,10 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value writev(const Napi::CallbackInfo& info);
     Napi::Value replacexattr(const Napi::CallbackInfo& info);
     Napi::Value linkfileat(const Napi::CallbackInfo& info);
+    Napi::Value unlinkfileat(const Napi::CallbackInfo& info);
     Napi::Value stat(const Napi::CallbackInfo& info);
     Napi::Value fsync(const Napi::CallbackInfo& info);
+    Napi::Value getfd(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1372,20 +1382,49 @@ struct FileReplacexattr : public FSWrapWorker<FileWrap>
 struct LinkFileAt : public FSWrapWorker<FileWrap>
 {
     std::string _filepath;
-
+    int _replace_fd;
     LinkFileAt(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
+        , _replace_fd(0)
     {
         _filepath = info[1].As<Napi::String>();
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _replace_fd = info[2].As<Napi::Number>();
+        }
         Begin(XSTR() << "LinkFileAt " << DVAL(_wrap->_path) << DVAL(_wrap->_fd) << DVAL(_filepath));
     }
     virtual void Work()
     {
         // gpfs_linkat() is the same as Linux linkat() but we need a new function because
         // Linux will fail the linkat() if the file already exist and we want to replace it if it existed.
-        SYSCALL_OR_RETURN(dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
+        if (_replace_fd == 0){
+            SYSCALL_OR_RETURN(dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
+        } else {
+            SYSCALL_OR_RETURN(dlsym_gpfs_linkatif(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH, _replace_fd));
+        }
     }
 };
+
+struct UnlinkFileAt : public FSWrapWorker<FileWrap>
+{
+    std::string _filepath;
+    int _delete_fd;
+    UnlinkFileAt(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+        , _delete_fd(0)
+    {
+        _filepath = info[1].As<Napi::String>();
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _delete_fd = info[2].As<Napi::Number>();
+        }
+        Begin(XSTR() << "UnlinkFileAt" << DVAL(_wrap->_path.c_str()) << DVAL(_wrap->_fd) << DVAL(_filepath) << DVAL(_delete_fd));
+    }
+    virtual void Work()
+    {   
+        SYSCALL_OR_RETURN(dlsym_gpfs_unlinkat(_wrap->_fd, _filepath.c_str(), _delete_fd));
+    }
+};
+
 
 struct FileStat : public FSWrapWorker<FileWrap>
 {
@@ -1560,6 +1599,18 @@ Napi::Value
 FileWrap::linkfileat(const Napi::CallbackInfo& info)
 {
     return api<LinkFileAt>(info);
+}
+
+Napi::Value
+FileWrap::unlinkfileat(const Napi::CallbackInfo& info)
+{
+    return api<UnlinkFileAt>(info);
+}
+
+Napi::Value
+FileWrap::getfd(const Napi::CallbackInfo& info)
+{
+    return Napi::Number::New(info.Env(), this->_fd);
 }
 
 Napi::Value
@@ -1747,6 +1798,14 @@ fs_napi(Napi::Env env, Napi::Object exports)
                 << uv_dlerror(lib));
         }
         if (uv_dlsym(lib, "gpfs_linkat", (void**)&dlsym_gpfs_linkat)) {
+            PANIC("Error: %s\n"
+                << uv_dlerror(lib));
+        }
+        if (uv_dlsym(lib, "gpfs_linkatif", (void**)&dlsym_gpfs_linkatif)) {
+            PANIC("Error: %s\n"
+                << uv_dlerror(lib));
+        }
+        if (uv_dlsym(lib, "gpfs_unlinkat", (void**)&dlsym_gpfs_unlinkat)) {
             PANIC("Error: %s\n"
                 << uv_dlerror(lib));
         }

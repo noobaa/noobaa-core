@@ -1,6 +1,4 @@
 name: Weekly Build
-
-# Run every day at 23:00 UTC
 on: 
   schedule:
     - cron: "0 23 * * *"
@@ -8,6 +6,7 @@ on:
 jobs:
   publish-image:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

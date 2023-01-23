@@ -1,25 +1,24 @@
 name: Build & Sanity
-
-# Run on each new PR and each new push to existing PR
 on: [push, pull_request]
 
 jobs:
   run-sanity-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
 
       - name: Deploy minikube
-        id: deploy
         run: sudo bash ./.travis/deploy_minikube.sh
 
       - name: Run make tester
-        id: run-make-tester
-        run: make tester || exit 1
+        run: make tester
 
       - name: Run Build & Sanity Tests
-        id: run-sanity
         run: |
           cd ./src/test/framework/
-          sudo ./run_test_job.sh --name sanity --image noobaa --tester_image noobaa-tester --job_yaml ../../../.travis/travis_test_job.yaml --tests_list ./sanity_tests_list.js --wait || exit 1
+          sudo ./run_test_job.sh --name sanity --image noobaa --tester_image noobaa-tester --job_yaml ../../../.travis/travis_test_job.yaml --tests_list ./sanity_tests_list.js --wait

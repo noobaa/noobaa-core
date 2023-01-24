@@ -3,11 +3,12 @@
 
 const _ = require('lodash');
 const util = require('util');
+const path = require('path');
 const stream = require('stream');
 require('../util/dotenv').load();
 
-// const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
 const http_utils = require('../util/http_utils');
@@ -26,9 +27,6 @@ const BucketSpaceNB = require('./bucketspace_nb');
 const BucketSpaceFS = require('./bucketspace_fs');
 const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
-const config = require('../../config');
-const path = require('path');
-const { AbortController } = require('node-abort-controller');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',

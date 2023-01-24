@@ -17,7 +17,6 @@ const P = require('../../util/promise');
 const s3_utils = require('../../endpoint/s3/s3_utils');
 const config = require('../../../config');
 const fs = require('fs');
-const { AbortController } = require('node-abort-controller');
 const coretest = require('./coretest');
 const { rpc_client } = coretest;
 const nsfs_versioning = require('./test_bucketspace_versioning.js');

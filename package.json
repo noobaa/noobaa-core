@@ -101,7 +101,6 @@
     "nan": "2.17.0",
     "ncp": "2.0.0",
     "net-ping": "1.2.3",
-    "node-abort-controller": "3.0.1",
     "node-addon-api": "5.0.0",
     "node-df": "0.1.4",
     "node-gyp": "9.3.1",

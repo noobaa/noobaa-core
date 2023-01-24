@@ -25,7 +25,7 @@ const NamespaceMultipart = require('./namespace_multipart');
 const NamespaceNetStorage = require('./namespace_net_storage');
 const BucketSpaceNB = require('./bucketspace_nb');
 const BucketSpaceFS = require('./bucketspace_fs');
-const stats_collector = require('./endpoint_stats_collector');
+const endpoint_stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
 
 const bucket_namespace_cache = new LRUCache({
@@ -65,6 +65,7 @@ class ObjectSDK {
         }
         this.requesting_account = undefined;
         this.abort_controller = new AbortController();
+        this.stats_collector = endpoint_stats_collector.instance(internal_rpc_client);
     }
 
     /**
@@ -460,7 +461,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `list_objects`,
                 error,
@@ -493,7 +494,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `head_object`,
                 error,
@@ -512,14 +513,14 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `read_object`,
                 error,
             });
         }
         // update bucket counters
-        stats_collector.instance(this.internal_rpc_client).update_bucket_read_counters({
+        this.stats_collector.update_bucket_read_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -648,14 +649,14 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `upload_object`,
                 error,
             });
         }
         // update bucket counters
-        stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
+        this.stats_collector.update_bucket_write_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -679,14 +680,14 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `initiate_multipart`,
                 error,
             });
         }
         // update bucket counters
-        stats_collector.instance(this.internal_rpc_client).update_bucket_write_counters({
+        this.stats_collector.update_bucket_write_counters({
             bucket_name: params.bucket,
             key: params.key,
             content_type: params.content_type
@@ -707,7 +708,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `upload_part`,
                 error,
@@ -732,7 +733,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `complete_object_upload`,
                 error,
@@ -785,7 +786,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `delete_object`,
                 error,
@@ -835,7 +836,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `list_buckets`,
                 error,
@@ -859,7 +860,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `create_bucket`,
                 error,
@@ -878,7 +879,7 @@ class ObjectSDK {
             error = 1;
             throw e;
         } finally {
-            stats_collector.instance(this.internal_rpc_client).update_ops_counters({
+            this.stats_collector.update_ops_counters({
                 time: Date.now() - start_time,
                 op_name: `delete_bucket`,
                 error,

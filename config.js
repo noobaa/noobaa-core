@@ -520,7 +520,7 @@ config.WORM_ENABLED = false;
 // Should we allow the creation of buckets on internal storage
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 
-config.DB_TYPE = process.env.DB_TYPE || 'mongodb';
+config.DB_TYPE = process.env.DB_TYPE || 'postgres';
 
 ////////////////////////////////
 //      NAMESPACE MONITOR     //

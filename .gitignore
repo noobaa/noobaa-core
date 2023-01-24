@@ -6,7 +6,7 @@
 /noobaa.rpm
 
 ## TEST
-/metadata_storage*
+/db_storage*
 /agent_storage*
 /noobaa_storage*
 /agent_conf*.json*
@@ -25,7 +25,12 @@
 /config-local.js
 /.env
 /heapdump-*
-*.pem
+/*.heapprofile
 .DS_Store
+
+## SECRETS
+.nbtoken
+*.pem
+
 # custom ignored files - use .IGNORE or any prefix.IGNORE dir/file name to remove from git
 *.IGNORE 

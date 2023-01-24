@@ -742,7 +742,7 @@ class SystemStore extends EventEmitter {
         for (const res of bulk_results) {
             if (res && !res.ok) {
                 dbg.error('got error on bulk execute', res.err);
-                // should we throw here? retry?
+                throw new Error(res.err);
             }
         }
 

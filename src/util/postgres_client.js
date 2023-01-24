@@ -28,6 +28,7 @@ const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
 const config = require('../../config');
 
+const DB_CONNECT_ERROR_MESSAGE = 'Could not acquire client from DB connection pool';
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
@@ -330,7 +331,12 @@ class PgTransaction {
     }
 
     async begin() {
-        this.pg_client = await this.client.pool.connect();
+        try {
+            this.pg_client = await this.client.pool.connect();
+        } catch (err) {
+            dbg.error(DB_CONNECT_ERROR_MESSAGE, err);
+            throw new Error(DB_CONNECT_ERROR_MESSAGE);
+        }
         this.pg_client.once('error', err => {
             dbg.error('got error on pg_transaction', err, this.transaction_id);
         });
@@ -339,7 +345,7 @@ class PgTransaction {
 
     async query(text, values) {
         if (!this.pg_client) {
-            throw new Error('this.begin() must be called before sending queries on this transaction');
+            throw new Error('pg_client does not exist');
         }
         return _do_query(this.pg_client, { text, values }, this.transaction_id);
     }
@@ -396,8 +402,10 @@ class BulkOp {
         let nMatched = 0;
         let nModified = 0;
         let nRemoved = 0;
+        let should_rollback = false;
         try {
             await this.transaction.begin();
+            should_rollback = true;
             const batch_query = this.queries.join('; ');
             let results = await this.transaction.query(batch_query);
             if (!Array.isArray(results)) {
@@ -418,7 +426,7 @@ class BulkOp {
         } catch (err) {
             errmsg = err;
             dbg.error('PgTransaction execute error', err);
-            await this.transaction.rollback();
+            if (should_rollback) await this.transaction.rollback();
         } finally {
             this.transaction.release();
         }
@@ -1239,6 +1247,9 @@ class PostgresTable {
                     retries += 1;
                     // TODO: should we add a delay here?
                     dbg.log0(`${err.message} - will retry. retries=${retries}`);
+                } else if (err.message === DB_CONNECT_ERROR_MESSAGE) {
+                    dbg.error(DB_CONNECT_ERROR_MESSAGE, err);
+                    throw err;
                 } else {
                     dbg.error(`findOneAndUpdate failed`, query, update, options, err);
                     throw err;

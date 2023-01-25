@@ -46,15 +46,18 @@ class Agent {
 
     /* eslint-disable max-statements */
     constructor(params) {
-        // We set the agent name to dbg logger
-        this.dbg = new DebugLogger(__filename);
-        this.dbg.set_logger_name('Agent.' + params.node_name);
-        const dbg = this.dbg;
-        dbg.log0('Creating agent', params);
+        // Create a logger per agent that shows the agent name
+        const dbg = new DebugLogger(__filename);
+        this.dbg = dbg;
+        dbg.set_logger_name('Agent.' + params.node_name);
+        dbg.log0('Creating agent', { ...params, rpc: 'tldr' });
 
-        this.rpc = params.routing_hint ?
+        this.rpc = params.rpc || (
+            params.routing_hint ?
             api.new_rpc_from_base_address(params.address, params.routing_hint) :
-            api.new_rpc_from_routing(api.new_router_from_base_address(params.address));
+            api.new_rpc_from_routing(api.new_router_from_base_address(params.address))
+        );
+        this.rpc_port = params.rpc_port;
 
         this.client = this.rpc.new_client();
 
@@ -576,16 +579,24 @@ class Agent {
             }
             this.server = https_server;
         } else if (addr_url.protocol === 'tcp:') {
-            const tcp_server = this.rpc.register_tcp_transport(addr_url.port);
+            const tcp_server = this.rpc.create_tcp_server(addr_url.port);
             tcp_server.on('close', () => {
                 dbg.warn('AGENT TCP SERVER CLOSED');
                 retry();
             });
+            tcp_server.listen(addr_url.port).catch(err => {
+                dbg.warn('AGENT TCP SERVER ERROR', err.stack || err);
+                retry();
+            });
             this.server = tcp_server;
         } else if (addr_url.protocol === 'tls:') {
-            const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_context);
+            const tls_server = this.rpc.create_tcp_server(addr_url.port, this.ssl_context);
             tls_server.on('close', () => {
                 dbg.warn('AGENT TLS SERVER CLOSED');
+                retry();
+            });
+            tls_server.listen(addr_url.port).catch(err => {
+                dbg.warn('AGENT TLS SERVER ERROR', err.stack || err);
                 retry();
             });
             this.server = tls_server;
@@ -610,7 +621,8 @@ class Agent {
             throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
 
-        if (req.connection && req.connection.url && req.connection.url.protocol !== 'n2n:') {
+        const allowed_proto = config.AGENT_RPC_PROTOCOL;
+        if (req.connection && req.connection.url && req.connection.url.protocol !== `${allowed_proto}:`) {
             dbg.error('AGENT API auth requires n2n connection', req.connection.connid);
             // close the connection but after sending the error response, for supportability of the caller
             setTimeout(() => req.connection.close(), 1000);
@@ -762,6 +774,7 @@ class Agent {
             ip: ip,
             host_id: this.host_id,
             host_name: this.test_hostname || this.host_name,
+            rpc_port: this.rpc_port || config.AGENT_RPC_PORT,
             rpc_address: this.rpc_address || '',
             base_address: this.base_address,
             permission_tempering: this.permission_tempering,

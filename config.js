@@ -71,7 +71,6 @@ config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (102
 config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
-config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 config.NODE_IO_DETENTION_THRESHOLD = 60000;
 config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three
@@ -101,6 +100,8 @@ config.CLOUD_AGENTS_N2N_PORT = 60100;
 config.MONGO_AGENTS_N2N_PORT = 60100;
 
 config.N2N_OFFER_INTERNAL = false;
+config.AGENT_RPC_PROTOCOL = 'n2n';
+config.AGENT_RPC_PORT = process.env.AGENT_PORT || '9999';
 
 /////////////////////
 // ENDPOINT CONFIG //
@@ -116,9 +117,9 @@ config.S3_MD_SIZE_LIMIT = 2 * 1024;
 // SECRETS CONFIG  //
 /////////////////////
 
-config.JWT_SECRET = process.env.JWT_SECRET || _get_data_from_file(`/etc/noobaa-server/jwt`);
-config.SERVER_SECRET = process.env.SERVER_SECRET || _get_data_from_file(`/etc/noobaa-server/server_secret`);
-config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(`/etc/noobaa-auth-token/auth_token`);
+config.JWT_SECRET = load_env_or_file('JWT_SECRET', process.env.JWT_SECRET, `/etc/noobaa-server/jwt`);
+config.SERVER_SECRET = load_env_or_file('SERVER_SECRET', process.env.SERVER_SECRET, `/etc/noobaa-server/server_secret`);
+config.NOOBAA_AUTH_TOKEN = load_env_or_file('NOOBAA_AUTH_TOKEN', process.env.NOOBAA_AUTH_TOKEN, `/etc/noobaa-auth-token/auth_token`);
 
 ///////////////
 // MD CONFIG //
@@ -145,6 +146,10 @@ config.MD_AGGREGATOR_BATCH = 100;
 ///////////////
 // IO CONFIG //
 ///////////////
+
+config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
+
+config.IO_CHUNK_READ_CACHE_SIZE = 256 * 1024 * 1024;
 
 config.ALLOCATE_RETRY_DELAY_MS = 500;
 
@@ -628,6 +633,7 @@ config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10
 // load a local config file that overwrites some of the config
 function load_config_local() {
     try {
+        // @ts-ignore
         // eslint-disable-next-line global-require
         const local_config = require('./config-local');
         if (!local_config) return;
@@ -643,7 +649,7 @@ function load_config_local() {
         }
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND') throw err;
-        console.log('load_config_local: NO LOCAL CONFIG');
+        // console.log('load_config_local: NO LOCAL CONFIG');
     }
 }
 
@@ -659,48 +665,55 @@ function load_config_env_overrides() {
 
             if (type === 'number') {
                 const n = Number(val);
-                if (isNaN(n)) throw new Error(`${val} should be a number`);
-                console.log(`Overriding config.js from ENV with ${conf_name}=${n} (number)`);
+                if (isNaN(n)) throw new Error(`config: ${conf_name}=${val} should be a number`);
+                console.log(`config: override from ENV with ${conf_name}=${n} (number)`);
                 config[conf_name] = n;
 
             } else if (type === 'boolean') {
                 if (val === 'true') {
-                    console.log(`Overriding config.js from ENV with ${conf_name}=true (bool)`);
+                    console.log(`config: override from ENV with ${conf_name}=true (bool)`);
                     config[conf_name] = true;
                 } else if (val === 'false') {
-                    console.log(`Overriding config.js from ENV with ${conf_name}=false (bool)`);
+                    console.log(`config: override from ENV with ${conf_name}=false (bool)`);
                     config[conf_name] = false;
                 } else {
-                    throw new Error(`${val} should be true|false`);
+                    throw new Error(`config: ${conf_name}=${val} should be true|false`);
                 }
 
             } else if (type === 'string' || type === 'undefined') {
-                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (string)`);
+                console.log(`config: override from ENV with ${conf_name}=${val} (string)`);
                 config[conf_name] = val;
 
             } else if (type === 'object') {
                 // TODO: Validation checks, more complex type casting for values if needed
                 config[conf_name] = Array.isArray(prev_val) ? val.split(',') : JSON.parse(val);
-                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (object of type ${Array.isArray(prev_val) ? 'array' : 'json'})`);
+                console.log(`config: override from ENV with ${conf_name}=${val} (object of type ${Array.isArray(prev_val) ? 'array' : 'json'})`);
             } else {
-                console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
+                console.log(`config: Unknown type or mismatch between existing ${type} and provided type for ${conf_name}=${val}}, skipping ...`);
             }
 
         } catch (err) {
-            console.warn(`load_config_env_overrides: failed to load ${key}`, err);
+            console.warn(`config: failed to load "${key}"`, err);
         }
     }
 }
 
-function _get_data_from_file(file_name) {
-    let data;
-    try {
-        data = fs.readFileSync(file_name).toString();
-    } catch (e) {
-        dbg.log1(`Error accrued while getting the data from ${file_name}: ${e}`);
-        return;
+/**
+ * @param {string} env_key 
+ * @param {string} env_value prefer the caller to send explicit `process.env.KEY` to keep it clear
+ * @param {string} file_name 
+ * @returns string
+ */
+function load_env_or_file(env_key, env_value, file_name) {
+    if (env_value) return env_value;
+    if (file_name) {
+        try {
+            return fs.readFileSync(file_name, 'utf8');
+        } catch (err) {
+            dbg.log1(`config: failed reading optional ${env_key} from ${file_name} - ${err.message} ${err.code} ${err.errno}`);
+        }
     }
-    return data;
+    return '';
 }
 
 load_config_local();

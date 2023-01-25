@@ -874,9 +874,15 @@ class RPC extends EventEmitter {
      */
     async register_tcp_transport(port, tls_options) {
         dbg.log0('RPC register_tcp_transport');
+        const tcp_server = this.create_tcp_server(port, tls_options);
+        await tcp_server.listen(port);
+        return tcp_server;
+    }
+
+    create_tcp_server(port, tls_options) {
+        dbg.log0('RPC create_tcp_server');
         const tcp_server = new RpcTcpServer(tls_options);
         tcp_server.on('connection', conn => this._accept_new_connection(conn));
-        await tcp_server.listen(port);
         return tcp_server;
     }
 

@@ -32,7 +32,7 @@ const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT)
 
 const chunk_read_cache = new LRUCache({
     name: 'ChunkReadCache',
-    max_usage: 256 * 1024 * 1024, // 128 MB
+    max_usage: config.IO_CHUNK_READ_CACHE_SIZE,
 
     /**
      * @param {Buffer} data

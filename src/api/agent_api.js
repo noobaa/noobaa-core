@@ -57,6 +57,9 @@ module.exports = {
                     base_address: {
                         type: 'string'
                     },
+                    rpc_port: {
+                        type: 'string'
+                    },
                     rpc_address: {
                         type: 'string'
                     },

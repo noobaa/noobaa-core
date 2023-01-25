@@ -100,7 +100,7 @@ class ObjectReadable extends stream.Readable {
     // and avoid more reads made by buffering
     // which can cause many MB of unneeded reads
     close() {
-        this.closed = true;
+        this.close_requested = true;
     }
 }
 
@@ -493,6 +493,9 @@ class ObjectIO {
                 complete_params.size += chunk.size;
                 complete_params.num_parts += 1;
                 dbg.log0('UPLOAD: part', part.start, chunk);
+                if (chunk.size > config.MAX_OBJECT_PART_SIZE) {
+                    throw new Error(`Chunk size (${chunk.size}) exceeds MAX_OBJECT_PART_SIZE (${config.MAX_OBJECT_PART_SIZE})`);
+                }
                 return chunk;
             });
             const mc = new MapClient({
@@ -566,7 +569,7 @@ class ObjectIO {
         params.start = Number(params.start) || 0;
         params.end = params.end === undefined ? params.object_md.size : Math.min(params.end, params.object_md.size);
         const reader = new ObjectReadable(params.start, requested_size => {
-            if (reader.closed) {
+            if (reader.closed || reader.close_requested) {
                 dbg.log1('READ reader closed', reader.pos);
                 reader.push(null);
                 return;

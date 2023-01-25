@@ -22,8 +22,8 @@ if (argv.presign && !_.isNumber(argv.presign)) {
     argv.presign = 3600;
 }
 
-if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
+if (argv.endpoint === true) {
+    argv.endpoint = 'http://localhost';
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
     argv.bucket = argv.bucket || 'first.bucket';
@@ -445,14 +445,14 @@ function get_object() {
 
         s3.getObject(params)
             .createReadStream()
+            .on('error', on_finish)
             .pipe(new stream.Transform({
                 transform: function(buf, encoding, callback) {
                     speedometer.update(buf.length);
                     callback();
                 }
             }))
-            .on('finish', on_finish)
-            .on('error', on_finish);
+            .on('finish', on_finish);
     });
 }
 

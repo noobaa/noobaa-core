@@ -17,6 +17,7 @@ const ip_module = require('ip');
 
 const dbg = require('../util/debug_module')(__filename);
 const stun = require('./stun');
+const config = require('../../config');
 const js_utils = require('../util/js_utils');
 const url_utils = require('../util/url_utils');
 const FrameStream = require('../util/frame_stream');
@@ -39,7 +40,8 @@ const RAND_ICE_CHAR_POOL_64 =
     '0123456789+/';
 
 const ICE_FRAME_CONFIG = {
-    magic: 'ICEmagic'
+    magic: 'ICEmagic',
+    max_len: config.MAX_OBJECT_PART_SIZE,
 };
 const ICE_FRAME_STUN_MSG_TYPE = 1;
 

@@ -214,6 +214,7 @@ class NodesMonitor extends EventEmitter {
         this._started = true;
         this.n2n_rpc.set_disconnected_state(false);
         await this._load_from_store();
+        await system_store.load();
 
         // initialize nodes stats in prometheus
         if (config.PROMETHEUS_ENABLED && system_store.data.systems[0]) {
@@ -1308,10 +1309,11 @@ class NodesMonitor extends EventEmitter {
 
         try {
             const system = system_store.data.get_by_id(item.node.system);
-            const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
+            const rpc_proto = config.AGENT_RPC_PROTOCOL;
+            const rpc_port = item.agent_info.rpc_port || config.AGENT_RPC_PORT;
             const rpc_address = rpc_proto === 'n2n' ?
-                'n2n://' + item.node.peer_id :
-                rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 9999);
+                `n2n://${item.node.peer_id}` :
+                `${rpc_proto}://${item.node.ip}:${rpc_port}`;
             const rpc_config = {};
             if (rpc_address !== item.agent_info.rpc_address) {
                 rpc_config.rpc_address = rpc_address;
@@ -1467,14 +1469,14 @@ class NodesMonitor extends EventEmitter {
     }
 
 
-    _test_network_to_server(item) {
+    async _test_network_to_server(item) {
         if (!item.connection) return;
         if (!item.node.rpc_address) return;
 
-        const start = Date.now();
-
-        dbg.log1('_test_network_to_server::', item.node.name);
-        return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
+        try {
+            const start = Date.now();
+            dbg.log1('_test_network_to_server::', item.node.name);
+            const req = await P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
                 this.n2n_client.agent.test_network_perf({
                     source: this.n2n_agent.rpc_address,
                     target: item.node.rpc_address,
@@ -1483,27 +1485,26 @@ class NodesMonitor extends EventEmitter {
                     address: item.node.rpc_address,
                     return_rpc_req: true // we want to check req.connection
                 })
-            )
-            .then(req => {
-                var took = Date.now() - start;
-                this._set_need_update.add(item);
-                item.node.latency_to_server = js_utils.array_push_keep_latest(
-                    item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
-                dbg.log1('_test_network_to_server:: Succeeded in sending n2n rpc to ',
-                    item.node.name, 'took', took);
-                req.connection.close();
+            );
 
-                if (item.gateway_errors &&
-                    Date.now() - item.gateway_errors > config.NODE_IO_DETENTION_THRESHOLD) {
-                    item.gateway_errors = 0;
-                }
-            })
-            .catch(err => {
-                if (!item.gateway_errors) {
-                    dbg.error('_test_network_to_server:: node has gateway_errors', item.node.name, err);
-                    item.gateway_errors = Date.now();
-                }
-            });
+            const took = Date.now() - start;
+            this._set_need_update.add(item);
+            item.node.latency_to_server = js_utils.array_push_keep_latest(
+                item.node.latency_to_server, [took], MAX_NUM_LATENCIES);
+            dbg.log1('_test_network_to_server:: Succeeded in sending n2n rpc to ',
+                item.node.name, 'took', took);
+            req.connection.close();
+
+            if (item.gateway_errors &&
+                Date.now() - item.gateway_errors > config.NODE_IO_DETENTION_THRESHOLD) {
+                item.gateway_errors = 0;
+            }
+        } catch (err) {
+            if (!item.gateway_errors) {
+                dbg.error('_test_network_to_server:: node has gateway_errors', item.node.name, err);
+                item.gateway_errors = Date.now();
+            }
+        }
     }
 
 
@@ -3627,7 +3628,7 @@ class NodesMonitor extends EventEmitter {
             unavailable_used = nb_used;
         }
 
-        //console.log('GGG _node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
+        //console.log('_node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
 
         return size_utils.to_bigint_storage({
             total: disk_total,

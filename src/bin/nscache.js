@@ -1,6 +1,8 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+require('../util/dotenv').load();
+
 const util = require('util');
 const minimist = require('minimist');
 

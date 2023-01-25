@@ -1,16 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-// let P = require('../util/promise');
-let net = require('net');
-let tls = require('tls');
-let RpcBaseConnection = require('./rpc_base_conn');
-let FrameStream = require('../util/frame_stream');
-// let dbg = require('../util/debug_module')(__filename);
+const net = require('net');
+const tls = require('tls');
+
+// const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
+const FrameStream = require('../util/frame_stream');
+const RpcBaseConnection = require('./rpc_base_conn');
 
 const TCP_FRAME_CONFIG = {
-    magic: 'TCPmagic'
+    magic: 'TCPmagic',
+    max_len: config.MAX_OBJECT_PART_SIZE,
 };
 
 

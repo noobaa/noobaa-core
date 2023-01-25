@@ -353,7 +353,6 @@ coretest.describe_mapper_test_case({
             const frags = chunk.frags;
             const part = chunk.parts[0];
             const { start, end } = part;
-            // coretest.log(`TODO GGG READ PART pos=${pos}`, JSON.stringify(part));
             assert.strictEqual(start, pos);
             pos = end;
             assert.strictEqual(frags.length, total_frags);

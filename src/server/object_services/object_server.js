@@ -1972,9 +1972,6 @@ async function _complete_object_multiparts(obj, multipart_req) {
     dbg.log1('_complete_object_multiparts:', obj, 'size', context.pos,
         'num_parts', context.num_parts, 'multipart_etag', multipart_etag);
 
-    // for (const mp of unused_multiparts) dbg.log1('TODO GGG DELETE UNUSED MULTIPART', JSON.stringify(mp));
-    // for (const part of unused_parts) dbg.log1('TODO GGG DELETE UNUSED PART', JSON.stringify(part));
-
     await Promise.all([
         context.parts_updates.length && MDStore.instance().update_parts_in_bulk(context.parts_updates),
         used_multiparts_ids.length && MDStore.instance().update_multiparts_by_ids(used_multiparts_ids, undefined, { uncommitted: 1 }),

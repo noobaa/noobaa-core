@@ -443,7 +443,8 @@ function _authorize_jwt_token(req) {
     try {
         req.auth = jwt_utils.authorize_jwt_token(req.auth_token);
     } catch (err) {
-        dbg.error('AUTH JWT VERIFY FAILED', req, err);
+        const err_info = { ...req, connection: 'tldr', api: 'tldr', method_api: 'tldr' };
+        dbg.error('AUTH JWT VERIFY FAILED', err_info, err);
         throw new RpcError('UNAUTHORIZED', 'verify auth failed');
     }
 }

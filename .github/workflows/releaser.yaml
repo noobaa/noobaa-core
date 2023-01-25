@@ -17,6 +17,7 @@ permissions:
 jobs:
   releaser:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Set branch
         run: echo "BRANCH=${{ github.event.inputs.base_branch }}" >> $GITHUB_ENV

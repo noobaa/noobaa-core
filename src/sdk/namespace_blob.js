@@ -207,19 +207,19 @@ class NamespaceBlob {
                 if (!res.readableStreamBody) throw new Error('NamespaceBlob.read_object_stream: download response is invalid');
                 return resolve(res.readableStreamBody.pipe(count_stream));
             }).catch(err => {
-                    this._translate_error_code(err);
-                    dbg.warn('NamespaceBlob.read_object_stream:',
-                        this.container,
-                        inspect(_.omit(params, 'object_md.ns')),
-                        'callback err', inspect(err)
-                    );
-                    try {
-                        count_stream.emit('error', err);
-                    } catch (err2) {
-                        // ignore, only needed if there is no error listeners
-                    }
-                    return reject(err);
+                this._translate_error_code(err);
+                dbg.warn('NamespaceBlob.read_object_stream:',
+                    this.container,
+                    inspect(_.omit(params, 'object_md.ns')),
+                    'callback err', inspect(err)
+                );
+                try {
+                    count_stream.emit('error', err);
+                } catch (err2) {
+                    // ignore, only needed if there is no error listeners
                 }
+                return reject(err);
+            }
 
             );
         });
@@ -270,8 +270,8 @@ class NamespaceBlob {
                     new_stream.pipe(count_stream),
                     params.size,
                     undefined, {
-                        metadata: params.xattr,
-                        blobHTTPHeaders: headers
+                    metadata: params.xattr,
+                    blobHTTPHeaders: headers
                     }
                 );
                 obj.contentMD5 = md5_buf();
@@ -373,7 +373,7 @@ class NamespaceBlob {
         let upload;
         if (params.xattr && Object.keys(params.xattr).length > 0) {
             try {
-                this._check_valid_xattr(params);
+                params = this._check_valid_xattr(params);
                 upload = await object_sdk.rpc_client.object.create_object_upload(params);
                 dbg.log0('NamespaceBlob: creating multipart upload object md', inspect(params), upload.obj_id);
             } catch (err) {
@@ -395,6 +395,16 @@ class NamespaceBlob {
     }
 
     _check_valid_xattr(params) {
+
+        const xattr = params.xattr;
+        for (const xattrKey in xattr) {
+            const tmp = xattrKey.replace(/-/g, '_');
+            const tmp2 = xattr[xattrKey];
+            delete xattr[xattrKey];
+            xattr[tmp] = tmp2;
+        }
+        params.xattr = xattr;
+
         // This md validation check is a part of namespace blob because but Azure Blob 
         // accepts C# identifiers only but S3 accepts other xattr too.
         const is_invalid_attr = ([key, val]) => !valid_attr_regex.test(key);
@@ -404,6 +414,7 @@ class NamespaceBlob {
             err.rpc_code = 'INVALID_REQUEST';
             throw err;
         }
+        return params;
     }
 
     async upload_multipart(params, object_sdk) {
@@ -612,8 +623,8 @@ class NamespaceBlob {
 
         const res = await P.map_with_concurrency(10, params.objects, obj =>
             this.container_client.deleteBlob(obj.key)
-            .then(() => ({}))
-            .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })));
+                .then(() => ({}))
+                .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })));
 
         dbg.log0('NamespaceBlob.delete_multiple_objects:',
             this.container,
@@ -641,6 +652,14 @@ class NamespaceBlob {
         const xattr = _.extend(obj.metadata, {
             'noobaa-namespace-blob-container': this.container,
         });
+
+        for (const xattrKey in xattr) {
+            const tmp = xattrKey.replace(/_/g, '-');
+            const tmp2 = xattr[xattrKey];
+            delete xattr[xattrKey];
+            xattr[tmp] = tmp2;
+        }
+
         return {
             obj_id: blob_etag,
             bucket,

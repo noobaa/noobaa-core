@@ -268,7 +268,7 @@ class NamespaceBlob {
 
                 obj = await blob_client.uploadStream(
                     new_stream.pipe(count_stream),
-                    params.size,
+                    params.size === 0 ? 1 : params.size,
                     undefined, {
                         metadata: params.xattr,
                         blobHTTPHeaders: headers

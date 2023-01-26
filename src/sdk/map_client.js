@@ -499,6 +499,7 @@ class MapClient {
                 const block_md = block.to_block_md();
                 dbg.log1('read_block:', block._id, 'from', block.address);
 
+                if (!block.address) throw new Error('No block address for node ' + block.node);
                 this._error_injection_on_read();
 
                 const res = await block_store_client.read_block(this.rpc_client, {

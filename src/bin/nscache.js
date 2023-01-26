@@ -33,7 +33,7 @@ Usage:
 const ARGUMENTS = `
 Arguments:
 
-    <endpoint-url>       The remote endpoint to cache (e.g "http://server:8080")
+    <endpoint-url>          The remote S3 endpoint to cache (e.g "http://server:8080")
 `;
 
 const OPTIONS = `
@@ -41,8 +41,8 @@ Options:
 
     --access_key <key>
     --secret_key <key>
-    --http_port <port>     (default 6001)   Set the S3 endpoint listening HTTP port to serve.
-    --https_port <port>    (default 6443)   Set the S3 endpoint listening HTTPS port to serve.
+    --http_port <port>      (default 6001)      Set the S3 endpoint listening HTTP port to serve.
+    --https_port <port>     (default 6443)      Set the S3 endpoint listening HTTPS port to serve.
 `;
 
 const WARNINGS = `
@@ -57,10 +57,10 @@ WARNING:
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(ARGUMENTS.trimLeft());
-    console.warn(OPTIONS.trimLeft());
-    console.warn(WARNINGS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(OPTIONS.trimStart());
+    console.warn(WARNINGS.trimStart());
     process.exit(1);
 }
 

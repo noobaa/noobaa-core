@@ -193,12 +193,17 @@ function new_system_changes(name, owner_account_id) {
     });
     system.master_key_id = m_key._id;
 
-    // const pool = pool_server.new_pool_defaults(default_resource_name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
-    const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
-    const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
-    mongo_pool.mongo_pool_info = {};
+    const default_pool = pool_server.new_pool_defaults('backingstores', system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    default_pool.hosts_pool_info = {
+        is_managed: false,
+        host_count: 0,
+    };
 
-    const default_chunk_config = {
+    // const internal_pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
+    // const mongo_pool = pool_server.new_pool_defaults(internal_pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
+    // mongo_pool.mongo_pool_info = {};
+
+    const regular_chunk_config = {
         _id: system_store.new_system_store_id(),
         system: system._id,
         chunk_coder_config: chunk_config_utils.new_chunk_code_config_defaults(),
@@ -211,9 +216,10 @@ function new_system_changes(name, owner_account_id) {
             parity_frags: config.CHUNK_CODER_EC_PARITY_FRAGS,
         }),
     };
+    const default_chunk_config = config.CHUNK_CODER_EC_IS_DEFAULT ? ec_chunk_config : regular_chunk_config;
     const tier_mirrors = [{
         _id: system_store.new_system_store_id(),
-        spread_pools: [mongo_pool._id]
+        spread_pools: [default_pool._id]
     }];
     const tier = tier_server.new_tier_defaults(
         bucket_with_suffix,
@@ -253,8 +259,8 @@ function new_system_changes(name, owner_account_id) {
             buckets: [bucket],
             tieringpolicies: [policy],
             tiers: [tier],
-            chunk_configs: [default_chunk_config, ec_chunk_config],
-            pools: [mongo_pool],
+            chunk_configs: [regular_chunk_config, ec_chunk_config],
+            pools: [default_pool],
             master_keys: [m_key, first_bucket_m_key]
         }
     };
@@ -346,6 +352,7 @@ async function create_system(req) {
         });
 
         await system_store.make_changes(changes);
+        const default_pool = changes.insert.pools[0];
         const auth = await _create_owner_account(
             name,
             email,
@@ -353,7 +360,7 @@ async function create_system(req) {
             must_change_password,
             account_id,
             system_id,
-            changes.insert.pools[0]._id
+            default_pool._id,
         );
 
         const { token: operator_token } = await server_rpc.client.account.create_account({
@@ -362,6 +369,7 @@ async function create_system(req) {
             has_login: false,
             s3_access: true,
             allow_bucket_creation: true,
+            default_resource: default_pool.name,
             roles: ['operator']
         }, auth);
 

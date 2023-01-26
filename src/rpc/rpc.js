@@ -945,12 +945,10 @@ class RPC extends EventEmitter {
      * register_n2n_proxy
      */
     register_n2n_proxy(proxy_func) {
-        dbg.log0('RPC register_n2n_proxy');
         this.n2n_proxy = proxy_func;
     }
 
     register_routing_authority(resolve_routing_cb) {
-        dbg.log0('RPC register_routing_authority');
         this._routing_authority = resolve_routing_cb;
     }
 

@@ -31,19 +31,21 @@ Help:
 const USAGE = `
 Usage:
 
-    node src/agent/backingstore [options...] <storage-url>
+    node src/agent/backingstore <storage-path> [options...]
 `;
 
 const ARGUMENTS = `
 Arguments:
 
-    <storage-url>       Storage to use (e.g "s3://server:8080" or "data-dir/bucket-name")
+    <storage-path>      Storage dir to use (e.g "data-dir/bucket-name")
 `;
 
 const OPTIONS = `
 Options:
 
-    --address <host:port>     (default wss://localhost:5443)   Set the base core address
+    --port <port>       (default 9999)                   Specified port  to another port for each backingstore
+    --address <url>     (default wss://localhost:5443)   Connect to the base core address
+    --debug <level>     (default 0)                      Increase debug level
 `;
 
 const WARNINGS = `
@@ -69,17 +71,17 @@ async function main(argv = minimist(process.argv.slice(2))) {
             dbg.set_module_level(debug_level, 'core');
             nb_native().fs.set_debug_level(debug_level);
         }
+        const port = String(argv.port || '');
         const address = argv.address || 'wss://localhost:5443';
-        const rpc_port = String(argv.port || '');
-        const storage = argv._[0];
-        if (!storage) print_usage();
-        if (!rpc_port) print_usage();
+        const storage_path = argv._[0];
+        if (!port) print_usage();
+        if (!storage_path) print_usage();
 
         console.warn(WARNINGS);
         console.log('backingstore: setting up ...', argv);
 
-        if (!fs.existsSync(storage)) {
-            console.error(`storage directory not found: ${storage}`);
+        if (!fs.existsSync(storage_path)) {
+            console.error(`storage directory not found: ${storage_path}`);
             print_usage();
         }
 
@@ -88,8 +90,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         await system_store.get_instance().load();
         const get_system = () => system_store.get_instance().data.systems[0];
 
-        const conf_path = path.join(storage, 'agent_conf.json');
-        const token_path = path.join(storage, 'token');
+        const conf_path = path.join(storage_path, 'agent_conf.json');
+        const token_path = path.join(storage_path, 'token');
         const agent_conf = new json_utils.JsonFileWrapper(conf_path);
         if (!fs.existsSync(token_path)) {
             const system = get_system();
@@ -113,15 +115,15 @@ async function main(argv = minimist(process.argv.slice(2))) {
 
         const agent = new Agent({
             rpc: server_rpc.rpc,
-            rpc_port,
+            rpc_port: port,
             address,
             routing_hint: 'LOOPBACK',
-            node_name: storage,
-            host_id: storage,
+            node_name: storage_path,
+            host_id: storage_path,
             location_info: {
-                host_id: storage,
+                host_id: storage_path,
             },
-            storage_path: storage,
+            storage_path,
             storage_limit: undefined,
             agent_conf,
             token_wrapper,

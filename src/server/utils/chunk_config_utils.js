@@ -15,10 +15,11 @@ function new_chunk_code_config_defaults(chunk_coder_config) {
         // omit entries with undefined or 'none' values to disable features
         val => val === undefined || val === 'none');
 
-    if (ccc.parity_frags) {
+    if (ccc.parity_frags || config.CHUNK_CODER_EC_IS_DEFAULT) {
         // Erasure Codes
         ccc.replicas = ccc.replicas || 1;
-        ccc.data_frags = ccc.data_frags || 1;
+        ccc.data_frags = ccc.data_frags || config.CHUNK_CODER_EC_DATA_FRAGS;
+        ccc.parity_frags = ccc.parity_frags || config.CHUNK_CODER_EC_PARITY_FRAGS;
         ccc.parity_type = ccc.parity_type || config.CHUNK_CODER_EC_PARITY_TYPE;
     } else {
         // Data Copies

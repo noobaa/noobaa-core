@@ -95,7 +95,6 @@ async function create_bucket(req) {
         };
 
         const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
-        if (!mongo_pool) throw new RpcError('MONGO_POOL_NOT_FOUND');
         if (req.rpc_params.tiering) {
             tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
         } else if (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.account.default_resource.name]) {
@@ -1223,7 +1222,7 @@ async function update_all_buckets_default_pool(req) {
     const pool = req.system.pools_by_name[pool_name];
     if (!pool) throw new RpcError('INVALID_POOL_NAME');
     const internal_pool = pool_server.get_internal_mongo_pool(pool.system);
-    if (String(pool._id) === String(internal_pool._id)) return;
+    if (internal_pool && String(pool._id) === String(internal_pool._id)) return;
     const buckets_with_internal_pool = _.filter(req.system.buckets_by_name, bucket =>
         is_using_internal_storage(bucket, internal_pool));
     if (!buckets_with_internal_pool.length) return;
@@ -1476,7 +1475,7 @@ function is_using_internal_storage(bucket, internal_pool) {
     if (spread_pools.length !== 1) return false;
 
 
-    return String(spread_pools[0]._id) === String(internal_pool._id);
+    return internal_pool && String(spread_pools[0]._id) === String(internal_pool._id);
 }
 
 function _calc_metrics({

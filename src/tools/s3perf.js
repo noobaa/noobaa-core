@@ -67,8 +67,8 @@ if (argv.help) {
     print_usage();
 }
 
-if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
+if (argv.endpoint === true) {
+    argv.endpoint = 'http://localhost';
     argv.access_key = argv.access_key || '123';
     argv.secret_key = argv.secret_key || 'abc';
     argv.bucket = argv.bucket || 'first.bucket';

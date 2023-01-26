@@ -22,7 +22,7 @@ const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const HELP = `
 Help:
 
-    "nsfs" is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
+    "node src/bin/nsfs" is a core command runs a local S3 endpoint on top of a filesystem.
     Each sub directory of the root filesystem represents an S3 bucket.
     Objects data and meta-data is stored and retrieved from the files.
     For more information refer to the noobaa docs.
@@ -31,7 +31,7 @@ Help:
 const USAGE = `
 Usage:
 
-    noobaa-core nsfs <root-path> [options...]
+    node src/bin/nsfs <root-path> [options...]
 `;
 
 const ARGUMENTS = `
@@ -64,10 +64,10 @@ WARNING:
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(ARGUMENTS.trimLeft());
-    console.warn(OPTIONS.trimLeft());
-    console.warn(WARNINGS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(OPTIONS.trimStart());
+    console.warn(WARNINGS.trimStart());
     process.exit(1);
 }
 

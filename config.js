@@ -284,11 +284,12 @@ config.CHUNK_CODER_COMPRESS_TYPE = process.env.NOOBAA_DISABLE_COMPRESSION === 't
 config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
 
 // ERASURE CODES
-config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_REPLICAS = 1;
+config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'cm256';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
+config.CHUNK_CODER_EC_IS_DEFAULT = false;
 
 //////////////////////////
 // DEDUP INDEXER CONFIG //
@@ -637,7 +638,7 @@ function load_config_local() {
         // eslint-disable-next-line global-require
         const local_config = require('./config-local');
         if (!local_config) return;
-        console.log('load_config_local: LOADED', local_config);
+        // console.log('load_config_local: LOADED', local_config);
         if (typeof local_config === 'function') {
             const local_config_func = /** @type {function} */ (local_config);
             local_config_func(config);

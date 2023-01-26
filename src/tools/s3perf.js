@@ -219,12 +219,12 @@ async function head_object() {
 let objects = [];
 let index = 0;
 async function get_object_key() {
-    if (typeof argv.get === 'string') {
+    if (typeof argv.get === 'string' && !argv.get.endsWith('/')) {
         return argv.get;
     } else {
         if (index === objects.length) {
             const marker = objects[objects.length - 1];
-            let objlist = await s3.listObjects({ Marker: marker }).promise();
+            let objlist = await s3.listObjects({ Prefix: argv.get, Marker: marker }).promise();
             objects = objlist.Contents.map(entry => entry.Key);
             index = 0;
         }

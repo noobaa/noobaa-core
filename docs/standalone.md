@@ -34,7 +34,7 @@ npm run build
 This tool invokes key functions (e.g erasure coding), and should be able to run to completion without failures:
 
 ```sh
-node src/tools/coding_speed.js --ec --md5 --sha256 --encode --erase --decode --size 2000
+node src/tools/coding_speed.js --ec --md5 --encode --erase --decode --size 2000
 ```
 
 ---
@@ -134,11 +134,20 @@ npm run hosted_agents
 
 ### 2. Run endpoints
 
-Run as many endpoints as needed across hosts:
+Running a local endpoint alongside the database and other services is simple:
 
 ```sh
-# TODO set database address when on a remote host
 npm run s3
+```
+
+For remote hosts, need to specify the addresses:
+
+```sh
+POSTGRES_HOST=ip \
+  MGMT_ADDR=wss://ip:5443 \
+  BG_ADDR=wss://ip:5445 \
+  HOSTED_AGENTS_ADDR=wss://ip:5446 \
+  npm run s3
 ```
 
 ---
@@ -171,39 +180,53 @@ find noobaa_storage -name '*.data' -type f -ls
 
 ---
 
-## S3
+## S3 API
 
 ### Get access and secret keys
 
 ```sh
-ACCOUNT_INFO=$(node src/bin/api account_api read_account '{}' --json)
-export AWS_ACCESS_KEY_ID=$(jq -r '.access_keys[0].access_key' <<< $ACCOUNT_INFO)
-export AWS_SECRET_ACCESS_KEY=$(jq -r '.access_keys[0].secret_key' <<< $ACCOUNT_INFO)
+export AWS_ACCESS_KEY_ID=$(node src/bin/api account_api read_account '{}' --json | jq -r '.access_keys[0].access_key')
+export AWS_SECRET_ACCESS_KEY=$(node src/bin/api account_api read_account '{}' --json | jq -r '.access_keys[0].secret_key')
 ```
 
-### Run s3cat/s3perf tools
+### Listing
 
 ```sh
 node src/tools/s3cat --endpoint http://localhost:6001
 node src/tools/s3cat --endpoint http://localhost:6001 --bucket first.bucket --ls
-
-# upload a random stream (not from file) requires either sig v3 over http, or sig v4 over https.
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put ggg --size 4096
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4
-node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --put ggg --size 4096
-node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4
-
-# get
-node src/tools/s3cat --endpoint http://localhost:6001 --bucket first.bucket --get ggg
-
-# perf
-node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put s3perf/ggg --concur 4 --size 128 --size_units MB --time 5
-node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get s3perf/ggg --concur 4 --size 128 --size_units MB --time 5
+aws --endpoint http://localhost:6001 s3 ls
+aws --endpoint http://localhost:6001 s3 ls s3://first.bucket
 ```
 
-### Run awscli
+### Create bucket
 
 ```sh
-aws --endpoint http://localhost:6001 s3 ls
-aws --endpoint http://localhost:6001 s3 rm s3://first.bucket/a
+aws --endpoint http://localhost:6001 s3 mb s3://lala
+```
+
+### Read/Write
+
+```sh
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put ggg --size 4096
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get ggg
+```
+
+## Multipart uploads
+
+```sh
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4 
+```
+
+### Perf tools
+
+```sh
+node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put s3perf/ --concur 4 --size 128 --size_units MB --time 5
+node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get s3perf/ --concur 4 --size 128 --size_units MB --time 5
+```
+
+### Using sigv4 for streaming requires https endpoint 6443 (selfsigned)
+
+```sh
+node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --put ggg --size 4096
+node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4
 ```

@@ -387,8 +387,7 @@ class BlockStoreBase {
             const reply = {};
             const delay_ms = 200;
             const data = crypto.randomBytes(1024);
-            const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE && config.CHUNK_CODER_FRAG_DIGEST_TYPE !== 'none' ?
-                config.CHUNK_CODER_FRAG_DIGEST_TYPE : 'sha1';
+            const digest_type = none_to_undefined(config.CHUNK_CODER_FRAG_DIGEST_TYPE) || 'sha1';
             const block_md = {
                 id: '_test_store_perf',
                 digest_type,
@@ -461,6 +460,10 @@ async function test_average_latency(count, delay_ms, async_func) {
         await P.delay(delay_ms * jitter);
     }
     return results;
+}
+
+function none_to_undefined(s) {
+    return s === 'none' ? undefined : s;
 }
 
 // EXPORTS

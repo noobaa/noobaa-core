@@ -57,7 +57,7 @@ util.inherits(Ice, events.EventEmitter);
  * we chose a small subset of the spec to keep it simple,
  * but this module will continue to develop as we encounter more complicated networks.
  *
- * @param config - ICE configuration object with the following properties:
+ * @param configuration - ICE configuration object with the following properties:
  *
  *  ufrag_length: (integer) (optional)
  *      change the default ice credential length
@@ -109,7 +109,7 @@ util.inherits(Ice, events.EventEmitter);
  *      plain JSON for now.
  *
  */
-function Ice(connid, config, signal_target) {
+function Ice(connid, configuration, signal_target) {
     var self = this;
     events.EventEmitter.call(self);
     self.setMaxListeners(100);
@@ -118,7 +118,7 @@ function Ice(connid, config, signal_target) {
     self.connid = connid;
 
     // config object for ICE (see detailed list in the doc above)
-    self.config = config;
+    self.config = configuration;
 
     // to be passed as the target when calling the signaller
     self.signal_target = signal_target;
@@ -144,8 +144,8 @@ function Ice(connid, config, signal_target) {
             self.networks.push(n);
             // for the nodes internal ip - add public_ips as another network interface. take same parameters as internal ip
             if (n.address === ip_module.address() &&
-                config.public_ips.length) {
-                config.public_ips.forEach(ip => {
+                self.config.public_ips.length) {
+                self.config.public_ips.forEach(ip => {
                     if (ip === n.address) return;
                     const public_n = _.clone(n);
                     public_n.address = ip;

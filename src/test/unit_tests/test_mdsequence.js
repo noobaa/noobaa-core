@@ -5,6 +5,7 @@ const mocha = require('mocha');
 const { PostgresClient } = require('../../util/postgres_client');
 const assert = require('assert');
 const { MongoSequence } = require('../../util/mongo_client');
+const config = require('../../../config');
 
 async function get_postgres_client(params) {
     let pgc = new PostgresClient(params);
@@ -13,8 +14,8 @@ async function get_postgres_client(params) {
 }
 
 mocha.describe('mdsequence', function() {
-    if (process.env.DB_TYPE !== 'postgres') {
-        console.log('Skip mdsequence test DB_TYPE', process.env.DB_TYPE);
+    if (config.DB_TYPE !== 'postgres') {
+        console.log('Skip mdsequence test DB_TYPE', config.DB_TYPE);
         return;
     }
 

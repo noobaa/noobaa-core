@@ -13,6 +13,7 @@ const util = require('util');
 const lifecycle = require('../../server/bg_services/lifecycle');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const mongodb = require('mongodb');
+const config = require('../../../config');
 
 const commonTests = require('../lifecycle/common');
 const coretest = require('./coretest');
@@ -129,7 +130,7 @@ mocha.describe('lifecycle', () => {
             /* read_activity_log fails w/postgres
                see https://github.com/noobaa/noobaa-core/runs/5750698669
             */
-            if (process.env.DB_TYPE !== 'postgres') {
+            if (config.DB_TYPE !== 'postgres') {
                 const eventLogs = await rpc_client.events.read_activity_log({limit: 32});
                 console.log('read_activity_log logs: ', util.inspect(eventLogs));
                 const found = eventLogs.logs.find(e => (e.event === 'obj.deleted') && (e.obj.key === key));

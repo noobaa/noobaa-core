@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 700]*/
+/*eslint max-lines-per-function: ["error", 900]*/
 'use strict';
 
 
@@ -232,11 +232,118 @@ mocha.describe('namespace_fs', function() {
         });
     });
 
+    mocha.describe('List-objects', function() {
+        const nsr = 'noobaa-nsr';
+        const bucket_name = 'noobaa-bucket';
+        let tmp_fs_root = '/tmp/test_namespace_fs_list_objects';
+        if (process.platform === MAC_PLATFORM) {
+            tmp_fs_root = '/private/' + tmp_fs_root;
+        }
+        const bucket_path = '/bucket';
+        const full_path = tmp_fs_root + bucket_path;
+        const version_dir = '/.versions';
+        const full_path_version_dir = full_path + `${version_dir}`;
+        const dir1 = full_path + '/dir1';
+        const dir1_version_dir = dir1 + `${version_dir}`;
+        const dir2 = full_path + '/dir2';
+        const dir2_version_dir = dir2 + `${version_dir}`;
+        let s3_client;
+        let s3_admin;
+        let accounts = [];
+        const key = 'key';
+        const body = 'AAAA';
+        const version_key = 'version_key';
+        const version_body = 'A1A1A1A';
+
+        mocha.before(async function() {
+            if (process.getgid() !== 0 || process.getuid() !== 0) {
+                console.log('No Root permissions found in env. Skipping test');
+                this.skip(); // eslint-disable-line no-invalid-this
+            }
+            // create paths
+            await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+            await fs_utils.create_fresh_path(full_path, 0o770);
+            await fs_utils.file_must_exist(full_path);
+            await fs_utils.create_fresh_path(full_path_version_dir, 0o770);
+            await fs_utils.file_must_exist(full_path_version_dir);
+            await fs_utils.create_fresh_path(dir1, 0o770);
+            await fs_utils.file_must_exist(dir1);
+            await fs_utils.create_fresh_path(dir1_version_dir, 0o770);
+            await fs_utils.file_must_exist(dir1_version_dir);
+            await fs_utils.create_fresh_path(dir2, 0o770);
+            await fs_utils.file_must_exist(dir2);
+            await fs_utils.create_fresh_path(dir2_version_dir, 0o770);
+            await fs_utils.file_must_exist(dir2_version_dir);
+            // export dir as a bucket
+            await rpc_client.pool.create_namespace_resource({
+                name: nsr,
+                nsfs_config: {
+                    fs_root_path: tmp_fs_root,
+                }
+            });
+            const obj_nsr = { resource: nsr, path: bucket_path };
+            await rpc_client.bucket.create_bucket({
+                name: bucket_name,
+                namespace: {
+                    read_resources: [obj_nsr],
+                    write_resource: obj_nsr
+                }
+            });
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-1',
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:*'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+            };
+            // create accounts
+            let res = await nsfs_versioning.generate_nsfs_account({ admin: true });
+            s3_admin = nsfs_versioning.generate_s3_client(res.access_key, res.secret_key);
+            await s3_admin.putBucketPolicy({
+                Bucket: bucket_name,
+                Policy: JSON.stringify(policy)
+            }).promise();
+            // create nsfs account
+            res = await nsfs_versioning.generate_nsfs_account();
+            s3_client = nsfs_versioning.generate_s3_client(res.access_key, res.secret_key);
+            accounts.push(res.email);
+            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+            assert.equal(bucket_ver.Status, 'Enabled');
+            await create_object(`${full_path}/${key}`, body, 'null');
+            await create_object(`${full_path_version_dir}/${version_key}`, version_body, 'null');
+            await create_object(`${dir1}/${key}`, body, 'null');
+            await create_object(`${dir1_version_dir}/${version_key}`, version_body, 'null');
+            await create_object(`${dir2}/${key}`, body, 'null');
+            await create_object(`${dir1_version_dir}/${version_key}`, version_body, 'null');
+        });
+
+        mocha.after(async () => {
+            fs_utils.folder_delete(tmp_fs_root);
+            for (let email of accounts) {
+                await rpc_client.account.delete_account({ email });
+            }
+        });
+
+        mocha.it('list objects - should return only latest object', async function() {
+            const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+            res.Contents.forEach(val => {
+                if (val.Key.includes('version') === true) {
+                    assert.fail('Not Expected: list objects returned contents fo .version dir');
+                }
+            });
+        });
+    });
+
     mocha.describe('Get/Head object', function() {
         const nsr = 'get-head-versioned-nsr';
         const bucket_name = 'get-head-versioned-bucket';
         const disabled_bucket_name = 'get-head-disabled-bucket';
-        let tmp_fs_root = '/tmp/test_namespace_fs_get_head';
+        let tmp_fs_root = '/tmp/test_namespace_fs_get_objects';
         if (process.platform === MAC_PLATFORM) {
             tmp_fs_root = '/private/' + tmp_fs_root;
         }

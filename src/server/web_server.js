@@ -300,7 +300,7 @@ function _create_nsfs_report() {
     const nsfs_counters = stats_aggregator.get_nsfs_io_stats();
     // Building the report per io and value
     for (const [key, value] of Object.entries(nsfs_counters)) {
-        const metric = `NooBaa_nsfs_${key}`.toLowerCase();
+        const metric = `noobaa_nsfs_io_${key}`.toLowerCase();
         nsfs_report += `${metric}: ${value}<br>`;
     }
 
@@ -309,7 +309,7 @@ function _create_nsfs_report() {
     for (const [op_name, obj] of Object.entries(op_stats)) {
         nsfs_report += `<br>`;
         for (const [key, value] of Object.entries(obj)) {
-            const metric = `NooBaa_nsfs_${op_name}_${key}`.toLowerCase();
+            const metric = `noobaa_nsfs_op_${op_name}_${key}`.toLowerCase();
             nsfs_report += `${metric}: ${value}<br>`;
         }
     }
@@ -319,7 +319,7 @@ function _create_nsfs_report() {
     for (const [fs_worker_name, obj] of Object.entries(fs_workers_stats)) {
         nsfs_report += `<br>`;
         for (const [key, value] of Object.entries(obj)) {
-            const metric = `NooBaa_nsfs_${fs_worker_name}_${key}`.toLowerCase();
+            const metric = `noobaa_nsfs_fs_${fs_worker_name}_${key}`.toLowerCase();
             nsfs_report += `${metric}: ${value}<br>`;
         }
     }

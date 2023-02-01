@@ -47,7 +47,7 @@ let last_partial_stats_requested = 0;
 const PARTIAL_STATS_REQUESTED_GRACE_TIME = 30 * 1000;
 
 // Will hold the nsfs counters/metrics
-let nsfs_io_counters = _new_nsfs_stats();
+let nsfs_io_counters = _new_namespace_nsfs_stats();
 // Will hold the op stats (op name, min/max/avg time, count, error count)
 let op_stats = {};
 let fs_workers_stats = {};
@@ -1344,23 +1344,19 @@ function _set_fs_workers_stats(fsworker_name, stats) {
     }
 }
 
-function _new_nsfs_stats() {
+function _new_namespace_nsfs_stats() {
     return {
         read_count: 0,
         write_count: 0,
         read_bytes: 0,
         write_bytes: 0,
-        error_write_bytes: 0,
-        error_write_count: 0,
-        error_read_bytes: 0,
-        error_read_count: 0,
     };
 }
 
 // Will return the current nsfs_io_counters and reset it.
 function get_nsfs_io_stats() {
     const nsfs_io_stats = nsfs_io_counters;
-    nsfs_io_counters = _new_nsfs_stats();
+    nsfs_io_counters = _new_namespace_nsfs_stats();
     return nsfs_io_stats;
 }
 

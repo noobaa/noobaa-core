@@ -32,12 +32,12 @@ jobs:
           node-version-file: .nvmrc
       - name: Release NooBaa Core Image
         env:
-          GITHUB_TOKEN: ${{ secrets.GHACTION_GH_PAT }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-          OCI_ORG: ${{ secrets.OCI_ORG }}
+          GITHUB_TOKEN: ${{ secrets.GHACCESSTOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.GHACTIONSDOCKERHUB }}
+          QUAY_USERNAME: ${{ secrets.GHACTIONQUAYNAME }}
+          QUAY_TOKEN: ${{ secrets.GHACTIONQUAYTOKEN }}
+          OCI_ORG: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
           BASE_BRANCH: "${{ github.event.inputs.base_branch }}"
         run: |
           git config --global user.email "github-action@noobaa.io"

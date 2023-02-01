@@ -384,7 +384,7 @@ class NamespaceBlob {
         }
         // obj_id contains the upload obj_id that is stored in db OR  obj_id contains a random string of bytes
         // using the first option when need to store xattr and set it after complete multipart upload phase  
-        const obj_id = upload ? Buffer.from(upload.obj_id).toString('base64') : crypto.randomBytes(24).toString('base64');
+        const obj_id = upload ? Buffer.from(upload.obj_id).toString('hex') : crypto.randomBytes(24).toString('hex');
 
         dbg.log0('NamespaceBlob.create_object_upload:',
             this.container,
@@ -550,7 +550,7 @@ class NamespaceBlob {
             'obj', inspect(obj)
         );
 
-        const obj_id = Buffer.from(params.obj_id, 'base64').toString();
+        const obj_id = Buffer.from(params.obj_id, 'hex').toString();
         if (schema_utils.is_object_id(obj_id)) {
             let obj_md = await object_sdk.rpc_client.object.read_object_md({
                 obj_id,

@@ -44,7 +44,7 @@ class EndpointStatsCollector {
         this.op_stats = {};
         this.fs_workers_stats = {};
         this.reset_all_stats();
-        this.nsfs_io_counters = this._new_namespace_stats();
+        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
         this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
@@ -59,7 +59,7 @@ class EndpointStatsCollector {
     }
 
     reset_all_nsfs_stats() {
-        this.nsfs_io_counters = this._new_namespace_stats();
+        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
         this.op_stats = {};
         this.fs_workers_stats = {};
     }
@@ -112,6 +112,15 @@ class EndpointStatsCollector {
             error_write_count: 0,
             error_read_bytes: 0,
             error_read_count: 0,
+        };
+    }
+
+    _new_namespace_nsfs_stats() {
+        return {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
         };
     }
 
@@ -218,8 +227,9 @@ class EndpointStatsCollector {
 
     update_nsfs_read_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_io_counters.error_read_count += count;
-            this.nsfs_io_counters.error_read_bytes += size;
+            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
+            // this.nsfs_io_counters.error_read_count += count;
+            // this.nsfs_io_counters.error_read_bytes += size;
         } else {
             this.nsfs_io_counters.read_count += count;
             this.nsfs_io_counters.read_bytes += size;
@@ -233,8 +243,9 @@ class EndpointStatsCollector {
 
     update_nsfs_write_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_io_counters.error_write_count += count;
-            this.nsfs_io_counters.error_write_bytes += size;
+            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
+            // this.nsfs_io_counters.error_write_count += count;
+            // this.nsfs_io_counters.error_write_bytes += size;
         } else {
             this.nsfs_io_counters.write_count += count;
             this.nsfs_io_counters.write_bytes += size;

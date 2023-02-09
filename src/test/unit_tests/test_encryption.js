@@ -1258,7 +1258,7 @@ function is_pool_of_account(pool_or_ns_obj, pool_or_ns, account_id, account_s3_c
     return ans;
 }
 
-async function unpopulate_system(rpc_client, accounts, buckets) {
+async function unpopulate_system(rpc_client, accounts = [], buckets = []) {
     // delete objects from all buckets
     await P.all(_.map(buckets, async cur_bucket => {
         const key = `key-${cur_bucket.bucket_name}`;

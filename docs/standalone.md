@@ -41,7 +41,9 @@ node src/tools/coding_speed.js --ec --md5 --encode --erase --decode --size 2000
 
 ## DATABASE
 
-Currently noobaa uses postgres 12 from the docker image centos/postgresql-12-centos7.
+Currently noobaa uses postgres 12 from the docker image `centos/postgresql-12-centos7`.
+- On Linux - `dnf install postgresql12 postgresql12-server` (might require yum repos)
+- On MacOS - `brew install postgresql@12`
 
 ### 1. Init database directory
 

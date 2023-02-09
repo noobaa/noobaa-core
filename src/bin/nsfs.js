@@ -151,17 +151,16 @@ function init_request_sdk(req, res, fs_root, fs_config, versioning) {
     object_sdk.read_bucket_sdk_caching_info = noop;
     object_sdk.read_bucket_sdk_policy_info = async bucket_name => ({
         s3_policy: {
-                version: '2012-10-17',
-                statement: [
-                {
-                    effect: 'allow',
-                    action: [ 's3:*' ],
-                    principal: [ new SensitiveString('*')],
-                    resource: [ `arn:aws:s3:::${bucket_name}/*` ]
-                }]
+            version: '2012-10-17',
+            statement: [{
+                effect: 'allow',
+                action: ['*'],
+                resource: ['*'],
+                principal: [new SensitiveString('*')],
+            }]
         },
-        system_owner: undefined,
-        bucket_owner: undefined,
+        system_owner: new SensitiveString('nsfs'),
+        bucket_owner: new SensitiveString('nsfs'),
     });
     object_sdk.read_bucket_usage_info = noop;
     object_sdk.requesting_account = {

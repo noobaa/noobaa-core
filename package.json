@@ -1,11 +1,12 @@
 {
   "name": "noobaa-core",
   "version": "5.13.0",
+  "engines": { "node": "18.12.1" },
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "description": "",
-  "main": "src/bin/nsfs",
-  "bin": "src/bin/nsfs",
+  "main": "src/bin/nsfs.js",
+  "bin": "src/bin/nsfs.js",
   "config": {
     "covdir": "coverage"
   },

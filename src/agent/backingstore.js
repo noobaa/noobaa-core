@@ -18,7 +18,6 @@ const fs_utils = require('../util/fs_utils');
 const db_client = require('../util/db_client');
 const nb_native = require('../util/nb_native');
 const json_utils = require('../util/json_utils');
-const server_rpc = require('../server/server_rpc');
 const auth_server = require('../server/common_services/auth_server');
 
 const HELP = `
@@ -86,7 +85,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
 
         await db_client.instance().connect();
-        server_rpc.register_common_services();
         await system_store.get_instance().load();
         const get_system = () => system_store.get_instance().data.systems[0];
 
@@ -114,10 +112,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         };
 
         const agent = new Agent({
-            rpc: server_rpc.rpc,
-            rpc_port: port,
             address,
-            routing_hint: 'LOOPBACK',
+            rpc_port: port,
             node_name: storage_path,
             host_id: storage_path,
             location_info: {

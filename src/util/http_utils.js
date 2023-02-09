@@ -411,7 +411,7 @@ function get_unsecured_agent(endpoint) {
     const is_aws_address = cloud_utils.is_aws_endpoint(endpoint);
     const hostname = url.parse(endpoint) ? url.parse(endpoint).hostname : endpoint;
     const is_localhost = _.isString(hostname) && hostname.toLowerCase() === 'localhost';
-    return _get_http_agent(endpoint, is_localhost || (!is_aws_address && _.isEmpty(NODE_EXTRA_CA_CERTS)));
+    return _get_http_agent(endpoint, is_localhost || !is_aws_address);
 }
 
 function _get_http_agent(endpoint, request_unsecured) {

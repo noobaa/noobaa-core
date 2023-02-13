@@ -1416,7 +1416,8 @@ module.exports = {
                                     prefix: { type: 'string' },
                                     // s3 support also tag or and operator of 2 tags/ tag and prefix 
                                 }
-                            }
+                            },
+                            sync_deletions: { type: 'boolean' },
                         }
                     }
                 },

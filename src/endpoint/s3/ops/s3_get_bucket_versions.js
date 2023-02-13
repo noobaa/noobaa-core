@@ -17,6 +17,11 @@ async function get_bucket_versions(req) {
         throw new S3Error(S3Error.InvalidArgument);
     }
 
+    if (req.query['version-id-marker'] && !req.query['key-marker']) {
+        dbg.warn('A version-id marker cannot be specified without a key marker');
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+
     const reply = await req.object_sdk.list_object_versions({
         bucket: req.params.bucket,
         prefix: req.query.prefix,

@@ -11,7 +11,11 @@ const prom_report = require('../server/analytic_services/prometheus_reporting');
 
 // 30 seconds delay between reports
 const SEND_STATS_DELAY = 30000;
+// 10 seconds delay between nsfs reports
+const SEND_NSFS_STATS_DELAY = 10000;
+// 20 seconds timeout for sending reports
 const SEND_STATS_TIMEOUT = 20000;
+const SEND_STATS_MAX_RETRIES = 3;
 
 let global_fs_stats = {};
 
@@ -40,7 +44,7 @@ class EndpointStatsCollector {
         this.op_stats = {};
         this.fs_workers_stats = {};
         this.reset_all_stats();
-        this.nsfs_io_counters = this._new_namespace_stats();
+        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
         this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
@@ -54,13 +58,15 @@ class EndpointStatsCollector {
         this.bucket_counters = {};
     }
 
-    async _send_stats() {
-        await P.all([this._send_endpoint_stats(), this._send_nsfs_stats()]);
+    reset_all_nsfs_stats() {
+        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
+        this.op_stats = {};
+        this.fs_workers_stats = {};
     }
 
     async _send_endpoint_stats() {
         await P.delay_unblocking(SEND_STATS_DELAY);
-        // clear this.send_stats to allow new updates to trigger another _send_stats
+        // clear this.send_stats to allow new updates to trigger another _send_endpoint_stats
         this.send_stats = null;
         try {
             await this.rpc_client.object.update_endpoint_stats(this.get_all_stats(), {
@@ -68,14 +74,14 @@ class EndpointStatsCollector {
             });
             this.reset_all_stats();
         } catch (err) {
-            // if update fails trigger _send_stats again
-            dbg.error('failed on update_endpoint_stats. trigger_send_stats again', err);
-            this._trigger_send_stats();
+            // if update fails trigger _send_endpoint_stats again
+            dbg.error('failed on update_endpoint_stats. trigger _send_endpoint_stats again', err);
+            this._trigger_send_endpoint_stats();
         }
     }
 
-    // _send_nsfs_stats will not retry update_nsfs_stats, We can send it in the next iteration.
-    async _send_nsfs_stats() {
+    async _send_nsfs_stats(attempts) {
+        await P.delay_unblocking(SEND_NSFS_STATS_DELAY);
         const _nsfs_stats = {
             nsfs_stats: {
                 io_stats: this.nsfs_io_counters,
@@ -83,15 +89,16 @@ class EndpointStatsCollector {
                 fs_workers_stats: this.fs_workers_stats,
             }
         };
+        // clear this.send_nsfs_stats to allow new updates to trigger another _send_nsfs_stats
+        this.send_nsfs_stats = null;
         try {
             await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
                 timeout: SEND_STATS_TIMEOUT
             });
-            this.nsfs_io_counters = this._new_namespace_stats();
-            this.op_stats = {};
-            this.fs_workers_stats = {};
+            this.reset_all_nsfs_stats();
         } catch (err) {
-            dbg.error('failed on update_nsfs_stats.', err);
+            dbg.error('failed on update_nsfs_stats. trigger _send_nsfs_stats again', err);
+            this._trigger_send_nsfs_stats(attempts);
         }
     }
 
@@ -108,6 +115,15 @@ class EndpointStatsCollector {
         };
     }
 
+    _new_namespace_nsfs_stats() {
+        return {
+            read_count: 0,
+            write_count: 0,
+            read_bytes: 0,
+            write_bytes: 0,
+        };
+    }
+
     update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
         this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
         const io_stats = this.namespace_stats[namespace_resource_id];
@@ -121,7 +137,7 @@ class EndpointStatsCollector {
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
         }
-        this._trigger_send_stats();
+        this._trigger_send_endpoint_stats();
     }
 
     update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
@@ -137,7 +153,7 @@ class EndpointStatsCollector {
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
         }
-        this._trigger_send_stats();
+        this._trigger_send_endpoint_stats();
     }
 
     _update_bucket_counter({ bucket_name, key, content_type, counter_key }) {
@@ -153,7 +169,7 @@ class EndpointStatsCollector {
         counter[counter_key] += 1;
     }
 
-    update_ops_counters({ time, op_name, error = 0 }) {
+    update_ops_counters({ time, op_name, error = 0, trigger_send = true }) {
         this._update_fs_worker_stats();
         this.op_stats[op_name] = this.op_stats[op_name] || {
             min_time: time,
@@ -170,7 +186,8 @@ class EndpointStatsCollector {
         }
         ops_stats.count += 1;
         ops_stats.error_count += error;
-        this._trigger_send_stats();
+        //for ops that we want to collect metrics but avoid sending it (upload part for example).
+        if (trigger_send) this._trigger_send_nsfs_stats(0);
     }
 
     _update_fs_worker_stats() {
@@ -195,12 +212,12 @@ class EndpointStatsCollector {
 
     update_bucket_read_counters({ bucket_name, key, content_type, }) {
         this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'read_count' });
-        this._trigger_send_stats();
+        this._trigger_send_endpoint_stats();
     }
 
     update_bucket_write_counters({ bucket_name, key, content_type, }) {
         this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'write_count' });
-        this._trigger_send_stats();
+        this._trigger_send_endpoint_stats();
     }
 
     update_nsfs_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
@@ -210,8 +227,9 @@ class EndpointStatsCollector {
 
     update_nsfs_read_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_io_counters.error_read_count += count;
-            this.nsfs_io_counters.error_read_bytes += size;
+            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
+            // this.nsfs_io_counters.error_read_count += count;
+            // this.nsfs_io_counters.error_read_bytes += size;
         } else {
             this.nsfs_io_counters.read_count += count;
             this.nsfs_io_counters.read_bytes += size;
@@ -225,8 +243,9 @@ class EndpointStatsCollector {
 
     update_nsfs_write_counters({ size = 0, count = 0, is_err }) {
         if (is_err) {
-            this.nsfs_io_counters.error_write_count += count;
-            this.nsfs_io_counters.error_write_bytes += size;
+            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
+            // this.nsfs_io_counters.error_write_count += count;
+            // this.nsfs_io_counters.error_write_bytes += size;
         } else {
             this.nsfs_io_counters.write_count += count;
             this.nsfs_io_counters.write_bytes += size;
@@ -281,9 +300,17 @@ class EndpointStatsCollector {
         };
     }
 
-    _trigger_send_stats() {
+    _trigger_send_endpoint_stats() {
         if (!this.send_stats) {
-            this.send_stats = this._send_stats();
+            this.send_stats = this._send_endpoint_stats();
+        }
+    }
+
+    _trigger_send_nsfs_stats(attempts) {
+        if (attempts > SEND_STATS_MAX_RETRIES) return;
+        if (!this.send_nsfs_stats) {
+            attempts += 1;
+            this.send_nsfs_stats = this._send_nsfs_stats(attempts);
         }
     }
 }

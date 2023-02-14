@@ -273,8 +273,8 @@ class BlockStoreBase {
         const old_stats = this.monitoring_stats;
         // zero all but the inflight
         this.monitoring_stats = _.defaults(_.pick(old_stats, ['inflight_reads', 'inflight_writes']), _new_monitring_stats());
-        old_stats.avg_read_latency = old_stats.total_read_latency / old_stats.read_count;
-        old_stats.avg_write_latency = old_stats.total_write_latency / old_stats.write_count;
+        old_stats.avg_read_latency = old_stats.read_count === 0 ? 0 : old_stats.total_read_latency / old_stats.read_count;
+        old_stats.avg_write_latency = old_stats.write_count === 0 ? 0 : old_stats.total_write_latency / old_stats.write_count;
         return old_stats;
     }
 

@@ -42,14 +42,15 @@ class RpcHttpServer extends events.EventEmitter {
     /**
      * start_server
      */
-    start_server(options) {
+    async start_server(options) {
         const port = parseInt(options.port, 10);
         const secure = options.protocol === 'https:' || options.protocol === 'wss:';
         const logging = options.logging;
         dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
 
+        const ssl_cert = await ssl_utils.get_ssl_certificate('MGMT');
         const server = secure ?
-            https.createServer({ ...ssl_utils.generate_ssl_certificate(), honorCipherOrder: true }) :
+            https.createServer({ ...ssl_cert, honorCipherOrder: true }) :
             http.createServer();
         this.install_on_server(server, options.default_handler);
         return P.fromCallback(callback => server.listen(port, callback))

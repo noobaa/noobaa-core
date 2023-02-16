@@ -5,6 +5,7 @@ const _ = require('lodash');
 const util = require('util');
 
 const COMMON_SCHEMA_KEYWORDS = ['doc', '$id'];
+const object_id_regexp = /^[0-9a-fA-F]{24}$/;
 
 function strictify(schema, options, base) {
     if (!schema) return schema;
@@ -109,7 +110,7 @@ function is_object_id_class(id) {
 }
 
 function is_object_id_string(id) {
-    return (/^[0-9a-fA-F]{24}$/).test(id);
+    return object_id_regexp.test(id);
 }
 
 function is_object_id(id) {

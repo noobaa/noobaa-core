@@ -13,7 +13,7 @@ const stream_utils = require('../util/stream_utils');
 const stats_collector = require('./endpoint_stats_collector');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
-
+const valid_attr_regex = /^[A-Za-z_][A-Za-z0-9_]+$/;
 
 /**
  * @implements {nb.Namespace}
@@ -390,7 +390,7 @@ class NamespaceBlob {
     _check_valid_xattr(params) {
         // This md validation check is a part of namespace blob because but Azure Blob 
         // accepts C# identifiers only but S3 accepts other xattr too.
-        const is_invalid_attr = ([key, val]) => !(/^[A-Za-z_][A-Za-z0-9_]+$/).test(key);
+        const is_invalid_attr = ([key, val]) => !valid_attr_regex.test(key);
         const invalid_attr = Object.entries(params.xattr).find(is_invalid_attr);
         if (invalid_attr) {
             const err = new Error('InvalidMetadata: metadata keys are invalid.');

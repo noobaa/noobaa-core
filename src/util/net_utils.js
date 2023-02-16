@@ -11,6 +11,8 @@ const ip_module = require('ip');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const os_utils = require('./os_utils');
+const hostname_regexp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+const fqdn_regexp = /^(?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9])|((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63})$)/;
 
 const DEFAULT_PING_OPTIONS = {
     timeout: 5000,
@@ -60,8 +62,7 @@ async function dns_resolve(target, options) {
 }
 
 function is_hostname(target) {
-    const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    if (regExp.test(target)) {
+    if (hostname_regexp.test(target)) {
         return true;
     }
 
@@ -69,8 +70,7 @@ function is_hostname(target) {
 }
 
 function is_fqdn(target) {
-    const regExp = /^(?=^.{1,253}$)(^(((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9])|((?!-)[a-zA-Z0-9-]{0,62}[a-zA-Z0-9]\.)+[a-zA-Z]{2,63})$)/;
-    if (target && regExp.test(target)) {
+    if (target && fqdn_regexp.test(target)) {
         return true;
     }
 

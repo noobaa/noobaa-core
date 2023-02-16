@@ -758,7 +758,7 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging'],
+                        required: ['bucket_name', 'quota_size_precent', 'quota_quantity_percent', 'capacity_precent', 'is_healthy', 'tagging', 'bucket_used_bytes'],
                         properties: {
                             bucket_name: {
                                 type: 'string'
@@ -774,6 +774,9 @@ module.exports = {
                             },
                             is_healthy: {
                                 type: 'boolean'
+                            },
+                            bucket_used_bytes: {
+                                type: 'number'
                             },
                             tagging: {
                                 $ref: 'common_api#/definitions/tagging',

@@ -6,6 +6,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const P = require('../../util/promise');
 const cloud_utils = require('../../util/cloud_utils');
 
+
+
 async function move_objects_by_type(req) {
     const { copy_type } = req.rpc_params;
     switch (copy_type) {

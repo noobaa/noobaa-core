@@ -1,4 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-require('../endpoint/endpoint').start_endpoint();
+require('../endpoint/endpoint').endpoint_main();

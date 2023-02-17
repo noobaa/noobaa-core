@@ -243,7 +243,7 @@ class ObjectSDK {
 
     _setup_bucket_namespace(bucket) {
         const time = Date.now();
-        dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
+        dbg.log1('_load_bucket_namespace', bucket);
         try {
             // NAMESPACE_FS HACK
             if (process.env.NAMESPACE_FS) {

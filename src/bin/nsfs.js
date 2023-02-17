@@ -18,6 +18,7 @@ const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const cluster_forks = require('../util/cluster_forks');
 
 const HELP = `
 Help:
@@ -50,6 +51,7 @@ Options:
     --backend <fs>                          (default "")             Set default backend fs "".
     --debug <level>                         (default 0)              Increase debug level
     --versioning <ENABLED|SUSPENDED>        (default DISABLED)       Enable/suspend versioning
+    --forks <n>                             (default 0)              Forks spread incoming requests
 `;
 
 const WARNINGS = `
@@ -82,6 +84,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const http_port = Number(argv.http_port) || 6001;
         const https_port = Number(argv.https_port) || 6443;
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
+        const forks = Number(argv.forks) || 0;
         const fs_root = argv._[0];
         if (!fs_root) return print_usage();
         const versioning = argv.versioning || 'DISABLED';
@@ -98,18 +101,20 @@ async function main(argv = minimist(process.argv.slice(2))) {
             return print_usage();
         }
 
-        console.warn(WARNINGS);
-        console.log('nsfs: setting up ...', { fs_root, http_port, https_port, backend });
+        await cluster_forks.main_with_forks(async () => {
+            console.warn(WARNINGS);
+            console.log('nsfs: setting up ...', { fs_root, http_port, https_port, backend });
 
-        const endpoint = require('../endpoint/endpoint');
-        await endpoint.start_endpoint({
-            http_port,
-            https_port,
-            init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config, versioning),
-        });
+            const endpoint = require('../endpoint/endpoint');
+            await endpoint.start_endpoint({
+                http_port,
+                https_port,
+                init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config, versioning),
+            });
 
-        console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
-        console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
+            console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
+            console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
+        }, forks);
 
     } catch (err) {
         console.error('nsfs: exit on error', err.stack || err);

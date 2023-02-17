@@ -671,7 +671,7 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  * @returns {boolean} true if the account has permission to perform the action on the bucket
  */
 function has_bucket_action_permission(bucket, account, action, bucket_path = "") {
-    dbg.log0('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
+    dbg.log1('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
 
     // If the system owner account wants to access the bucket, allow it
     if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;

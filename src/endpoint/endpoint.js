@@ -22,6 +22,7 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const sts_rest = require('./sts/sts_rest');
 const lambda_rest = require('./lambda/lambda_rest');
+const cluster_forks = require('../util/cluster_forks');
 const endpoint_utils = require('./endpoint_utils');
 const FuncSDK = require('../sdk/func_sdk');
 const StsSDK = require('../sdk/sts_sdk');
@@ -393,6 +394,16 @@ function setup_http_server(server) {
     // });
 }
 
+async function endpoint_main() {
+    try {
+        const forks = Number(process.env.ENDPOINT_FORKS) || 0;
+        await cluster_forks.main_with_forks(start_endpoint, forks);
+    } catch (err) {
+        dbg.error('endpoint_main error:', err);
+    }
+}
+
+exports.endpoint_main = endpoint_main;
 exports.start_endpoint = start_endpoint;
 exports.create_endpoint_handler = create_endpoint_handler;
 exports.create_init_request_sdk = create_init_request_sdk;

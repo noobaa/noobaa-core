@@ -757,11 +757,24 @@ class Agent {
         dbg.log0('got _enable_service on storage agent');
     }
 
+    get_node_ip() {
+        const dbg = this.dbg;
+        const base_url = new URL(this.base_address);
+        const res = net_utils.get_ifc_containing_address(base_url.hostname);
+        if (res) {
+            dbg.log0('get_node_ip: using node ip from interface', res);
+            return res.info.address;
+        }
+        const ip = ip_module.address();
+        dbg.log0(`get_node_ip: using fallback node ip`, ip);
+        return ip;
+    }
+
     get_agent_info_and_update_masters(req) {
         const dbg = this.dbg;
         if (!this.is_started) return;
         const extended_hb = true;
-        const ip = ip_module.address();
+        const ip = this.get_node_ip();
         dbg.log0_throttled('Recieved potential servers list', req.rpc_params.addresses);
         const prev_cpu_usage = this.cpu_usage;
         this.cpu_usage = process.cpuUsage();

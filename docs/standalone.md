@@ -107,6 +107,8 @@ config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
 config.CHUNK_CODER_EC_IS_DEFAULT = true;
 config.DEDUP_ENABLED = false;
+config.IO_CALC_MD5_ENABLED = false;
+config.IO_CALC_SHA256_ENABLED = false;
 
 config.AGENT_RPC_PROTOCOL = 'tcp';
 config.AGENT_RPC_PORT = '9999';
@@ -140,6 +142,12 @@ Running a local endpoint alongside the database and other services is simple:
 
 ```sh
 npm run s3
+```
+
+In order to enable multiple forks of the endpoint serving on the same port use:
+
+```sh
+ENDPOINT_FORKS=4 npm run s3
 ```
 
 For remote hosts, need to specify the addresses:
@@ -211,6 +219,9 @@ aws --endpoint http://localhost:6001 s3 mb s3://lala
 ```sh
 node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put ggg --size 4096
 node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get ggg
+dd if=/dev/zero bs=1M count=1024 | aws --endpoint http://localhost:6001 s3 cp - s3://first.bucket/ggg
+aws --endpoint http://localhost:6001 s3 cp s3://first.bucket/ggg - | xxd -a
+aws --endpoint http://localhost:6001 s3 rm s3://first.bucket/ggg
 ```
 
 ## Multipart uploads

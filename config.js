@@ -184,6 +184,9 @@ config.IO_SEMAPHORE_CAP = Math.max(
     config.IO_STREAM_SEMAPHORE_SIZE_CAP, // minimal size needed to complete jobs in object_io
 );
 
+config.IO_CALC_MD5_ENABLED = true;
+config.IO_CALC_SHA256_ENABLED = true;
+
 config.ERROR_INJECTON_ON_WRITE = 0;
 config.ERROR_INJECTON_ON_READ = 0;
 

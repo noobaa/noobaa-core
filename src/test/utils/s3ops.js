@@ -7,9 +7,10 @@ const util = require('util');
 const https = require('https');
 const stream = require('stream');
 const crypto = require('crypto');
+const querystring = require('querystring');
 const P = require('../../util/promise');
 const RandStream = require('../../util/rand_stream');
-const querystring = require('querystring');
+const crypto_utils = require('../../util/crypto_utils');
 
 require('../../util/dotenv').load();
 
@@ -78,7 +79,7 @@ class S3OPS {
             data_size = data_size || 50;
 
             const actual_size = data_size * multiplier;
-            const md5_stream = new_md5_stream();
+            const md5_stream = crypto_utils.new_md5_stream();
             const input_stream = new RandStream(actual_size, {
                 highWaterMark: 1024 * 1024,
             });
@@ -175,7 +176,7 @@ class S3OPS {
                 VersionId: versionid ? versionid : undefined,
             });
             const read_stream = req.createReadStream();
-            const md5_stream = new_md5_stream();
+            const md5_stream = crypto_utils.new_md5_stream();
             read_stream.pipe(md5_stream).pipe(target_stream);
             await new Promise((resolve, reject) => {
                 read_stream.once('error', reject);
@@ -774,7 +775,7 @@ class S3OPS {
     async _multipart_upload_internal(bucket, file_name, data, part_size, overlook_error) {
         try {
             bucket = bucket || 'first.bucket';
-            const md5_stream = new_md5_stream();
+            const md5_stream = crypto_utils.new_md5_stream();
             const start_ts = Date.now();
 
             let body;
@@ -820,20 +821,6 @@ class S3OPS {
         }
     }
 
-}
-
-function new_md5_stream() {
-    const md5_stream = new stream.Transform({
-        transform(buf, encoding, next) {
-            this.md5.update(buf);
-            this.size += buf.length;
-            this.push(buf);
-            next();
-        }
-    });
-    md5_stream.md5 = crypto.createHash('md5');
-    md5_stream.size = 0;
-    return md5_stream;
 }
 
 exports.S3OPS = S3OPS;

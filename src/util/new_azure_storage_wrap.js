@@ -1,46 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-const crypto = require('crypto');
-const stream = require('stream');
+const crypto_utils = require('./crypto_utils');
 const azure_storage = require('@azure/storage-blob');
 // needed only for enerateBlockIdPrefix() and get_block_id() functions
 const old_azure_storage = require('azure-storage');
-
-function new_md5_stream() {
-    const md5_stream = new stream.Transform({
-        transform(buf, encoding, next) {
-            this.md5.update(buf);
-            this.size += buf.length;
-            next(null, buf);
-        }
-    });
-
-    md5_stream.md5 = crypto.createHash('md5');
-    md5_stream.size = 0;
-    md5_stream.md5_buf = null;
-
-    return md5_stream;
-}
 
 azure_storage.get_container_client = (blob_service, container) => blob_service.getContainerClient(container);
 
 azure_storage.get_blob_client = (container_client, blob) => container_client.getBlobClient(blob).getBlockBlobClient();
 
-azure_storage.calc_body_md5 = stream_file => {
-    const md5_stream = new_md5_stream();
-    const new_stream = stream_file.pipe(md5_stream);
-    return {
-            new_stream,
-            md5_buf: () => {
-                if (md5_stream.md5_buf) return md5_stream.md5_buf;
-
-                const final_md5 = md5_stream.md5.digest('hex');
-                md5_stream.md5_buf = Buffer.from(final_md5, 'hex');
-
-                return md5_stream.md5_buf;
-            }
-    };
-};
+azure_storage.calc_body_md5 = stream_file => crypto_utils.calc_body_md5(stream_file);
 
 // create old lib blob service - needed for functions that do not exist in the new lib
 // needed only for generateBlockIdPrefix() and get_block_id() functions

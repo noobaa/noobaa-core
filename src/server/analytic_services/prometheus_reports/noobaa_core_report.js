@@ -382,6 +382,13 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
             help: 'Number of error objects replication_id in last replication cycle',
             labelNames: ['replication_id']
         }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_used_bytes',
+        configuration: {
+            help: 'Object Bucket Used Bytes',
+            labelNames: ['bucket_name']
+        }
     }
 ]);
 
@@ -534,6 +541,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
         this._metrics.bucket_quantity_quota.reset();
         this._metrics.bucket_capacity.reset();
         this._metrics.bucket_tagging.reset();
+        this._metrics.bucket_used_bytes.reset();
         buckets_info.forEach(bucket_info => {
             const bucket_labels = { bucket_name: bucket_info.bucket_name };
             if (bucket_info.tagging && bucket_info.tagging.length) {
@@ -544,7 +552,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
             this._metrics.bucket_size_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_size_precent);
             this._metrics.bucket_quantity_quota.set({ bucket_name: bucket_info.bucket_name }, bucket_info.quota_quantity_percent);
             this._metrics.bucket_capacity.set({ bucket_name: bucket_info.bucket_name }, bucket_info.capacity_precent);
-
+            this._metrics.bucket_used_bytes.set({ bucket_name: bucket_info.bucket_name }, bucket_info.bucket_used_bytes);
         });
     }
 

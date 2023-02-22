@@ -518,7 +518,8 @@ async function _partial_buckets_info(req) {
                 capacity_precent: (is_capacity_relevant && bucket_total > 0) ? size_utils.bigint_to_json(bucket_used.multiply(100)
                     .divide(bucket_total)) : 0,
                 is_healthy: _.includes(OPTIMAL_MODES, bucket_info.mode),
-                tagging: bucket_info.tagging || []
+                tagging: bucket_info.tagging || [],
+                bucket_used_bytes: bucket_used.valueOf()
             });
         }
 

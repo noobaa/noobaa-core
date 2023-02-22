@@ -74,8 +74,7 @@ mocha.describe('SensitiveString', function() {
     });
 
     mocha.it('bson unwraps sensitive data', function() {
-        const bson = new BSON();
-        const str = util.inspect(bson.deserialize(bson.serialize(system)), { depth: null });
+        const str = util.inspect(BSON.deserialize(BSON.serialize(system)), { depth: null });
         assert.strictEqual(str.search('SENSITIVE'), -1);
         assert.strictEqual(str.split(SECRET).length, 3);
     });

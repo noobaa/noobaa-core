@@ -5,10 +5,12 @@ const _ = require('lodash');
 const util = require('util');
 
 // const P = require('../util/promise');
+const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 //TODO: why do we what to use the wrap and not directly @google-cloud/storage ? 
 const GoogleCloudStorage = require('../util/google_storage_wrap');
-const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const endpoint_stats_collector = require('./endpoint_stats_collector');
 
 /**
  * @implements {nb.Namespace}
@@ -32,6 +34,7 @@ class NamespaceGCP {
         this.bucket = target_bucket;
         this.rpc_client = rpc_client;
         this.access_mode = access_mode;
+        this.stats_collector = endpoint_stats_collector.instance(this.rpc_client);
     }
 
     get_write_resource() {
@@ -104,7 +107,68 @@ class NamespaceGCP {
 
     async upload_object(params, object_sdk) {
         dbg.log0('NamespaceGCP.upload_object:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        let metadata;
+        if (params.copy_source) {
+            dbg.error('NamespaceGCP.upload_object: Copy is not implemented yet', this.bucket, inspect(params.copy_source));
+            throw new S3Error(S3Error.NotImplemented);
+        } else {
+            try {
+                let count = 1;
+                const count_stream = stream_utils.get_tap_stream(data => {
+                    this.stats_collector.update_namespace_write_stats({
+                        namespace_resource_id: this.namespace_resource_id,
+                        bucket_name: params.bucket,
+                        size: data.length,
+                        count
+                    });
+                    // clear count for next updates
+                    count = 0;
+                });
+                const file = this.gcs.bucket(this.bucket).file(params.key);
+                // https://googleapis.dev/nodejs/storage/latest/File.html#createWriteStream
+                // for the options of createWriteStream: 
+                // https://googleapis.dev/nodejs/storage/latest/global.html#CreateWriteStreamOptions
+                const options = {
+                    metadata: {
+                        contentType: params.content_type,
+                        md5Hash: params.md5_b64,
+                    }
+                };
+                const writeStream = file.createWriteStream(options);
+                params.source_stream.pipe(count_stream).pipe(writeStream);
+
+                await new Promise((resolve, reject) => {
+                    //throw the error on error and reject the promise
+                    writeStream.on('error', err => {
+                        reject(err);
+                        throw err;
+                    });
+                    // upon finish get the metadata
+                    writeStream.on('finish', async () => {
+                        try {
+                            [metadata] = await file.getMetadata();
+                            dbg.log1(`NamespaceGCP.upload_object: ${params.key} uploaded to ${this.bucket}.`);
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                            throw err;
+                        }
+                    });
+                });
+
+            } catch (err) {
+                this._translate_error_code(err);
+                dbg.warn('NamespaceGCP.upload_object:', inspect(err));
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code || (err.errors[0] && err.errors[0].reason) || 'InternalError',
+                    time: Date.now(),
+                });
+                throw err;
+            }
+        }
+        return this._get_gcp_object_info(metadata);
     }
 
     /////////////////////////////
@@ -157,7 +221,14 @@ class NamespaceGCP {
     async delete_object(params, object_sdk) {
         // https://googleapis.dev/nodejs/storage/latest/File.html#delete
         dbg.log0('NamespaceGCP.delete_object:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        try {
+            const res = await this.gcs.bucket(this.bucket).file(params.key).delete();
+            dbg.log1('NamespaceGCP.delete_object:', this.bucket, inspect(params), 'res', inspect(res));
+            return {};
+        } catch (err) {
+            this._translate_error_code(err);
+            throw err;
+        }
     }
 
     async delete_multiple_objects(params, object_sdk) {
@@ -214,6 +285,25 @@ class NamespaceGCP {
     ///////////////
 
     //TODO: add here the internal functions
+
+
+    /**
+     * @returns {nb.ObjectInfo}
+     */
+    _get_gcp_object_info(metadata) {
+        dbg.log1(`_get_gcp_object_info: metadata: ${inspect(metadata)}`);
+        return {
+            obj_id: metadata.id,
+            bucket: metadata.bucket,
+            key: metadata.name,
+            size: metadata.size,
+            etag: metadata.etag,
+            create_time: metadata.timeCreated,
+            last_modified_time: metadata.updated,
+            content_type: metadata.contentType,
+            md5_b64: metadata.md5Hash,
+        };
+    }
 
     _translate_error_code(err) {
         // https://cloud.google.com/storage/docs/json_api/v1/status-codes

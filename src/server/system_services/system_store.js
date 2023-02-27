@@ -363,14 +363,21 @@ class SystemStore extends EventEmitter {
 
     [util.inspect.custom]() { return 'SystemStore'; }
 
+    async initial_load_from_mount() {
+        if (!process.env.NOOBAA_ROOT_SECRET) {
+            await P.retry({
+                attempts: 3, 
+                delay_ms: 1000,
+                func: () => this.master_key_manager.load_root_keys_from_mount()
+            });
+        }
+        return this.load();
+    }
+
     initial_load() {
-        db_client.instance().on('reconnect', () => this.load());
+        db_client.instance().on('reconnect', () => this.initial_load_from_mount());
         P.delay(100)
-            .then(() => {
-                if (db_client.instance().is_connected()) {
-                    return this.load();
-                }
-            })
+            .then(() => this.initial_load_from_mount())
             .catch(_.noop);
     }
 
@@ -410,7 +417,6 @@ class SystemStore extends EventEmitter {
                     dbg.log0('SystemStore.load: Got load request with a timestamp older then my last update time');
                     this.last_update_time = since;
                 }
-
                 this.master_key_manager.load_root_key();
                 const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();

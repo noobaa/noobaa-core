@@ -40,6 +40,7 @@ const background_scheduler = require('../util/background_scheduler').get_instanc
 const stats_collector = require('./bg_services/stats_collector');
 const dedup_indexer = require('./bg_services/dedup_indexer');
 const db_cleaner = require('./bg_services/db_cleaner');
+const { KeyRotator } = require('./bg_services/key_rotator');
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 
 const MASTER_BG_WORKERS = [
@@ -53,7 +54,8 @@ const MASTER_BG_WORKERS = [
     'db_cleaner',
     'aws_usage_metering',
     'agent_blocks_verifier',
-    'agent_blocks_reclaimer'
+    'agent_blocks_reclaimer',
+    'key_rotator'
 ];
 
 if (process.env.NOOBAA_LOG_LEVEL) {
@@ -211,7 +213,7 @@ function run_master_workers() {
         dbg.warn('AGENT BLOCKS RECLAIMER NOT ENABLED');
     }
 
-    if (config.LIFECYCLE_DISABLED !== 'true') {
+    if (config.LIFECYCLE_ENABLED) {
         register_bg_worker({
             name: 'lifecycle',
             delay: config.LIFECYCLE_INTERVAL,
@@ -230,6 +232,12 @@ function run_master_workers() {
             name: 'aws_usage_metering',
             delay: config.AWS_METERING_INTERVAL
         }, aws_usage_metering.background_worker);
+    }
+
+    if (config.KEY_ROTATOR_ENABLED) {
+        register_bg_worker(new KeyRotator({ name: 'key rotator' }));
+    } else {
+        dbg.warn('KEY ROATATION NOT ENABLED');
     }
 }
 

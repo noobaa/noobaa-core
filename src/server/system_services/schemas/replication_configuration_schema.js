@@ -28,6 +28,7 @@ module.exports = {
                             // s3 support also tag or and operator of 2 tags/ tag and prefix 
                         }
                     },
+                    sync_deletions: { type: 'boolean' },
                     rule_status: {
                         type: 'object',
                         required: ['src_cont_token', 'dst_cont_token', 'last_cycle_start', 'last_cycle_end'],
@@ -35,32 +36,50 @@ module.exports = {
                             src_cont_token: { type: 'string' },
                             dst_cont_token: { type: 'string' },
                             last_cycle_start: { idate: true },
-                            last_cycle_end: { idate: true }
+                            last_cycle_end: { idate: true },
                         }
-                    }
+                    },
+                    rule_log_status: {
+                        type: 'object',
+                        required: ['log_marker'],
+                        properties: {
+                            log_marker: {
+                                type: 'object',
+                                required: ['continuation_token'],
+                                properties: {
+                                    continuation_token: { type: 'string' }
+                                }
+                            }
+                        }
+                    },
                 }
             },
         },
-        aws_log_replication_info: {
+        log_replication_info: {
             type: 'object',
-            required: ['logs_location'],
             properties: {
-                logs_location: {
+                status: {
                     type: 'object',
-                    required: ['logs_bucket'],
+                    required: ['last_cycle_end'],
                     properties: {
-                        logs_bucket: { type: 'string' },
-                        prefix: { type: 'string' }
+                        last_cycle_end: { idate: true }
                     }
                 },
-                log_marker: {
+                aws_log_replication_info: {
                     type: 'object',
-                    required: ['continuation_token'],
+                    required: ['logs_location'],
                     properties: {
-                        continuation_token: { type: 'string' }
+                        logs_location: {
+                            type: 'object',
+                            required: ['logs_bucket'],
+                            properties: {
+                                logs_bucket: { type: 'string' },
+                                prefix: { type: 'string' }
+                            }
+                        },
                     }
                 }
-            }
+            },
         },
     }
 };

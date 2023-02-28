@@ -32,6 +32,7 @@ const AgentBlocksReclaimer = require('./bg_services/agent_blocks_reclaimer').Age
 const stats_aggregator = require('./system_services/stats_aggregator');
 const { NamespaceMonitor } = require('./bg_services/namespace_monitor');
 const { ReplicationScanner } = require('./bg_services/replication_scanner');
+const { LogReplicationScanner } = require('./bg_services/log_replication_scanner');
 const aws_usage_metering = require('./system_services/aws_usage_metering');
 const usage_aggregator = require('./bg_services/usage_aggregator');
 const md_aggregator = require('./bg_services/md_aggregator');
@@ -104,11 +105,19 @@ function run_master_workers() {
 
     if (config.REPLICATION_ENABLED) {
         register_bg_worker(new ReplicationScanner({
-            name: 'replication_scanner',
+            name: 'replication scanner',
             client: server_rpc.client,
         }));
     } else {
         dbg.warn('REPLICATION NOT ENABLED');
+    }
+    if (config.LOG_REPLICATION_ENABLED) {
+        register_bg_worker(new LogReplicationScanner({
+            name: 'log replication scanner',
+            client: server_rpc.client,
+        }));
+    } else {
+        dbg.warn('LOG REPLICATION NOT ENABLED');
     }
     if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
         register_bg_worker({

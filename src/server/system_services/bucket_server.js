@@ -1803,11 +1803,9 @@ async function get_bucket_replication(req) {
     });
 
     const res = {
-        rules: bucket_names_replication
+        rules: bucket_names_replication,
+        log_replication_info: replication.log_replication_info
     };
-    if (replication.aws_log_replication_info) {
-        res.log_replication_info.logs_location = replication.aws_log_replication_info.logs_location;
-    }
 
     return res;
 }
@@ -1891,7 +1889,7 @@ function normalize_replication(req) {
 
     const validated_replication = {
         rules: validated_replication_rules,
-        aws_log_replication_info: log_replication_info
+        log_replication_info: { aws_log_replication_info: log_replication_info }
     };
 
 

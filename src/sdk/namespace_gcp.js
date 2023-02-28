@@ -92,7 +92,17 @@ class NamespaceGCP {
 
     async read_object_md(params, object_sdk) {
         dbg.log0('NamespaceGCP.read_object_md:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        const file = this.gcs.bucket(this.bucket).file(params.key);
+        let metadata;
+        try {
+            [metadata] = await file.getMetadata();
+        } catch (err) {
+            this._translate_error_code(err);
+            dbg.warn('NamespaceGCP.read_object_md:', inspect(err));
+            throw err;
+        }
+
+        return this._get_gcp_object_info(metadata);
     }
 
     async read_object_stream(params, object_sdk) {
@@ -110,8 +120,29 @@ class NamespaceGCP {
 
         let metadata;
         if (params.copy_source) {
-            dbg.error('NamespaceGCP.upload_object: Copy is not implemented yet', this.bucket, inspect(params.copy_source));
-            throw new S3Error(S3Error.NotImplemented);
+            if (params.copy_source.ranges) {
+                throw new Error('NamespaceGCP.upload_object: copy source range not supported');
+            }
+            const src_bucket = this.gcs.bucket(params.copy_source.bucket);
+            const src_file = src_bucket.file(params.copy_source.key);
+            // Currently not copying between 2 gcp buckets, 
+            // for copying between 2 we need to have the gcp bucket as a namespace and reachable, 
+            // and to verify that it is another instance of NamespaceGCP
+            // const dest_bucket = this.gcs.bucket(params.copy_source.bucket);
+            // const dest_file = dest_bucket.file(params.key);
+            const dest_file = params.key;
+
+            // https://googleapis.dev/nodejs/storage/latest/File.html#copy
+            // for the options of copy:
+            // https://googleapis.dev/nodejs/storage/latest/global.html#CopyOptions
+            const options = {
+                contentType: params.content_type,
+                metadata: {
+                    md5Hash: params.md5_b64,
+                },
+            };
+            const res = await src_file.copy(dest_file, options);
+            metadata = res[1].resource;
         } else {
             try {
                 let count = 1;
@@ -294,6 +325,9 @@ class NamespaceGCP {
      */
     _get_gcp_object_info(metadata) {
         dbg.log1(`_get_gcp_object_info: metadata: ${inspect(metadata)}`);
+        const xattr = _.extend(metadata.metadata, {
+            'noobaa-namespace-gcp-bucket': metadata.bucket,
+        });
         return {
             obj_id: metadata.id,
             bucket: metadata.bucket,
@@ -304,6 +338,7 @@ class NamespaceGCP {
             last_modified_time: metadata.updated,
             content_type: metadata.contentType,
             md5_b64: metadata.md5Hash,
+            xattr
         };
     }
 

@@ -136,27 +136,20 @@ class NamespaceGCP {
                     }
                 };
                 const writeStream = file.createWriteStream(options);
-                params.source_stream.pipe(count_stream).pipe(writeStream);
+                stream_utils.pipeline([params.source_stream, count_stream, writeStream], true);
 
                 await new Promise((resolve, reject) => {
-                    //throw the error on error and reject the promise
-                    writeStream.on('error', err => {
-                        reject(err);
-                        throw err;
-                    });
-                    // upon finish get the metadata
-                    writeStream.on('finish', async () => {
-                        try {
-                            [metadata] = await file.getMetadata();
-                            dbg.log1(`NamespaceGCP.upload_object: ${params.key} uploaded to ${this.bucket}.`);
-                            resolve();
-                        } catch (err) {
-                            reject(err);
-                            throw err;
-                        }
+                    // upon error reject the promise
+                    writeStream.on('error', reject);
+                    // upon finish resolve the promise
+                    writeStream.on('finish', resolve);
+                    // upon response get the metadata
+                    writeStream.on('response', resp => {
+                        dbg.log1(`NamespaceGCP.upload_object: response event ${inspect(resp)}.`);
+                        metadata = resp.data;
                     });
                 });
-
+                dbg.log1(`NamespaceGCP.upload_object: ${params.key} uploaded to ${this.bucket}.`);
             } catch (err) {
                 this._translate_error_code(err);
                 dbg.warn('NamespaceGCP.upload_object:', inspect(err));

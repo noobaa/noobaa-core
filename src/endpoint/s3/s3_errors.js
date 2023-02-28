@@ -512,6 +512,26 @@ S3Error.InvalidEncodingType = Object.freeze({
     http_code: 400,
 });
 
+////////////////////////////////////////////////////////////////
+// S3 Select                                                  //
+////////////////////////////////////////////////////////////////
+
+S3Error.S3SelectNotCompiled = Object.freeze({
+    code: 'S3SelectNotCompiled',
+    message: 'This server was not compiled with S3 Select support. Recompile with BUILD_S3SELECT=1.',
+    http_code: 501,
+});
+S3Error.MissingInputSerialization = Object.freeze({
+    code: 'MissingRequiredParameter',
+    message: 'InputSerialization is required. Please check the service documentation and try again.',
+    http_code: 400,
+});
+S3Error.OutputInputFormatMismatch = Object.freeze({
+    code: 'OutputInputFormatMismatch',
+    message: 'OutputSerialization format must match InputSerializatoin format.',
+    http_code: 501,
+});
+
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
     BAD_REQUEST: S3Error.BadRequest,

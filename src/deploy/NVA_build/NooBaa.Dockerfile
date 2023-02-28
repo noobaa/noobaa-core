@@ -59,6 +59,7 @@ ENV ENDPOINT_NODE_OPTIONS ''
 
 RUN dnf install -y epel-release
 RUN dnf install -y -q bash \
+    boost \
     lsof \
     procps \
     openssl \

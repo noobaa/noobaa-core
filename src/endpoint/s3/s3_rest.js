@@ -52,7 +52,8 @@ const OBJECT_SUB_RESOURCES = Object.freeze({
     'uploads': 'uploads',
     'uploadId': 'uploadId',
     'legal-hold': 'legal_hold',
-    'retention': 'retention'
+    'retention': 'retention',
+    'select': 'select',
 });
 
 const S3_OPS = load_ops();
@@ -581,6 +582,7 @@ function load_ops() {
         post_bucket_delete: require('./ops/s3_post_bucket_delete'),
         post_object_uploadId: require('./ops/s3_post_object_uploadId'),
         post_object_uploads: require('./ops/s3_post_object_uploads'),
+        post_object_select: require('./ops/s3_post_object_select'),
         put_bucket: require('./ops/s3_put_bucket'),
         put_bucket_accelerate: require('./ops/s3_put_bucket_accelerate'),
         put_bucket_acl: require('./ops/s3_put_bucket_acl'),

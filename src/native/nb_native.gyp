@@ -16,15 +16,24 @@
             }],
             [ 'node_arch=="arm64"', {
                 'cflags': ['-DUSE_NEON']
-            }],
+            }]
         ],
     },
 
     'targets': [{
+	'variables': {
+            'BUILD_S3SELECT%':0
+        },
         'target_name': 'nb_native',
         'include_dirs': [
             '<@(napi_include_dirs)',
         ],
+	'conditions': [
+	    ['BUILD_S3SELECT==1', {
+		'dependencies': ['s3select/s3select.gyp:s3select'],
+		'cflags': ['-DBUILD_S3SELECT=1']
+	    }]
+	],
         'dependencies': [
             '<@(napi_dependencies)',
             'third_party/cm256.gyp:cm256',
@@ -32,6 +41,7 @@
             'third_party/isa-l.gyp:isa-l-ec',
             'third_party/isa-l.gyp:isa-l-md5',
             'third_party/isa-l.gyp:isa-l-sha1',
+            'third_party/isa-l.gyp:isa-l-crc'
         ],
         'sources': [
             # module

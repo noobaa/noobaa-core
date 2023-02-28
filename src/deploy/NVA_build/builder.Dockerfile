@@ -11,7 +11,7 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 #     dnf clean all
 RUN dnf update -y -q --nobest && \
     dnf clean all
-RUN dnf install -y -q wget unzip which vim python2 python3 && \
+RUN dnf install -y -q wget unzip which vim python2 python3 boost-devel && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN alternatives --set python /usr/bin/python3

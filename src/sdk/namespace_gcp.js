@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 
-// const P = require('../util/promise');
+const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
@@ -234,7 +234,16 @@ class NamespaceGCP {
     async delete_multiple_objects(params, object_sdk) {
         // https://googleapis.dev/nodejs/storage/latest/File.html#delete
         dbg.log0('NamespaceGCP.delete_multiple_objects:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await P.map_with_concurrency(10, params.objects, obj =>
+            this.gcs.bucket(this.bucket).file(obj.key).delete()
+            .then(() => ({}))
+            .catch(err => ({ err_code: err.code, err_message: err.errors[0].reason || 'InternalError' })));
+
+        dbg.log1('NamespaceGCP.delete_multiple_objects:', this.bucket, inspect(params), 'res', inspect(res));
+
+        return res;
+
     }
 
 

@@ -11,17 +11,8 @@ function cleanup() {
     else
         rc=$2
     fi
-    echo "$(date) exiting mongod"
-    kill -2 ${pid}
     echo "$(date) return code was: ${rc}"
     exit ${rc}
-}
-
-function start_mongo() {
-    mkdir -p /data/db
-    echo "$(date) starting mongod"
-    mongod --logpath /dev/null &
-    PID=$!
 }
 
 PATH=$PATH:/noobaa-core/node_modules/.bin
@@ -56,7 +47,6 @@ done
 
 trap cleanup 1 2
 
-start_mongo
 echo "$(date) running ${command}"
 ${command}
-cleanup ${PID} ${?}
+cleanup ${?}

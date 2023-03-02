@@ -157,8 +157,6 @@ function setup(options = {}) {
         await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
         await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key1', root_secret);
 
-        await announce('db_client dropDatabase()');
-        await db_client.instance().dropDatabase();
         await announce('db_client createDatabase()');
         await db_client.instance().createDatabase();
         await announce('db_client reconnect()');

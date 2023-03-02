@@ -589,8 +589,11 @@ class SystemStore extends EventEmitter {
      *
      */
     async make_changes(changes) {
+        // Refreshing must be done outside the semapore lock because refresh
+        // might call load that is locking on the same semaphore.
+        const data = await this.refresh();
         const { any_news, last_update } = await this._load_serial.surround(
-            () => this._make_changes_internal(changes)
+            () => this._make_changes_internal(data, changes)
         );
 
         // Reloading must be done outside the semapore lock because the load is
@@ -610,7 +613,7 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async _make_changes_internal(changes) {
+    async _make_changes_internal(data, changes) {
         const bulk_per_collection = {};
         const now = new Date();
         const last_update = now.getTime();
@@ -632,8 +635,6 @@ class SystemStore extends EventEmitter {
             bulk_per_collection[name] = bulk;
             return bulk;
         };
-
-        const data = await this.refresh();
 
         _.each(changes.insert, (list, name) => {
             const col = get_collection(name);

@@ -76,9 +76,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.warn(WARNINGS);
         console.log('nscache: setting up ...', argv);
 
-        const noop = /** @type {any} */ () => {
-            // TODO
-        };
+        const noop = () => undefined;
         const s3_params = {
             // TODO
             endpoint: hub_endpoint,

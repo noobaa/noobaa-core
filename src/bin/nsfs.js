@@ -123,9 +123,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
 }
 
 function init_request_sdk(req, res, fs_root, fs_config, versioning) {
-    const noop = /** @type {any} */ () => {
-        // TODO
-    };
+    const noop = () => undefined;
 
     const bs = new BucketSpaceFS({ fs_root });
     const object_sdk = new ObjectSDK(null, null, null);

@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const util = require('util');
 const path = require('path');
 const stream = require('stream');
 require('../util/dotenv').load();

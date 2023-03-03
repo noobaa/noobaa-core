@@ -8,6 +8,7 @@ var config = exports;
 
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 const assert = require('assert');
 const dbg = require('./src/util/debug_module')(__filename);
 
@@ -637,9 +638,11 @@ config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10
 // load a local config file that overwrites some of the config
 function load_config_local() {
     try {
+        // looking up config-local module using process.cwd() to allow pkg to find it
+        // outside the binary package - see https://github.com/vercel/pkg#snapshot-filesystem
         // @ts-ignore
         // eslint-disable-next-line global-require
-        const local_config = require('./config-local');
+        const local_config = require(path.join(process.cwd(), 'config-local'));
         if (!local_config) return;
         // console.log('load_config_local: LOADED', local_config);
         if (typeof local_config === 'function') {

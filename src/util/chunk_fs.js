@@ -33,13 +33,11 @@ class ChunkFS extends stream.Transform {
     async _transform(chunk, encoding, callback) {
         try {
             if (this.MD5Async) await this.MD5Async.update(chunk);
-            if (this.rpc_client) {
-                stats_collector.instance(this.rpc_client).update_nsfs_write_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    size: chunk.length,
-                    count: this.count
-                });
-            }
+            stats_collector.instance(this.rpc_client).update_nsfs_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: chunk.length,
+                count: this.count
+            });
             this.count = 0;
             while (chunk && chunk.length) {
                 const available_size = config.NSFS_BUF_SIZE - this.q_size;

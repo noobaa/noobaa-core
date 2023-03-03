@@ -69,9 +69,13 @@ class EndpointStatsCollector {
         // clear this.send_stats to allow new updates to trigger another _send_endpoint_stats
         this.send_stats = null;
         try {
-            await this.rpc_client.object.update_endpoint_stats(this.get_all_stats(), {
-                timeout: SEND_STATS_TIMEOUT
-            });
+            if (this.rpc_client) {
+                await this.rpc_client.object.update_endpoint_stats(this.get_all_stats(), {
+                    timeout: SEND_STATS_TIMEOUT
+                });
+            } else {
+                dbg.log0('print endpoint stats:', this.get_all_stats());
+            }
             this.reset_all_stats();
         } catch (err) {
             // if update fails trigger _send_endpoint_stats again
@@ -92,9 +96,19 @@ class EndpointStatsCollector {
         // clear this.send_nsfs_stats to allow new updates to trigger another _send_nsfs_stats
         this.send_nsfs_stats = null;
         try {
-            await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
-                timeout: SEND_STATS_TIMEOUT
-            });
+            if (this.rpc_client) {
+                await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
+                    timeout: SEND_STATS_TIMEOUT
+                });
+            } else {
+                dbg.log0('nsfs stats - overall IO:', this.nsfs_io_counters);
+                for (const [k, v] of Object.entries(this.op_stats)) {
+                    dbg.log0(`nsfs stats - S3 op=${k} :`, v);
+                }
+                for (const [k, v] of Object.entries(this.fs_workers_stats)) {
+                    dbg.log0(`nsfs stats - FS op=${k} :`, v);
+                }
+            }
             this.reset_all_nsfs_stats();
         } catch (err) {
             dbg.error('failed on update_nsfs_stats. trigger _send_nsfs_stats again', err);

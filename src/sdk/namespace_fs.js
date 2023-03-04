@@ -606,19 +606,6 @@ class NamespaceFS {
                 const remain_size = Math.max(0, end - pos);
                 const read_size = Math.min(buffer.length, remain_size);
 
-                //TODO: We probably have an issue with counting the bytes in the read 
-                // We need to find it and fix
-
-                // Update the read stats               
-                stats_collector.instance(object_sdk.rpc_client).update_nsfs_read_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    bucket_name: params.bucket,
-                    size: read_size,
-                    count
-                });
-                // clear count for next updates
-                count = 0;
-
                 const bytesRead = await file.read(fs_context, buffer, 0, read_size, pos);
                 if (!bytesRead) {
                     buffer_pool_cleanup = null;
@@ -634,6 +621,16 @@ class NamespaceFS {
                 num_buffers += 1;
                 const log2_size = Math.ceil(Math.log2(bytesRead));
                 log2_size_histogram[log2_size] = (log2_size_histogram[log2_size] || 0) + 1;
+
+                // Update the read stats               
+                stats_collector.instance(object_sdk.rpc_client).update_nsfs_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
+                    size: bytesRead,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
 
                 // wait for response buffer to drain before adding more data if needed - 
                 // this occurs when the output network is slower than the input file
@@ -769,12 +766,15 @@ class NamespaceFS {
 
     // opens open_path on POSIX, and on GPFS it will open open_path parent folder
     async _open_file(fs_context, open_path, open_mode) {
-        if (open_mode === 'wt') {
-            dbg.log1('NamespaceFS._open_file: wt creating dirs', open_path, this.bucket_path);
-            if (path.dirname(open_path) !== this.bucket_path) await this._make_path_dirs(open_path, fs_context);
+        const dir_path = path.dirname(open_path);
+        if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== this.bucket_path) {
+            dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path);
+            await this._make_path_dirs(open_path, fs_context);
         }
-        dbg.log0('NamespaceFS._open_file:', open_path);
-        return nb_native().fs.open(fs_context, open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+        dbg.log0(`NamespaceFS._open_file: mode=${open_mode || 'r'}`, open_path);
+        // for 'wt' open the tmpfile with the parent dir path
+        const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
+        return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
     }
 
     // on server side copy - 
@@ -1127,8 +1127,8 @@ class NamespaceFS {
             const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
-                const part_stat = await nb_native().fs.stat(fs_context, part_path);
                 read_file = await this._open_file(fs_context, part_path, undefined);
+                const part_stat = await read_file.stat(fs_context);
                 if (etag !== this._get_etag(part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, part_path, part_stat, params }));
                 }
@@ -1648,7 +1648,7 @@ class NamespaceFS {
      * @returns 
      */
     async _is_path_in_bucket_boundaries(fs_context, entry_path) {
-        dbg.log0('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path);
+        dbg.log1('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path);
         if (!entry_path.startsWith(this.bucket_path)) {
             dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
             return false;

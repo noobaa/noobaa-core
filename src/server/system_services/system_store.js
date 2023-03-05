@@ -351,7 +351,7 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-        this._load_serial = new Semaphore(1);
+        this._load_serial = new Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
             db_client.instance().define_collection(col);
         }
@@ -388,9 +388,11 @@ class SystemStore extends EventEmitter {
         if (since_load < this.START_REFRESH_THRESHOLD) {
             return this.data;
         } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
+            dbg.warn(`system_store.refresh: system_store.data.time > START_REFRESH_THRESHOLD, since_load = ${since_load}, START_REFRESH_THRESHOLD = ${this.START_REFRESH_THRESHOLD}`);
             this.load().catch(_.noop);
             return this.data;
         } else {
+            dbg.warn(`system_store.refresh: system_store.data.time > FORCE_REFRESH_THRESHOLD, since_load = ${since_load}, FORCE_REFRESH_THRESHOLD = ${this.FORCE_REFRESH_THRESHOLD}`);
             return this.load();
         }
     }
@@ -591,9 +593,9 @@ class SystemStore extends EventEmitter {
     async make_changes(changes) {
         // Refreshing must be done outside the semapore lock because refresh
         // might call load that is locking on the same semaphore.
-        const data = await this.refresh();
+        await this.refresh();
         const { any_news, last_update } = await this._load_serial.surround(
-            () => this._make_changes_internal(data, changes)
+            () => this._make_changes_internal(changes)
         );
 
         // Reloading must be done outside the semapore lock because the load is
@@ -613,7 +615,7 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    async _make_changes_internal(data, changes) {
+    async _make_changes_internal(changes) {
         const bulk_per_collection = {};
         const now = new Date();
         const last_update = now.getTime();
@@ -635,6 +637,8 @@ class SystemStore extends EventEmitter {
             bulk_per_collection[name] = bulk;
             return bulk;
         };
+
+        const data = this.data;
 
         _.each(changes.insert, (list, name) => {
             const col = get_collection(name);

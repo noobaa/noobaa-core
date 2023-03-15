@@ -6,6 +6,7 @@ const fs = require('fs');
 const util = require('util');
 const events = require('events');
 const chance = require('chance')();
+const bindings = require('bindings');
 const child_process = require('child_process');
 
 const async_exec = util.promisify(child_process.exec);
@@ -17,7 +18,6 @@ function nb_native() {
 
     if (nb_native_napi) return nb_native_napi;
 
-    const bindings = require('bindings'); // eslint-disable-line global-require
     nb_native_napi = bindings('nb_native.node');
 
     // see https://github.com/bnoordhuis/node-event-emitter

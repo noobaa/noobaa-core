@@ -31,7 +31,9 @@ const OP_NAME_TO_ACTION = Object.freeze({
     post_assume_role: 'sts:AssumeRole',
 });
 
-const STS_OPS = load_ops();
+const STS_OPS = js_utils.deep_freeze({
+    post_assume_role: require('./ops/sts_post_assume_role'),
+});
 
 async function sts_rest(req, res) {
     try {
@@ -190,13 +192,6 @@ function handle_error(req, res, err) {
         res.setHeader('Content-Length', Buffer.byteLength(reply));
     }
     res.end(reply);
-}
-
-function load_ops() {
-    /* eslint-disable global-require */
-    return js_utils.deep_freeze({
-        post_assume_role: require('./ops/sts_post_assume_role'),
-    });
 }
 
 function has_assume_role_permission(policy, method, cur_account_email) {

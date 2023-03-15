@@ -115,14 +115,14 @@ class AgentBlocksVerifier {
 
 
     /**
-     * @override in unit tests for decoupling dependencies
+     * override in unit tests for decoupling dependencies
      */
     iterate_all_blocks(...args) {
         return MDStore.instance().iterate_all_blocks(...args);
     }
 
     /**
-     * @override in unit tests for decoupling dependencies
+     * override in unit tests for decoupling dependencies
      * @param {nb.BlockSchemaDB[]} blocks
      * @returns {Promise<nb.Block[]>}
      */
@@ -131,7 +131,7 @@ class AgentBlocksVerifier {
     }
 
     /**
-     * @override in unit tests for decoupling dependencies
+     * override in unit tests for decoupling dependencies
      */
     verify_blocks(...args) {
         return server_rpc.client.block_store.verify_blocks(...args);

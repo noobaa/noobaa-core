@@ -66,7 +66,41 @@ class NamespaceGCP {
 
     async list_objects(params, object_sdk) {
         dbg.log0('NamespaceGCP.list_objects:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const bucket = this.gcs.bucket(this.bucket);
+
+        const delimiter = params.delimiter || '/';
+        const prefix = params.prefix || '';
+        const maxResults = params.limit || 1000;
+        const pageToken = params.key_marker || null;
+
+        // https://googleapis.dev/nodejs/storage/6.9.4/global.html#GetFilesOptions
+        const options = {
+            autoPaginate: false,
+            delimiter,
+            prefix,
+            maxResults,
+            pageToken,
+        };
+
+        // https://googleapis.dev/nodejs/storage/latest/Bucket.html#getFiles
+        const [files, next_token, additional_info] = await bucket.getFiles(options);
+
+        // When there is no next page, and we got all the object the next_token will be null.
+        const is_truncated = next_token !== null;
+        const next_marker = is_truncated ? next_token.pageToken : null;
+
+        dbg.log4('NamespaceGCP.list_objects:', this.bucket,
+            'files:', inspect(files),
+            'next_token:', inspect(next_token),
+            'additional_info:', inspect(additional_info));
+
+        return {
+            objects: _.map(files, obj => this._get_gcp_object_info(obj.metadata)),
+            common_prefixes: additional_info.prefixes || [],
+            is_truncated,
+            next_marker,
+        };
     }
 
     async list_uploads(params, object_sdk) {
@@ -74,7 +108,12 @@ class NamespaceGCP {
             this.bucket,
             inspect(params)
         );
-        throw new S3Error(S3Error.NotImplemented);
+        // TODO list uploads
+        return {
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        };
     }
 
     async list_object_versions(params, object_sdk) {
@@ -82,7 +121,12 @@ class NamespaceGCP {
             this.bucket,
             inspect(params)
         );
-        throw new S3Error(S3Error.NotImplemented);
+        // TODO list object versions
+        return {
+            objects: [],
+            common_prefixes: [],
+            is_truncated: false,
+        };
     }
 
 

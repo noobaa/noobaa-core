@@ -6,7 +6,6 @@
   InternalDebugLogger is a "singleton" used by all DebugLogger objects,
   performing the actual logic and calls to rotating file stream.
 */
-/* eslint-disable global-require */
 'use strict';
 
 /*
@@ -210,6 +209,9 @@ class InternalDebugLogger {
         this._proc_name = '';
         this._pid = process.pid;
         this._log_console = console;
+        this._log_console_silent = false;
+        this._log_file = null;
+
         if (!_should_log_to_file()) {
             return;
         }
@@ -413,15 +415,15 @@ class InternalDebugLogger {
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
         const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-        if (this._log_console.silent) {
-            if (console_wrapper) {
-                console_wrapper.wrapper_console();
-            }
+        if (this._log_console_silent) {
+            // noop
         } else if (console_wrapper) {
             console[logfunc](msg_info.message_console);
-            console_wrapper.wrapper_console();
         } else {
             console[logfunc](...msg_info.message_browser);
+        }
+        if (console_wrapper) {
+            console_wrapper.wrapper_console();
         }
     }
 }
@@ -460,7 +462,7 @@ function DebugLogger(mod) {
 function log_builder(idx, options) {
 
     /**
-     * @this instance of DebugLogger
+     * @this {DebugLogger}
      */
     return function(...args) {
         if (this.should_log(idx)) {
@@ -482,7 +484,7 @@ function log_builder(idx, options) {
 function log_bt_builder(idx) {
 
     /**
-     * @this instance of DebugLogger
+     * @this {DebugLogger}
      */
     return function(...args) {
         if (this.should_log(idx)) {
@@ -506,7 +508,7 @@ function log_bt_builder(idx) {
 function log_syslog_builder(syslevel) {
 
     /**
-     * @this instance of DebugLogger
+     * @this {DebugLogger}
      */
     return function(...args) {
         if (this._cur_level.__level < 0) return;
@@ -581,7 +583,7 @@ DebugLogger.prototype.set_log_to_file = function(log_file) {
 };
 
 DebugLogger.prototype.set_console_output = function(is_enabled) {
-    int_dbg._log_console.silent = !is_enabled;
+    int_dbg._log_console_silent = !is_enabled;
 };
 
 DebugLogger.prototype.original_console = function() {

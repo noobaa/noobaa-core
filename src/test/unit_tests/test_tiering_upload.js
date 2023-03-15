@@ -263,7 +263,7 @@ mocha.describe('tiering upload', function() {
         const tier_status = tiering_status[tier0._id.toHexString()];
         const storage = tier_status.mirrors_storage[0];
         // const { storage } = await rpc_client.tier.read_tier({ name: TIER0 });
-        coretest.log('GGG get_current_storage:', util.inspect(storage, { depth: null }));
+        coretest.log('get_current_storage:', util.inspect(storage, { depth: null }));
         return storage;
     }
 });

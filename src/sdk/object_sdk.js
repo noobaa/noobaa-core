@@ -2,12 +2,12 @@
 'use strict';
 
 const _ = require('lodash');
-const util = require('util');
+const path = require('path');
 const stream = require('stream');
 require('../util/dotenv').load();
 
-// const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
 const http_utils = require('../util/http_utils');
@@ -26,9 +26,6 @@ const BucketSpaceNB = require('./bucketspace_nb');
 const BucketSpaceFS = require('./bucketspace_fs');
 const stats_collector = require('./endpoint_stats_collector');
 const { RpcError } = require('../rpc');
-const config = require('../../config');
-const path = require('path');
-const { AbortController } = require('node-abort-controller');
 
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
@@ -244,7 +241,7 @@ class ObjectSDK {
 
     _setup_bucket_namespace(bucket) {
         const time = Date.now();
-        dbg.log0('_load_bucket_namespace', util.inspect(bucket, true, null, true));
+        dbg.log1('_load_bucket_namespace', bucket);
         try {
             // NAMESPACE_FS HACK
             if (process.env.NAMESPACE_FS) {
@@ -307,6 +304,7 @@ class ObjectSDK {
 
     _setup_merge_namespace(bucket) {
         let rr = _.cloneDeep(bucket.namespace.read_resources);
+        /** @type {nb.Namespace} */
         let wr = bucket.namespace.write_resource && this._setup_single_namespace(_.extend({}, bucket.namespace.write_resource));
         if (MULTIPART_NAMESPACES.includes(bucket.namespace.write_resource.resource.endpoint_type)) {
             const wr_index = rr.findIndex(r => _.isEqual(r, bucket.namespace.write_resource.resource));

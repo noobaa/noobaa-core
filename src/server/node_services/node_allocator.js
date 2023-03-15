@@ -373,7 +373,7 @@ function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
     if (num_nodes < 1) {
         // await P.map(pools, pool => refresh_pool_alloc(pool, 'force'));
         dbg.error('allocate_node: no nodes for allocation in pool set',
-            pools, avoid_nodes, allocated_hosts);
+            pools.map(p => p.name), avoid_nodes, allocated_hosts);
         return;
     }
 

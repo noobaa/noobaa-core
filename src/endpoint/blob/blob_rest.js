@@ -6,6 +6,37 @@ const js_utils = require('../../util/js_utils');
 const BlobError = require('./blob_errors').BlobError;
 const http_utils = require('../../util/http_utils');
 
+const BLOB_OPS = js_utils.deep_freeze({
+
+    // SERVICE
+    get_service_list: require('./ops/blob_get_service_list'),
+    get_service_stats: require('./ops/blob_get_service_stats'),
+    get_service_properties: require('./ops/blob_get_service_properties'),
+    put_service_properties: require('./ops/blob_put_service_properties'),
+
+    // CONTAINER
+    get_container: require('./ops/blob_get_container'),
+    get_container_acl: require('./ops/blob_get_container_acl'),
+    get_container_list: require('./ops/blob_get_container_list'),
+    get_container_metadata: require('./ops/blob_get_container_metadata'),
+    put_container: require('./ops/blob_put_container'),
+    put_container_acl: require('./ops/blob_put_container_acl'),
+    put_container_lease: require('./ops/blob_put_container_lease'),
+    put_container_metadata: require('./ops/blob_put_container_metadata'),
+    delete_container: require('./ops/blob_delete_container'),
+
+    // BLOB
+    get_blob: require('./ops/blob_get_blob'),
+    get_blob_metadata: require('./ops/blob_get_blob_metadata'),
+    get_blob_blocklist: require('./ops/blob_get_blob_blocklist'),
+    put_blob: require('./ops/blob_put_blob'),
+    put_blob_block: require('./ops/blob_put_blob_block'),
+    put_blob_blocklist: require('./ops/blob_put_blob_blocklist'),
+    put_blob_properties: require('./ops/blob_put_blob_properties'),
+    put_blob_lease: require('./ops/blob_put_blob_lease'),
+    delete_blob: require('./ops/blob_delete_blob'),
+});
+
 const BLOB_MAX_BODY_LEN = 4 * 1024 * 1024;
 
 const RPC_ERRORS_TO_BLOB = Object.freeze({
@@ -14,8 +45,6 @@ const RPC_ERRORS_TO_BLOB = Object.freeze({
     NO_SUCH_OBJECT: BlobError.BlobNotFound,
     INVALID_REQUEST: BlobError.InvalidBlobOrBlock,
 });
-
-const BLOB_OPS = load_ops();
 
 async function blob_rest(req, res) {
     try {
@@ -142,40 +171,6 @@ function handle_error(req, res, err) {
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
-}
-
-function load_ops() {
-    /* eslint-disable global-require */
-    return js_utils.deep_freeze({
-
-        // SERVICE
-        get_service_list: require('./ops/blob_get_service_list'),
-        get_service_stats: require('./ops/blob_get_service_stats'),
-        get_service_properties: require('./ops/blob_get_service_properties'),
-        put_service_properties: require('./ops/blob_put_service_properties'),
-
-        // CONTAINER
-        get_container: require('./ops/blob_get_container'),
-        get_container_acl: require('./ops/blob_get_container_acl'),
-        get_container_list: require('./ops/blob_get_container_list'),
-        get_container_metadata: require('./ops/blob_get_container_metadata'),
-        put_container: require('./ops/blob_put_container'),
-        put_container_acl: require('./ops/blob_put_container_acl'),
-        put_container_lease: require('./ops/blob_put_container_lease'),
-        put_container_metadata: require('./ops/blob_put_container_metadata'),
-        delete_container: require('./ops/blob_delete_container'),
-
-        // BLOB
-        get_blob: require('./ops/blob_get_blob'),
-        get_blob_metadata: require('./ops/blob_get_blob_metadata'),
-        get_blob_blocklist: require('./ops/blob_get_blob_blocklist'),
-        put_blob: require('./ops/blob_put_blob'),
-        put_blob_block: require('./ops/blob_put_blob_block'),
-        put_blob_blocklist: require('./ops/blob_put_blob_blocklist'),
-        put_blob_properties: require('./ops/blob_put_blob_properties'),
-        put_blob_lease: require('./ops/blob_put_blob_lease'),
-        delete_blob: require('./ops/blob_delete_blob'),
-    });
 }
 
 

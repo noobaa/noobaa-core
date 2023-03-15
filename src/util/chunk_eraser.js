@@ -18,6 +18,14 @@ const chance = new Chance();
  */
 class ChunkEraser extends stream.Transform {
 
+    /**
+     * @param {{
+     *      watermark?: number,
+     *      erasures?: number,
+     *      save_data?: string,
+     *      verbose?: boolean,
+     * }} args 
+     */
     constructor({ watermark, erasures, save_data, verbose }) {
         super({
             objectMode: true,

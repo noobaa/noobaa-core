@@ -233,7 +233,7 @@ class LicenseScanner extends events.EventEmitter {
     _emit_license(license) {
         license.license_type = get_license_type(license.license);
         if (license.license_type !== PERMISSIVE_TYPE) {
-            console.error('GGG', license);
+            console.error('NON PERMISSIVE', license);
         }
         this.emit('license', license);
     }

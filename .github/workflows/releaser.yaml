@@ -32,11 +32,11 @@ jobs:
       - name: Release NooBaa Core Image
         env:
           GITHUB_TOKEN: ${{ secrets.GHACCESSTOKEN }}
-          DOCKERHUB_USERNAME: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
+          DOCKERHUB_USERNAME: noobaa
           DOCKERHUB_TOKEN: ${{ secrets.GHACTIONSDOCKERHUB }}
-          QUAY_USERNAME: ${{ secrets.GHACTIONQUAYNAME }}
+          QUAY_USERNAME: noobaa
           QUAY_TOKEN: ${{ secrets.GHACTIONQUAYTOKEN }}
-          OCI_ORG: ${{ secrets.GHACTIONSDOCKERHUBNAME }}
+          OCI_ORG: noobaa
           BASE_BRANCH: "${{ github.event.inputs.base_branch }}"
         run: |
           git config --global user.email "github-action@noobaa.io"

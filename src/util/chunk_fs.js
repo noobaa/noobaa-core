@@ -19,14 +19,15 @@ class ChunkFS extends stream.Transform {
      *      target_file: object,
      *      fs_context: object,
      *      namespace_resource_id: string,
+     *      md5_enabled: boolean,
      *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
      * }} params
      */
-    constructor({ target_file, fs_context, namespace_resource_id, stats }) {
+    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
-        this.MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
+        this.MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
         this.target_file = target_file;
         this.fs_context = fs_context;
         this.count = 1;

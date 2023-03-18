@@ -214,6 +214,7 @@ class NamespaceFS {
      *  access_mode: string;
      *  versioning: 'DISABLED' | 'SUSPENDED' | 'ENABLED';
      *  stats: import('./endpoint_stats_collector').EndpointStatsCollector;
+     *  force_md5_etag: boolean;
      * }} params
      */
     constructor({
@@ -224,6 +225,7 @@ class NamespaceFS {
         access_mode,
         versioning,
         stats,
+        force_md5_etag,
     }) {
         dbg.log1('NamespaceFS: buffers_pool length',
             buffers_pool.buffers.length, buffers_pool.sem);
@@ -234,6 +236,7 @@ class NamespaceFS {
         this.access_mode = access_mode;
         this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || versioning_status_enum.VER_DISABLED;
         this.stats = stats;
+        this.force_md5_etag = force_md5_etag;
     }
 
     /**
@@ -1050,11 +1053,13 @@ class NamespaceFS {
         const { source_stream } = params;
         try {
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
+            const md5_enabled = config.NSFS_CALCULATE_MD5 || this.force_md5_etag;
             const chunk_fs = new ChunkFS({
                 target_file,
                 fs_context,
                 stats: this.stats,
                 namespace_resource_id: this.namespace_resource_id,
+                md5_enabled
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
@@ -1170,7 +1175,8 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         const open_mode = 'w';
         try {
-            const MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
+            const md5_enabled = config.NSFS_CALCULATE_MD5 || this.force_md5_etag;
+            const MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_context);

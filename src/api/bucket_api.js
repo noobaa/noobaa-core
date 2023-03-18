@@ -32,6 +32,7 @@ module.exports = {
                         type: 'boolean'
                     },
                     bucket_claim: { $ref: '#/definitions/bucket_claim' },
+                    force_md5_etag: { type: 'boolean' },
                 }
             },
             reply: {
@@ -874,6 +875,9 @@ module.exports = {
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 logging: {$ref: '#/definitions/logging'},
+                force_md5_etag: {
+                    type: 'boolean'
+                },
                 tiering: {
                     $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
@@ -1177,6 +1181,9 @@ module.exports = {
                 name: { $ref: 'common_api#/definitions/bucket_name' },
                 new_name: { $ref: 'common_api#/definitions/bucket_name' },
                 tiering: { $ref: 'common_api#/definitions/tiering_name' },
+                force_md5_etag: {
+                    type: 'boolean'
+                },
                 new_tag: {
                     type: 'string',
                 },

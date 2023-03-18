@@ -23,6 +23,7 @@ mocha.describe('system_servers', function() {
     const TIER = `${PREFIX}-tier`;
     const TIERING_POLICY = `${PREFIX}-tiering-policy`;
     const BUCKET = `${PREFIX}-bucket`;
+    const MD5_BUCKET = `${PREFIX}-md5-bucket`;
     const NAMESPACE_BUCKET = `${PREFIX}-namespace-bucket`;
     const NAMESPACE_BUCKET_SINGLE_NO_WR = `${PREFIX}-namespace-bucket-single-no-wr`;
     const NAMESPACE_BUCKET_MERGE_NO_WR = `${PREFIX}-namespace-bucket-merge-no-wr`;
@@ -433,6 +434,30 @@ mocha.describe('system_servers', function() {
             name: 'func1',
             version: '$LATEST'
         });
+    });
+
+    mocha.it('Calculate md5_etag for bucket works', async function() {
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+
+        await rpc_client.bucket.create_bucket({
+            name: MD5_BUCKET,
+            force_md5_etag: true,
+        });
+        let info = await rpc_client.bucket.read_bucket({
+            name: MD5_BUCKET,
+        });
+        assert(info.force_md5_etag === true);
+
+        await rpc_client.bucket.update_bucket({
+            name: MD5_BUCKET,
+            force_md5_etag: false,
+        });
+        info = await rpc_client.bucket.read_bucket({
+            name: MD5_BUCKET,
+        });
+        assert(info.force_md5_etag === false);
+
+        await rpc_client.bucket.delete_bucket({ name: MD5_BUCKET });
     });
 
     mocha.it('namespace works', async function() {

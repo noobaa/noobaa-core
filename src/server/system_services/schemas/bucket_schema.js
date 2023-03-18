@@ -119,6 +119,11 @@ module.exports = {
                 },
             }
         },
+
+        force_md5_etag: {
+            type: 'boolean' // enable md5 calculation per bucket
+        },
+
         tiering: {
             objectid: true // tiering policy id
         },

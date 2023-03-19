@@ -1,4 +1,4 @@
-# "This job runs all Ceph s3 tests"
+# This job runs all Ceph s3 tests
 apiVersion: batch/v1
 kind: Job
 metadata:

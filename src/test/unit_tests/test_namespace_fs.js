@@ -402,12 +402,12 @@ mocha.describe('namespace_fs', function() {
 
             const disabled_nsr = { resource: nsr, path: disabled_bucket_path };
             await rpc_client.bucket.create_bucket({
-            name: disabled_bucket_name,
-            namespace: {
-                read_resources: [disabled_nsr],
-                write_resource: disabled_nsr
-            }
-        });
+                name: disabled_bucket_name,
+                namespace: {
+                    read_resources: [disabled_nsr],
+                    write_resource: disabled_nsr
+                }
+            });
 
             const policy = {
                 Version: '2012-10-17',
@@ -447,7 +447,7 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.after(async () => {
-            await file_pointer.close(DEFAULT_FS_CONFIG, get_obj_path);
+            if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG, get_obj_path);
             fs_utils.folder_delete(tmp_fs_root);
             for (let email of accounts) {
                 await rpc_client.account.delete_account({ email });

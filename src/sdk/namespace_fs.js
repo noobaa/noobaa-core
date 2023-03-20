@@ -770,13 +770,14 @@ class NamespaceFS {
 
     // opens open_path on POSIX, and on GPFS it will open open_path parent folder
     async _open_file(fs_context, open_path, open_mode) {
-        if (open_mode === 'wt') {
-            open_path = path.dirname(open_path);
-            dbg.log1('NamespaceFS._open_file: wt creating dirs', open_path, this.bucket_path);
-            if (open_path !== this.bucket_path) await this._make_path_dirs(open_path, fs_context);
+        const dir_path = path.dirname(open_path);
+        if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== this.bucket_path) {
+            dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, this.bucket_path);
+            await this._make_path_dirs(open_path, fs_context);
         }
-        dbg.log0('NamespaceFS._open_file:', open_path);
-        return nb_native().fs.open(fs_context, open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+        dbg.log0(`NamespaceFS._open_file: mode=${open_mode || 'r'}`, open_path);
+        const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
+        return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
     }
 
     // on server side copy - 

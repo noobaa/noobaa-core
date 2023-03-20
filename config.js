@@ -7,7 +7,9 @@
 var config = exports;
 
 const os = require('os');
+const fs = require('fs');
 const assert = require('assert');
+const dbg = require('./src/util/debug_module')(__filename);
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -109,6 +111,14 @@ config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 // Keep connection on long requests
 config.S3_KEEP_ALIVE_WHITESPACE_INTERVAL = 15 * 1000;
 config.S3_MD_SIZE_LIMIT = 2 * 1024;
+
+/////////////////////
+// SECRETS CONFIG  //
+/////////////////////
+
+config.JWT_SECRET = process.env.JWT_SECRET || _get_data_from_file(`/etc/noobaa-server/jwt`);
+config.SERVER_SECRET = process.env.SERVER_SECRET || _get_data_from_file(`/etc/noobaa-server/server_secret`);
+config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(`/etc/noobaa-auth-token/auth_token`);
 
 ///////////////
 // MD CONFIG //
@@ -674,6 +684,17 @@ function load_config_env_overrides() {
             console.warn(`load_config_env_overrides: failed to load ${key}`, err);
         }
     }
+}
+
+function _get_data_from_file(file_name) {
+    let data;
+    try {
+        data = fs.readFileSync(file_name).toString();
+    } catch (e) {
+        dbg.log1(`Error accrued while getting the data from ${file_name}: ${e}`);
+        return;
+    }
+    return data;
 }
 
 load_config_local();

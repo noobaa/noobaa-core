@@ -237,9 +237,9 @@ function get_rpc_router(env) {
 }
 
 async function get_auth_token(env) {
-    if (env.NOOBAA_AUTH_TOKEN) return env.NOOBAA_AUTH_TOKEN;
+    if (config.NOOBAA_AUTH_TOKEN) return config.NOOBAA_AUTH_TOKEN;
 
-    if (env.JWT_SECRET && env.LOCAL_MD_SERVER === 'true') {
+    if (config.JWT_SECRET && env.LOCAL_MD_SERVER === 'true') {
         const system_store_inst = system_store.get_instance();
         await P.wait_until(() =>
             system_store_inst.is_finished_initial_load

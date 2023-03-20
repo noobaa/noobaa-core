@@ -368,7 +368,7 @@ mocha.describe('namespace_fs', function() {
         const en_version_key_v1 = versionID_2;
         const en_version_body_v1 = 'CCCCC';
         const key_version = en_version_key + '_' + en_version_key_v1;
-
+        const get_obj_path = `${full_path}/${en_version_key}`;
         mocha.before(async function() {
             const self = this; // eslint-disable-line no-invalid-this
             self.timeout(300000);
@@ -402,12 +402,12 @@ mocha.describe('namespace_fs', function() {
 
             const disabled_nsr = { resource: nsr, path: disabled_bucket_path };
             await rpc_client.bucket.create_bucket({
-            name: disabled_bucket_name,
-            namespace: {
-                read_resources: [disabled_nsr],
-                write_resource: disabled_nsr
-            }
-        });
+                name: disabled_bucket_name,
+                namespace: {
+                    read_resources: [disabled_nsr],
+                    write_resource: disabled_nsr
+                }
+            });
 
             const policy = {
                 Version: '2012-10-17',
@@ -443,10 +443,11 @@ mocha.describe('namespace_fs', function() {
             const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
             assert.equal(bucket_ver.Status, 'Enabled');
             // create base file after versioning enabled
-            file_pointer = await create_object(`${full_path}/${en_version_key}`, en_version_body, versionID_1);
+            file_pointer = await create_object(get_obj_path, en_version_body, versionID_1);
         });
 
         mocha.after(async () => {
+            if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG, get_obj_path);
             fs_utils.folder_delete(tmp_fs_root);
             for (let email of accounts) {
                 await rpc_client.account.delete_account({ email });
@@ -615,7 +616,7 @@ mocha.describe('namespace_fs', function() {
 
         mocha.it('get object, with version enabled, delete marker placed on latest object - should return NoSuchKey', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
-            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
                 assert.fail('Should fail');
@@ -626,14 +627,14 @@ mocha.describe('namespace_fs', function() {
 
         mocha.it('get object, with version enabled, delete marker placed on latest object, version id specified - should return the version object', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
-            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
             assert.equal(res.Body, en_version_body_v1);
         });
 
         mocha.it('head object, with version enabled, delete marked xattr placed on latest object - should return ENOENT', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
-            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
                 assert.fail('Should fail');
@@ -644,7 +645,7 @@ mocha.describe('namespace_fs', function() {
 
         mocha.it('head object, with version enabled, delete marked xattr placed on latest object, version id specified - should return the version object', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
-            file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+            await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
                 assert.ok('Expected versioned object returned');

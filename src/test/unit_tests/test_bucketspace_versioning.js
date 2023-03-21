@@ -305,6 +305,18 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.ok(comp_res);
         });
 
+        mocha.it('copy object latest & versionId - source bucket versioning enabled - version does not exist', async function() {
+            const key = 'copied_key3.txt';
+            const non_exist_version = 'mtime-dsbfjb-ino-sjfhjsa';
+            try {
+                await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
+                    CopySource: `${bucket_name}/${key1}?versionId=${non_exist_version}`}).promise();
+                assert.fail('copy non existing version should have failed');
+            } catch (err) {
+                assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
         mocha.it('copy object latest & versionId - source bucket versioning enabled', async function() {
             const key = 'copied_key3.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
@@ -380,6 +392,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.ok(comp_res);
         });
 
+        mocha.it('delete object latest - non existing version', async function() {
+            const non_exist_version = 'mtime-dsad-ino-sdfasd';
+            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: disabled_key, VersionId: non_exist_version }).promise();
+            assert.equal(res.VersionId, non_exist_version);
+        });
 
         mocha.it('delete object latest - create dm & move latest -> .versions/', async function() {
             const prev_version_id = await stat_and_get_version_id(full_path, disabled_key);

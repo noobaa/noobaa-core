@@ -1779,14 +1779,11 @@ class NamespaceFS {
         if (!version_id) return cur_ver_path;
 
         this._throw_if_wrong_version_format(version_id);
-        const versioned_path = this._get_version_path(key, version_id);
-        const version_info = await this._get_version_info(fs_context, versioned_path);
-        if (version_info) return versioned_path;
-        dbg.log1('NamespaceFS._find_version_path: version doesn\'t exist in .versions/, fallback to parent folder');
-
         const cur_ver_info = await this._get_version_info(fs_context, cur_ver_path);
         if (cur_ver_info && cur_ver_info.version_id_str === version_id) return cur_ver_path;
-        throw new RpcError('NO_SUCH_OBJECT', 'version doesn\'t exist');
+
+        const versioned_path = this._get_version_path(key, version_id);
+        return versioned_path;
     }
 
     _throw_if_delete_marker(stat) {

@@ -602,6 +602,7 @@ mocha.describe('namespace_fs', function() {
             const version_obj_path = disabled_full_path + '/.versions';
             const version_key = dis_version_key + '_null';
             const version_body = 'DDDDD';
+            const version_body_new_version = 'EEEEE';
             await s3_client.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
             const bucket_ver = await s3_client.getBucketVersioning({ Bucket: disabled_bucket_name }).promise();
             assert.equal(bucket_ver.Status, 'Enabled');
@@ -609,6 +610,7 @@ mocha.describe('namespace_fs', function() {
             await fs_utils.create_fresh_path(version_obj_path, 0o770);
             await fs_utils.file_must_exist(version_obj_path);
             await create_object(`${version_obj_path}/${version_key}`, version_body, 'null');
+            await create_object(`${disabled_full_path}/${dis_version_key}`, version_body_new_version, 'mtime-jhdfbkjsd-ino-bnsdf7f');
             res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: 'null'}).promise();
             assert.equal(res.Body, version_body);
         });

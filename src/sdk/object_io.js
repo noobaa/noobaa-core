@@ -95,13 +95,6 @@ class ObjectReadable extends stream.Readable {
         this.pending = [];
         this._read = read;
     }
-
-    // close() is setting a flag to enforce immediate close
-    // and avoid more reads made by buffering
-    // which can cause many MB of unneeded reads
-    close() {
-        this.closed = true;
-    }
 }
 
 /**

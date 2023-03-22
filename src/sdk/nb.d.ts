@@ -413,6 +413,7 @@ interface ObjectInfo {
     first_range_data?: Buffer;
     content_length?: number;
     content_range?: string;
+    ns?: Namespace;
 }
 
 
@@ -729,6 +730,7 @@ interface ObjectSDK {
 interface Namespace {
 
     is_server_side_copy(other: Namespace, params: object): boolean;
+    is_readonly_namespace(): boolean;
     get_write_resource(): Namespace;
     get_bucket(): string;
 
@@ -796,6 +798,6 @@ interface BucketSpace {
     delete_bucket_policy(params: object): Promise<any>;
     get_bucket_policy(params: object): Promise<any>;
 
-    get_object_lock_configuration(params: object): Promise<any>;
-    put_object_lock_configuration(params: object): Promise<any>;
+    get_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
+    put_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
 }

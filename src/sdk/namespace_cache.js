@@ -41,10 +41,7 @@ class NamespaceCache {
     }
 
     is_readonly_namespace() {
-        if (this.namespace_hub.access_mode && this.namespace_hub.access_mode === 'READ_ONLY') {
-            return true;
-        }
-        return false;
+        return this.namespace_hub.is_readonly_namespace();
     }
 
     get_bucket() {

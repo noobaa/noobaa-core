@@ -8,11 +8,12 @@ const path = require('path');
 const util = require('util');
 const mime = require('mime');
 const { v4: uuidv4 } = require('uuid');
-const dbg = require('../util/debug_module')(__filename);
-const P = require('../util/promise');
 
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
+const error_utils = require('../util/error_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
@@ -221,9 +222,7 @@ class NamespaceFS {
         const fs_context = object_sdk &&
             object_sdk.requesting_account && object_sdk.requesting_account.nsfs_account_config;
         if (!fs_context) {
-            const err = new Error('nsfs_account_config is missing');
-            err.rpc_code = 'UNAUTHORIZED';
-            throw err;
+            throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
         }
 
         fs_context.backend = this.fs_backend || '';
@@ -274,10 +273,7 @@ class NamespaceFS {
     }
 
     is_readonly_namespace() {
-        if (this.access_mode && this.access_mode === 'READ_ONLY') {
-            return true;
-        }
-        return false;
+        return this.access_mode === 'READ_ONLY';
     }
 
     /////////////////
@@ -540,7 +536,7 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             const stat = await nb_native().fs.stat(fs_context, file_path);
-            if (isDirectory(stat)) throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
+            if (isDirectory(stat)) throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
             this._throw_if_delete_marker(stat);
             return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null');
         } catch (err) {
@@ -1608,9 +1604,7 @@ class NamespaceFS {
             const list = await this.list_objects({ ...params, limit: 1 }, object_sdk);
 
             if (list && list.objects && list.objects.length > 0) {
-                const err = new Error('underlying directory has files in it');
-                err.rpc_code = 'NOT_EMPTY';
-                throw err;
+                throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
             }
 
             await this._folder_delete(params.full_path, fs_context);
@@ -1673,7 +1667,8 @@ class NamespaceFS {
             if (err.code === 'EACCES') {
                 return false;
             }
-            throw Object.assign(new Error('check_bucket_boundaries error ' + err.code + " " + entry_path + " " + err), { code: 'INTERNAL_ERROR' });
+            throw error_utils.new_error_code('INTERNAL_ERROR',
+                'check_bucket_boundaries error ' + err.code + ' ' + entry_path + ' ' + err, { cause: err });
         }
         return true;
     }
@@ -1685,7 +1680,7 @@ class NamespaceFS {
      */
     async _check_path_in_bucket_boundaries(fs_context, entry_path) {
         if (!(await this._is_path_in_bucket_boundaries(fs_context, entry_path))) {
-            throw Object.assign(new Error('Entry ' + entry_path + ' is not in bucket boundaries'), { code: 'EACCES' });
+            throw error_utils.new_error_code('EACCES', 'Entry ' + entry_path + ' is not in bucket boundaries');
         }
     }
 
@@ -1798,7 +1793,7 @@ class NamespaceFS {
         if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
             const xattr_delete_marker = stat.xattr[XATTR_DELETE_MARKER];
             if (xattr_delete_marker) {
-                throw Object.assign(new Error('NoSuchKey'), { code: 'ENOENT' });
+                throw error_utils.new_error_code('ENOENT', 'Entry is a delete marker');
             }
         }
     }

@@ -5,9 +5,9 @@ const AWS = require('aws-sdk');
 const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
-const cluster = require('cluster');
 const size_utils = require('../util/size_utils');
 const RandStream = require('../util/rand_stream');
+const { cluster } = require('../util/fork_utils');
 
 const size_units_mult = {
     KB: 1024,
@@ -67,28 +67,20 @@ if (argv.help) {
     print_usage();
 }
 
-if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
-    argv.access_key = argv.access_key || '123';
-    argv.secret_key = argv.secret_key || 'abc';
-    argv.bucket = argv.bucket || 'first.bucket';
-}
-
+// @ts-ignore
 http.globalAgent.keepAlive = true;
+// @ts-ignore
 https.globalAgent.keepAlive = true;
 
 const s3 = new AWS.S3({
     endpoint: argv.endpoint,
-    accessKeyId: argv.access_key,
-    secretAccessKey: argv.secret_key,
+    accessKeyId: argv.access_key && String(argv.access_key),
+    secretAccessKey: argv.secret_key && String(argv.secret_key),
     s3ForcePathStyle: true,
     signatureVersion: argv.sig, // s3 or v4
     computeChecksums: argv.checksum || false, // disabled by default for performance
     s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
     region: argv.region || 'us-east-1',
-    params: {
-        Bucket: argv.bucket
-    },
 });
 
 // AWS config does not use https.globalAgent
@@ -103,6 +95,7 @@ if (s3.endpoint.protocol === 'https:') {
         }
     });
     if (!argv.selfsigned) {
+        // @ts-ignore
         AWS.events.on('error', err => {
             if (err.message === 'self signed certificate') {
                 setTimeout(() => console.log(
@@ -113,7 +106,7 @@ if (s3.endpoint.protocol === 'https:') {
     }
 }
 
-if (cluster.isMaster) {
+if (cluster.isPrimary) {
     run_master();
 } else {
     run_worker();
@@ -186,7 +179,7 @@ function handle_message(msg) {
 }
 
 async function run_worker() {
-    process.on('message', handle_message);
+    if (process.send) process.on('message', handle_message);
     for (let i = 0; i < argv.concur; ++i) {
         setImmediate(run_worker_loop);
     }
@@ -211,34 +204,63 @@ async function run_worker_loop() {
     }
 }
 
-async function head_object() {
-    return s3.headObject({ Key: argv.head }).promise();
+let _object_keys = [];
+let _object_keys_next = 0;
+let _object_keys_done = false;
+let _object_keys_promise = null;
+
+/**
+ * This function returns the next key to be used for head/get/delete.
+ * It has few modes depending on the value of the --head/--get/--delete arg (provided as `key_arg`):
+ * If key_arg is provided as a string that does not end with '/' it is assumed to be a fixed key to be used for all calls.
+ * Otherwise, it will list objects and keep the list in memory, returning the objects in list order,
+ * while fetching the next list pages on demand.
+ * If key_arg ends with '/' it will be used as a prefix for the list objects request to filter objects.
+ * 
+ * @param {string} key_arg 
+ * @returns string
+ */
+async function get_object_key(key_arg) {
+    if (typeof key_arg === 'string' && !key_arg.endsWith('/')) {
+        return key_arg;
+    }
+
+    while (_object_keys_next >= _object_keys.length) {
+        if (_object_keys_done) {
+            if (!_object_keys_next) throw new Error('no objects');
+            _object_keys_next = 0;
+            console.log('get_object_key: Restart object list with', _object_keys.length, 'items');
+        } else if (_object_keys_promise) {
+            console.log('get_object_key: wait for promise');
+            await _object_keys_promise;
+        } else {
+            const marker = _object_keys[_object_keys.length - 1];
+            const prefix = typeof key_arg === 'string' ? String(key_arg) : undefined;
+            _object_keys_promise = s3.listObjects({ Bucket: argv.bucket, Prefix: prefix, Marker: marker }).promise();
+            const res = await _object_keys_promise;
+            _object_keys_promise = null;
+            _object_keys_done = !res.IsTruncated;
+            _object_keys.push(...res.Contents.map(entry => entry.Key));
+            console.log('get_object_key: got', res.Contents.length, 'objects from marker', marker);
+        }
+    }
+
+    const key = _object_keys[_object_keys_next];
+    _object_keys_next += 1;
+    return key;
 }
 
-
-let objects = [];
-let index = 0;
-async function get_object_key() {
-    if (typeof argv.get === 'string') {
-        return argv.get;
-    } else {
-        if (index === objects.length) {
-            const marker = objects[objects.length - 1];
-            let objlist = await s3.listObjects({ Marker: marker }).promise();
-            objects = objlist.Contents.map(entry => entry.Key);
-            index = 0;
-        }
-
-        let key = objects[index];
-        index += 1;
-        return key;
-    }
+async function head_object() {
+    const key = await get_object_key(argv.head);
+    // console.log('HEAD', key);
+    return s3.headObject({ Bucket: argv.bucket, Key: key }).promise();
 }
 
 async function get_object() {
-    const key = await get_object_key();
+    const key = await get_object_key(argv.get);
     return new Promise((resolve, reject) => {
         s3.getObject({
+                Bucket: argv.bucket,
                 Key: key,
                 Range: `bytes=0-${data_size}`
             })
@@ -252,8 +274,9 @@ async function get_object() {
 }
 
 async function delete_all_objects() {
-    const key = await get_object_key();
+    const key = await get_object_key(argv.delete);
     await s3.deleteObject({
+        Bucket: argv.bucket,
         Key: key
     }).promise();
 }
@@ -261,6 +284,7 @@ async function delete_all_objects() {
 async function put_object() {
     const upload_key = argv.put + '-' + Date.now().toString(36);
     return s3.putObject({
+            Bucket: argv.bucket,
             Key: upload_key,
             ContentLength: data_size,
             Body: new RandStream(data_size, {
@@ -273,6 +297,7 @@ async function put_object() {
 async function upload_object() {
     const upload_key = argv.upload + '-' + Date.now().toString(36);
     return s3.upload({
+            Bucket: argv.bucket,
             Key: upload_key,
             ContentLength: data_size,
             Body: new RandStream(data_size, {

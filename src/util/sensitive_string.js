@@ -5,6 +5,10 @@ const util = require('util');
 const crypto = require('crypto');
 
 class SensitiveString {
+
+    /**
+     * @param {SensitiveString | string} [val]
+     */
     constructor(val) {
         const type = typeof val;
         if (val instanceof SensitiveString) {

@@ -95,9 +95,9 @@ async function post_object_select(req, res) {
     if (read_stream) {
         // if read_stream supports closing, then we handle abort cases such as http disconnection
         // by calling the close method to stop it from buffering more data which will go to waste.
-        if (read_stream.close) {
-            req.object_sdk.add_abort_handler(() => read_stream.close());
-        }
+        req.object_sdk.add_abort_handler(() => {
+            read_stream.destroy(new Error('abort read stream'));
+        });
         read_stream.on('error', err => {
             dbg.error('read stream error:', err, req.path);
             res.destroy(err);

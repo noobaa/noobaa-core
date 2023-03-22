@@ -1,5 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint-disable global-require */
 'use strict';
 
 

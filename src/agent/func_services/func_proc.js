@@ -6,9 +6,9 @@ try {
     process.on('uncaughtException', fail);
     process.on('unhandledRejection', fail);
 
-    const path = require('path'); // eslint-disable-line global-require
-    const AWS = require('aws-sdk'); // eslint-disable-line global-require
-    const https = require('https'); // eslint-disable-line global-require
+    const path = require('path');
+    const AWS = require('aws-sdk');
+    const https = require('https');
 
     process.once('message', msg => {
 

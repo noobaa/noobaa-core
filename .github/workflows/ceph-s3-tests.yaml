@@ -34,7 +34,7 @@ jobs:
          # Freeze the version of operator
          # to avoid a failed run due to code changes in the operator repo.
          # Need to update the commit once in a while
-          ref: 28960d4dbbba612d1a3e53245791076c11632b60
+          ref: f7358501716816250702d9a4c96f2526f98534e7
 
       - name: Change settings for k8s and minikube
         run: |
@@ -59,14 +59,15 @@ jobs:
          --noobaa-image='noobaa-core:s3-tests'
          ./build/_output/bin/noobaa-operator status
 
+      - name: Wait for phase Ready in the backingstore pod
+        run: |
+          cd ./noobaa-operator
+          ./.travis/number_of_pods_in_system.sh --pods 5
+          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=5m
+
       - name: Run Ceph s3-tests
         run: |
           set -x
-          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=3m
-          # we added th sleep since the test pool is in phase ready and condition available
-          # but the test pool storage is not ready yet, see issue:
-          # https://github.com/noobaa/noobaa-operator/issues/1007
-          sleep 3m
           cd ./noobaa-core
           kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
           kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=30m || TIMEOUT=true
@@ -92,6 +93,7 @@ jobs:
          kubectl get events --sort-by='.metadata.creationTimestamp' -A
          cd ./noobaa-operator
          ./build/_output/bin/noobaa-operator diagnose --db-dump --dir=ceph-s3-tests-logs
+
       - name: Save logs
         if: ${{ failure() }}    
         uses: actions/upload-artifact@v3

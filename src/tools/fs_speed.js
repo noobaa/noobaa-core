@@ -23,7 +23,8 @@ Sizes:
   --block_size <n>          (default 8 MB) block size to write 
   --file_size_units <unit>  (default is "MB") options are "GB", "MB", "KB", "B"
   --block_size_units <unit> (default is "MB") options are "GB", "MB", "KB", "B"
-Write modes:
+Modes:
+  --read            invoke reads instead of writes.
   --fsync           trigger fsync at the end of each file
   --mode <mode>     (default is "nsfs") options are
          "nsfs"     use the native fs_napi module used in nsfs
@@ -93,8 +94,6 @@ const speedometer = new Speedometer(is_master ? 'Total Speed' : 'FS Speed');
 const start_time = Date.now();
 const end_time = start_time + (argv.time * 1000);
 
-let file_id = 0;
-
 if (argv.forks > 1 && is_master) {
     speedometer.fork(argv.forks);
 } else {
@@ -104,7 +103,7 @@ if (argv.forks > 1 && is_master) {
 async function main() {
     const promises = [];
     fs.mkdirSync(argv.dir, { recursive: true });
-    for (let i = 0; i < argv.concur; ++i) promises.push(writer(i));
+    for (let i = 0; i < argv.concur; ++i) promises.push(worker(i));
     await Promise.all(promises);
     speedometer.clear_interval();
     if (is_master) speedometer.report();
@@ -114,43 +113,46 @@ async function main() {
 /**
  * @param {number} id
  */
-async function writer(id) {
+async function worker(id) {
     const dir = path.join(
         argv.dir,
         `${id}`, // first level is id so that repeating runs will be collected together
-        `pid-${process.pid}`,
+        // `pid-${process.pid}`,
     );
     await fs.promises.mkdir(dir, { recursive: true });
 
+    let file_id = 0;
     for (;;) {
         const file_start_time = Date.now();
         if (file_start_time >= end_time) break;
         const file_path = path.join(dir, `file-${file_id}`);
         file_id += 1;
         if (argv.mode === 'nsfs') {
-            await write_nb_native(file_path);
+            await work_with_nsfs(file_path);
         } else if (argv.mode === 'nodejs') {
-            await write_node_fs(file_path);
+            await work_with_nodejs(file_path);
         } else if (argv.mode === 'dd') {
-            await write_dd(file_path);
+            await work_with_dd(file_path);
         }
         const took_ms = Date.now() - file_start_time;
         speedometer.add_op(took_ms);
     }
 }
 
-async function write_dd(file_path) {
-    const cmd = `dd if=${argv.device} of=${file_path} bs=${block_size} count=${block_count}`;
+async function work_with_dd(file_path) {
+    const cmd = argv.read ?
+        `dd if=${file_path} of=/dev/null bs=${block_size} count=${block_count}` :
+        `dd if=${argv.device} of=${file_path} bs=${block_size} count=${block_count}`;
     // console.log(cmd);
     await execAsync(cmd);
     if (argv.fsync) await execAsync(`sync ${file_path}`);
     speedometer.update(file_size_aligned);
 }
 
-async function write_nb_native(file_path) {
+async function work_with_nsfs(file_path) {
     const rand_stream = new RandStream(file_size_aligned, {
         highWaterMark: 2 * block_size,
-        generator: argv.generator,
+        generator: argv.read ? 'noinit' : argv.generator,
     });
     const fs_context = {
         // uid: 666,
@@ -158,13 +160,19 @@ async function write_nb_native(file_path) {
         backend: 'GPFS',
         warn_threshold_ms: 1000,
     };
-    const file = await nb_native().fs.open(fs_context, file_path, 'w', 0x660);
+    const file = await nb_native().fs.open(fs_context, file_path, argv.read ? 'r' : 'w', 0x660);
     for (let pos = 0; pos < file_size_aligned; pos += block_size) {
         const buf_start_time = Date.now();
         if (buf_start_time >= end_time) break;
         const buf = rand_stream.generator(block_size);
         if (argv.nvec > 1) {
-            await file.writev(fs_context, split_to_nvec(buf, argv.nvec));
+            if (argv.read) {
+                await file.readv(fs_context, split_to_nvec(buf, argv.nvec));
+            } else {
+                await file.writev(fs_context, split_to_nvec(buf, argv.nvec));
+            }
+        } else if (argv.read) {
+            await file.read(fs_context, buf, 0, buf.length, pos);
         } else {
             await file.write(fs_context, buf);
         }
@@ -174,18 +182,24 @@ async function write_nb_native(file_path) {
     await file.close(fs_context);
 }
 
-async function write_node_fs(file_path) {
+async function work_with_nodejs(file_path) {
     const rand_stream = new RandStream(file_size_aligned, {
         highWaterMark: 2 * block_size,
-        generator: argv.generator,
+        generator: argv.read ? 'noinit' : argv.generator,
     });
-    const file = await fs.promises.open(file_path, 'w', 0x660);
+    const file = await fs.promises.open(file_path, argv.read ? 'r' : 'w', 0x660);
     for (let pos = 0; pos < file_size_aligned; pos += block_size) {
         const buf_start_time = Date.now();
         if (buf_start_time >= end_time) break;
         const buf = rand_stream.generator(block_size);
         if (argv.nvec > 1) {
-            await file.writev(split_to_nvec(buf, argv.nvec));
+            if (argv.read) {
+                await file.readv(split_to_nvec(buf, argv.nvec));
+            } else {
+                await file.writev(split_to_nvec(buf, argv.nvec));
+            }
+        } else if (argv.read) {
+            await file.read(buf);
         } else {
             await file.write(buf);
         }

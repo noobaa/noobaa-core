@@ -53,10 +53,7 @@ class NamespaceGCP {
     }
 
     is_readonly_namespace() {
-        if (this.access_mode && this.access_mode === 'READ_ONLY') {
-            return true;
-        }
-        return false;
+        return this.access_mode === 'READ_ONLY';
     }
 
 
@@ -134,6 +131,9 @@ class NamespaceGCP {
     // OBJECT READ //
     /////////////////
 
+    /**
+     * @returns {Promise<nb.ObjectInfo>}
+     */
     async read_object_md(params, object_sdk) {
         dbg.log0('NamespaceGCP.read_object_md:', this.bucket, inspect(params));
         const file = this.gcs.bucket(this.bucket).file(params.key);
@@ -149,6 +149,9 @@ class NamespaceGCP {
         return this._get_gcp_object_info(metadata);
     }
 
+    /**
+     * @returns {Promise<import('stream').Readable>}
+     */
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceGCP.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         throw new S3Error(S3Error.NotImplemented);
@@ -357,6 +360,20 @@ class NamespaceGCP {
         throw new Error('TODO');
     }
 
+    //////////////////////////
+    // AZURE BLOB MULTIPART //
+    //////////////////////////
+
+    async upload_blob_block(params, object_sdk) {
+        throw new Error('TODO');
+    }
+    async commit_blob_block_list(params, object_sdk) {
+        throw new Error('TODO');
+    }
+    async get_blob_block_lists(params, object_sdk) {
+        throw new Error('TODO');
+    }
+
     ///////////////
     // INTERNALS //
     ///////////////
@@ -382,7 +399,17 @@ class NamespaceGCP {
             last_modified_time: metadata.updated,
             content_type: metadata.contentType,
             md5_b64: metadata.md5Hash,
-            xattr
+            xattr,
+            is_latest: true,
+            delete_marker: false,
+            version_id: metadata.id,
+            tag_count: 0,
+            tagging: undefined,
+            num_parts: undefined,
+            sha256_b64: undefined,
+            lock_settings: undefined,
+            encryption: undefined,
+            stats: undefined,
         };
     }
 

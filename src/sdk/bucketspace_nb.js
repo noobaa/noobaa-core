@@ -201,11 +201,11 @@ class BucketSpaceNB {
     // DEFAULT OBJECT LOCK //
     /////////////////////////
 
-    async get_object_lock_configuration(params) {
+    async get_object_lock_configuration(params, object_sdk) {
         return this.rpc_client.bucket.get_object_lock_configuration(params);
     }
 
-    async put_object_lock_configuration(params) {
+    async put_object_lock_configuration(params, object_sdk) {
         return this.rpc_client.bucket.put_object_lock_configuration(params);
     }
 

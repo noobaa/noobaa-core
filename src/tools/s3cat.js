@@ -15,18 +15,13 @@ const size_utils = require('../util/size_utils');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 
+// @ts-ignore
 http.globalAgent.keepAlive = true;
+// @ts-ignore
 https.globalAgent.keepAlive = true;
 
 if (argv.presign && !_.isNumber(argv.presign)) {
     argv.presign = 3600;
-}
-
-if (argv.endpoint) {
-    if (argv.endpoint === true) argv.endpoint = 'http://localhost';
-    argv.access_key = argv.access_key || '123';
-    argv.secret_key = argv.secret_key || 'abc';
-    argv.bucket = argv.bucket || 'first.bucket';
 }
 
 const s3 = new AWS.S3({
@@ -39,9 +34,6 @@ const s3 = new AWS.S3({
     computeChecksums: argv.checksum || false, // disabled by default for performance
     s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
     region: argv.region || 'us-east-1',
-    params: {
-        Bucket: argv.bucket
-    },
 });
 
 // AWS config does not use https.globalAgent
@@ -56,6 +48,7 @@ if (s3.endpoint.protocol === 'https:') {
         }
     });
     if (!argv.selfsigned) {
+        // @ts-ignore
         AWS.events.on('error', err => {
             if (err.message === 'self signed certificate') {
                 setTimeout(() => console.log(
@@ -95,28 +88,32 @@ if (argv.help) {
 }
 
 
-function make_simple_request(op, params) {
-    const req = s3.makeRequest(op, params);
-    if (argv.presign) {
-        return console.log(req.presign(argv.presign));
+async function make_simple_request(op, params) {
+    try {
+        if (argv.presign) {
+            const url = await s3.getSignedUrlPromise(op, { Expires: argv.presign, ...params });
+            console.log(url);
+        } else {
+            const res = await s3.makeRequest(op, params).promise();
+            console.log('DONE', op, res);
+        }
+    } catch (err) {
+        console.error('ERROR:', op, params, _.omit(err, 'stack'));
     }
-    return req.promise()
-        .then(data => console.log('DONE', op, data))
-        .catch(err => console.error('ERROR:', op, params, _.omit(err, 'stack')));
 }
 
 
 async function list_objects() {
     try {
         const params = {
+            Bucket: argv.bucket,
             Prefix: argv.prefix,
             Delimiter: argv.delimiter,
             MaxKeys: argv.maxkeys,
             Marker: argv.marker,
         };
-        const req = s3.listObjects(params);
-        if (argv.presign) return console.log(req.presign(argv.presign));
-        const res = await req.promise();
+        if (argv.presign) return make_simple_request('listObjects', params);
+        const res = await s3.listObjects(params).promise();
         if (argv.ll) {
             console.log('List:', JSON.stringify(_.omit(res, 'Contents', 'CommonPrefixes')));
         }
@@ -148,6 +145,7 @@ async function list_objects() {
 async function list_objects_v2() {
     try {
         const params = {
+            Bucket: argv.bucket,
             Prefix: argv.prefix,
             Delimiter: argv.delimiter,
             MaxKeys: argv.maxkeys,
@@ -155,9 +153,8 @@ async function list_objects_v2() {
             StartAfter: argv.start,
             FetchOwner: argv.owner
         };
-        const req = s3.listObjectsV2(params);
-        if (argv.presign) return console.log(req.presign(argv.presign));
-        const res = await req.promise();
+        if (argv.presign) return make_simple_request('listObjectsV2', params);
+        const res = await s3.listObjectsV2(params).promise();
         if (argv.ll_v2) {
             console.log('List:', JSON.stringify(_.omit(res, 'Contents', 'CommonPrefixes')));
         }
@@ -186,16 +183,16 @@ async function list_objects_v2() {
     }
 }
 
-function list_buckets() {
-    const req = s3.listBuckets();
-    if (argv.presign) return console.log(req.presign(argv.presign));
-    return req.promise()
-        .then(data => {
-            _.each(data.Buckets, bucket => {
-                console.log(bucket.Name);
-            });
-        })
-        .catch(err => console.error('LIST BUCKETS ERROR:', _.omit(err, 'stack')));
+async function list_buckets() {
+    try {
+        if (argv.presign) return make_simple_request('listBuckets', {});
+        const res = await s3.listBuckets().promise();
+        _.each(res.Buckets, bucket => {
+            console.log(bucket.Name);
+        });
+    } catch (err) {
+        console.error('LIST BUCKETS ERROR:', _.omit(err, 'stack'));
+    }
 }
 
 function create_bucket() {
@@ -216,6 +213,7 @@ function head_bucket() {
 
 function head_object() {
     return make_simple_request('headObject', {
+        Bucket: argv.bucket,
         Key: argv.head
     });
 }
@@ -226,6 +224,7 @@ function delete_objects() {
         return;
     }
     return make_simple_request('deleteObjects', {
+        Bucket: argv.bucket,
         Delete: {
             Objects: argv.rm.split(',').map(obj => ({
                 Key: obj.trim(),
@@ -288,36 +287,30 @@ function upload_object() {
 
     if (argv.copy) {
         const params = {
+            Bucket: argv.bucket,
             Key: upload_key,
             CopySource: argv.bucket + '/' + argv.copy,
             ContentType: mime.getType(upload_key) || '',
         };
-        if (argv.presign) {
-            console.log(s3.getSignedUrl('copyObject', params));
-        } else {
-            s3.copyObject(params, on_finish);
-        }
-        return;
+        if (argv.presign) return make_simple_request('copyObject', params);
+        return s3.copyObject(params, on_finish);
     }
 
     if (argv.put) {
         const params = {
+            Bucket: argv.bucket,
             Key: upload_key,
             Body: data_source,
             ContentType: mime.getType(file_path) || '',
             ContentLength: data_size
         };
-        if (argv.presign) {
-            console.log(s3.getSignedUrl('putObject', params));
-        } else {
-            s3.putObject(params, on_finish)
-                .on('httpUploadProgress', on_progress);
-        }
-        return;
+        if (argv.presign) return make_simple_request('putObject', params);
+        return s3.putObject(params, on_finish).on('httpUploadProgress', on_progress);
     }
 
     if (!argv.perf) {
         s3.upload({
+                Bucket: argv.bucket,
                 Key: upload_key,
                 Body: data_source,
                 ContentType: mime.getType(file_path),
@@ -335,6 +328,7 @@ function upload_object() {
             loaded: 0
         };
         s3.createMultipartUpload({
+            Bucket: argv.bucket,
             Key: upload_key,
             ContentType: mime.getType(file_path),
         }, (err, create_res) => {
@@ -349,6 +343,7 @@ function upload_object() {
 
             function complete() {
                 s3.completeMultipartUpload({
+                    Bucket: argv.bucket,
                     Key: upload_key,
                     UploadId: create_res.UploadId,
                     // MultipartUpload: {
@@ -379,6 +374,7 @@ function upload_object() {
                 let data_start_time = Date.now();
                 let part_num = next_part_num;
                 s3.uploadPart({
+                    Bucket: argv.bucket,
                     Key: upload_key,
                     PartNumber: part_num,
                     UploadId: create_res.UploadId,
@@ -414,19 +410,17 @@ function upload_object() {
 
 function get_object() {
     const params = {
+        Bucket: argv.bucket,
         Key: argv.get,
     };
-    if (argv.presign) {
-        console.log(s3.getSignedUrl('getObject', params));
-        return;
-    }
+    if (argv.presign) return make_simple_request('getObject', params);
     s3.headObject(params, function(err, data) {
         if (err) {
             console.error('HEAD ERROR:', err);
             return;
         }
 
-        const data_size = parseInt(data.ContentLength, 10);
+        const data_size = Number(data.ContentLength);
         const start_time = Date.now();
         const speedometer = new Speedometer('Download Speed');
 
@@ -445,14 +439,14 @@ function get_object() {
 
         s3.getObject(params)
             .createReadStream()
+            .on('error', on_finish)
             .pipe(new stream.Transform({
                 transform: function(buf, encoding, callback) {
                     speedometer.update(buf.length);
                     callback();
                 }
             }))
-            .on('finish', on_finish)
-            .on('error', on_finish);
+            .on('finish', on_finish);
     });
 }
 
@@ -493,6 +487,6 @@ General S3 Flags:
   --ssl                (default is false) Force SSL connection
   --aws                (default is false) Use AWS endpoint and subdomain-style buckets
   --checksum           (default is false) Calculate checksums on data. slower.
-  --presign            instead of running the request it prints a presigned url of the request
+  --presign <sec>      print a presigned url instead of sending the request, value is expiry in seconds (default 3600 if not set).
 `);
 }

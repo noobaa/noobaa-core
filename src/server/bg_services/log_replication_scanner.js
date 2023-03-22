@@ -120,17 +120,38 @@ class LogReplicationScanner {
         }));
     }
 
+    /**
+     * process_candidates takes the source and destination buckets and the candidates
+     * and process them depending upon the kind of candidate.
+     * @param {*} src_bucket source bucket
+     * @param {*} dst_bucket destination bucket
+     * @param {nb.ReplicationLogCandidates} candidates 
+     */
     async process_candidates(src_bucket, dst_bucket, candidates) {
         const src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
 
         for (const candidate of src_dst_objects_list) {
-            if (candidate.data.action === 'copy') {
+            await this.process_candidate(src_bucket, dst_bucket, candidate);
+        }
+    }
+
+    async process_candidate(src_bucket, dst_bucket, candidate) {
+        // each candidate represents several action over the same key
+        // that are sorted by time.
+        const items = candidate.data || [];
+
+        for (const item of items) {
+            if (item.action === 'copy') {
                 // TODO: Cannot do it yet because it seems that the AWS logs
                 // are not ordered by time
             }
 
-            if (candidate.data.action === 'delete') {
+            if (item.action === 'delete') {
                 await this.process_delete_candidate(src_bucket, dst_bucket, candidate);
+            }
+
+            if (item.action === 'conflict') {
+                await this.process_conflict_candidate(src_bucket, dst_bucket, candidate);
             }
         }
     }
@@ -138,6 +159,32 @@ class LogReplicationScanner {
     async process_delete_candidate(src_bucket, dst_bucket, candidate) {
         if (!candidate.src_object_info && candidate.dst_object_info) {
             await this.delete_object(dst_bucket.name, candidate.key);
+        }
+    }
+
+    async process_conflict_candidate(src_bucket, dst_bucket, candidate) {
+        // If the item is present in the source bucket but not in the destination bucket
+        // then it is 'copy' action
+        if (candidate.src_object_info && !candidate.dst_object_info) {
+            // call the process_candidate again but with the 'copy' action
+            await this.process_candidate(src_bucket, dst_bucket, {
+                key: candidate.key,
+                data: { action: 'copy', time: candidate.data.time },
+                src_object_info: candidate.src_object_info,
+                dst_object_info: candidate.dst_object_info,
+            });
+        }
+
+        // If the item is present in the destination bucket but not in the source bucket
+        // then it is 'delete' action
+        if (!candidate.src_object_info && candidate.dst_object_info) {
+            // call the process_candidate again but with the 'delete' action
+            await this.process_candidate(src_bucket, dst_bucket, {
+                key: candidate.key,
+                data: { action: 'delete', time: candidate.data.time },
+                src_object_info: candidate.src_object_info,
+                dst_object_info: candidate.dst_object_info,
+            });
         }
     }
 
@@ -151,6 +198,20 @@ class LogReplicationScanner {
         dbg.log2('log_replication_scanner: scan delete_object: ', key);
     }
 
+    /**
+     * head_objects takes the source and destination buckets and the candidates
+     * and queries the source and destination buckets for the objects info and returns
+     * an array of objects.
+     * @param {nb.SensitiveString} src_bucket_name 
+     * @param {nb.SensitiveString} dst_bucket_name 
+     * @param {nb.ReplicationLogCandidates} candidates 
+     * @returns {Promise<Array<{
+     *  key: string,
+     *  data: { action: nb.ReplicationLogAction, time: Date }[],
+     *  src_object_info: AWS.S3.HeadObjectOutput | null,
+     *  dst_object_info: AWS.S3.HeadObjectOutput | null
+     * }>>}
+     */
     async head_objects(src_bucket_name, dst_bucket_name, candidates) {
         const src_dst_objects_info = await P.all(Object.entries(candidates).map(async ([key, value]) => {
             try {

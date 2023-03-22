@@ -106,6 +106,7 @@ config.N2N_OFFER_INTERNAL = false;
 // ENDPOINT CONFIG //
 /////////////////////
 
+config.ENDPOINT_FORKS = Number(process.env.ENDPOINT_FORKS) || 0;
 config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 // Keep connection on long requests

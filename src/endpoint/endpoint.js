@@ -31,6 +31,7 @@ const xml_utils = require('../util/xml_utils');
 const ssl_utils = require('../util/ssl_utils');
 const net_utils = require('../util/net_utils');
 const addr_utils = require('../util/addr_utils');
+const fork_utils = require('../util/fork_utils');
 const md_server = require('../server/md_server');
 const server_rpc = require('../server/server_rpc');
 const debug_config = require('../util/debug_config');
@@ -71,6 +72,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  https_port?: number;
  *  https_port_sts?: number;
  *  init_request_sdk?: EndpointHandler;
+ *  forks?: number;
  * }} EndpointOptions
  */
 
@@ -79,6 +81,8 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  */
 async function start_endpoint(options = {}) {
     try {
+        fork_utils.start_workers(options.forks ?? config.ENDPOINT_FORKS);
+
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
         const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;

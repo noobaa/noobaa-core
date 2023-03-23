@@ -43,7 +43,7 @@ There are two variations of files to consider:
     3. In the simple case of FS namespace buckets, if the required file resides in the endpoint host, the file path (rather than stream) can be sent to s3select for processing. This allows processing Parquet files stored in namespace buckets.
     4. Parquet requires Arrow, a library for processing Parquet files.
     5. Initial feature will not support Parquet.
-
+    6. Currently Parquet is only supported to NSFS, where seeking a file is easy.
 
 ### HTTP Response
 
@@ -82,7 +82,7 @@ The parser git repositories which are submodules of s3select repository.
 
 Boost is assumed by s3select make to be installed on the builder machine.
 
-
+For Parquet, Arrow (and its dependencies) are assumed to be installed.
 
 2. noobaa-core repository
 
@@ -96,13 +96,13 @@ It will have the s3select and boost repositories as submodules, and the two pars
 
 In docker build, these repositories are fetched and node-gyp uses the sources for compilation.
 
-Only necessary boost submodules are fetched.
+Only necessary Boost submodules are fetched.
 
 All repositories are checkout to a specific commit/tag so updates won’t affect us directly.
 
 When updates are needed, the checkout command needs to be updated to a new commit/tag.
 
-
+Parquet is not build by default.
 
 4. Native build
 

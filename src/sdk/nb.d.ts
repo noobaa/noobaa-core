@@ -876,6 +876,7 @@ interface Native {
     fs: NativeFS;
 
     S3Select: { new(options: S3SelectOptions): S3Select };
+    select_parquet: boolean;
 }
 
 interface NativeFS {
@@ -1031,20 +1032,25 @@ interface X509Name {
     O: string;
 }
 
+type select_input_format =  'CSV' | 'JSON' | 'Parquet';
 interface S3SelectOptions {
     query: string;
-    input_format: 'CSV' | 'JSON';
+    input_format: select_input_format;
     input_serialization_format: {
         FieldDelimiter: string;
         RecordDelimiter: string;
         FileHeaderInfo: string;
     };
     records_header_buf: Buffer;
+    size_bytes: number;
+    fs_context: NativeFSContext;
+    filepath: string;
 }
 
 interface S3Select {
     write(data: Buffer): Promise<Buffer>;
     flush(): Promise<Buffer>;
+    select_parquet(): Promise<Buffer>;
 }
 
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;

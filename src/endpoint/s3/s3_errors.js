@@ -521,6 +521,11 @@ S3Error.S3SelectNotCompiled = Object.freeze({
     message: 'This server was not compiled with S3 Select support. Recompile with BUILD_S3SELECT=1.',
     http_code: 501,
 });
+S3Error.S3SelectParquetNotCompiled = Object.freeze({
+    code: 'S3SelectParquetNotCompiled',
+    message: 'This server was not compiled with S3 Select for Parquet. Recompile with BUILD_S3SELECT=1 and BUILD_S3SELECT_PARQUET=1.',
+    http_code: 501,
+});
 S3Error.MissingInputSerialization = Object.freeze({
     code: 'MissingRequiredParameter',
     message: 'InputSerialization is required. Please check the service documentation and try again.',

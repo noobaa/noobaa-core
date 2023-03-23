@@ -34,10 +34,15 @@ Eg, on a Fedora-based linux:
 or, equivalently:
 `GYP_DEFINES=BUILD_S3SELECT=1 node-gyp rebuild`
 
+4. Parquet
+You will need to install Arrow lib and its depndencies.
+See https://arrow.apache.org/install/ and/or our adapted script ./src/deploy/NVA_build/install_arrow_run.sh.
+The relevant GYP param is BUILD_S3SELECT_PARQUET.
+
 ## Docker Build
 S3Select is enabled by defualt for docker build.  
-If you wish to explicitly enable/disable s3select in docker build, you can use BUILD_S3SELECT env parameter. Eg-  
-`BUILD_S3SELECT=0 make noobaa NOOBAA_TAG=noobaa-core:select`
+If you wish to explicitly enable/disable s3select in docker build, you can use BUILD_S3SELECT make parameter. Eg-
+`make noobaa NOOBAA_TAG=noobaa-core:select BUILD_S3SELECT=0`
 
 ## Test Native Code
 You can test native code with the provide s3select.js. Eg-  
@@ -45,4 +50,9 @@ You can test native code with the provide s3select.js. Eg-
 Which is equivalent to-
 `echo -e "1,2,3\n4,5,6" | node src/tools/s3select.js --query "SELECT sum(int(_2)) from stdin;" --input_format CSV --record_delimiter $'\n' --field_delimiter , --file_header_info IGNORE`
 
-
+## Parquet
+Running select on Parquet object is supported only for file-system namespaces (NSFS).
+Parquet parsing implementation has relatively big dependencies (~500 MB).
+In order to save time, bandwidth and disk space, it is not enabled by default, in neither Docker nor native build.
+In order to compile with Parquet s3select support, add the BUILD_S3SELECT_PARQUET=1 flag.
+The BUILD_S3SELECT flag must also be enabled (explicitly in native build, by default in Docker).

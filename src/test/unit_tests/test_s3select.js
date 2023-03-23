@@ -8,6 +8,9 @@ const stream = require('stream');
 const nb_native = require('../../util/nb_native')();
 const { Transform } = require('readable-stream');
 const stream_utils = require('../../util/stream_utils');
+const fs = require('fs');
+const { tmpdir } = require('os');
+const { sep } = require('path');
 
 const csv_small_str =
 `a,b,c,d,e,
@@ -30,6 +33,41 @@ const json_str =
 ]
 `;
 
+/*This is the above csv in parquet format, encoded in base64.
+We use this string to make a temporary parquet os file */
+const parquet_small_base64 =
+`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
+AAAcAAAcAAAcAAAASAIAAFBBUjE=
+`;
+
 /*
 Handles streaming an input (csv/json) and getting the sql result as output.
 The stream in src/util/s3select.js also encodes the result into chunks according to AWS-defined format,
@@ -42,6 +80,9 @@ class S3SelectStream extends Transform {
 
     constructor(context) {
         super({});
+        context.handle_result = res => this.push(res.select);
+        context.s3select_js = this;
+        this.context = context;
         this.s3select = new (nb_native.S3Select)(context);
     }
 
@@ -61,6 +102,17 @@ class S3SelectStream extends Transform {
             this.push(select.select);
         }
         return cb();
+    }
+
+    async select_parquet() {
+        //kickoff the worker with and empty string (it will be ignored)
+        const empty_string_buffer = Buffer.from("", "utf-8");
+        const select = await this.s3select.write(empty_string_buffer);
+        if (select) {
+            this.push(select.select);
+        }
+        this.push(null);
+        this.s3select = null;
     }
 }
 
@@ -108,6 +160,14 @@ async function run_sql(args, input_str) {
     const input_stream = stream.Readable.from([input_str]);
     const collect = new CollectChunks();
     await stream.promises.pipeline(input_stream, s3select, collect);
+    return Buffer.concat(collect.chunks).toString();
+}
+
+async function run_sql_parquet(args) {
+    const s3select = new S3SelectStream(args);
+    const collect = new CollectChunks();
+    s3select.pipe(collect);
+    await s3select.select_parquet();
     return Buffer.concat(collect.chunks).toString();
 }
 
@@ -183,6 +243,37 @@ mocha.describe('s3select', function() {
         const output = await run_sql(select_args, json_str);
         assert.strictEqual(output, "3\n123\n", "wrong select output for json query.");
     });
+
+    if (nb_native.select_parquet) {
+        mocha.it('parquet - select column', async function() {
+            const fs_context = {
+                gid: process.getgid(),
+                uid: process.getuid()
+            };
+            const select_args = {
+                //select first and third column, first three lines
+                query: "select _1, _3 from stdin where int(_1) < 3;",
+                input_format: "Parquet",
+                input_serialization_format: {},
+                records_header_buf: s3select_utils.S3SelectStream.records_message_headers,
+                fs_context: fs_context,
+                size_bytes: 1673
+            };
+            //create a temp parquet file from parquet_small_base64
+            const dir = fs.mkdtempSync(`${tmpdir}${sep}`);
+            const file = `${dir}${sep}parq_small`;
+            const buffer = Buffer.from(parquet_small_base64, 'base64');
+            const readable = new stream.Readable();
+            readable.push(buffer);
+            readable.push(null);
+            select_args.filepath = file;
+            await stream.promises.pipeline(readable, fs.createWriteStream(file));
+            assert(readable.closed);
+            const output = await run_sql_parquet(select_args);
+            assert.strictEqual(output, "0,339\n1,741\n2,53\n", "wrong select output for parquet query.");
+            fs.rmSync(dir, {recursive: true, force: true});
+        });
+    }
 
     /*
     Send an error upstream, make sure downstream is properly closed.

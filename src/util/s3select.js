@@ -82,19 +82,10 @@ class S3SelectStream extends Transform {
     }
 
     /**
-         * @param {{
-    *     query: string;
-    *     input_format: 'CSV' | 'JSON';
-    *     input_serialization_format: {
-    *        FieldDelimiter: string;
-    *        RecordDelimiter: string;
-    *        FileHeaderInfo: string;
-    *     };
-    *     records_header_buf: Buffer;
-    *  }} opts
-    */
+     *@param {nb.S3SelectOptions} opts
+     */
     constructor(opts) {
-        super(opts);
+        super();
         this.stats = {
             Stats: {
                 BytesProcessed: 0,
@@ -102,6 +93,8 @@ class S3SelectStream extends Transform {
                 BytesReturned: 0
             }
         };
+        opts.handle_result = this.handle_result;
+        opts.s3select_js = this;
         this.s3select = new (nb_native().S3Select)(opts);
     }
 
@@ -137,8 +130,12 @@ class S3SelectStream extends Transform {
         //dbg.log2("select content response = ", buffer.toString('hex').match(/../g).join(' '));
     }
 
-    handle_result(result) {
+    async handle_result(result) {
         if (result) {
+            if (result.parquet_read_bytes) {
+                this.stats.Stats.BytesScanned += result.parquet_read_bytes;
+                this.stats.Stats.BytesProcessed += result.parquet_read_bytes;
+            }
             this.encode_chunk(result);
         }
     }
@@ -179,7 +176,7 @@ class S3SelectStream extends Transform {
             this.stats.Stats.BytesScanned += chunk.length;
             this.stats.Stats.BytesProcessed += chunk.length;
             const select_result = await this.s3select.write(chunk);
-            this.handle_result(select_result);
+            await this.handle_result(select_result);
             return cb();
         } catch (err) {
             dbg.error(err);
@@ -190,7 +187,7 @@ class S3SelectStream extends Transform {
     async _flush(cb) {
         try {
             const select_result = await this.s3select.flush();
-            this.handle_result(select_result);
+            await this.handle_result(select_result);
             await this.send_stats();
             this.push(S3SelectStream.end_message);
             this.push(null); //ends http res
@@ -199,6 +196,22 @@ class S3SelectStream extends Transform {
             dbg.error(err);
             return cb(err);
         }
+    }
+
+    async select_parquet() {
+        dbg.log2("select_parq start");
+        const select_result = await this.s3select.select_parquet();
+        //by now query is done. this is the last chunk
+        await this.handle_result(select_result);
+        //finish up response
+        await this.send_stats();
+        dbg.log2("select parq send end message");
+        this.push(S3SelectStream.end_message);
+        this.push(null);
+        //we are referencing s3select and it reference us back
+        //freeing the reference in s3select requires napi and can
+        //only be done on main thread, so this is easier
+        this.s3select = null;
     }
 }
 

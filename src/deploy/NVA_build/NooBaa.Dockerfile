@@ -54,7 +54,7 @@ ENV ENDPOINT_NODE_OPTIONS ''
 ##############################################################
 # Layers:
 #   Title: Installing dependencies
-#   Size: ~ 379 MB
+#   Size: ~ 272 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 
@@ -75,6 +75,10 @@ RUN dnf install -y -q bash \
     jemalloc \
     xz && \
     dnf clean all
+
+COPY ./src/deploy/NVA_build/install_arrow_run.sh ./src/deploy/NVA_build/install_arrow_run.sh
+ARG BUILD_S3SELECT_PARQUET=0
+RUN ./src/deploy/NVA_build/install_arrow_run.sh $BUILD_S3SELECT_PARQUET
 
 RUN mkdir -p /usr/local/lib/python3.6/site-packages
 
@@ -149,6 +153,9 @@ EXPOSE 26050
 
 # Needs to be added only after installing jemalloc in dependencies section (our env section is before) - otherwise it will fail
 ENV LD_PRELOAD /usr/lib64/libjemalloc.so.2
+
+#RUN mkdir -p /nsfs/fs1/amitpb && chmod -R 777 /nsfs/
+#RUN mkdir -p /nsfsAA/fs1/amitpb && chmod -R 777 /nsfsAA/
 
 ###############
 # EXEC SETUP #

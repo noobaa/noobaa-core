@@ -22,7 +22,8 @@
 
     'targets': [{
 	'variables': {
-            'BUILD_S3SELECT%':0
+            'BUILD_S3SELECT%':0,
+            'BUILD_S3SELECT_PARQUET%':0
         },
         'target_name': 'nb_native',
         'include_dirs': [

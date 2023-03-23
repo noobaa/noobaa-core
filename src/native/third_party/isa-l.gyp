@@ -171,25 +171,25 @@
                 'isa-l_crypto/include/',
                 'isa-l_crypto/rolling_hash/',
             ],
+            'sources': [
+                'isa-l_crypto/rolling_hash/rolling_hashx_base.c',
+                'isa-l_crypto/rolling_hash/rolling_hash2.c',
+            ],
             'conditions': [
                 ['node_arch=="x64"', {
                     'sources': [
-                        'isa-l_crypto/rolling_hash/rolling_hashx_base.c',
-                        'isa-l_crypto/rolling_hash/rolling_hash2.c',
                         'isa-l_crypto/rolling_hash/rolling_hash2_until_04.asm',
                         'isa-l_crypto/rolling_hash/rolling_hash2_until_00.asm',
                         'isa-l_crypto/rolling_hash/rolling_hash2_multibinary.asm',
-                    ]},
-                ],
+                    ],
+                }],
                 ['node_arch=="arm64"', {
                     'sources': [
-                        'isa-l_crypto/rolling_hash/rolling_hashx_base.c',
-                        'isa-l_crypto/rolling_hash/rolling_hash2.c',
                         'isa-l_crypto/rolling_hash/aarch64/rolling_hash2_aarch64_multibinary.S',
                         'isa-l_crypto/rolling_hash/aarch64/rolling_hash2_aarch64_dispatcher.c',
                         'isa-l_crypto/rolling_hash/aarch64/rolling_hash2_run_until_unroll.S',
-                     ]}
-                ]
+                    ],
+                }],
             ]
         },
         {
@@ -200,13 +200,16 @@
                 'isa-l_crypto/include/',
                 'isa-l_crypto/md5_mb/',
             ],
+            'sources': [
+                'isa-l_crypto/md5_mb/md5_ctx_base.c',
+                'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
+            ],
             'conditions': [
                 ['node_arch=="x64"', {
                     'sources': [
                         'isa-l_crypto/md5_mb/md5_ctx_sse.c',
                         'isa-l_crypto/md5_mb/md5_ctx_avx.c',
                         'isa-l_crypto/md5_mb/md5_ctx_avx2.c',
-                        'isa-l_crypto/md5_mb/md5_ctx_base.c',
                         'isa-l_crypto/md5_mb/md5_mb_mgr_init_sse.c',
                         'isa-l_crypto/md5_mb/md5_mb_mgr_init_avx2.c',
                         'isa-l_crypto/md5_mb/md5_mb_mgr_init_avx512.c',
@@ -228,7 +231,6 @@
                 ],
                 ['node_arch=="arm64"', {
                     'sources': [
-                        'isa-l_crypto/md5_mb/md5_ctx_base.c',
                         'isa-l_crypto/md5_mb/aarch64/md5_ctx_aarch64_asimd.c',
                         'isa-l_crypto/md5_mb/aarch64/md5_mb_aarch64_dispatcher.c',
                         'isa-l_crypto/md5_mb/aarch64/md5_mb_mgr_aarch64_asimd.c',
@@ -243,9 +245,6 @@
                      ]}
                 ],
             ],
-            'sources': [
-                'isa-l_crypto/md5_mb/md5_ctx_base_aliases.c',
-            ],
         },
         {
             'target_name': 'isa-l-sha1',
@@ -255,11 +254,14 @@
                 'isa-l_crypto/include/',
                 'isa-l_crypto/sha1_mb/',
             ],
+            'sources': [
+                'isa-l_crypto/sha1_mb/sha1_ctx_base.c',
+                'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
+            ],
             'conditions': [['node_arch=="x64" or node_arch=="x32"', {'sources': [
                 'isa-l_crypto/sha1_mb/sha1_ctx_sse.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx.c',
                 'isa-l_crypto/sha1_mb/sha1_ctx_avx2.c',
-                'isa-l_crypto/sha1_mb/sha1_ctx_base.c',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_init_sse.c',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_init_avx2.c',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_submit_sse.asm',
@@ -286,8 +288,6 @@
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_sse_ni.asm',
                 'isa-l_crypto/sha1_mb/sha1_mb_mgr_flush_avx512_ni.asm',
             ]}, 'node_arch=="arm64"', {'sources': [
-                'isa-l_crypto/sha1_mb/sha1_ctx_base.c',
-                'isa-l_crypto/sha1_mb/sha1_ref.c',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_mb_multibinary.S',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_ctx_ce.c',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_mb_x1_ce.S',
@@ -298,12 +298,7 @@
                 'isa-l_crypto/sha1_mb/aarch64/sha1_mb_asimd_x4.S',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_asimd_common.S',
                 'isa-l_crypto/sha1_mb/aarch64/sha1_ctx_asimd.c',
-            ]}, {
-                'sources': [
-                    'isa-l_crypto/sha1_mb/sha1_ctx_base_aliases.c',
-                    'isa-l_crypto/sha1_mb/sha1_ref.c',
-                ]
-            }]],
+            ]}]],
         },
         {
             'target_name': 'isa-l-sha256',
@@ -313,11 +308,14 @@
                 'isa-l_crypto/include/',
                 'isa-l_crypto/sha256_mb/',
             ],
+            'sources': [
+                'isa-l_crypto/sha256_mb/sha256_ctx_base.c',
+                'isa-l_crypto/sha256_mb/sha256_ctx_base_aliases.c',
+            ],
             'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/sha256_mb/sha256_ctx_sse.c',
                 'isa-l_crypto/sha256_mb/sha256_ctx_avx.c',
                 'isa-l_crypto/sha256_mb/sha256_ctx_avx2.c',
-                'isa-l_crypto/sha256_mb/sha256_ctx_base.c',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_init_sse.c',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_init_avx2.c',
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_submit_sse.asm',
@@ -345,8 +343,6 @@
                 'isa-l_crypto/sha256_mb/sha256_mb_mgr_flush_avx512_ni.asm',
             ]}],
             ['node_arch=="arm64"', {'sources': [
-                'isa-l_crypto/sha256_mb/sha256_ctx_base.c',
-                'isa-l_crypto/sha256_mb/sha256_ref.c',
                 'isa-l_crypto/sha256_mb/aarch64/sha256_mb_multibinary.S',
                 'isa-l_crypto/sha256_mb/aarch64/sha256_mb_aarch64_dispatcher.c',
                 'isa-l_crypto/sha256_mb/aarch64/sha256_ctx_ce.c',
@@ -365,12 +361,15 @@
                 'isa-l_crypto/include/',
                 'isa-l_crypto/sha512_mb/',
             ],
+            'sources': [
+                'isa-l_crypto/sha512_mb/sha512_ctx_base.c',
+                'isa-l_crypto/sha512_mb/sha512_ctx_base_aliases.c',
+            ],
             'conditions': [['node_arch=="x64"', {'sources': [
                 'isa-l_crypto/sha512_mb/sha512_ctx_sse.c',
                 'isa-l_crypto/sha512_mb/sha512_ctx_avx.c',
                 'isa-l_crypto/sha512_mb/sha512_ctx_avx2.c',
                 'isa-l_crypto/sha512_mb/sha512_ctx_sb_sse4.c',
-                'isa-l_crypto/sha512_mb/sha512_ctx_base.c',
                 'isa-l_crypto/sha512_mb/sha512_mb_mgr_init_sse.c',
                 'isa-l_crypto/sha512_mb/sha512_mb_mgr_init_avx2.c',
                 'isa-l_crypto/sha512_mb/sha512_sb_mgr_init_sse4.c',
@@ -394,7 +393,6 @@
                 'isa-l_crypto/sha512_mb/sha512_mb_x8_avx512.asm',
             ]}],
             ['node_arch=="arm64"', {'sources': [
-                'isa-l_crypto/sha512_mb/sha512_ctx_base.c',
                 'isa-l_crypto/sha512_mb/aarch64/sha512_mb_multibinary.S',
                 'isa-l_crypto/sha512_mb/aarch64/sha512_mb_aarch64_dispatcher.c',
                 'isa-l_crypto/sha512_mb/aarch64/sha512_ctx_ce.c',

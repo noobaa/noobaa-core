@@ -18,8 +18,6 @@ const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
 const ChunkFS = require('../util/chunk_fs');
-const stats_collector = require('./endpoint_stats_collector');
-// const http_utils = require('../util/http_utils');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
@@ -206,28 +204,35 @@ class NamespaceFS {
      *  namespace_resource_id?: string;
      *  access_mode: string;
      *  versioning: 'DISABLED' | 'SUSPENDED' | 'ENABLED';
+     *  stats: import('./endpoint_stats_collector').EndpointStatsCollector;
      * }} params
      */
-    constructor({ bucket_path, fs_backend, bucket_id, namespace_resource_id, access_mode, versioning }) {
-        dbg.log0('NamespaceFS: buffers_pool', buffers_pool);
+    constructor({
+        bucket_path,
+        fs_backend,
+        bucket_id,
+        namespace_resource_id,
+        access_mode,
+        versioning,
+        stats,
+    }) {
+        dbg.log1('NamespaceFS: buffers_pool length',
+            buffers_pool.buffers.length, buffers_pool.sem);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
         this.namespace_resource_id = namespace_resource_id;
         this.access_mode = access_mode;
         this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || versioning_status_enum.VER_DISABLED;
+        this.stats = stats;
     }
 
     prepare_fs_context(object_sdk) {
-        const fs_context = object_sdk &&
-            object_sdk.requesting_account && object_sdk.requesting_account.nsfs_account_config;
-        if (!fs_context) {
-            throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
-        }
-
+        const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
+        if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
         fs_context.backend = this.fs_backend || '';
         fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
-        fs_context.report_fs_stats = stats_collector.report_fs_stats;
+        if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
         return fs_context;
     }
 
@@ -603,19 +608,6 @@ class NamespaceFS {
                 const remain_size = Math.max(0, end - pos);
                 const read_size = Math.min(buffer.length, remain_size);
 
-                //TODO: We probably have an issue with counting the bytes in the read 
-                // We need to find it and fix
-
-                // Update the read stats               
-                stats_collector.instance(object_sdk.rpc_client).update_nsfs_read_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    bucket_name: params.bucket,
-                    size: read_size,
-                    count
-                });
-                // clear count for next updates
-                count = 0;
-
                 const bytesRead = await file.read(fs_context, buffer, 0, read_size, pos);
                 if (!bytesRead) {
                     buffer_pool_cleanup = null;
@@ -631,6 +623,16 @@ class NamespaceFS {
                 num_buffers += 1;
                 const log2_size = Math.ceil(Math.log2(bytesRead));
                 log2_size_histogram[log2_size] = (log2_size_histogram[log2_size] || 0) + 1;
+
+                // collect read stats
+                this.stats?.update_nsfs_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
+                    size: bytesRead,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
 
                 // wait for response buffer to drain before adding more data if needed - 
                 // this occurs when the output network is slower than the input file
@@ -999,8 +1001,8 @@ class NamespaceFS {
             const chunk_fs = new ChunkFS({
                 target_file,
                 fs_context,
-                rpc_client: object_sdk.rpc_client,
-                namespace_resource_id: this.namespace_resource_id
+                stats: this.stats,
+                namespace_resource_id: this.namespace_resource_id,
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
@@ -1645,7 +1647,7 @@ class NamespaceFS {
      * @returns 
      */
     async _is_path_in_bucket_boundaries(fs_context, entry_path) {
-        dbg.log0('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path);
+        dbg.log1('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path);
         if (!entry_path.startsWith(this.bucket_path)) {
             dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
             return false;

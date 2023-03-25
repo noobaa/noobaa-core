@@ -21,6 +21,7 @@ require('./test_prefetch');
 require('./test_promise_utils');
 require('./test_rpc');
 require('./test_semaphore');
+require('./test_delayed_trigger');
 require('./test_fs_utils');
 require('./test_signature_utils');
 require('./test_http_utils');

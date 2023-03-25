@@ -39,6 +39,7 @@ const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const background_scheduler = require('../util/background_scheduler').get_instance();
+const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 
 if (process.env.NOOBAA_LOG_LEVEL) {
@@ -160,6 +161,8 @@ async function start_endpoint(options = {}) {
         await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
 
         if (internal_rpc_client) {
+            endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);
+
             // Register a bg monitor on the endpoint
             background_scheduler.register_bg_worker(new NamespaceMonitor({
                 name: 'namespace_fs_monitor',
@@ -218,7 +221,12 @@ function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
         const rpc_client = rpc.new_client();
         req.func_sdk = new FuncSDK(rpc_client);
         req.sts_sdk = new StsSDK(rpc_client, internal_rpc_client);
-        req.object_sdk = new ObjectSDK(rpc_client, internal_rpc_client, object_io);
+        req.object_sdk = new ObjectSDK({
+            rpc_client,
+            internal_rpc_client,
+            object_io,
+            stats: endpoint_stats_collector.instance(),
+        });
     };
     return init_request_sdk;
 }

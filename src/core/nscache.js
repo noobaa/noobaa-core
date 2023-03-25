@@ -13,6 +13,7 @@ const NamespaceCache = require('../sdk/namespace_cache');
 const NamespaceS3 = require('../sdk/namespace_s3');
 const BucketSpaceS3 = require('../sdk/bucketspace_s3');
 const NamespaceNB = require('../sdk/namespace_nb');
+const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 
 const HELP = `
 Help:
@@ -85,7 +86,12 @@ async function main(argv = minimist(process.argv.slice(2))) {
         };
         const bs = new BucketSpaceS3({ s3_params });
         const ns_nb = new NamespaceNB(); // TODO need to setup rpc_client
-        const object_sdk = new ObjectSDK(null, null, null);
+        const object_sdk = new ObjectSDK({
+            rpc_client: null,
+            internal_rpc_client: null,
+            object_io: null,
+            stats: endpoint_stats_collector.instance(),
+        });
 
         // resolve namespace and bucketspace
         const namespaces = {};
@@ -96,13 +102,14 @@ async function main(argv = minimist(process.argv.slice(2))) {
             const ns_hub = new NamespaceS3({
                 s3_params,
                 namespace_resource_id: '998877',
-                rpc_client: null,
+                stats: endpoint_stats_collector.instance(),
             });
             const ns_cache = new NamespaceCache({
                 namespace_hub: ns_hub,
                 namespace_nb: ns_nb,
                 caching: { ttl_ms: 3600000 },
                 active_triggers: null,
+                stats: endpoint_stats_collector.instance(),
             });
             namespaces[bucket_name] = ns_cache;
             return ns_cache;

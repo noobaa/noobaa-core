@@ -446,10 +446,12 @@ struct FSWorker : public Napi::AsyncWorker
     }
     void ReportWorkerStats(int error)
     {
-        Napi::Env env = Env();
-        auto fs_worker_stats = Napi::Object::New(env);
-        set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, error);
-        if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
+        if (!_report_fs_stats.IsEmpty()) {
+            Napi::Env env = Env();
+            auto fs_worker_stats = Napi::Object::New(env);
+            set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, error);
+            _report_fs_stats.Call({ fs_worker_stats });
+        }
     }
     virtual void OnOK() override
     {

@@ -10,7 +10,6 @@ const dbg = require('../util/debug_module')(__filename);
 const blob_utils = require('../endpoint/blob/blob_utils');
 const azure_storage = require('../util/new_azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
-const stats_collector = require('./endpoint_stats_collector');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
 const valid_attr_regex = /^[A-Za-z_][A-Za-z0-9_]+$/;
@@ -20,7 +19,26 @@ const valid_attr_regex = /^[A-Za-z_][A-Za-z0-9_]+$/;
  */
 class NamespaceBlob {
 
-    constructor({ namespace_resource_id, rpc_client, connection_string, container, account_name, account_key, access_mode }) {
+    /**
+     * @param {{
+     *      namespace_resource_id: string,
+     *      connection_string: string,
+     *      container: string,
+     *      account_name: string,
+     *      account_key: string,
+     *      access_mode: string,
+     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+     * }} params
+     */
+    constructor({
+        namespace_resource_id,
+        connection_string,
+        container,
+        account_name,
+        account_key,
+        access_mode,
+        stats,
+    }) {
         this.namespace_resource_id = namespace_resource_id;
         this.connection_string = connection_string;
         this.container = container;
@@ -28,11 +46,11 @@ class NamespaceBlob {
         // needed only for generateBlockIdPrefix() and get_block_id() functions
         // TODO: replace old lib functions with new impl of block_id getters
         this.old_blob = azure_storage.get_old_blob_service_conn_string(connection_string);
-        this.rpc_client = rpc_client;
         this.account_name = account_name;
         this.account_key = account_key;
         this.container_client = azure_storage.get_container_client(this.blob, this.container);
         this.access_mode = access_mode;
+        this.stats = stats;
     }
 
     _get_blob_client(blob_name) {
@@ -160,7 +178,7 @@ class NamespaceBlob {
         return new Promise((resolve, reject) => {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                this.stats?.update_namespace_read_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count
@@ -244,7 +262,7 @@ class NamespaceBlob {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count
@@ -309,7 +327,7 @@ class NamespaceBlob {
 
         let count = 1;
         const count_stream = stream_utils.get_tap_stream(data => {
-            stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+            this.stats?.update_namespace_write_stats({
                 namespace_resource_id: this.namespace_resource_id,
                 size: data.length,
                 count
@@ -436,7 +454,7 @@ class NamespaceBlob {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count

@@ -13,7 +13,6 @@ const fs_utils = require('../../util/fs_utils');
 const size_utils = require('../../util/size_utils');
 const path = require('path');
 const nb_native = require('../../util/nb_native');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 
 const MAC_PLATFORM = 'darwin';
 const XATTR_VERSION_ID = 'user.version_id';

@@ -15,7 +15,6 @@ const Semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
 const config = require('../../config');
-const stats_collector = require('./endpoint_stats_collector');
 const size_utils = require('../util/size_utils');
 
 const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
@@ -28,12 +27,21 @@ const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, 
  */
 class NamespaceCache {
 
-    constructor({ namespace_hub, namespace_nb, caching, active_triggers }) {
+    /**
+     * @param {{
+     *      namespace_hub: nb.Namespace,
+     *      namespace_nb: import('./namespace_nb'),
+     *      caching: object,
+     *      active_triggers?: string,
+     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+     * }} params
+     */
+   constructor({ namespace_hub, namespace_nb, caching, active_triggers, stats }) {
         this.namespace_hub = namespace_hub;
         this.namespace_nb = namespace_nb;
         this.active_triggers = active_triggers;
         this.caching = caching;
-        this.stats_collector = stats_collector.instance(namespace_hub.rpc_client);
+        this.stats = stats;
     }
 
     get_write_resource() {
@@ -274,7 +282,7 @@ class NamespaceCache {
                         const start_time = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
 
-                        this.stats_collector.update_cache_latency_stats({
+                        this.stats?.update_cache_latency_stats({
                             bucket_name: params.bucket,
                             cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
@@ -368,11 +376,11 @@ class NamespaceCache {
 
             // update latency stats on 'end'
             cache_read_stream.once('end', () => {
-                this.stats_collector.update_cache_latency_stats({
+                this.stats?.update_cache_latency_stats({
                     bucket_name: params.bucket,
                     cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                 });
-                this.stats_collector.update_cache_stats({
+                this.stats?.update_cache_stats({
                     bucket_name: params.bucket,
                     hit_count: 1,
                     range_op: (params.start || params.end)
@@ -381,7 +389,7 @@ class NamespaceCache {
 
             // update bytes stats on 'data' events but with a tap stream
             const tap_stream = stream_utils.get_tap_stream(data => {
-                this.stats_collector.update_cache_stats({
+                this.stats?.update_cache_stats({
                     bucket_name: params.bucket,
                     read_bytes: data.length,
                 });
@@ -436,7 +444,7 @@ class NamespaceCache {
             hub_read_stream = await this.namespace_hub.read_object_stream(hub_read_params, object_sdk);
             // update latency stats on 'end'
             hub_read_stream.once('end', () => {
-                this.stats_collector.update_cache_latency_stats({
+                this.stats?.update_hub_latency_stats({
                     bucket_name: params.bucket,
                     hub_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                 });
@@ -497,7 +505,7 @@ class NamespaceCache {
                                     bucket: this.namespace_nb.target_bucket,
                                 }, upload_params));
 
-                            this.stats_collector.update_cache_latency_stats({
+                            this.stats?.update_cache_latency_stats({
                                 bucket_name: params.bucket,
                                 cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                             });
@@ -510,7 +518,7 @@ class NamespaceCache {
                     dbg.log0('NamespaceCache._read_hub_object_stream: etags are different or non if-match preconditions, skip uploading part to cache', { md_conditions: params.md_conditions, cache_object_md: params.object_md });
                 }
 
-                this.stats_collector.update_cache_stats({
+                this.stats?.update_cache_stats({
                     bucket_name: params.bucket,
                     miss_count: 1,
                     range_op: true,
@@ -525,7 +533,7 @@ class NamespaceCache {
                         const start_time = process.hrtime.bigint();
                         const upload_res = await this.namespace_nb.upload_object(upload_params, object_sdk);
 
-                        this.stats_collector.update_cache_latency_stats({
+                        this.stats?.update_cache_latency_stats({
                             bucket_name: params.bucket,
                             cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                         });
@@ -534,7 +542,7 @@ class NamespaceCache {
                     }
                 );
 
-                this.stats_collector.update_cache_stats({
+                this.stats?.update_cache_stats({
                     bucket_name: params.bucket,
                     range_op: false,
                     miss_count: 1,
@@ -579,11 +587,11 @@ class NamespaceCache {
                 read_response = await this.namespace_nb.read_object_stream(params, object_sdk);
                 // update latency stats on 'end'
                 read_response.once('end', () => {
-                    this.stats_collector.update_cache_latency_stats({
+                    this.stats?.update_cache_latency_stats({
                         bucket_name: params.bucket,
                         cache_read_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
                     });
-                    this.stats_collector.update_cache_stats({
+                    this.stats?.update_cache_stats({
                         bucket_name: params.bucket,
                         hit_count: 1,
                         range_op
@@ -592,7 +600,7 @@ class NamespaceCache {
 
                 // update bytes stats on 'data' events but with a tap stream
                 tap_stream = stream_utils.get_tap_stream(data => {
-                    this.stats_collector.update_cache_stats({
+                    this.stats?.update_cache_stats({
                         bucket_name: params.bucket,
                         read_bytes: data.length,
                     });
@@ -605,7 +613,7 @@ class NamespaceCache {
 
         tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
 
-        this.stats_collector.update_cache_stats({
+        this.stats?.update_cache_stats({
             bucket_name: params.bucket,
             range_op,
             read_count: 1,
@@ -645,7 +653,7 @@ class NamespaceCache {
             const start_time = process.hrtime.bigint();
             upload_response = await this.namespace_hub.upload_object(params, object_sdk);
 
-            this.stats_collector.update_cache_latency_stats({
+            this.stats?.update_hub_latency_stats({
                 bucket_name: params.bucket,
                 hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
             });
@@ -661,7 +669,7 @@ class NamespaceCache {
             const start_time = process.hrtime.bigint();
             const hub_promise = this.namespace_hub.upload_object(hub_params, object_sdk);
             // update latency stats on 'end'
-            hub_promise.then(() => this.stats_collector.update_hub_latency_stats({
+            hub_promise.then(() => this.stats?.update_hub_latency_stats({
                 bucket_name: params.bucket,
                 hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
             }));
@@ -684,7 +692,7 @@ class NamespaceCache {
                 async () => this.namespace_nb.upload_object(cache_params, object_sdk)
             );
             // update latency stats on 'end'
-            cache_promise.then(() => this.stats_collector.update_cache_latency_stats({
+            cache_promise.then(() => this.stats?.update_cache_latency_stats({
                 bucket_name: params.bucket,
                 cache_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
             }));
@@ -870,7 +878,7 @@ class NamespaceCache {
     }
 
     update_cache_stats_hook(bucket_name) {
-        return write_bytes => this.stats_collector.update_cache_stats({ bucket_name, write_bytes });
+        return write_bytes => this.stats?.update_cache_stats({ bucket_name, write_bytes });
     }
 
     ////////////////////

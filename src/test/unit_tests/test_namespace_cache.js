@@ -11,6 +11,7 @@ const metric_utils = require('../utils/metrics');
 const { RpcError } = require('../../rpc');
 const buffer_utils = require('../../util/buffer_utils');
 const NamespaceCache = require('../../sdk/namespace_cache');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const cache_config = require('../../../config').NAMESPACE_CACHING;
 
 const EVENT_UPLOAD_FINISH = 'event_upload_finish';
@@ -33,13 +34,13 @@ function random_object(size) {
 }
 
 function reset_metrics(ns_cache) {
-    metric_utils.reset_metrics(ns_cache.stats_collector.prom_metrics_report);
+    metric_utils.reset_metrics(ns_cache.stats.prom_metrics_report);
 }
 
 function validate_metric(bucket, ns_cache, metric_name, expect_value) {
-    console.log(metric_utils.get_metric(ns_cache.stats_collector.prom_metrics_report,
+    console.log(metric_utils.get_metric(ns_cache.stats.prom_metrics_report,
         metric_name));
-    assert(metric_utils.get_metric(ns_cache.stats_collector.prom_metrics_report,
+    assert(metric_utils.get_metric(ns_cache.stats.prom_metrics_report,
         metric_name).hashMap[`bucket_name:${bucket}`].value === expect_value);
 }
 
@@ -139,7 +140,20 @@ function mock_upload_object_range(recorder, params, object_sdk) {
     return obj;
 }
 
+/**
+ * @implements {nb.Namespace}
+ */
 class MockNamespace {
+
+    /**
+     * @param {{
+     *      type: string;
+     *      recorder: Recorder;
+     *      trigger_err?: string; 
+     *      slow_write?: boolean;
+     *      inline_read?: boolean;
+     * }} param0 
+     */
     constructor({ type, trigger_err, recorder, slow_write, inline_read }) {
         this.type = type;
         this._recorder = recorder;
@@ -149,6 +163,8 @@ class MockNamespace {
         this._write_err = null;
         this._md5 = crypto.createHash('md5');
         this._inline_read = inline_read;
+        this.target_bucket = undefined;
+        this.active_triggers_map_by_bucket = undefined;
     }
 
     add_obj(obj) {
@@ -222,7 +238,7 @@ class MockNamespace {
         }
     }
 
-    create_object_upload(params, object_sdk) {
+    async create_object_upload(params, object_sdk) {
         this._recorder.record_event(this.type, params.bucket, params.key, EVENT_CREATE_UPLOAD);
     }
 
@@ -289,7 +305,7 @@ class MockNamespace {
         });
     }
 
-    delete_object(params, object_sdk) {
+    async delete_object(params, object_sdk) {
         console.log(`${this.type} mock: delete_object called: bucket ${params.bucket} key ${params.key}`);
         if (this._trigger_err === 'delete') {
             console.log(`${this.type} mock: delete_object err triggered: bucket ${params.bucket} key ${params.key}`);
@@ -300,7 +316,7 @@ class MockNamespace {
         this._recorder.delete_obj(this.type, params.bucket, params.key);
     }
 
-    delete_multiple_objects(params, object_sdk) {
+    async delete_multiple_objects(params, object_sdk) {
         console.log(`${this.type} mock: delete_multiple_objects called: bucket ${params.bucket} key ${params.key}`);
         if (this._trigger_err === 'multi-deletes') {
             console.log(`${this.type} mock: delete_multiple_objects err triggered: bucket ${params.bucket} keys ${params.objects}`);
@@ -310,6 +326,37 @@ class MockNamespace {
         }
         console.log('delete_multiple_objects: deleting objects TODO');
     }
+
+    /** @returns {any} */
+    not_implemented() { throw new Error('MockNamespace not implemented'); }
+    is_server_side_copy(other, params) { return false; }
+    is_readonly_namespace() { return false; }
+    get_write_resource() { return this; }
+    get_bucket() { return this.target_bucket; }
+    async list_objects(params, object_sdk) { return this.not_implemented(); }
+    async list_uploads(params, object_sdk) { return this.not_implemented(); }
+    async list_object_versions(params, object_sdk) { return this.not_implemented(); }
+    async complete_object_upload(params, object_sdk) { return this.not_implemented(); }
+    async abort_object_upload(params, object_sdk) { return this.not_implemented(); }
+    async upload_multipart(params, object_sdk) { return this.not_implemented(); }
+    async list_multiparts(params, object_sdk) { return this.not_implemented(); }
+    async get_object_tagging(params, object_sdk) { return this.not_implemented(); }
+    async put_object_tagging(params, object_sdk) { return this.not_implemented(); }
+    async delete_object_tagging(params, object_sdk) { return this.not_implemented(); }
+    async get_object_acl(params, object_sdk) { return this.not_implemented(); }
+    async put_object_acl(params, object_sdk) { return this.not_implemented(); }
+    async get_object_legal_hold(params, object_sdk) { return this.not_implemented(); }
+    async put_object_legal_hold(params, object_sdk) { return this.not_implemented(); }
+    async get_object_retention(params, object_sdk) { return this.not_implemented(); }
+    async put_object_retention(params, object_sdk) { return this.not_implemented(); }
+    async upload_blob_block(params, object_sdk) { return this.not_implemented(); }
+    async commit_blob_block_list(params, object_sdk) { return this.not_implemented(); }
+    async get_blob_block_lists(params, object_sdk) { return this.not_implemented(); }
+    async set_triggers_for_bucket(params, object_sdk) { return this.not_implemented(); }
+    async get_triggers_for_bucket(params, object_sdk) { return this.not_implemented(); }
+    async _dispatch_multiple_delete_triggers(params, object_sdk) { return this.not_implemented(); }
+    async create_uls(params, object_sdk) { return this.not_implemented(); }
+    async delete_uls(params, object_sdk) { return this.not_implemented(); }
 }
 
 async function create_namespace_cache_and_read_obj({ recorder, object_sdk, ttl_ms, size, start, end,
@@ -320,6 +367,7 @@ async function create_namespace_cache_and_read_obj({ recorder, object_sdk, ttl_m
         namespace_hub: hub,
         namespace_nb: cache,
         caching: { ttl_ms },
+        stats: endpoint_stats_collector.instance(),
     });
     reset_metrics(ns_cache);
 
@@ -367,6 +415,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
             namespace_hub: new MockNamespace({ type: 'hub', recorder, slow_write: true }),
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const { bucket, key, size, buf, etag } = random_object(8);
@@ -394,6 +443,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
             namespace_hub: new MockNamespace({ type: 'hub', recorder, trigger_err: 'write' }),
             namespace_nb: new MockNamespace({ type: 'cache', recorder, trigger_err: 'write'}),
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const { bucket, key, size, buf } = random_object(8);
@@ -418,6 +468,7 @@ mocha.describe('namespace caching: upload scenarios', () => {
             namespace_hub: new MockNamespace({ type: 'hub', recorder }),
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         _.set(object_sdk, 'rpc_client.object.update_object_md', _obj => {
@@ -484,6 +535,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const obj = random_object(8);
@@ -512,6 +564,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const obj = random_object(8);
@@ -539,6 +592,7 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const size = block_size * 5;
@@ -579,6 +633,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const obj = random_object(8);
@@ -609,6 +664,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const cache_obj = random_object(8);
@@ -649,6 +705,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const obj = random_object(8);
@@ -680,6 +737,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
         reset_metrics(ns_cache);
 
@@ -734,6 +792,7 @@ mocha.describe('namespace caching: proxy get request with partNumber query to hu
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const obj = random_object(16);
@@ -787,6 +846,7 @@ mocha.describe('namespace caching: large objects', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const { bucket, key, size, buf, etag } = random_object(free);
@@ -830,6 +890,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
         reset_metrics(ns_cache);
 
@@ -920,6 +981,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const size = block_size * 5;
@@ -959,6 +1021,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const size = block_size * 5;
@@ -992,6 +1055,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const size = block_size * 5;
@@ -1024,6 +1088,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             namespace_hub: hub,
             namespace_nb: cache,
             caching: { ttl_ms },
+            stats: endpoint_stats_collector.instance(),
         });
 
         const size = block_size * 5;

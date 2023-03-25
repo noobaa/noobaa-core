@@ -16,6 +16,7 @@ const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 
 const HELP = `
 Help:
@@ -121,7 +122,12 @@ function init_request_sdk(req, res, fs_root, fs_config, versioning) {
     };
 
     const bs = new BucketSpaceFS({ fs_root });
-    const object_sdk = new ObjectSDK(null, null, null);
+    const object_sdk = new ObjectSDK({
+        rpc_client: null,
+        internal_rpc_client: null,
+        object_io: null,
+        stats: endpoint_stats_collector.instance(),
+});
 
     // resolve namespace and bucketspace
     const namespaces = {};
@@ -136,6 +142,7 @@ function init_request_sdk(req, res, fs_root, fs_config, versioning) {
             namespace_resource_id: undefined,
             access_mode: undefined,
             versioning,
+            stats: endpoint_stats_collector.instance(),
         });
         namespaces[bucket_name] = ns_fs;
         return ns_fs;
@@ -153,13 +160,13 @@ function init_request_sdk(req, res, fs_root, fs_config, versioning) {
                 statement: [
                 {
                     effect: 'allow',
-                    action: [ 's3:*' ],
+                    action: ['*'],
+                    resource: ['*'],
                     principal: [ new SensitiveString('*')],
-                    resource: [ `arn:aws:s3:::${bucket_name}/*` ]
                 }]
         },
-        system_owner: undefined,
-        bucket_owner: undefined,
+        system_owner: new SensitiveString('nsfs'),
+        bucket_owner: new SensitiveString('nsfs'),
     });
     object_sdk.read_bucket_usage_info = noop;
     object_sdk.requesting_account = {

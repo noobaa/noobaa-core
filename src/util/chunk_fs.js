@@ -3,7 +3,6 @@
 
 const stream = require('stream');
 const config = require('../../config');
-const stats_collector = require('../../src/sdk/endpoint_stats_collector');
 const nb_native = require('./nb_native');
 
 /**
@@ -15,7 +14,15 @@ const nb_native = require('./nb_native');
  */
 class ChunkFS extends stream.Transform {
 
-    constructor({ target_file, fs_context, rpc_client, namespace_resource_id }) {
+    /**
+     * @param {{
+     *      target_file: object,
+     *      fs_context: object,
+     *      namespace_resource_id: string,
+     *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
+     * }} params
+     */
+    constructor({ target_file, fs_context, namespace_resource_id, stats }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
@@ -23,8 +30,8 @@ class ChunkFS extends stream.Transform {
         this.target_file = target_file;
         this.fs_context = fs_context;
         this.count = 1;
-        this.rpc_client = rpc_client;
         this.namespace_resource_id = namespace_resource_id;
+        this.stats = stats;
         this._total_num_buffers = 0;
         const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
         this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
@@ -33,13 +40,11 @@ class ChunkFS extends stream.Transform {
     async _transform(chunk, encoding, callback) {
         try {
             if (this.MD5Async) await this.MD5Async.update(chunk);
-            if (this.rpc_client) {
-                stats_collector.instance(this.rpc_client).update_nsfs_write_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    size: chunk.length,
-                    count: this.count
-                });
-            }
+            this.stats?.update_nsfs_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: chunk.length,
+                count: this.count
+            });
             this.count = 0;
             while (chunk && chunk.length) {
                 const available_size = config.NSFS_BUF_SIZE - this.q_size;

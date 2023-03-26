@@ -1,13 +1,45 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const mime = require('mime');
 
-const P = require('../util/promise');
-const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const prom_report = require('../server/analytic_services/prometheus_reporting');
+const DelayedCollector = require('../util/delayed_collector');
 
+/**
+ * @typedef {{
+ *      read_count?: number;
+ *      write_count?: number;
+ *      read_bytes?: number;
+ *      write_bytes?: number;
+ *      error_write_bytes?: number;
+ *      error_write_count?: number;
+ *      error_read_bytes?: number;
+ *      error_read_count?: number;
+ * }} IoStats
+ * 
+ * @typedef {{
+ *      count?: number;
+ *      error_count?: number;
+ *      min_time?: number;
+ *      max_time?: number;
+ *      sum_time?: number;
+ * }} OpStats
+ * 
+ * @typedef {{
+ *      bucket_counters?: { [bucket_name: string]: { [content_type: string]: IoStats } }
+ *      namespace_stats?: { [namespace_resource_id: string]: IoStats }
+ * }} EndpointStats
+ * 
+ * @typedef {{
+ *      io_stats?: IoStats;
+ *      op_stats?: { [op: string]: OpStats }
+ *      fs_workers_stats?: { [op: string]: OpStats }
+ * }} NsfsStats
+ * 
+ */
 
 // 30 seconds delay between reports
 const SEND_STATS_DELAY = 30000;
@@ -15,244 +47,241 @@ const SEND_STATS_DELAY = 30000;
 const SEND_NSFS_STATS_DELAY = 10000;
 // 20 seconds timeout for sending reports
 const SEND_STATS_TIMEOUT = 20000;
+// do not retry forever, even if gave up, updates are in memory
+// and it will be sent again once new updates cause it to trigger.
 const SEND_STATS_MAX_RETRIES = 3;
 
-let global_fs_stats = {};
-
-function report_fs_stats(fs_worker_stats) {
-    const time_in_microsec = Math.floor(fs_worker_stats.took_time * 1000);
-    global_fs_stats[fs_worker_stats.name.toLowerCase()] = global_fs_stats[fs_worker_stats.name.toLowerCase()] || {
-        min_time: time_in_microsec,
-        max_time: time_in_microsec,
-        sum_time: 0,
-        count: 0,
-        error_count: 0,
-    };
-    const global_fs_stat = global_fs_stats[fs_worker_stats.name.toLowerCase()];
-    if (fs_worker_stats.error === 0) {
-        global_fs_stat.min_time = Math.min(global_fs_stat.min_time, time_in_microsec);
-        global_fs_stat.max_time = Math.max(global_fs_stat.max_time, time_in_microsec);
-        global_fs_stat.sum_time += time_in_microsec;
-    }
-    global_fs_stat.count += 1;
-    global_fs_stat.error_count += fs_worker_stats.error;
-}
 class EndpointStatsCollector {
 
-    constructor(rpc_client) {
-        this.rpc_client = rpc_client;
-        this.op_stats = {};
-        this.fs_workers_stats = {};
-        this.reset_all_stats();
-        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
+    constructor() {
+
+        // collector implmenetations handle incoming stats updates, and triggers a delayed processing,
+        // so that many update calls can be coalesced to a single call to the server.
+
+        this.endpoint_stats_collector = new DelayedCollector({
+            delay: SEND_STATS_DELAY,
+            max_retries: SEND_STATS_MAX_RETRIES,
+            merge_func,
+            /** @param {EndpointStats} data */
+            process_func: data => this._process_endpoint_stats(data),
+        });
+
+        this.nsfs_stats_collector = new DelayedCollector({
+            delay: SEND_NSFS_STATS_DELAY,
+            max_retries: SEND_STATS_MAX_RETRIES,
+            merge_func,
+            /** @param {NsfsStats} data */
+            process_func: data => this._process_nsfs_stats(data),
+        });
+
+        // optional rpc_client (see set_rpc_client) will be used to send collected stats to server.\
+        // when null the stats are still printed to log.
+        /** @type {nb.APIClient} */
+        this.rpc_client = null;
+
+        // exposing a self-bound reporter function (to be used as callback without `this` from native code)
+        this.update_fs_stats = fs_worker_stats => this._update_fs_stats(fs_worker_stats);
+
         this.prom_metrics_report = prom_report.get_endpoint_report();
     }
 
-    static instance(rpc_client) {
-        if (!EndpointStatsCollector._instance) EndpointStatsCollector._instance = new EndpointStatsCollector(rpc_client);
+    static instance() {
+        if (!EndpointStatsCollector._instance) EndpointStatsCollector._instance = new EndpointStatsCollector();
         return EndpointStatsCollector._instance;
     }
 
-    reset_all_stats() {
-        this.namespace_stats = {};
-        this.bucket_counters = {};
+    /**
+     * @param {nb.APIClient} rpc_client 
+     */
+    set_rpc_client(rpc_client) {
+        this.rpc_client = rpc_client;
     }
 
-    reset_all_nsfs_stats() {
-        this.nsfs_io_counters = this._new_namespace_nsfs_stats();
-        this.op_stats = {};
-        this.fs_workers_stats = {};
-    }
+    /**
+     * @param {EndpointStats} data 
+     * @returns {Promise<void>}
+     */
+    async _process_endpoint_stats(data) {
 
-    async _send_endpoint_stats() {
-        await P.delay_unblocking(SEND_STATS_DELAY);
-        // clear this.send_stats to allow new updates to trigger another _send_endpoint_stats
-        this.send_stats = null;
-        try {
-            await this.rpc_client.object.update_endpoint_stats(this.get_all_stats(), {
-                timeout: SEND_STATS_TIMEOUT
-            });
-            this.reset_all_stats();
-        } catch (err) {
-            // if update fails trigger _send_endpoint_stats again
-            dbg.error('failed on update_endpoint_stats. trigger _send_endpoint_stats again', err);
-            this._trigger_send_endpoint_stats();
-        }
-    }
+        const bucket_counters = Object.entries(data.bucket_counters ?? {}).flatMap(
+            ([bucket_name, bkt]) => Object.entries(bkt).map(
+                ([content_type, io_stats]) => {
+                    dbg.log0(`bucket stats - ${bucket_name} ${content_type} :`, io_stats);
+                    return {
+                        bucket_name,
+                        content_type,
+                        read_count: io_stats.read_count,
+                        write_count: io_stats.write_count,
+                    };
+                }
+            )
+        );
 
-    async _send_nsfs_stats(attempts) {
-        await P.delay_unblocking(SEND_NSFS_STATS_DELAY);
-        const _nsfs_stats = {
-            nsfs_stats: {
-                io_stats: this.nsfs_io_counters,
-                op_stats: this.op_stats,
-                fs_workers_stats: this.fs_workers_stats,
+        const namespace_stats = Object.entries(data.namespace_stats ?? {}).map(
+            ([namespace_resource_id, io_stats]) => {
+                dbg.log0(`namespace stats - ${namespace_resource_id} :`, io_stats);
+                return {
+                    namespace_resource_id,
+                    io_stats: { ...io_stats }, // make shallow copy
+                };
             }
-        };
-        // clear this.send_nsfs_stats to allow new updates to trigger another _send_nsfs_stats
-        this.send_nsfs_stats = null;
-        try {
-            await this.rpc_client.stats.update_nsfs_stats(_nsfs_stats, {
+        );
+
+        if (this.rpc_client) {
+            await this.rpc_client.object.update_endpoint_stats({
+                bucket_counters,
+                namespace_stats,
+            }, {
                 timeout: SEND_STATS_TIMEOUT
             });
-            this.reset_all_nsfs_stats();
-        } catch (err) {
-            dbg.error('failed on update_nsfs_stats. trigger _send_nsfs_stats again', err);
-            this._trigger_send_nsfs_stats(attempts);
         }
     }
 
-    _new_namespace_stats() {
-        return {
-            read_count: 0,
-            write_count: 0,
-            read_bytes: 0,
-            write_bytes: 0,
-            error_write_bytes: 0,
-            error_write_count: 0,
-            error_read_bytes: 0,
-            error_read_count: 0,
-        };
-    }
-
-    _new_namespace_nsfs_stats() {
-        return {
-            read_count: 0,
-            write_count: 0,
-            read_bytes: 0,
-            write_bytes: 0,
-        };
-    }
-
-    update_namespace_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
-        this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
-        const io_stats = this.namespace_stats[namespace_resource_id];
-        if (is_err) {
-            io_stats.error_read_count += count;
-            io_stats.error_read_bytes += size;
-        } else {
-            io_stats.read_count += count;
-            io_stats.read_bytes += size;
+    /**
+     * @param {NsfsStats} data
+     * @returns {Promise<void>}
+     */
+    async _process_nsfs_stats(data) {
+        dbg.log0('nsfs stats - IO counters :', data.io_stats);
+        for (const [k, v] of Object.entries(data.op_stats ?? {})) {
+            dbg.log0(`nsfs stats - S3 op=${k} :`, v);
         }
+        for (const [k, v] of Object.entries(data.fs_workers_stats ?? {})) {
+            dbg.log0(`nsfs stats - FS op=${k} :`, v);
+        }
+
+        if (this.rpc_client) {
+            await this.rpc_client.stats.update_nsfs_stats({
+                nsfs_stats: data
+            }, {
+                timeout: SEND_STATS_TIMEOUT
+            });
+        }
+    }
+
+    _update_fs_stats(fs_worker_stats) {
+        const time = Math.floor(fs_worker_stats.took_time * 1000); // microsec
+        const op_name = fs_worker_stats.name.toLowerCase();
+        const error = fs_worker_stats.error;
+        this.nsfs_stats_collector.update({
+            fs_workers_stats: {
+                [op_name]: {
+                    count: 1,
+                    error_count: error,
+                    min_time: error ? undefined : time,
+                    max_time: error ? undefined : time,
+                    sum_time: error ? undefined : time,
+                }
+            }
+        });
+    }
+
+    update_namespace_read_stats({ namespace_resource_id, bucket_name = undefined, size = 0, count = 0, is_err = false }) {
+        this.endpoint_stats_collector.update({
+            namespace_stats: {
+                [namespace_resource_id]: is_err ? {
+                    error_read_count: count,
+                    error_read_bytes: size,
+                } : {
+                    read_count: count,
+                    read_bytes: size,
+                }
+            }
+        });
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_read_bytes', { bucket_name }, size);
         }
-        this._trigger_send_endpoint_stats();
     }
 
-    update_namespace_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
-        this.namespace_stats[namespace_resource_id] = this.namespace_stats[namespace_resource_id] || this._new_namespace_stats();
-        const io_stats = this.namespace_stats[namespace_resource_id];
-        if (is_err) {
-            io_stats.error_write_count += count;
-            io_stats.error_write_bytes += size;
-        } else {
-            io_stats.write_count += count;
-            io_stats.write_bytes += size;
-        }
+    update_namespace_write_stats({ namespace_resource_id, bucket_name = undefined, size = 0, count = 0, is_err = false }) {
+        this.endpoint_stats_collector.update({
+            namespace_stats: {
+                [namespace_resource_id]: is_err ? {
+                    error_write_count: count,
+                    error_write_bytes: size,
+                } : {
+                    write_count: count,
+                    write_bytes: size,
+                }
+            }
+        });
         if (bucket_name) {
             this.prom_metrics_report.inc('hub_write_bytes', { bucket_name }, size);
         }
-        this._trigger_send_endpoint_stats();
-    }
-
-    _update_bucket_counter({ bucket_name, key, content_type, counter_key }) {
-        content_type = content_type || mime.getType(key) || 'application/octet-stream';
-        const accessor = `${bucket_name}#${content_type}`;
-        this.bucket_counters[accessor] = this.bucket_counters[accessor] || {
-            bucket_name,
-            content_type,
-            read_count: 0,
-            write_count: 0
-        };
-        const counter = this.bucket_counters[accessor];
-        counter[counter_key] += 1;
     }
 
     update_ops_counters({ time, op_name, error = 0, trigger_send = true }) {
-        this._update_fs_worker_stats();
-        this.op_stats[op_name] = this.op_stats[op_name] || {
-            min_time: time,
-            max_time: time,
-            sum_time: 0,
-            count: 0,
-            error_count: 0,
-        };
-        const ops_stats = this.op_stats[op_name];
-        if (error === 0) {
-            ops_stats.min_time = Math.min(ops_stats.min_time, time);
-            ops_stats.max_time = Math.max(ops_stats.max_time, time);
-            ops_stats.sum_time += time;
-        }
-        ops_stats.count += 1;
-        ops_stats.error_count += error;
-        //for ops that we want to collect metrics but avoid sending it (upload part for example).
-        if (trigger_send) this._trigger_send_nsfs_stats(0);
-    }
-
-    _update_fs_worker_stats() {
-        //Go over the fs_workers_stats and update
-        for (const [key, value] of Object.entries(global_fs_stats)) {
-            const fs_stat = this.fs_workers_stats[key] || {
-                min_time: value.min_time,
-                max_time: value.min_time,
-                sum_time: 0,
-                count: 0,
-                error_count: 0,
-            };
-            fs_stat.min_time = Math.min(fs_stat.min_time, value.min_time);
-            fs_stat.max_time = Math.max(fs_stat.max_time, value.max_time);
-            fs_stat.sum_time += value.sum_time;
-            fs_stat.count += value.count;
-            fs_stat.error_count += value.error_count;
-            this.fs_workers_stats[key] = fs_stat;
-        }
-        global_fs_stats = {};
+        // trigger_send is for ops that we want to collect metrics but avoid sending it (upload part for example).
+        this.nsfs_stats_collector.update({
+            op_stats: {
+                [op_name]: {
+                    count: 1,
+                    error_count: error,
+                    min_time: error ? undefined : time,
+                    max_time: error ? undefined : time,
+                    sum_time: error ? undefined : time,
+                }
+            }
+        }, !trigger_send);
     }
 
     update_bucket_read_counters({ bucket_name, key, content_type, }) {
-        this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'read_count' });
-        this._trigger_send_endpoint_stats();
+        content_type = content_type || mime.getType(key) || 'application/octet-stream';
+        this.endpoint_stats_collector.update({
+            bucket_counters: { [bucket_name]: { [content_type]: { read_count: 1 } } }
+        });
     }
 
     update_bucket_write_counters({ bucket_name, key, content_type, }) {
-        this._update_bucket_counter({ bucket_name, key, content_type, counter_key: 'write_count' });
-        this._trigger_send_endpoint_stats();
+        content_type = content_type || mime.getType(key) || 'application/octet-stream';
+        this.endpoint_stats_collector.update({
+            bucket_counters: { [bucket_name]: { [content_type]: { write_count: 1 } } }
+        });
     }
 
-    update_nsfs_read_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    update_nsfs_read_stats({ namespace_resource_id, bucket_name = undefined, size = 0, count = 0, is_err = false }) {
         this.update_namespace_read_stats({ namespace_resource_id, bucket_name, size, count, is_err });
         this.update_nsfs_read_counters({ size, count, is_err });
     }
 
-    update_nsfs_read_counters({ size = 0, count = 0, is_err }) {
-        if (is_err) {
-            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
-            // this.nsfs_io_counters.error_read_count += count;
-            // this.nsfs_io_counters.error_read_bytes += size;
-        } else {
-            this.nsfs_io_counters.read_count += count;
-            this.nsfs_io_counters.read_bytes += size;
-        }
-    }
-
-    update_nsfs_write_stats({ namespace_resource_id, bucket_name, size = 0, count = 0, is_err }) {
+    update_nsfs_write_stats({ namespace_resource_id, bucket_name = undefined, size = 0, count = 0, is_err = false }) {
         this.update_namespace_write_stats({ namespace_resource_id, bucket_name, size, count, is_err });
         this.update_nsfs_write_counters({ size, count, is_err });
     }
 
-    update_nsfs_write_counters({ size = 0, count = 0, is_err }) {
-        if (is_err) {
-            dbg.warn(`unexpectedly reached here upon error, we need to figure out why and maybe re-add the error counters`);
-            // this.nsfs_io_counters.error_write_count += count;
-            // this.nsfs_io_counters.error_write_bytes += size;
-        } else {
-            this.nsfs_io_counters.write_count += count;
-            this.nsfs_io_counters.write_bytes += size;
-        }
+    update_nsfs_read_counters({ size = 0, count = 0, is_err = false }) {
+        this.nsfs_stats_collector.update({
+            io_stats: is_err ? {
+                error_read_count: count,
+                error_read_bytes: size,
+            } : {
+                read_count: count,
+                read_bytes: size,
+            }
+        });
     }
 
-    update_cache_stats({ bucket_name, read_bytes, write_bytes, read_count = 0, miss_count = 0, hit_count = 0, range_op = false }) {
+    update_nsfs_write_counters({ size = 0, count = 0, is_err = false }) {
+        this.nsfs_stats_collector.update({
+            io_stats: is_err ? {
+                error_write_count: count,
+                error_write_bytes: size,
+            } : {
+                write_count: count,
+                write_bytes: size,
+            }
+        });
+    }
+
+    update_cache_stats({
+        bucket_name,
+        read_bytes = 0,
+        write_bytes = 0,
+        read_count = 0,
+        miss_count = 0,
+        hit_count = 0,
+        range_op = false,
+    }) {
         if (read_bytes) {
             this.prom_metrics_report.inc('cache_read_bytes', { bucket_name }, read_bytes);
         }
@@ -270,7 +299,7 @@ class EndpointStatsCollector {
         }
     }
 
-    update_cache_latency_stats({ bucket_name, cache_read_latency, cache_write_latency }) {
+    update_cache_latency_stats({ bucket_name, cache_read_latency = 0, cache_write_latency = 0 }) {
         if (cache_read_latency) {
             this.prom_metrics_report.observe('cache_read_latency', { bucket_name }, cache_read_latency);
         }
@@ -279,7 +308,7 @@ class EndpointStatsCollector {
         }
     }
 
-    update_hub_latency_stats({ bucket_name, hub_read_latency, hub_write_latency }) {
+    update_hub_latency_stats({ bucket_name, hub_read_latency = 0, hub_write_latency = 0 }) {
         if (hub_read_latency) {
             this.prom_metrics_report.observe('hub_read_latency', { bucket_name }, hub_read_latency);
         }
@@ -287,37 +316,25 @@ class EndpointStatsCollector {
             this.prom_metrics_report.observe('hub_write_latency', { bucket_name }, hub_write_latency);
         }
     }
-
-    get_all_stats() {
-        const namespace_stats = _.map(this.namespace_stats, (io_stats, namespace_resource_id) => ({
-            io_stats,
-            namespace_resource_id
-        }));
-
-        return {
-            namespace_stats,
-            bucket_counters: _.values(this.bucket_counters)
-        };
-    }
-
-    _trigger_send_endpoint_stats() {
-        if (!this.send_stats) {
-            this.send_stats = this._send_endpoint_stats();
-        }
-    }
-
-    _trigger_send_nsfs_stats(attempts) {
-        if (attempts > SEND_STATS_MAX_RETRIES) return;
-        if (!this.send_nsfs_stats) {
-            attempts += 1;
-            this.send_nsfs_stats = this._send_nsfs_stats(attempts);
-        }
-    }
 }
 
 EndpointStatsCollector._instance = null;
 
+function merge_func(data, updates) {
+    return _.mergeWith(data, updates, (value, update, key, object, source) => {
+        if (typeof update === 'number') {
+            if (key.startsWith('min')) {
+                return Math.min(value ?? Infinity, update);
+            } else if (key.startsWith('max')) {
+                return Math.max(value ?? -Infinity, update);
+            } else {
+                return (value ?? 0) + update;
+            }
+        }
+    });
+}
+
+
 // EXPORTS
 exports.EndpointStatsCollector = EndpointStatsCollector;
 exports.instance = EndpointStatsCollector.instance;
-exports.report_fs_stats = report_fs_stats;

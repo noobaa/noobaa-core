@@ -2,24 +2,26 @@
 /*eslint max-lines-per-function: ["error", 900]*/
 'use strict';
 
-
-const mocha = require('mocha');
+const _ = require('lodash');
+const fs = require('fs');
 const util = require('util');
+const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
+
+const P = require('../../util/promise');
+const config = require('../../../config');
+const coretest = require('./coretest');
 const fs_utils = require('../../util/fs_utils');
+const s3_utils = require('../../endpoint/s3/s3_utils');
 const nb_native = require('../../util/nb_native');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const buffer_utils = require('../../util/buffer_utils');
-const test_ns_list_objects = require('./test_ns_list_objects');
-const _ = require('lodash');
-const P = require('../../util/promise');
-const s3_utils = require('../../endpoint/s3/s3_utils');
-const config = require('../../../config');
-const fs = require('fs');
-const coretest = require('./coretest');
-const { rpc_client } = coretest;
 const nsfs_versioning = require('./test_bucketspace_versioning.js');
+const test_ns_list_objects = require('./test_ns_list_objects');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
+
+const { rpc_client } = coretest;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 // TODO: In order to verify validity add content_md5_mtime as well
@@ -64,8 +66,22 @@ mocha.describe('namespace_fs', function() {
     const ns_src_bucket_path = `./${src_bkt}`;
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
-    const ns_src = new NamespaceFS({ bucket_path: ns_src_bucket_path, bucket_id: '1', namespace_resource_id: undefined });
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
+    const ns_src = new NamespaceFS({
+        bucket_path: ns_src_bucket_path,
+        bucket_id: '1',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        stats: endpoint_stats_collector.instance(),
+    });
+    const ns_tmp = new NamespaceFS({
+        bucket_path: ns_tmp_bucket_path,
+        bucket_id: '2',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.before(async () => {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>

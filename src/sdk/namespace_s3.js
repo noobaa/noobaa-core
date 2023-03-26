@@ -6,34 +6,36 @@ const AWS = require('aws-sdk');
 const util = require('util');
 
 const dbg = require('../util/debug_module')(__filename);
-const stream_utils = require('../util/stream_utils');
+const config = require('../../config');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const cloud_utils = require('../util/cloud_utils');
+const stream_utils = require('../util/stream_utils');
 const blob_translator = require('./blob_translator');
-const stats_collector = require('./endpoint_stats_collector');
-const config = require('../../config');
 
 /**
  * @implements {nb.Namespace}
  */
 class NamespaceS3 {
 
-
-    constructor({ namespace_resource_id, rpc_client, s3_params }) {
+    /**
+     * @param {{
+     *      namespace_resource_id: any,
+     *      s3_params: AWS.S3.ClientConfiguration & {
+     *          access_mode?: string,
+     *          aws_sts_arn?: string,
+     *      },
+     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+     * }} args 
+     */
+    constructor({ namespace_resource_id, s3_params, stats }) {
         this.namespace_resource_id = namespace_resource_id;
         this.s3_params = s3_params;
         this.access_key = s3_params.accessKeyId;
         this.endpoint = s3_params.endpoint;
         this.s3 = new AWS.S3(s3_params);
         this.bucket = String(this.s3.config.params.Bucket);
-        this.rpc_client = rpc_client;
         this.access_mode = s3_params.access_mode;
-
-        if (this.s3_params.aws_sts_arn) {
-            this.additionalS3Params = {
-                RoleSessionName: 'block_store_operations'
-            };
-        }
+        this.stats = stats;
     }
 
     get_write_resource() {
@@ -58,6 +60,15 @@ class NamespaceS3 {
         return this.access_mode === 'READ_ONLY';
     }
 
+    async _prepare_sts_client() {
+        if (this.s3_params.aws_sts_arn) {
+            const additionalParams = {
+                RoleSessionName: 'block_store_operations',
+            };
+            this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, additionalParams);
+        }
+    }
+
 
     /////////////////
     // OBJECT LIST //
@@ -65,8 +76,8 @@ class NamespaceS3 {
 
     async list_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params));
+        await this._prepare_sts_client();
 
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const res = await this.s3.listObjects({
             Bucket: this.bucket,
             Prefix: params.prefix,
@@ -88,7 +99,7 @@ class NamespaceS3 {
 
     async list_uploads(params, object_sdk) {
         dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.listMultipartUploads({
             Bucket: this.bucket,
@@ -113,7 +124,7 @@ class NamespaceS3 {
 
     async list_object_versions(params, object_sdk) {
         dbg.log0('NamespaceS3.list_object_versions:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.listObjectVersions({
             Bucket: this.bucket,
@@ -161,7 +172,8 @@ class NamespaceS3 {
     async read_object_md(params, object_sdk) {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
-            if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+            await this._prepare_sts_client();
+
             /** @type {AWS.S3.HeadObjectRequest | AWS.S3.GetObjectRequest} */
             const request = {
                 Bucket: this.bucket,
@@ -206,7 +218,8 @@ class NamespaceS3 {
 
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         return new Promise((resolve, reject) => {
             /** @type {AWS.S3.HeadObjectRequest & AWS.S3.GetObjectRequest | AWS.S3.CopyObjectRequest} */
             const request = {
@@ -235,7 +248,7 @@ class NamespaceS3 {
                     req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
                     let count = 1;
                     const count_stream = stream_utils.get_tap_stream(data => {
-                        stats_collector.instance(this.rpc_client).update_namespace_read_stats({
+                        this.stats?.update_namespace_read_stats({
                             namespace_resource_id: this.namespace_resource_id,
                             bucket_name: params.bucket,
                             size: data.length,
@@ -259,7 +272,8 @@ class NamespaceS3 {
 
     async upload_object(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         let res;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
@@ -287,7 +301,7 @@ class NamespaceS3 {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     bucket_name: params.bucket,
                     size: data.length,
@@ -349,7 +363,8 @@ class NamespaceS3 {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         /** @type {AWS.S3.CreateMultipartUploadRequest} */
         const request = {
@@ -368,6 +383,8 @@ class NamespaceS3 {
 
     async upload_multipart(params, object_sdk) {
         dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params));
+        await this._prepare_sts_client();
+
         let res;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
@@ -388,7 +405,7 @@ class NamespaceS3 {
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
-                stats_collector.instance(this.rpc_client).update_namespace_write_stats({
+                this.stats?.update_namespace_write_stats({
                     namespace_resource_id: this.namespace_resource_id,
                     size: data.length,
                     count
@@ -427,7 +444,8 @@ class NamespaceS3 {
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const res = await this.s3.listParts({
             Bucket: this.bucket,
             Key: params.key,
@@ -451,7 +469,8 @@ class NamespaceS3 {
 
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const res = await this.s3.completeMultipartUpload({
             Bucket: this.bucket,
             Key: params.key,
@@ -471,7 +490,8 @@ class NamespaceS3 {
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const res = await this.s3.abortMultipartUpload({
             Bucket: this.bucket,
             Key: params.key,
@@ -487,7 +507,7 @@ class NamespaceS3 {
 
     async put_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.put_object_tagging:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const TagSet = params.tagging.map(tag => ({
             Key: tag.key,
@@ -510,7 +530,8 @@ class NamespaceS3 {
 
     async delete_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const res = await this.s3.deleteObjectTagging({
             Bucket: this.bucket,
             Key: params.key,
@@ -526,7 +547,8 @@ class NamespaceS3 {
 
     async get_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
+
         const res = await this.s3.getObjectTagging({
             Bucket: this.bucket,
             Key: params.key,
@@ -552,7 +574,7 @@ class NamespaceS3 {
 
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.getObjectAcl({
             Bucket: this.bucket,
@@ -570,7 +592,7 @@ class NamespaceS3 {
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.putObjectAcl({
             Bucket: this.bucket,
@@ -588,7 +610,7 @@ class NamespaceS3 {
 
     async delete_object(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_object:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.deleteObject({
             Bucket: this.bucket,
@@ -616,7 +638,7 @@ class NamespaceS3 {
 
     async delete_multiple_objects(params, object_sdk) {
         dbg.log0('NamespaceS3.delete_multiple_objects:', this.bucket, inspect(params));
-        if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+        await this._prepare_sts_client();
 
         const res = await this.s3.deleteObjects({
             Bucket: this.bucket,

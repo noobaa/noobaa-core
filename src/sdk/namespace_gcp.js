@@ -8,22 +8,38 @@ const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
-//TODO: why do we what to use the wrap and not directly @google-cloud/storage ? 
+// we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
-const endpoint_stats_collector = require('./endpoint_stats_collector');
 
 /**
  * @implements {nb.Namespace}
  */
 class NamespaceGCP {
 
-
-    constructor({ namespace_resource_id, rpc_client, project_id, target_bucket, client_email, private_key, access_mode }) {
+    /**
+     * @param {{
+    *      namespace_resource_id: string,
+    *      project_id: string,
+    *      target_bucket: string,
+    *      client_email: string,
+    *      private_key: string,
+    *      access_mode: string,
+    *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+    * }} params
+    */
+    constructor({
+        namespace_resource_id,
+        project_id,
+        target_bucket,
+        client_email,
+        private_key,
+        access_mode,
+        stats,
+    }) {
         this.namespace_resource_id = namespace_resource_id;
         this.project_id = project_id;
         this.client_email = client_email;
         this.private_key = private_key;
-        //gcs stands for google cloud storage
         this.gcs = new GoogleCloudStorage({
             projectId: this.project_id,
             credentials: {
@@ -32,9 +48,8 @@ class NamespaceGCP {
             }
         });
         this.bucket = target_bucket;
-        this.rpc_client = rpc_client;
         this.access_mode = access_mode;
-        this.stats_collector = endpoint_stats_collector.instance(this.rpc_client);
+        this.stats = stats;
     }
 
     get_write_resource() {
@@ -194,7 +209,7 @@ class NamespaceGCP {
             try {
                 let count = 1;
                 const count_stream = stream_utils.get_tap_stream(data => {
-                    this.stats_collector.update_namespace_write_stats({
+                    this.stats?.update_namespace_write_stats({
                         namespace_resource_id: this.namespace_resource_id,
                         bucket_name: params.bucket,
                         size: data.length,

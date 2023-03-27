@@ -4,7 +4,7 @@
 const fs = require('fs');
 const ncp = require('ncp').ncp;
 const path = require('path');
-const rimraf = require('rimraf');
+const { rimraf } = require('rimraf');
 const crypto = require('crypto');
 
 const P = require('./promise');
@@ -179,7 +179,7 @@ function file_copy(src, dst) {
 }
 
 function folder_delete(dir) {
-    return P.fromCallback(callback => rimraf(dir, callback));
+    return rimraf(dir);
 }
 
 async function file_delete(file_name) {

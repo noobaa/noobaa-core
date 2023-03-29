@@ -746,9 +746,8 @@ class SystemStore extends EventEmitter {
             });
         });
 
-        const bulk_results = await Promise.all(Object.values(bulk_per_collection).map(
-            bulk => bulk.length && bulk.execute({ j: true })
-        ));
+
+        const bulk_results = await db_client.instance().execute_multiple_bulks(bulk_per_collection);
 
         for (const res of bulk_results) {
             if (res && !res.ok) {
@@ -756,6 +755,7 @@ class SystemStore extends EventEmitter {
                 throw new Error(res.err);
             }
         }
+
 
         return { any_news, last_update };
     }

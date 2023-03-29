@@ -354,48 +354,7 @@ class PgTransaction {
         await this.query('COMMIT TRANSACTION');
     }
 
-    async rollback() {
-        await this.query('ROLLBACK TRANSACTION');
-    }
-
-    release() {
-        if (this.pg_client) {
-            this.pg_client.removeAllListeners('error');
-            this.pg_client.release();
-            this.pg_client = null;
-        }
-    }
-
-}
-
-
-class BulkOp {
-    constructor({ client, name, schema }) {
-        this.name = name;
-        this.schema = schema;
-        this.transaction = new PgTransaction(client);
-        this.queries = [];
-        this.length = 0;
-        // this.nInserted = 0;
-        // this.nMatched = 0;
-        // this.nModified = 0;
-    }
-
-
-
-
-    insert(data) {
-        const _id = get_id(data);
-        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(encode_json(this.schema, data))}')`);
-        return this;
-    }
-
-    add_query(text) {
-        this.length += 1;
-        this.queries.push(text);
-    }
-
-    async execute() {
+    static async run_queries_in_transaction(transaction, queries) {
         let ok = false;
         let errmsg;
         let nInserted = 0;
@@ -404,13 +363,15 @@ class BulkOp {
         let nRemoved = 0;
         let should_rollback = false;
         try {
-            await this.transaction.begin();
+            await transaction.begin();
             should_rollback = true;
-            const batch_query = this.queries.join('; ');
-            let results = await this.transaction.query(batch_query);
+            const batch_query = queries.join('; ');
+
+            let results = await transaction.query(batch_query);
             if (!Array.isArray(results)) {
                 results = [results];
             }
+
             for (const res of results) {
                 if (res.command === 'UPDATE') {
                     nModified += res.rowCount;
@@ -421,14 +382,19 @@ class BulkOp {
                     nRemoved += res.rowCount;
                 }
             }
-            await this.transaction.commit();
+
+            dbg.log3("Total Queries =", queries.length, "nModified = ", nModified,
+                "nMatched = ", nMatched, "nInserted =", nInserted, "nRemoved =", nRemoved);
+
+            transaction.commit();
+
             ok = true;
         } catch (err) {
             errmsg = err;
             dbg.error('PgTransaction execute error', err);
-            if (should_rollback) await this.transaction.rollback();
+            if (should_rollback) await transaction.rollback();
         } finally {
-            this.transaction.release();
+            transaction.release();
         }
 
         return {
@@ -451,8 +417,8 @@ class BulkOp {
                 index: i,
                 errmsg: errmsg.message
             }),
-            getWriteErrorCount: () => (ok ? 0 : this.queries.length),
-            getWriteErrors: () => (ok ? [] : _.times(this.queries.length, i => ({
+            getWriteErrorCount: () => (ok ? 0 : queries.length),
+            getWriteErrors: () => (ok ? [] : _.times(queries.length, i => ({
                 code: errmsg.code,
                 index: i,
                 errmsg: errmsg.message
@@ -460,7 +426,55 @@ class BulkOp {
             hasWriteErrors: () => !ok
 
         };
+    }
 
+
+
+    async rollback() {
+        await this.query('ROLLBACK TRANSACTION');
+    }
+
+    release() {
+        if (this.pg_client) {
+            this.pg_client.removeAllListeners('error');
+            this.pg_client.release();
+            this.pg_client = null;
+        }
+    }
+
+}
+
+class BulkOp {
+    constructor({ client, name, schema }) {
+        this.name = name;
+        this.schema = schema;
+        this.transaction = new PgTransaction(client);
+        this.queries = [];
+        this.length = 0;
+        // this.nInserted = 0;
+        // this.nMatched = 0;
+        // this.nModified = 0;
+    }
+
+    get_queries() {
+        return this.queries;
+    }
+
+
+    insert(data) {
+        const _id = get_id(data);
+        this.add_query(`INSERT INTO ${this.name}(_id, data) VALUES('${String(_id)}', '${JSON.stringify(encode_json(this.schema, data))}')`);
+        return this;
+    }
+
+    add_query(text) {
+        this.length += 1;
+        this.queries.push(text);
+    }
+
+    async execute() {
+        const results = await PgTransaction.run_queries_in_transaction(this.transaction, this.queries);
+        return results;
     }
 
     findAndUpdateOne(find, update) {
@@ -476,6 +490,17 @@ class BulkOp {
         this.add_query(query);
         return this;
     }
+}
+
+async function multi_collection_bulk(bulk_per_collection) {
+
+    const client = PostgresClient.instance();
+    const queries = _.flatten(Object.values(bulk_per_collection).map(bulk => bulk.get_queries()));
+    const transaction = new PgTransaction(client);
+
+    const all_results = await PgTransaction.run_queries_in_transaction(transaction, queries);
+    const ret = [all_results];
+    return ret;
 }
 
 class UnorderedBulkOp extends BulkOp {
@@ -1768,6 +1793,11 @@ class PostgresClient extends EventEmitter {
         if (!_.isEmpty(set_map)) diff.$set = set_map;
         if (!_.isEmpty(unset_map)) diff.$unset = _.mapValues(unset_map, () => 1);
         return diff;
+    }
+
+    async execute_multiple_bulks(bulk_per_collection) {
+        const bulk_results = await multi_collection_bulk(bulk_per_collection);
+        return bulk_results;
     }
 
     // TODO: Replace that with an actual code

@@ -361,6 +361,13 @@ class MongoClient extends EventEmitter {
         return diff;
     }
 
+    async execute_multiple_bulks(bulk_per_collection) {
+        const bulk_results = await Promise.all(Object.values(bulk_per_collection).map(
+            bulk => bulk.length && bulk.execute({ j: true })
+        ));
+        return bulk_results;
+    }
+
     async get_db_stats() {
         if (!this.promise) {
             throw new Error('get_db_stats: client is not connected');

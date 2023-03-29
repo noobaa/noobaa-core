@@ -704,6 +704,7 @@ interface DBClient {
     check_entity_not_deleted(doc: object, entity: string): object;
     check_update_one(res: object, entity: string): void;
     make_object_diff(current: object, prev: object): object;
+    execute_multiple_bulks(bulk_per_collection: object): any[];
 }
 
 interface DBSequence {

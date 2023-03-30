@@ -22,6 +22,11 @@ type NodeType =
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
 
+type ReplicationLogAction = 'copy' | 'delete' | 'conflict';
+type ReplicationLog = { key: string, action: ReplicationLogAction, time: Date };
+type ReplicationLogs = Array<ReplicationLog>;
+type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, time: Date }[]>;
+
 interface MapByID<T> {
     [id: string]: T;
 }

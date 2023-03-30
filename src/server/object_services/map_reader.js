@@ -48,7 +48,6 @@ async function read_object_mapping(obj, start, end, location_info) {
 
     if (parts.length === 0) return [];
 
-    // console.log('TODO GGG read_object_mapping', parts);
     let chunks = await read_parts_mapping(parts, location_info);
 
     if (await update_chunks_on_read(chunks, location_info)) {

@@ -55,10 +55,7 @@ class NamespaceS3 {
     }
 
     is_readonly_namespace() {
-        if (this.access_mode && this.access_mode === 'READ_ONLY') {
-            return true;
-        }
-        return false;
+        return this.access_mode === 'READ_ONLY';
     }
 
 
@@ -165,6 +162,7 @@ class NamespaceS3 {
         try {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
             if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
+            /** @type {AWS.S3.HeadObjectRequest | AWS.S3.GetObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -210,6 +208,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         return new Promise((resolve, reject) => {
+            /** @type {AWS.S3.HeadObjectRequest & AWS.S3.GetObjectRequest | AWS.S3.CopyObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -270,6 +269,7 @@ class NamespaceS3 {
                 throw new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()');
             }
 
+            /** @type {AWS.S3.CopyObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -297,6 +297,7 @@ class NamespaceS3 {
                 count = 0;
             });
 
+            /** @type {AWS.S3.PutObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -350,6 +351,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params));
         if (this.s3_params.aws_sts_arn) this.s3 = await cloud_utils.createSTSS3Client(this.s3_params, this.additionalS3Params);
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
+        /** @type {AWS.S3.CreateMultipartUploadRequest} */
         const request = {
             Bucket: this.bucket,
             Key: params.key,
@@ -369,6 +371,8 @@ class NamespaceS3 {
         let res;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
+
+            /** @type {AWS.S3.UploadPartCopyRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -393,6 +397,7 @@ class NamespaceS3 {
                 count = 0;
             });
 
+            /** @type {AWS.S3.UploadPartRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -692,7 +697,13 @@ class NamespaceS3 {
 
     /**
      * 
-     * @param {AWS.S3.HeadObjectOutput | AWS.S3.GetObjectOutput} res 
+     * @param {Omit<Partial<
+     *   AWS.S3.Object &
+     *   AWS.S3.ObjectVersion &
+     *   AWS.S3.DeleteMarkerEntry &
+     *   AWS.S3.MultipartUpload &
+     *   AWS.S3.GetObjectOutput
+     * >, 'ChecksumAlgorithm'>} res 
      * @param {string} bucket 
      * @param {number} [part_number]
      * @returns {nb.ObjectInfo}
@@ -719,7 +730,7 @@ class NamespaceS3 {
             content_type: res.ContentType,
             xattr,
             tag_count: res.TagCount,
-            first_range_data: res.Body,
+            first_range_data: Buffer.isBuffer(res.Body) ? res.Body : undefined,
             num_multiparts: res.PartsCount,
             content_range: res.ContentRange,
             content_length: part_number ? res.ContentLength : size,
@@ -749,6 +760,16 @@ class NamespaceS3 {
         }
     }
 
+    /** 
+     * @param {Partial<{
+     *   ServerSideEncryption: AWS.S3.ServerSideEncryption,
+     *   SSEKMSKeyId: AWS.S3.SSEKMSKeyId,
+     *   SSECustomerKey: AWS.S3.SSECustomerKey,
+     *   SSECustomerAlgorithm: AWS.S3.SSECustomerAlgorithm,
+     *   CopySourceSSECustomerKey: AWS.S3.CopySourceSSECustomerKey,
+     *   CopySourceSSECustomerAlgorithm: AWS.S3.CopySourceSSECustomerAlgorithm,
+     *  }>} request
+     */
     _assign_encryption_to_request(params, request) {
         if (params.copy_source && params.copy_source.encryption) {
             const { algorithm, key_b64 } = params.copy_source.encryption;

@@ -148,7 +148,7 @@ class RpcBaseConnection extends events.EventEmitter {
             const encoded_message = this._encode_message(msg);
             const send_promise = this._send(encoded_message, msg.body && msg.body.op, req);
             if (!send_promise) {
-                console.error('GGG NO SEND PROMISE', this);
+                console.error('RPC _send() must return a promise', this);
             }
             await P.timeout(config.RPC_SEND_TIMEOUT,
                 send_promise,

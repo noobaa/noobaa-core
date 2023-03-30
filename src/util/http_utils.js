@@ -10,14 +10,15 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const time_utils = require('./time_utils');
 const createHttpProxyAgent = require('http-proxy-agent');
 const createHttpsProxyAgent = require('https-proxy-agent');
 
 const dbg = require('./debug_module')(__filename);
-const xml_utils = require('./xml_utils');
-const cloud_utils = require('./cloud_utils');
 const config = require('../../config');
+const xml_utils = require('./xml_utils');
+const jwt_utils = require('./jwt_utils');
+const time_utils = require('./time_utils');
+const cloud_utils = require('./cloud_utils');
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
@@ -593,7 +594,6 @@ function parse_content_length(req, options) {
 }
 
 function authorize_session_token(req, options) {
-    const jwt_utils = require('./jwt_utils'); // eslint-disable-line global-require
     if (!req.headers['x-amz-security-token']) {
         return;
     }

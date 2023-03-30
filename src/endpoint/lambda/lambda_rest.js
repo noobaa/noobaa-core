@@ -12,6 +12,14 @@ const http_utils = require('../../util/http_utils');
 const LambdaError = require('./lambda_errors').LambdaError;
 const signature_utils = require('../../util/signature_utils');
 
+const LAMBDA_OPS = js_utils.deep_freeze({
+    get_service: require('./ops/lambda_list_funcs'),
+    get_func: require('./ops/lambda_get_func'),
+    delete_func: require('./ops/lambda_delete_func'),
+    post_service: require('./ops/lambda_create_func'),
+    post_func_invocations: require('./ops/lambda_invoke_func'),
+});
+
 const LAMBDA_MAX_BODY_LEN = 4 * 1024 * 1024;
 
 const RPC_ERRORS_TO_LAMBDA = Object.freeze({
@@ -21,7 +29,6 @@ const RPC_ERRORS_TO_LAMBDA = Object.freeze({
     CONFLICT: LambdaError.ResourceConflictException,
 });
 
-const LAMBDA_OPS = load_ops();
 const non_printable_regexp = /[\x00-\x1F]/;
 
 async function lambda_rest(req, res) {
@@ -192,16 +199,6 @@ function handle_error(req, res, err) {
     res.end(reply);
 }
 
-function load_ops() {
-    /* eslint-disable global-require */
-    return js_utils.deep_freeze({
-        get_service: require('./ops/lambda_list_funcs'),
-        get_func: require('./ops/lambda_get_func'),
-        delete_func: require('./ops/lambda_delete_func'),
-        post_service: require('./ops/lambda_create_func'),
-        post_func_invocations: require('./ops/lambda_invoke_func'),
-    });
-}
 
 // EXPORTS
 module.exports = lambda_rest;

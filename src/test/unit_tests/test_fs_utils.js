@@ -27,10 +27,10 @@ mocha.describe('fs_utils', function() {
                 log('disk_usage of src:', server_usage);
                 log('disk_usage of src/test:', test_usage);
                 assert(test_usage.size / server_usage.size > 0.50,
-                    'disk usage size of src/test is less than 50% of src/server,',
+                    'disk usage size of src/test is less than 50% of src/server,' +
                     'what about some quality :)');
                 assert(test_usage.count / server_usage.count > 0.50,
-                    'disk usage count of src/test is less than 50% of src/server,',
+                    'disk usage count of src/test is less than 50% of src/server,' +
                     'what about some quality :)');
             });
         });

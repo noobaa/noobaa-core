@@ -17,7 +17,16 @@ const nb_native = require('./nb_native');
  */
 class ChunkCoder extends stream.Transform {
 
-    constructor({ watermark, concurrency, coder, chunk_coder_config, cipher_key_b64 }) {
+    /**
+     * @param {{
+    *      watermark?: number,
+    *      concurrency?: number,
+    *      coder?: string,
+    *      chunk_coder_config?: object,
+    *      cipher_key_b64?: string,
+    * }} args 
+    */
+   constructor({ watermark, concurrency, coder, chunk_coder_config, cipher_key_b64 }) {
         super({
             objectMode: true,
             allowHalfOpen: false,

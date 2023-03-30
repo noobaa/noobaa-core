@@ -625,25 +625,25 @@ function _is_statements_fit(statements, account, method, arn_path) {
         let principal_fit = false;
         let resource_fit = false;
         for (const action of statement.action) {
-            dbg.log0('bucket_policy: action fit?', action, method);
+            dbg.log1('bucket_policy: action fit?', action, method);
             if ((action === '*') || (action === 's3:*') || (action === method)) {
                 action_fit = true;
             }
         }
         for (const principal of statement.principal) {
-            dbg.log0('bucket_policy: principal fit?', principal, account);
+            dbg.log1('bucket_policy: principal fit?', principal, account);
             if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
                 principal_fit = true;
             }
         }
         for (const resource of statement.resource) {
             const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
-            dbg.log0('bucket_policy: resource fit?', resource_regex, arn_path);
+            dbg.log1('bucket_policy: resource fit?', resource_regex, arn_path);
             if (resource_regex.test(arn_path)) {
                 resource_fit = true;
             }
         }
-        dbg.log0('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
+        dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
         if (action_fit && principal_fit && resource_fit) return true;
     }
     return false;

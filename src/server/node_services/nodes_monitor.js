@@ -3627,8 +3627,6 @@ class NodesMonitor extends EventEmitter {
             unavailable_used = nb_used;
         }
 
-        //console.log('GGG _node_storage_info', { disk_total, disk_free, disk_used, nb_limit, nb_used, nb_free, nb_reserved });
-
         return size_utils.to_bigint_storage({
             total: disk_total,
             free: nb_free,

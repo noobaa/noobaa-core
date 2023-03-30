@@ -3,6 +3,7 @@
 
 const WaitQueue = require('./wait_queue');
 const dbg = require('./debug_module')(__filename);
+const error_utils = require('./error_utils');
 
 class Semaphore {
 
@@ -13,6 +14,15 @@ class Semaphore {
      * Note that when we have a timeout on items in the queue they don't run and just get thrown out
      * timeout_error_code - The error code that we are interested to throw (used in order to distinguish errors)
      * verbose - Flag which will perform additional debugging prints
+     * @param {number} initial
+     * @param {{
+     *      verbose?: boolean,
+     *      timeout?: number,
+     *      work_timeout?: number,
+     *      warning_timeout?: number,
+     *      timeout_error_code?: string,
+     *      work_timeout_error_code?: string,
+     * }} [params]
      */
     constructor(initial, params) {
         this._initial = to_sem_count(initial);
@@ -37,10 +47,8 @@ class Semaphore {
 
     async _work_cap() {
         return new Promise((resolve, reject) => {
-            const err = new Error('Semaphore Worker Timeout');
-            err.code = this._work_timeout_error_code;
-            const t = setTimeout(() => reject(err), this._work_timeout);
-            t.unref();
+            const err = error_utils.new_error_code(this._work_timeout_error_code, 'Semaphore Worker Timeout');
+            setTimeout(() => reject(err), this._work_timeout).unref();
         });
     }
 
@@ -245,8 +253,7 @@ class Semaphore {
                 break;
             }
 
-            const err = new Error('Semaphore Timeout');
-            err.code = this._timeout_error_code;
+            const err = error_utils.new_error_code(this._timeout_error_code, 'Semaphore Timeout');
             this._waiting_value -= waiter.count;
             this._wq.wakeup(waiter, err);
         }

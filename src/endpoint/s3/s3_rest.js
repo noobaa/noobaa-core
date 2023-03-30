@@ -4,8 +4,8 @@
 const _ = require('lodash');
 
 const dbg = require('../../util/debug_module')(__filename);
+const s3_ops = require('./ops');
 const S3Error = require('./s3_errors').S3Error;
-const js_utils = require('../../util/js_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const s3_utils = require('./s3_utils');
@@ -55,8 +55,6 @@ const OBJECT_SUB_RESOURCES = Object.freeze({
     'retention': 'retention',
     'select': 'select',
 });
-
-const S3_OPS = load_ops();
 
 let usage_report = new_usage_report();
 
@@ -126,7 +124,7 @@ async function handle_request(req, res) {
         }
     }
 
-    const op = S3_OPS[op_name];
+    const op = s3_ops[op_name];
     if (!op || !op.handler) {
         dbg.error('S3 TODO (NotImplemented)', op_name, req.method, req.originalUrl);
         throw new S3Error(S3Error.NotImplemented);
@@ -531,84 +529,6 @@ function consume_usage_report() {
     return report;
 }
 
-function load_ops() {
-    /* eslint-disable global-require */
-    return js_utils.deep_freeze({
-        delete_bucket: require('./ops/s3_delete_bucket'),
-        delete_bucket_analytics: require('./ops/s3_delete_bucket_analytics'),
-        delete_bucket_cors: require('./ops/s3_delete_bucket_cors'),
-        delete_bucket_encryption: require('./ops/s3_delete_bucket_encryption'),
-        delete_bucket_inventory: require('./ops/s3_delete_bucket_inventory'),
-        delete_bucket_lifecycle: require('./ops/s3_delete_bucket_lifecycle'),
-        delete_bucket_metrics: require('./ops/s3_delete_bucket_metrics'),
-        delete_bucket_policy: require('./ops/s3_delete_bucket_policy'),
-        delete_bucket_replication: require('./ops/s3_delete_bucket_replication'),
-        delete_bucket_tagging: require('./ops/s3_delete_bucket_tagging'),
-        delete_bucket_website: require('./ops/s3_delete_bucket_website'),
-        delete_object: require('./ops/s3_delete_object'),
-        delete_object_tagging: require('./ops/s3_delete_object_tagging'),
-        delete_object_uploadId: require('./ops/s3_delete_object_uploadId'),
-        get_bucket: require('./ops/s3_get_bucket'),
-        get_bucket_accelerate: require('./ops/s3_get_bucket_accelerate'),
-        get_bucket_acl: require('./ops/s3_get_bucket_acl'),
-        get_bucket_analytics: require('./ops/s3_get_bucket_analytics'),
-        get_bucket_cors: require('./ops/s3_get_bucket_cors'),
-        get_bucket_encryption: require('./ops/s3_get_bucket_encryption'),
-        get_bucket_inventory: require('./ops/s3_get_bucket_inventory'),
-        get_bucket_lifecycle: require('./ops/s3_get_bucket_lifecycle'),
-        get_bucket_location: require('./ops/s3_get_bucket_location'),
-        get_bucket_logging: require('./ops/s3_get_bucket_logging'),
-        get_bucket_metrics: require('./ops/s3_get_bucket_metrics'),
-        get_bucket_notification: require('./ops/s3_get_bucket_notification'),
-        get_bucket_object_lock: require('./ops/s3_get_bucket_object_lock'),
-        get_bucket_policy: require('./ops/s3_get_bucket_policy'),
-        get_bucket_replication: require('./ops/s3_get_bucket_replication'),
-        get_bucket_requestPayment: require('./ops/s3_get_bucket_requestPayment'),
-        get_bucket_tagging: require('./ops/s3_get_bucket_tagging'),
-        get_bucket_uploads: require('./ops/s3_get_bucket_uploads'),
-        get_bucket_versioning: require('./ops/s3_get_bucket_versioning'),
-        get_bucket_versions: require('./ops/s3_get_bucket_versions'),
-        get_bucket_website: require('./ops/s3_get_bucket_website'),
-        get_object: require('./ops/s3_get_object'),
-        get_object_acl: require('./ops/s3_get_object_acl'),
-        get_object_legal_hold: require('./ops/s3_get_object_legal_hold'),
-        get_object_retention: require('./ops/s3_get_object_retention'),
-        get_object_tagging: require('./ops/s3_get_object_tagging'),
-        get_object_uploadId: require('./ops/s3_get_object_uploadId'),
-        get_service: require('./ops/s3_get_service'),
-        head_bucket: require('./ops/s3_head_bucket'),
-        head_object: require('./ops/s3_head_object'),
-        post_bucket: require('./ops/s3_post_bucket'),
-        post_bucket_delete: require('./ops/s3_post_bucket_delete'),
-        post_object_uploadId: require('./ops/s3_post_object_uploadId'),
-        post_object_uploads: require('./ops/s3_post_object_uploads'),
-        post_object_select: require('./ops/s3_post_object_select'),
-        put_bucket: require('./ops/s3_put_bucket'),
-        put_bucket_accelerate: require('./ops/s3_put_bucket_accelerate'),
-        put_bucket_acl: require('./ops/s3_put_bucket_acl'),
-        put_bucket_analytics: require('./ops/s3_put_bucket_analytics'),
-        put_bucket_cors: require('./ops/s3_put_bucket_cors'),
-        put_bucket_encryption: require('./ops/s3_put_bucket_encryption'),
-        put_bucket_inventory: require('./ops/s3_put_bucket_inventory'),
-        put_bucket_lifecycle: require('./ops/s3_put_bucket_lifecycle'),
-        put_bucket_logging: require('./ops/s3_put_bucket_logging'),
-        put_bucket_metrics: require('./ops/s3_put_bucket_metrics'),
-        put_bucket_notification: require('./ops/s3_put_bucket_notification'),
-        put_bucket_object_lock: require('./ops/s3_put_bucket_object_lock'),
-        put_bucket_policy: require('./ops/s3_put_bucket_policy'),
-        put_bucket_replication: require('./ops/s3_put_bucket_replication'),
-        put_bucket_requestPayment: require('./ops/s3_put_bucket_requestPayment'),
-        put_bucket_tagging: require('./ops/s3_put_bucket_tagging'),
-        put_bucket_versioning: require('./ops/s3_put_bucket_versioning'),
-        put_bucket_website: require('./ops/s3_put_bucket_website'),
-        put_object: require('./ops/s3_put_object'),
-        put_object_acl: require('./ops/s3_put_object_acl'),
-        put_object_legal_hold: require('./ops/s3_put_object_legal_hold'),
-        put_object_retention: require('./ops/s3_put_object_retention'),
-        put_object_tagging: require('./ops/s3_put_object_tagging'),
-        put_object_uploadId: require('./ops/s3_put_object_uploadId'),
-    });
-}
 
 // EXPORTS
 module.exports.handler = s3_rest;

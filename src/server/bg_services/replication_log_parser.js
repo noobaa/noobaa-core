@@ -18,19 +18,22 @@ const moment = require('moment');
  * @param {Record<any, any>} replicationconfig Replication configuration
  * @param {Number} candidates_limit Candidates limit
  * @param {(log_entry: Record<string, any>) => boolean} ignore_fn - function that returns true if the log entry should be ignored
- * @returns 
+ * @returns {Promise<{
+ *  items: nb.ReplicationLogCandidates,
+ *  done: () => Promise<void>
+ * }>} Candidates
  */
 async function get_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, ignore_fn = () => false) {
     return get_aws_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, ignore_fn);
 }
 
 async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, ignore_fn) {
-    let aws_log_replication_info = replication_config.log_replication_info.aws_log_replication_info;
+    const aws_log_replication_info = replication_config.log_replication_info.aws_log_replication_info;
     const { logs_bucket, prefix } = aws_log_replication_info.logs_location;
-    let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
     const s3 = get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info);
+    let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
 
-    let candidates_obj = {};
+    const logs = [];
     let logs_retrieved_count = config.AWS_LOG_CANDIDATES_LIMIT;
 
     do {
@@ -47,20 +50,69 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
         }
 
         const next_log_data = await aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
-        aws_parse_log_object(candidates_obj, next_log_data, ignore_fn);
+        aws_parse_log_object(logs, next_log_data, ignore_fn);
 
         logs_retrieved_count -= 1;
     }
-    while ((Object.keys(candidates_obj).length < candidates_limit) && logs_retrieved_count !== 0 && continuation_token);
+    while ((logs.length < candidates_limit) && logs_retrieved_count !== 0 && continuation_token);
 
     return {
-        items: candidates_obj,
+        items: create_candidates(logs),
         done: async () => {
             if (continuation_token) {
                 await replication_store.update_log_replication_marker_by_id(replication_config._id, rule_id, { continuation_token });
             }
         },
     };
+}
+
+/**
+ * create_candidates will iterate over all the logs and will return an array of candidates
+ * such that there will be ONLY one action per key (object). It will do so by sorting the sorting
+ * by time and in case of conflicts, it will replace the action with 'conflict'. 
+ * 
+ * The function that consumes the candidates should handle the conflict action.
+ * @param {nb.ReplicationLogs} logs 
+ * @returns {nb.ReplicationLogCandidates}
+ */
+function create_candidates(logs) {
+    /**
+     * @type {Record<string, Map<Date, nb.ReplicationLog>>}
+     */
+    const logs_per_key = {};
+
+    for (const log of logs) {
+        const { key } = log;
+        if (!logs_per_key[key]) {
+            logs_per_key[key] = new Map();
+        }
+
+        const logs_for_key_time_map = logs_per_key[key];
+
+        // if there is already a candidate for the same key, then we have a conflict
+        if (logs_for_key_time_map.has(log.time)) {
+            // TODO: Object versioning will raise false alarms here
+            const conflict_log = logs_for_key_time_map.get(log.time);
+            conflict_log.action = 'conflict';
+        } else {
+            logs_for_key_time_map.set(log.time, log);
+        }
+    }
+
+    /**
+     * @type {nb.ReplicationLogCandidates}
+     */
+    const candidates = {};
+
+    Object.keys(logs_per_key).forEach(key => {
+        const logs_for_key_time_map = logs_per_key[key];
+        const logs_for_key = Array.from(logs_for_key_time_map.values());
+        const sorted_logs_for_key = logs_for_key.sort((a, b) => a.time.getTime() - b.time.getTime());
+
+        candidates[key] = sorted_logs_for_key;
+    });
+
+    return candidates;
 }
 
 async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation_token) {
@@ -106,7 +158,13 @@ async function aws_get_next_log(s3, bucket, key) {
     }
 }
 
-function aws_parse_log_object(candidates_map, log_object, ignore_fn) {
+/**
+ * aws_parse_log_object will parse the log object and will return an array of candidates
+ * @param {nb.ReplicationLogs} logs - Log array
+ * @param {*} log_object  - AWS log object
+ * @param {*} ignore_fn  - function that returns true if the log entry should be ignored
+ */
+function aws_parse_log_object(logs, log_object, ignore_fn) {
     const log_string = log_object.Body.toString();
     const log_array = log_string.split("\n");
 
@@ -118,16 +176,18 @@ function aws_parse_log_object(candidates_map, log_object, ignore_fn) {
                 if (ignore_fn(log)) continue;
 
                 if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
-                    candidates_map[log.key] = {
+                    logs.push({
+                        key: log.key,
                         action: 'copy',
                         time: log.time,
-                    };
+                    });
                 }
                 if (log.operation.includes('DELETE.OBJECT') && log.http_status === 204) {
-                    candidates_map[log.key] = {
+                    logs.push({
+                        key: log.key,
                         action: 'delete',
                         time: log.time,
-                    };
+                    });
                 }
             }
         }

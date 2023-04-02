@@ -379,7 +379,7 @@ async function complete_object_upload(req) {
                         })`);
         }
     }
-    if (req.rpc_params.md5_b64 !== obj.md5_b64) {
+    if (req.rpc_params.md5_b64 && req.rpc_params.md5_b64 !== obj.md5_b64) {
         if (obj.md5_b64) {
             throw new RpcError('BAD_DIGEST_MD5',
                 'md5 on complete object differs from create object', {
@@ -389,7 +389,7 @@ async function complete_object_upload(req) {
         }
         set_updates.md5_b64 = req.rpc_params.md5_b64;
     }
-    if (req.rpc_params.sha256_b64 !== obj.sha256_b64) {
+    if (req.rpc_params.sha256_b64 && req.rpc_params.sha256_b64 !== obj.sha256_b64) {
         if (obj.sha256_b64) {
             throw new RpcError('BAD_DIGEST_SHA256',
                 'sha256 on complete object differs from create object', {
@@ -422,7 +422,7 @@ async function complete_object_upload(req) {
         set_updates.etag = ZERO_SIZE_ETAG;
     } else if (map_res.multipart_etag) {
         set_updates.etag = map_res.multipart_etag;
-    } else {
+    } else if (req.rpc_params.md5_b64) {
         set_updates.etag = Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex');
     }
 
@@ -457,7 +457,7 @@ async function complete_object_upload(req) {
             `\nUpload speed: ${upload_speed}/sec.`,
     });
     return {
-        etag: set_updates.etag,
+        etag: get_etag(obj, set_updates),
         version_id: MDStore.instance().get_object_version_id(set_updates),
         encryption: obj.encryption,
         size: set_updates.size,
@@ -556,7 +556,7 @@ async function complete_multipart(req) {
         }
         set_updates.size = req.rpc_params.size;
     }
-    if (req.rpc_params.md5_b64 !== multipart.md5_b64) {
+    if (req.rpc_params.md5_b64 && req.rpc_params.md5_b64 !== multipart.md5_b64) {
         if (multipart.md5_b64) {
             throw new RpcError('BAD_DIGEST_MD5',
                 'md5 on complete multipart differs from create multipart', {
@@ -566,7 +566,7 @@ async function complete_multipart(req) {
         }
         set_updates.md5_b64 = req.rpc_params.md5_b64;
     }
-    if (req.rpc_params.sha256_b64 !== multipart.sha256_b64) {
+    if (req.rpc_params.sha256_b64 && req.rpc_params.sha256_b64 !== multipart.sha256_b64) {
         if (multipart.sha256_b64) {
             throw new RpcError('BAD_DIGEST_SHA256',
                 'sha256 on complete multipart differs from create multipart', {
@@ -582,7 +582,7 @@ async function complete_multipart(req) {
     await MDStore.instance().update_multipart_by_id(multipart_id, set_updates);
 
     return {
-        etag: Buffer.from(req.rpc_params.md5_b64, 'base64').toString('hex'),
+        etag: get_etag(multipart, set_updates),
         create_time: set_updates.create_time.getTime(),
         encryption: obj.encryption
     };
@@ -609,7 +609,7 @@ async function list_multiparts(req) {
         reply.multiparts.push({
             num: multipart.num,
             size: multipart.size,
-            etag: Buffer.from(multipart.md5_b64, 'base64').toString('hex'),
+            etag: get_etag(multipart),
             last_modified: multipart.create_time.getTime(),
         });
     }
@@ -1379,7 +1379,7 @@ function get_object_info(md, options = {}) {
         bucket: bucket.name,
         key: md.key,
         size: md.size || 0,
-        etag: md.etag || '',
+        etag: get_etag(md),
         md5_b64: md.md5_b64 || undefined,
         sha256_b64: md.sha256_b64 || undefined,
         content_type: md.content_type || 'application/octet-stream',
@@ -1589,6 +1589,44 @@ function check_md_conditions(conditions, obj) {
             throw new RpcError('IF_UNMODIFIED_SINCE', 'check_md_conditions failed', data);
         }
     }
+}
+
+/**
+ * Return the etag ("Entity tag") for the given entity.
+ * Entity can be ObjectMD or ObjectMultipart or an updates for one of those.
+ * 
+ * Notice that if the etag field is returns from md5 hex then we can put it as is,
+ * however if we use a sha256 or id we have to add some prefix with a dash so that 
+ * s3 clients can understand that this is not an md5.
+ * 
+ * These fallbacks allow us to configure our endpoints to disable md5 calculations
+ * for use cases where performance matters more, see config.IO_CALC_MD5_ENABLED.
+ * 
+ * @typedef {{
+ *  etag?: string;
+ *  md5_b64?: string;
+ *  sha256_b64?: string;
+ *  _id?: nb.ID;
+ * }} EtagEntity
+ *
+ * @param {EtagEntity} entity
+ * @param {EtagEntity} [updates]
+ * @returns {string}
+ */
+function get_etag(entity, updates) {
+   const etag = updates?.etag || entity.etag;
+   if (etag) return etag;
+
+   const md5_b64 = updates?.md5_b64 || entity.md5_b64;
+   if (md5_b64) return Buffer.from(md5_b64, 'base64').toString('hex');
+
+   const sha256_b64 = updates?.sha256_b64 || entity.sha256_b64;
+   if (sha256_b64) return 'sha256-' + Buffer.from(sha256_b64, 'base64').toString('hex');
+
+   const id = updates?._id || entity._id;
+   if (id) return 'id-' + id.toHexString();
+
+   return '';
 }
 
 function throw_if_maintenance(req) {
@@ -1946,15 +1984,20 @@ async function _complete_object_multiparts(obj, multipart_req) {
                 `multipart num=${num} etag=${etag} expected next_part_num=${next_part_num}`);
         }
         next_part_num += 1;
-        const etag_md5_b64 = Buffer.from(etag, 'hex').toString('base64');
         const group = multiparts_by_num[num];
         group.sort(_sort_multiparts_by_create_time);
-        const mp = group.find(it => Boolean(it.md5_b64 === etag_md5_b64 && it.create_time));
+        const mp = group.find(it => Boolean(get_etag(it) === etag && it.create_time));
         if (!mp) {
             throw new RpcError('INVALID_PART',
-                `multipart num=${num} etag=${etag} etag_md5_b64=${etag_md5_b64} not found in group ${util.inspect(group)}`);
+                `multipart num=${num} etag=${etag} not found in group ${util.inspect(group)}`);
         }
-        md5.update(Buffer.from(mp.md5_b64, 'base64'));
+        // the final etag calculation requires us to hash the binary md5
+        // but it it was not calculated, we fallback to use the string value with get_etag().
+        if (mp.md5_b64) {
+            md5.update(Buffer.from(mp.md5_b64, 'base64'));
+        } else {
+            md5.update(get_etag(mp));
+        }
         const mp_parts = parts_by_mp[mp._id.toHexString()] || [];
         _complete_next_parts(mp_parts, context);
         used_multiparts.push(mp);

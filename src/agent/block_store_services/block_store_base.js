@@ -387,7 +387,7 @@ class BlockStoreBase {
             const reply = {};
             const delay_ms = 200;
             const data = crypto.randomBytes(1024);
-            const digest_type = config.CHUNK_CODER_FRAG_DIGEST_TYPE || 'sha1';
+            const digest_type = get_config_or_default(config.CHUNK_CODER_FRAG_DIGEST_TYPE, 'sha1');
             const block_md = {
                 id: '_test_store_perf',
                 digest_type,
@@ -460,6 +460,16 @@ async function test_average_latency(count, delay_ms, async_func) {
         await P.delay(delay_ms * jitter);
     }
     return results;
+}
+
+/**
+ * When a config value is falsy or 'none' we return the default value.
+ * @param {string|undefined} config_val might be literal 'none'
+ * @param {string} default_val value to use when config value is falsy or 'none'
+ * @returns {string}
+ */
+function get_config_or_default(config_val, default_val) {
+    return (config_val && config_val !== 'none') ? config_val : default_val;
 }
 
 // EXPORTS

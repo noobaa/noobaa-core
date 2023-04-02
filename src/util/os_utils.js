@@ -354,6 +354,7 @@ function get_mount_of_path(file_path) {
 
 
 async function get_block_device_sizes() {
+    if (!IS_LINUX) return [];
     const block_devices = await P.fromCallback(cb => blockutils.getBlockInfo({}, cb));
     if (!block_devices) return [];
 

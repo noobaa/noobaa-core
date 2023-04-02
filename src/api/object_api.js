@@ -262,7 +262,6 @@ module.exports = {
                     'num',
                     'multipart_id',
                     'size',
-                    'md5_b64',
                     'num_parts',
                 ],
                 properties: {

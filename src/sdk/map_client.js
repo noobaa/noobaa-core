@@ -32,7 +32,7 @@ const block_read_sem_agent = new KeysSemaphore(config.IO_READ_CONCURRENCY_AGENT)
 
 const chunk_read_cache = new LRUCache({
     name: 'ChunkReadCache',
-    max_usage: 256 * 1024 * 1024, // 128 MB
+    max_usage: config.IO_CHUNK_READ_CACHE_SIZE,
 
     /**
      * @param {Buffer} data
@@ -499,6 +499,7 @@ class MapClient {
                 const block_md = block.to_block_md();
                 dbg.log1('read_block:', block._id, 'from', block.address);
 
+                if (!block.address) throw new Error('No block address for node ' + block.node);
                 this._error_injection_on_read();
 
                 const res = await block_store_client.read_block(this.rpc_client, {

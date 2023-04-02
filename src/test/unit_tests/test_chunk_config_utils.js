@@ -5,6 +5,7 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 
+const config = require('../../../config');
 const chunk_config_utils = require('../../server/utils/chunk_config_utils');
 
 mocha.describe('chunk_config_utils', function() {
@@ -69,7 +70,7 @@ mocha.describe('chunk_config_utils', function() {
         assert.strictEqual(cc._id, undefined);
         assert.strictEqual(cc.system, system._id);
         assert.strictEqual(cc.chunk_coder_config.parity_frags, 666);
-        assert.strictEqual(cc.chunk_coder_config.data_frags, 1);
+        assert.strictEqual(cc.chunk_coder_config.data_frags, config.CHUNK_CODER_EC_DATA_FRAGS);
         assert.strictEqual(cc.chunk_coder_config.replicas, 1);
     });
 

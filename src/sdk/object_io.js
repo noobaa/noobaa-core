@@ -388,8 +388,8 @@ class ObjectIO {
         // and also calculating the md5/sha256 of the entire stream as needed for the protocol.
         const splitter = new ChunkSplitter({
             watermark: 50,
-            calc_md5: true,
-            calc_sha256: Boolean(params.sha256_b64),
+            calc_md5: Boolean(config.IO_CALC_MD5_ENABLED),
+            calc_sha256: Boolean(config.IO_CALC_SHA256_ENABLED && params.sha256_b64),
             chunk_split_config: params.chunk_split_config,
         });
         splitter.on('error', err1 => dbg.error('object_io._upload_stream_internal: error occured on stream Splitter: ', err1));
@@ -433,7 +433,7 @@ class ObjectIO {
         await stream_utils.pipeline(transforms);
         await stream_utils.wait_finished(uploader);
 
-        complete_params.md5_b64 = splitter.md5.toString('base64');
+        if (splitter.md5) complete_params.md5_b64 = splitter.md5.toString('base64');
         if (splitter.sha256) complete_params.sha256_b64 = splitter.sha256.toString('base64');
     }
 
@@ -485,7 +485,13 @@ class ObjectIO {
                 params.range.end = params.start;
                 complete_params.size += chunk.size;
                 complete_params.num_parts += 1;
-                dbg.log0('UPLOAD: part', part.start, chunk);
+                dbg.log0('UPLOAD: part', { ...params.desc, start: part.start, end: part.end, seq: part.seq });
+
+                if (chunk.size > config.MAX_OBJECT_PART_SIZE) {
+                    throw new Error(`Chunk size=${chunk.size} exceeds ` +
+                        `config.MAX_OBJECT_PART_SIZE=${config.MAX_OBJECT_PART_SIZE}`);
+                }
+
                 return chunk;
             });
             const mc = new MapClient({

@@ -88,6 +88,7 @@ class ChunkDB {
 
     _decrypt_cipher_key(cipher_key, master_key_id) {
         if (!master_key_id) return cipher_key;
+        if (!cipher_key) return cipher_key; // allow chunks with no encryption
         return system_store.master_key_manager.decrypt_value_with_master_key_id(cipher_key, master_key_id);
     }
 

@@ -71,7 +71,6 @@ config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (102
 config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
-config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 config.NODE_IO_DETENTION_THRESHOLD = 60000;
 config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three
@@ -147,6 +146,10 @@ config.MD_AGGREGATOR_BATCH = 100;
 // IO CONFIG //
 ///////////////
 
+config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
+
+config.IO_CHUNK_READ_CACHE_SIZE = 256 * 1024 * 1024;
+
 config.ALLOCATE_RETRY_DELAY_MS = 500;
 
 config.IO_WRITE_BLOCK_RETRIES = 5;
@@ -179,6 +182,9 @@ config.IO_SEMAPHORE_CAP = Math.max(
     config.BUFFERS_MEM_LIMIT, // upper limit
     config.IO_STREAM_SEMAPHORE_SIZE_CAP, // minimal size needed to complete jobs in object_io
 );
+
+config.IO_CALC_MD5_ENABLED = true;
+config.IO_CALC_SHA256_ENABLED = true;
 
 config.ERROR_INJECTON_ON_WRITE = 0;
 config.ERROR_INJECTON_ON_READ = 0;
@@ -280,11 +286,12 @@ config.CHUNK_CODER_COMPRESS_TYPE = process.env.NOOBAA_DISABLE_COMPRESSION === 't
 config.CHUNK_CODER_CIPHER_TYPE = 'aes-256-gcm';
 
 // ERASURE CODES
-config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_REPLICAS = 1;
+config.CHUNK_CODER_EC_DATA_FRAGS = 4;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_TYPE = 'cm256';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
+config.CHUNK_CODER_EC_IS_DEFAULT = false;
 
 //////////////////////////
 // DEDUP INDEXER CONFIG //

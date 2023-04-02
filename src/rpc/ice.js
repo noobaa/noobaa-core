@@ -17,6 +17,7 @@ const ip_module = require('ip');
 
 const dbg = require('../util/debug_module')(__filename);
 const stun = require('./stun');
+const config = require('../../config');
 const js_utils = require('../util/js_utils');
 const url_utils = require('../util/url_utils');
 const FrameStream = require('../util/frame_stream');
@@ -39,7 +40,9 @@ const RAND_ICE_CHAR_POOL_64 =
     '0123456789+/';
 
 const ICE_FRAME_CONFIG = {
-    magic: 'ICEmagic'
+    magic: 'ICEmagic',
+    // maximum frame size allows a full object part to be sent plus some "change"
+    max_len: config.MAX_OBJECT_PART_SIZE + (1024 * 1024),
 };
 const ICE_FRAME_STUN_MSG_TYPE = 1;
 
@@ -55,7 +58,7 @@ util.inherits(Ice, events.EventEmitter);
  * we chose a small subset of the spec to keep it simple,
  * but this module will continue to develop as we encounter more complicated networks.
  *
- * @param config - ICE configuration object with the following properties:
+ * @param n2n_config - ICE configuration object with the following properties:
  *
  *  ufrag_length: (integer) (optional)
  *      change the default ice credential length
@@ -107,7 +110,7 @@ util.inherits(Ice, events.EventEmitter);
  *      plain JSON for now.
  *
  */
-function Ice(connid, config, signal_target) {
+function Ice(connid, n2n_config, signal_target) {
     var self = this;
     events.EventEmitter.call(self);
     self.setMaxListeners(100);
@@ -116,7 +119,7 @@ function Ice(connid, config, signal_target) {
     self.connid = connid;
 
     // config object for ICE (see detailed list in the doc above)
-    self.config = config;
+    self.config = n2n_config;
 
     // to be passed as the target when calling the signaller
     self.signal_target = signal_target;
@@ -142,8 +145,8 @@ function Ice(connid, config, signal_target) {
             self.networks.push(n);
             // for the nodes internal ip - add public_ips as another network interface. take same parameters as internal ip
             if (n.address === ip_module.address() &&
-                config.public_ips.length) {
-                config.public_ips.forEach(ip => {
+                self.config.public_ips.length) {
+                self.config.public_ips.forEach(ip => {
                     if (ip === n.address) return;
                     const public_n = _.clone(n);
                     public_n.address = ip;

@@ -179,6 +179,7 @@ class ChunkAPI {
 
     _encrypt_cipher_key(cipher_key, master_key_id) {
         if (!master_key_id) return from_b64(cipher_key);
+        if (!cipher_key) return cipher_key; // allow chunks with no encryption
         return this.system_store.master_key_manager.encrypt_buffer_with_master_key_id(from_b64(cipher_key), master_key_id);
     }
 }

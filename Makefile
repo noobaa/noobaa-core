@@ -97,20 +97,20 @@ test: tester
 	$(CONTAINER_ENGINE) network rm noobaa-net
 .PHONY: test
 
-privileged-test: tester
+root-perm-test: tester
 	@echo "\033[1;34mRunning tests with Mongo.\033[0m"
 	@echo "\033[1;34mCreating docker network\033[0m"
 	$(CONTAINER_ENGINE) network create noobaa-net || true
 	@echo "\033[1;34mRunning Mongo container\033[0m"
 	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "MONGODB_ADMIN_PASSWORD=noobaa" --env "MONGODB_DATABASE=coretest" --env "MONGODB_USER=noobaa" --env "MONGODB_PASSWORD=noobaa" $(MONGO_IMAGE)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --rm --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --rm --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
 	@echo "\033[1;34mStopping/removing Mongo container\033[0m"
 	$(CONTAINER_ENGINE) stop coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)
 	$(CONTAINER_ENGINE) rm coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)
 	@echo "\033[1;34mRemove docker network\033[0m"
 	$(CONTAINER_ENGINE) network rm noobaa-net
-.PHONY: privileged-test
+.PHONY: root-perm-test
 
 run-single-test: tester
 	@echo "\033[1;34mRunning tests with Mongo.\033[0m"

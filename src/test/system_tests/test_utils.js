@@ -197,9 +197,18 @@ function generate_s3_policy(principal, bucket, action) {
     };
 }
 
+function invalid_nsfs_root_permissions() {
+    if (process.getuid() !== 0 || process.getgid() !== 0) {
+        console.log('No Root permissions found in env. Skipping test');
+        return true;
+    }
+    return false;
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
 exports.empty_and_delete_buckets = empty_and_delete_buckets;
 exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
+exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;

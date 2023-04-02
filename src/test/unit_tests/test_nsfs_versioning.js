@@ -5,7 +5,6 @@
 
 const mocha = require('mocha');
 const assert = require('assert');
-const coretest = require('./coretest');
 const fs_utils = require('../../util/fs_utils');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const crypto = require('crypto');
@@ -13,6 +12,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
 const fs = require('fs');
+const test_utils = require('../system_tests/test_utils');
 
 const MAC_PLATFORM = 'darwin';
 
@@ -35,10 +35,7 @@ function make_dummy_object_sdk(nsfs_config, uid, gid) {
 mocha.describe('namespace_fs - versioning', function() {
 
     mocha.before(function() {
-        if (process.getgid() !== 0 || process.getuid() !== 0) {
-            coretest.log('No Root permissions found in env. Skipping test');
-            this.skip(); // eslint-disable-line no-invalid-this
-        }
+        if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
     });
     const bucket_name = 'bucket';
     let tmp_fs_root = '/tmp/test_nsfs_versioning';

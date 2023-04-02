@@ -46,15 +46,18 @@ class Agent {
 
     /* eslint-disable max-statements */
     constructor(params) {
-        // We set the agent name to dbg logger
-        this.dbg = new DebugLogger(__filename);
-        this.dbg.set_logger_name('Agent.' + params.node_name);
-        const dbg = this.dbg;
-        dbg.log0('Creating agent', params);
+        // Create a logger per agent that shows the agent name
+        const dbg = new DebugLogger(__filename);
+        this.dbg = dbg;
+        dbg.set_logger_name('Agent.' + params.node_name);
+        dbg.log0('Creating agent', { ...params, rpc: 'tldr' });
 
-        this.rpc = params.routing_hint ?
+        this.rpc = params.rpc || (
+            params.routing_hint ?
             api.new_rpc_from_base_address(params.address, params.routing_hint) :
-            api.new_rpc_from_routing(api.new_router_from_base_address(params.address));
+            api.new_rpc_from_routing(api.new_router_from_base_address(params.address))
+        );
+        this.rpc_port = params.rpc_port || config.AGENT_RPC_PORT;
 
         this.client = this.rpc.new_client();
 
@@ -184,16 +187,14 @@ class Agent {
             this.rpc.register_service(
                 this.rpc.schema.block_store_api,
                 this.block_store, {
-                    // TODO verify requests for block store?
-                    // middleware: [ ... ]
+                    middleware: [req => this._authenticate_agent_api(req)]
                 }
             );
         }
         this.rpc.register_service(
             this.rpc.schema.func_node_api,
             this.func_node, {
-                // TODO verify requests for block store?
-                // middleware: [ ... ]
+                middleware: [req => this._authenticate_agent_api(req)]
             }
         );
 
@@ -576,16 +577,24 @@ class Agent {
             }
             this.server = https_server;
         } else if (addr_url.protocol === 'tcp:') {
-            const tcp_server = this.rpc.register_tcp_transport(addr_url.port);
+            const tcp_server = this.rpc.create_tcp_server(addr_url.port);
             tcp_server.on('close', () => {
                 dbg.warn('AGENT TCP SERVER CLOSED');
                 retry();
             });
+            tcp_server.listen(addr_url.port).catch(err => {
+                dbg.warn('AGENT TCP SERVER ERROR', err.stack || err);
+                retry();
+            });
             this.server = tcp_server;
         } else if (addr_url.protocol === 'tls:') {
-            const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_context);
+            const tls_server = this.rpc.create_tcp_server(addr_url.port, this.ssl_context);
             tls_server.on('close', () => {
                 dbg.warn('AGENT TLS SERVER CLOSED');
+                retry();
+            });
+            tls_server.listen(addr_url.port).catch(err => {
+                dbg.warn('AGENT TLS SERVER ERROR', err.stack || err);
                 retry();
             });
             this.server = tls_server;
@@ -594,29 +603,44 @@ class Agent {
         }
     }
 
+    /**
+     * Check incoming api requests.
+     * We do not use tokens but verify the requests are either from the server itself,
+     * or that the protocol, api, and method are allowed.
+     */
     _authenticate_agent_api(req) {
         const dbg = this.dbg;
 
-        // agent_api request on the server connection are always allowed
+        // allowed on server connection
         if (req.connection === this._server_connection) return;
 
-        const auth = req.method_api.auth;
-        if (!auth || !auth.n2n) {
-            dbg.error('AGENT API requests only allowed from server',
-                req.connection && req.connection.connid,
-                this._server_connection && this._server_connection.connid);
-            // close the connection but after sending the error response, for supportability of the caller
+        // agent_api requests allowed only on server connection
+        if (!req.method_api.auth?.n2n &&
+            req.api !== this.rpc.schema.block_store_api &&
+            req.api !== this.rpc.schema.func_node_api
+        ) {
+            // delayed close the connection to give a chance to send the thrown error response
             setTimeout(() => req.connection.close(), 1000);
-            throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
+            dbg.error(`agent api not allowed for method ${req.method_api.fullname}`,
+                'connection', req.connection?.connid, req.connection?.url,
+                'server', this._server_connection?.connid,
+            );
+            throw new RpcError('FORBIDDEN', `agent api not allowed for method ${req.method_api.fullname}`);
         }
 
-        if (req.connection && req.connection.url && req.connection.url.protocol !== 'n2n:') {
-            dbg.error('AGENT API auth requires n2n connection', req.connection.connid);
-            // close the connection but after sending the error response, for supportability of the caller
+        const req_protocol = req.connection?.url?.protocol;
+        const allowed_protocol = config.AGENT_RPC_PROTOCOL + ':';
+        if (req_protocol !== allowed_protocol) {
+            // delayed close the connection to give a chance to send the thrown error response
             setTimeout(() => req.connection.close(), 1000);
-            throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
+            dbg.error(`agent api not allowed for protocol ${req_protocol}`,
+                'connection', req.connection?.connid, req.connection?.url,
+                'allowed protocol', allowed_protocol,
+            );
+            throw new RpcError('FORBIDDEN', `agent api not allowed for protocol ${req_protocol}`);
         }
-        // otherwise it's good
+
+        // otherwise ok
     }
 
     async _update_rpc_config_internal(params) {
@@ -745,11 +769,34 @@ class Agent {
         dbg.log0('got _enable_service on storage agent');
     }
 
+    /**
+     * Choose which ip this agent will publish to the server.
+     * This is not relevant for n2n/ICE which will discover the ip by p2p attempts,
+     * but for other client-server protocols we need to choose.
+     * Prefer the ip of a local network interface if the same as the server address,
+     * to "easily" select the same internal network such as inside a cluster.
+     * @returns {string} 
+     */
+    get_node_ip() {
+        const dbg = this.dbg;
+        const base_url = new URL(this.base_address);
+
+        const res = net_utils.find_ifc_containing_address(base_url.hostname);
+        if (res) {
+            dbg.log0('get_node_ip: using node ip from interface', res);
+            return res.info.address;
+        }
+
+        const ip = ip_module.address();
+        dbg.log0(`get_node_ip: using fallback node ip`, ip);
+        return ip;
+    }
+
     get_agent_info_and_update_masters(req) {
         const dbg = this.dbg;
         if (!this.is_started) return;
         const extended_hb = true;
-        const ip = ip_module.address();
+        const ip = this.get_node_ip();
         dbg.log0_throttled('Recieved potential servers list', req.rpc_params.addresses);
         const prev_cpu_usage = this.cpu_usage;
         this.cpu_usage = process.cpuUsage();
@@ -762,6 +809,7 @@ class Agent {
             ip: ip,
             host_id: this.host_id,
             host_name: this.test_hostname || this.host_name,
+            rpc_port: this.rpc_port,
             rpc_address: this.rpc_address || '',
             base_address: this.base_address,
             permission_tempering: this.permission_tempering,

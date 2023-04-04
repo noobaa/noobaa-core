@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const os = require('os');
 const url = require('url');
 const net = require('net');
 const dns = require('dns');
@@ -121,7 +122,20 @@ function is_ip(address) {
     return ip_module.isV4Format(address) || ip_module.isV6Format(address);
 }
 
-
+function find_ifc_containing_address(address) {
+    const family =
+        (ip_module.isV4Format(address) && 'IPv4') ||
+        (ip_module.isV6Format(address) && 'IPv6') ||
+        '';
+    if (!family) return;
+    for (const [ifc, arr] of Object.entries(os.networkInterfaces())) {
+        for (const info of arr) {
+            if (info.family === family && ip_module.cidrSubnet(info.cidr).contains(address)) {
+                return { ifc, info };
+            }
+        }
+    }
+}
 
 exports.ping = ping;
 exports.dns_resolve = dns_resolve;
@@ -132,3 +146,4 @@ exports.is_localhost = is_localhost;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_to_long = ip_to_long;
 exports.retrieve_public_ip = retrieve_public_ip;
+exports.find_ifc_containing_address = find_ifc_containing_address;

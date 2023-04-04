@@ -84,6 +84,9 @@ config.NODE_ALLOCATOR_NUM_CLUSTERS = 2;
 // RPC CONFIG //
 ////////////////
 
+config.AGENT_RPC_PROTOCOL = 'n2n';
+config.AGENT_RPC_PORT = process.env.AGENT_PORT || '9999';
+
 config.RPC_CONNECT_TIMEOUT = 120 * 1000;
 config.RPC_SEND_TIMEOUT = 120 * 1000;
 

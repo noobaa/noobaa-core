@@ -629,8 +629,14 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
         }
         session.tcp = net.connect(session.remote.port, session.remote.address);
         session.tcp.on('error', function(err) {
-            dbg.log0('Got error', err);
+            dbg.log0('Got error', err.message);
             session.tcp.destroy();
+            if (err.code === 'EHOSTUNREACH') {
+                // no reason to believe that retries will help to find a route to an address,
+                // so better just stop immediately with this candidate
+                session.close(new Error('ICE TCP AP EHOSTUNREACH'));
+                return;
+            }
             setTimeout(try_ap, delay);
             attempts += 1;
         });
@@ -677,8 +683,14 @@ Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
         }
         session.tcp = net.connect(so_connect_conf);
         session.tcp.on('error', function(err) {
-            dbg.log0('Got error', err);
+            dbg.log0('Got error', err.message);
             session.tcp.destroy();
+            if (err.code === 'EHOSTUNREACH') {
+                // no reason to believe that retries will help to find a route to an address,
+                // so better just stop immediately with this candidate
+                session.close(new Error('ICE TCP AP EHOSTUNREACH'));
+                return;
+            }
             setTimeout(try_so, delay);
             attempts += 1;
             if (delay > 10) {

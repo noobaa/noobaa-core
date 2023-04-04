@@ -16,6 +16,7 @@ const nb_native = require('../util/nb_native');
 const EventEmitter = require('events').EventEmitter;
 const RpcN2NConnection = require('./rpc_n2n');
 
+const N2N_STAR = 'n2n://*';
 const N2N_CONFIG_PORT_PICK = ['min', 'max', 'port'];
 const N2N_CONFIG_FIELDS_PICK = [
     'offer_ipv4',
@@ -134,7 +135,7 @@ class RpcN2NAgent extends EventEmitter {
     }
 
     set_any_rpc_address() {
-        this.set_rpc_address('*');
+        this.set_rpc_address(N2N_STAR);
     }
 
     set_ssl_context(secure_context_params) {
@@ -196,11 +197,11 @@ class RpcN2NAgent extends EventEmitter {
         dbg.log1('N2N AGENT accept_signal:', params, 'my rpc_address', this.rpc_address);
 
         // target address is me, source is you.
-        // the special case if rpc_address='*' allows testing code to accept for any target
+        // the special case if rpc_address='n2n://*' allows testing code to accept for any target
         let source = url_utils.quick_parse(params.source);
         let target = url_utils.quick_parse(params.target);
         if (!this.rpc_address || !target ||
-            (this.rpc_address !== '*' && this.rpc_address !== target.href)) {
+            (this.rpc_address !== N2N_STAR && this.rpc_address !== target.href)) {
             throw new Error('N2N MISMATCHING PEER ID ' + params.target +
                 ' my rpc_address ' + this.rpc_address);
         }
